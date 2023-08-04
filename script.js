@@ -16,11 +16,15 @@ function getContent(file) {
 }
 
 try {
-  var jsonString = "";
+  //var jsonString = "";
+  const jsonString = `{
+    "post1": { "content": "post1.md" },
+    "post2": { "content": "post2.md" }
+  }`;
 
   getContent("/wwwroot/index.json")
   .then(function (content) {
-    jsonString = content;
+    //jsonString = content;
     console.log(jsonString);
   })
   .catch(function (error) {
