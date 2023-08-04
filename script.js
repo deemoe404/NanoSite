@@ -1,6 +1,6 @@
-function getContent(url) {
+function getContent(file) {
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
+  xhr.open("GET", file, true);
   xhr.onreadystatechange = function() {
     if (xhr.readyState === 4 && xhr.status === 200) {
       var content = xhr.responseText;
@@ -10,4 +10,6 @@ function getContent(url) {
   xhr.send();
 }
 
-console.log(getContent("/test.txt"));
+getContent("/test.txt", function(content) {
+  console.log(content);
+});
