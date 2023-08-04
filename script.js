@@ -23,3 +23,28 @@ xhr.onreadystatechange = function() {
   }
 };
 xhr.send();
+
+function getContent(file) {
+  return new Promise(function(resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", file, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          resolve(xhr.responseText);
+        } else {
+          reject(xhr.statusText);
+        }
+      }
+    };
+    xhr.send();
+  });
+}
+
+getContent("/test.txt")
+  .then(function(content) {
+    console.log(content);
+  })
+  .catch(function(error) {
+    console.error("Error fetching content:", error);
+  });
