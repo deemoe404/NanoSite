@@ -1,3 +1,32 @@
+function markdownToHtml(markdown) {
+  // Heading
+  markdown = markdown.replace(/(#+)(.*)/g, function (match, hashes, title) {
+    const level = hashes.length;
+    return `<h${level}>${title.trim()}</h${level}>`;
+  });
+
+  // Bold
+  markdown = markdown.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // Italic
+  markdown = markdown.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+  // Unordered List
+  markdown = markdown.replace(/^- (.*)/gm, '<ul><li>$1</li></ul>');
+
+  // Ordered List
+  markdown = markdown.replace(/^[0-9]+\. (.*)/gm, '<ol><li>$1</li></ol>');
+
+  // Line Break
+  markdown = markdown.replace(/  \n/g, '<br>');
+
+  // Paragraph
+  const paragraphs = markdown.split(/\n{2,}/g);
+  markdown = paragraphs.map((p) => `<p>${p}</p>`).join('');
+
+  return markdown;
+}
+
 function getContent(file) {
   return new Promise(function (resolve, reject) {
     var xhr = new XMLHttpRequest();
@@ -35,11 +64,10 @@ getIndex()
   .then(function (index) {
     for (const key in index) {
       if (index.hasOwnProperty(key)) {
-        const file = index[key].content;
-        console.log("/wwwroot/" + file);
-        getContent("/wwwroot/" + file)
+        getContent("/wwwroot/" + index[key].content)
           .then(function (content) {
-            console.log(content);
+            const htmlOutput = markdownToHtml(content);
+            document.getElementById('output').innerHTML = htmlOutput;
           })
           .catch(function (error) {
             console.log("ERROR");
@@ -50,32 +78,3 @@ getIndex()
   .catch(function (error) {
     console.log("ERROR");
   });
-
-function markdownToHtml(markdown) {
-  // Heading
-  markdown = markdown.replace(/(#+)(.*)/g, function (match, hashes, title) {
-    const level = hashes.length;
-    return `<h${level}>${title.trim()}</h${level}>`;
-  });
-
-  // Bold
-  markdown = markdown.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-  // Italic
-  markdown = markdown.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-  // Unordered List
-  markdown = markdown.replace(/^- (.*)/gm, '<ul><li>$1</li></ul>');
-
-  // Ordered List
-  markdown = markdown.replace(/^[0-9]+\. (.*)/gm, '<ol><li>$1</li></ol>');
-
-  // Line Break
-  markdown = markdown.replace(/  \n/g, '<br>');
-
-  // Paragraph
-  const paragraphs = markdown.split(/\n{2,}/g);
-  markdown = paragraphs.map((p) => `<p>${p}</p>`).join('');
-
-  return markdown;
-}
