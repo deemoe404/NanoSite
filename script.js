@@ -16,22 +16,18 @@ function getContent(file) {
 }
 
 try {
-  //var jsonString = "";
-  const jsonString = `{
-    "post1": { "content": "post1.md" },
-    "post2": { "content": "post2.md" }
-  }`;
+  var jsonString = "";
 
   getContent("/wwwroot/index.json")
   .then(function (content) {
-    //jsonString = content;
+    jsonString = content;
     console.log(jsonString);
   })
   .catch(function (error) {
     console.error("Error fetching content:", error);
   });
 
-  const jsonObject = JSON.parse(jsonString);
+  const jsonObject = JSON.parse(jsonString.toString());
 
   for (const key in jsonObject) {
     if (jsonObject.hasOwnProperty(key)) {
