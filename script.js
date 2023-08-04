@@ -33,8 +33,8 @@ function getIndex() {
 
 getIndex().then(function (index) {
   for (const key in index) {
-    if (jsonObject.hasOwnProperty(key)) {
-      const obj = jsonObject[key];
+    if (index.hasOwnProperty(key)) {
+      const obj = index[key];
       console.log(`Object: ${key}`);
       console.log(JSON.stringify(obj, null, 2));
     }
