@@ -31,17 +31,25 @@ function getIndex() {
   });
 }
 
-getIndex().then(function (index) {
-  for (const key in index) {
-    if (index.hasOwnProperty(key)) {
-      const obj = index[key];
-      console.log(`Object: ${key}`);
-      console.log(JSON.stringify(obj, null, 2));
+getIndex()
+  .then(function (index) {
+    for (const key in index) {
+      if (index.hasOwnProperty(key)) {
+        const file = index[key].content;
+        console.log("/wwwroot/" + file);
+        getContent("/wwwroot/" + file)
+          .then(function (content) {
+            console.log(content);
+          })
+          .catch(function (error) {
+            console.log("ERROR");
+          });
+      }
     }
-  }
-})
-
-
+  })
+  .catch(function (error) {
+    console.log("ERROR");
+  });
 
 function markdownToHtml(markdown) {
   // Heading
