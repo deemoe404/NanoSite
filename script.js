@@ -15,9 +15,37 @@ function getContent(file) {
   });
 }
 
+function getIndex() {
+  return new Promise(function (resolve, reject) {
+    try {
+      getContent("/wwwroot/index.json")
+        .then(function (content) {
+          resolve(JSON.parse(content.toString()));
+        })
+        .catch(function (error) {
+          reject(error);
+        });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+getIndex().then(function (index) {
+  for (const key in index) {
+    if (jsonObject.hasOwnProperty(key)) {
+      const obj = jsonObject[key];
+      console.log(`Object: ${key}`);
+      console.log(JSON.stringify(obj, null, 2));
+    }
+  }
+})
+
+
+
 function markdownToHtml(markdown) {
   // Heading
-  markdown = markdown.replace(/(#+)(.*)/g, function(match, hashes, title) {
+  markdown = markdown.replace(/(#+)(.*)/g, function (match, hashes, title) {
     const level = hashes.length;
     return `<h${level}>${title.trim()}</h${level}>`;
   });
@@ -42,26 +70,4 @@ function markdownToHtml(markdown) {
   markdown = paragraphs.map((p) => `<p>${p}</p>`).join('');
 
   return markdown;
-}
-
-var jsonObject;
-try {
-  getContent("/wwwroot/index.json")
-  .then(function (content) {
-    jsonObject = JSON.parse(content.toString());
-    console.log(content);
-  })
-  .catch(function (error) {
-    console.error("Error fetching content:", error);
-  });
-} catch (error) {
-  console.error('Error parsing JSON:', error);
-}
-
-for (const key in jsonObject) {
-  if (jsonObject.hasOwnProperty(key)) {
-    const obj = jsonObject[key];
-    console.log(`Object: ${key}`);
-    console.log(JSON.stringify(obj, null, 2));
-  }
 }
