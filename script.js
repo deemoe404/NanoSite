@@ -48,7 +48,7 @@ var jsonObject;
 try {
   getContent("/wwwroot/index.json")
   .then(function (content) {
-    const jsonObject = JSON.parse(content.toString());
+    jsonObject = JSON.parse(content.toString());
     console.log(content);
   })
   .catch(function (error) {
