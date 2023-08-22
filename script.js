@@ -71,6 +71,24 @@ function markdownToHtml(markdown) {
       }
       html += line.slice(1).trim() + '<br>';
     }
+    else if (line.startsWith('- [ ]') || line.startsWith('* [ ]')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<ul>\n';
+        listType = 1;
+      }
+      const taskText = line.slice(5).trim();
+      html += `<li><input type="checkbox" disabled>${escapeHtml(taskText)}</li>\n`;
+    }
+    else if (line.startsWith('- [x]') || line.startsWith('* [x]')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<ul>\n';
+        listType = 1;
+      }
+      const taskText = line.slice(5).trim();
+      html += `<li><input type="checkbox" checked disabled>${escapeHtml(taskText)}</li>\n`;
+    }
     else {
       if (isInList) {
         isInList = false;
