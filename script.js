@@ -16,7 +16,18 @@ function markdownToHtml(markdown) {
   for (let i = 0; i < lines.length; i++) {
     const line = escapeHtml(lines[i])
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>\n');
+
+    // const inlineURLs = line.match(/^\[.*\]\(.*\)$/);
+    // if (inlineURLs) {
+    //   for (let j = 0; j < inlineURLs.length; j++) {
+    //     const linkText = line.match(/^\[.*\]/)[0].slice(1, -1);
+    //     const linkUrl = line.match(/\(.*\)$/)[0].slice(1, -1);
+    //     const tmpHTML = `<a href="${escapeHtml(linkUrl)}">${escapeHtml(linkText)}</a>\n`;
+    //     line.replace
+    //   }
+    // }
 
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
@@ -40,11 +51,6 @@ function markdownToHtml(markdown) {
       }
       const listItemText = line.slice(1).trim();
       html += `<li>${listItemText}</li>\n`;
-    }
-    else if (line.match(/^\[.*\]\(.*\)$/)) {
-      const linkText = line.match(/^\[.*\]/)[0].slice(1, -1);
-      const linkUrl = line.match(/\(.*\)$/)[0].slice(1, -1);
-      html += `<a href="${escapeHtml(linkUrl)}">${escapeHtml(linkText)}</a>\n`;
     }
     else {
       if (isInList) {
