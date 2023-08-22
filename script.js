@@ -38,7 +38,8 @@ function markdownToHtml(markdown) {
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
       .replace(/\`(.*?)\`/g, '<code>$1</code>')
-      .replace(/~~(.*?)~~/g, '<del>$1</del>');
+      .replace(/~~(.*?)~~/g, '<del>$1</del>')
+      .replace(/\<\!--(.*?)--\>/g,'');
 
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
