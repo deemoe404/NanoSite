@@ -14,7 +14,9 @@ function markdownToHtml(markdown) {
   let isInList = false;
   let listType = -1;
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = escapeHtml(lines[i])
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
 
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
@@ -28,7 +30,7 @@ function markdownToHtml(markdown) {
         listType = 0;
       }
       const listItemText = line.slice(line.indexOf('.') + 1).trim();
-      html += `<li>${escapeHtml(listItemText)}</li>\n`;
+      html += `<li>${listItemText}</li>\n`;
     }
     else if (line.startsWith('-') || line.startsWith('*')) {
       if (!isInList) {
@@ -37,7 +39,7 @@ function markdownToHtml(markdown) {
         listType = 1;
       }
       const listItemText = line.slice(1).trim();
-      html += `<li>${escapeHtml(listItemText)}</li>\n`;
+      html += `<li>${listItemText}</li>\n`;
     }
     else {
       if (isInList) {
@@ -48,10 +50,8 @@ function markdownToHtml(markdown) {
           html += '</ul>\n';
         }
       }
-      const formattedLine = line
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>');
-      html += `<p>${escapeHtml(formattedLine)}</p>\n`;
+
+      html += `<p>${line}</p>\n`;
     }
   }
 
