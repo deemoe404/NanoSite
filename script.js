@@ -45,6 +45,9 @@ function markdownToHtml(markdown) {
       const headingText = line.slice(headingLevel).trim();
       html += `<h${headingLevel}>${headingText}</h${headingLevel}>\n`;
     }
+    else if (line.trim() === '---' || line.trim() === '***') {
+      html += '<hr>\n';
+    }
     else if (line.match(/^\d+\./)) {
       if (!isInList) {
         isInList = true;
