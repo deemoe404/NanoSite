@@ -21,10 +21,10 @@ function markdownToHtml(markdown) {
     if (rawLine.startsWith('```')) {
       if (!isInCodeBlock) {
         isInCodeBlock = true;
-        html += '<pre><code>';
+        html += '<div style="overflow: auto;"><pre><code>';
       } else {
         isInCodeBlock = false;
-        html += '</code></pre>';
+        html += '</code></pre><div>';
       }
       continue;
     }
