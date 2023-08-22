@@ -42,6 +42,14 @@ function markdownToHtml(markdown) {
       const listItemText = line.slice(1).trim();
       html += `<li>${listItemText}</li>\n`;
     }
+    else if (line.startsWith('>')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<blockquote>\n';
+        listType = 2;
+      }
+      html += line.slice(1).trim() + '<br>';
+    }
     else {
       if (isInList) {
         isInList = false;
@@ -49,6 +57,8 @@ function markdownToHtml(markdown) {
           html += '</ol>\n';
         } else if (listType == 1) {
           html += '</ul>\n';
+        } else if (listType == 2) {
+          html += '</blockquote>\n';
         }
       }
 
