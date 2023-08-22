@@ -6,7 +6,7 @@ function markdownToHtml(markdown) {
     return text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+      .replace(/(?!^)>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   };
@@ -71,6 +71,8 @@ function markdownToHtml(markdown) {
       html += '</ol>\n';
     } else if (listType == 1) {
       html += '</ul>\n';
+    } else if (listType == 2) {
+      html += '</blockquote>\n';
     }
   }
 
