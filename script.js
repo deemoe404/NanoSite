@@ -27,6 +27,16 @@ function markdownToHtml(markdown) {
   return markdown;
 }
 
+function getQueryVariable(variable) {
+  var query = window.location.search.substring(1);
+  var vars = query.split("&");
+  for (var i = 0; i < vars.length; i++) {
+    var pair = vars[i].split("=");
+    if (pair[0] == variable) { return pair[1]; }
+  }
+  return (false);
+}
+
 function getContent(file) {
   return new Promise(function (resolve, reject) {
     var xhr = new XMLHttpRequest();
@@ -60,21 +70,45 @@ function getIndex() {
   });
 }
 
-getIndex()
-  .then(function (index) {
-    for (const key in index) {
-      if (index.hasOwnProperty(key)) {
-        getContent("/wwwroot/" + index[key].content)
-          .then(function (content) {
-            const htmlOutput = markdownToHtml(content);
-            document.getElementById('output').innerHTML = htmlOutput;
-          })
-          .catch(function (error) {
-            console.log("ERROR");
-          });
+function displayContent(variable) {
+  getIndex()
+    .then(function (index) {
+      for (const key in index) {
+        if (index.hasOwnProperty(key) && key.toString() == variable) {
+          getContent("/wwwroot/" + index[key].content)
+            .then(function (content) {
+              const htmlOutput = markdownToHtml(content);
+              document.getElementById('output').innerHTML = htmlOutput;
+            })
+            .catch(function (error) {
+              console.log("ERROR");
+            });
+        }
       }
-    }
-  })
-  .catch(function (error) {
-    console.log("ERROR");
-  });
+    })
+    .catch(function (error) {
+      console.log("ERROR");
+    });
+}
+
+function displayHome() {
+  getIndex()
+    .then(function (index) {
+      htmlOutput = "";
+      var url = window.location.origin;
+      for (const key in index) {
+        if (index.hasOwnProperty(key)) {
+          tmp = "<a href=\"" + url + "?id=" + key.toString() + "\">" + key.toString() + "</a>";
+          htmlOutput = htmlOutput + "<br/>" + tmp;
+        }
+      }
+      document.getElementById('output').innerHTML = htmlOutput;
+    })
+    .catch(function (error) {
+      console.log("ERROR");
+    });
+}
+
+if (getQueryVariable("id") == false) {
+  displayHome();
+}
