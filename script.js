@@ -78,7 +78,8 @@ function displayContent(variable) {
           getContent("/wwwroot/" + index[key].content)
             .then(function (content) {
               homeurl = "<a href=\"" + url + "\">Home</a><br/>";
-              const htmlOutput = homeurl + markdownToHtml(content);
+              htmlOutput = markdownToHtml(content);
+              htmlOutput = homeurl + htmlOutput;
               document.getElementById('output').innerHTML = htmlOutput;
             })
             .catch(function (error) {
