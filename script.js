@@ -14,10 +14,29 @@ function markdownToHtml(markdown) {
   let isInList = false;
   let listType = -1;
   for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+
+    if (rawLine.startsWith('```')) {
+      if (!isInCodeBlock) {
+        isInCodeBlock = true;
+        html += '<pre><code>';
+      } else {
+        isInCodeBlock = false;
+        html += '</code></pre>';
+      }
+      continue;
+    }
+
+    if (isInCodeBlock) {
+      html += escapeHtml(rawLine) + '\n';
+      continue;
+    }
+
     const line = escapeHtml(lines[i])
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+      .replace(/\`(.*?)\`/g, '<code>$1</code>');
 
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
