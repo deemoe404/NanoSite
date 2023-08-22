@@ -23,7 +23,11 @@ a:hover {
 }
 
 /* Heading style */
-h1, h2, h3, h4, h5 {
+h1,
+h2,
+h3,
+h4,
+h5 {
   font-weight: bold;
   color: #333;
 }
@@ -51,7 +55,8 @@ strong {
 }
 
 /* List style */
-ul, ol {
+ul,
+ol {
   margin-left: 20px;
 }
 
@@ -68,9 +73,12 @@ blockquote {
 }
 
 /* Code style */
-code, pre {
+code {
   font-family: Menlo, Consolas, monospace;
   background-color: #f5f5f5;
+}
+
+pre {
   padding: 2px 5px;
   overflow: auto;
   max-width: 730px;
@@ -88,7 +96,8 @@ table {
   width: 100%;
 }
 
-th, td {
+th,
+td {
   border: 1px solid #ccc;
   padding: 8px;
   text-align: left;
@@ -133,12 +142,13 @@ del {
 
 @media (max-width: 768px) {
   .container {
-      flex-direction: column;
-      margin: 5px;
+    flex-direction: column;
+    margin: 5px;
   }
+
   .sidebar {
-      flex: 1;
-      margin-top: 20px;
-      margin-left: 0;
+    flex: 1;
+    margin-top: 20px;
+    margin-left: 0;
   }
 }
