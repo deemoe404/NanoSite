@@ -72,7 +72,8 @@ code, pre {
   font-family: Menlo, Consolas, monospace;
   background-color: #f5f5f5;
   padding: 2px 5px;
-  word-wrap: break-word;
+  overflow: auto;
+  max-width: 730px;
 }
 
 /* Image style */
@@ -133,6 +134,7 @@ del {
 @media (max-width: 768px) {
   .container {
       flex-direction: column;
+      margin: 5px;
   }
   .sidebar {
       flex: 1;
