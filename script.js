@@ -12,6 +12,7 @@ function markdownToHtml(markdown) {
   };
 
   let isInList = false;
+  let listType = -1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
@@ -24,6 +25,7 @@ function markdownToHtml(markdown) {
       if (!isInList) {
         isInList = true;
         html += '<ol>\n';
+        listType = 0;
       }
       const listItemText = line.slice(line.indexOf('.') + 1).trim();
       html += `<li>${escapeHtml(listItemText)}</li>\n`;
@@ -32,27 +34,32 @@ function markdownToHtml(markdown) {
       if (!isInList) {
         isInList = true;
         html += '<ul>\n';
+        listType = 1;
       }
       const listItemText = line.slice(1).trim();
       html += `<li>${escapeHtml(listItemText)}</li>\n`;
     }
     else {
-      console.log("hit P: " + line);
       if (isInList) {
         isInList = false;
-        html += isInList === 'ol' ? '</ol>\n' : '</ul>\n';
-        console.log(isInList);
+        if (listType == 0) {
+          html += '</ol>\n';
+        } else if (listType == 1) {
+          html += '</ul>\n';
+        }
       }
       html += `<p>${escapeHtml(line)}</p>\n`;
     }
   }
 
   if (isInList) {
-    html += isInList === 'ol' ? '</ol>\n' : '</ul>\n';
+    if (listType == 0) {
+      html += '</ol>\n';
+    } else if (listType == 1) {
+      html += '</ul>\n';
+    }
   }
-  console.log(isInList);
 
-  console.log(html);
   return html;
 }
 
