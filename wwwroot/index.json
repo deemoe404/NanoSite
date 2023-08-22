@@ -1,4 +1,5 @@
 {
   "Welcome to Nano blog": { "content": "welcome.md" },
-  "How to set up Nano blog": { "content": "setup.md" }
+  "How to set up Nano blog": { "content": "setup.md" },
+  "test": { "content": "test.md" }
 }
