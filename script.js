@@ -1,31 +1,30 @@
 function markdownToHtml(markdown) {
-  // Heading
-  markdown = markdown.replace(/(#+)(.*)/g, function (match, hashes, title) {
+  markdown = markdown.replace(/(#+)(.*)/g, function(match, hashes, title) {
     const level = hashes.length;
     return `<h${level}>${title.trim()}</h${level}>`;
   });
 
-  // Bold
   markdown = markdown.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
-  // Italic
   markdown = markdown.replace(/\*(.*?)\*/g, '<em>$1</em>');
 
-  // Unordered List
   markdown = markdown.replace(/^- (.*)/gm, '<ul><li>$1</li></ul>');
 
-  // Ordered List
-  markdown = markdown.replace(/^[0-9]+\. (.*)/gm, '<ol><li>$1</li></ol>');
+  let orderedListCounter = 1;
+  markdown = markdown.replace(/^\d+\. (.*)/gm, function(match, item) {
+    const listItem = `<li>${item}</li>`;
+    orderedListCounter++;
+    return orderedListCounter === 2 ? `<ol>${listItem}` : listItem;
+  });
 
-  // Line Break
   markdown = markdown.replace(/  \n/g, '<br>');
 
-  // Paragraph
   const paragraphs = markdown.split(/\n{2,}/g);
   markdown = paragraphs.map((p) => `<p>${p}</p>`).join('');
 
   return markdown;
 }
+
 
 function getQueryVariable(variable) {
   var query = window.location.search.substring(1);
