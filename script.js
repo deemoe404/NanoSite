@@ -1,28 +1,48 @@
 function markdownToHtml(markdown) {
-  markdown = markdown.replace(/(#+)(.*)/g, function(match, hashes, title) {
-    const level = hashes.length;
-    return `<h${level}>${title.trim()}</h${level}>`;
-  });
+  const lines = markdown.split('\n');
+  let html = '';
 
-  markdown = markdown.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  const escapeHtml = (text) => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
 
-  markdown = markdown.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
 
-  markdown = markdown.replace(/^- (.*)/gm, '<ul><li>$1</li></ul>');
+    // Heading
+    if (line.startsWith('#')) {
+      const headingLevel = line.match(/^#+/)[0].length;
+      const headingText = line.slice(headingLevel).trim();
+      html += `<h${headingLevel}>${headingText}</h${headingLevel}>\n`;
+    }
+    // Ordered List
+    else if (line.match(/^\d+\./)) {
+      const listItems = line.split(/(\d+\.[ \t]+)/).filter(Boolean);
+      const listNumber = parseInt(listItems[0], 10);
+      html += `<ol>`;
+      for (let j = 1; j < listItems.length; j += 2) {
+        const listItemText = listItems[j + 1].trim();
+        html += `<li>${escapeHtml(listItemText)}</li>\n`;
+      }
+      html += `</ol>\n`;
+    }
+    // Unordered List
+    else if (line.startsWith('-') || line.startsWith('*')) {
+      const listItemText = line.slice(1).trim();
+      html += `<ul><li>${escapeHtml(listItemText)}</li></ul>\n`;
+    }
+    // Paragraph
+    else if (line) {
+      html += `<p>${escapeHtml(line)}</p>\n`;
+    }
+  }
 
-  let orderedListCounter = 1;
-  markdown = markdown.replace(/^\d+\. (.*)/gm, function(match, item) {
-    const listItem = `<li>${item}</li>`;
-    orderedListCounter++;
-    return orderedListCounter === 2 ? `<ol>${listItem}` : listItem;
-  });
-
-  markdown = markdown.replace(/  \n/g, '<br>');
-
-  const paragraphs = markdown.split(/\n{2,}/g);
-  markdown = paragraphs.map((p) => `<p>${p}</p>`).join('');
-
-  return markdown;
+  return html;
 }
 
 
