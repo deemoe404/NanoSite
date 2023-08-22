@@ -103,7 +103,7 @@ function displayContent(variable) {
               document.getElementById('output').innerHTML = htmlOutput;
             })
             .catch(function (error) {
-              console.log("ERROR");
+              console.log(error);
             });
         }
       }
