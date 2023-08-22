@@ -39,9 +39,9 @@ function markdownToHtml(markdown) {
     else {
       console.log("hit P: " + line);
       if (isInList) {
-        console.log(isInList);
         isInList = false;
         html += isInList === 'ol' ? '</ol>\n' : '</ul>\n';
+        console.log(isInList);
       }
       html += `<p>${escapeHtml(line)}</p>\n`;
     }
@@ -50,7 +50,9 @@ function markdownToHtml(markdown) {
   if (isInList) {
     html += isInList === 'ol' ? '</ol>\n' : '</ul>\n';
   }
+  console.log(isInList);
 
+  console.log(html);
   return html;
 }
 
