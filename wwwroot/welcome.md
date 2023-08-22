@@ -1,14 +1,18 @@
-# Heading 1
+# Welcome to Nano blog
 
-This is a **bold** and *italic* text.
+This is a **Nano** and *blog* site. Every post is just a markdown file, and rendered in js.
 
-- Item 1
-- Item 2
-- Item 3
+Road map:
 
-1. First
-2. Second
-3. Third
+- Make it looks OK
+- Support Image
+- Better code (i am new to js)
+
+Road map(v2):
+
+1. Make it looks OK
+2. Support Image
+3. Better code (i am new to js)
 
 This is a paragraph.
 
