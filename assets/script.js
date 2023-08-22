@@ -200,7 +200,7 @@ function displayHome() {
           htmlOutput = htmlOutput + "<br/>" + tmp;
         }
       }
-      document.getElementById('output').innerHTML = htmlOutput;
+      document.getElementById('mainview').innerHTML = htmlOutput;
     })
     .catch(function (error) {
       console.log("ERROR");
