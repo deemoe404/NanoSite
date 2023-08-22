@@ -16,7 +16,7 @@ function markdownToHtml(markdown) {
   let listType = -1;
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
-    
+
     if (rawLine.startsWith('```')) {
       if (!isInCodeBlock) {
         isInCodeBlock = true;
@@ -54,23 +54,6 @@ function markdownToHtml(markdown) {
       const listItemText = line.slice(line.indexOf('.') + 1).trim();
       html += `<li>${listItemText}</li>\n`;
     }
-    else if (line.startsWith('-') || line.startsWith('*')) {
-      if (!isInList) {
-        isInList = true;
-        html += '<ul>\n';
-        listType = 1;
-      }
-      const listItemText = line.slice(1).trim();
-      html += `<li>${listItemText}</li>\n`;
-    }
-    else if (line.startsWith('>')) {
-      if (!isInList) {
-        isInList = true;
-        html += '<blockquote>\n';
-        listType = 2;
-      }
-      html += line.slice(1).trim() + '<br>';
-    }
     else if (line.startsWith('- [ ]') || line.startsWith('* [ ]')) {
       if (!isInList) {
         isInList = true;
@@ -88,6 +71,23 @@ function markdownToHtml(markdown) {
       }
       const taskText = line.slice(5).trim();
       html += `<li><input type="checkbox" checked disabled>${escapeHtml(taskText)}</li>\n`;
+    }
+    else if (line.startsWith('-') || line.startsWith('*')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<ul>\n';
+        listType = 1;
+      }
+      const listItemText = line.slice(1).trim();
+      html += `<li>${listItemText}</li>\n`;
+    }
+    else if (line.startsWith('>')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<blockquote>\n';
+        listType = 2;
+      }
+      html += line.slice(1).trim() + '<br>';
     }
     else {
       if (isInList) {
