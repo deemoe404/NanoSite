@@ -17,17 +17,7 @@ function markdownToHtml(markdown) {
     const line = escapeHtml(lines[i])
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>\n');
-
-    // const inlineURLs = line.match(/^\[.*\]\(.*\)$/);
-    // if (inlineURLs) {
-    //   for (let j = 0; j < inlineURLs.length; j++) {
-    //     const linkText = line.match(/^\[.*\]/)[0].slice(1, -1);
-    //     const linkUrl = line.match(/\(.*\)$/)[0].slice(1, -1);
-    //     const tmpHTML = `<a href="${escapeHtml(linkUrl)}">${escapeHtml(linkText)}</a>\n`;
-    //     line.replace
-    //   }
-    // }
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
 
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
