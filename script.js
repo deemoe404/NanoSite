@@ -15,6 +15,7 @@ function markdownToHtml(markdown) {
   let listType = -1;
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
+    let isInCodeBlock = false;
 
     if (rawLine.startsWith('```')) {
       if (!isInCodeBlock) {
