@@ -1,9 +1,15 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 /* Overall document style */
 body {
   font-family: "Helvetica Neue", Arial, sans-serif;
   background-color: #f5f5f5;
   margin: 0;
-  padding: 20px;
+  padding: 0;
 }
 
 /* Link style */
@@ -101,7 +107,36 @@ del {
   color: #d9534f;
 }
 
-/* Script style */
-script {
-  display: none;
+.container {
+  display: flex;
+  justify-content: space-between;
+  padding: 20px;
+  margin: 0 auto;
+  max-width: 1040px;
+}
+
+.content {
+  flex: 1;
+}
+
+.sidebar {
+  flex: 0 0 270px;
+  margin-left: 20px;
+}
+
+.box {
+  background-color: #f0f0f0;
+  margin-bottom: 20px;
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
+  .container {
+      flex-direction: column;
+  }
+  .sidebar {
+      flex: 1;
+      margin-top: 20px;
+      margin-left: 0;
+  }
 }

@@ -176,7 +176,7 @@ function displayContent(variable) {
               homeurl = "<a href=\"" + url + "\">Home</a><br/>";
               htmlOutput = markdownToHtml(content);
               htmlOutput = homeurl + htmlOutput;
-              document.getElementById('output').innerHTML = htmlOutput;
+              document.getElementById('mainview').innerHTML = htmlOutput;
             })
             .catch(function (error) {
               console.log(error);
