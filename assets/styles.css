@@ -112,7 +112,6 @@ del {
 .container {
   display: flex;
   justify-content: space-between;
-  padding: 20px;
   margin: 0 auto;
   max-width: 1040px;
 }
