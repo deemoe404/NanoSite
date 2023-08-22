@@ -11,40 +11,46 @@ function markdownToHtml(markdown) {
       .replace(/'/g, '&#039;');
   };
 
+  let isInList = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Heading
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
       const headingText = line.slice(headingLevel).trim();
       html += `<h${headingLevel}>${headingText}</h${headingLevel}>\n`;
     }
-    // Ordered List
     else if (line.match(/^\d+\./)) {
-      const listItems = line.split(/(\d+\.[ \t]+)/).filter(Boolean);
-      const listNumber = parseInt(listItems[0], 10);
-      html += `<ol>`;
-      for (let j = 1; j < listItems.length; j += 2) {
-        const listItemText = listItems[j + 1].trim();
-        html += `<li>${escapeHtml(listItemText)}</li>\n`;
+      if (!isInList) {
+        isInList = true;
+        html += '<ol>\n';
       }
-      html += `</ol>\n`;
+      const listItemText = line.slice(line.indexOf('.') + 1).trim();
+      html += `<li>${escapeHtml(listItemText)}</li>\n`;
     }
-    // Unordered List
     else if (line.startsWith('-') || line.startsWith('*')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<ul>\n';
+      }
       const listItemText = line.slice(1).trim();
-      html += `<ul><li>${escapeHtml(listItemText)}</li></ul>\n`;
+      html += `<li>${escapeHtml(listItemText)}</li>\n`;
     }
-    // Paragraph
-    else if (line) {
+    else {
+      if (isInList) {
+        isInList = false;
+        html += isInList === 'ol' ? '</ol>\n' : '</ul>\n';
+      }
       html += `<p>${escapeHtml(line)}</p>\n`;
     }
   }
 
+  if (isInList) {
+    html += isInList === 'ol' ? '</ol>\n' : '</ul>\n';
+  }
+
   return html;
 }
-
 
 function getQueryVariable(variable) {
   var query = window.location.search.substring(1);
