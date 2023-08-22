@@ -1,120 +1,107 @@
-/* Set page background color */
+/* Overall document style */
 body {
+  font-family: "Helvetica Neue", Arial, sans-serif;
   background-color: #f5f5f5;
-  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
 }
 
-/* Define title style */
-h1 {
-  color: #333;
-  font-size: 24px;
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* Define paragraph style */
-p {
-  color: #666;
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-/* Define link style */
+/* Link style */
 a {
-  color: #0078d4;
+  color: #007bff;
   text-decoration: none;
-  transition: color 0.3s;
 }
 
 a:hover {
-  color: #0056b3;
+  text-decoration: underline;
 }
 
-/* Define button style */
-.button {
-  display: inline-block;
-  padding: 10px 20px;
-  background-color: #0078d4;
-  color: #fff;
+/* Heading style */
+h1, h2, h3, h4, h5 {
+  font-weight: bold;
+  color: #333;
+}
+
+/* Paragraph style */
+p {
+  margin-bottom: 15px;
+  line-height: 1.6;
+}
+
+/* Horizontal rule style */
+hr {
   border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s;
+  border-top: 1px solid #ccc;
+  margin: 20px 0;
 }
 
-.button:hover {
-  background-color: #0056b3;
+/* Emphasis and bold style */
+em {
+  font-style: italic;
 }
 
-/* Define table style */
-table {
-  border-collapse: collapse;
-  width: 100%;
-  margin-bottom: 20px;
+strong {
+  font-weight: bold;
 }
 
-table, th, td {
-  border: 1px solid #ddd;
-}
-
-th, td {
-  padding: 10px;
-  text-align: left;
-}
-
-th {
-  background-color: #f2f2f2;
-}
-
-/* Define list style */
+/* List style */
 ul, ol {
-  margin: 0;
-  padding: 0;
+  margin-left: 20px;
 }
 
 li {
-  margin-bottom: 10px;
+  margin-bottom: 5px;
 }
 
-/* Define image style */
+/* Blockquote style */
+blockquote {
+  border-left: 2px solid #ccc;
+  margin: 0;
+  padding: 10px 20px;
+  background-color: #f9f9f9;
+}
+
+/* Code style */
+code, pre {
+  font-family: Menlo, Consolas, monospace;
+  background-color: #f5f5f5;
+  padding: 2px 5px;
+}
+
+/* Image style */
 img {
   max-width: 100%;
   height: auto;
 }
 
-/* Define code block style */
-code {
-  background-color: #f2f2f2;
-  padding: 2px 4px;
-  font-family: Consolas, Monaco, monospace;
+/* Table style */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f5f5f5;
+}
+
+/* Strikethrough style */
+del {
+  text-decoration: line-through;
+}
+
+/* Escaped character style */
+.escaped {
   font-size: 14px;
+  color: #d9534f;
 }
 
-/* Define blockquote style */
-blockquote {
-  border-left: 4px solid #0078d4;
-  padding: 10px;
-  margin: 0 0 20px;
-  background-color: #f9f9f9;
-}
-
-/* Define footer style */
-.footer {
-  background-color: #333;
-  color: #fff;
-  text-align: center;
-  padding: 10px 0;
-}
-
-/* Responsive layout styles */
-@media (max-width: 768px) {
-  h1 {
-    font-size: 20px;
-  }
-  p {
-    font-size: 14px;
-  }
-  .button {
-    font-size: 14px;
-  }
+/* Script style */
+script {
+  display: none;
 }
