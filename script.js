@@ -12,11 +12,11 @@ function markdownToHtml(markdown) {
   };
 
   let isInList = false;
+  let isInCodeBlock = false;
   let listType = -1;
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
-    let isInCodeBlock = false;
-
+    
     if (rawLine.startsWith('```')) {
       if (!isInCodeBlock) {
         isInCodeBlock = true;
