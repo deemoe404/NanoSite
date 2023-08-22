@@ -48,7 +48,10 @@ function markdownToHtml(markdown) {
           html += '</ul>\n';
         }
       }
-      html += `<p>${escapeHtml(line)}</p>\n`;
+      const formattedLine = line
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>');
+      html += `<p>${escapeHtml(formattedLine)}</p>\n`;
     }
   }
 
