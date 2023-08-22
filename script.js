@@ -77,6 +77,7 @@ function displayContent(variable) {
         if (index.hasOwnProperty(key) && key.toString() == variable) {
           getContent("/wwwroot/" + index[key].content)
             .then(function (content) {
+              var url = window.location.origin;
               homeurl = "<a href=\"" + url + "\">Home</a><br/>";
               htmlOutput = markdownToHtml(content);
               htmlOutput = homeurl + htmlOutput;
