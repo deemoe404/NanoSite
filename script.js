@@ -114,5 +114,5 @@ function displayHome() {
 if (getQueryVariable("id") == false) {
   displayHome();
 } else {
-  displayContent(getQueryVariable("id"));
+  displayContent(decodeURIComponent(getQueryVariable("id")));
 }
