@@ -41,6 +41,11 @@ function markdownToHtml(markdown) {
       const listItemText = line.slice(1).trim();
       html += `<li>${listItemText}</li>\n`;
     }
+    else if (line.match(/^\[.*\]\(.*\)$/)) {
+      const linkText = line.match(/^\[.*\]/)[0].slice(1, -1);
+      const linkUrl = line.match(/\(.*\)$/)[0].slice(1, -1);
+      html += `<a href="${escapeHtml(linkUrl)}">${escapeHtml(linkText)}</a>\n`;
+    }
     else {
       if (isInList) {
         isInList = false;
