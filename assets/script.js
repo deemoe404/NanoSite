@@ -12,6 +12,10 @@ function simpleConvert(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/(?!^)-\s\[\s\](.*?)/g ,'<li><input type="checkbox" disabled>$1</li>')
+    .replace(/(?!^)\*\s\[\s\](.*?)/g ,'<li><input type="checkbox" disabled>$1</li>')
+    .replace(/(?!^)-\s[x](.*?)/g ,'<li><input type="checkbox" checked disabled>$1</li>')
+    .replace(/(?!^)\*\s[x](.*?)/g ,'<li><input type="checkbox" checked disabled>$1</li>')
     .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
@@ -67,24 +71,6 @@ function markdownToHtml(markdown) {
       }
       const listItemText = line.slice(line.indexOf('.') + 1).trim();
       html += `<li>${listItemText}</li>\n`;
-    }
-    else if (line.startsWith('- [ ]') || line.startsWith('* [ ]')) {
-      if (!isInList) {
-        isInList = true;
-        html += '<ul>\n';
-        listType = 1;
-      }
-      const taskText = line.slice(5).trim();
-      html += `<li><input type="checkbox" disabled>${escapeHtml(taskText)}</li>\n`;
-    }
-    else if (line.startsWith('- [x]') || line.startsWith('* [x]')) {
-      if (!isInList) {
-        isInList = true;
-        html += '<ul>\n';
-        listType = 1;
-      }
-      const taskText = line.slice(5).trim();
-      html += `<li><input type="checkbox" checked disabled>${escapeHtml(taskText)}</li>\n`;
     }
     else if (line.startsWith('-') || line.startsWith('*')) {
       if (!isInList) {
