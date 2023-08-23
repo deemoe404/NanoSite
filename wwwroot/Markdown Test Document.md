@@ -69,10 +69,14 @@ local:
 
 > This is a blockquote.
 > It can span multiple lines.
-> This is a blockquote.
-> It can span multiple lines.
-> This is a blockquote.
-> It can span multiple lines.
+> > This is a blockquote.
+> > It can span multiple lines.
+> > > This is a blockquote.
+> > > It can span multiple lines.
+> 1. list1
+> 2. list2
+> - list3
+> - list4
 
 ---
 
