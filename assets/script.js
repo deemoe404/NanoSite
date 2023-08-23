@@ -51,9 +51,11 @@ function markdownParser(markdown) {
       }
       continue;
     } else if (isInCodeBlock) {
-      html += escapeHtml(rawLine) + '\n';
+      html += rawLine + '\n';
       continue;
     }
+
+    const line = replaceInline(lines[i]);
 
     // Table
     if (rawLine.startsWith('|')) {
@@ -63,7 +65,7 @@ function markdownParser(markdown) {
           isInTable = true;
           html += '<table><thead><tr>';
           for (let j = 1; j < tabs.length - 1; j++) {
-            html += `<th>${escapeHtml(tabs[j].trim())}</th>`;
+            html += `<th>${tabs[j].trim()}</th>`;
           }
           html += '</tr></thead><tbody>';
         }
@@ -72,7 +74,7 @@ function markdownParser(markdown) {
       } else {
         html += '<tr>';
         for (let j = 1; j < tabs.length - 1; j++) {
-          html += `<td>${escapeHtml(tabs[j].trim())}</td>`;
+          html += `<td>${tabs[j].trim()}</td>`;
         }
         html += '</tr>';
         continue;
@@ -81,8 +83,6 @@ function markdownParser(markdown) {
       html += '</tbody></table>';
       isInTable = false;
     }
-
-    const line = replaceInline(lines[i]);
 
     // Title
     if (line.startsWith('#')) {
