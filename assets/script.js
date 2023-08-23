@@ -113,6 +113,7 @@ function markdownParser(markdown) {
       } else {
         html += `<li><input type="checkbox" checked disabled>${escapeHtml(taskText)}</li>\n`;
       }
+      continue;
     } else {
       if (isInTodo) {
         html += '</ul>';
