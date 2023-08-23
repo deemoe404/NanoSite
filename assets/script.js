@@ -21,7 +21,9 @@ function simpleConvert(text) {
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
     .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
-    .replace(/~~(.*?)~~/g, '<del>$1</del>');
+    .replace(/~~(.*?)~~/g, '<del>$1</del>')
+    .replace(/^\*\*\*$/gm, '<hr>')
+    .replace(/^---$/gm, '<hr>');
 }
 
 function markdownParser(markdown) {
@@ -34,8 +36,6 @@ function markdownParser(markdown) {
 
   let isInCodeBlock = false;
   let isInTable = false;
-
-  let titleIndex = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -89,14 +89,8 @@ function markdownParser(markdown) {
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
       const headingText = line.slice(headingLevel).trim();
-      html += `<h${headingLevel} id="${titleIndex}">${headingText}</h${headingLevel}>\n`;
-      tochtml += `<li><a href="#${titleIndex}">${headingText}</a></li>`;
-      titleIndex++;
-    }
-
-    // Break Line
-    else if (line.trim() === '---' || line.trim() === '***') {
-      html += '<hr>\n';
+      html += `<h${headingLevel} id="${i}">${headingText}</h${headingLevel}>\n`;
+      tochtml += `<li><a href="#${i}">${headingText}</a></li>`;
     }
 
     // Ordered List
@@ -160,31 +154,29 @@ function markdownParser(markdown) {
     }
   }
 
-  var doc = { "post": html, "toc": tochtml };
-  return doc;
+  return { "post": html, "toc": tochtml };
 }
 
 function getQueryVariable(variable) {
-  var query = window.location.search.substring(1);
-  var vars = query.split("&");
+  var vars = window.location.search.substring(1).split("&");
   for (var i = 0; i < vars.length; i++) {
     var pair = vars[i].split("=");
     if (pair[0] == variable) { return decodeURIComponent(pair[1]); }
   }
-  return (false);
+  return false;
 }
 
 const getFile = filename => fetch(filename).then(data => data.text());
 
 const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown => {
   output = markdownParser(markdown);
-  document.getElementById('tocview').innerHTML = output.toc;
-  document.getElementById('mainview').innerHTML = output.post;
+  document.getElementById("tocview").innerHTML = output.toc;
+  document.getElementById("mainview").innerHTML = output.post;
 });
 
 const displayIndex = () => getFile("/wwwroot/index.json").then(index => {
   for (const [key, value] of Object.entries(JSON.parse(index))) {
-    document.getElementById('mainview').innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
+    document.getElementById("mainview").innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
   }
 });
 
