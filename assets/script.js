@@ -37,8 +37,8 @@ function markdownToHtml(markdown) {
     const line = escapeHtml(lines[i])
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/!\[(.*?)\]\((.*?)\s"(.*?)"\)/g, '<img src="$2" alt="$1" title="$3">')
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+      .replace(/!\[(.*?)\]\((.*?)\s*"(.*?)"\)/g, '<img src="$2" alt="$1" title="$3">')
+      .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
       .replace(/\`(.*?)\`/g, '<code>$1</code>')
       .replace(/~~(.*?)~~/g, '<del>$1</del>');
 
