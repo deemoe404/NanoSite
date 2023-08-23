@@ -203,8 +203,8 @@ function displayPost(filename) {
 
 function displayIndex() {
   getContent("/wwwroot/index.json").then(function (index) {
-    for (const key of Object.keys(JSON.parse(index))) {
-      document.getElementById('mainview').innerHTML += `<a href="?id=${index[key].location}">${key.toString()}</a><br/>`;
+    for (const [key, value] of Object.entries(JSON.parse(index))) {
+      document.getElementById('mainview').innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
     }
   }).catch(function (error) {
     console.log(error);
