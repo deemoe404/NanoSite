@@ -24,7 +24,7 @@ function replaceInline(text) {
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
     .replace(/^\*\*\*$/gm, '<hr>')
     .replace(/^---$/gm, '<hr>')
-    .replace(/^\n+/g, "<br>");
+    .replace(/^\s*$/g, "<br>");
 }
 
 function markdownParser(markdown) {
