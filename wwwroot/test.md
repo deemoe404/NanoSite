@@ -40,12 +40,18 @@ This is a test document to demonstrate various Markdown tags and elements.
 
 ## Links
 
-[Visit Google](https://www.google.com)
-[Visit GitHub](https://www.github.com "GitHub")
+Without title: [Visit Google](https://www.google.com)
+With title: [Visit GitHub](https://www.github.com "GitHub")
 
 ---
 
 ## Images
+
+Without title:
+
+![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/1280px-Markdown-mark.svg.png)
+
+With title:
 
 ![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/1280px-Markdown-mark.svg.png "Markdown Logo")
 
