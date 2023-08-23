@@ -158,12 +158,8 @@ function markdownParser(markdown) {
 }
 
 function getQueryVariable(variable) {
-  var vars = window.location.search.substring(1).split("&");
-  for (var i = 0; i < vars.length; i++) {
-    var pair = vars[i].split("=");
-    if (pair[0] == variable) { return decodeURIComponent(pair[1]); }
-  }
-  return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get(variable);
 }
 
 const getFile = filename => fetch(filename).then(data => data.text());
