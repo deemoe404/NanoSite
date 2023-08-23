@@ -53,7 +53,7 @@ function markdownToHtml(markdown) {
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
       const headingText = line.slice(headingLevel).trim();
-      html += `<h${headingLevel} id="${titleIndex}">${headingText}</h${headingLevel}>\n`;
+      html += `<h${headingLevel} id="title${titleIndex}">${headingText}</h${headingLevel}>\n`;
       titleIndex = titleIndex + 1;
     }
     else if (line.trim() === '---' || line.trim() === '***') {

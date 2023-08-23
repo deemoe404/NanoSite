@@ -1,6 +1,8 @@
 # Markdown Test Document
 
-This is a test document to demonstrate various Markdown tags and elements.
+This is a test document to demonstrate various Markdown tags and elements. The purpose of this document is to show how different Markdown syntaxes can be used. Markdown allows you to easily include formatting elements like headings, lists, code, and more in a plain text format.
+
+This covers some of the basic Markdown syntaxes for formatting text. Markdown provides an easy way to include formatting in text-based files like readme files.
 
 ---
 
