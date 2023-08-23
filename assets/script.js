@@ -174,22 +174,24 @@ function getQueryVariable(variable) {
   return (false);
 }
 
-function getContent(file) {
-  return new Promise(function (resolve, reject) {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", file, true);
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState === 4) {
-        if (xhr.status === 200) {
-          resolve(xhr.responseText);
-        } else {
-          reject(xhr.statusText);
-        }
-      }
-    };
-    xhr.send();
-  });
-}
+// function getContent(file) {
+//   return new Promise(function (resolve, reject) {
+//     var xhr = new XMLHttpRequest();
+//     xhr.open("GET", file, true);
+//     xhr.onreadystatechange = function () {
+//       if (xhr.readyState === 4) {
+//         if (xhr.status === 200) {
+//           resolve(xhr.responseText);
+//         } else {
+//           reject(xhr.statusText);
+//         }
+//       }
+//     };
+//     xhr.send();
+//   });
+// }
+
+const getContent = (file) => fetch(file).then(data => data.text());
 
 function displayPost(filename) {
   getContent("/wwwroot/" + filename).then(function (markdown) {
