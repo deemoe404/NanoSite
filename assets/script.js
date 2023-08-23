@@ -84,23 +84,6 @@ function markdownParser(markdown) {
       isInTable = false;
     }
 
-    // Blockquotes
-    if (line.startsWith('&gt;')) {
-      let quote = `${line.slice(4).trim()}`;
-      let j = i + 1;
-      for (; j < lines.length; j++) {
-        if (lines[j].startsWith('&gt;')) {
-          quote += `\n${lines[j].slice(4).trim()}`;
-        } else {
-          break;
-        }
-      }
-      const output = markdownParser(quote);
-      html += `<blockquote>${output.post}</blockquote>`;
-      i = j;
-      continue;
-    }
-
     // Title
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
@@ -131,6 +114,16 @@ function markdownParser(markdown) {
       html += `<li>${listItemText}</li>\n`;
     }
 
+    // Blockquotes
+    else if (line.startsWith('&gt;')) {
+      if (!isInList) {
+        isInList = true;
+        html += '<blockquote>\n';
+        listType = 2;
+      }
+      html += line.slice(4).trim() + '<br>';
+    }
+
     // Plain Text
     else {
       if (isInList) {
@@ -139,10 +132,12 @@ function markdownParser(markdown) {
           html += '</ol>\n';
         } else if (listType == 1) {
           html += '</ul>\n';
+        } else if (listType == 2) {
+          html += '</blockquote>\n';
         }
       }
 
-      html += line.startsWith('<') ? `${line}` : `<p>${line}</p>`;
+      html += line.startsWith('<') ? `${line}<br>` : `<p>${line}</p>`;
     }
   }
 
@@ -151,6 +146,8 @@ function markdownParser(markdown) {
       html += '</ol>\n';
     } else if (listType == 1) {
       html += '</ul>\n';
+    } else if (listType == 2) {
+      html += '</blockquote>\n';
     }
   }
 
@@ -165,7 +162,7 @@ function getQueryVariable(variable) {
 const getFile = filename => fetch(filename).then(data => data.text());
 
 const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown => {
-  const output = markdownParser(markdown);
+  output = markdownParser(markdown);
   document.getElementById("tocview").innerHTML = output.toc;
   document.getElementById("mainview").innerHTML = output.post;
 });
