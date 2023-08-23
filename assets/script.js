@@ -169,52 +169,25 @@ function getQueryVariable(variable) {
   var vars = query.split("&");
   for (var i = 0; i < vars.length; i++) {
     var pair = vars[i].split("=");
-    if (pair[0] == variable) { return pair[1]; }
+    if (pair[0] == variable) { return decodeURIComponent(pair[1]); }
   }
   return (false);
 }
 
-// function getContent(file) {
-//   return new Promise(function (resolve, reject) {
-//     var xhr = new XMLHttpRequest();
-//     xhr.open("GET", file, true);
-//     xhr.onreadystatechange = function () {
-//       if (xhr.readyState === 4) {
-//         if (xhr.status === 200) {
-//           resolve(xhr.responseText);
-//         } else {
-//           reject(xhr.statusText);
-//         }
-//       }
-//     };
-//     xhr.send();
-//   });
-// }
+const displayPost = postname => fetch("/wwwroot/" + postname).then(markdown => {
+  output = markdownParser(markdown.text());
+  document.getElementById('tocview').innerHTML = output.toc;
+  document.getElementById('mainview').innerHTML = output.post;
+});
 
-const getContent = (file) => fetch(file).then(data => data.text());
-
-function displayPost(filename) {
-  getContent("/wwwroot/" + filename).then(function (markdown) {
-    parserOutput = markdownParser(markdown);
-    document.getElementById('tocview').innerHTML = parserOutput.toc;
-    document.getElementById('mainview').innerHTML = parserOutput.post;
-  }).catch(function (error) {
-    console.log(error);
-  });
-}
-
-function displayIndex() {
-  getContent("/wwwroot/index.json").then(function (index) {
-    for (const [key, value] of Object.entries(JSON.parse(index))) {
-      document.getElementById('mainview').innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
-    }
-  }).catch(function (error) {
-    console.log(error);
-  });
-}
+const displayIndex = () => fetch("/wwwroot/index.json").then(index => {
+  for (const [key, value] of Object.entries(JSON.parse(index.text()))) {
+    document.getElementById('mainview').innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
+  }
+});
 
 if (getQueryVariable("id") == false) {
   displayIndex();
 } else {
-  displayPost(decodeURIComponent(getQueryVariable("id")));
+  displayPost(getQueryVariable("id"));
 }
