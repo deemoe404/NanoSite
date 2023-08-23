@@ -75,8 +75,8 @@ function markdownParser(markdown) {
     const line = replaceInline(escapeHtml(lines[i]));
 
     // Table
-    if (rawLine.startsWith('|')) {
-      const tabs = rawLine.split(/(?<!\\)\|/);
+    if (line.startsWith('|')) {
+      const tabs = line.split(/(?<!\\)\|/);
       if (!isInTable) {
         if (i + 3 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
           isInTable = true;
