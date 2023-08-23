@@ -45,7 +45,7 @@ function markdownParser(markdown) {
       let quote = `${rawLine.slice(1).trim()}`;
       let j = i + 1;
       for (; j < lines.length; j++) {
-        if (lines[j].startsWith('&gt;')) {
+        if (lines[j].startsWith('>')) {
           quote += `\n${lines[j].slice(1).trim()}`;
         } else {
           break;
