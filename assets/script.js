@@ -174,7 +174,7 @@ function getQueryVariable(variable) {
   return (false);
 }
 
-const getFile = filename => fetch(filename).then(data => data.text);
+const getFile = filename => fetch(filename).then(data => data.text());
 
 const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown => {
   output = markdownParser(markdown);
