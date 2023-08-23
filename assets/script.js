@@ -24,9 +24,10 @@ function simpleConvert(text) {
     .replace(/~~(.*?)~~/g, '<del>$1</del>');
 }
 
-function markdownToHtml(markdown) {
+function markdownParser(markdown) {
   const lines = markdown.split('\n');
   let html = '';
+  let tochtml = '<ul>';
 
   let isInList = false;
   let listType = -1;
@@ -54,6 +55,7 @@ function markdownToHtml(markdown) {
       continue;
     }
 
+    // Table
     if (rawLine.startsWith('|')) {
       if (!isInTable) {
         if (i + 3 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
@@ -83,15 +85,21 @@ function markdownToHtml(markdown) {
 
     const line = simpleConvert(escapeHtml(lines[i]));
 
+    // Title
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
       const headingText = line.slice(headingLevel).trim();
-      html += `<h${headingLevel} id="title${titleIndex}">${headingText}</h${headingLevel}>\n`;
+      html += `<h${headingLevel} id="${titleIndex}">${headingText}</h${headingLevel}>\n`;
       titleIndex = titleIndex + 1;
+      tochtml += `<li><a href="#${titleIndex}">${headingText}</a></li>`;
     }
+
+    // Break Line
     else if (line.trim() === '---' || line.trim() === '***') {
       html += '<hr>\n';
     }
+
+    // Ordered List
     else if (line.match(/^\d+\./)) {
       if (!isInList) {
         isInList = true;
@@ -101,6 +109,8 @@ function markdownToHtml(markdown) {
       const listItemText = line.slice(line.indexOf('.') + 1).trim();
       html += `<li>${listItemText}</li>\n`;
     }
+
+    // Unordered List
     else if (line.startsWith('-') || line.startsWith('*')) {
       if (!isInList) {
         isInList = true;
@@ -110,6 +120,8 @@ function markdownToHtml(markdown) {
       const listItemText = line.slice(1).trim();
       html += `<li>${listItemText}</li>\n`;
     }
+
+    // Blockquotes
     else if (line.startsWith('>')) {
       if (!isInList) {
         isInList = true;
@@ -118,6 +130,8 @@ function markdownToHtml(markdown) {
       }
       html += line.slice(1).trim() + '<br>';
     }
+
+    // Plain Text
     else {
       if (isInList) {
         isInList = false;
@@ -134,6 +148,8 @@ function markdownToHtml(markdown) {
     }
   }
 
+  tochtml += `</ul>`;
+
   if (isInList) {
     if (listType == 0) {
       html += '</ol>\n';
@@ -144,7 +160,8 @@ function markdownToHtml(markdown) {
     }
   }
 
-  return html;
+  var doc = { "page": html, "toc": tochtml };
+  return doc;
 }
 
 function getQueryVariable(variable) {
@@ -188,10 +205,19 @@ function getIndex() {
   });
 }
 
+function displayTOC(toc) {
+  document.getElementById('toc').innerHTML = toc;
+}
+
+function displayPost(post) {
+  document.getElementById('mainview').innerHTML = post;
+}
+
 function displayContent(variable) {
   getContent("/wwwroot/" + variable).then(function (content) {
-    htmlOutput = markdownToHtml(content);
-    document.getElementById('mainview').innerHTML = htmlOutput;
+    parserOutput = markdownParser(content);
+    displayPost(parserOutput.html);
+    displayTOC(parserOutput.tochtml);
   }).catch(function (error) {
     console.log(error);
   });
