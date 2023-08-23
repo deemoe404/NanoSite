@@ -29,6 +29,8 @@ function markdownToHtml(markdown) {
 
   let isInCodeBlock = false;
 
+  let titleIndex = 0;
+
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
 
@@ -51,7 +53,8 @@ function markdownToHtml(markdown) {
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
       const headingText = line.slice(headingLevel).trim();
-      html += `<h${headingLevel}>${headingText}</h${headingLevel}>\n`;
+      html += `<h${headingLevel} id="${titleIndex}">${headingText}</h${headingLevel}>\n`;
+      titleIndex = titleIndex + 1;
     }
     else if (line.trim() === '---' || line.trim() === '***') {
       html += '<hr>\n';
