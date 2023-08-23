@@ -65,11 +65,9 @@ function markdownToHtml(markdown) {
           }
           html += '</tr></thead><tbody>';
         }
-      }
-      i++;
-      continue;
-    } else if (isInTable) {
-      if (rawLine.startsWith('|')) {
+        i++;
+        continue;
+      } else {
         const tds = rawLine.split('|');
         html += '<tr>';
         for (let j = 0; j < tds.length; j++) {
@@ -77,11 +75,10 @@ function markdownToHtml(markdown) {
         }
         html += '</tr>';
         continue;
-      } else {
-        html += '</tbody></table>';
-        isInTable = false;
-        console.log(rawLine);
       }
+    } else if (isInTable) {
+      html += '</tbody></table>';
+      isInTable = false;
     }
 
     const line = simpleConvert(escapeHtml(lines[i]));
