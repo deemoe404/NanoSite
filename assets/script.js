@@ -80,24 +80,24 @@ function markdownParser(markdown) {
       if (!isInTable) {
         if (i + 3 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
           isInTable = true;
-          html += '<table><thead><tr>';
+          html += "<table><thead><tr>";
           for (let j = 1; j < tabs.length - 1; j++) {
-            html += `<th>${tabs[j].trim()}</th>`;
+            html += `<th>${tabs[j].trim().replace("\\|", "|")}</th>`;
           }
-          html += '</tr></thead><tbody>';
+          html += "</tr></thead><tbody>";
         }
         i++;
         continue;
       } else {
-        html += '<tr>';
+        html += "<tr>";
         for (let j = 1; j < tabs.length - 1; j++) {
-          html += `<td>${tabs[j].trim()}</td>`;
+          html += `<td>${tabs[j].trim().replace("\\|", "|")}</td>`;
         }
-        html += '</tr>';
+        html += "</tr>";
         continue;
       }
     } else if (isInTable) {
-      html += '</tbody></table>';
+      html += "</tbody></table>";
       isInTable = false;
     }
 
