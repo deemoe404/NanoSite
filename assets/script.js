@@ -90,8 +90,8 @@ function markdownParser(markdown) {
       const headingLevel = line.match(/^#+/)[0].length;
       const headingText = line.slice(headingLevel).trim();
       html += `<h${headingLevel} id="${titleIndex}">${headingText}</h${headingLevel}>\n`;
-      titleIndex = titleIndex + 1;
       tochtml += `<li><a href="#${titleIndex}">${headingText}</a></li>`;
+      titleIndex++;
     }
 
     // Break Line
