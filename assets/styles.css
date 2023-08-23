@@ -137,6 +137,11 @@ table tr:hover {
   background-color: #f2f2f2;
 }
 
+#toc {
+  position: sticky;
+  top: 20px;
+}
+
 .container {
   display: flex;
   justify-content: space-between;
