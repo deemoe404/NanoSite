@@ -162,13 +162,11 @@ function getContent(file) {
 function getIndex() {
   return new Promise(function (resolve, reject) {
     try {
-      getContent("/wwwroot/index.json")
-        .then(function (content) {
-          resolve(JSON.parse(content.toString()));
-        })
-        .catch(function (error) {
-          reject(error);
-        });
+      getContent("/wwwroot/index.json").then(function (content) {
+        resolve(JSON.parse(content.toString()));
+      }).catch(function (error) {
+        reject(error);
+      });
     } catch (error) {
       reject(error);
     }
@@ -176,45 +174,36 @@ function getIndex() {
 }
 
 function displayContent(variable) {
-  getIndex()
-    .then(function (index) {
-      for (const key in index) {
-        if (index.hasOwnProperty(key) && key.toString() == variable) {
-          getContent("/wwwroot/" + index[key].content)
-            .then(function (content) {
-              var url = window.location.origin;
-              homeurl = "<a href=\"" + url + "\">Home</a><br/>";
-              htmlOutput = markdownToHtml(content);
-              htmlOutput = homeurl + htmlOutput;
-              document.getElementById('mainview').innerHTML = htmlOutput;
-            })
-            .catch(function (error) {
-              console.log(error);
-            });
-        }
+  getIndex().then(function (index) {
+    for (const key in index) {
+      if (index.hasOwnProperty(key) && key.toString() == variable) {
+        getContent("/wwwroot/" + index[key].content).then(function (content) {
+          htmlOutput = markdownToHtml(content);
+          document.getElementById('mainview').innerHTML = htmlOutput;
+        }).catch(function (error) {
+          console.log(error);
+        });
       }
-    })
-    .catch(function (error) {
-      console.log("ERROR");
-    });
+    }
+  }).catch(function (error) {
+    console.log(error);
+  });
 }
 
 function displayHome() {
-  getIndex()
-    .then(function (index) {
-      htmlOutput = "";
-      var url = window.location.origin;
-      for (const key in index) {
-        if (index.hasOwnProperty(key)) {
-          tmp = "<a href=\"" + url + "?id=" + key.toString() + "\">" + key.toString() + "</a>";
-          htmlOutput = htmlOutput + "<br/>" + tmp;
-        }
+  getIndex().then(function (index) {
+    htmlOutput = "";
+    var url = window.location.origin;
+    for (const key in index) {
+      if (index.hasOwnProperty(key)) {
+        tmp = "<a href=\"" + url + "?id=" + key.toString() + "\">" + key.toString() + "</a>";
+        htmlOutput = htmlOutput + "<br/>" + tmp;
       }
-      document.getElementById('mainview').innerHTML = htmlOutput;
-    })
-    .catch(function (error) {
-      console.log("ERROR");
-    });
+    }
+    document.getElementById('mainview').innerHTML = htmlOutput;
+  }).catch(function (error) {
+    console.log(error);
+  });
 }
 
 if (getQueryVariable("id") == false) {
