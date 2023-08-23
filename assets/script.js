@@ -197,14 +197,12 @@ function displayContent(variable) {
   });
 }
 
-function displayHome() {
+function displayIndex() {
   getIndex().then(function (index) {
     htmlOutput = "";
-    var url = window.location.origin;
     for (const key in index) {
       if (index.hasOwnProperty(key)) {
-        tmp = "<a href=\"" + url + "?id=" + index[key].content + "\">" + key.toString() + "</a>";
-        htmlOutput = htmlOutput + "<br/>" + tmp;
+        htmlOutput += `<a href="?id${index[key].content}">${key.toString()}</a><br/>`;
       }
     }
     document.getElementById('mainview').innerHTML = htmlOutput;
@@ -214,7 +212,7 @@ function displayHome() {
 }
 
 if (getQueryVariable("id") == false) {
-  displayHome();
+  displayIndex();
 } else {
   displayContent(decodeURIComponent(getQueryVariable("id")));
 }
