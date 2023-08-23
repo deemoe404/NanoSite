@@ -69,6 +69,10 @@ local:
 
 > This is a blockquote.
 > It can span multiple lines.
+> This is a blockquote.
+> It can span multiple lines.
+> This is a blockquote.
+> It can span multiple lines.
 
 ---
 

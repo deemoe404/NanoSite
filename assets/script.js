@@ -143,7 +143,6 @@ function markdownParser(markdown) {
       }
 
       html += /<\/?[a-z][\s\S]*>/i.test(line) ? line : `<p>${line}</p>`;
-      console.log(`${line}:${/<\/?[a-z][\s\S]*>/i.test(line)}`);
     }
   }
 
