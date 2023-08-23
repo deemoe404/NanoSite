@@ -12,10 +12,10 @@ function replaceInline(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/-\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input>')
-    .replace(/\*\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input>')
-    .replace(/-\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input>')
-    .replace(/\*\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input>')
+    .replace(/-\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input><br>')
+    .replace(/\*\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input><br>')
+    .replace(/-\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input><br>')
+    .replace(/\*\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input><br>')
     .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
@@ -155,7 +155,7 @@ function markdownParser(markdown) {
     }
   }
 
-  return { "post": html, "toc": `<ul>${tochtml}</ul>` };
+  return { "post": html.replace(/<br>\s*<br>/g, '<br>'), "toc": `<ul>${tochtml}</ul>` };
 }
 
 function getQueryVariable(variable) {

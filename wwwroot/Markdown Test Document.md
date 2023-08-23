@@ -45,6 +45,7 @@ This covers some of the basic Markdown syntaxes for formatting text. Markdown pr
 ## Links
 
 Without title: [Visit Google](https://www.google.com)
+
 With title: [Visit GitHub](https://www.github.com "GitHub")
 
 ---
