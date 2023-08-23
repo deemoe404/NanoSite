@@ -16,7 +16,7 @@ function simpleConvert(text) {
     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
-    .replace(/\`(.*?)\`/g, '<code>$1</code>')
+    .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>');
 }
 
