@@ -142,6 +142,11 @@ table tr:hover {
   top: 20px;
 }
 
+#mapview {
+  display: flex;
+  justify-content: space-between;
+}
+
 .container {
   display: flex;
   justify-content: space-between;

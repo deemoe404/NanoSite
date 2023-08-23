@@ -1,5 +1,5 @@
 {
-  "Welcome to Nano blog": { "location": "welcome.md" },
-  "How to set up Nano blog": { "location": "setup.md" },
-  "Markdown Test Document": { "location": "Markdown Test Document.md" }
+  "Welcome to Nano blog": { "location": "welcome.md", "tag" : "NanoSite" },
+  "How to set up Nano blog": { "location": "setup.md", "tag" : "NanoSite"  },
+  "Markdown Test Document": { "location": "Markdown Test Document.md", "tag" : "testbench"  }
 }

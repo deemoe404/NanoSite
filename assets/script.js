@@ -160,7 +160,7 @@ function markdownParser(markdown) {
     }
   }
 
-  var doc = { "page": html, "toc": tochtml };
+  var doc = { "post": html, "toc": tochtml };
   return doc;
 }
 
@@ -205,19 +205,11 @@ function getIndex() {
   });
 }
 
-function displayTOC(toc) {
-  document.getElementById('tocview').innerHTML = toc;
-}
-
-function displayPost(post) {
-  document.getElementById('mainview').innerHTML = post;
-}
-
-function displayContent(variable) {
-  getContent("/wwwroot/" + variable).then(function (content) {
-    parserOutput = markdownParser(content);
-    displayPost(parserOutput.page);
-    displayTOC(parserOutput.toc);
+function displayPost(filename) {
+  getContent("/wwwroot/" + filename).then(function (markdown) {
+    parserOutput = markdownParser(markdown);
+    document.getElementById('tocview').innerHTML = parserOutput.toc;
+    document.getElementById('mainview').innerHTML = parserOutput.post;
   }).catch(function (error) {
     console.log(error);
   });
@@ -225,13 +217,9 @@ function displayContent(variable) {
 
 function displayIndex() {
   getIndex().then(function (index) {
-    htmlOutput = "";
-    for (const key in index) {
-      if (index.hasOwnProperty(key)) {
-        htmlOutput += `<a href="?id=${index[key].location}">${key.toString()}</a><br/>`;
-      }
+    for (const key of Object.keys(index)) {
+      document.getElementById('mainview').innerHTML += `<a href="?id=${index[key].location}">${key.toString()}</a><br/>`;
     }
-    document.getElementById('mainview').innerHTML = htmlOutput;
   }).catch(function (error) {
     console.log(error);
   });
@@ -240,5 +228,5 @@ function displayIndex() {
 if (getQueryVariable("id") == false) {
   displayIndex();
 } else {
-  displayContent(decodeURIComponent(getQueryVariable("id")));
+  displayPost(decodeURIComponent(getQueryVariable("id")));
 }
