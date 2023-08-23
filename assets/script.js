@@ -191,20 +191,6 @@ function getContent(file) {
   });
 }
 
-function getIndex() {
-  return new Promise(function (resolve, reject) {
-    try {
-      getContent("/wwwroot/index.json").then(function (content) {
-        resolve(JSON.parse(content.toString()));
-      }).catch(function (error) {
-        reject(error);
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
 function displayPost(filename) {
   getContent("/wwwroot/" + filename).then(function (markdown) {
     parserOutput = markdownParser(markdown);
@@ -216,8 +202,8 @@ function displayPost(filename) {
 }
 
 function displayIndex() {
-  getIndex().then(function (index) {
-    for (const key of Object.keys(index)) {
+  getContent("/wwwroot/index.json").then(function (index) {
+    for (const key of Object.keys(JSON.parse(index))) {
       document.getElementById('mainview').innerHTML += `<a href="?id=${index[key].location}">${key.toString()}</a><br/>`;
     }
   }).catch(function (error) {
