@@ -73,7 +73,7 @@ function markdownToHtml(markdown) {
         const tds = rawLine.split('|');
         html += '<tr>';
         for (let j = 0; j < tds.length; j++) {
-          html += `<th>${escapeHtml(tds[j].trim())}</th>`;
+          html += `<td>${escapeHtml(tds[j].trim())}</td>`;
         }
         html += '</tr>';
         continue;
