@@ -41,8 +41,8 @@ function markdownParser(markdown) {
     const rawLine = lines[i];
 
     // Blockquotes
-    if (line.startsWith('&gt;')) {
-      let quote = `${line.slice(4).trim()}`;
+    if (rawLine.startsWith('&gt;')) {
+      let quote = `${rawLine.slice(4).trim()}`;
       let j = i + 1;
       for (; j < lines.length; j++) {
         if (lines[j].startsWith('&gt;')) {
