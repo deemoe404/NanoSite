@@ -130,6 +130,7 @@ del {
 
 .content {
   flex: 0 1 770px;
+  overflow: auto;
 }
 
 .sidebar {
