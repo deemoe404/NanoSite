@@ -202,7 +202,7 @@ function displayIndex() {
     htmlOutput = "";
     for (const key in index) {
       if (index.hasOwnProperty(key)) {
-        htmlOutput += `<a href="?id${index[key].content}">${key.toString()}</a><br/>`;
+        htmlOutput += `<a href="?id=${index[key].content}">${key.toString()}</a><br/>`;
       }
     }
     document.getElementById('mainview').innerHTML = htmlOutput;
