@@ -58,10 +58,10 @@ function markdownToHtml(markdown) {
       if (!isInTable) {
         if (i + 3 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
           isInTable = true;
-          const headers = rawLine.split('|').trim();
+          const headers = rawLine.split('|');
           html += '<table><thead><tr>';
           for (let j = 0; j < headers.length; j++) {
-            html += `<th>${escapeHtml(headers[j])}</th>`;
+            html += `<th>${escapeHtml(headers[j].trim())}</th>`;
           }
           html += '</tr></thead><tbody>';
         }
@@ -70,10 +70,10 @@ function markdownToHtml(markdown) {
       continue;
     } else if (isInTable) {
       if (rawLine.startsWith('|')) {
-        const tds = rawLine.split('|').trim();
+        const tds = rawLine.split('|');
         html += '<tr>';
         for (let j = 0; j < tds.length; j++) {
-          html += `<th>${escapeHtml(tds[j])}</th>`;
+          html += `<th>${escapeHtml(tds[j].trim())}</th>`;
         }
         html += '</tr>';
         continue;
