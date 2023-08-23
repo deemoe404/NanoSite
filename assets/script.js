@@ -87,7 +87,8 @@ function markdownParser(markdown) {
     // Blockquotes
     if (line.startsWith('&gt;')) {
       let quote = `${line.slice(4).trim()}\n`;
-      for (let j = i + 1; j < lines.length; j++) {
+      let j = i + 1;
+      for (; j < lines.length; j++) {
         if (lines[j].startsWith('&gt;')) {
           quote += `${lines[j].slice(4).trim()}\n`;
         } else {
@@ -96,7 +97,7 @@ function markdownParser(markdown) {
       }
       const output = markdownParser(quote);
       html += `<blockquote>${output.post}</blockquote>`;
-      j = i;
+      i = j;
       continue;
     }
 
