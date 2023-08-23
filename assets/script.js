@@ -206,7 +206,7 @@ function getIndex() {
 }
 
 function displayTOC(toc) {
-  document.getElementById('mapview').innerHTML = toc;
+  document.getElementById('tocview').innerHTML = toc;
 }
 
 function displayPost(post) {
