@@ -10,8 +10,8 @@ function escapeHtml(text) {
 
 function simpleConvert(text) {
   return text
-    .replace(/(?<!\\)\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(?<!\\)\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
@@ -23,9 +23,11 @@ function simpleConvert(text) {
 function markdownToHtml(markdown) {
   const lines = markdown.split('\n');
   let html = '';
+
   let isInList = false;
-  let isInCodeBlock = false;
   let listType = -1;
+
+  let isInCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
