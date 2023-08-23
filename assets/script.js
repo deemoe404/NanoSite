@@ -60,7 +60,7 @@ function markdownToHtml(markdown) {
           isInTable = true;
           const headers = rawLine.split('|');
           html += '<table><thead><tr>';
-          for (let j = 0; j < headers.length; j++) {
+          for (let j = 1; j < headers.length - 1; j++) {
             html += `<th>${escapeHtml(headers[j].trim())}</th>`;
           }
           html += '</tr></thead><tbody>';
@@ -70,7 +70,7 @@ function markdownToHtml(markdown) {
       } else {
         const tds = rawLine.split('|');
         html += '<tr>';
-        for (let j = 0; j < tds.length; j++) {
+        for (let j = 1; j < tds.length - 1; j++) {
           html += `<td>${escapeHtml(tds[j].trim())}</td>`;
         }
         html += '</tr>';
