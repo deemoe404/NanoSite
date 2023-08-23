@@ -18,9 +18,11 @@ This covers some of the basic Markdown syntaxes for formatting text. Markdown pr
 
 ## Emphasis
 
-*Italic*
-**Bold**
-***Bold Italic***
+This is a *Italic*.
+
+This is a **Bold**.
+
+This is a ***Bold Italic***.
 
 ---
 

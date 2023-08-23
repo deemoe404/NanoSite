@@ -12,10 +12,6 @@ function replaceInline(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/-\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input><br>')
-    .replace(/\*\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input><br>')
-    .replace(/-\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input><br>')
-    .replace(/\*\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input><br>')
     .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
@@ -37,6 +33,7 @@ function markdownParser(markdown) {
 
   let isInCodeBlock = false;
   let isInTable = false;
+  let isInTodo = false;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -100,6 +97,27 @@ function markdownParser(markdown) {
     } else if (isInTable) {
       html += "</tbody></table>";
       isInTable = false;
+    }
+
+    // To-do List
+    const match = line.match(/^[-*] \[([ x])\]/);
+    if (match) {
+      if (!isInTodo) {
+        isInTodo = true;
+        html += '<ul>';
+      }
+      const checkboxValue = match[1];
+      const taskText = line.slice(5).trim();
+      if (checkboxValue === 'x') {
+        html += `<li><input type="checkbox" disabled>${escapeHtml(taskText)}</li>\n`;
+      } else {
+        html += `<li><input type="checkbox" checked disabled>${escapeHtml(taskText)}</li>\n`;
+      }
+    } else {
+      if (isInTodo) {
+        html += '</ul>';
+        isInTodo = false;
+      }
     }
 
     // Title
