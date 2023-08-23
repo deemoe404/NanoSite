@@ -176,7 +176,7 @@ const displayIndex = () => getFile("/wwwroot/index.json").then(index => {
   }
 });
 
-if (getQueryVariable("id") == false) {
+if (getQueryVariable("id") == null) {
   displayIndex();
 } else {
   displayPost(getQueryVariable("id"));
