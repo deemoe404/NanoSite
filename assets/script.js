@@ -3,12 +3,12 @@ function escapeHtml(text) {
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/(?!^)>/g, '&gt;')
+    .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 };
 
-function simpleConvert(text) {
+function replaceInline(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -27,9 +27,9 @@ function simpleConvert(text) {
 }
 
 function markdownParser(markdown) {
-  const lines = markdown.split('\n');
+  const lines = escapeHtml(markdown).split('\n');
   let html = '';
-  let tochtml = '<ul>';
+  let tochtml = '';
 
   let isInList = false;
   let listType = -1;
@@ -57,23 +57,22 @@ function markdownParser(markdown) {
 
     // Table
     if (rawLine.startsWith('|')) {
+      const tabs = rawLine.split('|');
       if (!isInTable) {
         if (i + 3 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
           isInTable = true;
-          const headers = rawLine.split('|');
           html += '<table><thead><tr>';
-          for (let j = 1; j < headers.length - 1; j++) {
-            html += `<th>${escapeHtml(headers[j].trim())}</th>`;
+          for (let j = 1; j < tabs.length - 1; j++) {
+            html += `<th>${escapeHtml(tabs[j].trim())}</th>`;
           }
           html += '</tr></thead><tbody>';
         }
         i++;
         continue;
       } else {
-        const tds = rawLine.split('|');
         html += '<tr>';
-        for (let j = 1; j < tds.length - 1; j++) {
-          html += `<td>${escapeHtml(tds[j].trim())}</td>`;
+        for (let j = 1; j < tabs.length - 1; j++) {
+          html += `<td>${escapeHtml(tabs[j].trim())}</td>`;
         }
         html += '</tr>';
         continue;
@@ -83,7 +82,7 @@ function markdownParser(markdown) {
       isInTable = false;
     }
 
-    const line = simpleConvert(escapeHtml(lines[i]));
+    const line = replaceInline(lines[i]);
 
     // Title
     if (line.startsWith('#')) {
@@ -116,13 +115,13 @@ function markdownParser(markdown) {
     }
 
     // Blockquotes
-    else if (line.startsWith('>')) {
+    else if (line.startsWith('&gt;')) {
       if (!isInList) {
         isInList = true;
         html += '<blockquote>\n';
         listType = 2;
       }
-      html += line.slice(1).trim() + '<br>';
+      html += line.slice(4).trim() + '<br>';
     }
 
     // Plain Text
@@ -142,8 +141,6 @@ function markdownParser(markdown) {
     }
   }
 
-  tochtml += `</ul>`;
-
   if (isInList) {
     if (listType == 0) {
       html += '</ol>\n';
@@ -154,7 +151,7 @@ function markdownParser(markdown) {
     }
   }
 
-  return { "post": html, "toc": tochtml };
+  return { "post": html, "toc": `<ul>${tochtml}</ul>` };
 }
 
 function getQueryVariable(variable) {
