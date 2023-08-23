@@ -80,6 +80,7 @@ function markdownToHtml(markdown) {
       } else {
         html += '</tbody></table>';
         isInTable = false;
+        console.log(rawLine);
       }
     }
 
