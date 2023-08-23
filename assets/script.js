@@ -23,7 +23,8 @@ function replaceInline(text) {
     .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
     .replace(/^\*\*\*$/gm, '<hr>')
-    .replace(/^---$/gm, '<hr>');
+    .replace(/^---$/gm, '<hr>')
+    .replace(/^\n+/g, "<br>");
 }
 
 function markdownParser(markdown) {
