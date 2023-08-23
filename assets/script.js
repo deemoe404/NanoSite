@@ -174,17 +174,9 @@ function getIndex() {
 }
 
 function displayContent(variable) {
-  getIndex().then(function (index) {
-    for (const key in index) {
-      if (index.hasOwnProperty(key) && key.toString() == variable) {
-        getContent("/wwwroot/" + index[key].content).then(function (content) {
-          htmlOutput = markdownToHtml(content);
-          document.getElementById('mainview').innerHTML = htmlOutput;
-        }).catch(function (error) {
-          console.log(error);
-        });
-      }
-    }
+  getContent("/wwwroot/" + variable).then(function (content) {
+    htmlOutput = markdownToHtml(content);
+    document.getElementById('mainview').innerHTML = htmlOutput;
   }).catch(function (error) {
     console.log(error);
   });
@@ -196,7 +188,7 @@ function displayHome() {
     var url = window.location.origin;
     for (const key in index) {
       if (index.hasOwnProperty(key)) {
-        tmp = "<a href=\"" + url + "?id=" + key.toString() + "\">" + key.toString() + "</a>";
+        tmp = "<a href=\"" + url + "?id=" + index[key].content + "\">" + key.toString() + "</a>";
         htmlOutput = htmlOutput + "<br/>" + tmp;
       }
     }
