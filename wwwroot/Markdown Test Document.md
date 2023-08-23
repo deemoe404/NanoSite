@@ -156,8 +156,8 @@ int main() {
 | -------- | -------- | -------- |
 | Cell 1   | Cell 2   | Cell 3   |
 | Cell A   | Cell B   | Cell C   |
-| Cell o   | Cell 0   | Cell O   |
-| cat   | dog   | duck   |
+| \|Cell o | Cell 0   | Cell O   |
+| *cat*    | **dog**  |***duck***|
 
 ---
 
