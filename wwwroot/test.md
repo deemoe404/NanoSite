@@ -27,12 +27,14 @@ This covers some of the basic Markdown syntaxes for formatting text. Markdown pr
 ## Lists
 
 ### Unordered List
+
 - Item 1
 - Item 2
   - Subitem 1
   - Subitem 2
 
 ### Ordered List
+
 1. First item
 2. Second item
    1. Subitem A
@@ -146,6 +148,8 @@ int main() {
 | -------- | -------- | -------- |
 | Cell 1   | Cell 2   | Cell 3   |
 | Cell A   | Cell B   | Cell C   |
+| Cell o   | Cell 0   | Cell O   |
+| cat   | dog   | duck   |
 
 ---
 
