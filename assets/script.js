@@ -12,10 +12,10 @@ function simpleConvert(text) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/-\s\[\s\](.*?)/g ,'<input type="checkbox" disabled>$1</input>')
-    .replace(/\*\s\[\s\](.*?)/g ,'<input type="checkbox" disabled>$1</input>')
-    .replace(/-\s\[x\](.*?)/g ,'<input type="checkbox" checked disabled>$1</input>')
-    .replace(/\*\s\[x\](.*?)/g ,'<input type="checkbox" checked disabled>$1</input>')
+    .replace(/-\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input>')
+    .replace(/\*\s\[\s\](.*?)/g, '<input type="checkbox" disabled>$1</input>')
+    .replace(/-\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input>')
+    .replace(/\*\s\[x\](.*?)/g, '<input type="checkbox" checked disabled>$1</input>')
     .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
@@ -32,12 +32,14 @@ function markdownToHtml(markdown) {
   let listType = -1;
 
   let isInCodeBlock = false;
+  let isInTable = false;
 
   let titleIndex = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
 
+    // Code Block
     if (rawLine.startsWith('```')) {
       if (!isInCodeBlock) {
         isInCodeBlock = true;
@@ -50,6 +52,35 @@ function markdownToHtml(markdown) {
     } else if (isInCodeBlock) {
       html += escapeHtml(rawLine) + '\n';
       continue;
+    }
+
+    if (rawLine.startsWith('|')) {
+      if (!isInTable) {
+        if (i + 3 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
+          isInTable = true;
+          const headers = rawLine.split('|').trim();
+          html += '<table><thead><tr>';
+          for (let j = 0; j < headers.length; j++) {
+            html += `<th>${escapeHtml(headers[j])}</th>`;
+          }
+          html += '</tr></thead><tbody>';
+        }
+      }
+      i++;
+      continue;
+    } else if (isInTable) {
+      if (rawLine.startsWith('|')) {
+        const tds = rawLine.split('|').trim();
+        html += '<tr>';
+        for (let j = 0; j < tds.length; j++) {
+          html += `<th>${escapeHtml(tds[j])}</th>`;
+        }
+        html += '</tr>';
+        continue;
+      } else {
+        html += '</tbody></table>';
+        isInTable = false;
+      }
     }
 
     const line = simpleConvert(escapeHtml(lines[i]));
