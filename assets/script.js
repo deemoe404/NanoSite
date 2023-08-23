@@ -27,7 +27,7 @@ function replaceInline(text) {
 }
 
 function markdownParser(markdown) {
-  const lines = escapeHtml(markdown).split('\n');
+  const lines = markdown.split('\n');
   let html = '';
   let tochtml = '';
 
@@ -40,6 +40,23 @@ function markdownParser(markdown) {
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
 
+    // Blockquotes
+    if (line.startsWith('&gt;')) {
+      let quote = `${line.slice(4).trim()}`;
+      let j = i + 1;
+      for (; j < lines.length; j++) {
+        if (lines[j].startsWith('&gt;')) {
+          quote += `\n${lines[j].slice(4).trim()}`;
+        } else {
+          break;
+        }
+      }
+      const output = markdownParser(quote);
+      html += `<blockquote>${output.post}</blockquote>`;
+      i = j;
+      continue;
+    }
+
     // Code Block
     if (rawLine.startsWith('```')) {
       if (!isInCodeBlock) {
@@ -51,11 +68,11 @@ function markdownParser(markdown) {
       }
       continue;
     } else if (isInCodeBlock) {
-      html += rawLine + '\n';
+      html += escapeHtml(rawLine) + '\n';
       continue;
     }
 
-    const line = replaceInline(lines[i]);
+    const line = replaceInline(escapeHtml(lines[i]));
 
     // Table
     if (rawLine.startsWith('|')) {
@@ -82,23 +99,6 @@ function markdownParser(markdown) {
     } else if (isInTable) {
       html += '</tbody></table>';
       isInTable = false;
-    }
-
-    // Blockquotes
-    if (line.startsWith('&gt;')) {
-      let quote = `${line.slice(4).trim()}`;
-      let j = i + 1;
-      for (; j < lines.length; j++) {
-        if (lines[j].startsWith('&gt;')) {
-          quote += `\n${lines[j].slice(4).trim()}`;
-        } else {
-          break;
-        }
-      }
-      const output = markdownParser(quote);
-      html += `<blockquote>${output.post}</blockquote>`;
-      i = j;
-      continue;
     }
 
     // Title
