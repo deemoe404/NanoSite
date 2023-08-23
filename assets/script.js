@@ -86,11 +86,11 @@ function markdownParser(markdown) {
 
     // Blockquotes
     if (line.startsWith('&gt;')) {
-      let quote = `${line.slice(4).trim()}\n`;
+      let quote = `${line.slice(4).trim()}`;
       let j = i + 1;
       for (; j < lines.length; j++) {
         if (lines[j].startsWith('&gt;')) {
-          quote += `${lines[j].slice(4).trim()}\n`;
+          quote += `\n${lines[j].slice(4).trim()}`;
         } else {
           break;
         }
