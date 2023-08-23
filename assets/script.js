@@ -1,20 +1,32 @@
+function escapeHtml(text) {
+  return text
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/(?!^)>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+function simpleConvert(text) {
+  return text
+    .replace(/(?<!\\)\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\\)\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
+    .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
+    .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
+    .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+    .replace(/\`(.*?)\`/g, '<code>$1</code>')
+    .replace(/~~(.*?)~~/g, '<del>$1</del>');
+}
+
 function markdownToHtml(markdown) {
   const lines = markdown.split('\n');
   let html = '';
-
-  const escapeHtml = (text) => {
-    return text
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/(?!^)>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
-
   let isInList = false;
   let isInCodeBlock = false;
   let listType = -1;
+
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
 
@@ -27,22 +39,12 @@ function markdownToHtml(markdown) {
         html += '</code></pre>';
       }
       continue;
-    }
-
-    if (isInCodeBlock) {
+    } else if (isInCodeBlock) {
       html += escapeHtml(rawLine) + '\n';
       continue;
     }
 
-    const line = escapeHtml(lines[i])
-      .replace(/(?<!\\)\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/(?<!\\)\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
-      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
-      .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
-      .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
-      .replace(/\`(.*?)\`/g, '<code>$1</code>')
-      .replace(/~~(.*?)~~/g, '<del>$1</del>');
+    const line = simpleConvert(escapeHtml(lines[i]));
 
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
