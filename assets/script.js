@@ -174,14 +174,16 @@ function getQueryVariable(variable) {
   return (false);
 }
 
-const displayPost = postname => fetch("/wwwroot/" + postname).then(markdown => {
-  output = markdownParser(markdown.text());
+const getFile = filename => fetch(filename).then(data => data.text);
+
+const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown => {
+  output = markdownParser(markdown);
   document.getElementById('tocview').innerHTML = output.toc;
   document.getElementById('mainview').innerHTML = output.post;
 });
 
-const displayIndex = () => fetch("/wwwroot/index.json").then(index => {
-  for (const [key, value] of Object.entries(JSON.parse(index.text()))) {
+const displayIndex = () => getFile("/wwwroot/index.json").then(index => {
+  for (const [key, value] of Object.entries(JSON.parse(index))) {
     document.getElementById('mainview').innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
   }
 });
