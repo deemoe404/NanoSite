@@ -61,7 +61,7 @@ function markdownParser(markdown) {
     if (rawLine.startsWith('|')) {
       const tabs = rawLine.split('|');
       if (!isInTable) {
-        if (i + 3 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
+        if (i + 3 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
           isInTable = true;
           html += '<table><thead><tr>';
           for (let j = 1; j < tabs.length - 1; j++) {
@@ -82,6 +82,22 @@ function markdownParser(markdown) {
     } else if (isInTable) {
       html += '</tbody></table>';
       isInTable = false;
+    }
+
+    // Blockquotes
+    if (line.startsWith('&gt;')) {
+      let quote = `${line}\n`;
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].startsWith('&gt;')) {
+          quote += `${lines[j].slice(4).trim()}\n`;
+        } else {
+          break;
+        }
+      }
+      const output = markdownParser(quote);
+      html += `<blockquote>${output.post}</blockquote>`;
+      j = i;
+      continue;
     }
 
     // Title
@@ -114,16 +130,6 @@ function markdownParser(markdown) {
       html += `<li>${listItemText}</li>\n`;
     }
 
-    // Blockquotes
-    else if (line.startsWith('&gt;')) {
-      if (!isInList) {
-        isInList = true;
-        html += '<blockquote>\n';
-        listType = 2;
-      }
-      html += line.slice(4).trim() + '<br>';
-    }
-
     // Plain Text
     else {
       if (isInList) {
@@ -132,12 +138,10 @@ function markdownParser(markdown) {
           html += '</ol>\n';
         } else if (listType == 1) {
           html += '</ul>\n';
-        } else if (listType == 2) {
-          html += '</blockquote>\n';
         }
       }
 
-      html += line.startsWith('<') ? `${line}<br>` : `<p>${line}</p>`;
+      html += line.startsWith('<') ? `${line}` : `<p>${line}</p>`;
     }
   }
 
@@ -146,8 +150,6 @@ function markdownParser(markdown) {
       html += '</ol>\n';
     } else if (listType == 1) {
       html += '</ul>\n';
-    } else if (listType == 2) {
-      html += '</blockquote>\n';
     }
   }
 
@@ -162,7 +164,7 @@ function getQueryVariable(variable) {
 const getFile = filename => fetch(filename).then(data => data.text());
 
 const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown => {
-  output = markdownParser(markdown);
+  const output = markdownParser(markdown);
   document.getElementById("tocview").innerHTML = output.toc;
   document.getElementById("mainview").innerHTML = output.post;
 });
