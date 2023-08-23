@@ -216,8 +216,8 @@ function displayPost(post) {
 function displayContent(variable) {
   getContent("/wwwroot/" + variable).then(function (content) {
     parserOutput = markdownParser(content);
-    displayPost(parserOutput.html);
-    displayTOC(parserOutput.tochtml);
+    displayPost(parserOutput.page);
+    displayTOC(parserOutput.toc);
   }).catch(function (error) {
     console.log(error);
   });
