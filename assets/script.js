@@ -42,7 +42,7 @@ function replaceInline(text) {
   }
 
   const parts = text.split("`");
-  console.log(parts);
+  console.log(`${text}: ${parts}`);
   let result = "";
 
   for (let i = 0; i < parts.length; i++) {
