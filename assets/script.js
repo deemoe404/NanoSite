@@ -56,35 +56,33 @@ function replaceInline(text) {
 }
 
 function tocParser(titleLevels, liTags) {
-  const topLevelList = document.createElement('ul');
-  const stack = [{ level: 0, parent: topLevelList }];
+  const rootList = document.createElement('ul');
+  const stack = [{ level: 0, list: rootList }];
 
   for (let i = 0; i < titleLevels.length; i++) {
     const titleLevel = titleLevels[i];
     const liTag = liTags[i];
+    const newLi = document.createElement('li');
+    newLi.innerHTML = liTag;
 
-    const listItem = document.createElement('li');
-    listItem.innerHTML = liTag;
-
-    const newLevel = titleLevel;
-    let parentList = stack[stack.length - 1].parent;
-
-    while (stack.length > 0 && newLevel <= stack[stack.length - 1].level) {
+    while (stack.length > 0 && titleLevel <= stack[stack.length - 1].level) {
       stack.pop();
-      parentList = stack[stack.length - 1].parent;
     }
 
-    if (newLevel > stack[stack.length - 1].level) {
+    if (stack.length > 0) {
+      const parentList = stack[stack.length - 1].list;
+      parentList.appendChild(newLi);
+
       const newList = document.createElement('ul');
-      listItem.appendChild(newList);
-      parentList.appendChild(listItem);
-      stack.push({ level: newLevel, parent: newList });
+      newLi.appendChild(newList);
+
+      stack.push({ level: titleLevel, list: newList });
     } else {
-      parentList.appendChild(listItem);
+      rootList.appendChild(newLi);
     }
   }
 
-  return topLevelList.outerHTML;
+  return rootList.outerHTML;
 }
 
 function markdownParser(markdown) {
