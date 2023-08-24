@@ -13,13 +13,11 @@ function escapeMarkdown(text) {
   }
 
   const parts = text.split("`");
-  console.log(`${text}: ${parts}`);
   let result = "";
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
       result += parts[i]
         .replace("\\\\", "&#092;")
-        .replace("\\`", "&#096;")
         .replace("\\*", "&#042;")
         .replace("\\_", "&#095;")
         .replace("\\{", "&#123;").replace("\\}", "&#125;")
@@ -42,8 +40,7 @@ function escapeMarkdown(text) {
       }
     };
   }
-  console.log(result);
-  return result;
+  return result.replace("\\`", "&#096;");
 }
 
 function replaceInline(text) {
@@ -52,7 +49,6 @@ function replaceInline(text) {
   }
 
   const parts = text.split("`");
-  console.log(`${text}: ${parts}`);
   let result = "";
 
   for (let i = 0; i < parts.length; i++) {
@@ -77,7 +73,6 @@ function replaceInline(text) {
       }
     };
   }
-  console.log(result);
   return result
     .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
     .replace(/^\s*$/g, "<br>");
