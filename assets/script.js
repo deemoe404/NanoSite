@@ -68,8 +68,15 @@ function replaceInline(text) {
         .replace(/^\*\*\*$/gm, '<hr>')
         .replace(/^---$/gm, '<hr>')
         .replace(/^\s*$/g, "<br>");
-      result += (parts.length != 1 && (i != (parts.length % 2 == 0) ? parts.length - 2 : parts.length - 1)) ? "`" : "";
-    } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
+      if (i < parts.length - 1) {
+        result += "`";
+      }
+    } else {
+      result += parts[i];
+      if (i < parts.length - 1) {
+        result += "`";
+      }
+    };
   }
   console.log(result);
   return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
