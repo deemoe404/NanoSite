@@ -74,9 +74,10 @@ function replaceInline(text) {
       }
     };
   }
+  console.log(`[${text}], [${result}]`);
   return result
     .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
-    .replace(/^\s*$/g, "<br>");
+    .replace(/^\s*$/g, "<br>");   
 }
 
 const isBlank = text => /^\s*$/.test(text);
