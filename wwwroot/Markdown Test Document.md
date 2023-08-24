@@ -51,8 +51,14 @@ This is a ***Bold Italic***.
 
 1. First item
 2. Second item
+    text list! *this*, **this!!!!**
+    `this!!!`
+        code
+        codeline2
    1. Subitem A
    2. Subitem B
+3. yes!
+good
 
 ---
 

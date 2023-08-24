@@ -6,7 +6,7 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-};
+}
 
 function escapeMarkdown(text) {
   return text
@@ -45,13 +45,15 @@ function replaceInline(text) {
     .replace(/^\s*$/g, "<br>");
 }
 
+const isBlank = text => /^\s*$/.test(text);
+
 function markdownParser(markdown) {
-  const lines = markdown.split('\n');
+  const lines = escapeMarkdown(markdown).split('\n');
   let html = '';
   let tochtml = '';
 
   let isInList = false;
-  let listType = -1;
+  let listType = [];
 
   let isInCodeBlock = false;
   let isInTable = false;
@@ -71,10 +73,7 @@ function markdownParser(markdown) {
           break;
         }
       }
-      const output = markdownParser(quote);
-      console.log(quote);
-      console.log(output.post);
-      html += `<blockquote>${output.post}</blockquote>`;
+      html += `<blockquote>${markdownParser(quote).post}</blockquote>`;
       i = j - 1;
       continue;
     }
@@ -94,18 +93,16 @@ function markdownParser(markdown) {
       continue;
     }
 
-    const line = replaceInline(escapeHtml(lines[i]));
-
     // Table
-    if (line.startsWith('|')) {
-      const tabs = line.split("|");
+    if (rawLine.startsWith('|')) {
+      const tabs = rawLine.split("|");
       console.log(tabs);
       if (!isInTable) {
-        if (i + 2 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
+        if (i + 2 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
           isInTable = true;
           html += "<table><thead><tr>";
           for (let j = 1; j < tabs.length - 1; j++) {
-            html += `<th>${tabs[j].trim().replace("\\|", "|")}</th>`;
+            html += `<th>${replaceInline(escapeHtml(tabs[j].trim()))}</th>`;
           }
           html += "</tr></thead><tbody>";
         }
@@ -114,7 +111,7 @@ function markdownParser(markdown) {
       } else {
         html += "<tr>";
         for (let j = 1; j < tabs.length - 1; j++) {
-          html += `<td>${tabs[j].trim().replace("\\|", "|")}</td>`;
+          html += `<td>${replaceInline(escapeHtml(tabs[j].trim()))}</td>`;
         }
         html += "</tr>";
         if (i == lines.length - 1) {
@@ -129,17 +126,17 @@ function markdownParser(markdown) {
     }
 
     // To-do List
-    const match = line.match(/^[-*] \[([ x])\]/);
+    const match = rawLine.match(/^[-*] \[([ x])\]/);
     if (match) {
       if (!isInTodo) {
         isInTodo = true;
         html += '<ul class="todo">';
       }
-      const taskText = line.slice(5).trim();
+      const taskText = replaceInline(escapeHtml(rawLine.slice(5).trim()));
       if (match[1] === 'x') {
-        html += `<li><input type="checkbox" disabled>${taskText}</li>\n`;
+        html += `<li><input type="checkbox" id="todo${i}" disabled><label for="todo${i}">${taskText}</label></li>`;
       } else {
-        html += `<li><input type="checkbox" checked disabled>${taskText}</li>\n`;
+        html += `<li><input type="checkbox" id="todo${i}" disabled checked><label for="todo${i}">${taskText}</label></li>`;
       }
       continue;
     } else {
@@ -149,6 +146,83 @@ function markdownParser(markdown) {
       }
     }
 
+    // Ordered List
+    if (rawLine.match(/^\d+\./)) {
+      html += "<ol>";
+      let j = i;
+      for (; j < lines.length; j++) {
+        // 如果这一行是列表语法
+        if (lines[j].match(/^\d+\./)) {
+          // 如果这一行不是最后一行
+          if (j + 1 != lines.length) {
+            // 如果这一行的下一行也是列表语法，直接添加一个完整的列表项，并继续
+            if (lines[j + 1].match(/^\d+\./)) {
+              const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+              html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+              continue;
+            }
+            // 如果这一行的下一行不是列表语法
+            else {
+              // 如果这一行的下一行是空白的，直接添加一个完整的列表，结束列表
+              if (isBlank(lines[j + 1])) {
+                const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+                html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+                break;
+              }
+              // 如果这一行的下一行不是空白的
+              else {
+                const indent = lines[j + 1].match(/^\s+/)[0]; // 判断行首空格个数
+                // 如果行首没有空格，直接添加一个完整的列表，结束列表
+                if (indent == null) {
+                  const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+                  html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+                  break;
+                }
+                // 如果行首有空格，当作缩进处理
+                else {
+                  const indentCount = indent.length;
+                  let k = j + 1;
+                  let indentContent = "";
+                  // 收集缩进内的所有文本
+                  for (; k < lines.length; k++) {
+                    const subIndent = lines[k].match(/^\s+/)[0];
+                    if (subIndent == null) {
+                      break;
+                    }
+                    else {
+                      if (subIndent.length >= indentCount) {
+                        indentContent += lines[k].slice(indentCount);
+                      }
+                      else {
+                        break;
+                      }
+                    }
+                    if (k + 1 != lines.length) {
+                      indentContent += "\n";
+                    }
+                  }
+                  const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+                  html += `<li><p>${replaceInline(escapeHtml(text))}</p>${markdownParser(indentContent).post}</li>`;
+                  j = k;
+                }
+              }
+            }
+          }
+          // 如果这一行是最后一行，直接添加一个完整的列表项，结束列表
+          else {
+            const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+            html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+            break;
+          }
+        }
+      }
+      html += "</ol>";
+      i = j - 1;
+      continue;
+    }
+
+    const line = replaceInline(escapeHtml(lines[i]));
+
     // Title
     if (line.startsWith('#')) {
       const headingLevel = line.match(/^#+/)[0].length;
@@ -157,27 +231,27 @@ function markdownParser(markdown) {
       tochtml += `<li><a href="#${i}">${headingText}</a></li>`;
     }
 
-    // Ordered List
-    else if (line.match(/^\d+\./)) {
-      if (!isInList) {
-        isInList = true;
-        html += '<ol>\n';
-        listType = 0;
-      }
-      const listItemText = line.slice(line.indexOf('.') + 1).trim();
-      html += `<li>${listItemText}</li>\n`;
-    }
+    // // Ordered List
+    // else if (line.match(/^\d+\./)) {
+    //   if (!isInList) {
+    //     isInList = true;
+    //     html += '<ol>\n';
+    //     listType = 0;
+    //   }
+    //   const listItemText = line.slice(line.indexOf('.') + 1).trim();
+    //   html += `<li>${listItemText}</li>\n`;
+    // }
 
-    // Unordered List
-    else if (line.startsWith('-') || line.startsWith('*')) {
-      if (!isInList) {
-        isInList = true;
-        html += '<ul>\n';
-        listType = 1;
-      }
-      const listItemText = line.slice(1).trim();
-      html += `<li>${listItemText}</li>\n`;
-    }
+    // // Unordered List
+    // else if (line.startsWith('-') || line.startsWith('*')) {
+    //   if (!isInList) {
+    //     isInList = true;
+    //     html += '<ul>\n';
+    //     listType = 1;
+    //   }
+    //   const listItemText = line.slice(1).trim();
+    //   html += `<li>${listItemText}</li>\n`;
+    // }
 
     // Plain Text
     else {
