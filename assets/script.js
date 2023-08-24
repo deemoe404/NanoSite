@@ -66,8 +66,7 @@ function replaceInline(text) {
         .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
         .replace(/~~(.*?)~~/g, '<del>$1</del>')
         .replace(/^\*\*\*$/gm, '<hr>')
-        .replace(/^---$/gm, '<hr>')
-        .replace(/^\s*$/g, "<br>");
+        .replace(/^---$/gm, '<hr>');
       if (i < parts.length - 1) {
         result += "`";
       }
@@ -79,7 +78,9 @@ function replaceInline(text) {
     };
   }
   console.log(result);
-  return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
+  return result
+    .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
+    .replace(/^\s*$/g, "<br>");
 }
 
 const isBlank = text => /^\s*$/.test(text);
@@ -185,7 +186,7 @@ function markdownParser(markdown) {
     if (rawLine.startsWith('#')) {
       const headingLevel = rawLine.match(/^#+/)[0].length;
       const headingText = replaceInline(escapeHtml(rawLine.slice(headingLevel).trim()));
-      html += `<h${headingLevel} id="${i}">${headingText}</h${headingLevel}>\n`;
+      html += `<h${headingLevel} id="${i}">${headingText}</h${headingLevel}>`;
       tochtml += `<li><a href="#${i}">${headingText}</a></li>`;
       continue;
     }
