@@ -161,7 +161,7 @@ Preview:
 
 ## Code
 
-To represent a word or phrase as code, enclose it with backticks `\``.
+To represent a word or phrase as code, enclose it with backticks (\`).
 
 ### Inline code
 
