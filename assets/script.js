@@ -178,7 +178,8 @@ function markdownParser(markdown) {
 
 function getQueryVariable(variable) {
   const params = new URLSearchParams(window.location.search);
-  return decodeURIComponent(params.get(variable));
+  const value = params.get(variable);
+  return value !== null ? decodeURIComponent(value) : null;
 }
 
 const getFile = filename => fetch(filename).then(data => data.text());
