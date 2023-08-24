@@ -36,7 +36,7 @@ function replaceInline(text) {
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
 
-    .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
+    .replace(/\`(.*?)\`/g, '<rem><code class="inline">$1</code></rem>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
 
     .replace(/^\*\*\*$/gm, '<hr>')
