@@ -56,44 +56,31 @@ function replaceInline(text) {
 }
 
 function tocParser(titleLevels, liTags) {
-  const nestedLists = [document.createElement('ul')];
-  let currentLevel = 1;
-  let currentList = nestedLists[currentLevel - 1];
+  const rootList = document.createElement('ul');
+  let currentLists = [rootList];
 
   for (let i = 0; i < titleLevels.length; i++) {
-    const titleLevel = titleLevels[i];
-    const liTag = liTags[i];
-
-    while (titleLevel > currentLevel) {
-      const newList = document.createElement('ul');
-      const newLi = document.createElement('li');
-      newList.appendChild(newLi);
-
-      if (currentList.lastChild) {
-        currentList.lastChild.appendChild(newList);
-      } else {
-        // Handle case when currentList is empty
-        currentList.appendChild(newList);
-      }
-
-      currentList = newList;
-      currentLevel++;
-    }
-
-    while (titleLevel < currentLevel) {
-      currentList = currentList.parentElement.parentElement;
-      currentLevel--;
-    }
-
-    if (liTag.trim() !== "") {
-      // Only add the <li> if it's not empty
+      const titleLevel = titleLevels[i];
+      const liTag = liTags[i];
       const newLi = document.createElement('li');
       newLi.innerHTML = liTag;
-      currentList.appendChild(newLi);
-    }
+
+      // Remove lists that are deeper than the current title level
+      while (currentLists.length > titleLevel) {
+          currentLists.pop();
+      }
+
+      const parentList = currentLists[currentLists.length - 1];
+      parentList.appendChild(newLi);
+
+      if (titleLevel > 0) {
+          const newList = document.createElement('ul');
+          newLi.appendChild(newList);
+          currentLists.push(newList);
+      }
   }
 
-  return nestedLists[0].outerHTML;
+  return rootList.outerHTML;
 }
 
 function markdownParser(markdown) {
