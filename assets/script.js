@@ -178,9 +178,9 @@ function markdownParser(markdown) {
       }
       const taskText = replaceInline(escapeHtml(rawLine.slice(5).trim()));
       if (match[1] === 'x') {
-        html += `<li><input type="checkbox" id="todo${i}" disabled><label for="todo${i}">${taskText}</label></li>`;
-      } else {
         html += `<li><input type="checkbox" id="todo${i}" disabled checked><label for="todo${i}">${taskText}</label></li>`;
+      } else {
+        html += `<li><input type="checkbox" id="todo${i}" disabled><label for="todo${i}">${taskText}</label></li>`;
       }
       continue;
     } else {
