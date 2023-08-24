@@ -31,7 +31,8 @@ function escapeMarkdown(text) {
         .replace("\\!", "&#033;")
         .replace("\\|", "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
-    } else { result += parts[i]; };
+      result += "`";
+    } else { result += `${parts[i]}\``; };
   }
   return result;
 }
@@ -58,7 +59,8 @@ function replaceInline(text) {
         .replace(/^\*\*\*$/gm, '<hr>')
         .replace(/^---$/gm, '<hr>')
         .replace(/^\s*$/g, "<br>");
-    } else { result += parts[i]; };
+      result += "`";
+    } else { result += `${parts[i]}\``; };
   }
   return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
 }
