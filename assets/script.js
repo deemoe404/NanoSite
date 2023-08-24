@@ -31,8 +31,8 @@ function escapeMarkdown(text) {
         .replace("\\!", "&#033;")
         .replace("\\|", "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
-      result += "`";
-    } else { result += `${parts[i]}\``; };
+      result += parts.length == 1 ? "" : "`";
+    } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
   }
   return result;
 }
@@ -59,8 +59,8 @@ function replaceInline(text) {
         .replace(/^\*\*\*$/gm, '<hr>')
         .replace(/^---$/gm, '<hr>')
         .replace(/^\s*$/g, "<br>");
-      result += "`";
-    } else { result += `${parts[i]}\``; };
+      result += parts.length == 1 ? "" : "`";
+    } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
   }
   return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
 }
