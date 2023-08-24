@@ -108,6 +108,7 @@ function markdownParser(markdown) {
         html += "<tr>";
         for (let j = 1; j < tabs.length - 1; j++) {
           html += `<td>${markdownParser(tabs[j].trim()).post}</td>`;
+          console.log(tabs[j].trim());
         }
         html += "</tr>";
         if (i == lines.length - 1) {
