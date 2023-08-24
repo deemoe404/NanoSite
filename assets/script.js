@@ -99,7 +99,7 @@ function markdownParser(markdown) {
     if (line.startsWith('|')) {
       const tabs = line.split(/(?<!\\)\|/);
       if (!isInTable) {
-        if (i + 3 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
+        if (i + 2 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
           isInTable = true;
           html += "<table><thead><tr>";
           for (let j = 1; j < tabs.length - 1; j++) {
