@@ -26,7 +26,7 @@ function escapeMarkdown(text) {
         .replace(/\\#/g, "&#035;")
         .replace(/\\\+/g, "&#043;")
         .replace(/\\-/g, "&#045;")
-        // .replace(/\\./g, "&#046;")
+        .replace(/\\\./g, "&#046;")
         .replace(/\\!/g, "&#033;")
         .replace(/\\\|/g, "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
