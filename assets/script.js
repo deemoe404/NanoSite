@@ -146,80 +146,79 @@ function markdownParser(markdown) {
     }
 
     // Ordered List
-    if (rawLine.match(/^\d+\./)) {
-      html += "<ol>";
-      let j = i;
-      for (; j < lines.length; j++) {
-        // 如果这一行是列表语法
-        if (lines[j].match(/^\d+\./)) {
-          // 如果这一行不是最后一行
-          if (j + 1 != lines.length) {
-            // 如果这一行的下一行也是列表语法，直接添加一个完整的列表项，并继续
-            if (lines[j + 1].match(/^\d+\./)) {
-              const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-              html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-              continue;
-            }
-            // 如果这一行的下一行不是列表语法
-            else {
-              // 如果这一行的下一行是空白的，直接添加一个完整的列表，结束列表
-              if (isBlank(lines[j + 1])) {
-                const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-                html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-                break;
-              }
-              // 如果这一行的下一行不是空白的
-              else {
-                const indent = lines[j + 1].match(/^\s+/); // 判断行首空格个数
-                // 如果行首没有空格，直接添加一个完整的列表，结束列表
-                if (indent == null) {
-                  const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-                  html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-                  break;
-                }
-                // 如果行首有空格，当作缩进处理
-                else {
-                  const indentCount = indent[0].length;
-                  let k = j + 1;
-                  let indentContent = "";
-                  // 收集缩进内的所有文本
-                  for (; k < lines.length; k++) {
-                    const subIndent = lines[k].match(/^\s+/);
-                    if (subIndent == null) {
-                      break;
-                    }
-                    else {
-                      if (subIndent[0].length >= indentCount) {
-                        indentContent += lines[k].slice(indentCount);
-                      }
-                      else {
-                        break;
-                      }
-                    }
-                    if (k + 1 != lines.length) {
-                      indentContent += "\n";
-                    }
-                  }
-                  const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-                  console.log(indentContent);
-                  // html += `<li><p>${replaceInline(escapeHtml(text))}</p>${markdownParser(indentContent).post}</li>`;
-                  j = k;
-                }
-              }
-            }
-          }
-          // 如果这一行是最后一行，直接添加一个完整的列表项，结束列表
-          else {
-            const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-            html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-            break;
-          }
-        }
-      }
-      html += "</ol>";
-      i = j - 1;
-      continue;
-    }
+    // if (rawLine.match(/^\d+\./)) {
+    //   html += "<ol>";
+    //   let j = i;
+    //   for (; j < lines.length; j++) {
+    //     // 如果这一行是列表语法
+    //     if (lines[j].match(/^\d+\./)) {
+    //       // 如果这一行不是最后一行
+    //       if (j + 1 != lines.length) {
+    //         // 如果这一行的下一行也是列表语法，直接添加一个完整的列表项，并继续
+    //         if (lines[j + 1].match(/^\d+\./)) {
+    //           const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+    //           html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+    //           continue;
+    //         }
+    //         // 如果这一行的下一行不是列表语法
+    //         else {
+    //           // 如果这一行的下一行是空白的，直接添加一个完整的列表，结束列表
+    //           if (isBlank(lines[j + 1])) {
+    //             const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+    //             html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+    //             break;
+    //           }
+    //           // 如果这一行的下一行不是空白的
+    //           else {
+    //             const indent = lines[j + 1].match(/^\s+/); // 判断行首空格个数
+    //             // 如果行首没有空格，直接添加一个完整的列表，结束列表
+    //             if (indent == null) {
+    //               const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+    //               html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+    //               break;
+    //             }
+    //             // 如果行首有空格，当作缩进处理
+    //             else {
+    //               const indentCount = indent[0].length;
+    //               let k = j + 1;
+    //               let indentContent = "";
+    //               // 收集缩进内的所有文本
+    //               for (; k < lines.length; k++) {
+    //                 const subIndent = lines[k].match(/^\s+/);
+    //                 if (subIndent == null) {
+    //                   break;
+    //                 }
+    //                 else {
+    //                   if (subIndent[0].length >= indentCount) {
+    //                     indentContent += lines[k].slice(indentCount);
+    //                   }
+    //                   else {
+    //                     break;
+    //                   }
+    //                 }
+    //                 if (k + 1 != lines.length) {
+    //                   indentContent += "\n";
+    //                 }
+    //               }
+    //               const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+    //               html += `<li><p>${replaceInline(escapeHtml(text))}</p>${markdownParser(indentContent).post}</li>`;
+    //               j = k;
+    //             }
+    //           }
+    //         }
+    //       }
+    //       // 如果这一行是最后一行，直接添加一个完整的列表项，结束列表
+    //       else {
+    //         const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
+    //         html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
+    //         break;
+    //       }
+    //     }
+    //   }
+    //   html += "</ol>";
+    //   i = j - 1;
+    //   continue;
+    // }
 
     const line = replaceInline(escapeHtml(lines[i]));
 
