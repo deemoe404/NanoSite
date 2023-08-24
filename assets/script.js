@@ -1,14 +1,14 @@
 function escapeHtml(text) {
-  return text
+  return typeof (text) === 'string' ? text
     .replace(/&(?!#[0-9]+;)/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#039;') : null;
 }
 
 function escapeMarkdown(text) {
-  return text
+  return typeof (text) === 'string' ? text
     .replace("\\\\", "&#092;")
     .replace("\\`", "&#096;")
     .replace("\\*", "&#042;")
@@ -22,11 +22,11 @@ function escapeMarkdown(text) {
     .replace("\\.", "&#046;")
     .replace("\\!", "&#033;")
     .replace("\\|", "&#124;")
-    .replace(/<!--[\s\S]*?-->/g, '');
+    .replace(/<!--[\s\S]*?-->/g, '') : null;
 }
 
 function replaceInline(text) {
-  return text
+  return typeof (text) === 'string' ? text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
 
@@ -42,7 +42,7 @@ function replaceInline(text) {
     .replace(/^\*\*\*$/gm, '<hr>')
     .replace(/^---$/gm, '<hr>')
 
-    .replace(/^\s*$/g, "<br>");
+    .replace(/^\s*$/g, "<br>") : null;
 }
 
 const isBlank = text => /^\s*$/.test(text);
