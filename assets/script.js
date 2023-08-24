@@ -65,7 +65,6 @@ function tocParser(titleLevels, liTags) {
     const newLi = document.createElement('li');
     newLi.innerHTML = liTag;
 
-    // Remove lists that are deeper than the current title level
     while (currentLists.length > titleLevel) {
       currentLists.pop();
     }
@@ -79,7 +78,6 @@ function tocParser(titleLevels, liTags) {
       currentLists.push(newList);
     }
   }
-
   return rootList.outerHTML;
 }
 
