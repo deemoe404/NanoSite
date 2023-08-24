@@ -17,18 +17,18 @@ function escapeMarkdown(text) {
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
       result += parts[i]
-        .replace("\\\\", "&#092;")
-        .replace("\\*", "&#042;")
-        .replace("\\_", "&#095;")
-        .replace("\\{", "&#123;").replace("\\}", "&#125;")
-        .replace("\\[", "&#091;").replace("\\]", "&#093;")
-        .replace("\\(", "&#040;").replace("\\)", "&#041;")
-        .replace("\\#", "&#035;")
-        .replace("\\+", "&#043;")
-        .replace("\\-", "&#045;")
-        .replace("\\.", "&#046;")
-        .replace("\\!", "&#033;")
-        .replace("\\|", "&#124;")
+        .replace(/\\\\/g, "&#092;")
+        .replace(/\*/g, "&#042;")
+        .replace(/\_/g, "&#095;")
+        .replace(/\{/g, "&#123;").replace(/\}/g, "&#125;")
+        .replace(/\[/g, "&#091;").replace(/\]/g, "&#093;")
+        .replace(/\(/g, "&#040;").replace(/\)/g, "&#041;")
+        .replace(/\#/g, "&#035;")
+        .replace(/\+/g, "&#043;")
+        .replace(/\-/g, "&#045;")
+        .replace(/\./g, "&#046;")
+        .replace(/\!/g, "&#033;")
+        .replace(/\|/g, "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
       if (i < parts.length - 1) {
         result += "`";
@@ -40,7 +40,7 @@ function escapeMarkdown(text) {
       }
     };
   }
-  console.log(`[${text}], [${result}}]`);
+  console.log(`[${text}], [${result}]`);
   return result.replace("\\`", "&#096;");
 }
 
