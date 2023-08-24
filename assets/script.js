@@ -77,7 +77,7 @@ function replaceInline(text) {
   console.log(`[${text}], [${result}]`);
   return result
     .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
-    .replace(/^\s*$/g, "<br>");   
+    .replace(/^\s*$/g, "<br>");
 }
 
 const isBlank = text => /^\s*$/.test(text);
@@ -87,7 +87,8 @@ function markdownParser(markdown) {
   let html = '';
   let tochtml = '';
 
-  let isInCodeBlock = false;
+  let isInCode = false;
+  let isInBigCode = false;
   let isInTable = false;
   let isInTodo = false;
 
@@ -95,16 +96,30 @@ function markdownParser(markdown) {
     const line = lines[i];
 
     // Code Block
-    if (line.startsWith('```')) {
-      if (!isInCodeBlock) {
-        isInCodeBlock = true;
+    if (line.startsWith('````')) {
+      if (!isInBigCode) {
+        isInBigCode = true;
         html += '<pre><code>';
       } else {
-        isInCodeBlock = false;
+        isInBigCode = false;
         html += '</code></pre>';
       }
       continue;
-    } else if (isInCodeBlock) {
+    } else if (isInBigCode) {
+      html += `${escapeHtml(line)}\n`;
+      continue;
+    }
+
+    if (line.startsWith('```') && !isInBigCode) {
+      if (!isInCode) {
+        isInCode = true;
+        html += '<pre><code>';
+      } else {
+        isInCode = false;
+        html += '</code></pre>';
+      }
+      continue;
+    } else if (isInCode) {
       html += `${escapeHtml(line)}\n`;
       continue;
     }

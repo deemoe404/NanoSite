@@ -62,6 +62,7 @@ Markdown uses the asterisk `*` symbol to emphasize text, allowing you to create 
 | `**Bold Text**`              | `<strong>Bold Text</strong>`                       | **Bold Text**              |
 | `*Italic Text*`              | `<em>Italic Text</em>`                             | *Italic Text*              |
 | `***Bold and Italic Text***` | `<strong><em>Bold and Italic Text</em></strong>`   | ***Bold and Italic Text*** |
+| `~~Strikethrough Text~~`     | `<del>Strikethrough Text</del>`                    | ~~Strikethrough Text~~     |
 
 ---
 
@@ -248,28 +249,24 @@ local:
 
 ---
 
-## Strikethrough
+## Comments (Escape Characters)
 
-~~This is strikethrough text.~~
-
----
-
-## Escape Characters
-
-\*This text won't be italicized\*
-
----
-
-## Comments
+Markdown:
 
 ```Markdown
 <!-- This is a comment and won't be displayed -->
 ```
 
+Preview:
+
 <!-- This is a comment and won't be displayed -->
+
+Markdown:
 
 ```Markdown
 \\ \* \_ \{ \} \[ \] \( \) \# \+ \- \. \! \|
 ```
+
+PreView:
 
 \\ \* \_ \{ \} \[ \] \( \) \# \+ \- \. \! \|
