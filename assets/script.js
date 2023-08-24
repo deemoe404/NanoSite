@@ -59,7 +59,7 @@ function replaceInline(text) {
         .replace(/^\*\*\*$/gm, '<hr>')
         .replace(/^---$/gm, '<hr>')
         .replace(/^\s*$/g, "<br>");
-      result += (parts.length == 1 && i == 0) == 1 ? "" : "`";
+      result += (parts.length == 1 && i == 0) ? "" : "`";
     } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
   }
   return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
