@@ -15,7 +15,7 @@ function escapeMarkdown(text) {
   const parts = text.split("`");
   let result = "";
   for (let i = 0; i < parts.length; i++) {
-    if (number % 2 === 0) {
+    if (i % 2 === 0) {
       result += parts[i]
         .replace("\\\\", "&#092;")
         .replace("\\`", "&#096;")
@@ -45,7 +45,7 @@ function replaceInline(text) {
   let result = "";
 
   for (let i = 0; i < parts.length; i++) {
-    if (number % 2 === 0) {
+    if (i % 2 === 0) {
       result += parts[i]
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
