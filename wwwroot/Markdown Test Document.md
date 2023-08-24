@@ -1,18 +1,30 @@
 # Markdown Test Document
 
-This is a test document to demonstrate various Markdown tags and elements. The purpose of this document is to show how different Markdown syntaxes can be used. Markdown allows you to easily include formatting elements like headings, lists, code, and more in a plain text format.
+Markdown, a lightweight markup language, revolutionizes content creation with its concise formatting syntax. By focusing on substance over style, Markdown enables seamless communication of ideas. Document creation becomes effortless through its plain text format, which seamlessly integrates with HTML. Export options include HTML, PDF, and its native .md format.
 
-This covers some of the basic Markdown syntaxes for formatting text. Markdown provides an easy way to include formatting in text-based files like readme files.
+Markdown's prevalence on platforms like Github, Wikipedia, and Jianshu speaks to its efficiency and simplicity. Fear not the terms "markup" or "language"—Markdown's syntax comprises fewer than a dozen common symbols. Mastery requires mere minutes, empowering you to elegantly capture thoughts and maintain focus without being ensnared by formatting complexities.
+
+With fewer than ten symbols, Markdown offers an immersive writing experience. Liberated from formatting concerns, you attain the sublime state of "tranquil minds, words flowing." In just half an hour, embrace Markdown's elegance and amplify your content creation journey.
 
 ---
 
-## Headings
+## Markdown Title
 
-### Level 3 Heading
+In Markdown, you can create headings by adding hash `#` symbols before words or phrases. The number of `#` symbols indicates the level of the heading.
 
-#### Level 4 Heading
+|           Markdown          |             HTML             |         Preview        |
+| --------------------------- | ---------------------------- | ---------------------- |
+| `# Heading level 1`         | `<h1>Heading level 1</h1>`   | # Heading level 1      |
+| `## Heading level 2`        | `<h2>Heading level 2</h2>`   | ## Heading level 2     |
+| `### Heading level 3`       | `<h3>Heading level 3</h3>`   | ### Heading level 3    |
+| `#### Heading level 4`      | `<h4>Heading level 4</h4>`   | #### Heading level 4   |
+| `##### Heading level 5`     | `<h5>Heading level 5</h5>`   | ##### Heading level 5  |
+| `###### Heading level 6`    | `<h6>Heading level 6</h6>`   | ###### Heading level 6 |
 
-##### Level 5 Heading
+> Note: there must be a space after hash `#` symbols.
+> | 👍 Do this | 😭 Don't do this |
+> | ---------- | --------------- |
+> | `# Head`   | `#Head`         |
 
 ---
 
