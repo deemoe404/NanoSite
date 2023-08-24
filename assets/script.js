@@ -171,7 +171,7 @@ function markdownParser(markdown) {
               }
               // 如果这一行的下一行不是空白的
               else {
-                const indent = lines[j + 1].match(/^\s+/)[0]; // 判断行首空格个数
+                const indent = lines[j + 1].match(/^\s+/); // 判断行首空格个数
                 // 如果行首没有空格，直接添加一个完整的列表，结束列表
                 if (indent == null) {
                   const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
@@ -180,17 +180,17 @@ function markdownParser(markdown) {
                 }
                 // 如果行首有空格，当作缩进处理
                 else {
-                  const indentCount = indent.length;
+                  const indentCount = indent[0].length;
                   let k = j + 1;
                   let indentContent = "";
                   // 收集缩进内的所有文本
                   for (; k < lines.length; k++) {
-                    const subIndent = lines[k].match(/^\s+/)[0];
+                    const subIndent = lines[k].match(/^\s+/);
                     if (subIndent == null) {
                       break;
                     }
                     else {
-                      if (subIndent.length >= indentCount) {
+                      if (subIndent[0].length >= indentCount) {
                         indentContent += lines[k].slice(indentCount);
                       }
                       else {
