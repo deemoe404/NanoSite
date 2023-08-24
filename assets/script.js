@@ -56,41 +56,35 @@ function replaceInline(text) {
 }
 
 function tocParser(titleLevels, liTags) {
-  const nestedLists = [document.createElement('ul')];
-  let currentLevel = 1;
-  let currentList = nestedLists[currentLevel - 1];
+  const topLevelList = document.createElement('ul');
+  const stack = [{ level: 0, parent: topLevelList }];
 
   for (let i = 0; i < titleLevels.length; i++) {
-      const titleLevel = titleLevels[i];
-      const liTag = liTags[i];
+    const titleLevel = titleLevels[i];
+    const liTag = liTags[i];
 
-      while (titleLevel > currentLevel) {
-          const newList = document.createElement('ul');
-          const newLi = document.createElement('li');
-          newList.appendChild(newLi);
+    const listItem = document.createElement('li');
+    listItem.innerHTML = liTag;
 
-          if (currentList.lastChild) {
-              currentList.lastChild.appendChild(newList);
-          } else {
-              // Handle case when currentList is empty
-              currentList.appendChild(newList);
-          }
+    const newLevel = titleLevel;
+    let parentList = stack[stack.length - 1].parent;
 
-          currentList = newList;
-          currentLevel++;
-      }
+    while (stack.length > 0 && newLevel <= stack[stack.length - 1].level) {
+      stack.pop();
+      parentList = stack[stack.length - 1].parent;
+    }
 
-      while (titleLevel < currentLevel) {
-          currentList = currentList.parentElement.parentElement;
-          currentLevel--;
-      }
-
-      const newLi = document.createElement('li');
-      newLi.innerHTML = liTag;
-      currentList.appendChild(newLi);
+    if (newLevel > stack[stack.length - 1].level) {
+      const newList = document.createElement('ul');
+      listItem.appendChild(newList);
+      parentList.appendChild(listItem);
+      stack.push({ level: newLevel, parent: newList });
+    } else {
+      parentList.appendChild(listItem);
+    }
   }
 
-  return nestedLists[0].outerHTML;
+  return topLevelList.outerHTML;
 }
 
 function markdownParser(markdown) {
