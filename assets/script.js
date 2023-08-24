@@ -8,43 +8,58 @@ function escapeHtml(text) {
 }
 
 function escapeMarkdown(text) {
-  return typeof (text) === 'string' ? text
-    .replace("\\\\", "&#092;")
-    .replace("\\`", "&#096;")
-    .replace("\\*", "&#042;")
-    .replace("\\_", "&#095;")
-    .replace("\\{", "&#123;").replace("\\}", "&#125;")
-    .replace("\\[", "&#091;").replace("\\]", "&#093;")
-    .replace("\\(", "&#040;").replace("\\)", "&#041;")
-    .replace("\\#", "&#035;")
-    .replace("\\+", "&#043;")
-    .replace("\\-", "&#045;")
-    .replace("\\.", "&#046;")
-    .replace("\\!", "&#033;")
-    .replace("\\|", "&#124;")
-    .replace(/<!--[\s\S]*?-->/g, '') : null;
+  if (typeof (text) !== 'string') {
+    return null;
+  }
+
+  const parts = text.split("`");
+  let result = "";
+  for (let i = 0; i < parts.length; i++) {
+    if (number % 2 === 0) {
+      result += parts[i]
+        .replace("\\\\", "&#092;")
+        .replace("\\`", "&#096;")
+        .replace("\\*", "&#042;")
+        .replace("\\_", "&#095;")
+        .replace("\\{", "&#123;").replace("\\}", "&#125;")
+        .replace("\\[", "&#091;").replace("\\]", "&#093;")
+        .replace("\\(", "&#040;").replace("\\)", "&#041;")
+        .replace("\\#", "&#035;")
+        .replace("\\+", "&#043;")
+        .replace("\\-", "&#045;")
+        .replace("\\.", "&#046;")
+        .replace("\\!", "&#033;")
+        .replace("\\|", "&#124;")
+        .replace(/<!--[\s\S]*?-->/g, '');
+    } else { result += parts[i] };
+  }
+  return result;
 }
 
 function replaceInline(text) {
-  return typeof (text) === 'string' ? text
-    .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
+  if (typeof (text) !== 'string') {
+    return null;
+  }
 
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+  const parts = text.split("`");
+  let result = "";
 
-    .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
-    .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
-
-    .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
-    .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
-
-
-    .replace(/~~(.*?)~~/g, '<del>$1</del>')
-
-    .replace(/^\*\*\*$/gm, '<hr>')
-    .replace(/^---$/gm, '<hr>')
-
-    .replace(/^\s*$/g, "<br>") : null;
+  for (let i = 0; i < parts.length; i++) {
+    if (number % 2 === 0) {
+      result += parts[i]
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/!\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<img src="$2" alt="$1" title="$3">')
+        .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1">')
+        .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
+        .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+        .replace(/~~(.*?)~~/g, '<del>$1</del>')
+        .replace(/^\*\*\*$/gm, '<hr>')
+        .replace(/^---$/gm, '<hr>')
+        .replace(/^\s*$/g, "<br>");
+    } else { result += parts[i] };
+  }
+  return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
 }
 
 const isBlank = text => /^\s*$/.test(text);
@@ -112,7 +127,6 @@ function markdownParser(markdown) {
         html += "<tr>";
         for (let j = 1; j < tabs.length - 1; j++) {
           html += `<td>${markdownParser(tabs[j].trim()).post}</td>`;
-          console.log(tabs[j].trim());
         }
         html += "</tr>";
         if (i == lines.length - 1) {
