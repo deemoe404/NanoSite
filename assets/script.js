@@ -1,7 +1,7 @@
 function escapeHtml(text) {
   return text
     .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/&/g, '&amp;')
+    .replace(/&(?!#[0-9]+;)/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
@@ -9,7 +9,20 @@ function escapeHtml(text) {
 };
 
 function escapeMarkdown(text) {
-  
+  return text
+    .replace("\\\\", "&#092;")
+    .replace("\\`", "&#096;")
+    .replace("\\*", "&#042;")
+    .replace("\\_", "&#095;")
+    .replace("\\{", "&#123;").replace("\\}", "&#125;")
+    .replace("\\[", "&#091;").replace("\\]", "&#093;")
+    .replace("\\(", "&#040;").replace("\\)", "&#041;")
+    .replace("\\#", "&#035;")
+    .replace("\\+", "&#043;")
+    .replace("\\-", "&#045;")
+    .replace("\\.", "&#046;")
+    .replace("\\!", "&#033;")
+    .replace("\\|", "&#124;");
 }
 
 function replaceInline(text) {
@@ -59,6 +72,7 @@ function markdownParser(markdown) {
         }
       }
       const output = markdownParser(quote);
+      console.log(quote);
       html += `<blockquote>${output.post}</blockquote>`;
       i = j - 1;
       continue;
