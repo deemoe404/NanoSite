@@ -41,7 +41,7 @@ function escapeMarkdown(text) {
     };
   }
   console.log(`[${text}], [${result}]`);
-  return result.replace("\\`", "&#096;");
+  return result.replace("/\\`/g", "&#096;");
 }
 
 function replaceInline(text) {
