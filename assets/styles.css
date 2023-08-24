@@ -181,4 +181,8 @@ table tr:hover {
     margin-top: 20px;
     margin-left: 0;
   }
+
+  .content {
+    overflow: initial;
+  }
 }
