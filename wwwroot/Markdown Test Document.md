@@ -99,7 +99,7 @@ Preview:
 
 ### Nested block quotations
 
-Block quotations can be nested. Add a ">>" symbol before the paragraph you want to nest.
+Block quotations can be nested. Add a `>>` symbol before the paragraph you want to nest.
 
 Markdown:
 

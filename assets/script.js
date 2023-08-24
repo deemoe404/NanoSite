@@ -40,6 +40,7 @@ function escapeMarkdown(text) {
       }
     };
   }
+  console.log(`[${text}], [${result}}]`);
   return result.replace("\\`", "&#096;");
 }
 
