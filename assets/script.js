@@ -215,6 +215,8 @@ function markdownParser(markdown) {
     html += `<p>${replaceInline(escapeHtml(rawLine))}</p>`;
   }
 
+  console.log(tochirc);
+  console.log(tochtml);
   return { "post": html, "toc": `<ul>${tocParser(tochirc, tochtml)}</ul>` };
 }
 
