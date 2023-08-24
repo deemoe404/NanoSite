@@ -73,6 +73,7 @@ function markdownParser(markdown) {
       }
       const output = markdownParser(quote);
       console.log(quote);
+      console.log(output.post);
       html += `<blockquote>${output.post}</blockquote>`;
       i = j - 1;
       continue;
