@@ -1,6 +1,5 @@
 function escapeHtml(text) {
   return text
-    .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/&(?!#[0-9]+;)/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -22,7 +21,8 @@ function escapeMarkdown(text) {
     .replace("\\-", "&#045;")
     .replace("\\.", "&#046;")
     .replace("\\!", "&#033;")
-    .replace("\\|", "&#124;");
+    .replace("\\|", "&#124;")
+    .replace(/<!--[\s\S]*?-->/g, '');
 }
 
 function replaceInline(text) {
@@ -51,9 +51,6 @@ function markdownParser(markdown) {
   const lines = escapeMarkdown(markdown).split('\n');
   let html = '';
   let tochtml = '';
-
-  let isInList = false;
-  let listType = [];
 
   let isInCodeBlock = false;
   let isInTable = false;
@@ -145,134 +142,16 @@ function markdownParser(markdown) {
       }
     }
 
-    // Ordered List
-    // if (rawLine.match(/^\d+\./)) {
-    //   html += "<ol>";
-    //   let j = i;
-    //   for (; j < lines.length; j++) {
-    //     // 如果这一行是列表语法
-    //     if (lines[j].match(/^\d+\./)) {
-    //       // 如果这一行不是最后一行
-    //       if (j + 1 != lines.length) {
-    //         // 如果这一行的下一行也是列表语法，直接添加一个完整的列表项，并继续
-    //         if (lines[j + 1].match(/^\d+\./)) {
-    //           const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-    //           html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-    //           continue;
-    //         }
-    //         // 如果这一行的下一行不是列表语法
-    //         else {
-    //           // 如果这一行的下一行是空白的，直接添加一个完整的列表，结束列表
-    //           if (isBlank(lines[j + 1])) {
-    //             const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-    //             html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-    //             break;
-    //           }
-    //           // 如果这一行的下一行不是空白的
-    //           else {
-    //             const indent = lines[j + 1].match(/^\s+/); // 判断行首空格个数
-    //             // 如果行首没有空格，直接添加一个完整的列表，结束列表
-    //             if (indent == null) {
-    //               const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-    //               html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-    //               break;
-    //             }
-    //             // 如果行首有空格，当作缩进处理
-    //             else {
-    //               const indentCount = indent[0].length;
-    //               let k = j + 1;
-    //               let indentContent = "";
-    //               // 收集缩进内的所有文本
-    //               for (; k < lines.length; k++) {
-    //                 const subIndent = lines[k].match(/^\s+/);
-    //                 if (subIndent == null) {
-    //                   break;
-    //                 }
-    //                 else {
-    //                   if (subIndent[0].length >= indentCount) {
-    //                     indentContent += lines[k].slice(indentCount);
-    //                   }
-    //                   else {
-    //                     break;
-    //                   }
-    //                 }
-    //                 if (k + 1 != lines.length) {
-    //                   indentContent += "\n";
-    //                 }
-    //               }
-    //               const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-    //               html += `<li><p>${replaceInline(escapeHtml(text))}</p>${markdownParser(indentContent).post}</li>`;
-    //               j = k;
-    //             }
-    //           }
-    //         }
-    //       }
-    //       // 如果这一行是最后一行，直接添加一个完整的列表项，结束列表
-    //       else {
-    //         const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-    //         html += `<li><p>${replaceInline(escapeHtml(text))}</p></li>`;
-    //         break;
-    //       }
-    //     }
-    //   }
-    //   html += "</ol>";
-    //   i = j - 1;
-    //   continue;
-    // }
-
-    const line = replaceInline(escapeHtml(lines[i]));
-
     // Title
-    if (line.startsWith('#')) {
-      const headingLevel = line.match(/^#+/)[0].length;
-      const headingText = line.slice(headingLevel).trim();
+    if (rawLine.startsWith('#')) {
+      const headingLevel = rawLine.match(/^#+/)[0].length;
+      const headingText = replaceInline(escapeHtml(rawLine.slice(headingLevel).trim()));
       html += `<h${headingLevel} id="${i}">${headingText}</h${headingLevel}>\n`;
       tochtml += `<li><a href="#${i}">${headingText}</a></li>`;
+      continue;
     }
 
-    // // Ordered List
-    // else if (line.match(/^\d+\./)) {
-    //   if (!isInList) {
-    //     isInList = true;
-    //     html += '<ol>\n';
-    //     listType = 0;
-    //   }
-    //   const listItemText = line.slice(line.indexOf('.') + 1).trim();
-    //   html += `<li>${listItemText}</li>\n`;
-    // }
-
-    // // Unordered List
-    // else if (line.startsWith('-') || line.startsWith('*')) {
-    //   if (!isInList) {
-    //     isInList = true;
-    //     html += '<ul>\n';
-    //     listType = 1;
-    //   }
-    //   const listItemText = line.slice(1).trim();
-    //   html += `<li>${listItemText}</li>\n`;
-    // }
-
-    // Plain Text
-    else {
-      if (isInList) {
-        isInList = false;
-        if (listType == 0) {
-          html += '</ol>\n';
-        } else if (listType == 1) {
-          html += '</ul>\n';
-        }
-      }
-
-      html += /<\/?[a-z][\s\S]*>/i.test(line) ? line : `<p>${line}</p>`;
-    }
-  }
-
-  if (isInList) {
-    if (listType == 0) {
-      html += '</ol>\n';
-    } else if (listType == 1) {
-      html += '</ul>\n';
-    }
+    html += `<p>${replaceInline(escapeHtml(lines[i]))}</p>`;
   }
 
   return { "post": html, "toc": `<ul>${tochtml}</ul>` };
