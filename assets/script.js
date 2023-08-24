@@ -18,17 +18,17 @@ function escapeMarkdown(text) {
     if (i % 2 === 0) {
       result += parts[i]
         .replace("\\\\", "&#092;")
-        .replace("\*", "&#042;")
-        .replace("\_", "&#095;")
-        .replace("\{", "&#123;").replace("\\}", "&#125;")
-        .replace("\[", "&#091;").replace("\\]", "&#093;")
-        .replace("\(", "&#040;").replace("\\)", "&#041;")
-        .replace("\#", "&#035;")
-        .replace("\+", "&#043;")
-        .replace("\-", "&#045;")
-        .replace("\.", "&#046;")
-        .replace("\!", "&#033;")
-        .replace("\|", "&#124;")
+        .replace("\\*", "&#042;")
+        .replace("\\_", "&#095;")
+        .replace("\\{", "&#123;").replace("\\}", "&#125;")
+        .replace("\\[", "&#091;").replace("\\]", "&#093;")
+        .replace("\\(", "&#040;").replace("\\)", "&#041;")
+        .replace("\\#", "&#035;")
+        .replace("\\+", "&#043;")
+        .replace("\\-", "&#045;")
+        .replace("\\.", "&#046;")
+        .replace("\\!", "&#033;")
+        .replace("\\|", "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
       if (i < parts.length - 1) {
         result += "`";
@@ -40,7 +40,7 @@ function escapeMarkdown(text) {
       }
     };
   }
-  return result.replace("\`", "&#096;");
+  return result.replace("\\`", "&#096;");
 }
 
 function replaceInline(text) {
