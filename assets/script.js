@@ -96,7 +96,6 @@ function markdownParser(markdown) {
     // Table
     if (rawLine.startsWith('|')) {
       const tabs = rawLine.split("|");
-      console.log(tabs);
       if (!isInTable) {
         if (i + 2 < lines.length && lines[i + 1].startsWith('|') && lines[i + 2].startsWith('|')) {
           isInTable = true;
@@ -202,7 +201,8 @@ function markdownParser(markdown) {
                     }
                   }
                   const text = lines[j].slice(lines[j].indexOf('.') + 1).trim();
-                  html += `<li><p>${replaceInline(escapeHtml(text))}</p>${markdownParser(indentContent).post}</li>`;
+                  console.log(indentContent);
+                  // html += `<li><p>${replaceInline(escapeHtml(text))}</p>${markdownParser(indentContent).post}</li>`;
                   j = k;
                 }
               }
