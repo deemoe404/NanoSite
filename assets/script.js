@@ -60,24 +60,24 @@ function tocParser(titleLevels, liTags) {
   let currentLists = [rootList];
 
   for (let i = 0; i < titleLevels.length; i++) {
-      const titleLevel = titleLevels[i];
-      const liTag = liTags[i];
-      const newLi = document.createElement('li');
-      newLi.innerHTML = liTag;
+    const titleLevel = titleLevels[i];
+    const liTag = liTags[i];
+    const newLi = document.createElement('li');
+    newLi.innerHTML = liTag;
 
-      // Remove lists that are deeper than the current title level
-      while (currentLists.length > titleLevel) {
-          currentLists.pop();
-      }
+    // Remove lists that are deeper than the current title level
+    while (currentLists.length > titleLevel) {
+      currentLists.pop();
+    }
 
-      const parentList = currentLists[currentLists.length - 1];
-      parentList.appendChild(newLi);
+    const parentList = currentLists[currentLists.length - 1];
+    parentList.appendChild(newLi);
 
-      if (titleLevel > 0) {
-          const newList = document.createElement('ul');
-          newLi.appendChild(newList);
-          currentLists.push(newList);
-      }
+    if (titleLevel > 0) {
+      const newList = document.createElement('ul');
+      newLi.appendChild(newList);
+      currentLists.push(newList);
+    }
   }
 
   return rootList.outerHTML;
@@ -207,7 +207,7 @@ function markdownParser(markdown) {
 
   console.log(tochirc);
   console.log(tochtml);
-  return { "post": html, "toc": `<ul>${tocParser(tochirc, tochtml)}</ul>` };
+  return { "post": html, "toc": `${tocParser(tochirc, tochtml)}` };
 }
 
 function getQueryVariable(variable) {
