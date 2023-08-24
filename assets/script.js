@@ -188,7 +188,7 @@ function markdownParser(markdown) {
       continue;
     }
 
-    html += `<p>${replaceInline(escapeHtml(lines[i]))}</p>`;
+    html += `<p>${replaceInline(escapeHtml(rawLine))}</p>`;
   }
 
   return { "post": html, "toc": `<ul>${tochtml}</ul>` };
