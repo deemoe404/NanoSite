@@ -262,4 +262,14 @@ local:
 
 ## Comments
 
+```Markdown
 <!-- This is a comment and won't be displayed -->
+```
+
+<!-- This is a comment and won't be displayed -->
+
+```Markdown
+\\ \* \_ \{ \} \[ \] \( \) \# \+ \- \. \! \|
+```
+
+\\ \* \_ \{ \} \[ \] \( \) \# \+ \- \. \! \|
