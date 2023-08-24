@@ -104,14 +104,13 @@ function markdownParser(markdown) {
     if (match) {
       if (!isInTodo) {
         isInTodo = true;
-        html += '<ul>';
+        html += '<ul class="todo">';
       }
-      const checkboxValue = match[1];
       const taskText = line.slice(5).trim();
-      if (checkboxValue === 'x') {
-        html += `<li><input type="checkbox" disabled>${escapeHtml(taskText)}</li>\n`;
+      if (match[1] === 'x') {
+        html += `<li><input type="checkbox" disabled>${taskText}</li>\n`;
       } else {
-        html += `<li><input type="checkbox" checked disabled>${escapeHtml(taskText)}</li>\n`;
+        html += `<li><input type="checkbox" checked disabled>${taskText}</li>\n`;
       }
       continue;
     } else {
@@ -174,12 +173,12 @@ function markdownParser(markdown) {
     }
   }
 
-  return { "post": html.replace(/<br>\s*<br>/g, '<br>'), "toc": `<ul>${tochtml}</ul>` };
+  return { "post": html, "toc": `<ul>${tochtml}</ul>` };
 }
 
 function getQueryVariable(variable) {
   const params = new URLSearchParams(window.location.search);
-  return params.get(variable);
+  return decodeURIComponent(params.get(variable));
 }
 
 const getFile = filename => fetch(filename).then(data => data.text());
@@ -192,7 +191,7 @@ const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown =>
 
 const displayIndex = () => getFile("/wwwroot/index.json").then(index => {
   for (const [key, value] of Object.entries(JSON.parse(index))) {
-    document.getElementById("mainview").innerHTML += `<a href="?id=${value['location']}">${key}</a><br/>`;
+    document.getElementById("mainview").innerHTML += `<a href="?id=${encodeURIComponent(value['location'])}">${key}</a><br/>`;
   }
 });
 
