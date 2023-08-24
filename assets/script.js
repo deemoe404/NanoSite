@@ -120,9 +120,8 @@ function markdownParser(markdown) {
         if (i == lines.length - 1) {
           html += "</tbody></table>";
           isInTable = false;
-        } else {
-          continue;
         }
+        continue;
       }
     } else if (isInTable) {
       html += "</tbody></table>";
