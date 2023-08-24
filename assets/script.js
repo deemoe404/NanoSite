@@ -56,33 +56,44 @@ function replaceInline(text) {
 }
 
 function tocParser(titleLevels, liTags) {
-  const rootList = document.createElement('ul');
-  const stack = [{ level: 0, list: rootList }];
+  const nestedLists = [document.createElement('ul')];
+  let currentLevel = 1;
+  let currentList = nestedLists[currentLevel - 1];
 
   for (let i = 0; i < titleLevels.length; i++) {
     const titleLevel = titleLevels[i];
     const liTag = liTags[i];
-    const newLi = document.createElement('li');
-    newLi.innerHTML = liTag;
 
-    while (stack.length > 0 && titleLevel <= stack[stack.length - 1].level) {
-      stack.pop();
+    while (titleLevel > currentLevel) {
+      const newList = document.createElement('ul');
+      const newLi = document.createElement('li');
+      newList.appendChild(newLi);
+
+      if (currentList.lastChild) {
+        currentList.lastChild.appendChild(newList);
+      } else {
+        // Handle case when currentList is empty
+        currentList.appendChild(newList);
+      }
+
+      currentList = newList;
+      currentLevel++;
     }
 
-    if (stack.length > 0) {
-      const parentList = stack[stack.length - 1].list;
-      parentList.appendChild(newLi);
+    while (titleLevel < currentLevel) {
+      currentList = currentList.parentElement.parentElement;
+      currentLevel--;
+    }
 
-      const newList = document.createElement('ul');
-      newLi.appendChild(newList);
-
-      stack.push({ level: titleLevel, list: newList });
-    } else {
-      rootList.appendChild(newLi);
+    if (liTag.trim() !== "") {
+      // Only add the <li> if it's not empty
+      const newLi = document.createElement('li');
+      newLi.innerHTML = liTag;
+      currentList.appendChild(newLi);
     }
   }
 
-  return rootList.outerHTML;
+  return nestedLists[0].outerHTML;
 }
 
 function markdownParser(markdown) {
