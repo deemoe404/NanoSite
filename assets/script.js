@@ -8,7 +8,7 @@ function escapeHtml(text) {
 }
 
 function escapeMarkdown(text) {
-  const parts = text.replace("/\\\`/g", "&#096;").split("`");
+  const parts = text.replace(/\\`/g, "&#096;").split("`");
   let result = "";
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
