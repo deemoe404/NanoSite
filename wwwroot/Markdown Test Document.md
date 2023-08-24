@@ -65,6 +65,82 @@ Markdown uses the asterisk `*` symbol to emphasize text, allowing you to create 
 
 ---
 
+## Quotation
+
+To create a block quote, add a `>` symbol before the paragraph.
+
+Markdown:
+
+```Markdown
+> Dorothy followed her through many of the beautiful rooms in her castle.
+```
+
+Preview:
+
+> Dorothy followed her through many of the beautiful rooms in her castle.
+
+### Block quotations with multiple paragraphs
+
+Block quotations can include multiple paragraphs. Add a `>` symbol for the blank line between paragraphs.
+
+Markdown:
+
+```Markdown
+> Dorothy followed her through many of the beautiful rooms in her castle.
+>
+> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
+```
+
+Preview:
+
+> Dorothy followed her through many of the beautiful rooms in her castle.
+>
+> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
+
+### Nested block quotations
+
+Block quotations can be nested. Add a ">>" symbol before the paragraph you want to nest.
+
+Markdown:
+
+```Markdown
+> Dorothy followed her through many of the beautiful rooms in her castle.
+>
+>> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
+```
+
+Preview:
+
+> Dorothy followed her through many of the beautiful rooms in her castle.
+>
+>> The Witch bade her clean the pots and kettles and sweep the floor and keep the fire fed with wood.
+
+### Block quotations with other elements
+
+Block quotes can contain other Markdown-formatted elements. Not all elements are usable, and you'll need to experiment to see which ones work.
+
+Markdown:
+
+```Markdown
+> #### The quarterly results look great!
+>
+> - Revenue was off the chart.
+> - Profits were higher than ever.
+>
+> *Everything* is going according to **plan**.
+```
+
+Preview:
+
+> #### The quarterly results look great!
+>
+> - Revenue was off the chart.
+> - Profits were higher than ever.
+>
+> *Everything* is going according to **plan**.
+
+---
+
 ## Lists
 
 ### Unordered List
@@ -104,21 +180,6 @@ With title:
 local:
 
 ![Markdown Logo](/wwwroot/images/Markdown-mark.svg.png "Markdown Logo")
-
----
-
-## Blockquotes
-
-> This is a blockquote.
-> It can span multiple lines.
-> > This is a blockquote.
-> > It can span multiple lines.
-> > > This is a blockquote.
-> > > It can span multiple lines.
-> 1. list1
-> 2. list2
-> - list3
-> - list4
 
 ---
 
