@@ -18,17 +18,17 @@ function escapeMarkdown(text) {
     if (i % 2 === 0) {
       result += parts[i]
         .replace(/\\\\/g, "&#092;")
-        .replace(/\*/g, "&#042;")
-        .replace(/\_/g, "&#095;")
-        .replace(/\{/g, "&#123;").replace(/\}/g, "&#125;")
-        .replace(/\[/g, "&#091;").replace(/\]/g, "&#093;")
-        .replace(/\(/g, "&#040;").replace(/\)/g, "&#041;")
-        .replace(/\#/g, "&#035;")
-        .replace(/\+/g, "&#043;")
-        .replace(/\-/g, "&#045;")
-        .replace(/\./g, "&#046;")
-        .replace(/\!/g, "&#033;")
-        .replace(/\|/g, "&#124;")
+        .replace(/\\\*/g, "&#042;")
+        .replace(/\\_/g, "&#095;")
+        .replace(/\\{/g, "&#123;").replace(/\\}/g, "&#125;")
+        .replace(/\\\[/g, "&#091;").replace(/\\]/g, "&#093;")
+        .replace(/\\\(/g, "&#040;").replace(/\\)/g, "&#041;")
+        .replace(/\\#/g, "&#035;")
+        .replace(/\\\+/g, "&#043;")
+        .replace(/\\-/g, "&#045;")
+        .replace(/\\./g, "&#046;")
+        .replace(/\\!/g, "&#033;")
+        .replace(/\\\|/g, "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
       if (i < parts.length - 1) {
         result += "`";
