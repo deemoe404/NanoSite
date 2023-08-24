@@ -197,7 +197,7 @@ function markdownParser(markdown) {
       const headingLevel = rawLine.match(/^#+/)[0].length;
       const headingText = replaceInline(escapeHtml(rawLine.slice(headingLevel).trim()));
       html += `<h${headingLevel} id="${i}">${headingText}</h${headingLevel}>`;
-      tochtml.push(`<li><a href="#${i}">${headingText}</a></li>`);
+      tochtml.push(`<a href="#${i}">${headingText}</a>`);
       tochirc.push(headingLevel);
       continue;
     }
