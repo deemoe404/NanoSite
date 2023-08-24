@@ -97,7 +97,8 @@ function markdownParser(markdown) {
 
     // Table
     if (line.startsWith('|')) {
-      const tabs = line.split(/(?<!\\)\|/);
+      const tabs = line.split("|");
+      console.log(tabs);
       if (!isInTable) {
         if (i + 2 < lines.length && (lines[i + 1].startsWith('| -') || lines[i + 1].startsWith('| :')) && lines[i + 2].startsWith('|')) {
           isInTable = true;
