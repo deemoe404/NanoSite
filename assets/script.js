@@ -29,7 +29,7 @@ function escapeMarkdown(text) {
     } else { result += parts[i]; }
     if (i < parts.length - 1) { result += "`"; }
   }
-  return result.replace("/\\`/g", "&#096;");
+  return result.replace("/\\\`/g", "&#096;");
 }
 
 function replaceInline(text) {
