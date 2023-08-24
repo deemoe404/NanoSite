@@ -29,6 +29,9 @@ function escapeMarkdown(text) {
     } else { result += parts[i]; }
     if (i < parts.length - 1) { result += "`"; }
   }
+  console.log(text);
+  console.log(result);
+  console.log(result.replace("/\\\`/g", "&#096;"));
   return result.replace("/\\\`/g", "&#096;");
 }
 
