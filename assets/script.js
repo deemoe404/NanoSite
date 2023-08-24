@@ -56,39 +56,40 @@ function replaceInline(text) {
 }
 
 function tocParser(titleLevels, liTags) {
-  // 创建一个数组来存储每个层级的嵌套列表
   const nestedLists = [document.createElement('ul')];
   let currentLevel = 1;
   let currentList = nestedLists[currentLevel - 1];
 
-  // 遍历标题等级数组和<li>标签数组
   for (let i = 0; i < titleLevels.length; i++) {
       const titleLevel = titleLevels[i];
       const liTag = liTags[i];
 
-      // 如果标题等级比当前层级大，则在当前列表下创建一个新的子列表
       while (titleLevel > currentLevel) {
           const newList = document.createElement('ul');
           const newLi = document.createElement('li');
           newList.appendChild(newLi);
-          currentList.lastChild.appendChild(newList);
+
+          if (currentList.lastChild) {
+              currentList.lastChild.appendChild(newList);
+          } else {
+              // Handle case when currentList is empty
+              currentList.appendChild(newList);
+          }
+
           currentList = newList;
           currentLevel++;
       }
 
-      // 如果标题等级比当前层级小，则返回到较浅的层级列表
       while (titleLevel < currentLevel) {
           currentList = currentList.parentElement.parentElement;
           currentLevel--;
       }
 
-      // 将<li>标签添加到当前层级的列表中
       const newLi = document.createElement('li');
       newLi.innerHTML = liTag;
       currentList.appendChild(newLi);
   }
 
-  // 返回最终生成的嵌套列表的 HTML 代码
   return nestedLists[0].outerHTML;
 }
 
