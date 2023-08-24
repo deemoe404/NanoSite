@@ -32,7 +32,7 @@ function escapeMarkdown(text) {
         .replace("\\!", "&#033;")
         .replace("\\|", "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
-      result += (parts.length != 1 && i == 0) ? "`" : "";
+        result += (parts.length != 1 && (i != (parts.length % 2 == 0) ? parts.length - 2 : parts.length - 1)) ? "`" : "";
     } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
   }
   return result;
@@ -59,7 +59,7 @@ function replaceInline(text) {
         .replace(/^\*\*\*$/gm, '<hr>')
         .replace(/^---$/gm, '<hr>')
         .replace(/^\s*$/g, "<br>");
-      result += (parts.length != 1 && i == 0) ? "`" : "";
+      result += (parts.length != 1 && (i != (parts.length % 2 == 0) ? parts.length - 2 : parts.length - 1)) ? "`" : "";
     } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
   }
   return result.replace(/\`(.*?)\`/g, '<code class="inline">$1</code>');
