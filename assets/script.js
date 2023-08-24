@@ -55,10 +55,48 @@ function replaceInline(text) {
     .replace(/^\s*$/g, "<br>");
 }
 
+function tocParser(titleLevels, liTags) {
+  // 创建一个数组来存储每个层级的嵌套列表
+  const nestedLists = [document.createElement('ul')];
+  let currentLevel = 1;
+  let currentList = nestedLists[currentLevel - 1];
+
+  // 遍历标题等级数组和<li>标签数组
+  for (let i = 0; i < titleLevels.length; i++) {
+      const titleLevel = titleLevels[i];
+      const liTag = liTags[i];
+
+      // 如果标题等级比当前层级大，则在当前列表下创建一个新的子列表
+      while (titleLevel > currentLevel) {
+          const newList = document.createElement('ul');
+          const newLi = document.createElement('li');
+          newList.appendChild(newLi);
+          currentList.lastChild.appendChild(newList);
+          currentList = newList;
+          currentLevel++;
+      }
+
+      // 如果标题等级比当前层级小，则返回到较浅的层级列表
+      while (titleLevel < currentLevel) {
+          currentList = currentList.parentElement.parentElement;
+          currentLevel--;
+      }
+
+      // 将<li>标签添加到当前层级的列表中
+      const newLi = document.createElement('li');
+      newLi.innerHTML = liTag;
+      currentList.appendChild(newLi);
+  }
+
+  // 返回最终生成的嵌套列表的 HTML 代码
+  return nestedLists[0].outerHTML;
+}
+
 function markdownParser(markdown) {
   const lines = markdown.split('\n');
   let html = '',
-    tochtml = '';
+    tochtml = [],
+    tochirc = [];
 
   let isInCode = false,
     isInBigCode = false,
@@ -168,14 +206,15 @@ function markdownParser(markdown) {
       const headingLevel = rawLine.match(/^#+/)[0].length;
       const headingText = replaceInline(escapeHtml(rawLine.slice(headingLevel).trim()));
       html += `<h${headingLevel} id="${i}">${headingText}</h${headingLevel}>`;
-      tochtml += `<li><a href="#${i}">${headingText}</a></li>`;
+      tochtml.push(`<li><a href="#${i}">${headingText}</a></li>`);
+      tochirc.push(headingLevel);
       continue;
     }
 
     html += `<p>${replaceInline(escapeHtml(rawLine))}</p>`;
   }
 
-  return { "post": html, "toc": `<ul>${tochtml}</ul>` };
+  return { "post": html, "toc": `<ul>${tocParser(tochirc, tochtml)}</ul>` };
 }
 
 function getQueryVariable(variable) {
