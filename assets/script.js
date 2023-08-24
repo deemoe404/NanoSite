@@ -98,7 +98,7 @@ function markdownParser(markdown) {
           isInTable = true;
           html += "<table><thead><tr>";
           for (let j = 1; j < tabs.length - 1; j++) {
-            html += `<th>${replaceInline(escapeHtml(tabs[j].trim()))}</th>`;
+            html += `<th>${markdownParser(tabs[j].trim().post)}</th>`;
           }
           html += "</tr></thead><tbody>";
         }
@@ -107,7 +107,7 @@ function markdownParser(markdown) {
       } else {
         html += "<tr>";
         for (let j = 1; j < tabs.length - 1; j++) {
-          html += `<td>${replaceInline(escapeHtml(tabs[j].trim()))}</td>`;
+          html += `<td>${markdownParser(tabs[j].trim()).post}</td>`;
         }
         html += "</tr>";
         if (i == lines.length - 1) {
@@ -153,7 +153,7 @@ function markdownParser(markdown) {
 
     html += `<p>${replaceInline(escapeHtml(lines[i]))}</p>`;
   }
-
+  
   return { "post": html, "toc": `<ul>${tochtml}</ul>` };
 }
 
