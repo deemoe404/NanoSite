@@ -117,7 +117,12 @@ function markdownParser(markdown) {
           html += `<td>${tabs[j].trim().replace("\\|", "|")}</td>`;
         }
         html += "</tr>";
-        continue;
+        if (i == lines.length - 1) {
+          html += "</tbody></table>";
+          isInTable = false;
+        } else {
+          continue;
+        }
       }
     } else if (isInTable) {
       html += "</tbody></table>";
