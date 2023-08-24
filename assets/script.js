@@ -105,7 +105,7 @@ function markdownParser(markdown) {
       }
       continue;
     } else if (isInCodeBlock) {
-      html += `${line}\n`;
+      html += `${escapeHtml(line)}\n`;
       continue;
     }
 
