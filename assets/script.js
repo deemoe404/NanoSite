@@ -35,6 +35,7 @@ function escapeMarkdown(text) {
         result += (parts.length != 1 && (i != (parts.length % 2 == 0) ? parts.length - 2 : parts.length - 1)) ? "`" : "";
     } else { result += parts.length % 2 == 0 ? parts[i] : `${parts[i]}\``; };
   }
+  console.log(result);
   return result;
 }
 
