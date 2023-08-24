@@ -53,6 +53,18 @@ I think I'll use it to format all of my documents from now on.
 
 ---
 
+## Emphasis
+
+Markdown uses the asterisk `*` symbol to emphasize text, allowing you to create bold, italic, and bold-italic text styles.
+
+|           Markdown           |                        HTML                        |           Preview          |
+| ---------------------------- | -------------------------------------------------- | -------------------------- |
+| `**Bold Text**`              | `<strong>Bold Text</strong>`                       | **Bold Text**              |
+| `*Italic Text*`              | `<em>Italic Text</em>`                             | *Italic Text*              |
+| `***Bold and Italic Text***` | `<strong><em>Bold and Italic Text</em></strong>`   | ***Bold and Italic Text*** |
+
+---
+
 ## Lists
 
 ### Unordered List
