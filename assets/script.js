@@ -8,10 +8,6 @@ function escapeHtml(text) {
 }
 
 function escapeMarkdown(text) {
-  if (typeof (text) !== 'string') {
-    return null;
-  }
-
   const parts = text.split("`");
   let result = "";
   for (let i = 0; i < parts.length; i++) {
@@ -30,28 +26,15 @@ function escapeMarkdown(text) {
         .replace(/\\!/g, "&#033;")
         .replace(/\\\|/g, "&#124;")
         .replace(/<!--[\s\S]*?-->/g, '');
-      if (i < parts.length - 1) {
-        result += "`";
-      }
-    } else {
-      result += parts[i];
-      if (i < parts.length - 1) {
-        result += "`";
-      }
-    };
+    } else { result += parts[i]; }
+    if (i < parts.length - 1) { result += "`"; }
   }
-  console.log(`[${text}], [${result}]`);
   return result.replace("/\\`/g", "&#096;");
 }
 
 function replaceInline(text) {
-  if (typeof (text) !== 'string') {
-    return null;
-  }
-
   const parts = text.split("`");
   let result = "";
-
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
       result += parts[i]
@@ -64,33 +47,23 @@ function replaceInline(text) {
         .replace(/~~(.*?)~~/g, '<del>$1</del>')
         .replace(/^\*\*\*$/gm, '<hr>')
         .replace(/^---$/gm, '<hr>');
-      if (i < parts.length - 1) {
-        result += "`";
-      }
-    } else {
-      result += parts[i];
-      if (i < parts.length - 1) {
-        result += "`";
-      }
-    };
+    } else { result += parts[i]; };
+    if (i < parts.length - 1) { result += "`"; }
   }
-  console.log(`[${text}], [${result}]`);
   return result
     .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
     .replace(/^\s*$/g, "<br>");
 }
 
-const isBlank = text => /^\s*$/.test(text);
-
 function markdownParser(markdown) {
   const lines = markdown.split('\n');
-  let html = '';
-  let tochtml = '';
+  let html = '',
+    tochtml = '';
 
-  let isInCode = false;
-  let isInBigCode = false;
-  let isInTable = false;
-  let isInTodo = false;
+  let isInCode = false,
+    isInBigCode = false,
+    isInTable = false,
+    isInTodo = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -155,19 +128,15 @@ function markdownParser(markdown) {
           html += "</tr></thead><tbody>";
         }
         i++;
-        continue;
       } else {
         html += "<tr>";
         for (let j = 1; j < tabs.length - 1; j++) {
           html += `<td>${markdownParser(tabs[j].trim()).post}</td>`;
         }
         html += "</tr>";
-        if (i == lines.length - 1) {
-          html += "</tbody></table>";
-          isInTable = false;
-        }
-        continue;
+        if (i == lines.length - 1) { html += "</tbody></table>"; }
       }
+      continue;
     } else if (isInTable) {
       html += "</tbody></table>";
       isInTable = false;
