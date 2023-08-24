@@ -8,7 +8,7 @@ function escapeHtml(text) {
 }
 
 function escapeMarkdown(text) {
-  const parts = text.split("`");
+  const parts = text.replace("/\\`/g", "&#096;").split("`");
   let result = "";
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
@@ -29,10 +29,7 @@ function escapeMarkdown(text) {
     } else { result += parts[i]; }
     if (i < parts.length - 1) { result += "`"; }
   }
-  console.log(text);
-  console.log(result);
-  console.log(result.replace("/\\\`/g", "&#096;"));
-  return result.replace("/\\\`/g", "&#096;");
+  return result;
 }
 
 function replaceInline(text) {
