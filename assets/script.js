@@ -7,7 +7,7 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;') : null;
 }
 
-function escapeMarkdownComment(text) {
+function escapeMarkdown(text) {
   return typeof (text) === 'string' ? text
     .replace("\\\\", "&#092;")
     .replace("\\`", "&#096;")
@@ -25,29 +25,9 @@ function escapeMarkdownComment(text) {
     .replace(/<!--[\s\S]*?-->/g, '') : null;
 }
 
-function escapeMarkdown(text) {
-  return typeof (text) === 'string' ? text
-    .replace("\\", "&#092;")
-    .replace("`", "&#096;")
-    .replace("*", "&#042;")
-    .replace("_", "&#095;")
-    .replace("{", "&#123;").replace("}", "&#125;")
-    .replace("[", "&#091;").replace("]", "&#093;")
-    .replace("(", "&#040;").replace(")", "&#041;")
-    .replace("#", "&#035;")
-    .replace("+", "&#043;")
-    .replace("-", "&#045;")
-    .replace(".", "&#046;")
-    .replace("!", "&#033;")
-    .replace("|", "&#124;") : null;
-}
-
 function replaceInline(text) {
   return typeof (text) === 'string' ? text
-    .replace(/\`(.*?)\`/g, (_match, group1) => {
-      const processedGroup = escapeMarkdown(group1);
-      return `<code class="inline">${processedGroup}</code>`;
-    })
+    .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
 
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -57,6 +37,7 @@ function replaceInline(text) {
 
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
+
 
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
 
@@ -69,7 +50,7 @@ function replaceInline(text) {
 const isBlank = text => /^\s*$/.test(text);
 
 function markdownParser(markdown) {
-  const lines = escapeMarkdownComment(markdown).split('\n');
+  const lines = markdown.split('\n');
   let html = '';
   let tochtml = '';
 
@@ -78,7 +59,24 @@ function markdownParser(markdown) {
   let isInTodo = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const rawLine = lines[i];
+    const line = lines[i];
+
+    // Code Block
+    if (line.startsWith('```')) {
+      if (!isInCodeBlock) {
+        isInCodeBlock = true;
+        html += '<pre><code>';
+      } else {
+        isInCodeBlock = false;
+        html += '</code></pre>';
+      }
+      continue;
+    } else if (isInCodeBlock) {
+      html += `${line}\n`;
+      continue;
+    }
+
+    const rawLine = escapeMarkdown(line);
 
     // Blockquotes
     if (rawLine.startsWith('>')) {
@@ -93,21 +91,6 @@ function markdownParser(markdown) {
       }
       html += `<blockquote>${markdownParser(quote).post}</blockquote>`;
       i = j - 1;
-      continue;
-    }
-
-    // Code Block
-    if (rawLine.startsWith('```')) {
-      if (!isInCodeBlock) {
-        isInCodeBlock = true;
-        html += '<pre><code>';
-      } else {
-        isInCodeBlock = false;
-        html += '</code></pre>';
-      }
-      continue;
-    } else if (isInCodeBlock) {
-      html += escapeHtml(rawLine) + '\n';
       continue;
     }
 
