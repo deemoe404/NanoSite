@@ -7,7 +7,7 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;') : null;
 }
 
-function escapeMarkdown(text) {
+function escapeMarkdownComment(text) {
   return typeof (text) === 'string' ? text
     .replace("\\\\", "&#092;")
     .replace("\\`", "&#096;")
@@ -25,8 +25,30 @@ function escapeMarkdown(text) {
     .replace(/<!--[\s\S]*?-->/g, '') : null;
 }
 
+function escapeMarkdown(text) {
+  return typeof (text) === 'string' ? text
+    .replace("\\", "&#092;")
+    .replace("`", "&#096;")
+    .replace("*", "&#042;")
+    .replace("_", "&#095;")
+    .replace("{", "&#123;").replace("}", "&#125;")
+    .replace("[", "&#091;").replace("]", "&#093;")
+    .replace("(", "&#040;").replace(")", "&#041;")
+    .replace("#", "&#035;")
+    .replace("+", "&#043;")
+    .replace("-", "&#045;")
+    .replace(".", "&#046;")
+    .replace("!", "&#033;")
+    .replace("|", "&#124;") : null;
+}
+
 function replaceInline(text) {
   return typeof (text) === 'string' ? text
+    .replace(/\`(.*?)\`/g, (_match, group1) => {
+      const processedGroup = escapeMarkdown(group1);
+      return `<code class="inline">${processedGroup}</code>`;
+    })
+
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
 
@@ -36,7 +58,6 @@ function replaceInline(text) {
     .replace(/(?<!!)\[(.*?)\]\((.*?)\s*&quot;(.*?)&quot;\)/g, '<a href="$2" title="$3">$1</a>')
     .replace(/(?<!!)\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>')
 
-    .replace(/\`(.*?)\`/g, '<code class="inline">$1</code>')
     .replace(/~~(.*?)~~/g, '<del>$1</del>')
 
     .replace(/^\*\*\*$/gm, '<hr>')
@@ -48,7 +69,7 @@ function replaceInline(text) {
 const isBlank = text => /^\s*$/.test(text);
 
 function markdownParser(markdown) {
-  const lines = escapeMarkdown(markdown).split('\n');
+  const lines = escapeMarkdownComment(markdown).split('\n');
   let html = '';
   let tochtml = '';
 
