@@ -49,7 +49,7 @@ I think I'll use it to format all of my documents from now on.
 > Note: do not indent paragraphs with spaces or tabs.
 > |              👍 Do this              |                     😭 Don't do this                    |
 > | ------------------------------------ | ------------------------------------------------------ |
-> | `Keep lines left-aligned like this.` | `    Don't add tabs or spaces in front of paragraphs.` |
+> | `Keep lines left-aligned like this.` | `····Don't add tabs or spaces in front of paragraphs.` |
 
 ---
 
