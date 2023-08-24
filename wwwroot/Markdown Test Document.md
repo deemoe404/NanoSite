@@ -8,7 +8,7 @@ With fewer than ten symbols, Markdown offers an immersive writing experience. Li
 
 ---
 
-## Markdown Title
+## Title
 
 In Markdown, you can create headings by adding hash `#` symbols before words or phrases. The number of `#` symbols indicates the level of the heading.
 
@@ -28,13 +28,28 @@ In Markdown, you can create headings by adding hash `#` symbols before words or 
 
 ---
 
-## Emphasis
+## Paragraph
 
-This is a *Italic*.
+To create paragraphs, please use a blank line to separate a single line or multiple lines of text.
 
-This is a **Bold**.
+Markdown:
 
-This is a ***Bold Italic***.
+```Markdown
+I really like using Markdown.
+
+I think I'll use it to format all of my documents from now on.
+```
+
+Preview:
+
+I really like using Markdown.
+
+I think I'll use it to format all of my documents from now on.
+
+> Note: do not indent paragraphs with spaces or tabs.
+> |              👍 Do this              |                     😭 Don't do this                    |
+> | ------------------------------------ | ------------------------------------------------------ |
+> | `Keep lines left-aligned like this.` | `    Don't add tabs or spaces in front of paragraphs.` |
 
 ---
 
