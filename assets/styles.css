@@ -136,6 +136,29 @@ table tr:hover {
   background-color: #f2f2f2;
 }
 
+/* Index */
+
+.index {
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  gap: 10px;
+}
+
+.index a {
+  display: block;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  text-decoration: none;
+  color: #333;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.index a:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-3px);
+}
+
 #tocview {
   position: sticky;
   top: 20px;

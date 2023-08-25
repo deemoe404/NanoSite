@@ -215,10 +215,16 @@ const displayPost = postname => getFile("/wwwroot/" + postname).then(markdown =>
 });
 
 const displayIndex = () => getFile("/wwwroot/index.json").then(index => {
+  let html = "<div class=\"index\">";
   for (const [key, value] of Object.entries(JSON.parse(index))) {
-    document.getElementById("mainview").innerHTML += `<a href="?id=${encodeURIComponent(value['location'])}">${key}</a><br/>`;
+    html += `<a href="?id=${encodeURIComponent(value['location'])}">${key}</a>`;
   }
+  document.getElementById("mainview").innerHTML = `${html}</div>`;
 });
+
+function displayTags() {
+
+}
 
 if (getQueryVariable("id") == null) {
   displayIndex();
