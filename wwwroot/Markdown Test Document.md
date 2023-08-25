@@ -129,7 +129,7 @@ Block quotes can contain other Markdown-formatted elements. Not all elements are
 
 👀 Preview:
 
-> #### The quarterly results look great!
+> #### The quarterly results look great
 >
 > - Revenue was off the chart.
 > - Profits were higher than ever.
