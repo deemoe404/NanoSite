@@ -83,14 +83,8 @@ function tocParser(titleLevels, liTags) {
 
 function markdownParser(markdown) {
   const lines = markdown.split('\n');
-  let html = '',
-    tochtml = [],
-    tochirc = [];
-
-  let isInCode = false,
-    isInBigCode = false,
-    isInTable = false,
-    isInTodo = false;
+  let html = "", tochtml = [], tochirc = [];
+  let isInCode = false, isInBigCode = false, isInTable = false, isInTodo = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
