@@ -1,4 +1,4 @@
-# Welcome to[test link](https://www.apple.com) Na![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/1280px-Markdown-mark.svg.png)no blog
+# Welcome to[test link](https://www.apple.com) Na![Markdown Logo](images/Markdown-mark.svg.png)no blog
 
 This is a **Na[test link](https://www.apple.com)no** and *blog* site. Every post is just a markdown file, and rendered in js.
 
@@ -10,7 +10,7 @@ Road map:
 
 Road map(v2):
 
-1. Make it l![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/1280px-Markdown-mark.svg.png)ooks OK
+1. Make it l![Markdown Logo](images/Markdown-mark.svg.png)ooks OK
 2. Support Image
 3. Better code (i am new [test link](https://www.apple.com) to js)
 
@@ -22,13 +22,13 @@ This is another parag[test link](https://www.apple.com)raph.
 
 ``` C++
 #incldue "sdiod.cpp"
-![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/1280px-Markdown-mark.svg.png)
+![Markdown Logo](images/Markdown-mark.svg.png)
 itn mian(] {
   returr ();
 ]
 ```
 
->yes i know the co![Markdown Logo](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/1280px-Markdown-mark.svg.png)de is wrong.
+>yes i know the co![Markdown Logo](images/Markdown-mark.svg.png)de is wrong.
 
 hahaha
 
