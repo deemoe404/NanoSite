@@ -7,7 +7,7 @@
   <link rel="stylesheet" type="text/css" href="assets/styles.css">
 
   <!-- Site identity -->
-  <title>Nano Site</title>
+  <title>NanoSite</title>
 </head>
 
 <body>
@@ -15,8 +15,8 @@
     <div class="content">
 
       <!-- Navigator Bar -->
-      <div class="box" id="mapview">
-        <a href="/" style="color: #3498db; text-decoration: none;">All Posts</a>
+      <div class="box" id="mapview" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>
       </div>
 
       <!-- Main content -->
@@ -25,10 +25,15 @@
     </div>
     <div class="sidebar">
 
+      <!-- Search -->
+      <div class="box" id="searchbox">
+        <input id="searchInput" type="search" placeholder="Search posts..." aria-label="Search posts">
+      </div>
+
       <!-- Site Card -->
       <div class="box">
         <div>
-          <img src="/assets/avatar.png" alt="avatar"
+          <img src="assets/avatar.png" alt="avatar"
             style="width: 100px; border-radius: 50%; margin: 0 auto; display: block;">
           <h3 style="text-align: center; margin-top: 10px;">Phyllali's Blog</h3>
           <p style="text-align: center; color: #888;">Thanks for playing my game.</p>
@@ -39,9 +44,14 @@
         </div>
       </div>
 
-      <!-- Page of Content for Posts -->
-      <div class="box" id="tocview">
+      <!-- Tools: Theme toggle -->
+      <div class="box" id="tools">
+        <div class="section-title">Function Area</div>
+        <div class="tools"><button id="themeToggle" class="btn">Toggle Theme</button></div>
       </div>
+
+      <!-- Page of Content for Posts -->
+      <div class="box" id="tocview"></div>
     </div>
   </div>
 
