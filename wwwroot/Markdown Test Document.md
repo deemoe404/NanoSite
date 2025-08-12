@@ -222,7 +222,7 @@ To add an image, please use an exclamation mark `!`, followed by square brackets
 
 👀 Preview:
 
-![Markdown LOGO](wwwroot/images/Markdown-mark.svg.png "Markdown LOGO")
+![Markdown LOGO](images/Markdown-mark.svg.png "Markdown LOGO")
 
 > Note: The quotation mark at the end of the parentheses is not mandatory, it controls the text displayed when hovering the mouse over the image.
 
