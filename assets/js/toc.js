@@ -119,11 +119,20 @@ export function setupTOC() {
   if (current && idToLink.has(current) && trackable.has(current)) onActive(current);
   else updateActive();
 
-  tocRoot.querySelectorAll('a[href^="#"]:not(.toc-anchor)').forEach(a => {
-    a.addEventListener('click', () => {
+  tocRoot.querySelectorAll('a[href^="#"]:not(.toc-anchor):not(.toc-top)').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
       const id = (a.getAttribute('href') || '').replace('#', '');
       if (id && trackable.has(id)) onActive(id);
       else tocRoot.querySelectorAll('a.active').forEach(x => x.classList.remove('active'));
+      const el = id ? document.getElementById(id) : null;
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Update hash without triggering default jump-to-top
+      try {
+        const url = new URL(window.location.href);
+        url.hash = id ? `#${id}` : '';
+        history.replaceState(null, '', url.toString());
+      } catch (_) {}
     });
   });
 
@@ -142,4 +151,3 @@ function getDepth(el, tocRoot) {
   while (n && n !== tocRoot) { if (n.tagName === 'UL') d++; n = n.parentElement; }
   return Math.max(0, d - 1);
 }
-

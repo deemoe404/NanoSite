@@ -3,13 +3,39 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt } from './js/content.js';
-import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab } from './js/utils.js';
+import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml } from './js/utils.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
 
 let postsByLocationTitle = {};
 let tabsBySlug = {};
+let postsIndexCache = {};
+let allowedLocations = new Set();
+
+function renderSkeletonArticle() {
+  return `
+    <div class="skeleton-article" aria-busy="true" aria-live="polite">
+      <div class="skeleton-block skeleton-title w-70"></div>
+      <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-90"></div>
+      <div class="skeleton-block skeleton-line w-80"></div>
+      <div class="skeleton-block skeleton-image w-100"></div>
+      <div class="skeleton-block skeleton-line w-90"></div>
+      <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-60"></div>
+    </div>`;
+}
+
+function getArticleTitleFromMain() {
+  const h = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
+  if (!h) return null;
+  const clone = h.cloneNode(true);
+  const anchors = clone.querySelectorAll('a.anchor');
+  anchors.forEach(a => a.remove());
+  const text = (clone.textContent || '').replace(/\s+/g, ' ').trim();
+  return text.replace(/^#+\s*/, '').trim();
+}
 
 function renderTabs(activeSlug) {
   const nav = document.getElementById('tabsNav');
@@ -21,21 +47,46 @@ function renderTabs(activeSlug) {
 }
 
 function displayPost(postname) {
+  // Loading state for post view
+  const toc = document.getElementById('tocview');
+  if (toc) {
+    toc.style.display = '';
+    toc.innerHTML = '<div class="toc-header"><span>Contents</span><span style="font-size:.85rem; color: var(--muted);">Loading…</span></div>'
+      + '<ul class="toc-skeleton">'
+      + '<li><div class="skeleton-block skeleton-line w-90"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-80"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-85"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-70"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-60"></div></li>'
+      + '</ul>';
+  }
+  const main = document.getElementById('mainview');
+  if (main) main.innerHTML = renderSkeletonArticle();
+
   return getFile('wwwroot/' + postname).then(markdown => {
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
     const baseDir = `wwwroot/${dir}`;
     const output = mdParse(markdown, baseDir);
+    // Render main content first so we can read the first heading reliably
+    document.getElementById('mainview').innerHTML = output.post;
+    const fallback = postsByLocationTitle[postname] || postname;
+    const articleTitle = getArticleTitleFromMain() || fallback;
     const toc = document.getElementById('tocview');
     toc.style.display = '';
-    toc.innerHTML = `<div class=\"toc-header\"><span>Contents</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">Top</a></div>${output.toc}`;
-    document.getElementById('mainview').innerHTML = output.post;
+    toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">Top</a></div>${output.toc}`;
     const searchBox = document.getElementById('searchbox');
     if (searchBox) searchBox.style.display = 'none';
-    const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
-    const fallback = postsByLocationTitle[postname] || postname;
-    setDocTitle((firstHeading && firstHeading.textContent) || fallback);
+    setDocTitle(articleTitle);
     setupAnchors();
     setupTOC();
+    // If URL contains a hash, ensure we jump after content is in DOM
+    const currentHash = (location.hash || '').replace(/^#/, '');
+    if (currentHash) {
+      const target = document.getElementById(currentHash);
+      if (target) {
+        requestAnimationFrame(() => { target.scrollIntoView({ block: 'start' }); });
+      }
+    }
   }).catch(() => {
     document.getElementById('tocview').innerHTML = '';
     document.getElementById('mainview').innerHTML = '<div class="notice error"><h3>Post not found</h3><p>The requested post could not be loaded. <a href="./">Back to all posts</a>.</p></div>';
@@ -88,6 +139,8 @@ function displayStaticTab(slug) {
   const toc = document.getElementById('tocview');
   toc.innerHTML = '';
   toc.style.display = 'none';
+  const main = document.getElementById('mainview');
+  if (main) main.innerHTML = renderSkeletonArticle();
   const searchBox = document.getElementById('searchbox');
   if (searchBox) searchBox.style.display = 'none';
   renderTabs(slug);
@@ -105,6 +158,58 @@ function displayStaticTab(slug) {
       setDocTitle('Page Unavailable');
     });
 }
+
+// Simple router: render based on current URL
+function routeAndRender() {
+  const id = getQueryVariable('id');
+  const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
+  const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
+
+  if (isValidId(id)) {
+    renderTabs('posts');
+    displayPost(id);
+  } else if (tab !== 'posts' && tabsBySlug[tab]) {
+    displayStaticTab(tab);
+  } else {
+    renderTabs('posts');
+    displayIndex(postsIndexCache);
+  }
+}
+
+// Intercept in-app navigation and use History API
+function isModifiedClick(event) {
+  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
+}
+
+document.addEventListener('click', (e) => {
+  const a = e.target && e.target.closest ? e.target.closest('a') : null;
+  if (!a) return;
+  if (isModifiedClick(e)) return;
+  const hrefAttr = a.getAttribute('href') || '';
+  // Allow any in-page hash links (e.g., '#', '#heading' or '?id=...#heading')
+  if (hrefAttr.includes('#')) return;
+  // External targets or explicit new tab
+  if (a.target && a.target === '_blank') return;
+  try {
+    const url = new URL(a.href, window.location.href);
+    // Only handle same-origin and same-path navigations
+    if (url.origin !== window.location.origin) return;
+    if (url.pathname !== window.location.pathname) return;
+    const sp = url.searchParams;
+    const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
+    if (!hasInAppParams) return;
+    e.preventDefault();
+    history.pushState({}, '', url.toString());
+    routeAndRender();
+    window.scrollTo(0, 0);
+  } catch (_) {
+    // If URL parsing fails, fall through to default navigation
+  }
+});
+
+window.addEventListener('popstate', () => {
+  routeAndRender();
+});
 
 // Boot
 applySavedTheme();
@@ -129,26 +234,15 @@ getFile('wwwroot/index.json')
       if (!loc) continue;
       tabsBySlug[slug] = { title, location: loc };
     }
-    const allowed = new Set(Object.values(posts).map(v => String(v.location)));
+    allowedLocations = new Set(Object.values(posts).map(v => String(v.location)));
     postsByLocationTitle = {};
     for (const [title, meta] of Object.entries(posts)) {
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
     }
-    const id = getQueryVariable('id');
-    const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
-    const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowed.has(x);
-    if (isValidId(id)) {
-      renderTabs('posts');
-      displayPost(id);
-    } else if (tab !== 'posts' && tabsBySlug[tab]) {
-      displayStaticTab(tab);
-    } else {
-      renderTabs('posts');
-      displayIndex(posts);
-    }
+    postsIndexCache = posts;
+    routeAndRender();
   })
   .catch(() => {
     document.getElementById('tocview').innerHTML = '';
     document.getElementById('mainview').innerHTML = '<div class="notice error"><h3>Index unavailable</h3><p>Could not load the post index. Check network or repository contents.</p></div>';
   });
-
