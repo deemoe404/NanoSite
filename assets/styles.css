@@ -176,6 +176,13 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index .tags { display:flex; flex-wrap: wrap; gap:6px; padding: 0 14px 14px; }
 .index .tag { display:inline-block; margin: 0; font-size:.8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.1rem .4rem; border-radius: 999px; }
 
+/* Pagination */
+.pagination { display:flex; align-items:center; justify-content:center; gap:6px; margin: 8px 0 4px; flex-wrap: wrap; }
+.pagination a, .pagination span { display:inline-block; padding:.3rem .55rem; border:1px solid var(--border); border-radius:8px; background: var(--card); color: var(--text); text-decoration:none; font-size:.9rem; }
+.pagination a:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+.pagination .active { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); font-weight: 700; }
+.pagination .disabled { opacity: .5; pointer-events: none; }
+
 .hero { border:1px solid var(--border); background: radial-gradient(600px 240px at 0% -10%, rgba(37,99,235,.12), transparent 40%), var(--card); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 16px; }
 .hero h2 { margin: 0 0 .35rem; font-size: 1.6rem; }
 .hero p { margin: 0; color: var(--muted); }

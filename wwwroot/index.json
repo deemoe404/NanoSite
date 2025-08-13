@@ -1,7 +1,20 @@
 {
-  "Welcome to Nano blog": { "location": "welcome.md", "tag" : ["NanoSite", "Test"], "image": "images/Markdown-mark.svg.png" },
-  "How to set up Nano blog": { "location": "setup.md", "tag" : "NanoSite", "image": "images/Markdown-mark.svg.png"  },
-  "Markdown Test Document": { "location": "Markdown Test Document.md", "tag" : "testbench", "image": "images/Markdown-mark.svg.png"  },
-  "Feature Demo": { "location": "features-demo.md", "tag": "demo" },
-  "New: Feature Demo Announcement": { "location": "announcement.md", "tag": "news" }
+  "Welcome to Nano blog": { "location": "welcome.md", "tag" : ["NanoSite", "Test"], "image": "images/Markdown-mark.svg.png", "date": "2023-08-13" },
+  "How to set up Nano blog": { "location": "setup.md", "tag" : "NanoSite", "image": "images/Markdown-mark.svg.png", "date": "2023-08-23"  },
+  "Markdown Test Document": { "location": "Markdown Test Document.md", "tag" : "testbench", "image": "images/Markdown-mark.svg.png", "date": "2023-08-13"  },
+  "Feature Demo": { "location": "features-demo.md", "tag": "demo", "date": "2024-08-13" },
+  "New: Feature Demo Announcement": { "location": "announcement.md", "tag": "news", "date": "2019-08-13" },
+  "Welcome to Nano blog2": { "location": "welcome.md", "tag" : ["NanoSite", "Test"], "image": "images/Markdown-mark.svg.png", "date": "2023-08-13" },
+  "How to set up Nano blog2": { "location": "setup.md", "tag" : "NanoSite", "image": "images/Markdown-mark.svg.png", "date": "2023-08-23"  },
+  "Markdown Test Docume2nt": { "location": "Markdown Test Document.md", "tag" : "testbench", "image": "images/Markdown-mark.svg.png", "date": "2023-08-13"  },
+  "Feature D2emo": { "location": "features-demo.md", "tag": "demo", "date": "2024-08-13" },
+  "2Welcome to Nano blog": { "location": "welcome.md", "tag" : ["NanoSite", "Test"], "image": "images/Markdown-mark.svg.png", "date": "2023-08-13" },
+  "Ho2w to set up Nano blog": { "location": "setup.md", "tag" : "NanoSite", "image": "images/Markdown-mark.svg.png", "date": "2023-08-23"  },
+  "Mar2kdown Test Document": { "location": "Markdown Test Document.md", "tag" : "testbench", "image": "images/Markdown-mark.svg.png", "date": "2023-08-13"  },
+  "Fea2ture Demo": { "location": "features-demo.md", "tag": "demo", "date": "2024-08-13" },
+  "New2: Feature Demo Announcement": { "location": "announcement.md", "tag": "news", "date": "2019-08-13" },
+  "Welcome 2to Nano blog2": { "location": "welcome.md", "tag" : ["NanoSite", "Test"], "image": "images/Markdown-mark.svg.png", "date": "2023-08-13" },
+  "Ho2w to set up Nano blog2": { "location": "setup.md", "tag" : "NanoSite", "image": "images/Markdown-mark.svg.png", "date": "2023-08-23"  },
+  "Markdown2 Test Docume2nt": { "location": "Markdown Test Document.md", "tag" : "testbench", "image": "images/Markdown-mark.svg.png", "date": "2023-08-13"  },
+  "Feat2ure D2emo": { "location": "features-demo.md", "tag": "demo", "date": "2024-08-13" }
 }

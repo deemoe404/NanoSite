@@ -1,16 +1,25 @@
 export function setupSearch(entries){
   const input = document.getElementById('searchInput');
   if (!input) return;
-  const container = document.getElementById('mainview');
-  const cards = () => Array.from(container.querySelectorAll('.index a'));
-  const titles = entries.map(([t]) => String(t || '').toLowerCase());
-  input.value = '';
-  input.oninput = () => {
-    const q = input.value.trim().toLowerCase();
-    cards().forEach((el, idx) => {
-      const match = !q || titles[idx].includes(q);
-      el.style.display = match ? '' : 'none';
-    });
+  // Preserve existing value if arriving from search tab
+  // On Enter, navigate to global search view
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      const q = input.value.trim();
+      const url = new URL(window.location.href);
+      if (q) {
+        url.searchParams.set('tab', 'search');
+        url.searchParams.set('q', q);
+        url.searchParams.delete('id');
+        url.searchParams.delete('page');
+      } else {
+        url.searchParams.set('tab', 'posts');
+        url.searchParams.delete('q');
+        url.searchParams.delete('id');
+        url.searchParams.delete('page');
+      }
+      history.pushState({}, '', url.toString());
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
   };
 }
-

@@ -12,6 +12,7 @@ let postsByLocationTitle = {};
 let tabsBySlug = {};
 let postsIndexCache = {};
 let allowedLocations = new Set();
+const PAGE_SIZE = 8;
 
 function renderSkeletonArticle() {
   return `
@@ -37,12 +38,21 @@ function getArticleTitleFromMain() {
   return text.replace(/^#+\s*/, '').trim();
 }
 
-function renderTabs(activeSlug) {
+function renderTabs(activeSlug, searchQuery) {
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
   const make = (slug, label) => `<a class="tab${activeSlug===slug?' active':''}" href="?tab=${encodeURIComponent(slug)}">${label}</a>`;
   let html = make('posts','All Posts');
   for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
+  if (activeSlug === 'search') {
+    const q = String(searchQuery || '').trim();
+    const href = `?tab=search${q ? `&q=${encodeURIComponent(q)}` : ''}`;
+    html += `<a class="tab active" href="${href}">Search</a>`;
+  } else if (activeSlug === 'post') {
+    const raw = String(searchQuery || 'Post').trim();
+    const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : 'Post';
+    html += `<span class="tab active">${label}</span>`;
+  }
   nav.innerHTML = html;
 }
 
@@ -71,6 +81,7 @@ function displayPost(postname) {
     document.getElementById('mainview').innerHTML = output.post;
     const fallback = postsByLocationTitle[postname] || postname;
     const articleTitle = getArticleTitleFromMain() || fallback;
+    renderTabs('post', articleTitle);
     const toc = document.getElementById('tocview');
     toc.style.display = '';
     toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">Top</a></div>${output.toc}`;
@@ -102,9 +113,16 @@ function displayIndex(parsed) {
   toc.style.display = 'none';
 
   const entries = Object.entries(parsed || {});
+  const total = entries.length;
+  const qPage = parseInt(getQueryVariable('page') || '1', 10);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = isNaN(qPage) ? 1 : Math.min(Math.max(1, qPage), totalPages);
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const pageEntries = entries.slice(start, end);
 
   let html = '<div class="index">';
-  for (const [key, value] of entries) {
+  for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
     const cover = (value && value.image)
       ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\"></div>`
@@ -114,7 +132,21 @@ function displayIndex(parsed) {
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
     html += `<a href=\"?id=${encodeURIComponent(value['location'])}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
   }
-  document.getElementById('mainview').innerHTML = `${html}</div>`;
+  html += '</div>';
+  // Pagination controls
+  if (totalPages > 1) {
+    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"?tab=posts&page=${p}\">${label}</a>`;
+    const makeSpan = (label, cls = '') => `<span class=\"${cls}\">${label}</span>`;
+    let pager = '<nav class="pagination" aria-label="Pagination">';
+    pager += (page > 1) ? makeLink(page - 1, 'Prev', 'page-prev') : makeSpan('Prev', 'page-prev disabled');
+    for (let i = 1; i <= totalPages; i++) {
+      pager += (i === page) ? `<span class=\"page-num active\">${i}</span>` : makeLink(i, String(i), 'page-num');
+    }
+    pager += (page < totalPages) ? makeLink(page + 1, 'Next', 'page-next') : makeSpan('Next', 'page-next disabled');
+    pager += '</nav>';
+    html += pager;
+  }
+  document.getElementById('mainview').innerHTML = html;
 
   setupSearch(entries);
   renderTabs('posts');
@@ -123,7 +155,7 @@ function displayIndex(parsed) {
   setDocTitle('All Posts');
 
   const cards = Array.from(document.querySelectorAll('.index a'));
-  entries.forEach(([title, meta], idx) => {
+  pageEntries.forEach(([title, meta], idx) => {
     const loc = meta && meta.location ? String(meta.location) : '';
     if (!loc) return;
     getFile('wwwroot/' + loc).then(md => {
@@ -140,6 +172,98 @@ function displayIndex(parsed) {
         const readHtml = `<span class=\"card-read\">${minutes} min read</span>`;
         if (dateEl && dateEl.textContent.trim()) {
           // add a separator dot if date exists
+          metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
+        } else {
+          metaEl.innerHTML = readHtml;
+        }
+      }
+    }).catch(() => {});
+  });
+}
+
+function displaySearch(query) {
+  const q = String(query || '').trim();
+  if (!q) return displayIndex(postsIndexCache);
+
+  const toc = document.getElementById('tocview');
+  toc.innerHTML = '';
+  toc.style.display = 'none';
+
+  // Filter by title or tags
+  const allEntries = Object.entries(postsIndexCache || {});
+  const ql = q.toLowerCase();
+  const filtered = allEntries.filter(([title, meta]) => {
+    const inTitle = String(title || '').toLowerCase().includes(ql);
+    const tagVal = meta && meta.tag;
+    let tagStr = '';
+    if (Array.isArray(tagVal)) tagStr = tagVal.join(',');
+    else if (typeof tagVal === 'string') tagStr = tagVal;
+    else if (tagVal != null) tagStr = String(tagVal);
+    const inTags = String(tagStr || '').toLowerCase().includes(ql);
+    return inTitle || inTags;
+  });
+
+  const total = filtered.length;
+  const qPage = parseInt(getQueryVariable('page') || '1', 10);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = isNaN(qPage) ? 1 : Math.min(Math.max(1, qPage), totalPages);
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const pageEntries = filtered.slice(start, end);
+
+  let html = '<div class="index">';
+  for (const [key, value] of pageEntries) {
+    const tag = value ? renderTags(value.tag) : '';
+    const cover = (value && value.image)
+      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\"></div>`
+      : fallbackCover(key);
+    const hasDate = value && value.date;
+    const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
+    html += `<a href=\"?id=${encodeURIComponent(value['location'])}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
+  }
+  html += '</div>';
+
+  if (total === 0) {
+    html = `<div class=\"notice\"><h3>No results</h3><p>No posts found for \"${escapeHtml(q)}\". <a href=\"?tab=posts\">Back to all posts</a>.</p></div>`;
+  } else if (totalPages > 1) {
+    const encQ = encodeURIComponent(q);
+    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"?tab=search&q=${encQ}&page=${p}\">${label}</a>`;
+    const makeSpan = (label, cls = '') => `<span class=\"${cls}\">${label}</span>`;
+    let pager = '<nav class="pagination" aria-label="Pagination">';
+    pager += (page > 1) ? makeLink(page - 1, 'Prev', 'page-prev') : makeSpan('Prev', 'page-prev disabled');
+    for (let i = 1; i <= totalPages; i++) {
+      pager += (i === page) ? `<span class=\"page-num active\">${i}</span>` : makeLink(i, String(i), 'page-num');
+    }
+    pager += (page < totalPages) ? makeLink(page + 1, 'Next', 'page-next') : makeSpan('Next', 'page-next disabled');
+    pager += '</nav>';
+    html += pager;
+  }
+
+  document.getElementById('mainview').innerHTML = html;
+  renderTabs('search', q);
+  const searchBox = document.getElementById('searchbox');
+  if (searchBox) searchBox.style.display = '';
+  const input = document.getElementById('searchInput');
+  if (input) input.value = q;
+  setupSearch(Object.entries(postsIndexCache || {}));
+  setDocTitle(`Search: ${q}`);
+
+  const cards = Array.from(document.querySelectorAll('.index a'));
+  pageEntries.forEach(([title, meta], idx) => {
+    const loc = meta && meta.location ? String(meta.location) : '';
+    if (!loc) return;
+    getFile('wwwroot/' + loc).then(md => {
+      const ex = extractExcerpt(md, 50);
+      const el = cards[idx];
+      if (!el) return;
+      const exEl = el.querySelector('.card-excerpt');
+      if (exEl) exEl.textContent = ex;
+      const minutes = computeReadTime(md, 200);
+      const metaEl = el.querySelector('.card-meta');
+      if (metaEl) {
+        const dateEl = metaEl.querySelector('.card-date');
+        const readHtml = `<span class=\"card-read\">${minutes} min read</span>`;
+        if (dateEl && dateEl.textContent.trim()) {
           metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
         } else {
           metaEl.innerHTML = readHtml;
@@ -182,8 +306,12 @@ function routeAndRender() {
   const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
 
   if (isValidId(id)) {
-    renderTabs('posts');
+    renderTabs('post');
     displayPost(id);
+  } else if (tab === 'search') {
+    const q = getQueryVariable('q') || '';
+    renderTabs('search', q);
+    displaySearch(q);
   } else if (tab !== 'posts' && tabsBySlug[tab]) {
     displayStaticTab(tab);
   } else {
