@@ -1,25 +1,23 @@
 ## About NanoSite
 
-NanoSite 是一个零依赖、纯前端的极简博客/文档发布方案。把 Markdown 放在 `wwwroot/`，主页读取 `index.json` 列表，浏览器端完成渲染与导航。
+NanoSite is a zero‑dependency, pure front‑end template for simple blogs and docs. Put your Markdown files in `wwwroot/`, list them in `wwwroot/index.json`, and the browser handles routing, rendering, and the table of contents.
 
-### 特性一览
+### Features at a glance
 
-- 纯静态：适合 GitHub Pages 等静态托管
-- Markdown：标题、列表、链接、图片、代码块、表格、待办等
-- 目录（TOC）：侧边高亮跟随（仅 H2/H3）
-- 深浅色主题：手动切换，记忆偏好
-- 安全：链接/图片协议白名单、相对图片路径自动解析
+- Pure static: ideal for GitHub Pages and other static hosts
+- Markdown coverage: headings, lists, links, images, code fences, tables, and checklists
+- Table of contents: sticky sidebar with H2/H3 highlighting
+- Light/Dark theme: manual toggle with remembered preference
+- Safety: URL protocol allow‑list and automatic resolution of relative image paths
 
-### 快速开始
+### Quick start
 
-1. 把文章（`*.md`）放入 `wwwroot/`
-2. 在 `wwwroot/index.json` 中登记标题与文件名
-3. 通过本地服务器预览：`python3 -m http.server 8000`
+1. Add your articles (`*.md`) to `wwwroot/`.
+2. Register titles and file names in `wwwroot/index.json`.
+3. Preview locally with `python3 -m http.server 8000` and open `http://localhost:8000/`.
 
-### Demo 与源码
+### Demos and source
 
-- 功能演示：[Feature Demo](?id=features-demo.md)
-- 源码仓库：[GitHub](https://github.com/phyllali)
+- Markdown showcase: [Open demo](?id=markdown-showcase.md)
 
-> 提示：顶部的 “All Posts” 标签展示所有文章；当前 “About” 标签由 `wwwroot/tabs.json` 配置并映射到本页 Markdown。
-
+> Tip: The “All Posts” tab lists everything from `wwwroot/index.json`. This “About” tab is configured by `wwwroot/tabs.json` and mapped to this file.
