@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
@@ -356,8 +356,11 @@ window.addEventListener('popstate', () => {
 });
 
 // Boot
+// Ensure theme controls are present, then apply and bind
+mountThemeControls();
 applySavedTheme();
 bindThemeToggle();
+bindThemePackPicker();
 
 getFile('wwwroot/index.json')
   .then(indexText => {

@@ -4,7 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="assets/js/theme-boot.js"></script>
   <link rel="stylesheet" type="text/css" href="assets/styles.css">
+  <link rel="stylesheet" id="theme-pack">
 
   <!-- Site identity -->
   <title>NanoSite</title>
@@ -15,7 +17,7 @@
     <div class="content">
 
       <!-- Navigator Bar -->
-      <div class="box" id="mapview" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <div class="box flex-split" id="mapview">
         <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>
       </div>
 
@@ -31,24 +33,17 @@
       </div>
 
       <!-- Site Card -->
-      <div class="box">
-        <div>
-          <img src="assets/avatar.png" alt="avatar"
-            style="width: 100px; border-radius: 50%; margin: 0 auto; display: block;">
-          <h3 style="text-align: center; margin-top: 10px;">Phyllali's Blog</h3>
-          <p style="text-align: center; color: #888;">Thanks for playing my game.</p>
-          <hr style="border: 1px solid #e0e0e0; margin: 15px 0;">
-          <ul style="list-style: none; padding: 0; margin: 0; text-align: center;">
-            <li><a href="https://github.com/phyllali" style="color: #3498db; text-decoration: none;">GitHub</a></li>
-          </ul>
-        </div>
+      <div class="box site-card">
+        <img class="avatar" src="assets/avatar.png" alt="avatar">
+        <h3 class="site-title">Phyllali's Blog</h3>
+        <p class="site-subtitle">Thanks for playing my game.</p>
+        <hr class="site-hr">
+        <ul class="social-links">
+          <li><a href="https://github.com/phyllali">GitHub</a></li>
+        </ul>
       </div>
 
-      <!-- Tools: Theme toggle -->
-      <div class="box" id="tools">
-        <div class="section-title">Function Area</div>
-        <div class="tools"><button id="themeToggle" class="btn">Toggle Theme</button></div>
-      </div>
+      <!-- Tools box is rendered by JS (theme.js) -->
 
       <!-- Page of Content for Posts -->
       <div class="box" id="tocview"></div>
