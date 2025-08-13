@@ -106,3 +106,14 @@ export function renderTags(tagVal) {
 
 export const slugifyTab = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
 
+// Format a date string for display; accepts ISO/"YYYY-MM-DD"/Date
+export function formatDisplayDate(input) {
+  if (!input && input !== 0) return '';
+  try {
+    const d = (input instanceof Date) ? input : new Date(String(input));
+    if (isNaN(d.getTime())) return escapeHtml(String(input));
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch (_) {
+    return escapeHtml(String(input));
+  }
+}

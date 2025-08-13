@@ -2,8 +2,8 @@ import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle } from './js/theme.js';
 import { setupSearch } from './js/search.js';
-import { extractExcerpt } from './js/content.js';
-import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml } from './js/utils.js';
+import { extractExcerpt, computeReadTime } from './js/content.js';
+import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -109,7 +109,10 @@ function displayIndex(parsed) {
     const cover = (value && value.image)
       ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\"></div>`
       : fallbackCover(key);
-    html += `<a href=\"?id=${encodeURIComponent(value['location'])}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div>${tag}</a>`;
+    // pre-render meta line with date if available; read time appended after fetch
+    const hasDate = value && value.date;
+    const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
+    html += `<a href=\"?id=${encodeURIComponent(value['location'])}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
   }
   document.getElementById('mainview').innerHTML = `${html}</div>`;
 
@@ -129,6 +132,19 @@ function displayIndex(parsed) {
       if (!el) return;
       const exEl = el.querySelector('.card-excerpt');
       if (exEl) exEl.textContent = ex;
+      // compute and render read time
+      const minutes = computeReadTime(md, 200);
+      const metaEl = el.querySelector('.card-meta');
+      if (metaEl) {
+        const dateEl = metaEl.querySelector('.card-date');
+        const readHtml = `<span class=\"card-read\">${minutes} min read</span>`;
+        if (dateEl && dateEl.textContent.trim()) {
+          // add a separator dot if date exists
+          metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
+        } else {
+          metaEl.innerHTML = readHtml;
+        }
+      }
     }).catch(() => {});
   });
 }

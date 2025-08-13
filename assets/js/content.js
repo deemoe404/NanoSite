@@ -51,3 +51,10 @@ export function extractExcerpt(md, wordLimit = 50) {
   return limitWords(text, wordLimit);
 }
 
+// Compute predicted read time (in whole minutes, min 1)
+export function computeReadTime(md, wpm = 200) {
+  const text = stripMarkdownToText(md);
+  const words = String(text || '').split(/\s+/).filter(Boolean).length;
+  const minutes = Math.max(1, Math.ceil(words / Math.max(100, Number(wpm) || 200)));
+  return minutes; // caller formats e.g., `${minutes} min read`
+}
