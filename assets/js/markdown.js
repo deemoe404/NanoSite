@@ -1,5 +1,18 @@
 import { escapeHtml, escapeMarkdown, sanitizeUrl, resolveImageSrc } from './utils.js';
 
+function isPipeTableSeparator(line) {
+  // Matches a classic Markdown table separator like:
+  // | ----- | :----: | ------- |
+  const s = String(line || '').trim();
+  if (!s.startsWith('|')) return false;
+  const cells = s.split('|').slice(1, -1); // drop leading/trailing pipes
+  if (cells.length === 0) return false;
+  for (const c of cells) {
+    if (!/^\s*:?-{3,}:?\s*$/.test(c)) return false;
+  }
+  return true;
+}
+
 function replaceInline(text, baseDir) {
   const parts = String(text || '').split('`');
   let result = '';
@@ -61,26 +74,28 @@ export function mdParse(markdown, baseDir) {
   const lines = String(markdown || '').split('\n');
   let html = '', tochtml = [], tochirc = [];
   let isInCode = false, isInBigCode = false, isInTable = false, isInTodo = false, isInPara = false;
+  let codeLang = '';
   const closePara = () => { if (isInPara) { html += '</p>'; isInPara = false; } };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const ltrim3 = line.replace(/^( {0,3})/, '');
 
     // Code blocks
-    if (line.startsWith('````')) {
+    if (ltrim3.startsWith('````')) {
       closePara();
-      if (!isInBigCode) { isInBigCode = true; html += '<pre><code>'; }
-      else { isInBigCode = false; html += '</code></pre>'; }
+      if (!isInBigCode) { isInBigCode = true; codeLang = (ltrim3.slice(4).trim().split(/\s+/)[0] || '').toLowerCase(); html += `<pre><code${codeLang?` class=\"language-${codeLang}\"`:''}>`; }
+      else { isInBigCode = false; codeLang = ''; html += '</code></pre>'; }
       continue;
     } else if (isInBigCode) {
       html += `${escapeHtml(line)}\n`;
       continue;
     }
 
-    if (line.startsWith('```') && !isInBigCode) {
+    if (ltrim3.startsWith('```') && !isInBigCode) {
       closePara();
-      if (!isInCode) { isInCode = true; html += '<pre><code>'; }
-      else { isInCode = false; html += '</code></pre>'; }
+      if (!isInCode) { isInCode = true; codeLang = (ltrim3.slice(3).trim().split(/\s+/)[0] || '').toLowerCase(); html += `<pre><code${codeLang?` class=\"language-${codeLang}\"`:''}>`; }
+      else { isInCode = false; codeLang = ''; html += '</code></pre>'; }
       continue;
     } else if (isInCode) {
       html += `${escapeHtml(line)}\n`;
@@ -103,23 +118,34 @@ export function mdParse(markdown, baseDir) {
       continue;
     }
 
-    // Tables (simple pipe rows)
+    // Tables (GitHub-style pipe tables)
     if (rawLine.startsWith('|')) {
       closePara();
       const tabs = rawLine.split('|');
       if (!isInTable) {
-        if (i + 1 < lines.length && lines[i + 1].startsWith('|')) {
+        // Start a table only if the next line is a header separator row
+        if (i + 1 < lines.length && isPipeTableSeparator(lines[i + 1])) {
           isInTable = true;
           html += '<div class="table-wrap"><table><thead><tr>';
           for (let j = 1; j < tabs.length - 1; j++) html += `<th>${mdParse(tabs[j].trim(), baseDir).post}</th>`;
           html += '</tr></thead><tbody>';
+          // Skip the separator line
+          i += 1;
+        } else {
+          // Not a valid table header, treat as regular paragraph text
+          if (!isInPara) { html += '<p>'; isInPara = true; }
+          html += `${replaceInline(escapeHtml(rawLine), baseDir)}`;
+          if (i + 1 < lines.length && escapeMarkdown(lines[i + 1]).trim() !== '') html += '<br>';
         }
       } else {
+        // Inside a table body: ignore any stray separator lines
+        if (isPipeTableSeparator(line)) { continue; }
         html += '<tr>';
         for (let j = 1; j < tabs.length - 1; j++) html += `<td>${mdParse(tabs[j].trim(), baseDir).post}</td>`;
         html += '</tr>';
       }
-      if (i + 1 >= lines.length || !lines[i + 1].startsWith('|')) {
+      // Close table if the next line is not a pipe row
+      if (isInTable && (i + 1 >= lines.length || !lines[i + 1].startsWith('|'))) {
         html += '</tbody></table></div>';
         isInTable = false;
       }
@@ -170,4 +196,3 @@ export function mdParse(markdown, baseDir) {
 
   return { post: html, toc: `${tocParser(tochirc, tochtml)}` };
 }
-
