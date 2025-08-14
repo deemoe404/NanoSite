@@ -150,11 +150,18 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .index a { display: block; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--card); text-decoration: none; box-shadow: var(--shadow); transition: transform .12s ease-out, box-shadow .15s ease, border-color .15s ease; overflow: hidden; will-change: transform, box-shadow; }
 .index a:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
-.index .card-cover-wrap { width: 100%; aspect-ratio: 16 / 10; height: auto; overflow: hidden; background: color-mix(in srgb, var(--text) 4%, transparent); }
-.index .card-cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; will-change: transform; }
+.index .card-cover-wrap { position: relative; width: 100%; aspect-ratio: 16 / 10; height: auto; overflow: hidden; background: color-mix(in srgb, var(--text) 4%, transparent); }
+.index .card-cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity .3s ease, transform .3s ease; will-change: opacity, transform; opacity: 0; }
+.index .card-cover.is-loaded { opacity: 1; }
+/* lightweight shimmer placeholder covering the image area */
+.index .ph-skeleton { position:absolute; inset:0; overflow:hidden; border-radius: 0; background: color-mix(in srgb, var(--text) 8%, transparent); }
+.index .ph-skeleton::after { content: ""; position:absolute; inset:0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent); animation: skeleton-shimmer 1.1s infinite; opacity: .6; }
+[data-theme="dark"] .index .ph-skeleton::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent); }
 /* Ensure list cover images sit flush to the card top (override #mainview img margins) */
 #mainview .index .card-cover { margin: 0; border-radius: 0; box-shadow: none; }
 .index a:hover .card-cover { transform: scale(1.03); }
+
+/* Removed generic intrinsic-size hint to avoid ratio mismatch across themes */
 
 @media (prefers-reduced-motion: reduce) {
   .index a { transition: box-shadow .15s ease, border-color .15s ease; transform: none !important; }

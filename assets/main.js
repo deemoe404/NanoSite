@@ -28,6 +28,53 @@ function applyLazyLoadingIn(container) {
   } catch (_) {}
 }
 
+// Fade-in covers when each image loads; remove placeholder per-card
+function hydrateCardCovers(container) {
+  try {
+    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
+    if (!root) return;
+    const wraps = root.querySelectorAll('.index .card-cover-wrap');
+    wraps.forEach(wrap => {
+      const img = wrap.querySelector('img.card-cover');
+      if (!img) return;
+      const ph = wrap.querySelector('.ph-skeleton');
+      const done = () => {
+        img.classList.add('is-loaded');
+        if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
+      };
+      if (img.complete && img.naturalWidth > 0) { done(); return; }
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
+    });
+  } catch (_) {}
+}
+
+// Load cover images sequentially to reduce bandwidth contention
+function sequentialLoadCovers(container, maxConcurrent = 1) {
+  try {
+    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('.index img.card-cover'));
+    let idx = 0;
+    let active = 0;
+    const startNext = () => {
+      while (active < maxConcurrent && idx < imgs.length) {
+        const img = imgs[idx++];
+        if (!img || !img.isConnected) continue;
+        const src = img.getAttribute('data-src');
+        if (!src) continue;
+        active++;
+        const done = () => { active--; img.removeEventListener('load', done); img.removeEventListener('error', done); startNext(); };
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        // Kick off the actual request
+        img.src = src;
+      }
+    };
+    startNext();
+  } catch (_) {}
+}
+
 function renderSkeletonArticle() {
   return `
     <div class="skeleton-article" aria-busy="true" aria-live="polite">
@@ -161,8 +208,10 @@ function displayIndex(parsed) {
   let html = '<div class="index">';
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
-    const cover = (value && value.image)
-      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\" loading=\"lazy\" decoding=\"async\" width=\"1600\" height=\"1000\"></div>`
+    // Prefer a smaller thumbnail if provided: `thumb` or `cover`; fallback to `image`
+    const coverSrc = value && (value.thumb || value.cover || value.image);
+    const cover = (value && coverSrc)
+      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
       : fallbackCover(key);
     // pre-render meta line with date if available; read time appended after fetch
     const hasDate = value && value.date;
@@ -184,7 +233,9 @@ function displayIndex(parsed) {
     html += pager;
   }
   document.getElementById('mainview').innerHTML = html;
+  hydrateCardCovers('#mainview');
   applyLazyLoadingIn('#mainview');
+  sequentialLoadCovers('#mainview', 1);
 
   setupSearch(entries);
   renderTabs('posts');
@@ -252,8 +303,9 @@ function displaySearch(query) {
   let html = '<div class="index">';
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
-    const cover = (value && value.image)
-      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\" loading=\"lazy\" decoding=\"async\" width=\"1600\" height=\"1000\"></div>`
+    const coverSrc = value && (value.thumb || value.cover || value.image);
+    const cover = (value && coverSrc)
+      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
       : fallbackCover(key);
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
@@ -279,6 +331,8 @@ function displaySearch(query) {
   }
 
   document.getElementById('mainview').innerHTML = html;
+  hydrateCardCovers('#mainview');
+  sequentialLoadCovers('#mainview', 1);
   renderTabs('search', q);
   const searchBox = document.getElementById('searchbox');
   if (searchBox) searchBox.style.display = '';
