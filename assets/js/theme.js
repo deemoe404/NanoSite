@@ -1,3 +1,5 @@
+import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage } from './i18n.js';
+
 const PACK_LINK_ID = 'theme-pack';
 
 export function loadThemePack(name) {
@@ -61,11 +63,13 @@ export function mountThemeControls() {
   wrapper.className = 'box';
   wrapper.id = 'tools';
   wrapper.innerHTML = `
-    <div class="section-title">Function Area</div>
+    <div class="section-title">${t('tools.sectionTitle')}</div>
     <div class="tools">
-      <button id="themeToggle" class="btn" aria-label="Toggle light/dark">Toggle Theme</button>
-      <label for="themePack" class="visually-hidden">Theme Pack</label>
-      <select id="themePack" aria-label="Theme pack"></select>
+      <button id="themeToggle" class="btn" aria-label="Toggle light/dark">${t('tools.toggleTheme')}</button>
+      <label for="themePack" class="visually-hidden">${t('tools.themePack')}</label>
+      <select id="themePack" aria-label="${t('tools.themePack')}"></select>
+      <label for="langSelect" class="visually-hidden">${t('tools.language')}</label>
+      <select id="langSelect" aria-label="${t('tools.language')}"></select>
     </div>`;
 
   const toc = document.getElementById('tocview');
@@ -107,4 +111,22 @@ export function mountThemeControls() {
   }).finally(() => {
     sel.value = saved;
   });
+
+  // Populate language selector
+  const langSel = wrapper.querySelector('#langSelect');
+  if (langSel) {
+    const langs = getAvailableLangs();
+    langSel.innerHTML = '';
+    langs.forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = getLanguageLabel(code);
+      langSel.appendChild(opt);
+    });
+    langSel.value = getCurrentLang();
+    langSel.addEventListener('change', () => {
+      const val = langSel.value || 'en';
+      switchLanguage(val);
+    });
+  }
 }

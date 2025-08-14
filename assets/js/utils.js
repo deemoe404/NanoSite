@@ -112,7 +112,8 @@ export function formatDisplayDate(input) {
   try {
     const d = (input instanceof Date) ? input : new Date(String(input));
     if (isNaN(d.getTime())) return escapeHtml(String(input));
-    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const lang = (document.documentElement && document.documentElement.getAttribute('lang')) || undefined;
+    return d.toLocaleDateString(lang || undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   } catch (_) {
     return escapeHtml(String(input));
   }

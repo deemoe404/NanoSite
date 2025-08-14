@@ -4,6 +4,7 @@ import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeContro
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
+import { initI18n, t, withLangParam, loadLangJson } from './js/i18n.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -41,16 +42,19 @@ function getArticleTitleFromMain() {
 function renderTabs(activeSlug, searchQuery) {
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
-  const make = (slug, label) => `<a class="tab${activeSlug===slug?' active':''}" href="?tab=${encodeURIComponent(slug)}">${label}</a>`;
-  let html = make('posts','All Posts');
+  const make = (slug, label) => {
+    const href = withLangParam(`?tab=${encodeURIComponent(slug)}`);
+    return `<a class="tab${activeSlug===slug?' active':''}" href="${href}">${label}</a>`;
+  };
+  let html = make('posts', t('ui.allPosts'));
   for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
   if (activeSlug === 'search') {
     const q = String(searchQuery || '').trim();
-    const href = `?tab=search${q ? `&q=${encodeURIComponent(q)}` : ''}`;
-    html += `<a class="tab active" href="${href}">Search</a>`;
+    const href = withLangParam(`?tab=search${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+    html += `<a class="tab active" href="${href}">${t('ui.searchTab')}</a>`;
   } else if (activeSlug === 'post') {
-    const raw = String(searchQuery || 'Post').trim();
-    const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : 'Post';
+    const raw = String(searchQuery || t('ui.postTab')).trim();
+    const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
     html += `<span class="tab active">${label}</span>`;
   }
   nav.innerHTML = html;
@@ -61,7 +65,7 @@ function displayPost(postname) {
   const toc = document.getElementById('tocview');
   if (toc) {
     toc.style.display = '';
-    toc.innerHTML = '<div class="toc-header"><span>Contents</span><span style="font-size:.85rem; color: var(--muted);">Loading…</span></div>'
+    toc.innerHTML = `<div class=\"toc-header\"><span>${t('ui.contents')}</span><span style=\"font-size:.85rem; color: var(--muted);\">${t('ui.loading')}</span></div>`
       + '<ul class="toc-skeleton">'
       + '<li><div class="skeleton-block skeleton-line w-90"></div></li>'
       + '<li><div class="skeleton-block skeleton-line w-80"></div></li>'
@@ -84,7 +88,7 @@ function displayPost(postname) {
     renderTabs('post', articleTitle);
     const toc = document.getElementById('tocview');
     toc.style.display = '';
-    toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">Top</a></div>${output.toc}`;
+    toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
     const searchBox = document.getElementById('searchbox');
     if (searchBox) searchBox.style.display = 'none';
     setDocTitle(articleTitle);
@@ -100,8 +104,8 @@ function displayPost(postname) {
     }
   }).catch(() => {
     document.getElementById('tocview').innerHTML = '';
-    document.getElementById('mainview').innerHTML = '<div class="notice error"><h3>Post not found</h3><p>The requested post could not be loaded. <a href="./">Back to all posts</a>.</p></div>';
-    setDocTitle('Not Found');
+    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')}</p></div>`;
+    setDocTitle(t('ui.notFound'));
     const searchBox = document.getElementById('searchbox');
     if (searchBox) searchBox.style.display = 'none';
   });
@@ -130,19 +134,19 @@ function displayIndex(parsed) {
     // pre-render meta line with date if available; read time appended after fetch
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
-    html += `<a href=\"?id=${encodeURIComponent(value['location'])}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
+    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
   }
   html += '</div>';
   // Pagination controls
   if (totalPages > 1) {
-    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"?tab=posts&page=${p}\">${label}</a>`;
+    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=posts&page=${p}`)}\">${label}</a>`;
     const makeSpan = (label, cls = '') => `<span class=\"${cls}\">${label}</span>`;
     let pager = '<nav class="pagination" aria-label="Pagination">';
-    pager += (page > 1) ? makeLink(page - 1, 'Prev', 'page-prev') : makeSpan('Prev', 'page-prev disabled');
+    pager += (page > 1) ? makeLink(page - 1, t('ui.prev'), 'page-prev') : makeSpan(t('ui.prev'), 'page-prev disabled');
     for (let i = 1; i <= totalPages; i++) {
       pager += (i === page) ? `<span class=\"page-num active\">${i}</span>` : makeLink(i, String(i), 'page-num');
     }
-    pager += (page < totalPages) ? makeLink(page + 1, 'Next', 'page-next') : makeSpan('Next', 'page-next disabled');
+    pager += (page < totalPages) ? makeLink(page + 1, t('ui.next'), 'page-next') : makeSpan(t('ui.next'), 'page-next disabled');
     pager += '</nav>';
     html += pager;
   }
@@ -152,7 +156,7 @@ function displayIndex(parsed) {
   renderTabs('posts');
   const searchBox = document.getElementById('searchbox');
   if (searchBox) searchBox.style.display = '';
-  setDocTitle('All Posts');
+  setDocTitle(t('titles.allPosts'));
 
   const cards = Array.from(document.querySelectorAll('.index a'));
   pageEntries.forEach(([title, meta], idx) => {
@@ -169,7 +173,7 @@ function displayIndex(parsed) {
       const metaEl = el.querySelector('.card-meta');
       if (metaEl) {
         const dateEl = metaEl.querySelector('.card-date');
-        const readHtml = `<span class=\"card-read\">${minutes} min read</span>`;
+        const readHtml = `<span class=\"card-read\">${minutes} ${t('ui.minRead')}</span>`;
         if (dateEl && dateEl.textContent.trim()) {
           // add a separator dot if date exists
           metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
@@ -219,22 +223,22 @@ function displaySearch(query) {
       : fallbackCover(key);
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
-    html += `<a href=\"?id=${encodeURIComponent(value['location'])}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
+    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
   }
   html += '</div>';
 
   if (total === 0) {
-    html = `<div class=\"notice\"><h3>No results</h3><p>No posts found for \"${escapeHtml(q)}\". <a href=\"?tab=posts\">Back to all posts</a>.</p></div>`;
+    html = `<div class=\"notice\"><h3>No results</h3><p>No posts found for \"${escapeHtml(q)}\". <a href=\"${withLangParam('?tab=posts')}\">Back to all posts</a>.</p></div>`;
   } else if (totalPages > 1) {
     const encQ = encodeURIComponent(q);
-    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"?tab=search&q=${encQ}&page=${p}\">${label}</a>`;
+    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=search&q=${encQ}&page=${p}`)}\">${label}</a>`;
     const makeSpan = (label, cls = '') => `<span class=\"${cls}\">${label}</span>`;
     let pager = '<nav class="pagination" aria-label="Pagination">';
-    pager += (page > 1) ? makeLink(page - 1, 'Prev', 'page-prev') : makeSpan('Prev', 'page-prev disabled');
+    pager += (page > 1) ? makeLink(page - 1, t('ui.prev'), 'page-prev') : makeSpan(t('ui.prev'), 'page-prev disabled');
     for (let i = 1; i <= totalPages; i++) {
       pager += (i === page) ? `<span class=\"page-num active\">${i}</span>` : makeLink(i, String(i), 'page-num');
     }
-    pager += (page < totalPages) ? makeLink(page + 1, 'Next', 'page-next') : makeSpan('Next', 'page-next disabled');
+    pager += (page < totalPages) ? makeLink(page + 1, t('ui.next'), 'page-next') : makeSpan(t('ui.next'), 'page-next disabled');
     pager += '</nav>';
     html += pager;
   }
@@ -246,7 +250,7 @@ function displaySearch(query) {
   const input = document.getElementById('searchInput');
   if (input) input.value = q;
   setupSearch(Object.entries(postsIndexCache || {}));
-  setDocTitle(`Search: ${q}`);
+  setDocTitle(t('titles.search', q));
 
   const cards = Array.from(document.querySelectorAll('.index a'));
   pageEntries.forEach(([title, meta], idx) => {
@@ -262,7 +266,7 @@ function displaySearch(query) {
       const metaEl = el.querySelector('.card-meta');
       if (metaEl) {
         const dateEl = metaEl.querySelector('.card-date');
-        const readHtml = `<span class=\"card-read\">${minutes} min read</span>`;
+        const readHtml = `<span class=\"card-read\">${minutes} ${t('ui.minRead')}</span>`;
         if (dateEl && dateEl.textContent.trim()) {
           metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
         } else {
@@ -294,8 +298,8 @@ function displayStaticTab(slug) {
       setDocTitle((firstHeading && firstHeading.textContent) || tab.title);
     })
     .catch(() => {
-      document.getElementById('mainview').innerHTML = '<div class="notice error"><h3>Page unavailable</h3><p>Could not load this tab.</p></div>';
-      setDocTitle('Page Unavailable');
+      document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.pageUnavailableTitle')}</h3><p>${t('errors.pageUnavailableBody')}</p></div>`;
+      setDocTitle(t('ui.pageUnavailable'));
     });
 }
 
@@ -356,23 +360,22 @@ window.addEventListener('popstate', () => {
 });
 
 // Boot
+// Initialize i18n first so localized UI renders correctly
+const defaultLang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
+initI18n({ defaultLang });
+
 // Ensure theme controls are present, then apply and bind
 mountThemeControls();
 applySavedTheme();
 bindThemeToggle();
 bindThemePackPicker();
 
-getFile('wwwroot/index.json')
-  .then(indexText => {
-    let posts = {};
-    try { posts = JSON.parse(indexText); } catch (e) { posts = {}; }
-    return Promise.allSettled([
-      Promise.resolve(posts),
-      getFile('wwwroot/tabs.json').then(t => { try { return JSON.parse(t); } catch(_) { return {}; } }).catch(() => ({}))
-    ]);
-  })
+Promise.allSettled([
+  loadLangJson('wwwroot', 'index'),
+  loadLangJson('wwwroot', 'tabs')
+])
   .then(results => {
-    const posts = results[0].value || {};
+    const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
     tabsBySlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {
@@ -391,5 +394,5 @@ getFile('wwwroot/index.json')
   })
   .catch(() => {
     document.getElementById('tocview').innerHTML = '';
-    document.getElementById('mainview').innerHTML = '<div class="notice error"><h3>Index unavailable</h3><p>Could not load the post index. Check network or repository contents.</p></div>';
+    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('ui.indexUnavailable')}</h3><p>${t('errors.indexUnavailableBody')}</p></div>`;
   });

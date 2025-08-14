@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 // Anchors and Table of Contents enhancements
 export function setupAnchors() {
   const container = document.getElementById('mainview');
@@ -19,7 +21,7 @@ export function setupAnchors() {
         }
         a.classList.add('copied');
         const prevTitle = a.getAttribute('title') || '';
-        a.setAttribute('title', 'Copied!');
+        a.setAttribute('title', t('toc.copied'));
         setTimeout(() => { a.classList.remove('copied'); a.setAttribute('title', prevTitle); }, 1000);
         history.replaceState(null, '', `#${h.id}`);
       } catch (_) {
@@ -52,7 +54,7 @@ export function setupTOC() {
     if (sub) {
       const btn = document.createElement('button');
       btn.className = 'toc-toggle';
-      btn.setAttribute('aria-label', 'Toggle section');
+      btn.setAttribute('aria-label', t('toc.toggleAria'));
       btn.setAttribute('aria-expanded', 'true');
       btn.innerHTML = '<span class="caret"></span>';
       row.insertBefore(btn, row.firstChild || null);
