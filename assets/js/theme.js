@@ -64,12 +64,18 @@ export function mountThemeControls() {
   wrapper.id = 'tools';
   wrapper.innerHTML = `
     <div class="section-title">${t('tools.sectionTitle')}</div>
-    <div class="tools">
-      <button id="themeToggle" class="btn" aria-label="Toggle light/dark">${t('tools.toggleTheme')}</button>
-      <label for="themePack" class="visually-hidden">${t('tools.themePack')}</label>
-      <select id="themePack" aria-label="${t('tools.themePack')}"></select>
-      <label for="langSelect" class="visually-hidden">${t('tools.language')}</label>
-      <select id="langSelect" aria-label="${t('tools.language')}"></select>
+    <div class="tools tools-panel">
+      <div class="tool-item">
+        <button id="themeToggle" class="btn icon-btn" aria-label="Toggle light/dark" title="${t('tools.toggleTheme')}"><span class="icon">🌓</span><span class="btn-text">${t('tools.toggleTheme')}</span></button>
+      </div>
+      <div class="tool-item">
+        <label for="themePack" class="tool-label">${t('tools.themePack')}</label>
+        <select id="themePack" aria-label="${t('tools.themePack')}" title="${t('tools.themePack')}"></select>
+      </div>
+      <div class="tool-item">
+        <label for="langSelect" class="tool-label">${t('tools.language')}</label>
+        <select id="langSelect" aria-label="${t('tools.language')}" title="${t('tools.language')}"></select>
+      </div>
     </div>`;
 
   const toc = document.getElementById('tocview');
