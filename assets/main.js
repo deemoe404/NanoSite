@@ -360,6 +360,10 @@ window.addEventListener('popstate', () => {
 });
 
 // Boot
+// Boot sequence overview:
+// 1) Initialize i18n (detects ?lang → localStorage → browser → default or <html lang>)
+// 2) Mount theme tools and apply saved theme
+// 3) Load localized index/tabs JSON with fallback chain and render
 // Initialize i18n first so localized UI renders correctly
 const defaultLang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
 initI18n({ defaultLang });

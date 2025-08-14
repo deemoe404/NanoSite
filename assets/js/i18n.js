@@ -1,11 +1,16 @@
 // Simple i18n helper for NanoSite
-// - Detects language via ?lang=, then localStorage, then navigator, then default
-// - Loads language-specific content files: wwwroot/index.<lang>.json, wwwroot/tabs.<lang>.json
-// - Translates common UI strings
+// Usage & extension:
+// - To change the default language, edit DEFAULT_LANG below (or set <html lang="xx"> in index.html; boot code passes that into initI18n).
+// - To add a new UI language, add a new top-level key to `translations` (e.g., `es`, `fr`) mirroring the `en` structure.
+// - To localize content listings, add `wwwroot/index.<lang>.json` and `wwwroot/tabs.<lang>.json`.
+// - To show a friendly name in the language dropdown, add an entry to `languageNames`.
 
+// Default language fallback when no user/browser preference is available.
 const DEFAULT_LANG = 'en';
 const STORAGE_KEY = 'lang';
 
+// UI translation bundles. Add new languages by copying the `en` structure
+// and translating values. Missing keys will fall back to `en`.
 const translations = {
   en: {
     ui: {
@@ -128,6 +133,8 @@ export function initI18n(opts = {}) {
 
 export function getCurrentLang() { return currentLang; }
 
+// Translate helper: fetches a nested value from the current language bundle,
+// with graceful fallback to the default language.
 export function t(path, vars) {
   const segs = String(path || '').split('.');
   const pick = (lang) => segs.reduce((o, k) => (o && o[k] != null ? o[k] : undefined), translations[lang] || {});
@@ -137,24 +144,7 @@ export function t(path, vars) {
   return val != null ? String(val) : path;
 }
 
-const languageNames = { en: 'English', zh: '中文' };
-export function getAvailableLangs() { return Object.keys(translations); }
-export function getLanguageLabel(code) { return languageNames[code] || code; }
-
-export function switchLanguage(langCode) {
-  const code = String(langCode || '').toLowerCase();
-  if (!code) return;
-  try { localStorage.setItem(STORAGE_KEY, code); } catch (_) {}
-  document.documentElement.setAttribute('lang', code);
-  try {
-    const url = new URL(window.location.href);
-    url.searchParams.set('lang', code);
-    window.location.assign(url.toString());
-  } catch (_) {
-    const joiner = window.location.search ? '&' : '?';
-    window.location.assign(window.location.pathname + window.location.search + `${joiner}lang=${encodeURIComponent(code)}`);
-  }
-}
+// (language switcher helpers are defined near the end of the file)
 
 // Ensure lang param is included when generating internal links
 export function withLangParam(urlStr) {
@@ -187,6 +177,7 @@ export async function loadLangJson(basePath, baseName) {
   return {};
 }
 
+// Update static DOM bits outside main render cycle (sidebar card, search placeholder)
 function applyStaticTranslations() {
   // Search placeholder
   const input = document.getElementById('searchInput');
@@ -202,3 +193,24 @@ function applyStaticTranslations() {
 
 // Expose translations for testing/customization
 export const __translations = translations;
+
+// Friendly names for the language switcher. Add an entry when you add a new language.
+const languageNames = { en: 'English', zh: '中文' };
+export function getAvailableLangs() { return Object.keys(translations); }
+export function getLanguageLabel(code) { return languageNames[code] || code; }
+
+// Programmatic language switching used by the sidebar dropdown
+export function switchLanguage(langCode) {
+  const code = String(langCode || '').toLowerCase();
+  if (!code) return;
+  try { localStorage.setItem(STORAGE_KEY, code); } catch (_) {}
+  document.documentElement.setAttribute('lang', code);
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('lang', code);
+    window.location.assign(url.toString());
+  } catch (_) {
+    const joiner = window.location.search ? '&' : '?';
+    window.location.assign(window.location.pathname + window.location.search + `${joiner}lang=${encodeURIComponent(code)}`);
+  }
+}
