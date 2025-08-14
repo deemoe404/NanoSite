@@ -162,7 +162,7 @@ function displayIndex(parsed) {
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
     const cover = (value && value.image)
-      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\"></div>`
+      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\" loading=\"lazy\" decoding=\"async\" width=\"1600\" height=\"1000\"></div>`
       : fallbackCover(key);
     // pre-render meta line with date if available; read time appended after fetch
     const hasDate = value && value.date;
@@ -253,7 +253,7 @@ function displaySearch(query) {
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
     const cover = (value && value.image)
-      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\"></div>`
+      ? `<div class=\"card-cover-wrap\"><img class=\"card-cover\" alt=\"${key}\" src=\"${cardImageSrc(value.image)}\" loading=\"lazy\" decoding=\"async\" width=\"1600\" height=\"1000\"></div>`
       : fallbackCover(key);
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
