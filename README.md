@@ -1,29 +1,132 @@
-# NanoSite📝
+# NanoSite
 
-NanoSite is a lightweight and efficient website generator designed to make the process of creating and managing small personal websites a breeze🍃. Whether you're building a personal blog, a novel repository, a knowledge base, or a simple wiki, NanoSite empowers you to easily publish your content online using just Markdown syntax.
+Build a simple personal website from plain text files (Markdown). No build tools, no databases — just edit files and publish.
 
-Todo List:
+Perfect for blogs, notes, wikis, journals, or book chapters.
 
-- [ ] Pages
-- [ ] Category
+Highlights:
+- Write in Markdown (`.md` files)
+- Works on GitHub Pages (free hosting)
+- Search, tags, reading time, and dark mode
+- Optional tabs (About, Projects, etc.)
+- Optional multi‑language UI and posts
 
-## Internationalization (i18n)
+---
 
-NanoSite supports localized UI and localized content listings. You can switch languages via the sidebar dropdown or by adding a `?lang=<code>` parameter to the URL.
+## Folder Guide
 
-### How It Works
-- Detection order: `?lang` in URL → previously selected (localStorage) → browser language → default (`en`).
-- UI strings are localized in `assets/js/i18n.js` (via `t()` helper) and applied at boot.
-- Content is loaded from a single unified JSON (recommended):
-  - Posts: `wwwroot/index.json` with per-language variants inside each entry.
-  - Tabs: `wwwroot/tabs.json` (single-language or per-language also supported; see legacy notes).
-  - Fallback: when a selected language has no entry, the `default` entry is used automatically.
-- Legacy per-language files still work: `index.<lang>.json` and `tabs.<lang>.json` are used when a unified file isn’t present.
-- All in-app links (tabs, cards, pagination, search) preserve the active `lang`.
-- Date formatting uses the active language from `<html lang>`.
+- `index.html`: The site entry page.
+- `site.json`: Your site name, subtitle, avatar, and profile links.
+- `assets/`: CSS and JavaScript for the site (no changes required for most users).
+- `wwwroot/`: Your content — Markdown files and data files.
+  - `wwwroot/index.json`: List of posts (what shows on the homepage).
+  - `wwwroot/tabs.json`: List of extra tabs (About, Projects, etc.).
+  - Images: place them anywhere you like in the repo (no fixed folder required). Use a correct path in your Markdown.
 
-### Content File Schema (Unified)
-Use one `wwwroot/index.json` and put language variants per post. Example:
+---
+
+## Quick Start (5 minutes)
+
+1) Get the project
+- On GitHub: Fork or use as a template. Or download ZIP and unzip.
+
+2) Preview locally (recommended)
+- In the project folder, start a simple server:
+  - macOS/Linux: `python3 -m http.server 8000`
+  - Windows (PowerShell): `py -m http.server 8000`
+- Open `http://localhost:8000/` in your browser.
+
+3) Set your site name and links
+- Open `site.json` (in the project root) and edit:
+
+```
+{
+  "siteTitle": "My Site",
+  "siteSubtitle": "Welcome!",
+  "avatar": "assets/avatar.png",
+  "profileLinks": [
+    { "label": "GitHub", "href": "https://github.com/yourname" }
+  ]
+}
+```
+
+4) Add your first post
+- Create a new Markdown file under `wwwroot/`, for example `wwwroot/my-first-post.md`:
+
+```
+# My First Post
+
+Hello! This is my first post. I can write text, lists, and add images.
+```
+
+- Register it in `wwwroot/index.json` so it shows on the homepage:
+
+```
+{
+  "My First Post": { "location": "my-first-post.md", "tag": ["Note"], "date": "2025-08-13" }
+}
+```
+
+Reload the page. You should see your post card on the homepage. Click to read it.
+
+---
+
+## Add Tabs (optional)
+
+Tabs are simple pages like “About” or “Projects”.
+
+1) Create a Markdown file, e.g. `wwwroot/tab/about.md`:
+
+```
+# About
+
+Hi, I’m ...
+```
+
+2) Add it to `wwwroot/tabs.json`:
+
+```
+{
+  "About": { "title": "About", "location": "tab/about.md" }
+}
+```
+
+A new “About” tab will appear in the top bar.
+
+---
+
+## Organize Your Content
+
+- Posts live in `wwwroot/` and must be listed in `wwwroot/index.json`.
+- Tabs live in `wwwroot/tab/` and must be listed in `wwwroot/tabs.json`.
+- Images can live anywhere in this repository. Use a correct relative path in Markdown, for example:
+  - If your post is `wwwroot/my-first-post.md`, `![Alt](images/pic.png)` points to `wwwroot/images/pic.png`.
+  - You can also reference `assets/cover.png` or `../shared/pic.png` — the path is resolved relative to the Markdown file’s folder.
+- The first `#` heading in a Markdown file is used as the page title.
+
+---
+
+## Link to Other Posts or Tabs
+
+Create in‑site links directly in Markdown:
+
+- Link to a post: `[Read more](?id=my-first-post.md)`
+  - The value after `id=` must match the `location` in `wwwroot/index.json` (e.g., `notes/day1.md`).
+- Link to a tab: `[About](?tab=about)`
+  - The tab slug is usually the tab title in lowercase ASCII. If your title uses non‑Latin characters or you’re unsure, click the tab and copy the address bar URL.
+- Link to a section in a post: `[Jump to section](?id=my-first-post.md#my-section)`
+  - Headings in posts become anchors automatically; use the link icon in the heading or copy the URL after clicking it.
+
+External links work as usual: `[My Site](https://example.com)`.
+
+---
+
+## Multi‑Language (optional)
+
+You can offer the UI and content in multiple languages.
+
+- Switch language from the dropdown in the sidebar or by adding `?lang=xx` to the URL.
+- Posts can have language variants inside `wwwroot/index.json`:
 
 ```
 {
@@ -31,84 +134,39 @@ Use one `wwwroot/index.json` and put language variants per post. Example:
     "en": { "title": "My First Post", "location": "my-first-post.md" },
     "zh": { "title": "我的第一篇文章", "location": "my-first-post.zh.md" },
     "tag": ["Note"],
-    "image": "images/cover.png",
     "date": "2025-08-13"
   }
 }
 ```
 
-Rules:
-- The renderer picks the chosen language block; if missing, it falls back to the site’s default language (from `<html lang>` or `assets/js/i18n.js`).
-- Display title comes from the language block’s `title`; if missing, the default language’s title is used.
-- `location` must point to a markdown file under `wwwroot/`.
-- `tag`, `image`, and `date` live at the top level of each entry and apply to all languages.
+If a language version is missing, the site falls back to the default.
 
-### Tabs Schema (Unified)
-Use one `wwwroot/tabs.json` with per-language blocks for each tab entry:
+---
 
-```
-{
-  "About": {
-    "en": { "title": "About", "location": "tab/about.md" },
-    "zh": { "title": "关于", "location": "tab/about.md" },
-    "ja": { "title": "概要", "location": "tab/about.md" }
-  }
-}
-```
+## Publish to GitHub Pages
 
-Notes:
-- Tabs loader picks the selected language, falling back to the site’s default language.
-- You may keep legacy `tabs.<lang>.json`; the app prefers the unified file when present.
+1) Push this folder to a GitHub repository.
+2) In the repository Settings → Pages, choose the `main` branch and `/ (root)`.
+3) Save. After a minute, your site will be live at `https://<yourname>.github.io/<repo>/`.
+- If you use a custom domain, edit `CNAME` with your domain and point DNS to GitHub Pages.
 
-### Add a Language
-1) Add a new block (e.g., `"ja": { title, location }`) to any entries that support it.
-2) Optionally extend UI translations in `assets/js/i18n.js` (`translations` + `languageNames`). Missing UI keys fall back to English.
-3) (Optional) Change the default language: set `<html lang="xx">` in `index.html`.
+No build step is needed — it’s a static site.
 
-### Language Switcher
-- The dropdown options are derived from languages present in content (e.g., `en`, `zh`, `ja` in `index.json`).
-- If a post lacks the selected language, it automatically falls back to `default`.
+---
 
-### Tab Slugs (Non‑Latin Titles)
-- Tab links use a slug derived from the tab title (e.g., `?tab=about`).
-- For non‑Latin titles (e.g., Chinese/Japanese), the site falls back to a stable hash‑based slug (e.g., `?tab=t-kt1p3g`). This ensures tab links work even when a simple ASCII slug can’t be generated.
-- Slugs are computed from the localized title, so they will differ per language. If you hand‑write links to tabs in Markdown, prefer the UI‑generated links or ensure you use the slug for that specific language.
+## Tips & Troubleshooting
 
-### Tips
-- If you hand-write links in markdown that navigate within the app (e.g., `?tab=posts` or `?id=...`), include the current `?lang=xx` to preserve language; all generated UI handles this automatically.
-- Date formatting and the “min read” suffix are localized.
-- Example provided: `wwwroot/index.zh.json` and `wwwroot/tabs.zh.json` use existing English markdown files with Chinese titles.
+- Open with a local server: Some browsers block loading `site.json` from a file. Use `python3 -m http.server 8000` and open `http://localhost:8000/`.
+- JSON must be valid: No trailing commas, use double quotes. If the page looks empty, check your recent edits in `index.json`, `tabs.json`, or `site.json`.
+- File paths are relative to `wwwroot/`: If an image or post doesn’t show, check the `location` path.
+- Theme and search: Use the theme toggle in the sidebar; search by title or tag on the Search tab.
 
-## Site Config (site.json)
+---
 
-Use a root-level `site.json` (next to `index.html`) to configure the site identity and sidebar links. This file is fetched at runtime, so use a local server when testing.
+## Need more control?
 
-- Location: `./site.json` (root)
-- Serve locally: `python3 -m http.server 8000` then open `http://localhost:8000/`
+Advanced users can customize UI text and language behavior in `assets/js/i18n.js`. The app automatically detects language from the URL (`?lang`), your last choice, or your browser language.
 
-### Supported Keys
-- siteTitle: string or per-language map. Used for the sidebar title, footer site name, and the browser tab suffix (e.g., `Post Title · My Site`).
-- siteSubtitle: string or per-language map. Sidebar subtitle.
-- avatar: string or per-language map. Path to your avatar image (default `assets/avatar.png`).
-- profileLinks: personal links for the sidebar card. Accepts either an array of `{ label, href }` objects or a map of `{ "Label": "https://..." }`. Links render dot-separated (e.g., `GitHub • Blog`).
+---
 
-Per-language values can be provided using an object with language codes and a `default` fallback.
-
-### Example
-```
-{
-  "siteTitle": { "default": "My Site", "zh": "我的站点", "ja": "私のサイト" },
-  "siteSubtitle": { "default": "Welcome!", "zh": "欢迎！", "ja": "ようこそ！" },
-  "avatar": "assets/avatar.png",
-  "profileLinks": [
-    { "label": "GitHub", "href": "https://github.com/yourname" },
-    { "label": "Blog", "href": "https://example.com" }
-  ]
-}
-```
-
-Notes:
-- If `siteTitle`/`siteSubtitle` are per-language objects, the active language variant is used; otherwise the string is used as-is.
-- The footer site name mirrors `siteTitle`.
-- Profile links open in a new tab and are rendered as a single line separated by `•`.
-- The static title/subtitle/link in `index.html` act as a fallback; they are replaced once `site.json` loads.
+Enjoy your site! If you get stuck, compare your files with the examples above or start with a small change and refresh the page to see the effect.
