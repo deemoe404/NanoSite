@@ -104,6 +104,53 @@ const translations = {
       search: (q) => `搜索：${q}`
     }
   }
+  ,
+  ja: {
+    ui: {
+      allPosts: 'すべての記事',
+      searchTab: '検索',
+      postTab: '記事',
+      prev: '前へ',
+      next: '次へ',
+      contents: '目次',
+      loading: '読み込み中…',
+      top: 'トップ',
+      minRead: '分で読めます',
+      notFound: '見つかりません',
+      pageUnavailable: 'ページを表示できません',
+      indexUnavailable: 'インデックスを読み込めません',
+      backToAllPosts: 'すべての記事へ戻る',
+      noResultsTitle: '結果なし',
+      noResultsBody: (q) => `「${q}」に一致する記事は見つかりませんでした。`
+    },
+    errors: {
+      postNotFoundTitle: '記事が見つかりません',
+      postNotFoundBody: '要求された記事を読み込めませんでした。',
+      pageUnavailableTitle: 'ページを表示できません',
+      pageUnavailableBody: 'このページを読み込めませんでした。',
+      indexUnavailableBody: '記事インデックスを読み込めませんでした。ネットワークやリポジトリ内容を確認してください。'
+    },
+    sidebar: {
+      searchPlaceholder: '記事を検索…',
+      siteTitle: 'Phyllali のブログ',
+      siteSubtitle: 'ゲームを遊んでくれてありがとう。',
+      socialGithub: 'GitHub'
+    },
+    tools: {
+      sectionTitle: 'ツール',
+      toggleTheme: 'テーマ切替',
+      themePack: 'テーマパック',
+      language: '言語'
+    },
+    toc: {
+      toggleAria: 'セクションの切替',
+      copied: 'コピーしました！'
+    },
+    titles: {
+      allPosts: 'すべての記事',
+      search: (q) => `検索: ${q}`
+    }
+  }
   // Additional languages can be added here, e.g., zh, es, etc.
 };
 
@@ -201,7 +248,7 @@ function applyStaticTranslations() {
 export const __translations = translations;
 
 // Friendly names for the language switcher. Add an entry when you add a new language.
-const languageNames = { en: 'English', zh: '中文' };
+const languageNames = { en: 'English', zh: '中文', ja: '日本語' };
 export function getAvailableLangs() { return Object.keys(translations); }
 export function getLanguageLabel(code) { return languageNames[code] || code; }
 
