@@ -66,10 +66,15 @@ export function getQueryVariable(variable) {
   return value !== null ? decodeURIComponent(value) : null;
 }
 
-const baseSiteTitle = (() => {
+let baseSiteTitle = (() => {
   const t = document.title || 'NanoSite';
-  return t.trim() || 'NanoSite';
+  return (t && String(t).trim()) || 'NanoSite';
 })();
+
+export function setBaseSiteTitle(title) {
+  const next = (title && String(title).trim()) || null;
+  baseSiteTitle = next || baseSiteTitle || 'NanoSite';
+}
 
 export function setDocTitle(title) {
   if (title && String(title).trim()) document.title = `${String(title).trim()} · ${baseSiteTitle}`;

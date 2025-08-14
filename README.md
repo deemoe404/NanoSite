@@ -78,3 +78,37 @@ Notes:
 - If you hand-write links in markdown that navigate within the app (e.g., `?tab=posts` or `?id=...`), include the current `?lang=xx` to preserve language; all generated UI handles this automatically.
 - Date formatting and the “min read” suffix are localized.
 - Example provided: `wwwroot/index.zh.json` and `wwwroot/tabs.zh.json` use existing English markdown files with Chinese titles.
+
+## Site Config (site.json)
+
+Use a root-level `site.json` (next to `index.html`) to configure the site identity and sidebar links. This file is fetched at runtime, so use a local server when testing.
+
+- Location: `./site.json` (root)
+- Serve locally: `python3 -m http.server 8000` then open `http://localhost:8000/`
+
+### Supported Keys
+- siteTitle: string or per-language map. Used for the sidebar title, footer site name, and the browser tab suffix (e.g., `Post Title · My Site`).
+- siteSubtitle: string or per-language map. Sidebar subtitle.
+- avatar: string or per-language map. Path to your avatar image (default `assets/avatar.png`).
+- profileLinks: personal links for the sidebar card. Accepts either an array of `{ label, href }` objects or a map of `{ "Label": "https://..." }`. Links render dot-separated (e.g., `GitHub • Blog`).
+
+Per-language values can be provided using an object with language codes and a `default` fallback.
+
+### Example
+```
+{
+  "siteTitle": { "default": "My Site", "zh": "我的站点", "ja": "私のサイト" },
+  "siteSubtitle": { "default": "Welcome!", "zh": "欢迎！", "ja": "ようこそ！" },
+  "avatar": "assets/avatar.png",
+  "profileLinks": [
+    { "label": "GitHub", "href": "https://github.com/yourname" },
+    { "label": "Blog", "href": "https://example.com" }
+  ]
+}
+```
+
+Notes:
+- If `siteTitle`/`siteSubtitle` are per-language objects, the active language variant is used; otherwise the string is used as-is.
+- The footer site name mirrors `siteTitle`.
+- Profile links open in a new tab and are rendered as a single line separated by `•`.
+- The static title/subtitle/link in `index.html` act as a fallback; they are replaced once `site.json` loads.

@@ -3,8 +3,8 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
-import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson } from './js/i18n.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
+import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang } from './js/i18n.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -14,6 +14,69 @@ let tabsBySlug = {};
 let postsIndexCache = {};
 let allowedLocations = new Set();
 const PAGE_SIZE = 8;
+
+// --- Site config (root-level site.json) ---
+let siteConfig = {};
+async function loadSiteConfig() {
+  try {
+    const r = await fetch('site.json');
+    if (!r.ok) return {};
+    return await r.json();
+  } catch (_) { return {}; }
+}
+
+function renderSiteLinks(cfg) {
+  try {
+    const root = document.querySelector('.site-card .social-links');
+    if (!root) return;
+    const linksVal = (cfg && (cfg.profileLinks || cfg.links)) || [];
+    let items = [];
+    if (Array.isArray(linksVal)) {
+      items = linksVal
+        .filter(x => x && x.href && x.label)
+        .map(x => ({ href: String(x.href), label: String(x.label) }));
+    } else if (linksVal && typeof linksVal === 'object') {
+      items = Object.entries(linksVal).map(([label, href]) => ({ label: String(label), href: String(href) }));
+    }
+    if (!items.length) return;
+    const sep = '<span class="link-sep">•</span>';
+    const anchors = items.map(({ href, label }) => `<a href="${escapeHtml(href)}" target="_blank" rel="me noopener">${escapeHtml(label)}</a>`);
+    root.innerHTML = `<li>${anchors.join(sep)}</li>`;
+  } catch (_) { /* noop */ }
+}
+
+function renderSiteIdentity(cfg) {
+  try {
+    if (!cfg) return;
+    const pick = (val) => {
+      if (val == null) return '';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object') {
+        const lang = getCurrentLang && getCurrentLang();
+        const langVal = (lang && val[lang]) || val.default || '';
+        return typeof langVal === 'string' ? langVal : '';
+      }
+      return '';
+    };
+    const title = pick(cfg.siteTitle);
+    const subtitle = pick(cfg.siteSubtitle);
+    const avatar = pick(cfg.avatar);
+    if (title) {
+      const el = document.querySelector('.site-card .site-title');
+      if (el) el.textContent = title;
+      const fs = document.querySelector('.footer-site');
+      if (fs) fs.textContent = title;
+    }
+    if (subtitle) {
+      const el2 = document.querySelector('.site-card .site-subtitle');
+      if (el2) el2.textContent = subtitle;
+    }
+    if (avatar) {
+      const img = document.querySelector('.site-card .avatar');
+      if (img) img.setAttribute('src', avatar);
+    }
+  } catch (_) { /* noop */ }
+}
 
 // Ensure images defer offscreen loading for performance
 function applyLazyLoadingIn(container) {
@@ -538,11 +601,13 @@ bindThemePackPicker();
 
 Promise.allSettled([
   loadContentJson('wwwroot', 'index'),
-  loadTabsJson('wwwroot', 'tabs')
+  loadTabsJson('wwwroot', 'tabs'),
+  loadSiteConfig()
 ])
   .then(results => {
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
+    siteConfig = results[2] && results[2].status === 'fulfilled' ? (results[2].value || {}) : {};
     tabsBySlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {
       const slug = slugifyTab(title);
@@ -558,6 +623,20 @@ Promise.allSettled([
     postsIndexCache = posts;
     // Reflect available content languages in the UI selector (for unified index)
     try { refreshLanguageSelector(); } catch (_) {}
+    // Render site identity and profile links from site config
+    try {
+      renderSiteIdentity(siteConfig);
+      // Also update the base document title (tab suffix) from config
+      const cfgTitle = (function pick(val){
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        const lang = getCurrentLang && getCurrentLang();
+        const v = (lang && val[lang]) || val.default || '';
+        return typeof v === 'string' ? v : '';
+      })(siteConfig && siteConfig.siteTitle);
+      if (cfgTitle) setBaseSiteTitle(cfgTitle);
+    } catch (_) {}
+    try { renderSiteLinks(siteConfig); } catch (_) {}
     routeAndRender();
   })
   .catch(() => {

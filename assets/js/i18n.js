@@ -402,13 +402,6 @@ function applyStaticTranslations() {
   // Search placeholder
   const input = document.getElementById('searchInput');
   if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
-  // Site card
-  const title = document.querySelector('.site-card .site-title');
-  if (title) title.textContent = t('sidebar.siteTitle');
-  const subtitle = document.querySelector('.site-card .site-subtitle');
-  if (subtitle) subtitle.textContent = t('sidebar.siteSubtitle');
-  const gh = document.querySelector('.site-card .social-links a');
-  if (gh) gh.textContent = t('sidebar.socialGithub');
 }
 
 // Expose translations for testing/customization

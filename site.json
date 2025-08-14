@@ -1,0 +1,9 @@
+{
+  "siteTitle": { "default": "My Site", "zh": "我的站点", "ja": "私のサイト" },
+  "siteSubtitle": { "default": "Welcome!", "zh": "欢迎！", "ja": "ようこそ！" },
+  "avatar": "assets/avatar.png",
+  "profileLinks": [
+    { "label": "GitHub", "href": "https://github.com/deemoe404" },
+    { "label": "Blog", "href": "https://dee.moe" }
+  ]
+}
