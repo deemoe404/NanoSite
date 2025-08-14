@@ -152,6 +152,8 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index a:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
 .index .card-cover-wrap { width: 100%; aspect-ratio: 16 / 10; height: auto; overflow: hidden; background: color-mix(in srgb, var(--text) 4%, transparent); }
 .index .card-cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s ease; will-change: transform; }
+/* Ensure list cover images sit flush to the card top (override #mainview img margins) */
+#mainview .index .card-cover { margin: 0; border-radius: 0; box-shadow: none; }
 .index a:hover .card-cover { transform: scale(1.03); }
 
 @media (prefers-reduced-motion: reduce) {
