@@ -104,7 +104,21 @@ export function renderTags(tagVal) {
   return `<div class=\"tags\">${tags.map(t => `<span class=\"tag\">${escapeHtml(t)}</span>`).join('')}</div>`;
 }
 
-export const slugifyTab = (s) => String(s || '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9\-]/g, '');
+// Generate a slug for tab titles. Works for non-Latin scripts by
+// hashing when ASCII slug would be empty.
+export const slugifyTab = (s) => {
+  const src = String(s || '').trim();
+  const ascii = src.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9\-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (ascii) return ascii;
+  // Fallback: stable hash-based slug for non-ASCII titles
+  let hash = 0;
+  for (let i = 0; i < src.length; i++) { hash = ((hash << 5) - hash) + src.charCodeAt(i); hash |= 0; }
+  return 't-' + Math.abs(hash).toString(36);
+};
 
 // Format a date string for display; accepts ISO/"YYYY-MM-DD"/Date
 export function formatDisplayDate(input) {

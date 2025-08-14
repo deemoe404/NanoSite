@@ -53,6 +53,11 @@ Notes:
 - `tag` can be a string or array of strings.
 - `image` is optional; use paths under `wwwroot/`.
 
+### Tab Slugs (Non‑Latin Titles)
+- Tab links use a slug derived from the tab title (e.g., `?tab=about`).
+- For non‑Latin titles (e.g., Chinese/Japanese), the site falls back to a stable hash‑based slug (e.g., `?tab=t-kt1p3g`). This ensures tab links work even when a simple ASCII slug can’t be generated.
+- Slugs are computed from the localized title, so they will differ per language. If you hand‑write links to tabs in Markdown, prefer the UI‑generated links or ensure you use the slug for that specific language.
+
 ### Tips
 - If you hand-write links in markdown that navigate within the app (e.g., `?tab=posts` or `?id=...`), include the current `?lang=xx` to preserve language; all generated UI handles this automatically.
 - Date formatting and the “min read” suffix are localized.
