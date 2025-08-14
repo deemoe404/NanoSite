@@ -130,3 +130,19 @@ export function mountThemeControls() {
     });
   }
 }
+
+// Rebuild language selector options based on current available content langs
+export function refreshLanguageSelector() {
+  const sel = document.getElementById('langSelect');
+  if (!sel) return;
+  const current = getCurrentLang();
+  const langs = getAvailableLangs();
+  sel.innerHTML = '';
+  langs.forEach(code => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = getLanguageLabel(code);
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}

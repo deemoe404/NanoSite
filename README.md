@@ -14,44 +14,60 @@ NanoSite supports localized UI and localized content listings. You can switch la
 ### How It Works
 - Detection order: `?lang` in URL → previously selected (localStorage) → browser language → default (`en`).
 - UI strings are localized in `assets/js/i18n.js` (via `t()` helper) and applied at boot.
-- Content listings are loaded per language if present:
-  - Posts: `wwwroot/index.<lang>.json`
-  - Tabs: `wwwroot/tabs.<lang>.json`
-  - Fallback: language-specific → `*.en.json` → base `*.json`.
-- All in-app links (tabs, cards, pagination, search) automatically preserve the active `lang`.
+- Content is loaded from a single unified JSON (recommended):
+  - Posts: `wwwroot/index.json` with per-language variants inside each entry.
+  - Tabs: `wwwroot/tabs.json` (single-language or per-language also supported; see legacy notes).
+  - Fallback: when a selected language has no entry, the `default` entry is used automatically.
+- Legacy per-language files still work: `index.<lang>.json` and `tabs.<lang>.json` are used when a unified file isn’t present.
+- All in-app links (tabs, cards, pagination, search) preserve the active `lang`.
 - Date formatting uses the active language from `<html lang>`.
 
-### Add a Language
-1) Create content listing files (recommended):
-- `wwwroot/index.<lang>.json`
-- `wwwroot/tabs.<lang>.json`
+### Content File Schema (Unified)
+Use one `wwwroot/index.json` and put language variants per post. Example:
 
-These mirror the base files’ structure. Titles should be translated; `location` should point to the markdown file for that language. You may:
-- Reuse the same `.md` files for all languages, or
-- Create language-specific markdown (e.g., `wwwroot/zh/about.md`) and reference those paths in the `<lang>` JSON files.
+```
+{
+  "My First Post": {
+    "en": { "title": "My First Post", "location": "my-first-post.md" },
+    "zh": { "title": "我的第一篇文章", "location": "my-first-post.zh.md" },
+    "tag": ["Note"],
+    "image": "images/cover.png",
+    "date": "2025-08-13"
+  }
+}
+```
 
-2) (Optional) Add UI translations:
-- In `assets/js/i18n.js`, extend the `translations` object with a `<lang>` entry. Translate strings you care about. Missing keys gracefully fall back to English.
+Rules:
+- The renderer picks the chosen language block; if missing, it falls back to the site’s default language (from `<html lang>` or `assets/js/i18n.js`).
+- Display title comes from the language block’s `title`; if missing, the default language’s title is used.
+- `location` must point to a markdown file under `wwwroot/`.
+- `tag`, `image`, and `date` live at the top level of each entry and apply to all languages.
 
-3) (Optional) Change the default language:
-- In `index.html`, set `<html lang="xx">` to your preferred default. The JS reads this on boot.
+### Tabs Schema (Unified)
+Use one `wwwroot/tabs.json` with per-language blocks for each tab entry:
 
-### Language Switcher
-- The sidebar “Function Area” contains a “Language” dropdown.
-- Changing it updates the URL `?lang`, persists the choice, and reloads the page with localized UI/content.
-
-### Content File Schema
-Both `index.*.json` and `tabs.*.json` are plain maps of display titles to settings:
-
-- For posts (index):
-  - "My Post": { "location": "my-post.md", "tag": ["Tag1", "Tag2"], "image": "images/cover.png", "date": "YYYY-MM-DD" }
-- For tabs:
-  - "About": { "location": "about.md" }
+```
+{
+  "About": {
+    "en": { "title": "About", "location": "tab/about.md" },
+    "zh": { "title": "关于", "location": "tab/about.md" },
+    "ja": { "title": "概要", "location": "tab/about.md" }
+  }
+}
+```
 
 Notes:
-- `location` must be a relative path under `wwwroot/` and point to an existing `.md` file.
-- `tag` can be a string or array of strings.
-- `image` is optional; use paths under `wwwroot/`.
+- Tabs loader picks the selected language, falling back to the site’s default language.
+- You may keep legacy `tabs.<lang>.json`; the app prefers the unified file when present.
+
+### Add a Language
+1) Add a new block (e.g., `"ja": { title, location }`) to any entries that support it.
+2) Optionally extend UI translations in `assets/js/i18n.js` (`translations` + `languageNames`). Missing UI keys fall back to English.
+3) (Optional) Change the default language: set `<html lang="xx">` in `index.html`.
+
+### Language Switcher
+- The dropdown options are derived from languages present in content (e.g., `en`, `zh`, `ja` in `index.json`).
+- If a post lacks the selected language, it automatically falls back to `default`.
 
 ### Tab Slugs (Non‑Latin Titles)
 - Tab links use a slug derived from the tab title (e.g., `?tab=about`).

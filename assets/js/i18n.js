@@ -2,11 +2,16 @@
 // Usage & extension:
 // - To change the default language, edit DEFAULT_LANG below (or set <html lang="xx"> in index.html; boot code passes that into initI18n).
 // - To add a new UI language, add a new top-level key to `translations` (e.g., `es`, `fr`) mirroring the `en` structure.
-// - To localize content listings, add `wwwroot/index.<lang>.json` and `wwwroot/tabs.<lang>.json`.
+// - Content i18n now supports a single unified JSON with per-language entries and default fallback.
+//   Prefer using one `wwwroot/index.json` that stores, per post, a `default` block and optional language blocks
+//   (e.g., `en`, `zh`, `ja`) describing `title` and `location`. Missing languages fall back to `default`.
+//   Existing per-language files `index.<lang>.json` and `tabs.<lang>.json` remain supported as a fallback.
 // - To show a friendly name in the language dropdown, add an entry to `languageNames`.
 
 // Default language fallback when no user/browser preference is available.
 const DEFAULT_LANG = 'en';
+// Site base default language (can be overridden by initI18n via <html lang>)
+let baseDefaultLang = DEFAULT_LANG;
 const STORAGE_KEY = 'lang';
 
 // UI translation bundles. Add new languages by copying the `en` structure
@@ -174,6 +179,7 @@ export function initI18n(opts = {}) {
   const desired = (opts.lang || detectLang() || '').toLowerCase();
   const def = (opts.defaultLang || DEFAULT_LANG).toLowerCase();
   currentLang = desired || def;
+  baseDefaultLang = def || DEFAULT_LANG;
   // If translation bundle missing, fall back to default bundle for UI
   if (!translations[currentLang]) currentLang = def;
   try { localStorage.setItem(STORAGE_KEY, currentLang); } catch (_) {}
@@ -198,6 +204,167 @@ export function t(path, vars) {
 }
 
 // (language switcher helpers are defined near the end of the file)
+
+// --- Content loading (unified JSON with fallback, plus legacy support) ---
+
+// Normalize common language labels seen in content JSON to BCP-47-ish codes
+function normalizeLangKey(k) {
+  const raw = String(k || '').trim();
+  const lower = raw.toLowerCase();
+  const map = new Map([
+    ['english', 'en'],
+    ['en', 'en'],
+    ['中文', 'zh'],
+    ['简体中文', 'zh'],
+    ['zh', 'zh'],
+    ['zh-cn', 'zh'],
+    ['日本語', 'ja'],
+    ['にほんご', 'ja'],
+    ['ja', 'ja'],
+    ['jp', 'ja']
+  ]);
+  if (map.has(lower)) return map.get(lower);
+  // If looks like a code (xx or xx-YY), return lower base
+  if (/^[a-z]{2}(?:-[a-z]{2})?$/i.test(raw)) return lower;
+  return raw; // fallback to original
+}
+
+// Attempt to transform a unified content JSON object into a flat map
+// for the current language with default fallback.
+function transformUnifiedContent(obj, lang) {
+  const RESERVED = new Set(['tag', 'tags', 'image', 'date']);
+  const out = {};
+  const langsSeen = new Set();
+  for (const [key, val] of Object.entries(obj || {})) {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+    // Collect language variants on this entry
+    let chosen = null;
+    let title = null;
+    let location = null;
+    // Gather variant keys excluding reserved
+    const variantKeys = Object.keys(val).filter(k => !RESERVED.has(k));
+    // Track langs available on this entry
+    variantKeys.forEach(k => {
+      const nk = normalizeLangKey(k);
+      if (nk !== 'default') langsSeen.add(nk);
+    });
+    // Pick requested language, else default
+    const tryPick = (lk) => {
+      if (!lk) return null;
+      const v = val[lk];
+      if (v == null) return null;
+      if (typeof v === 'string') return { title: null, location: v };
+      if (typeof v === 'object') return { title: v.title || null, location: v.location || null };
+      return null;
+    };
+    // Try requested lang, then site default, then common English code, then legacy 'default'
+    const nlang = normalizeLangKey(lang);
+    chosen = tryPick(nlang) || tryPick(baseDefaultLang) || tryPick('en') || tryPick('default');
+    // Fallback to legacy flat shape if not unified
+    if (!chosen && 'location' in val) {
+      chosen = { title: key, location: String(val.location || '') };
+    }
+    if (!chosen || !chosen.location) continue;
+    title = chosen.title || key;
+    location = chosen.location;
+    const meta = {
+      location,
+      image: val.image || undefined,
+      tag: val.tag != null ? val.tag : (val.tags != null ? val.tags : undefined),
+      date: val.date || undefined
+    };
+    out[title] = meta;
+  }
+  return { entries: out, availableLangs: Array.from(langsSeen).sort() };
+}
+
+// Try to load unified JSON (`base.json`) first; if not unified or missing, fallback to legacy
+// per-language files (base.<currentLang>.json -> base.<default>.json -> base.json)
+export async function loadContentJson(basePath, baseName) {
+  // Try unified
+  try {
+    const r = await fetch(`${basePath}/${baseName}.json`);
+    if (r.ok) {
+      const obj = await r.json();
+      // Heuristic: if any entry contains a `default` or a non-reserved language-like key, treat as unified
+      const keys = Object.keys(obj || {});
+      let isUnified = false;
+      for (const k of keys) {
+        const v = obj[k];
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          if ('default' in v) { isUnified = true; break; }
+          const inner = Object.keys(v);
+          if (inner.some(ik => !['tag','tags','image','date','location'].includes(ik))) { isUnified = true; break; }
+        }
+      }
+      if (isUnified) {
+        const current = getCurrentLang();
+        const { entries, availableLangs } = transformUnifiedContent(obj, current);
+        // Record available content languages so the dropdown can reflect them
+        __setContentLangs(availableLangs);
+        return entries;
+      }
+      // Not unified; fall through to legacy handling below
+    }
+  } catch (_) { /* fall back */ }
+
+  // Legacy per-language JSON chain
+  return loadLangJson(basePath, baseName);
+}
+
+// Transform unified tabs JSON into a flat map: title -> { location }
+function transformUnifiedTabs(obj, lang) {
+  const out = {};
+  const langsSeen = new Set();
+  for (const [key, val] of Object.entries(obj || {})) {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+    const variantKeys = Object.keys(val);
+    variantKeys.forEach(k => {
+      const nk = normalizeLangKey(k);
+      if (nk !== 'default') langsSeen.add(nk);
+    });
+    const tryPick = (lk) => {
+      if (!lk) return null;
+      const v = val[lk];
+      if (v == null) return null;
+      if (typeof v === 'string') return { title: null, location: v };
+      if (typeof v === 'object') return { title: v.title || null, location: v.location || null };
+      return null;
+    };
+    const nlang = normalizeLangKey(lang);
+    let chosen = tryPick(nlang) || tryPick(baseDefaultLang) || tryPick('en') || tryPick('default');
+    if (!chosen && 'location' in val) chosen = { title: key, location: String(val.location || '') };
+    if (!chosen || !chosen.location) continue;
+    const title = chosen.title || key;
+    out[title] = { location: chosen.location };
+  }
+  return { entries: out, availableLangs: Array.from(langsSeen).sort() };
+}
+
+// Load tabs in unified format first, then fall back to legacy per-language files
+export async function loadTabsJson(basePath, baseName) {
+  try {
+    const r = await fetch(`${basePath}/${baseName}.json`);
+    if (r.ok) {
+      const obj = await r.json();
+      let isUnified = false;
+      for (const [k, v] of Object.entries(obj || {})) {
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+          if ('default' in v) { isUnified = true; break; }
+          const inner = Object.keys(v);
+          if (inner.some(ik => !['location'].includes(ik))) { isUnified = true; break; }
+        }
+      }
+      if (isUnified) {
+        const current = getCurrentLang();
+        const { entries, availableLangs } = transformUnifiedTabs(obj, current);
+        __setContentLangs(availableLangs);
+        return entries;
+      }
+    }
+  } catch (_) { /* fall through */ }
+  return loadLangJson(basePath, baseName);
+}
 
 // Ensure lang param is included when generating internal links
 export function withLangParam(urlStr) {
@@ -249,7 +416,23 @@ export const __translations = translations;
 
 // Friendly names for the language switcher. Add an entry when you add a new language.
 const languageNames = { en: 'English', zh: '中文', ja: '日本語' };
-export function getAvailableLangs() { return Object.keys(translations); }
+let __contentLangs = null;
+function __setContentLangs(list) {
+  try {
+    const add = Array.isArray(list) && list.length ? Array.from(new Set(list)) : [];
+    if (!__contentLangs || !__contentLangs.length) {
+      __contentLangs = add.length ? add : null;
+    } else if (add.length) {
+      const s = new Set(__contentLangs);
+      add.forEach(x => s.add(x));
+      __contentLangs = Array.from(s);
+    }
+  } catch (_) { /* ignore */ }
+}
+export function getAvailableLangs() {
+  // Prefer languages discovered from content (unified index), else UI bundle keys
+  return (__contentLangs && __contentLangs.length) ? __contentLangs : Object.keys(translations);
+}
 export function getLanguageLabel(code) { return languageNames[code] || code; }
 
 // Programmatic language switching used by the sidebar dropdown

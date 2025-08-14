@@ -1,10 +1,10 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
-import { initI18n, t, withLangParam, loadLangJson } from './js/i18n.js';
+import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson } from './js/i18n.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -413,8 +413,8 @@ bindThemeToggle();
 bindThemePackPicker();
 
 Promise.allSettled([
-  loadLangJson('wwwroot', 'index'),
-  loadLangJson('wwwroot', 'tabs')
+  loadContentJson('wwwroot', 'index'),
+  loadTabsJson('wwwroot', 'tabs')
 ])
   .then(results => {
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
@@ -432,6 +432,8 @@ Promise.allSettled([
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
     }
     postsIndexCache = posts;
+    // Reflect available content languages in the UI selector (for unified index)
+    try { refreshLanguageSelector(); } catch (_) {}
     routeAndRender();
   })
   .catch(() => {
