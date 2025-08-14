@@ -256,11 +256,19 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .tab.active { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); font-weight: 600; }
 
 .container {
-  display: flex; justify-content: space-between; margin: 0 auto; max-width: 1080px; gap: 20px;
+  display: flex;
+  /* Keep items aligned without extra distribution to avoid width jitter */
+  justify-content: flex-start;
+  margin: 0 auto;
+  max-width: 1080px;
+  gap: 20px;
 }
 
 .content {
-  flex: 0 1 760px; min-width: 0; /* allow shrinking inside flex */
+  /* Fix the content column width on desktop to keep it stable */
+  flex: 0 0 760px;
+  width: 760px;
+  min-width: 0; /* allow children to wrap instead of forcing expansion */
   overflow: visible; overflow-wrap: anywhere; word-break: break-word;
 }
 
@@ -274,6 +282,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
   border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
   max-width: 100%;
 }
+
+/* Ensure the main content area always fills the content column width */
+#mainview { width: 100%; }
 
 /* Tools (sidebar controls) */
 #tools .tools { display:flex; align-items:center; gap:8px; }
@@ -312,6 +323,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
   }
 
   .content {
+    /* On mobile, let content be fluid */
+    flex: 1 1 auto;
+    width: auto;
     overflow: initial;
   }
 }
