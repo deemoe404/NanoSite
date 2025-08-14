@@ -282,8 +282,8 @@ ul.collapsed, li > ul.collapsed { display: none; }
 
 .content {
   /* Fix the content column width on desktop to keep it stable */
-  flex: 0 0 760px;
-  width: 760px;
+  flex: 0 1 760px;
+  width: auto;
   min-width: 0; /* allow children to wrap instead of forcing expansion */
   overflow: visible; overflow-wrap: anywhere; word-break: break-word;
 }
