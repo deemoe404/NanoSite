@@ -15,6 +15,19 @@ let postsIndexCache = {};
 let allowedLocations = new Set();
 const PAGE_SIZE = 8;
 
+// Ensure images defer offscreen loading for performance
+function applyLazyLoadingIn(container) {
+  try {
+    const root = typeof container === 'string' ? document.querySelector(container) : container;
+    if (!root) return;
+    const imgs = root.querySelectorAll('img');
+    imgs.forEach(img => {
+      if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+      if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+    });
+  } catch (_) {}
+}
+
 function renderSkeletonArticle() {
   return `
     <div class="skeleton-article" aria-busy="true" aria-live="polite">
@@ -101,6 +114,7 @@ function displayPost(postname) {
     const output = mdParse(markdown, baseDir);
     // Render main content first so we can read the first heading reliably
     document.getElementById('mainview').innerHTML = output.post;
+    applyLazyLoadingIn('#mainview');
     const fallback = postsByLocationTitle[postname] || postname;
     const articleTitle = getArticleTitleFromMain() || fallback;
     renderTabs('post', articleTitle);
@@ -170,6 +184,7 @@ function displayIndex(parsed) {
     html += pager;
   }
   document.getElementById('mainview').innerHTML = html;
+  applyLazyLoadingIn('#mainview');
 
   setupSearch(entries);
   renderTabs('posts');
@@ -314,6 +329,7 @@ function displayStaticTab(slug) {
       const baseDir = `wwwroot/${dir}`;
       const output = mdParse(md, baseDir);
       document.getElementById('mainview').innerHTML = output.post;
+      applyLazyLoadingIn('#mainview');
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
       setDocTitle((firstHeading && firstHeading.textContent) || tab.title);
     })
