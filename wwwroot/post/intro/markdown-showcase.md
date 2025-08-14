@@ -29,13 +29,13 @@ Regular paragraph text with some inline styles like **bold**, *italic*, and `inl
 ## Links
 
 - External link: https://example.com
-- In-site link: [Back to About This Project](?id=about-this-project.md)
+- In-site link: [Back to About This Project](?id=post/intro/about-this-project.md)
 
 ## Images
 
-Local image from `wwwroot/images/`:
+Local image from `post/intro/1.png`:
 
-![Markdown logo](images/Markdown-mark.svg.png)
+![Markdown logo](1.png)
 
 ## Code Blocks
 

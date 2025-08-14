@@ -27,7 +27,7 @@ Welcome to your NanoSite — a tiny, zero-build, GitHub Pages–friendly blog wh
 
 Want to see what the renderer supports (headings, code blocks, tables, task lists, images, links, quotes, and more)?
 
-- See the full demo: [Markdown Showcase →](?id=markdown-showcase.md)
+- See the full demo: [Markdown Showcase →](?id=post/intro/markdown-showcase.md)
 
 ## Notes
 
