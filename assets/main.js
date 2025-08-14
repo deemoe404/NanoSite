@@ -49,6 +49,74 @@ function hydrateCardCovers(container) {
   } catch (_) {}
 }
 
+// Enhance post images: wrap with a reserved-ratio container + skeleton, fade-in when loaded
+function hydratePostImages(container) {
+  try {
+    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
+    if (!root) return;
+    const candidates = Array.from(root.querySelectorAll('img'))
+      .filter(img => !img.classList.contains('card-cover'))
+      .filter(img => !img.closest('table'));
+    candidates.forEach(img => {
+      // Skip if already in a wrapper
+      if (img.closest('.post-image-wrap')) return;
+      // If the image lives inside a paragraph with other text, avoid restructuring
+      const p = img.parentElement && img.parentElement.tagName === 'P' ? img.parentElement : null;
+      if (p) {
+        const onlyThisImg = (p.childElementCount === 1) && (p.textContent.trim() === '');
+        if (!onlyThisImg) return;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'post-image-wrap';
+      // Prefer explicit attributes for ratio if present
+      const wAttr = parseInt(img.getAttribute('width') || '', 10);
+      const hAttr = parseInt(img.getAttribute('height') || '', 10);
+      if (!isNaN(wAttr) && !isNaN(hAttr) && wAttr > 0 && hAttr > 0) {
+        wrap.style.aspectRatio = `${wAttr} / ${hAttr}`;
+      }
+      const ph = document.createElement('div');
+      ph.className = 'ph-skeleton';
+      ph.setAttribute('aria-hidden', 'true');
+
+      // Move image inside wrapper
+      const targetParent = p || img.parentElement;
+      if (!targetParent) return;
+      targetParent.insertBefore(wrap, img);
+      wrap.appendChild(ph);
+      wrap.appendChild(img);
+
+      img.classList.add('post-img');
+      if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+      if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+
+      const src = img.getAttribute('src');
+      if (src) {
+        img.setAttribute('data-src', src);
+        img.removeAttribute('src');
+      }
+
+      const done = () => {
+        // Set exact ratio once we know it
+        if (img.naturalWidth && img.naturalHeight) {
+          wrap.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+        }
+        img.classList.add('is-loaded');
+        if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
+      };
+      if (img.complete && img.naturalWidth > 0) { done(); }
+      else {
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
+      }
+
+      // Kick off load after wiring handlers
+      const ds = img.getAttribute('data-src');
+      if (ds) img.src = ds;
+    });
+  } catch (_) {}
+}
+
 // Load cover images sequentially to reduce bandwidth contention
 function sequentialLoadCovers(container, maxConcurrent = 1) {
   try {
@@ -161,6 +229,7 @@ function displayPost(postname) {
     const output = mdParse(markdown, baseDir);
     // Render main content first so we can read the first heading reliably
     document.getElementById('mainview').innerHTML = output.post;
+    hydratePostImages('#mainview');
     applyLazyLoadingIn('#mainview');
     const fallback = postsByLocationTitle[postname] || postname;
     const articleTitle = getArticleTitleFromMain() || fallback;
@@ -383,6 +452,7 @@ function displayStaticTab(slug) {
       const baseDir = `wwwroot/${dir}`;
       const output = mdParse(md, baseDir);
       document.getElementById('mainview').innerHTML = output.post;
+      hydratePostImages('#mainview');
       applyLazyLoadingIn('#mainview');
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
       setDocTitle((firstHeading && firstHeading.textContent) || tab.title);
