@@ -18,6 +18,6 @@ NanoSite is a zero‑dependency, pure front‑end template for simple blogs and 
 
 ### Demos and source
 
-- Markdown showcase: [Open demo](?id=markdown-showcase.md)
+- Markdown showcase: [Open demo](?id=post/intro/markdown-showcase.md)
 
 > Tip: The “All Posts” tab lists everything from `wwwroot/index.json`. This “About” tab is configured by `wwwroot/tabs.json` and mapped to this file.
