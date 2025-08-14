@@ -60,6 +60,24 @@ function renderTabs(activeSlug, searchQuery) {
   nav.innerHTML = html;
 }
 
+// Render footer navigation: Home (All Posts) + custom tabs
+function renderFooterNav() {
+  const nav = document.getElementById('footerNav');
+  if (!nav) return;
+  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : 'posts')).toLowerCase();
+  const make = (href, label, cls = '') => `<a class="${cls}" href="${withLangParam(href)}">${label}</a>`;
+  const isActive = (slug) => currentTab === slug;
+  let html = '';
+  html += make('?tab=posts', t('ui.allPosts'), isActive('posts') ? 'active' : '');
+  // (Search link intentionally omitted in footer)
+  for (const [slug, info] of Object.entries(tabsBySlug)) {
+    const href = `?tab=${encodeURIComponent(slug)}`;
+    const label = info && info.title ? info.title : slug;
+    html += ' ' + make(href, label, isActive(slug) ? 'active' : '');
+  }
+  nav.innerHTML = html;
+}
+
 function displayPost(postname) {
   // Loading state for post view
   const toc = document.getElementById('tocview');
@@ -324,6 +342,8 @@ function routeAndRender() {
     renderTabs('posts');
     displayIndex(postsIndexCache);
   }
+  // Keep footer nav in sync as route/tabs may impact labels
+  renderFooterNav();
 }
 
 // Intercept in-app navigation and use History API
@@ -402,3 +422,14 @@ Promise.allSettled([
     document.getElementById('tocview').innerHTML = '';
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('ui.indexUnavailable')}</h3><p>${t('errors.indexUnavailableBody')}</p></div>`;
   });
+
+// Footer: set dynamic year once
+try {
+  const y = document.getElementById('footerYear');
+  if (y) y.textContent = String(new Date().getFullYear());
+  const top = document.getElementById('footerTop');
+  if (top) {
+    top.textContent = t('ui.top');
+    top.addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  }
+} catch (_) {}
