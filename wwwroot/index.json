@@ -1,8 +1,8 @@
 {
-  "About This Project": { "location": "post/intro/about-this-project.md", "tag": ["NanoSite", "Guide"], "image": "images/Markdown-mark.svg.png", "date": "2025-08-13" },
-  "Markdown Showcase": { "location": "post/intro/markdown-showcase.md", "tag": ["Demo", "Markdown"], "image": "images/Markdown-mark.svg.png", "date": "2025-08-13" },
-  "Trip Log 01 — Kyoto": { "location": "post/trip-log-kyoto/main.md", "tag": ["Travel", "Log"], "date": "2024-02-03" },
-  "Trip Log 02 — Tokyo": { "location": "trip-log-02.md", "tag": ["Travel", "Log"], "date": "2024-02-06" },
+  "About This Project": { "location": "post/intro/about-this-project.md", "tag": ["NanoSite", "Guide"], "image": "post/intro/1.png", "date": "2025-08-13" },
+  "Markdown Showcase": { "location": "post/intro/markdown-showcase.md", "tag": ["Demo", "Markdown"], "image": "post/intro/1.png", "date": "2025-08-13" },
+  "Trip Log 01 — Kyoto": { "location": "post/trip-log-kyoto/main.md", "tag": ["Travel", "Log"], "image": "post/trip-log-kyoto/1.jpg", "date": "2024-02-03" },
+  "Trip Log 02 — Tokyo": { "location": "post/trip-log-tokyo/main.md", "tag": ["Travel", "Log"], "image": "post/trip-log-tokyo/tokyo-1.jpg", "date": "2024-02-06" },
   "Trip Log 03 — Seoul": { "location": "trip-log-03.md", "tag": ["Travel", "Log"], "date": "2024-02-10" },
   "Trip Log 04 — Taipei": { "location": "trip-log-04.md", "tag": ["Travel", "Log"], "date": "2024-02-14" },
   "Trip Log 05 — Hong Kong": { "location": "trip-log-05.md", "tag": ["Travel", "Log"], "date": "2024-02-18" },
