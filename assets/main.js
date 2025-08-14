@@ -104,7 +104,8 @@ function displayPost(postname) {
     }
   }).catch(() => {
     document.getElementById('tocview').innerHTML = '';
-    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')}</p></div>`;
+    const backHref = withLangParam('?tab=posts');
+    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
     setDocTitle(t('ui.notFound'));
     const searchBox = document.getElementById('searchbox');
     if (searchBox) searchBox.style.display = 'none';
@@ -228,7 +229,8 @@ function displaySearch(query) {
   html += '</div>';
 
   if (total === 0) {
-    html = `<div class=\"notice\"><h3>No results</h3><p>No posts found for \"${escapeHtml(q)}\". <a href=\"${withLangParam('?tab=posts')}\">Back to all posts</a>.</p></div>`;
+    const backHref = withLangParam('?tab=posts');
+    html = `<div class=\"notice\"><h3>${t('ui.noResultsTitle')}</h3><p>${t('ui.noResultsBody', escapeHtml(q))} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
   } else if (totalPages > 1) {
     const encQ = encodeURIComponent(q);
     const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=search&q=${encQ}&page=${p}`)}\">${label}</a>`;

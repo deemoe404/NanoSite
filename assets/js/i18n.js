@@ -25,11 +25,14 @@ const translations = {
       minRead: 'min read',
       notFound: 'Not Found',
       pageUnavailable: 'Page Unavailable',
-      indexUnavailable: 'Index unavailable'
+      indexUnavailable: 'Index unavailable',
+      backToAllPosts: 'Back to all posts',
+      noResultsTitle: 'No results',
+      noResultsBody: (q) => `No posts found for "${q}".`
     },
     errors: {
       postNotFoundTitle: 'Post not found',
-      postNotFoundBody: 'The requested post could not be loaded. <a href="./">Back to all posts</a>.',
+      postNotFoundBody: 'The requested post could not be loaded.',
       pageUnavailableTitle: 'Page unavailable',
       pageUnavailableBody: 'Could not load this tab.',
       indexUnavailableBody: 'Could not load the post index. Check network or repository contents.'
@@ -68,11 +71,14 @@ const translations = {
       minRead: '分钟阅读',
       notFound: '未找到',
       pageUnavailable: '页面不可用',
-      indexUnavailable: '索引不可用'
+      indexUnavailable: '索引不可用',
+      backToAllPosts: '返回全部文章',
+      noResultsTitle: '没有结果',
+      noResultsBody: (q) => `未找到与 “${q}” 匹配的文章。`
     },
     errors: {
       postNotFoundTitle: '文章未找到',
-      postNotFoundBody: '无法加载所请求的文章。<a href="./">返回全部文章</a>。',
+      postNotFoundBody: '无法加载所请求的文章。',
       pageUnavailableTitle: '页面不可用',
       pageUnavailableBody: '无法加载该页面。',
       indexUnavailableBody: '无法加载文章索引。请检查网络或仓库内容。'
