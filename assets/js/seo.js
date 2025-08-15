@@ -316,6 +316,8 @@ function updateStructuredData(options, siteConfig = {}) {
   const logoUrl = siteConfig.avatar ? 
     (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${resourceBase}${siteConfig.avatar}`) :
     generateFallbackImage(defaultTitle);
+  // Base URL used in structured data (e.g., SearchAction target)
+  const defaultUrl = window.location.origin + window.location.pathname;
 
   // Remove existing structured data
   const existingScript = document.querySelector('script[type="application/ld+json"]:not([data-permanent])');

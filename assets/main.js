@@ -612,11 +612,13 @@ function routeAndRender() {
     renderTabs('search', q);
     displaySearch(q);
     // Update SEO for search page
-    updateSEO({
-      title: q ? `Search: ${q} - NanoSite` : 'Search - NanoSite',
-      description: q ? `Search results for "${q}"` : 'Search through blog posts and content',
-      type: 'website'
-    }, siteConfig);
+    try {
+      updateSEO({
+        title: q ? `Search: ${q} - NanoSite` : 'Search - NanoSite',
+        description: q ? `Search results for "${q}"` : 'Search through blog posts and content',
+        type: 'website'
+      }, siteConfig);
+    } catch (_) { /* ignore SEO errors to avoid breaking UI */ }
   } else if (tab !== 'posts' && tabsBySlug[tab]) {
     displayStaticTab(tab);
   } else {
@@ -631,14 +633,16 @@ function routeAndRender() {
       return (lang && val[lang]) || val.default || '';
     };
     
-    updateSEO({
-      title: page > 1 ? 
-        `${getLocalizedValue(siteConfig.siteTitle) || 'All Posts'} - Page ${page}` : 
-        getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
-      description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
-      type: 'website',
-      url: window.location.href
-    }, siteConfig);
+    try {
+      updateSEO({
+        title: page > 1 ? 
+          `${getLocalizedValue(siteConfig.siteTitle) || 'All Posts'} - Page ${page}` : 
+          getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+        type: 'website',
+        url: window.location.href
+      }, siteConfig);
+    } catch (_) { /* ignore SEO errors to avoid breaking UI */ }
   }
   // Keep footer nav in sync as route/tabs may impact labels
   renderFooterNav();
