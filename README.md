@@ -154,6 +154,79 @@ No build step is needed — it’s a static site.
 
 ---
 
+## SEO Optimization
+
+NanoSite includes built-in SEO features that work without any build process:
+
+### Automatic Meta Tags
+- Dynamic title and description for each page
+- Open Graph and Twitter Card tags for social sharing
+- Structured data (JSON-LD) for search engines
+- Canonical URLs to prevent duplicate content issues
+
+### Enhanced Site Configuration
+Update `site.json` with SEO-friendly information:
+
+```json
+{
+  "siteTitle": { "default": "Your Site Name" },
+  "siteDescription": { "default": "Your site description for search engines" },
+  "siteUrl": "https://yourdomain.com/",
+  "siteKeywords": { "default": "keyword1, keyword2, keyword3" }
+}
+```
+
+**Important**: Make sure your `siteUrl` doesn't include `/wwwroot/` at the end - it should be your actual domain like `https://yourdomain.com/`
+
+### Post-Level SEO
+Each markdown file automatically generates:
+- Meta descriptions from the first paragraph
+- Article structured data with publication dates
+- Automatic keyword extraction from content
+- Social sharing optimized images
+
+### SEO File Generation
+1. Open `seo-generator.html` in your browser
+2. Use the **Sitemap Generator** tab to create `sitemap.xml`
+3. Use the **Robots.txt Generator** tab to create `robots.txt`
+4. Check the **Site Configuration** tab to verify your settings
+5. Copy or download the generated files
+6. Save them in your root directory
+
+### SEO Best Practices
+- Write descriptive titles for your markdown files (first `# heading`)
+- Include dates in your posts: `Date: 2024-01-01`
+- Add images to posts for better social sharing
+- Use descriptive filenames for your markdown files
+- Keep descriptions under 155 characters for best results
+
+All SEO features work automatically - no compilation needed!
+
+### Post-Level SEO
+Each markdown file automatically generates:
+- Meta descriptions from the first paragraph
+- Article structured data with publication dates
+- Automatic keyword extraction from content
+- Social sharing optimized images
+
+### Sitemap Generation
+1. Open `sitemap-generator.html` in your browser
+2. Click "Generate Sitemap" 
+3. Copy the generated XML
+4. Save as `sitemap.xml` in your root directory
+5. The `robots.txt` file is already configured
+
+### SEO Best Practices
+- Write descriptive titles for your markdown files (first `# heading`)
+- Include dates in your posts: `Date: 2024-01-01`
+- Add images to posts for better social sharing
+- Use descriptive filenames for your markdown files
+- Keep descriptions under 155 characters for best results
+
+All SEO features work automatically - no compilation needed!
+
+---
+
 ## Tips & Troubleshooting
 
 - Open with a local server: Some browsers block loading `site.json` from a file. Use `python3 -m http.server 8000` and open `http://localhost:8000/`.

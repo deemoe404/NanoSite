@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://nano.dee.moe/sitemap.xml
+
+# Allow crawling of main content
+Allow: /wwwroot/
+Allow: /assets/
+
+# Disallow admin or internal directories if any exist in the future
+Disallow: /admin/
+Disallow: /.git/
+
+# Allow access to the main site
+Crawl-delay: 1

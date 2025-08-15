@@ -232,7 +232,7 @@ function normalizeLangKey(k) {
 // Attempt to transform a unified content JSON object into a flat map
 // for the current language with default fallback.
 function transformUnifiedContent(obj, lang) {
-  const RESERVED = new Set(['tag', 'tags', 'image', 'date']);
+  const RESERVED = new Set(['tag', 'tags', 'image', 'date', 'excerpt']);
   const out = {};
   const langsSeen = new Set();
   for (const [key, val] of Object.entries(obj || {})) {
@@ -271,7 +271,8 @@ function transformUnifiedContent(obj, lang) {
       location,
       image: val.image || undefined,
       tag: val.tag != null ? val.tag : (val.tags != null ? val.tags : undefined),
-      date: val.date || undefined
+      date: val.date || undefined,
+      excerpt: val.excerpt || undefined
     };
     out[title] = meta;
   }
@@ -294,7 +295,7 @@ export async function loadContentJson(basePath, baseName) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
           if ('default' in v) { isUnified = true; break; }
           const inner = Object.keys(v);
-          if (inner.some(ik => !['tag','tags','image','date','location'].includes(ik))) { isUnified = true; break; }
+          if (inner.some(ik => !['tag','tags','image','date','excerpt','location'].includes(ik))) { isUnified = true; break; }
         }
       }
       if (isUnified) {

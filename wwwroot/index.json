@@ -1,4 +1,12 @@
 {
+  "SEO Best Practices for NanoSite": {
+    "en": { "title": "SEO Best Practices for NanoSite", "location": "post/seo-best-practices.md" },
+    "zh": { "title": "NanoSite SEO 最佳实践", "location": "post/seo-best-practices.md" },
+    "ja": { "title": "NanoSite SEO ベストプラクティス", "location": "post/seo-best-practices.md" },
+    "tag": ["SEO", "Guide", "Best Practices", "Search Engines"],
+    "date": "2025-01-15",
+    "excerpt": "Learn how to optimize your NanoSite content for search engines while maintaining the no-compilation philosophy."
+  },
   "Site Configuration Guide": {
     "en": { "title": "Site Configuration Guide", "location": "post/docs/site-config-guide.md" },
     "zh": { "title": "站点配置指南", "location": "post/docs/site-config-guide.zh.md" },

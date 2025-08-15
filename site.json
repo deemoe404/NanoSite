@@ -1,6 +1,9 @@
 {
-  "siteTitle": { "default": "My Site", "zh": "我的站点", "ja": "私のサイト" },
-  "siteSubtitle": { "default": "Welcome!", "zh": "欢迎！", "ja": "ようこそ！" },
+  "siteTitle": { "default": "NanoSite - Zero-Dependency Static Blog", "zh": "NanoSite - 零依赖静态博客", "ja": "NanoSite - ゼロ依存静的ブログ" },
+  "siteSubtitle": { "default": "No compilation needed - just edit Markdown files", "zh": "无需编译 - 只需编辑 Markdown 文件", "ja": "コンパイル不要 - Markdownファイルを編集するだけ" },
+  "siteDescription": { "default": "A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.", "zh": "一个用于简单博客和文档的纯前端模板。无需编译 - 只需编辑 Markdown 文件并部署。", "ja": "シンプルなブログとドキュメント用の純粋なフロントエンドテンプレート。コンパイル不要 - Markdownファイルを編集してデプロイするだけ。" },
+  "siteUrl": "https://nano.dee.moe/wwwroot/",
+  "siteKeywords": { "default": "static blog, markdown, no build, github pages, zero dependency, blog template", "zh": "静态博客, markdown, 无构建, github pages, 零依赖, 博客模板", "ja": "静的ブログ, markdown, ビルドなし, github pages, ゼロ依存, ブログテンプレート" },
   "avatar": "assets/avatar.png",
   "profileLinks": [
     { "label": "GitHub", "href": "https://github.com/deemoe404" },

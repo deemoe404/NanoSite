@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Generator - NanoSite</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container { 
+            background: #f8f9fa; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin-bottom: 20px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            border-bottom-color: #007acc;
+            color: #007acc;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .btn-primary { 
+            background: #007acc; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        .btn-primary:hover { background: #005a9e; }
+        .btn-secondary:hover { background: #545b62; }
+        textarea { 
+            width: 100%; 
+            height: 400px; 
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; 
+            font-size: 13px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            resize: vertical;
+        }
+        .output-group {
+            margin-bottom: 30px;
+        }
+        .output-group h3 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        .success { color: #22c55e; font-weight: 600; }
+        .error { color: #ef4444; font-weight: 600; }
+        .warning { color: #f59e0b; font-weight: 600; }
+        .config-preview {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .config-preview h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .config-item {
+            margin-bottom: 8px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .config-label {
+            font-weight: 600;
+            color: #6c757d;
+            min-width: 120px;
+            display: inline-block;
+        }
+        .instructions {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .instructions h4 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .file-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 NanoSite SEO Generator</h1>
+    <p>Generate sitemap.xml and robots.txt files for your NanoSite. This tool reads your site configuration and content to create optimized SEO files.</p>
+
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('sitemap')">Sitemap Generator</button>
+        <button class="tab" onclick="switchTab('robots')">Robots.txt Generator</button>
+        <button class="tab" onclick="switchTab('config')">Site Configuration</button>
+    </div>
+
+    <!-- Sitemap Tab -->
+    <div id="sitemap-tab" class="tab-content active">
+        <div class="container">
+            <h2>Sitemap.xml Generator</h2>
+            <div class="instructions">
+                <h4>📋 Instructions:</h4>
+                <ol>
+                    <li>Click "Generate Sitemap" to create XML content based on your posts and tabs</li>
+                    <li>Copy the generated XML content</li>
+                    <li>Save it as <code>sitemap.xml</code> in your website's root directory</li>
+                    <li>Make sure your robots.txt references the sitemap URL</li>
+                </ol>
+            </div>
+            
+            <div class="file-actions">
+                <button class="btn-primary" onclick="generateSitemap()">Generate Sitemap</button>
+                <button class="btn-secondary" onclick="copySitemap()">Copy to Clipboard</button>
+                <button class="btn-secondary" onclick="downloadSitemap()">Download File</button>
+            </div>
+            <div id="sitemap-status"></div>
+            
+            <div class="output-group">
+                <h3>Generated sitemap.xml:</h3>
+                <textarea id="sitemapOutput" placeholder="Click 'Generate Sitemap' to create the XML content..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Robots.txt Tab -->
+    <div id="robots-tab" class="tab-content">
+        <div class="container">
+            <h2>Robots.txt Generator</h2>
+            <div class="instructions">
+                <h4>🤖 Instructions:</h4>
+                <ol>
+                    <li>Click "Generate Robots.txt" to create content based on your site configuration</li>
+                    <li>Copy the generated content</li>
+                    <li>Save it as <code>robots.txt</code> in your website's root directory</li>
+                    <li>The file includes proper sitemap references and crawling guidelines</li>
+                </ol>
+            </div>
+            
+            <div class="file-actions">
+                <button class="btn-primary" onclick="generateRobots()">Generate Robots.txt</button>
+                <button class="btn-secondary" onclick="copyRobots()">Copy to Clipboard</button>
+                <button class="btn-secondary" onclick="downloadRobots()">Download File</button>
+            </div>
+            <div id="robots-status"></div>
+            
+            <div class="output-group">
+                <h3>Generated robots.txt:</h3>
+                <textarea id="robotsOutput" placeholder="Click 'Generate Robots.txt' to create the content..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Tab -->
+    <div id="config-tab" class="tab-content">
+        <div class="container">
+            <h2>Site Configuration Preview</h2>
+            <div class="instructions">
+                <h4>⚙️ Current Configuration:</h4>
+                <p>This shows your current site.json configuration that will be used for SEO generation.</p>
+            </div>
+            
+            <button class="btn-primary" onclick="loadSiteConfig()">Refresh Configuration</button>
+            <div id="config-status"></div>
+            
+            <div class="config-preview" id="configPreview">
+                <h4>Loading configuration...</h4>
+            </div>
+            
+            <div class="output-group">
+                <h3>Raw site.json:</h3>
+                <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load your site.json..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { generateSitemapData } from './assets/js/seo.js';
+
+        let currentSiteConfig = {};
+        let currentPostsData = {};
+        let currentTabsData = {};
+
+        // Tab switching
+        window.switchTab = function(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        };
+
+        // Load and preview site configuration
+        window.loadSiteConfig = async function() {
+            const statusEl = document.getElementById('config-status');
+            const previewEl = document.getElementById('configPreview');
+            const outputEl = document.getElementById('configOutput');
+            
+            try {
+                statusEl.innerHTML = '<p>Loading configuration...</p>';
+                
+                const response = await fetch('site.json');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                currentSiteConfig = await response.json();
+                outputEl.value = JSON.stringify(currentSiteConfig, null, 2);
+                
+                // Create preview
+                const getLocalizedValue = (val, fallback = 'Not set') => {
+                    if (!val) return fallback;
+                    if (typeof val === 'string') return val;
+                    return val.default || fallback;
+                };
+                
+                previewEl.innerHTML = `
+                    <h4>Site Configuration</h4>
+                    <div class="config-item"><span class="config-label">Site Title:</span> ${getLocalizedValue(currentSiteConfig.siteTitle)}</div>
+                    <div class="config-item"><span class="config-label">Site URL:</span> ${currentSiteConfig.siteUrl || 'Not set'}</div>
+                    <div class="config-item"><span class="config-label">Description:</span> ${getLocalizedValue(currentSiteConfig.siteDescription)}</div>
+                    <div class="config-item"><span class="config-label">Keywords:</span> ${getLocalizedValue(currentSiteConfig.siteKeywords)}</div>
+                    <div class="config-item"><span class="config-label">Avatar:</span> ${currentSiteConfig.avatar || 'Not set'}</div>
+                    <div class="config-item"><span class="config-label">Profile Links:</span> ${currentSiteConfig.profileLinks ? currentSiteConfig.profileLinks.length + ' links' : 'None'}</div>
+                `;
+                
+                statusEl.innerHTML = '<p class="success">✓ Configuration loaded successfully!</p>';
+                
+            } catch (error) {
+                console.error('Error loading site config:', error);
+                statusEl.innerHTML = `<p class="error">✗ Error loading configuration: ${error.message}</p>`;
+                previewEl.innerHTML = '<h4>Failed to load configuration</h4>';
+            }
+        };
+
+        // Generate sitemap
+        window.generateSitemap = async function() {
+            const statusEl = document.getElementById('sitemap-status');
+            const outputEl = document.getElementById('sitemapOutput');
+            
+            try {
+                statusEl.innerHTML = '<p>Loading data...</p>';
+                
+                // Load all required data
+                const [postsResponse, tabsResponse, siteResponse] = await Promise.all([
+                    fetch('wwwroot/index.json'),
+                    fetch('wwwroot/tabs.json'),
+                    fetch('site.json')
+                ]);
+                
+                currentPostsData = postsResponse.ok ? await postsResponse.json() : {};
+                currentTabsData = tabsResponse.ok ? await tabsResponse.json() : {};
+                currentSiteConfig = siteResponse.ok ? await siteResponse.json() : {};
+                
+                // Generate sitemap data
+                const urls = generateSitemapData(currentPostsData, currentTabsData, currentSiteConfig);
+                
+                // Generate XML
+                const xml = generateSitemapXML(urls);
+                
+                outputEl.value = xml;
+                statusEl.innerHTML = `<p class="success">✓ Sitemap generated successfully! Found ${urls.length} URLs.</p>`;
+                
+                // Auto-select the text for easy copying
+                outputEl.select();
+                
+            } catch (error) {
+                console.error('Error generating sitemap:', error);
+                statusEl.innerHTML = `<p class="error">✗ Error generating sitemap: ${error.message}</p>`;
+            }
+        };
+
+        // Generate robots.txt
+        window.generateRobots = async function() {
+            const statusEl = document.getElementById('robots-status');
+            const outputEl = document.getElementById('robotsOutput');
+            
+            try {
+                statusEl.innerHTML = '<p>Generating robots.txt...</p>';
+                
+                // Load site config if not already loaded
+                if (!currentSiteConfig.siteUrl) {
+                    const response = await fetch('site.json');
+                    if (response.ok) {
+                        currentSiteConfig = await response.json();
+                    }
+                }
+                
+                const robotsContent = generateRobotsTxt(currentSiteConfig);
+                outputEl.value = robotsContent;
+                
+                statusEl.innerHTML = '<p class="success">✓ Robots.txt generated successfully!</p>';
+                outputEl.select();
+                
+            } catch (error) {
+                console.error('Error generating robots.txt:', error);
+                statusEl.innerHTML = `<p class="error">✗ Error generating robots.txt: ${error.message}</p>`;
+            }
+        };
+
+        // Copy functions
+        window.copySitemap = function() {
+            const outputEl = document.getElementById('sitemapOutput');
+            outputEl.select();
+            document.execCommand('copy');
+            document.getElementById('sitemap-status').innerHTML = '<p class="success">✓ Sitemap copied to clipboard!</p>';
+        };
+
+        window.copyRobots = function() {
+            const outputEl = document.getElementById('robotsOutput');
+            outputEl.select();
+            document.execCommand('copy');
+            document.getElementById('robots-status').innerHTML = '<p class="success">✓ Robots.txt copied to clipboard!</p>';
+        };
+
+        // Download functions
+        window.downloadSitemap = function() {
+            const content = document.getElementById('sitemapOutput').value;
+            downloadFile('sitemap.xml', content, 'application/xml');
+        };
+
+        window.downloadRobots = function() {
+            const content = document.getElementById('robotsOutput').value;
+            downloadFile('robots.txt', content, 'text/plain');
+        };
+
+        function downloadFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function generateSitemapXML(urls) {
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+            
+            urls.forEach(url => {
+                xml += '  <url>\n';
+                xml += `    <loc>${escapeXML(url.loc)}</loc>\n`;
+                xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
+                xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
+                xml += `    <priority>${url.priority}</priority>\n`;
+                xml += '  </url>\n';
+            });
+            
+            xml += '</urlset>';
+            return xml;
+        }
+
+        function generateRobotsTxt(siteConfig) {
+            const siteUrl = siteConfig.siteUrl || window.location.origin + window.location.pathname;
+            // Clean up URL - remove trailing paths like /wwwroot/
+            const baseUrl = siteUrl.replace(/\/wwwroot\/?$/, '/').replace(/\/+$/, '/');
+            
+            let robots = `User-agent: *\n`;
+            robots += `Allow: /\n\n`;
+            
+            robots += `# Sitemap\n`;
+            robots += `Sitemap: ${baseUrl}sitemap.xml\n\n`;
+            
+            robots += `# Allow crawling of main content\n`;
+            robots += `Allow: /wwwroot/\n`;
+            robots += `Allow: /assets/\n\n`;
+            
+            robots += `# Disallow admin or internal directories\n`;
+            robots += `Disallow: /admin/\n`;
+            robots += `Disallow: /.git/\n`;
+            robots += `Disallow: /node_modules/\n`;
+            robots += `Disallow: /.env\n`;
+            robots += `Disallow: /package.json\n`;
+            robots += `Disallow: /package-lock.json\n\n`;
+            
+            robots += `# SEO tools (allow but not priority)\n`;
+            robots += `Allow: /seo-generator.html\n`;
+            robots += `Allow: /sitemap-generator.html\n\n`;
+            
+            robots += `# Crawl delay (be nice to servers)\n`;
+            robots += `Crawl-delay: 1\n\n`;
+            
+            robots += `# Generated by NanoSite SEO Generator\n`;
+            robots += `# ${new Date().toISOString()}\n`;
+            
+            return robots;
+        }
+
+        function escapeXML(str) {
+            return str.replace(/[<>&'"]/g, function(char) {
+                switch (char) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case "'": return '&apos;';
+                    case '"': return '&quot;';
+                    default: return char;
+                }
+            });
+        }
+
+        // Load site config on page load
+        loadSiteConfig();
+    </script>
+</body>
+</html>

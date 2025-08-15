@@ -5,6 +5,7 @@ import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang } from './js/i18n.js';
+import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -320,6 +321,15 @@ function displayPost(postname) {
     applyLazyLoadingIn('#mainview');
     const fallback = postsByLocationTitle[postname] || postname;
     const articleTitle = getArticleTitleFromMain() || fallback;
+    
+    // Update SEO meta tags for the post
+    const postMetadata = Object.values(postsIndexCache).flat().find(p => p.location === postname) || {};
+    const seoData = extractSEOFromMarkdown(markdown, { 
+      ...postMetadata, 
+      title: articleTitle 
+    }, siteConfig);
+    updateSEO(seoData, siteConfig);
+    
     renderTabs('post', articleTitle);
     const toc = document.getElementById('tocview');
     toc.style.display = '';
@@ -560,7 +570,16 @@ function displayStaticTab(slug) {
       hydratePostImages('#mainview');
       applyLazyLoadingIn('#mainview');
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
-      setDocTitle((firstHeading && firstHeading.textContent) || tab.title);
+      const pageTitle = (firstHeading && firstHeading.textContent) || tab.title;
+      
+      // Update SEO meta tags for the tab page
+      const seoData = extractSEOFromMarkdown(md, { 
+        title: pageTitle,
+        author: tab.author || 'NanoSite'
+      }, siteConfig);
+      updateSEO(seoData, siteConfig);
+      
+      setDocTitle(pageTitle);
     })
     .catch(() => {
       // 移除加载状态类，即使出错也要移除
@@ -585,11 +604,34 @@ function routeAndRender() {
     const q = getQueryVariable('q') || '';
     renderTabs('search', q);
     displaySearch(q);
+    // Update SEO for search page
+    updateSEO({
+      title: q ? `Search: ${q} - NanoSite` : 'Search - NanoSite',
+      description: q ? `Search results for "${q}"` : 'Search through blog posts and content',
+      type: 'website'
+    }, siteConfig);
   } else if (tab !== 'posts' && tabsBySlug[tab]) {
     displayStaticTab(tab);
   } else {
     renderTabs('posts');
     displayIndex(postsIndexCache);
+    // Update SEO for home/posts page
+    const page = parseInt(getQueryVariable('page') || '1', 10);
+    const lang = getCurrentLang && getCurrentLang();
+    const getLocalizedValue = (val) => {
+      if (!val) return '';
+      if (typeof val === 'string') return val;
+      return (lang && val[lang]) || val.default || '';
+    };
+    
+    updateSEO({
+      title: page > 1 ? 
+        `${getLocalizedValue(siteConfig.siteTitle) || 'All Posts'} - Page ${page}` : 
+        getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+      description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+      type: 'website',
+      url: siteConfig.siteUrl || window.location.href
+    }, siteConfig);
   }
   // Keep footer nav in sync as route/tabs may impact labels
   renderFooterNav();
@@ -683,6 +725,24 @@ Promise.allSettled([
       if (cfgTitle) setBaseSiteTitle(cfgTitle);
     } catch (_) {}
     try { renderSiteLinks(siteConfig); } catch (_) {}
+    
+    // Set up default SEO with site config
+    try {
+      const lang = getCurrentLang && getCurrentLang();
+      const getLocalizedValue = (val) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        return (lang && val[lang]) || val.default || '';
+      };
+      
+      // Update initial page meta tags with site config
+      updateSEO({
+        title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+        type: 'website',
+        url: siteConfig.siteUrl || window.location.href
+      }, siteConfig);
+    } catch (_) {}
     
     // 为mainview容器添加稳定性类
     const mainviewContainer = document.getElementById('mainview')?.closest('.box');
