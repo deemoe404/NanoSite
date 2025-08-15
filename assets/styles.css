@@ -234,15 +234,16 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .btn-primary { display:inline-block; padding:.5rem .75rem; border-radius:10px; background: var(--primary); color:white; border:1px solid color-mix(in srgb, var(--primary) 80%, #000); text-decoration:none; }
 .btn-primary:hover { background: var(--primary-hover); }
 
-#tocview { 
-  position: sticky; 
-  top: 20px; 
-  max-height: calc(100vh - 100px); 
-  overflow: auto;
+#tocview {
+  position: sticky;
+  top: 20px;
+  /* Let the TOC grow naturally; avoid inner scrolling */
+  max-height: none;
+  overflow: visible;
   z-index: 10; /* Ensure TOC stays above other elements */
-  min-height: 200px; /* Add min-height to prevent TOC flicker */
+  min-height: 200px; /* Prevent flicker when loading */
   transition: min-height 0.2s ease-out; /* Smooth transition */
-  /* Improved scrollbar styling */
+  /* Scrollbar styling retained (applies only if overflow becomes scrollable in narrow cases) */
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
