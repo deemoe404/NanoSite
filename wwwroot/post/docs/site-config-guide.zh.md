@@ -48,7 +48,7 @@
 ```
 
 说明：
-- `resourceURL` 为可选，用于拼接资源的绝对地址（如 OG 图片）。可以包含路径，建议以 `/` 结尾。
+- `resourceURL` 为可选，用于拼接资源的绝对地址（如 OG 图片）。可以包含路径，以 `/` 结尾。
 - 可在仓库根目录打开 `seo-generator.html`，根据你的配置生成 `sitemap.xml` 与 `robots.txt`。
 
 ## 多语言配置

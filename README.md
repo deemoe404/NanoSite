@@ -101,7 +101,6 @@ A new “About” tab will appear in the top bar.
 - Tabs live in `wwwroot/tab/` and must be listed in `wwwroot/tabs.json`.
 - Images can live anywhere in this repository. Use a correct relative path in Markdown, for example:
   - If your post is `wwwroot/my-first-post.md`, `![Alt](images/pic.png)` points to `wwwroot/images/pic.png`.
-  - You can also reference `assets/cover.png` or `../shared/pic.png` — the path is resolved relative to the Markdown file’s folder.
 - The first `#` heading in a Markdown file is used as the page title.
 
 ---
