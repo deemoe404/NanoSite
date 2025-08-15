@@ -1,7 +1,7 @@
 // seo.js - Dynamic SEO meta tag management for client-side routing
 // This maintains SEO benefits while keeping the "no compilation needed" philosophy
 
-import { getCurrentLang } from './i18n.js';
+import { getCurrentLang, DEFAULT_LANG } from './i18n.js';
 
 /**
  * Generate a fallback image using SVG when no avatar is configured
@@ -528,9 +528,31 @@ function extractDateFromMarkdown(content) {
  * This can be used to create a sitemap.xml file
  */
 export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = {}) {
-  // Use current location as canonical base for sitemap URLs
-  const baseUrl = window.location.origin + window.location.pathname;
+  // Use site's base URL (remove current file path)
+  const baseUrl = window.location.origin + '/';
   const urls = [];
+  
+  // Helper function to get location from language-specific data with proper fallback
+  const getLocationFromLangData = (data) => {
+    if (!data || typeof data !== 'object') return null;
+    
+    // Try current language, then DEFAULT_LANG, then 'en', then 'default'
+    const currentLang = getCurrentLang();
+    const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'default'];
+    
+    for (const lang of tryLangs) {
+      const langData = data[lang];
+      if (langData) {
+        if (typeof langData === 'string') return langData;
+        if (typeof langData === 'object' && langData.location) return langData.location;
+      }
+    }
+    
+    // Fallback to legacy flat shape if not unified
+    if (data.location) return data.location;
+    
+    return null;
+  };
   
   // Add homepage
   urls.push({
@@ -543,9 +565,10 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   // Add posts
   // postsData is an object where keys are post titles and values are post metadata
   Object.entries(postsData).forEach(([title, postMeta]) => {
-    if (postMeta && postMeta.location) {
+    const location = getLocationFromLangData(postMeta);
+    if (location) {
       urls.push({
-        loc: `${baseUrl}?id=${encodeURIComponent(postMeta.location)}`,
+        loc: `${baseUrl}?id=${encodeURIComponent(location)}`,
         lastmod: postMeta.date || new Date().toISOString().split('T')[0],
         changefreq: 'monthly',
         priority: '0.8'
@@ -556,8 +579,8 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   // Add tabs
   // tabsData is an object where keys are tab titles and values are tab metadata
   Object.entries(tabsData).forEach(([title, tabMeta]) => {
-    if (tabMeta && (typeof tabMeta === 'string' || tabMeta.location)) {
-      const location = typeof tabMeta === 'string' ? tabMeta : tabMeta.location;
+    const location = getLocationFromLangData(tabMeta);
+    if (location) {
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       urls.push({
         loc: `${baseUrl}?tab=${encodeURIComponent(slug)}`,

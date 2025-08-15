@@ -393,10 +393,8 @@
         }
 
         function generateRobotsTxt(siteConfig) {
-            // Use current location as canonical base for robots and sitemap URLs
-            const siteUrl = window.location.origin + window.location.pathname;
-            // Clean up URL - remove trailing paths like /wwwroot/
-            const baseUrl = siteUrl.replace(/\/wwwroot\/?$/, '/').replace(/\/+$/, '/');
+            // Use site's base URL (remove current file path)
+            const baseUrl = window.location.origin + '/';
             
             let robots = `User-agent: *\n`;
             robots += `Allow: /\n\n`;

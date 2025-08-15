@@ -14,6 +14,9 @@ const DEFAULT_LANG = 'en';
 let baseDefaultLang = DEFAULT_LANG;
 const STORAGE_KEY = 'lang';
 
+// Export the default language constant for use by other modules
+export { DEFAULT_LANG };
+
 // UI translation bundles. Add new languages by copying the `en` structure
 // and translating values. Missing keys will fall back to `en`.
 const translations = {
