@@ -1,4 +1,11 @@
 {
+  "Site Configuration Guide": {
+    "en": { "title": "Site Configuration Guide", "location": "post/docs/site-config-guide.md" },
+    "zh": { "title": "站点配置指南", "location": "post/docs/site-config-guide.zh.md" },
+    "ja": { "title": "サイト設定ガイド", "location": "post/docs/site-config-guide.ja.md" },
+    "tag": ["Docs", "Guide", "Config"],
+    "date": "2025-08-15"
+  },
   "About This Project": {
     "en": { "title": "About This Project", "location": "post/intro/about-this-project.md" },
     "zh": { "title": "关于这个项目", "location": "post/intro/about-this-project.md" },
