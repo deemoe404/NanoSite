@@ -55,7 +55,8 @@ const translations = {
       sectionTitle: 'Function Area',
       toggleTheme: 'Toggle Theme',
       themePack: 'Theme pack',
-      language: 'Language'
+      language: 'Language',
+      seoGenerator: 'SEO Generator'
     },
     toc: {
       toggleAria: 'Toggle section',
@@ -101,7 +102,8 @@ const translations = {
       sectionTitle: '功能区',
       toggleTheme: '切换主题',
       themePack: '主题包',
-      language: '语言'
+      language: '语言',
+      seoGenerator: 'SEO 生成器'
     },
     toc: {
       toggleAria: '展开/折叠章节',
@@ -148,7 +150,8 @@ const translations = {
       sectionTitle: 'ツール',
       toggleTheme: 'テーマ切替',
       themePack: 'テーマパック',
-      language: '言語'
+      language: '言語',
+      seoGenerator: 'SEOジェネレーター'
     },
     toc: {
       toggleAria: 'セクションの切替',

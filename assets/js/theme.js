@@ -39,6 +39,15 @@ export function bindThemeToggle() {
   btn.addEventListener('click', () => setDark(!isDark()));
 }
 
+export function bindSeoGenerator() {
+  const btn = document.getElementById('seoGenerator');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    // Open SEO generator in new tab/window
+    window.open('index_seo.html', '_blank');
+  });
+}
+
 export function bindThemePackPicker() {
   const sel = document.getElementById('themePack');
   if (!sel) return;
@@ -67,6 +76,9 @@ export function mountThemeControls() {
     <div class="tools tools-panel">
       <div class="tool-item">
         <button id="themeToggle" class="btn icon-btn" aria-label="Toggle light/dark" title="${t('tools.toggleTheme')}"><span class="icon">🌓</span><span class="btn-text">${t('tools.toggleTheme')}</span></button>
+      </div>
+      <div class="tool-item">
+        <button id="seoGenerator" class="btn icon-btn" aria-label="Open SEO Generator" title="${t('tools.seoGenerator')}"><span class="icon">🔍</span><span class="btn-text">${t('tools.seoGenerator')}</span></button>
       </div>
       <div class="tool-item">
         <label for="themePack" class="tool-label">${t('tools.themePack')}</label>

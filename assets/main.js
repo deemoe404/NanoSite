@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
@@ -716,6 +716,7 @@ initI18n({ defaultLang });
 mountThemeControls();
 applySavedTheme();
 bindThemeToggle();
+bindSeoGenerator();
 bindThemePackPicker();
 
 Promise.allSettled([
