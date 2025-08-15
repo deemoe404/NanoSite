@@ -212,11 +212,22 @@ function renderSkeletonArticle() {
       <div class="skeleton-block skeleton-title w-70"></div>
       <div class="skeleton-block skeleton-line w-95"></div>
       <div class="skeleton-block skeleton-line w-90"></div>
-      <div class="skeleton-block skeleton-line w-80"></div>
+      <div class="skeleton-block skeleton-line w-85"></div>
+      <div class="skeleton-block skeleton-line w-40"></div>
       <div class="skeleton-block skeleton-image w-100"></div>
       <div class="skeleton-block skeleton-line w-90"></div>
       <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-80"></div>
       <div class="skeleton-block skeleton-line w-60"></div>
+      <div style="margin: 20px 0;">
+        <div class="skeleton-block skeleton-line w-30" style="height: 20px; margin-bottom: 12px;"></div>
+        <div class="skeleton-block skeleton-line w-85"></div>
+        <div class="skeleton-block skeleton-line w-75"></div>
+        <div class="skeleton-block skeleton-line w-90"></div>
+      </div>
+      <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-80"></div>
+      <div class="skeleton-block skeleton-line w-45"></div>
     </div>`;
 }
 
@@ -270,6 +281,15 @@ function renderFooterNav() {
 }
 
 function displayPost(postname) {
+  // 添加加载状态类以保持布局稳定
+  const contentEl = document.querySelector('.content');
+  const sidebarEl = document.querySelector('.sidebar');
+  const mainviewContainer = document.getElementById('mainview')?.closest('.box');
+  
+  if (contentEl) contentEl.classList.add('loading', 'layout-stable');
+  if (sidebarEl) sidebarEl.classList.add('loading');
+  if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
+  
   // Loading state for post view
   const toc = document.getElementById('tocview');
   if (toc) {
@@ -287,6 +307,10 @@ function displayPost(postname) {
   if (main) main.innerHTML = renderSkeletonArticle();
 
   return getFile('wwwroot/' + postname).then(markdown => {
+    // 移除加载状态类
+    if (contentEl) contentEl.classList.remove('loading');
+    if (sidebarEl) sidebarEl.classList.remove('loading');
+    
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
     const baseDir = `wwwroot/${dir}`;
     const output = mdParse(markdown, baseDir);
@@ -314,6 +338,10 @@ function displayPost(postname) {
       }
     }
   }).catch(() => {
+    // 移除加载状态类，即使出错也要移除
+    if (contentEl) contentEl.classList.remove('loading');
+    if (sidebarEl) sidebarEl.classList.remove('loading');
+    
     document.getElementById('tocview').innerHTML = '';
     const backHref = withLangParam('?tab=posts');
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
@@ -501,6 +529,16 @@ function displaySearch(query) {
 function displayStaticTab(slug) {
   const tab = tabsBySlug[slug];
   if (!tab) return displayIndex({});
+  
+  // 添加加载状态类以保持布局稳定
+  const contentEl = document.querySelector('.content');
+  const sidebarEl = document.querySelector('.sidebar');
+  const mainviewContainer = document.getElementById('mainview')?.closest('.box');
+  
+  if (contentEl) contentEl.classList.add('loading', 'layout-stable');
+  if (sidebarEl) sidebarEl.classList.add('loading');
+  if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
+  
   const toc = document.getElementById('tocview');
   toc.innerHTML = '';
   toc.style.display = 'none';
@@ -511,6 +549,10 @@ function displayStaticTab(slug) {
   renderTabs(slug);
   getFile('wwwroot/' + tab.location)
     .then(md => {
+      // 移除加载状态类
+      if (contentEl) contentEl.classList.remove('loading');
+      if (sidebarEl) sidebarEl.classList.remove('loading');
+      
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `wwwroot/${dir}`;
       const output = mdParse(md, baseDir);
@@ -521,6 +563,10 @@ function displayStaticTab(slug) {
       setDocTitle((firstHeading && firstHeading.textContent) || tab.title);
     })
     .catch(() => {
+      // 移除加载状态类，即使出错也要移除
+      if (contentEl) contentEl.classList.remove('loading');
+      if (sidebarEl) sidebarEl.classList.remove('loading');
+      
       document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.pageUnavailableTitle')}</h3><p>${t('errors.pageUnavailableBody')}</p></div>`;
       setDocTitle(t('ui.pageUnavailable'));
     });
@@ -637,6 +683,11 @@ Promise.allSettled([
       if (cfgTitle) setBaseSiteTitle(cfgTitle);
     } catch (_) {}
     try { renderSiteLinks(siteConfig); } catch (_) {}
+    
+    // 为mainview容器添加稳定性类
+    const mainviewContainer = document.getElementById('mainview')?.closest('.box');
+    if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
+    
     routeAndRender();
   })
   .catch(() => {

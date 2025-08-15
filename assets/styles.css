@@ -134,8 +134,33 @@ del {
 }
 
 /* Table */
-/* Table wrapper keeps table full width and scrollable if needed */
-.table-wrap { display: block; width: 100%; overflow-x: auto; margin: 1rem 0; }
+/* Table wrapper 响应式优化 */
+.table-wrap { 
+  display: block; 
+  width: 100%; 
+  overflow-x: auto; 
+  margin: 1rem 0; 
+  /* 添加更好的滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.table-wrap::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
 .table-wrap table { width: 100%; }
 table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); font-family: inherit; table-layout: fixed; }
 table img { max-width: 100%; height: auto; }
@@ -145,9 +170,12 @@ table tr:nth-child(even) { background-color: color-mix(in srgb, var(--text) 0%, 
 table td { padding: 10px; border-bottom: 1px solid var(--border); }
 table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transparent); }
 
-/* Index */
-
-.index { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+/* Index 卡片网格优化 */
+.index { 
+  display: grid; 
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* 增加最小宽度 */
+  gap: 20px; /* 增加间距 */
+}
 .index a { display: block; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--card); text-decoration: none; box-shadow: var(--shadow); transition: transform .12s ease-out, box-shadow .15s ease, border-color .15s ease; overflow: hidden; will-change: transform, box-shadow; }
 .index a:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
 .index .card-cover-wrap { position: relative; width: 100%; aspect-ratio: 16 / 10; height: auto; overflow: hidden; background: color-mix(in srgb, var(--text) 4%, transparent); }
@@ -179,7 +207,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index .card-fallback { display:flex; align-items:center; justify-content:center; background: var(--cover-bg, color-mix(in srgb, var(--primary) 15%, transparent)); }
 .index .cover-initial { font-size: 2.1rem; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.18); letter-spacing: .02em; }
 .index .card-title { padding: 12px 14px 4px; font-weight: 600; }
-.index .card-excerpt { padding: 0 14px 10px; color: var(--muted); font-size: .92rem; line-height: 1.5; max-height: 4.5em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.index .card-excerpt { padding: 0 14px 10px; color: var(--muted); font-size: .92rem; line-height: 1.5; max-height: 4.5em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; }
 .index .card-meta { padding: 6px 14px 10px; color: var(--muted); font-size: .72rem; display:flex; align-items:center; gap:8px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; border-top: 1px solid var(--border); margin-top: 4px; opacity: .9; }
 .index .card-sep { opacity: .6; margin: 0 2px; }
 .index .tags { display:flex; flex-wrap: wrap; gap:6px; padding: 0 14px 14px; }
@@ -199,10 +227,55 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .btn-primary { display:inline-block; padding:.5rem .75rem; border-radius:10px; background: var(--primary); color:white; border:1px solid color-mix(in srgb, var(--primary) 80%, #000); text-decoration:none; }
 .btn-primary:hover { background: var(--primary-hover); }
 
-#tocview { position: sticky; top: 20px; max-height: calc(100vh - 100px); overflow: auto; }
+#tocview { 
+  position: sticky; 
+  top: 20px; 
+  max-height: calc(100vh - 100px); 
+  overflow: auto;
+  z-index: 10; /* 确保TOC在其他元素之上 */
+  min-height: 200px; /* 添加最小高度防止TOC区域闪烁 */
+  transition: min-height 0.2s ease-out; /* 平滑过渡 */
+  /* 改进滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+#tocview::-webkit-scrollbar {
+  width: 6px;
+}
+
+#tocview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#tocview::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+#tocview::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
 .toc-header { display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:600; font-size:.95rem; color: var(--muted); margin-bottom:10px; letter-spacing:.02em; }
 .toc-header .toc-top { font-weight:600; font-size:.85rem; color: var(--primary); text-decoration:none; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--card); }
 .toc-header .toc-top:hover { color: var(--primary-hover); }
+
+/* TOC骨架屏样式 */
+.toc-skeleton {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.toc-skeleton li {
+  margin: 8px 0;
+  padding: 0;
+}
+
+.toc-skeleton .skeleton-line {
+  height: 14px;
+  margin: 6px 0;
+}
 #tocview ul { list-style: none; padding-left: 10px; margin-left: 0; }
 #tocview > ul { padding-left: 0; }
 #tocview li { margin: 4px 0; position: relative; display: block; }
@@ -225,8 +298,47 @@ ul.collapsed, li > ul.collapsed { display: none; }
   justify-content: space-between;
 }
 
-/* Loading state */
-.loading { display: block; min-height: 120px; color: var(--muted); }
+/* Loading 状态 */
+.loading { 
+  display: block; 
+  min-height: 120px; 
+  color: var(--muted); 
+}
+
+/* 加载状态的容器稳定性 */
+.content.loading #mainview {
+  min-height: 600px; /* 确保加载时保持稳定高度 */
+}
+
+.sidebar.loading #tocview {
+  min-height: 200px; /* 确保TOC区域加载时保持稳定高度 */
+}
+
+/* 防止布局偏移的通用类 */
+.layout-stable {
+  contain: layout style; /* CSS Containment 防止布局偏移 */
+}
+
+/* 内容切换时的平滑过渡 */
+#mainview > * {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 骨架屏淡出效果 */
+.skeleton-article {
+  animation: fadeIn 0.2s ease-out;
+}
 
 /* Skeleton shimmer */
 @keyframes skeleton-shimmer {
@@ -234,7 +346,12 @@ ul.collapsed, li > ul.collapsed { display: none; }
   100% { transform: translateX(100%); }
 }
 
-.skeleton-article { display: block; }
+/* 骨架屏优化 */
+.skeleton-article { 
+  display: block; 
+  min-height: 500px; /* 确保骨架屏有足够高度 */
+  padding: 1rem 0; /* 添加合适的内边距 */
+}
 .skeleton-block {
   position: relative;
   overflow: hidden;
@@ -252,9 +369,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
 }
 [data-theme="dark"] .skeleton-block::after { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); }
 
-.skeleton-title { height: 28px; margin: 6px 0 16px; }
-.skeleton-line { height: 14px; margin: 10px 0; border-radius: 6px; }
-.skeleton-image { height: 180px; margin: 16px 0; border-radius: 10px; }
+.skeleton-title { height: 32px; margin: 8px 0 20px; max-width: 70%; }
+.skeleton-line { height: 16px; margin: 12px 0; border-radius: 6px; }
+.skeleton-image { height: 240px; margin: 20px 0; border-radius: 10px; }
 
 /* Width helpers */
 .w-40 { width: 40%; }
@@ -272,35 +389,57 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .tab.active { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); font-weight: 600; }
 
 .container {
-  display: flex;
-  /* Keep items aligned without extra distribution to avoid width jitter */
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 720px 300px; /* 固定列宽，防止收缩 */
+  justify-content: center; /* 居中对齐 */
   margin: 0 auto;
-  max-width: 1080px;
-  gap: 20px;
+  max-width: 1200px;
+  gap: 24px;
+  padding: 0 20px;
+  /* 防止网格容器在内容变化时变形 */
+  align-items: start;
 }
 
 .content {
-  /* Fix the content column width on desktop to keep it stable */
-  flex: 0 1 760px;
-  width: auto;
-  min-width: 0; /* allow children to wrap instead of forcing expansion */
+  /* Grid布局下的稳定内容区域 */
   overflow: visible; overflow-wrap: anywhere; word-break: break-word;
+  /* 强制最小高度防止垂直收缩 */
+  min-height: 70vh; /* 使用视窗高度确保稳定性 */
 }
 
 .sidebar {
-  flex: 0 0 280px; min-width: 0;
+  /* Grid布局下的稳定侧边栏 */
+  min-width: 0;
 }
 
 .box {
   background-color: var(--card);
-  margin-bottom: 20px; padding: 20px;
-  border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+  margin-bottom: 20px; 
+  padding: 20px;
+  border: 1px solid var(--border); 
+  border-radius: 12px; 
+  box-shadow: var(--shadow);
   max-width: 100%;
+  /* 确保盒子模型稳定 */
+  box-sizing: border-box;
+  /* 防止内容变化时的收缩 */
+  min-height: 60px;
+}
+
+/* 主内容盒子特殊处理 - 使用JavaScript添加的类 */
+.box.mainview-container {
+  min-height: 640px; /* 包含padding的总最小高度 */
 }
 
 /* Ensure the main content area always fills the content column width */
-#mainview { width: 100%; }
+#mainview { 
+  width: 100%; 
+  min-height: 600px; /* 添加最小高度防止闪烁 */
+  /* 添加平滑过渡效果 */
+  transition: min-height 0.2s ease-out;
+  /* 确保宽度稳定 */
+  box-sizing: border-box;
+}
 
 /* Tools (sidebar controls) */
 #tools .tools {
@@ -384,23 +523,142 @@ ul.collapsed, li > ul.collapsed { display: none; }
   border-left-color: #e74c3c;
 }
 
-@media (max-width: 768px) {
+/* 响应式设计优化 */
+
+/* 大屏幕优化 (>1400px) */
+@media (min-width: 1400px) {
   .container {
+    max-width: 1400px;
+    gap: 32px;
+    grid-template-columns: 800px 320px; /* 大屏幕更宽的布局 */
+  }
+  
+  .index {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+}
+
+/* 平板横屏 (769px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .container {
+    max-width: 100%;
+    padding: 0 16px;
+    gap: 20px;
+    grid-template-columns: 600px 260px; /* 中等屏幕网格布局 */
+  }
+  
+  .index {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+  }
+}
+
+/* 平板竖屏和小屏幕笔记本 (481px - 768px) */
+@media (max-width: 768px) and (min-width: 481px) {
+  .container {
+    display: flex; /* 在中等移动设备上回到flex布局 */
     flex-direction: column;
-    margin: 5px;
+    margin: 0;
+    padding: 16px;
+    gap: 24px;
   }
 
   .sidebar {
     flex: 1;
-    margin-top: 20px;
+    margin-top: 0;
     margin-left: 0;
   }
 
   .content {
-    /* On mobile, let content be fluid */
     flex: 1 1 auto;
     width: auto;
     overflow: initial;
+    max-width: none;
+    min-height: 50vh; /* 移动端较小的最小高度 */
+  }
+  
+  .index {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  
+  #tools .tools {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+}
+
+/* 手机设备 (≤480px) */
+@media (max-width: 480px) {
+  .container {
+    display: flex; /* 在手机上使用flex布局 */
+    flex-direction: column;
+    margin: 0;
+    padding: 12px;
+    gap: 20px;
+  }
+
+  .sidebar {
+    flex: 1;
+    margin-top: 0;
+    margin-left: 0;
+  }
+
+  .content {
+    flex: 1 1 auto;
+    width: auto;
+    overflow: initial;
+    max-width: none;
+    min-height: 40vh; /* 手机端更小的最小高度 */
+  }
+  
+  .index {
+    grid-template-columns: 1fr; /* 单列布局 */
+    gap: 16px;
+  }
+  
+  #tools .tools {
+    grid-template-columns: 1fr; /* 工具栏单列 */
+    gap: 10px;
+  }
+  
+  .site-footer .footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 0;
+  }
+  
+  .footer-nav {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  /* 移动端TOC优化 */
+  #tocview {
+    position: static; /* 在移动端不使用sticky定位 */
+    max-height: none;
+    overflow: visible;
+    min-height: 120px; /* 移动端较小的最小高度 */
+  }
+  
+  /* 移动端主内容区域优化 */
+  #mainview {
+    min-height: 400px; /* 移动端较小的最小高度 */
+  }
+  
+  /* 移动端字体大小调整 */
+  #mainview {
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+  
+  /* 移动端按钮和输入框优化 */
+  #tools .btn,
+  #searchbox input[type="search"] {
+    padding: .6rem .75rem;
+    height: 44px; /* 更适合触摸的高度 */
   }
 }
 
@@ -432,6 +690,4 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .footer-nav a:hover { color: var(--primary); }
 .footer-nav a.active { color: var(--primary); font-weight: 600; text-decoration: none; }
 
-@media (max-width: 768px) {
-  .site-footer .footer-inner { padding: 12px 6px; }
-}
+/* 页脚响应式优化已整合到上面的媒体查询中 */
