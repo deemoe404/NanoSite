@@ -40,9 +40,16 @@ body {
   overflow-x: hidden; /* prevent accidental horizontal expansion */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* 移动端防止缩放和溢出 */
+  max-width: 100vw;
+  box-sizing: border-box;
 }
-html { scroll-behavior: smooth; }
-html { scroll-behavior: smooth; }
+html { 
+  scroll-behavior: smooth; 
+  /* 移动端防止横向滚动 */
+  overflow-x: hidden;
+  max-width: 100vw;
+}
 
 /* Link style */
 a { color: var(--primary); text-decoration: none; transition: color .15s ease; }
@@ -554,111 +561,194 @@ ul.collapsed, li > ul.collapsed { display: none; }
   }
 }
 
-/* 平板竖屏和小屏幕笔记本 (481px - 768px) */
-@media (max-width: 768px) and (min-width: 481px) {
+/* 平板设备 (769px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
   .container {
-    display: flex; /* 在中等移动设备上回到flex布局 */
-    flex-direction: column;
-    margin: 0;
-    padding: 16px;
-    gap: 24px;
-  }
-
-  .sidebar {
-    flex: 1;
-    margin-top: 0;
-    margin-left: 0;
-  }
-
-  .content {
-    flex: 1 1 auto;
-    width: auto;
-    overflow: initial;
-    max-width: none;
-    min-height: 50vh; /* 移动端较小的最小高度 */
+    max-width: 100%;
+    padding: 0 16px;
+    gap: 20px;
+    grid-template-columns: 600px 260px; /* 中等屏幕网格布局 */
   }
   
   .index {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 16px;
-  }
-  
-  #tools .tools {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
   }
 }
 
-/* 手机设备 (≤480px) */
-@media (max-width: 480px) {
+/* 手机设备 (≤768px) - 全面的移动端优化 */
+@media (max-width: 768px) {
+  /* 全局移动端设置 */
+  html {
+    -webkit-text-size-adjust: 100%; /* 防止iOS自动调整文字大小 */
+  }
+  
+  body {
+    padding: 16px 0 24px; /* 减少移动端的padding */
+  }
+  
   .container {
-    display: flex; /* 在手机上使用flex布局 */
+    display: flex !important; /* 强制在移动端使用flex布局 */
     flex-direction: column;
     margin: 0;
-    padding: 12px;
-    gap: 20px;
-  }
-
-  .sidebar {
-    flex: 1;
-    margin-top: 0;
-    margin-left: 0;
+    padding: 8px; /* 减少容器内边距 */
+    gap: 16px; /* 减少间距 */
+    width: 100%;
+    max-width: 100vw; /* 使用视窗宽度 */
+    min-width: 0; /* 允许收缩到最小 */
+    overflow-x: hidden; /* 防止横向溢出 */
+    box-sizing: border-box;
   }
 
   .content {
     flex: 1 1 auto;
-    width: auto;
-    overflow: initial;
-    max-width: none;
+    width: 100%; /* 确保占满宽度 */
+    max-width: 100%;
+    min-width: 0; /* 允许收缩 */
+    overflow: hidden; /* 防止内容溢出 */
     min-height: 40vh; /* 手机端更小的最小高度 */
+    /* 重置桌面端的固定宽度设置 */
+    box-sizing: border-box;
+    order: 1; /* 内容在上方 */
+  }
+
+  .sidebar {
+    flex: 0 0 auto; /* 不拉伸，自适应内容 */
+    width: 100%; /* 确保占满宽度 */
+    max-width: 100%;
+    margin-top: 0;
+    margin-left: 0;
+    order: 2; /* 将侧边栏放在内容下方 */
+    box-sizing: border-box;
   }
   
   .index {
     grid-template-columns: 1fr; /* 单列布局 */
-    gap: 16px;
+    gap: 12px; /* 减少间距 */
   }
   
   #tools .tools {
     grid-template-columns: 1fr; /* 工具栏单列 */
-    gap: 10px;
+    gap: 8px; /* 减少间距 */
   }
   
   .site-footer .footer-inner {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
-    padding: 16px 0;
+    gap: 8px; /* 减少间距 */
+    padding: 12px 0; /* 减少padding */
+    max-width: 100%;
   }
   
   .footer-nav {
     flex-direction: column;
-    gap: 8px;
+    gap: 6px; /* 减少间距 */
+    width: 100%;
   }
   
   /* 移动端TOC优化 */
   #tocview {
-    position: static; /* 在移动端不使用sticky定位 */
+    position: static !important; /* 强制在移动端不使用sticky定位 */
     max-height: none;
     overflow: visible;
-    min-height: 120px; /* 移动端较小的最小高度 */
+    min-height: 100px; /* 减少最小高度 */
+    width: 100%;
+    box-sizing: border-box;
   }
   
   /* 移动端主内容区域优化 */
   #mainview {
-    min-height: 400px; /* 移动端较小的最小高度 */
+    min-height: 250px; /* 减少最小高度 */
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: break-word; /* 强制长单词换行 */
+    word-break: break-word; /* 兼容性 */
+    hyphens: auto; /* 启用连字符 */
+    box-sizing: border-box;
   }
   
   /* 移动端字体大小调整 */
   #mainview {
-    font-size: 1rem;
-    line-height: 1.7;
+    font-size: 0.95rem; /* 略小的字体 */
+    line-height: 1.6; /* 紧凑的行高 */
   }
   
   /* 移动端按钮和输入框优化 */
   #tools .btn,
   #searchbox input[type="search"] {
-    padding: .6rem .75rem;
-    height: 44px; /* 更适合触摸的高度 */
+    padding: .5rem .6rem; /* 减少padding */
+    height: 42px; /* 适合触摸的高度 */
+    width: 100%; /* 确保按钮占满宽度 */
+    box-sizing: border-box;
+    font-size: 0.95rem; /* 略小的字体 */
+  }
+  
+  /* 移动端盒子优化 */
+  .box {
+    margin-bottom: 12px; /* 减少间距 */
+    padding: 12px; /* 减少内边距 */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden; /* 防止内容溢出 */
+  }
+  
+  /* 移动端图片处理 */
+  #mainview img,
+  .index img {
+    max-width: 100% !important;
+    height: auto !important;
+    width: auto !important;
+    box-sizing: border-box;
+  }
+  
+  /* 移动端表格处理 */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  
+  table {
+    min-width: 100%;
+    font-size: 0.9rem; /* 表格用小字体 */
+  }
+  
+  /* 移动端代码块处理 */
+  pre {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    padding: 0.8rem; /* 减少padding */
+    font-size: 0.85rem; /* 代码用更小字体 */
+  }
+  
+  /* 确保导航栏在移动端正确显示 */
+  .tabs {
+    flex-wrap: wrap;
+    gap: 3px; /* 减少间距 */
+    padding: 4px; /* 减少padding */
+  }
+  
+  .tab {
+    padding: .3rem .45rem; /* 减少padding */
+    font-size: 0.85rem; /* 小字体 */
+  }
+  
+  /* 移动端标题优化 */
+  h1 { font-size: 1.6rem; } /* 减小标题字体 */
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.2rem; }
+  
+  /* 移动端列表优化 */
+  #mainview ul, #mainview ol { 
+    margin: .6rem 0 .6rem 1rem; /* 减少边距 */
+  }
+  
+  /* 移动端引用优化 */
+  blockquote { 
+    margin: .8rem 0; /* 减少边距 */
+    padding: .4rem .8rem; /* 减少内边距 */
   }
 }
 
