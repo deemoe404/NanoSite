@@ -131,6 +131,7 @@
     <div class="tabs">
         <button class="tab active" onclick="switchTab('sitemap')">Sitemap Generator</button>
         <button class="tab" onclick="switchTab('robots')">Robots.txt Generator</button>
+        <button class="tab" onclick="switchTab('meta')">HTML Meta Tags</button>
         <button class="tab" onclick="switchTab('config')">Site Configuration</button>
     </div>
 
@@ -186,6 +187,34 @@
             <div class="output-group">
                 <h3>Generated robots.txt:</h3>
                 <textarea id="robotsOutput" placeholder="Click 'Generate Robots.txt' to create the content..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- HTML Meta Tags Tab -->
+    <div id="meta-tab" class="tab-content">
+        <div class="container">
+            <h2>HTML Meta Tags Generator</h2>
+            <div class="instructions">
+                <h4>🏷️ Instructions:</h4>
+                <ol>
+                    <li>Click "Generate Meta Tags" to create HTML meta tags based on your site configuration</li>
+                    <li>Copy the generated HTML content</li>
+                    <li>Replace the empty meta tags in your <code>index.html</code> file</li>
+                    <li>The tags include SEO, Open Graph, and Twitter Card metadata</li>
+                </ol>
+            </div>
+            
+            <div class="file-actions">
+                <button class="btn-primary" onclick="generateMetaTags()">Generate Meta Tags</button>
+                <button class="btn-secondary" onclick="copyMetaTags()">Copy to Clipboard</button>
+                <button class="btn-secondary" onclick="downloadMetaTags()">Download HTML</button>
+            </div>
+            <div id="meta-status"></div>
+            
+            <div class="output-group">
+                <h3>Generated HTML Meta Tags:</h3>
+                <textarea id="metaOutput" placeholder="Click 'Generate Meta Tags' to create the HTML content..."></textarea>
             </div>
         </div>
     </div>
@@ -352,6 +381,41 @@
             document.getElementById('robots-status').innerHTML = '<p class="success">✓ Robots.txt copied to clipboard!</p>';
         };
 
+        // Generate HTML meta tags
+        window.generateMetaTags = async function() {
+            const statusEl = document.getElementById('meta-status');
+            const outputEl = document.getElementById('metaOutput');
+            
+            try {
+                statusEl.innerHTML = '<p>Generating HTML meta tags...</p>';
+                
+                // Load site config if not already loaded
+                if (!currentSiteConfig.resourceURL) {
+                    const response = await fetch('site.json');
+                    if (response.ok) {
+                        currentSiteConfig = await response.json();
+                    }
+                }
+                
+                const metaContent = generateMetaTagsHTML(currentSiteConfig);
+                outputEl.value = metaContent;
+                
+                statusEl.innerHTML = '<p class="success">✓ HTML meta tags generated successfully!</p>';
+                outputEl.select();
+                
+            } catch (error) {
+                console.error('Error generating meta tags:', error);
+                statusEl.innerHTML = `<p class="error">✗ Error generating meta tags: ${error.message}</p>`;
+            }
+        };
+
+        window.copyMetaTags = function() {
+            const outputEl = document.getElementById('metaOutput');
+            outputEl.select();
+            document.execCommand('copy');
+            document.getElementById('meta-status').innerHTML = '<p class="success">✓ Meta tags copied to clipboard!</p>';
+        };
+
         // Download functions
         window.downloadSitemap = function() {
             const content = document.getElementById('sitemapOutput').value;
@@ -361,6 +425,11 @@
         window.downloadRobots = function() {
             const content = document.getElementById('robotsOutput').value;
             downloadFile('robots.txt', content, 'text/plain');
+        };
+
+        window.downloadMetaTags = function() {
+            const content = document.getElementById('metaOutput').value;
+            downloadFile('meta-tags.html', content, 'text/html');
         };
 
         function downloadFile(filename, content, mimeType) {
@@ -425,6 +494,68 @@
             robots += `# ${new Date().toISOString()}\n`;
             
             return robots;
+        }
+
+        function generateMetaTagsHTML(siteConfig) {
+            // Use site's base URL
+            const baseUrl = window.location.origin + '/';
+            
+            // Helper to get localized value with fallback
+            const getLocalizedValue = (val, fallback = '') => {
+                if (!val) return fallback;
+                if (typeof val === 'string') return val;
+                return val.default || fallback;
+            };
+            
+            // Extract values from site config
+            const siteTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
+            const siteDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end blog template');
+            const siteKeywords = getLocalizedValue(siteConfig.siteKeywords, 'blog, static site, markdown');
+            const avatar = siteConfig.avatar || 'assets/avatar.png';
+            const fullAvatarUrl = avatar.startsWith('http') ? avatar : baseUrl + avatar;
+            
+            let html = `  <!-- Primary SEO Meta Tags -->\n`;
+            html += `  <title>${escapeHTML(siteTitle)}</title>\n`;
+            html += `  <meta name="title" content="${escapeHTML(siteTitle)}">\n`;
+            html += `  <meta name="description" content="${escapeHTML(siteDescription)}">\n`;
+            html += `  <meta name="keywords" content="${escapeHTML(siteKeywords)}">\n`;
+            html += `  <meta name="author" content="${escapeHTML(siteTitle)}">\n`;
+            html += `  <meta name="robots" content="index, follow">\n`;
+            html += `  <link rel="canonical" href="${baseUrl}">\n`;
+            html += `  \n`;
+            html += `  <!-- Open Graph / Facebook -->\n`;
+            html += `  <meta property="og:type" content="website">\n`;
+            html += `  <meta property="og:url" content="${baseUrl}">\n`;
+            html += `  <meta property="og:title" content="${escapeHTML(siteTitle)}">\n`;
+            html += `  <meta property="og:description" content="${escapeHTML(siteDescription)}">\n`;
+            html += `  <meta property="og:image" content="${fullAvatarUrl}">\n`;
+            html += `  \n`;
+            html += `  <!-- Twitter -->\n`;
+            html += `  <meta property="twitter:card" content="summary_large_image">\n`;
+            html += `  <meta property="twitter:url" content="${baseUrl}">\n`;
+            html += `  <meta property="twitter:title" content="${escapeHTML(siteTitle)}">\n`;
+            html += `  <meta property="twitter:description" content="${escapeHTML(siteDescription)}">\n`;
+            html += `  <meta property="twitter:image" content="${fullAvatarUrl}">\n`;
+            html += `  \n`;
+            html += `  <!-- Initial meta tags - will be updated by dynamic SEO system -->\n`;
+            html += `  <meta name="theme-color" content="#1a1a1a">\n`;
+            html += `  <meta name="msapplication-TileColor" content="#1a1a1a">\n`;
+            html += `  <link rel="icon" type="image/png" href="${avatar}">`;
+            
+            return html;
+        }
+
+        function escapeHTML(str) {
+            return String(str || '').replace(/[&<>"']/g, function(char) {
+                switch (char) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case "'": return '&#39;';
+                    default: return char;
+                }
+            });
         }
 
         function escapeXML(str) {
