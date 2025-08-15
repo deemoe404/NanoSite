@@ -17,6 +17,152 @@ let postsIndexCache = {};
 let allowedLocations = new Set();
 const PAGE_SIZE = 8;
 
+// --- UI helpers: smooth show/hide (height + opacity) ---
+function prefersReducedMotion() {
+  try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; }
+}
+
+function smoothShow(el) {
+  if (!el) return;
+  const cs = window.getComputedStyle(el);
+  if (cs.display !== 'none') { el.setAttribute('aria-hidden', 'false'); return; }
+  if (prefersReducedMotion()) { el.style.display = 'block'; el.setAttribute('aria-hidden', 'false'); return; }
+  // Restore margin/padding if previously saved, else use computed
+  const savedMargin = el.dataset.prevMarginBottom || cs.marginBottom || '1.25rem';
+  const savedPadTop = el.dataset.prevPaddingTop || cs.paddingTop || '1.25rem';
+  const savedPadBottom = el.dataset.prevPaddingBottom || cs.paddingBottom || '1.25rem';
+  // Persist for next cycle
+  el.dataset.prevPaddingTop = savedPadTop;
+  el.dataset.prevPaddingBottom = savedPadBottom;
+  const prevMin = cs.minHeight;
+  el.dataset.prevMinHeight = prevMin;
+  el.style.display = 'block';
+  el.style.overflow = 'hidden';
+  el.style.minHeight = '0px';
+  // Start with collapsed paddings and size
+  el.style.paddingTop = '0px';
+  el.style.paddingBottom = '0px';
+  el.style.height = '0px';
+  el.style.marginBottom = '0px';
+  el.style.opacity = '0';
+  el.style.willChange = 'height, margin-bottom, padding-top, padding-bottom, opacity';
+  // Measure target height including padding: temporarily set paddings
+  el.style.paddingTop = savedPadTop;
+  el.style.paddingBottom = savedPadBottom;
+  void el.getBoundingClientRect();
+  const target = el.scrollHeight;
+  // Reset to collapsed paddings before animating
+  el.style.paddingTop = '0px';
+  el.style.paddingBottom = '0px';
+  // Animate
+  const HEIGHT_MS = 240; const MARGIN_MS = 240; const PADDING_MS = 240; const OPACITY_MS = 180; const BUFFER_MS = 80;
+  el.style.transition = `height ${HEIGHT_MS}ms ease, margin-bottom ${MARGIN_MS}ms ease, padding-top ${PADDING_MS}ms ease, padding-bottom ${PADDING_MS}ms ease, opacity ${OPACITY_MS}ms ease-out`;
+  el.style.height = target + 'px';
+  el.style.paddingTop = savedPadTop;
+  el.style.paddingBottom = savedPadBottom;
+  el.style.marginBottom = savedMargin;
+  el.style.opacity = '1';
+  el.setAttribute('aria-hidden', 'false');
+  const ended = new Set();
+  let done = false;
+  const finalize = () => {
+    if (done) return; done = true;
+    el.style.transition = '';
+    el.style.height = '';
+    el.style.overflow = '';
+    el.style.willChange = '';
+    el.style.minHeight = '';
+    el.style.opacity = '';
+    el.style.marginBottom = '';
+    el.style.paddingTop = '';
+    el.style.paddingBottom = '';
+    el.removeEventListener('transitionend', onEnd);
+  };
+  const onEnd = (e) => {
+    if (!e || typeof e.propertyName !== 'string') return;
+    const p = e.propertyName.trim();
+    if (p === 'height' || p === 'padding-bottom') {
+      ended.add(p);
+      if (ended.has('height') && ended.has('padding-bottom')) finalize();
+    }
+  };
+  el.addEventListener('transitionend', onEnd);
+  // Fallback in case a transitionend is missed
+  setTimeout(finalize, Math.max(HEIGHT_MS, PADDING_MS) + BUFFER_MS);
+}
+
+function smoothHide(el, onDone) {
+  if (!el) return;
+  const cs = window.getComputedStyle(el);
+  if (cs.display === 'none') { el.setAttribute('aria-hidden', 'true'); if (typeof onDone === 'function') onDone(); return; }
+  if (prefersReducedMotion()) { el.style.display = 'none'; el.setAttribute('aria-hidden', 'true'); if (typeof onDone === 'function') onDone(); return; }
+  // Save current margin-bottom to restore on show
+  el.dataset.prevMarginBottom = cs.marginBottom;
+  el.dataset.prevPaddingTop = cs.paddingTop;
+  el.dataset.prevPaddingBottom = cs.paddingBottom;
+  const prevMin = cs.minHeight;
+  el.dataset.prevMinHeight = prevMin;
+  const startHeight = el.scrollHeight;
+  el.style.overflow = 'hidden';
+  el.style.minHeight = '0px';
+  el.style.height = startHeight + 'px';
+  el.style.marginBottom = cs.marginBottom;
+  el.style.paddingTop = cs.paddingTop;
+  el.style.paddingBottom = cs.paddingBottom;
+  el.style.opacity = '1';
+  el.style.willChange = 'height, margin-bottom, padding-top, padding-bottom, opacity';
+  // Reflow then collapse
+  void el.getBoundingClientRect();
+  const HEIGHT_MS = 240; const MARGIN_MS = 240; const PADDING_MS = 240; const OPACITY_MS = 180; const BUFFER_MS = 80;
+  el.style.transition = `height ${HEIGHT_MS}ms ease, margin-bottom ${MARGIN_MS}ms ease, padding-top ${PADDING_MS}ms ease, padding-bottom ${PADDING_MS}ms ease, opacity ${OPACITY_MS}ms ease-out`;
+  el.style.height = '0px';
+  el.style.marginBottom = '0px';
+  el.style.paddingTop = '0px';
+  el.style.paddingBottom = '0px';
+  el.style.opacity = '0';
+  el.setAttribute('aria-hidden', 'true');
+  let done = false;
+  const ended = new Set();
+  const finalize = () => {
+    if (done) return; done = true;
+    el.style.display = 'none';
+    el.style.transition = '';
+    el.style.height = '';
+    el.style.opacity = '';
+    el.style.overflow = '';
+    el.style.willChange = '';
+    el.style.minHeight = '';
+    el.style.marginBottom = '';
+    el.removeEventListener('transitionend', onEnd);
+    if (typeof onDone === 'function') try { onDone(); } catch (_) {}
+  };
+  const onEnd = (e) => {
+    if (!e || typeof e.propertyName !== 'string') return;
+    const p = e.propertyName.trim();
+    if (p === 'height' || p === 'margin-bottom' || p === 'padding-bottom') {
+      ended.add(p);
+      if (ended.has('height') && ended.has('margin-bottom') && ended.has('padding-bottom')) finalize();
+    }
+  };
+  el.addEventListener('transitionend', onEnd);
+  // Fallback in case transitionend is missed on some properties
+  setTimeout(finalize, Math.max(HEIGHT_MS, MARGIN_MS, PADDING_MS) + BUFFER_MS);
+}
+
+// Ensure element height fully resets to its natural auto height
+function ensureAutoHeight(el) {
+  if (!el) return;
+  try {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.style.height = '';
+        el.style.minHeight = '';
+        el.style.overflow = '';
+      });
+    });
+  } catch (_) {}
+}
+
 // --- Site config (root-level site.json) ---
 let siteConfig = {};
 async function loadSiteConfig() {
@@ -377,8 +523,7 @@ function displayPost(postname) {
   // Loading state for post view
   const toc = document.getElementById('tocview');
   if (toc) {
-    toc.style.display = '';
-    toc.innerHTML = `<div class=\"toc-header\"><span>${t('ui.contents')}</span><span style=\"font-size:.85rem; color: var(--muted);\">${t('ui.loading')}</span></div>`
+  toc.innerHTML = `<div class=\"toc-header\"><span>${t('ui.contents')}</span><span style=\"font-size:.85rem; color: var(--muted);\">${t('ui.loading')}</span></div>`
       + '<ul class="toc-skeleton">'
       + '<li><div class="skeleton-block skeleton-line w-90"></div></li>'
       + '<li><div class="skeleton-block skeleton-line w-80"></div></li>'
@@ -386,6 +531,8 @@ function displayPost(postname) {
       + '<li><div class="skeleton-block skeleton-line w-70"></div></li>'
       + '<li><div class="skeleton-block skeleton-line w-60"></div></li>'
       + '</ul>';
+  smoothShow(toc);
+  ensureAutoHeight(toc);
   }
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
@@ -419,11 +566,12 @@ function displayPost(postname) {
     renderTabs('post', articleTitle);
     const toc = document.getElementById('tocview');
     if (toc) {
-      toc.style.display = '';
       toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
+      smoothShow(toc);
+  ensureAutoHeight(toc);
     }
     const searchBox = document.getElementById('searchbox');
-    if (searchBox) searchBox.style.display = 'none';
+    if (searchBox) smoothHide(searchBox);
     try { setDocTitle(articleTitle); } catch (_) {}
     try { setupAnchors(); } catch (_) {}
     try { setupTOC(); } catch (_) {}
@@ -445,14 +593,13 @@ function displayPost(postname) {
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
     setDocTitle(t('ui.notFound'));
     const searchBox = document.getElementById('searchbox');
-    if (searchBox) searchBox.style.display = 'none';
+  if (searchBox) smoothHide(searchBox);
   });
 }
 
 function displayIndex(parsed) {
   const toc = document.getElementById('tocview');
-  toc.innerHTML = '';
-  toc.style.display = 'none';
+  smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
 
   const entries = Object.entries(parsed || {});
   const total = entries.length;
@@ -498,7 +645,7 @@ function displayIndex(parsed) {
   setupSearch(entries);
   renderTabs('posts');
   const searchBox = document.getElementById('searchbox');
-  if (searchBox) searchBox.style.display = '';
+  if (searchBox) smoothShow(searchBox);
   setDocTitle(t('titles.allPosts'));
 
   const cards = Array.from(document.querySelectorAll('.index a'));
@@ -533,8 +680,7 @@ function displaySearch(query) {
   if (!q) return displayIndex(postsIndexCache);
 
   const toc = document.getElementById('tocview');
-  toc.innerHTML = '';
-  toc.style.display = 'none';
+  smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
 
   // Filter by title or tags
   const allEntries = Object.entries(postsIndexCache || {});
@@ -593,7 +739,7 @@ function displaySearch(query) {
   sequentialLoadCovers('#mainview', 1);
   renderTabs('search', q);
   const searchBox = document.getElementById('searchbox');
-  if (searchBox) searchBox.style.display = '';
+  if (searchBox) smoothShow(searchBox);
   const input = document.getElementById('searchInput');
   if (input) input.value = q;
   setupSearch(Object.entries(postsIndexCache || {}));
@@ -638,11 +784,11 @@ function displayStaticTab(slug) {
   if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
   
   const toc = document.getElementById('tocview');
-  if (toc) { toc.innerHTML = ''; toc.style.display = 'none'; }
+  if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
   const searchBox = document.getElementById('searchbox');
-  if (searchBox) searchBox.style.display = 'none';
+  if (searchBox) smoothHide(searchBox);
   renderTabs(slug);
   getFile('wwwroot/' + tab.location)
     .then(md => {
