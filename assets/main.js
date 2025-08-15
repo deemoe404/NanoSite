@@ -281,7 +281,7 @@ function renderFooterNav() {
 }
 
 function displayPost(postname) {
-  // 添加加载状态类以保持布局稳定
+  // Add loading-state classes to keep layout stable
   const contentEl = document.querySelector('.content');
   const sidebarEl = document.querySelector('.sidebar');
   const mainviewContainer = document.getElementById('mainview')?.closest('.box');
@@ -307,7 +307,7 @@ function displayPost(postname) {
   if (main) main.innerHTML = renderSkeletonArticle();
 
   return getFile('wwwroot/' + postname).then(markdown => {
-    // 移除加载状态类
+    // Remove loading-state classes
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
     
@@ -338,7 +338,7 @@ function displayPost(postname) {
       }
     }
   }).catch(() => {
-    // 移除加载状态类，即使出错也要移除
+    // Remove loading-state classes even on error
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
     
@@ -530,7 +530,7 @@ function displayStaticTab(slug) {
   const tab = tabsBySlug[slug];
   if (!tab) return displayIndex({});
   
-  // 添加加载状态类以保持布局稳定
+  // Add loading state class to maintain layout stability
   const contentEl = document.querySelector('.content');
   const sidebarEl = document.querySelector('.sidebar');
   const mainviewContainer = document.getElementById('mainview')?.closest('.box');

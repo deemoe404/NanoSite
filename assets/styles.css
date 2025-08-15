@@ -40,13 +40,13 @@ body {
   overflow-x: hidden; /* prevent accidental horizontal expansion */
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* 移动端防止缩放和溢出 */
+  /* Prevent zoom/overflow on mobile */
   max-width: 100vw;
   box-sizing: border-box;
 }
 html { 
   scroll-behavior: smooth; 
-  /* 移动端防止横向滚动 */
+  /* Prevent horizontal scroll on mobile */
   overflow-x: hidden;
   max-width: 100vw;
 }
@@ -141,13 +141,13 @@ del {
 }
 
 /* Table */
-/* Table wrapper 响应式优化 */
+/* Table wrapper responsive optimizations */
 .table-wrap { 
   display: block; 
   width: 100%; 
   overflow-x: auto; 
   margin: 1rem 0; 
-  /* 添加更好的滚动条样式 */
+  /* Improved scrollbar styling */
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -177,11 +177,11 @@ table tr:nth-child(even) { background-color: color-mix(in srgb, var(--text) 0%, 
 table td { padding: 10px; border-bottom: 1px solid var(--border); }
 table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transparent); }
 
-/* Index 卡片网格优化 */
+/* Index card grid optimizations */
 .index { 
   display: grid; 
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* 增加最小宽度 */
-  gap: 20px; /* 增加间距 */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Increase minimum width */
+  gap: 20px; /* Increase spacing */
 }
 .index a { display: block; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--card); text-decoration: none; box-shadow: var(--shadow); transition: transform .12s ease-out, box-shadow .15s ease, border-color .15s ease; overflow: hidden; will-change: transform, box-shadow; }
 .index a:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
@@ -239,10 +239,10 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   top: 20px; 
   max-height: calc(100vh - 100px); 
   overflow: auto;
-  z-index: 10; /* 确保TOC在其他元素之上 */
-  min-height: 200px; /* 添加最小高度防止TOC区域闪烁 */
-  transition: min-height 0.2s ease-out; /* 平滑过渡 */
-  /* 改进滚动条样式 */
+  z-index: 10; /* Ensure TOC stays above other elements */
+  min-height: 200px; /* Add min-height to prevent TOC flicker */
+  transition: min-height 0.2s ease-out; /* Smooth transition */
+  /* Improved scrollbar styling */
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -267,7 +267,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .toc-header .toc-top { font-weight:600; font-size:.85rem; color: var(--primary); text-decoration:none; padding:4px 8px; border:1px solid var(--border); border-radius:8px; background: var(--card); }
 .toc-header .toc-top:hover { color: var(--primary-hover); }
 
-/* TOC骨架屏样式 */
+/* TOC skeleton styles */
 .toc-skeleton {
   list-style: none;
   padding-left: 0;
@@ -305,28 +305,28 @@ ul.collapsed, li > ul.collapsed { display: none; }
   justify-content: space-between;
 }
 
-/* Loading 状态 */
+/* Loading state */
 .loading { 
   display: block; 
   min-height: 120px; 
   color: var(--muted); 
 }
 
-/* 加载状态的容器稳定性 */
+/* Container stability during loading */
 .content.loading #mainview {
-  min-height: 600px; /* 确保加载时保持稳定高度 */
+  min-height: 600px; /* Ensure stable height while loading */
 }
 
 .sidebar.loading #tocview {
-  min-height: 200px; /* 确保TOC区域加载时保持稳定高度 */
+  min-height: 200px; /* Ensure stable height for TOC while loading */
 }
 
-/* 防止布局偏移的通用类 */
+/* Generic class to prevent layout shifts */
 .layout-stable {
-  contain: layout style; /* CSS Containment 防止布局偏移 */
+  contain: layout style; /* CSS Containment to prevent layout shifts */
 }
 
-/* 内容切换时的平滑过渡 */
+/* Smooth transition when content changes */
 #mainview > * {
   animation: fadeIn 0.3s ease-out;
 }
@@ -342,7 +342,7 @@ ul.collapsed, li > ul.collapsed { display: none; }
   }
 }
 
-/* 骨架屏淡出效果 */
+/* Skeleton fade transition */
 .skeleton-article {
   animation: fadeIn 0.2s ease-out;
 }
@@ -353,11 +353,11 @@ ul.collapsed, li > ul.collapsed { display: none; }
   100% { transform: translateX(100%); }
 }
 
-/* 骨架屏优化 */
+/* Skeleton screen optimizations */
 .skeleton-article { 
   display: block; 
-  min-height: 500px; /* 确保骨架屏有足够高度 */
-  padding: 1rem 0; /* 添加合适的内边距 */
+  min-height: 500px; /* Ensure skeleton has sufficient height */
+  padding: 1rem 0; /* Add appropriate padding */
 }
 .skeleton-block {
   position: relative;
@@ -397,25 +397,25 @@ ul.collapsed, li > ul.collapsed { display: none; }
 
 .container {
   display: grid;
-  grid-template-columns: 720px 300px; /* 固定列宽，防止收缩 */
-  justify-content: center; /* 居中对齐 */
+  grid-template-columns: 720px 300px; /* Fixed column widths to prevent collapse */
+  justify-content: center; /* Center align */
   margin: 0 auto;
   max-width: 1200px;
   gap: 24px;
   padding: 0 20px;
-  /* 防止网格容器在内容变化时变形 */
+  /* Prevent grid container distortion when content changes */
   align-items: start;
 }
 
 .content {
-  /* Grid布局下的稳定内容区域 */
+  /* Stable content area under grid layout */
   overflow: visible; overflow-wrap: anywhere; word-break: break-word;
-  /* 强制最小高度防止垂直收缩 */
-  min-height: 70vh; /* 使用视窗高度确保稳定性 */
+  /* Enforce min-height to prevent vertical collapse */
+  min-height: 70vh; /* Use viewport height for stability */
 }
 
 .sidebar {
-  /* Grid布局下的稳定侧边栏 */
+  /* Stable sidebar under grid layout */
   min-width: 0;
 }
 
@@ -427,24 +427,24 @@ ul.collapsed, li > ul.collapsed { display: none; }
   border-radius: 12px; 
   box-shadow: var(--shadow);
   max-width: 100%;
-  /* 确保盒子模型稳定 */
+  /* Ensure box model stability */
   box-sizing: border-box;
-  /* 防止内容变化时的收缩 */
+  /* Prevent shrinking as content changes */
   min-height: 60px;
 }
 
-/* 主内容盒子特殊处理 - 使用JavaScript添加的类 */
+/* Main content box special handling — class added by JavaScript */
 .box.mainview-container {
-  min-height: 640px; /* 包含padding的总最小高度 */
+  min-height: 640px; /* Total min-height including padding */
 }
 
 /* Ensure the main content area always fills the content column width */
 #mainview { 
   width: 100%; 
-  min-height: 600px; /* 添加最小高度防止闪烁 */
-  /* 添加平滑过渡效果 */
+  min-height: 600px; /* Add min-height to prevent flicker */
+  /* Add smooth transition */
   transition: min-height 0.2s ease-out;
-  /* 确保宽度稳定 */
+  /* Ensure width remains stable */
   box-sizing: border-box;
 }
 
@@ -530,14 +530,14 @@ ul.collapsed, li > ul.collapsed { display: none; }
   border-left-color: #e74c3c;
 }
 
-/* 响应式设计优化 */
+/* Responsive design optimizations */
 
-/* 大屏幕优化 (>1400px) */
+/* Large screens (>1400px) */
 @media (min-width: 1400px) {
   .container {
     max-width: 1400px;
     gap: 32px;
-    grid-template-columns: 800px 320px; /* 大屏幕更宽的布局 */
+    grid-template-columns: 800px 320px; /* Wider layout on large screens */
   }
   
   .index {
@@ -546,13 +546,13 @@ ul.collapsed, li > ul.collapsed { display: none; }
   }
 }
 
-/* 平板横屏 (769px - 1024px) */
+/* Tablet landscape (769px - 1024px) */
 @media (max-width: 1024px) and (min-width: 769px) {
   .container {
     max-width: 100%;
     padding: 0 16px;
     gap: 20px;
-    grid-template-columns: 600px 260px; /* 中等屏幕网格布局 */
+    grid-template-columns: 600px 260px; /* Grid layout for medium screens */
   }
   
   .index {
@@ -561,13 +561,13 @@ ul.collapsed, li > ul.collapsed { display: none; }
   }
 }
 
-/* 平板设备 (769px - 1024px) */
+/* Tablet devices (769px - 1024px) */
 @media (max-width: 1024px) and (min-width: 769px) {
   .container {
     max-width: 100%;
     padding: 0 16px;
     gap: 20px;
-    grid-template-columns: 600px 260px; /* 中等屏幕网格布局 */
+    grid-template-columns: 600px 260px; /* Grid layout for medium screens */
   }
   
   .index {
@@ -576,124 +576,124 @@ ul.collapsed, li > ul.collapsed { display: none; }
   }
 }
 
-/* 手机设备 (≤768px) - 全面的移动端优化 */
+/* Mobile (≤768px) — comprehensive mobile optimizations */
 @media (max-width: 768px) {
-  /* 全局移动端设置 */
+  /* Global mobile settings */
   html {
-    -webkit-text-size-adjust: 100%; /* 防止iOS自动调整文字大小 */
+    -webkit-text-size-adjust: 100%; /* Prevent iOS auto text-size adjustment */
   }
   
   body {
-    padding: 16px 0 24px; /* 减少移动端的padding */
+    padding: 16px 0 24px; /* Reduce padding on mobile */
   }
   
   .container {
-    display: flex !important; /* 强制在移动端使用flex布局 */
+    display: flex !important; /* Force flex layout on mobile */
     flex-direction: column;
     margin: 0;
-    padding: 8px; /* 减少容器内边距 */
-    gap: 16px; /* 减少间距 */
+    padding: 8px; /* Reduce container padding */
+    gap: 16px; /* Reduce spacing */
     width: 100%;
-    max-width: 100vw; /* 使用视窗宽度 */
-    min-width: 0; /* 允许收缩到最小 */
-    overflow-x: hidden; /* 防止横向溢出 */
+    max-width: 100vw; /* Use viewport width */
+    min-width: 0; /* Allow minimum shrink */
+    overflow-x: hidden; /* Prevent horizontal overflow */
     box-sizing: border-box;
   }
 
   .content {
     flex: 1 1 auto;
-    width: 100%; /* 确保占满宽度 */
+    width: 100%; /* Ensure full width */
     max-width: 100%;
-    min-width: 0; /* 允许收缩 */
-    overflow: hidden; /* 防止内容溢出 */
-    min-height: 40vh; /* 手机端更小的最小高度 */
-    /* 重置桌面端的固定宽度设置 */
+    min-width: 0; /* Allow shrink */
+    overflow: hidden; /* Prevent content overflow */
+    min-height: 40vh; /* Smaller min-height on mobile */
+    /* Reset desktop fixed-width settings */
     box-sizing: border-box;
-    order: 1; /* 内容在上方 */
+    order: 1; /* Place content above */
   }
 
   .sidebar {
-    flex: 0 0 auto; /* 不拉伸，自适应内容 */
-    width: 100%; /* 确保占满宽度 */
+    flex: 0 0 auto; /* No stretch; size to content */
+    width: 100%; /* Ensure full width */
     max-width: 100%;
     margin-top: 0;
     margin-left: 0;
-    order: 2; /* 将侧边栏放在内容下方 */
+    order: 2; /* Move sidebar below content */
     box-sizing: border-box;
   }
   
   .index {
-    grid-template-columns: 1fr; /* 单列布局 */
-    gap: 12px; /* 减少间距 */
+    grid-template-columns: 1fr; /* Single-column layout */
+    gap: 12px; /* Reduce spacing */
   }
   
   #tools .tools {
-    grid-template-columns: 1fr; /* 工具栏单列 */
-    gap: 8px; /* 减少间距 */
+    grid-template-columns: 1fr; /* Single-column toolbar */
+    gap: 8px; /* Reduce spacing */
   }
   
   .site-footer .footer-inner {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px; /* 减少间距 */
-    padding: 12px 0; /* 减少padding */
+    gap: 8px; /* Reduce spacing */
+    padding: 12px 0; /* Reduce padding */
     max-width: 100%;
   }
   
   .footer-nav {
     flex-direction: column;
-    gap: 6px; /* 减少间距 */
+    gap: 6px; /* Reduce spacing */
     width: 100%;
   }
   
-  /* 移动端TOC优化 */
+  /* Mobile TOC optimizations */
   #tocview {
-    position: static !important; /* 强制在移动端不使用sticky定位 */
+    position: static !important; /* Force non-sticky positioning on mobile */
     max-height: none;
     overflow: visible;
-    min-height: 100px; /* 减少最小高度 */
+    min-height: 100px; /* Reduce min-height */
     width: 100%;
     box-sizing: border-box;
   }
   
-  /* 移动端主内容区域优化 */
+  /* Mobile main content area adjustments */
   #mainview {
-    min-height: 250px; /* 减少最小高度 */
+    min-height: 250px; /* Reduce min-height */
     width: 100%;
     max-width: 100%;
-    overflow-wrap: break-word; /* 强制长单词换行 */
-    word-break: break-word; /* 兼容性 */
-    hyphens: auto; /* 启用连字符 */
+    overflow-wrap: break-word; /* Force long-word wrap */
+    word-break: break-word; /* Compatibility */
+    hyphens: auto; /* Enable hyphenation */
     box-sizing: border-box;
   }
   
-  /* 移动端字体大小调整 */
+  /* Mobile font size adjustments */
   #mainview {
-    font-size: 0.95rem; /* 略小的字体 */
-    line-height: 1.6; /* 紧凑的行高 */
+    font-size: 0.95rem; /* Slightly smaller font */
+    line-height: 1.6; /* Tighter line-height */
   }
   
-  /* 移动端按钮和输入框优化 */
+  /* Mobile buttons and inputs optimizations */
   #tools .btn,
   #searchbox input[type="search"] {
-    padding: .5rem .6rem; /* 减少padding */
-    height: 42px; /* 适合触摸的高度 */
-    width: 100%; /* 确保按钮占满宽度 */
+    padding: .5rem .6rem; /* Reduce padding */
+    height: 42px; /* Touch-friendly height */
+    width: 100%; /* Ensure buttons span full width */
     box-sizing: border-box;
-    font-size: 0.95rem; /* 略小的字体 */
+    font-size: 0.95rem; /* Slightly smaller font */
   }
   
-  /* 移动端盒子优化 */
+  /* Mobile box optimizations */
   .box {
-    margin-bottom: 12px; /* 减少间距 */
-    padding: 12px; /* 减少内边距 */
+    margin-bottom: 12px; /* Reduce spacing */
+    padding: 12px; /* Reduce padding */
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    overflow: hidden; /* 防止内容溢出 */
+    overflow: hidden; /* Prevent content overflow */
   }
   
-  /* 移动端图片处理 */
+  /* Mobile image handling */
   #mainview img,
   .index img {
     max-width: 100% !important;
@@ -702,7 +702,7 @@ ul.collapsed, li > ul.collapsed { display: none; }
     box-sizing: border-box;
   }
   
-  /* 移动端表格处理 */
+  /* Mobile table handling */
   .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -711,44 +711,44 @@ ul.collapsed, li > ul.collapsed { display: none; }
   
   table {
     min-width: 100%;
-    font-size: 0.9rem; /* 表格用小字体 */
+    font-size: 0.9rem; /* Smaller font for tables */
   }
   
-  /* 移动端代码块处理 */
+  /* Mobile code block handling */
   pre {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
-    padding: 0.8rem; /* 减少padding */
-    font-size: 0.85rem; /* 代码用更小字体 */
+    padding: 0.8rem; /* Reduce padding */
+    font-size: 0.85rem; /* Smaller font for code */
   }
   
-  /* 确保导航栏在移动端正确显示 */
+  /* Ensure the nav bar renders correctly on mobile */
   .tabs {
     flex-wrap: wrap;
-    gap: 3px; /* 减少间距 */
-    padding: 4px; /* 减少padding */
+    gap: 3px; /* Reduce spacing */
+    padding: 4px; /* Reduce padding */
   }
   
   .tab {
-    padding: .3rem .45rem; /* 减少padding */
-    font-size: 0.85rem; /* 小字体 */
+    padding: .3rem .45rem; /* Reduce padding */
+    font-size: 0.85rem; /* Smaller font */
   }
   
-  /* 移动端标题优化 */
+  /* Mobile heading adjustments */
   h1 { font-size: 1.6rem; } /* 减小标题字体 */
   h2 { font-size: 1.4rem; }
   h3 { font-size: 1.2rem; }
   
-  /* 移动端列表优化 */
+  /* Mobile list adjustments */
   #mainview ul, #mainview ol { 
-    margin: .6rem 0 .6rem 1rem; /* 减少边距 */
+    margin: .6rem 0 .6rem 1rem; /* Reduce margins */
   }
   
-  /* 移动端引用优化 */
+  /* Mobile blockquote adjustments */
   blockquote { 
-    margin: .8rem 0; /* 减少边距 */
-    padding: .4rem .8rem; /* 减少内边距 */
+    margin: .8rem 0; /* Reduce margins */
+    padding: .4rem .8rem; /* Reduce padding */
   }
 }
 
@@ -780,4 +780,4 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .footer-nav a:hover { color: var(--primary); }
 .footer-nav a.active { color: var(--primary); font-weight: 600; text-decoration: none; }
 
-/* 页脚响应式优化已整合到上面的媒体查询中 */
+/* Footer responsive optimizations are integrated into the media queries above */
