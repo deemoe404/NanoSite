@@ -6,6 +6,7 @@ import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
+import { initErrorReporter, setReporterContext } from './js/errors.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -604,6 +605,25 @@ function routeAndRender() {
   const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
   const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
 
+  // Capture current navigation state for error reporting
+  try {
+    const route = (() => {
+      if (isValidId(id)) {
+        return { view: 'post', id, title: postsByLocationTitle[id] || null };
+      }
+      if (tab === 'search') {
+        const q = getQueryVariable('q') || '';
+        return { view: 'search', q };
+      }
+      if (tab !== 'posts' && tabsBySlug[tab]) {
+        return { view: 'tab', tab, title: (tabsBySlug[tab] && tabsBySlug[tab].title) || tab };
+      }
+      const page = parseInt(getQueryVariable('page') || '1', 10);
+      return { view: 'posts', page: isNaN(page) ? 1 : page };
+    })();
+    setReporterContext({ route, routeUpdatedAt: new Date().toISOString() });
+  } catch (_) { /* ignore */ }
+
   if (isValidId(id)) {
     renderTabs('post');
     displayPost(id);
@@ -767,6 +787,21 @@ Promise.allSettled([
       if (cfgTitle) setBaseSiteTitle(cfgTitle);
     } catch (_) {}
     try { renderSiteLinks(siteConfig); } catch (_) {}
+
+    // Initialize global error reporter with optional report URL from site config
+    try {
+      const pick = (val) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        const lang = getCurrentLang && getCurrentLang();
+        const v = (lang && val[lang]) || val.default || '';
+        return typeof v === 'string' ? v : '';
+      };
+      initErrorReporter({
+        reportUrl: siteConfig && siteConfig.reportIssueURL,
+        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite'
+      });
+    } catch (_) {}
     
     // Set up default SEO with site config
     try {

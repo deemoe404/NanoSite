@@ -782,3 +782,24 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .footer-nav a.active { color: var(--primary); font-weight: 600; text-decoration: none; }
 
 /* Footer responsive optimizations are integrated into the media queries above */
+
+/* Error overlay */
+#errorOverlayRoot { pointer-events: none; }
+.error-card { pointer-events: auto; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 12px 10px; width: min(92vw, 520px); max-width: 520px; }
+.error-head { font-weight: 700; margin-bottom: 4px; }
+.error-meta { font-size: .8rem; color: var(--muted); margin-bottom: 8px; }
+.error-details { margin: 6px 0 8px; }
+.error-pre { 
+  max-height: 240px; 
+  overflow: auto; 
+  background: var(--code-bg); 
+  color: var(--code-text); 
+  border: 1px solid var(--border);
+  padding: 8px; 
+  border-radius: 8px; 
+  font-size: .85rem; 
+}
+.error-details > summary { cursor: pointer; color: var(--text); }
+.error-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.error-actions button { padding: .35rem .6rem; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
+.error-actions button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
