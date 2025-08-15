@@ -13,12 +13,12 @@ function ensureOverlayRoot() {
   root.id = 'errorOverlayRoot';
   root.setAttribute('aria-live', 'assertive');
   root.style.position = 'fixed';
-  root.style.right = '16px';
-  root.style.bottom = '16px';
+  root.style.right = '1rem';
+  root.style.bottom = '1rem';
   root.style.zIndex = '2147483647';
   root.style.display = 'flex';
   root.style.flexDirection = 'column';
-  root.style.gap = '10px';
+  root.style.gap = '0.625rem';
   document.body.appendChild(root);
   return root;
 }

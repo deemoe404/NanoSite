@@ -62,20 +62,20 @@ a:hover { color: var(--primary-hover) !important; text-decoration: underline !im
 /* Index: image-forward tiles with caption */
 .index a { border: none !important; background: transparent !important; box-shadow: none !important; border-radius: 0 !important; }
 .index a:hover { transform: none !important; }
-.index .card-cover-wrap { border-radius: 14px !important; overflow: hidden !important; border: 1px solid var(--border) !important; background: color-mix(in srgb, var(--text) 4%, transparent) !important; }
+.index .card-cover-wrap { border-radius: 0.875rem !important; overflow: hidden !important; border: 0.0625rem solid var(--border) !important; background: color-mix(in srgb, var(--text) 4%, transparent) !important; }
 .index .card-cover { transition: transform .35s ease !important; }
 .index a:hover .card-cover { transform: scale(1.02) !important; }
-.index .card-title { padding: 10px 2px !important; font-weight: 700 !important; }
-.index .card-excerpt { padding: 0 2px 6px !important; color: var(--muted) !important; }
-.index .card-meta { padding: 2px 2px 14px !important; text-transform: none !important; letter-spacing: 0 !important; border-top: none !important; }
+.index .card-title { padding: 0.625rem 0.125rem !important; font-weight: 700 !important; }
+.index .card-excerpt { padding: 0 0.125rem 0.375rem !important; color: var(--muted) !important; }
+.index .card-meta { padding: 0.125rem 0.125rem 0.875rem !important; text-transform: none !important; letter-spacing: 0 !important; border-top: none !important; }
 .index .tag { background: color-mix(in srgb, var(--text) 6%, transparent) !important; color: var(--muted) !important; }
 
 /* Blockquote: understated */
-blockquote { border-left: 4px solid var(--border) !important; background: transparent !important; font-style: normal !important; color: var(--text) !important; }
+blockquote { border-left: 0.25rem solid var(--border) !important; background: transparent !important; font-style: normal !important; color: var(--text) !important; }
 
 /* Code and pre — SF Mono and hairlines */
-code { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 1px solid var(--border) !important; border-radius: 6px !important; padding: .15em .35em !important; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace !important; }
-pre { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 1px solid var(--border) !important; box-shadow: none !important; border-radius: 12px !important; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace !important; }
+code { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 0.0625rem solid var(--border) !important; border-radius: 0.375rem !important; padding: .15em .35em !important; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace !important; }
+pre { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 0.0625rem solid var(--border) !important; box-shadow: none !important; border-radius: 0.75rem !important; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace !important; }
 
 /* Tables: hairline grid, soft stripes */
 .table-wrap table { border-color: var(--border) !important; }
@@ -86,7 +86,7 @@ table tr:nth-child(even) { background-color: color-mix(in srgb, var(--text) 2%, 
 table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transparent) !important; }
 
 /* Pagination: minimalist pills */
-.pagination a, .pagination span { border-radius: 10px !important; box-shadow: none !important; }
+.pagination a, .pagination span { border-radius: 0.625rem !important; box-shadow: none !important; }
 .pagination .active { background: color-mix(in srgb, var(--primary) 14%, transparent) !important; color: var(--primary) !important; border-color: color-mix(in srgb, var(--primary) 40%, var(--border)) !important; font-weight: 700 !important; }
 
 /* TOC and anchors */
@@ -99,20 +99,20 @@ h1 .anchor, h2 .anchor, h3 .anchor, h4 .anchor, h5 .anchor, h6 .anchor { color: 
 .site-card .site-subtitle { font-size: .95rem !important; color: var(--muted) !important; }
 
 /* Search box and buttons */
-#searchbox input[type="search"] { background: var(--card) !important; border-color: var(--border) !important; border-radius: 10px !important; }
-#tools .btn { background: var(--card) !important; border-color: var(--border) !important; border-radius: 10px !important; }
+#searchbox input[type="search"] { background: var(--card) !important; border-color: var(--border) !important; border-radius: 0.625rem !important; }
+#tools .btn { background: var(--card) !important; border-color: var(--border) !important; border-radius: 0.625rem !important; }
 #tools .btn:hover { background: color-mix(in srgb, var(--text) 7%, transparent) !important; }
 
 /* Focus ring — blue halo */
-a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 50%, transparent) !important; outline-offset: 2px !important; }
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 0.1875rem solid color-mix(in srgb, var(--primary) 50%, transparent) !important; outline-offset: 0.125rem !important; }
 
 /* Notices */
 .notice { border-color: var(--border) !important; background: var(--card) !important; }
 .notice.error { border-left-color: #ff3b30 !important; }
 
 /* Images */
-#mainview img { box-shadow: none !important; border: none !important; border-radius: 12px !important; }
+#mainview img { box-shadow: none !important; border: none !important; border-radius: 0.75rem !important; }
 
 /* Primary button — fill like Apple CTAs */
-.btn-primary { background: var(--primary) !important; border: 1px solid color-mix(in srgb, var(--primary) 65%, #000) !important; color: #fff !important; border-radius: 12px !important; }
+.btn-primary { background: var(--primary) !important; border: 0.0625rem solid color-mix(in srgb, var(--primary) 65%, #000) !important; color: #fff !important; border-radius: 0.75rem !important; }
 .btn-primary:hover { background: var(--primary-hover) !important; }

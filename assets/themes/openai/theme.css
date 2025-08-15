@@ -57,18 +57,18 @@ a:hover { color: var(--primary-hover) !important; text-decoration: underline !im
 [data-theme="dark"] .tab.active { background: color-mix(in srgb, var(--primary) 22%, var(--card)) !important; color: #ffffff !important; border-color: color-mix(in srgb, var(--primary) 55%, var(--border)) !important; }
 
 /* Index cards — flatter look */
-.index a { border-radius: 10px !important; box-shadow: none !important; border: 1px solid var(--border) !important; background: var(--card) !important; }
-.index a:hover { transform: translateY(-0.5px) !important; box-shadow: 0 2px 8px rgba(0,0,0,.05) !important; }
+.index a { border-radius: 0.625rem !important; box-shadow: none !important; border: 0.0625rem solid var(--border) !important; background: var(--card) !important; }
+.index a:hover { transform: translateY(-0.03125rem) !important; box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,.05) !important; }
 .index .card-cover-wrap { background: color-mix(in srgb, var(--text) 4%, transparent) !important; }
 .index .card-meta { text-transform: none !important; letter-spacing: .01em !important; }
 .index .tag { background: color-mix(in srgb, var(--text) 8%, transparent) !important; color: var(--muted) !important; }
 
 /* Blockquote — neutral surface, accented rule only */
-blockquote { border-left: 4px solid color-mix(in srgb, var(--primary) 55%, transparent) !important; background: transparent !important; color: var(--text) !important; font-style: normal !important; }
+blockquote { border-left: 0.25rem solid color-mix(in srgb, var(--primary) 55%, transparent) !important; background: transparent !important; color: var(--text) !important; font-style: normal !important; }
 
 /* Code & pre — readable with rounded corners */
-code { background: color-mix(in srgb, var(--text) 10%, transparent) !important; color: var(--text) !important; border-radius: 6px !important; }
-pre  { background: var(--code-bg) !important; color: var(--code-text) !important; border-radius: 10px !important; border: 1px solid var(--border) !important; box-shadow: none !important; }
+code { background: color-mix(in srgb, var(--text) 10%, transparent) !important; color: var(--text) !important; border-radius: 0.375rem !important; }
+pre  { background: var(--code-bg) !important; color: var(--code-text) !important; border-radius: 0.625rem !important; border: 0.0625rem solid var(--border) !important; box-shadow: none !important; }
 
 /* TOC and anchors */
 #tocview .toc-header { color: var(--muted) !important; }
@@ -76,36 +76,36 @@ pre  { background: var(--code-bg) !important; color: var(--code-text) !important
 h1 .anchor, h2 .anchor, h3 .anchor, h4 .anchor, h5 .anchor, h6 .anchor { color: var(--muted) !important; }
 
 /* Search and buttons */
-#searchbox input[type="search"] { background: var(--card) !important; border-color: var(--border) !important; border-radius: 10px !important; }
-#tools .btn { background: var(--card) !important; border-color: var(--border) !important; border-radius: 10px !important; }
+#searchbox input[type="search"] { background: var(--card) !important; border-color: var(--border) !important; border-radius: 0.625rem !important; }
+#tools .btn { background: var(--card) !important; border-color: var(--border) !important; border-radius: 0.625rem !important; }
 #tools .btn:hover { background: color-mix(in srgb, var(--text) 7%, transparent) !important; }
 
 /* Primary button */
-.btn-primary { background: var(--primary) !important; color: #fff !important; border: 1px solid color-mix(in srgb, var(--primary) 70%, #000) !important; border-radius: 10px !important; }
+.btn-primary { background: var(--primary) !important; color: #fff !important; border: 0.0625rem solid color-mix(in srgb, var(--primary) 70%, #000) !important; border-radius: 0.625rem !important; }
 .btn-primary:hover { background: var(--primary-hover) !important; }
 
 /* Pagination */
-.pagination a, .pagination span { border-radius: 10px !important; box-shadow: none !important; }
+.pagination a, .pagination span { border-radius: 0.625rem !important; box-shadow: none !important; }
 .pagination .active { background: transparent !important; color: var(--primary) !important; border-color: color-mix(in srgb, var(--primary) 55%, var(--border)) !important; font-weight: 700 !important; }
 
 /* Focus and selection affordances */
 a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent) !important;
-  outline-offset: 2px !important;
+  outline: 0.125rem solid color-mix(in srgb, var(--primary) 55%, transparent) !important;
+  outline-offset: 0.125rem !important;
 }
 ::selection { background: color-mix(in srgb, var(--primary) 55%, transparent); color: #fff; }
 
 /* Layout tightening — app-like proportions */
-.container { max-width: 980px !important; gap: 16px !important; }
-.content { flex: 0 1 720px !important; }
-.sidebar { flex: 0 0 240px !important; }
-.box { padding: 16px !important; }
+.container { max-width: 61.25rem !important; gap: 1rem !important; }
+.content { flex: 0 1 45rem !important; }
+.sidebar { flex: 0 0 15rem !important; }
+.box { padding: 1rem !important; }
 
 /* Table — softer dotted grid */
 .table-wrap table { border-color: var(--border) !important; }
-table { border: 1px dotted var(--border) !important; }
-table th { background-color: color-mix(in srgb, var(--text) 4%, transparent) !important; color: var(--text) !important; border-bottom: 1px dotted var(--border) !important; font-weight: 700 !important; }
-table td { border-bottom: 1px dotted var(--border) !important; }
+table { border: 0.0625rem dotted var(--border) !important; }
+table th { background-color: color-mix(in srgb, var(--text) 4%, transparent) !important; color: var(--text) !important; border-bottom: 0.0625rem dotted var(--border) !important; font-weight: 700 !important; }
+table td { border-bottom: 0.0625rem dotted var(--border) !important; }
 table tr:nth-child(odd), table tr:nth-child(even) { background-color: transparent !important; }
 table tr:hover { background-color: color-mix(in srgb, var(--text) 4%, transparent) !important; }
 /* Dark-mode table headers — slightly stronger contrast */
@@ -121,13 +121,13 @@ table tr:hover { background-color: color-mix(in srgb, var(--text) 4%, transparen
 }
 
 /* Adaptive widths — responsive app feel */
-@media (max-width: 1024px) and (min-width: 769px) {
-  .container { max-width: 880px !important; }
-  .content { flex: 0 1 620px !important; }
-  .sidebar { flex: 0 0 220px !important; }
+@media (max-width: 64rem) and (min-width: 48.0625rem) {
+  .container { max-width: 55rem !important; }
+  .content { flex: 0 1 38.75rem !important; }
+  .sidebar { flex: 0 0 13.75rem !important; }
 }
-@media (min-width: 1280px) {
-  .container { max-width: 1120px !important; }
-  .content { flex: 0 1 780px !important; }
-  .sidebar { flex: 0 0 280px !important; }
+@media (min-width: 80rem) {
+  .container { max-width: 70rem !important; }
+  .content { flex: 0 1 48.75rem !important; }
+  .sidebar { flex: 0 0 17.5rem !important; }
 }

@@ -221,8 +221,8 @@ function renderSkeletonArticle() {
       <div class="skeleton-block skeleton-line w-95"></div>
       <div class="skeleton-block skeleton-line w-80"></div>
       <div class="skeleton-block skeleton-line w-60"></div>
-      <div style="margin: 20px 0;">
-        <div class="skeleton-block skeleton-line w-30" style="height: 20px; margin-bottom: 12px;"></div>
+      <div style="margin: 1.25rem 0;">
+        <div class="skeleton-block skeleton-line w-30" style="height: 1.25rem; margin-bottom: 0.75rem;"></div>
         <div class="skeleton-block skeleton-line w-85"></div>
         <div class="skeleton-block skeleton-line w-75"></div>
         <div class="skeleton-block skeleton-line w-90"></div>
