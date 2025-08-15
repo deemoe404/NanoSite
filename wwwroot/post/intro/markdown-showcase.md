@@ -76,4 +76,4 @@ python3 -m http.server 8000
 
 You can link to any section using its generated anchor.
 
-Return to the intro: [About This Project](?id=about-this-project.md)
+Return to the intro: [About This Project](?id=post/intro/about-this-project.md)
