@@ -21,7 +21,7 @@ Highlights:
 - `wwwroot/`: Your content — Markdown files and data files.
   - `wwwroot/index.json`: List of posts (what shows on the homepage).
   - `wwwroot/tabs.json`: List of extra tabs (About, Projects, etc.).
-  - Images: place them anywhere you like in the repo (no fixed folder required). Use a correct path in your Markdown.
+  - Images: you can keep images next to your posts under `wwwroot/post/...` or in `assets/`. Use correct relative paths in your Markdown.
 
 ---
 
@@ -156,74 +156,50 @@ No build step is needed — it’s a static site.
 
 ## SEO Optimization
 
-NanoSite includes built-in SEO features that work without any build process:
+NanoSite includes built‑in SEO that works without any build process.
 
 ### Automatic Meta Tags
-- Dynamic title and description for each page
-- Open Graph and Twitter Card tags for social sharing
-- Structured data (JSON-LD) for search engines
-- Canonical URLs to prevent duplicate content issues
+- Dynamic title and description per page
+- Open Graph and Twitter Card tags
+- Structured data (JSON‑LD)
+- Canonical URLs
 
-### Enhanced Site Configuration
-Update `site.json` with SEO-friendly information:
+### Site Configuration
+Add SEO‑related fields in `site.json`:
 
 ```json
 {
   "siteTitle": { "default": "Your Site Name" },
   "siteDescription": { "default": "Your site description for search engines" },
-  "siteUrl": "https://yourdomain.com/",
+  "resourceURL": "https://cdn.example.com/path/", 
   "siteKeywords": { "default": "keyword1, keyword2, keyword3" }
 }
 ```
 
-**Important**: Make sure your `siteUrl` doesn't include `/wwwroot/` at the end - it should be your actual domain like `https://yourdomain.com/`
+Notes:
+- `resourceURL` is optional and used as the base when composing absolute URLs for resources (e.g., OG images). It can include a path and should end with a `/`.
 
-### Post-Level SEO
-Each markdown file automatically generates:
-- Meta descriptions from the first paragraph
-- Article structured data with publication dates
-- Automatic keyword extraction from content
-- Social sharing optimized images
+### Post‑Level SEO
+From each Markdown post, the site automatically derives:
+- Meta description from the first paragraph
+- Article structured data with publish dates
+- Keyword tags from content/tags
+- Social preview images (use your own or a generated fallback)
 
 ### SEO File Generation
-1. Open `seo-generator.html` in your browser
-2. Use the **Sitemap Generator** tab to create `sitemap.xml`
-3. Use the **Robots.txt Generator** tab to create `robots.txt`
-4. Check the **Site Configuration** tab to verify your settings
-5. Copy or download the generated files
-6. Save them in your root directory
+Use the built‑in generator to create sitemap and robots files:
+1) Open `seo-generator.html` in your browser
+2) Use “Sitemap Generator” to create `sitemap.xml`
+3) Use “Robots.txt Generator” to create `robots.txt`
+4) Copy or download the files and place them in the repository root
 
-### SEO Best Practices
-- Write descriptive titles for your markdown files (first `# heading`)
-- Include dates in your posts: `Date: 2024-01-01`
-- Add images to posts for better social sharing
-- Use descriptive filenames for your markdown files
-- Keep descriptions under 155 characters for best results
+Best practices:
+- Write descriptive H1 titles in Markdown (first `# heading`)
+- Include dates (e.g., `Date: 2024-01-01`)
+- Add images to posts for better sharing
+- Use descriptive filenames and keep descriptions under ~155 characters
 
-All SEO features work automatically - no compilation needed!
-
-### Post-Level SEO
-Each markdown file automatically generates:
-- Meta descriptions from the first paragraph
-- Article structured data with publication dates
-- Automatic keyword extraction from content
-- Social sharing optimized images
-
-### Sitemap Generation
-1. Open `sitemap-generator.html` in your browser
-2. Click "Generate Sitemap" 
-3. Copy the generated XML
-4. Save as `sitemap.xml` in your root directory
-5. The `robots.txt` file is already configured
-
-### SEO Best Practices
-- Write descriptive titles for your markdown files (first `# heading`)
-- Include dates in your posts: `Date: 2024-01-01`
-- Add images to posts for better social sharing
-- Use descriptive filenames for your markdown files
-- Keep descriptions under 155 characters for best results
-
-All SEO features work automatically - no compilation needed!
+All SEO features work automatically — no compilation needed.
 
 ---
 

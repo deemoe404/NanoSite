@@ -637,7 +637,7 @@ function routeAndRender() {
         getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
       description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
       type: 'website',
-      url: siteConfig.siteUrl || window.location.href
+      url: window.location.href
     }, siteConfig);
   }
   // Keep footer nav in sync as route/tabs may impact labels
@@ -778,7 +778,7 @@ Promise.allSettled([
         title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
         description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
         type: 'website',
-        url: siteConfig.siteUrl || window.location.href
+        url: window.location.href
       }, siteConfig);
     } catch (_) {}
     

@@ -256,7 +256,7 @@
                 previewEl.innerHTML = `
                     <h4>Site Configuration</h4>
                     <div class="config-item"><span class="config-label">Site Title:</span> ${getLocalizedValue(currentSiteConfig.siteTitle)}</div>
-                    <div class="config-item"><span class="config-label">Site URL:</span> ${currentSiteConfig.siteUrl || 'Not set'}</div>
+                    <div class="config-item"><span class="config-label">Resource URL:</span> ${currentSiteConfig.resourceURL || 'Not set'}</div>
                     <div class="config-item"><span class="config-label">Description:</span> ${getLocalizedValue(currentSiteConfig.siteDescription)}</div>
                     <div class="config-item"><span class="config-label">Keywords:</span> ${getLocalizedValue(currentSiteConfig.siteKeywords)}</div>
                     <div class="config-item"><span class="config-label">Avatar:</span> ${currentSiteConfig.avatar || 'Not set'}</div>
@@ -318,7 +318,7 @@
                 statusEl.innerHTML = '<p>Generating robots.txt...</p>';
                 
                 // Load site config if not already loaded
-                if (!currentSiteConfig.siteUrl) {
+                if (!currentSiteConfig.resourceURL) {
                     const response = await fetch('site.json');
                     if (response.ok) {
                         currentSiteConfig = await response.json();
@@ -393,7 +393,8 @@
         }
 
         function generateRobotsTxt(siteConfig) {
-            const siteUrl = siteConfig.siteUrl || window.location.origin + window.location.pathname;
+            // Use current location as canonical base for robots and sitemap URLs
+            const siteUrl = window.location.origin + window.location.pathname;
             // Clean up URL - remove trailing paths like /wwwroot/
             const baseUrl = siteUrl.replace(/\/wwwroot\/?$/, '/').replace(/\/+$/, '/');
             

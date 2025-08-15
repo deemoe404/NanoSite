@@ -44,7 +44,7 @@ Update your `site.json` file with SEO information:
 {
   "siteTitle": { "default": "Your Amazing Blog" },
   "siteDescription": { "default": "Insights about technology, life, and everything in between" },
-  "siteUrl": "https://yourdomain.com/",
+  "resourceURL": "https://cdn.example.com/path/",
   "siteKeywords": { "default": "blog, technology, writing, thoughts" }
 }
 ```

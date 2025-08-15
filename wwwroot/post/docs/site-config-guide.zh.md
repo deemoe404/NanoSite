@@ -36,6 +36,21 @@
 - `avatar`：头像图片的相对路径或 URL，建议使用本地资源。
 - `profileLinks`：推荐为 `{ label, href }` 数组；也支持 `{ "名称": "https://..." }` 映射形式。
 
+### SEO 相关字段（可选）
+你也可以在 `site.json` 中设置全站 SEO 字段：
+
+```json
+{
+  "siteDescription": { "default": "用于搜索引擎的站点描述" },
+  "resourceURL": "https://cdn.example.com/path/",
+  "siteKeywords": { "default": "关键词1, 关键词2, 关键词3" }
+}
+```
+
+说明：
+- `resourceURL` 为可选，用于拼接资源的绝对地址（如 OG 图片）。可以包含路径，建议以 `/` 结尾。
+- 可在仓库根目录打开 `seo-generator.html`，根据你的配置生成 `sitemap.xml` 与 `robots.txt`。
+
 ## 多语言配置
 
 通过语言映射为不同语言提供独立内容，使用中的 UI 语言决定选取哪一项：
@@ -75,7 +90,7 @@
     "ja": { "title": "最初の投稿", "location": "post/my-first-post.md" },
     "tag": ["Note"],
     "date": "2025-08-13",
-    "image": "images/covers/welcome.jpg"
+    "image": "post/intro/1.png"
   }
 }
 ```
@@ -118,7 +133,7 @@
 
 ## 提示
 
-- 图片建议放在 `assets/` 下并使用相对路径。
+- 使用相对路径引用图片。你可以将图片放在 `wwwroot/post/...`（与文章同目录）或 `assets/` 下。路径以 Markdown 文件所在文件夹为基准解析。
 - 保持外部链接可信；程序会对 URL 做基本净化。
 - 资料链接建议简短命名，保证以点分隔的一行布局可读。
 

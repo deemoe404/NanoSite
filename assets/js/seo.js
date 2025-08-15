@@ -180,11 +180,12 @@ export function updateSEO(options = {}, siteConfig = {}) {
   // Get default values from site config
   const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite - Zero-Dependency Static Blog');
   const defaultDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.');
-  const defaultUrl = siteConfig.siteUrl || window.location.origin + window.location.pathname;
+  // Base for resources (images); falls back to current location when not set
+  const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
   
   // Generate fallback image if no avatar configured
   const defaultImage = siteConfig.avatar ? 
-    (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${defaultUrl}${siteConfig.avatar}`) :
+    (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${resourceBase}${siteConfig.avatar}`) :
     generateFallbackImage(defaultTitle);
   
   // Debug: log when using fallback image
@@ -311,9 +312,9 @@ function updateStructuredData(options, siteConfig = {}) {
   };
   
   const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
-  const defaultUrl = siteConfig.siteUrl || window.location.origin + window.location.pathname;
+  const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
   const logoUrl = siteConfig.avatar ? 
-    (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${defaultUrl}${siteConfig.avatar}`) :
+    (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${resourceBase}${siteConfig.avatar}`) :
     generateFallbackImage(defaultTitle);
 
   // Remove existing structured data
@@ -400,8 +401,8 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   const description = metadata.excerpt || extractExcerptFromMarkdown(content, siteConfig);
   const tags = metadata.tags || extractTagsFromMarkdown(content);
   
-  // Get default values from site config
-  const defaultUrl = siteConfig.siteUrl || window.location.origin + window.location.pathname;
+  // Get resource base from site config for building absolute resource URLs
+  const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
   
   // Determine image: article image > article-specific fallback > site avatar > site fallback
   let image;
@@ -420,7 +421,7 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   return {
     title,
     description,
-    image: (image.startsWith('http') || image.startsWith('data:')) ? image : `${defaultUrl}${image.replace(/^\/+/, '')}`,
+    image: (image.startsWith('http') || image.startsWith('data:')) ? image : `${resourceBase}${image.replace(/^\/+/, '')}`,
     type: 'article',
     author: metadata.author || 'NanoSite',
     publishedTime: publishedTime ? new Date(publishedTime).toISOString() : null,
@@ -525,7 +526,8 @@ function extractDateFromMarkdown(content) {
  * This can be used to create a sitemap.xml file
  */
 export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = {}) {
-  const baseUrl = siteConfig.siteUrl || window.location.origin + window.location.pathname;
+  // Use current location as canonical base for sitemap URLs
+  const baseUrl = window.location.origin + window.location.pathname;
   const urls = [];
   
   // Add homepage

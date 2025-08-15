@@ -36,6 +36,21 @@ This guide explains how to customize your site identity using `site.json`. It co
 - `avatar`: Relative path or URL to the avatar image. Keep assets local when possible.
 - `profileLinks`: Either an array of `{ label, href }` items (recommended) or a map like `{ "Label": "https://..." }`.
 
+### SEO‑related fields (optional)
+You can also set site‑wide SEO fields in `site.json`:
+
+```json
+{
+  "siteDescription": { "default": "Your site description for search engines" },
+  "resourceURL": "https://cdn.example.com/path/",
+  "siteKeywords": { "default": "keyword1, keyword2, keyword3" }
+}
+```
+
+Notes:
+- `resourceURL` is optional and used to build absolute resource URLs (e.g., for OG images). It may include a path and should end with a `/`.
+- Use `seo-generator.html` (in the repo root) to generate `sitemap.xml` and `robots.txt` using your configuration.
+
 ## Multi‑language Setup
 
 You can provide per‑language values by using language maps. The UI language determines which values are used.
@@ -75,7 +90,7 @@ Example (multilingual entry):
     "ja": { "title": "最初の投稿", "location": "post/my-first-post.md" },
     "tag": ["Note"],
     "date": "2025-08-13",
-    "image": "images/covers/welcome.jpg"
+    "image": "post/intro/1.png"
   }
 }
 ```
@@ -118,7 +133,7 @@ Notes:
 
 ## Tips
 
-- Prefer relative paths for images under `assets/`.
+- Use relative paths for images. You can keep images alongside posts under `wwwroot/post/...` or in `assets/`. Paths are resolved relative to each Markdown file’s folder.
 - Keep external links safe and verified; the app sanitizes URLs.
 - Use concise labels for profile links to keep the dot‑separated layout readable.
 

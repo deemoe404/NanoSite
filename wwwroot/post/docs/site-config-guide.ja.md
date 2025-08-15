@@ -36,6 +36,21 @@
 - `avatar`: 画像への相対パスまたは URL。可能ならローカル資産を推奨。
 - `profileLinks`: `{ label, href }` の配列（推奨）。`{ "ラベル": "https://..." }` のマップ形式も利用可能。
 
+### SEO 関連フィールド（任意）
+`site.json` にはサイト全体の SEO 用フィールドも設定できます：
+
+```json
+{
+  "siteDescription": { "default": "検索エンジン向けのサイト説明" },
+  "resourceURL": "https://cdn.example.com/path/",
+  "siteKeywords": { "default": "keyword1, keyword2, keyword3" }
+}
+```
+
+補足：
+- `resourceURL` は任意で、リソースの絶対 URL を組み立てるために使用します（例：OG 画像）。パスを含めてもよく、末尾は `/` 推奨です。
+- リポジトリ直下の `seo-generator.html` を開くと、設定に基づいて `sitemap.xml` と `robots.txt` を生成できます。
+
 ## 多言語設定
 
 言語マップを使って言語ごとの値を提供できます。使用中の UI 言語に応じて値が選択されます。
@@ -75,7 +90,7 @@
     "ja": { "title": "最初の投稿", "location": "post/my-first-post.md" },
     "tag": ["Note"],
     "date": "2025-08-13",
-    "image": "images/covers/welcome.jpg"
+    "image": "post/intro/1.png"
   }
 }
 ```
@@ -118,7 +133,7 @@
 
 ## ヒント
 
-- 画像は `assets/` 配下の相対パスを推奨。
+- 画像は相対パスで参照します。`wwwroot/post/...`（記事と同じディレクトリ）または `assets/` に配置できます。パスは各 Markdown のファイル位置を基準に解決されます。
 - 外部リンクは安全なものに限定し、URL はアプリ側でサニタイズされます。
 - リンクのラベルは簡潔にして、ドット区切りの 1 行レイアウトを見やすく。
 
