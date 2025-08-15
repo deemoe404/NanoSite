@@ -316,29 +316,34 @@ function displayPost(postname) {
     const baseDir = `wwwroot/${dir}`;
     const output = mdParse(markdown, baseDir);
     // Render main content first so we can read the first heading reliably
-    document.getElementById('mainview').innerHTML = output.post;
-    hydratePostImages('#mainview');
-    applyLazyLoadingIn('#mainview');
+    const mainEl = document.getElementById('mainview');
+    if (mainEl) mainEl.innerHTML = output.post;
+    try { hydratePostImages('#mainview'); } catch (_) {}
+    try { applyLazyLoadingIn('#mainview'); } catch (_) {}
     const fallback = postsByLocationTitle[postname] || postname;
     const articleTitle = getArticleTitleFromMain() || fallback;
     
     // Update SEO meta tags for the post
-    const postMetadata = Object.values(postsIndexCache).flat().find(p => p.location === postname) || {};
-    const seoData = extractSEOFromMarkdown(markdown, { 
-      ...postMetadata, 
-      title: articleTitle 
-    }, siteConfig);
-    updateSEO(seoData, siteConfig);
+    const postMetadata = (Object.values(postsIndexCache || {}) || []).find(p => p && p.location === postname) || {};
+    try {
+      const seoData = extractSEOFromMarkdown(markdown, { 
+        ...postMetadata, 
+        title: articleTitle 
+      }, siteConfig);
+      updateSEO(seoData, siteConfig);
+    } catch (_) { /* ignore SEO errors */ }
     
     renderTabs('post', articleTitle);
     const toc = document.getElementById('tocview');
-    toc.style.display = '';
-    toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
+    if (toc) {
+      toc.style.display = '';
+      toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
+    }
     const searchBox = document.getElementById('searchbox');
     if (searchBox) searchBox.style.display = 'none';
-    setDocTitle(articleTitle);
-    setupAnchors();
-    setupTOC();
+    try { setDocTitle(articleTitle); } catch (_) {}
+    try { setupAnchors(); } catch (_) {}
+    try { setupTOC(); } catch (_) {}
     // If URL contains a hash, ensure we jump after content is in DOM
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
@@ -550,8 +555,7 @@ function displayStaticTab(slug) {
   if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
   
   const toc = document.getElementById('tocview');
-  toc.innerHTML = '';
-  toc.style.display = 'none';
+  if (toc) { toc.innerHTML = ''; toc.style.display = 'none'; }
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
   const searchBox = document.getElementById('searchbox');
@@ -566,20 +570,23 @@ function displayStaticTab(slug) {
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `wwwroot/${dir}`;
       const output = mdParse(md, baseDir);
-      document.getElementById('mainview').innerHTML = output.post;
-      hydratePostImages('#mainview');
-      applyLazyLoadingIn('#mainview');
+      const mv = document.getElementById('mainview');
+      if (mv) mv.innerHTML = output.post;
+      try { hydratePostImages('#mainview'); } catch (_) {}
+      try { applyLazyLoadingIn('#mainview'); } catch (_) {}
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
-      const pageTitle = (firstHeading && firstHeading.textContent) || tab.title;
+      const pageTitle = (firstHeading && firstHeading.textContent && firstHeading.textContent.trim()) || tab.title;
       
       // Update SEO meta tags for the tab page
-      const seoData = extractSEOFromMarkdown(md, { 
-        title: pageTitle,
-        author: tab.author || 'NanoSite'
-      }, siteConfig);
-      updateSEO(seoData, siteConfig);
+      try {
+        const seoData = extractSEOFromMarkdown(md, { 
+          title: pageTitle,
+          author: tab.author || 'NanoSite'
+        }, siteConfig);
+        updateSEO(seoData, siteConfig);
+      } catch (_) {}
       
-      setDocTitle(pageTitle);
+      try { setDocTitle(pageTitle); } catch (_) {}
     })
     .catch(() => {
       // 移除加载状态类，即使出错也要移除
@@ -688,14 +695,26 @@ bindThemeToggle();
 bindThemePackPicker();
 
 Promise.allSettled([
+  // Load transformed posts index for current UI language
   loadContentJson('wwwroot', 'index'),
+  // Load tabs (may be unified or legacy)
   loadTabsJson('wwwroot', 'tabs'),
-  loadSiteConfig()
+  // Load site config
+  loadSiteConfig(),
+  // Also fetch the raw index.json to collect all variant locations across languages
+  (async () => {
+    try {
+      const r = await fetch('wwwroot/index.json');
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (_) { return null; }
+  })()
 ])
   .then(results => {
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
     siteConfig = results[2] && results[2].status === 'fulfilled' ? (results[2].value || {}) : {};
+    const rawIndex = results[3] && results[3].status === 'fulfilled' ? (results[3].value || null) : null;
     tabsBySlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {
       const slug = slugifyTab(title);
@@ -703,7 +722,26 @@ Promise.allSettled([
       if (!loc) continue;
       tabsBySlug[slug] = { title, location: loc };
     }
-    allowedLocations = new Set(Object.values(posts).map(v => String(v.location)));
+    // Build a whitelist of allowed post file paths. Start with the current-language
+    // transformed entries, then include any language-variant locations discovered
+    // from the raw unified index.json (if present).
+    const baseAllowed = new Set(Object.values(posts).map(v => String(v.location)));
+    if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+      try {
+        for (const [, entry] of Object.entries(rawIndex)) {
+          if (!entry || typeof entry !== 'object') continue;
+          for (const [k, v] of Object.entries(entry)) {
+            // Skip known non-variant keys
+            if (['tag','tags','image','date','excerpt','thumb','cover'].includes(k)) continue;
+            // Support both unified and legacy shapes
+            if (k === 'location' && typeof v === 'string') { baseAllowed.add(String(v)); continue; }
+            if (v && typeof v === 'object' && typeof v.location === 'string') baseAllowed.add(String(v.location));
+            else if (typeof v === 'string') baseAllowed.add(String(v));
+          }
+        }
+      } catch (_) { /* ignore parse issues */ }
+    }
+    allowedLocations = baseAllowed;
     postsByLocationTitle = {};
     for (const [title, meta] of Object.entries(posts)) {
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
