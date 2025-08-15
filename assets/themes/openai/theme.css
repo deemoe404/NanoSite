@@ -13,7 +13,7 @@
   --code-bg: #0b1020;      /* rich code bg (dark) */
   --code-text: #e5e7eb;    /* code text */
   --hr: #e5e7eb;           /* horizontal rules */
-  --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,.06), 0 0.0625rem 0.125rem rgba(0,0,0,.04);
 }
 
 /* Dark mode */
@@ -28,27 +28,27 @@
   --code-bg: #1f2430;      /* darker code */
   --code-text: #e6edf3;    /* readable code */
   --hr: #2f3137;
-  --shadow: 0 1px 2px rgba(0,0,0,.35);
+  --shadow: 0 0.0625rem 0.125rem rgba(0,0,0,.35);
 }
 
 /* Canvas & typography */
 body { background: var(--bg) !important; }
 #mainview { font-size: 1rem !important; line-height: 1.7 !important; }
-#mainview h1 { font-size: 1.6rem !important; margin: 16px 0 8px !important; }
-#mainview h2 { font-size: 1.3rem !important; margin: 12px 0 6px !important; }
-#mainview h3 { font-size: 1.1rem !important; margin: 10px 0 6px !important; }
+#mainview h1 { font-size: 1.6rem !important; margin: 1rem 0 0.5rem !important; }
+#mainview h2 { font-size: 1.3rem !important; margin: 0.75rem 0 0.375rem !important; }
+#mainview h3 { font-size: 1.1rem !important; margin: 0.625rem 0 0.375rem !important; }
 
 /* Links — emerald accent */
 a { color: var(--primary) !important; }
 a:hover { color: var(--primary-hover) !important; text-decoration: underline !important; }
 
 /* Cards and surfaces — subtle, rounded */
-.box { border-radius: 12px !important; box-shadow: none !important; border: 1px solid var(--border) !important; background: var(--card) !important; }
-.hero { border-radius: 12px !important; box-shadow: none !important; border: 1px solid var(--border) !important; background: var(--card) !important; }
+.box { border-radius: 0.75rem !important; box-shadow: none !important; border: 0.0625rem solid var(--border) !important; background: var(--card) !important; }
+.hero { border-radius: 0.75rem !important; box-shadow: none !important; border: 0.0625rem solid var(--border) !important; background: var(--card) !important; }
 
 /* Tabs — pill chips with accent */
-.tabs { background: var(--card) !important; border: 1px solid var(--border) !important; padding: 4px !important; border-radius: 999px !important; gap: 6px !important; }
-.tab { border: 1px solid transparent !important; border-radius: 999px !important; padding: .35rem .6rem !important; color: var(--text) !important; font-weight: 600 !important; }
+.tabs { background: var(--card) !important; border: 0.0625rem solid var(--border) !important; padding: 0.25rem !important; border-radius: 62.4375rem !important; gap: 0.375rem !important; }
+.tab { border: 0.0625rem solid transparent !important; border-radius: 62.4375rem !important; padding: .35rem .6rem !important; color: var(--text) !important; font-weight: 600 !important; }
 .tab:hover { background: color-mix(in srgb, var(--text) 6%, transparent) !important; border-color: transparent !important; }
 .tab.active { background: color-mix(in srgb, var(--primary) 16%, transparent) !important; color: var(--primary) !important; border-color: color-mix(in srgb, var(--primary) 40%, var(--border)) !important; }
 /* Dark-mode chips tuned for better contrast */
