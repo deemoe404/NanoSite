@@ -243,13 +243,17 @@ function getArticleTitleFromMain() {
   return text.replace(/^#+\s*/, '').trim();
 }
 
+let hasInitiallyRendered = false;
+
 function renderTabs(activeSlug, searchQuery) {
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
+  
   const make = (slug, label) => {
     const href = withLangParam(`?tab=${encodeURIComponent(slug)}`);
     return `<a class="tab${activeSlug===slug?' active':''}" href="${href}">${label}</a>`;
   };
+  
   let html = make('posts', t('ui.allPosts'));
   for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
   if (activeSlug === 'search') {
@@ -261,7 +265,85 @@ function renderTabs(activeSlug, searchQuery) {
     const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
     html += `<span class="tab active">${label}</span>`;
   }
-  nav.innerHTML = html;
+  
+  // No transition on first load - just set content
+  if (!hasInitiallyRendered) {
+    nav.innerHTML = html;
+    hasInitiallyRendered = true;
+    updateSlidingIndicator(nav);
+    return;
+  }
+  
+  // Smooth transition only after initial render
+  if (nav.innerHTML !== html) {
+    // Measure current width only
+    const currentWidth = nav.offsetWidth;
+    
+    // Create a temporary hidden element to measure new width
+    const tempNav = nav.cloneNode(true);
+    tempNav.innerHTML = html;
+    tempNav.style.position = 'absolute';
+    tempNav.style.visibility = 'hidden';
+    tempNav.style.pointerEvents = 'none';
+    tempNav.style.width = 'auto';
+    tempNav.style.zIndex = '-1000';
+    nav.parentNode.appendChild(tempNav);
+    
+    const newWidth = tempNav.offsetWidth;
+    nav.parentNode.removeChild(tempNav);
+    
+    // Set explicit width only and start transition
+    nav.style.width = `${currentWidth}px`;
+    nav.style.transition = 'opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1)';
+    nav.style.opacity = '0.7';
+    
+    // Use optimized timing for smoother perception
+    setTimeout(() => {
+      nav.innerHTML = html;
+      nav.style.opacity = '1';
+      nav.style.width = `${newWidth}px`;
+      
+      // Update indicator immediately when content changes
+      updateSlidingIndicator(nav);
+      
+      // Reset width to auto after transition
+      setTimeout(() => {
+        nav.style.width = 'auto';
+        nav.style.transition = ''; // Reset transition
+      }, 350); // Match the width transition duration
+    }, 80); // Slightly faster for better perceived performance
+  } else {
+    // Just update indicator position if content hasn't changed
+    updateSlidingIndicator(nav);
+  }
+}
+
+// Update the sliding indicator position with optimized smoothness
+function updateSlidingIndicator(nav) {
+  if (!nav) return;
+  
+  // Use double requestAnimationFrame for better timing
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const activeTab = nav.querySelector('.tab.active');
+      
+      if (activeTab) {
+        const tabRect = activeTab.getBoundingClientRect();
+        const navRect = nav.getBoundingClientRect();
+        
+        const left = tabRect.left - navRect.left;
+        const width = tabRect.width;
+        
+        // Update indicator position and size with optimized values
+        nav.style.setProperty('--indicator-left', `${left}px`);
+        nav.style.setProperty('--indicator-width', `${width * 0.85}px`);
+        nav.style.setProperty('--indicator-opacity', '1');
+      } else {
+        // Hide indicator smoothly
+        nav.style.setProperty('--indicator-opacity', '0');
+      }
+    });
+  });
 }
 
 // Render footer navigation: Home (All Posts) + custom tabs
@@ -668,6 +750,25 @@ function routeAndRender() {
   renderFooterNav();
 }
 
+// Optimized smooth click feedback
+function addTabClickAnimation(tab) {
+  if (!tab || !tab.classList.contains('tab')) return;
+  
+  // Enhanced spring-like click feedback
+  tab.style.transition = 'transform 0.12s cubic-bezier(0.25, 0.8, 0.25, 1)';
+  tab.style.transform = 'scale(0.96) translateY(0.0625rem)';
+  
+  setTimeout(() => {
+    tab.style.transition = 'transform 0.18s cubic-bezier(0.25, 0.8, 0.25, 1)';
+    tab.style.transform = 'scale(1) translateY(0)';
+  }, 60);
+  
+  // Reset transition after animation
+  setTimeout(() => {
+    tab.style.transition = '';
+  }, 200);
+}
+
 // Intercept in-app navigation and use History API
 function isModifiedClick(event) {
   return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
@@ -676,6 +777,12 @@ function isModifiedClick(event) {
 document.addEventListener('click', (e) => {
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
   if (!a) return;
+  
+  // Add animation for tab clicks
+  if (a.classList.contains('tab')) {
+    addTabClickAnimation(a);
+  }
+  
   if (isModifiedClick(e)) return;
   const hrefAttr = a.getAttribute('href') || '';
   // Allow any in-page hash links (e.g., '#', '#heading' or '?id=...#heading')
@@ -701,6 +808,14 @@ document.addEventListener('click', (e) => {
 
 window.addEventListener('popstate', () => {
   routeAndRender();
+});
+
+// Update sliding indicator on window resize
+window.addEventListener('resize', () => {
+  const nav = document.getElementById('tabsNav');
+  if (nav) {
+    updateSlidingIndicator(nav);
+  }
 });
 
 // Boot
