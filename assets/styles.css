@@ -496,7 +496,7 @@ ul.collapsed, li > ul.collapsed { display: none; }
   position: absolute;
   top: 0.25rem;
   left: var(--highlight-left, 0);
-  width: var(--highlight-width, 0);
+  width: min(var(--highlight-width, 0), calc(100% - var(--highlight-left, 0px) - 0.125rem));
   height: calc(100% - 0.5rem);
   background: color-mix(in srgb, var(--primary) 14%, transparent);
   border: 0.0625rem solid color-mix(in srgb, var(--primary) 35%, var(--border));
@@ -520,7 +520,7 @@ ul.collapsed, li > ul.collapsed { display: none; }
   position: absolute;
   bottom: -0.0625rem;
   left: var(--indicator-left, 0);
-  width: var(--indicator-width, 0);
+  width: min(var(--indicator-width, 0), calc(100% - var(--indicator-left, 0px) - 0.125rem));
   height: 0.15rem;
   background: linear-gradient(90deg, 
     transparent 0%, 

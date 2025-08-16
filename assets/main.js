@@ -505,9 +505,10 @@ function renderTabs(activeSlug, searchQuery) {
     
   // Set explicit width only and start transition (no opacity changes)
   nav.style.width = `${currentWidth}px`;
-  // If new width is smaller (shrinking), hold a tiny delay to let overlay move first
   const shrinking = newWidth < currentWidth;
-  nav.style.transition = `width 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${shrinking ? '0.06s' : '0s'}`;
+  const growing = newWidth > currentWidth;
+  // Faster expansion, slightly delayed shrink
+  nav.style.transition = `${growing ? 'width 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0s' : `width 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${shrinking ? '0.06s' : '0s'}`}`;
     
     // Use Apple-style timing for more elegant perception
   // Wait a bit longer so the deactivating animation can play smoothly
@@ -541,11 +542,12 @@ function renderTabs(activeSlug, searchQuery) {
         }
       } catch (_) {}
       
-      // Reset width to auto after transition
-      setTimeout(() => {
+  // Reset width to auto after transition
+  const resetDelay = growing ? 380 : (shrinking ? 660 : 600);
+  setTimeout(() => {
         nav.style.width = 'auto';
         nav.style.transition = ''; // Reset transition
-  }, 660); // Match the width transition duration + optional delay
+  }, resetDelay); // Match the width transition duration used above
   }, 180); // Snappy swap timed with ~0.14–0.2s poof
   } else {
     // Just update highlight position if content hasn't changed
