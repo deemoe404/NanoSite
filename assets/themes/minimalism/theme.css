@@ -1,31 +1,41 @@
 /* Minimalism theme pack - 极简主义 */
 :root {
   /* 极简色彩 - 浅色模式 */
-  --bg: #ffffff;
-  --text: #2c2c2c;
-  --muted: #888888;
-  --primary: #000000;
-  --primary-hover: #333333;
-  --card: #fafafa;
-  --border: #eeeeee;
-  --code-bg: #f8f8f8;
-  --code-text: #2c2c2c;
-  --hr: #eeeeee;
+  /* 报纸纸张底色（温暖的米白） */
+  --bg: #FAF7F0;
+  /* 墨色正文（略暖的深灰） */
+  --text: #1f1f1f;
+  /* 次要文字（稍浅一些，降低厚重感） */
+  --muted: #6b6b6b;
+  /* 报刊蓝（标题/链接主色） */
+  --primary: #2b4c7e;
+  --primary-hover: #1f3b66;
+  /* 卡片/块背景与纸面接近，强调以细边界实现 */
+  --card: #FBF9F2;
+  /* 细描边（发黄纸张的发灰边） */
+  --border: #e5decc;
+  /* 代码背景带一点纸质偏黄 */
+  --code-bg: #f4f1e8;
+  --code-text: #2b2b2b;
+  /* 分割线使用同款发灰边色 */
+  --hr: #e5decc;
   --shadow: none; /* 极简 - 无阴影 */
 }
 
 [data-theme="dark"] {
   /* 极简色彩 - 深色模式 */
-  --bg: #1a1a1a;
-  --text: #e8e8e8;
-  --muted: #999999;
-  --primary: #ffffff;
-  --primary-hover: #cccccc;
-  --card: #222222;
-  --border: #333333;
+  /* 偏暖的深色背景，弱化纯黑的刺眼感 */
+  --bg: #141414;
+  --text: #e8e6e3;
+  --muted: #a3a3a3;
+  /* 深色模式下的报刊蓝（略浅以保证对比） */
+  --primary: #9bb4d0;
+  --primary-hover: #c0d0e4;
+  --card: #1a1a1a;
+  --border: #2a2a2a;
   --code-bg: #0f0f0f;
-  --code-text: #e8e8e8;
-  --hr: #333333;
+  --code-text: #e8e6e3;
+  --hr: #2a2a2a;
   --shadow: none; /* 极简 - 无阴影 */
 }
 
@@ -154,17 +164,15 @@ body {
   color: var(--bg) !important;
 }
 
-/* 极简链接 */
-/* a {
+/* 报纸风格链接：低调但清晰，采用报刊蓝（仅正文区域）*/
+#mainview a {
   color: var(--primary) !important;
-  text-decoration: none !important;
-  border-bottom: 1px solid transparent !important;
-  transition: border-color 0.2s ease !important;
-} */
+  text-decoration: none;
+}
 
-/* a:hover {
-  border-bottom-color: var(--primary) !important;
-} */
+#mainview a:hover {
+  color: var(--primary-hover) !important;
+}
 
 /* --- Vertical spacing between mapview and mainview --- */
 /* Configurable gap; adjust as needed */
@@ -173,4 +181,112 @@ body {
 /* Only add space when stacked one after the other */
 #mapview + #mainview { margin-top: var(--view-gap, 24px) !important; }
 #mainview + #mapview { margin-top: var(--view-gap, 24px) !important; }
+
+/* ---------------------------------------------------- */
+/* Newspaper-like typography for content in #mainview   */
+/* ---------------------------------------------------- */
+/* Font stacks */
+:root {
+  --serif: Georgia, "Times New Roman", Times, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  /* 调整展示字族优先级，避免细到发飘的 Didot/Bodoni 优先命中 */
+  --display: "Playfair Display", "Libre Baskerville", Georgia, "Times New Roman", Times, serif, "Didot", "Bodoni MT", "Bodoni 72";
+}
+
+/* Headings: classic serif, tight leading */
+#mainview h1,
+#mainview h2,
+#mainview h3,
+#mainview h4,
+#mainview h5,
+#mainview h6 {
+  font-family: var(--serif);
+  color: var(--text);
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+
+#mainview h1 { font-family: var(--display, var(--serif)); font-weight: 700; letter-spacing: 0.005em; }
+#mainview h2 { font-weight: 650; border-bottom: 1px solid var(--hr); padding-bottom: 0.25em; }
+#mainview h3 { font-weight: 600; }
+
+/* Body text and lists: serif for article feel */
+#mainview p,
+#mainview li,
+#mainview blockquote,
+#mainview figcaption {
+  font-family: var(--serif);
+}
+
+/* Blockquotes: hairline left rule and subtle backdrop */
+#mainview blockquote {
+  border-left: 3px solid var(--border);
+  background: var(--card);
+  margin: 1.2em 0;
+  padding: 0.6em 1em;
+  color: var(--muted);
+}
+#mainview blockquote > p { font-style: italic; }
+
+/* HR: hairline */
+#mainview hr {
+  border: 0;
+  border-top: 1px solid var(--hr);
+  margin: 2em 0;
+}
+
+/* Tables: clean, hairline grid */
+#mainview table { width: 100%; border-collapse: collapse; }
+#mainview th, #mainview td { border: 1px solid var(--border); padding: 0.5em 0.75em; }
+#mainview thead th { background: var(--card); font-weight: 600; }
+
+/* Figure captions */
+#mainview figcaption { color: var(--muted); font-size: 0.9em; text-align: center; margin-top: 0.5em; }
+
+/* Optional utilities: multi-columns for long-form text */
+@media (min-width: 1024px) {
+  #mainview .columns-2 { column-count: 2; column-gap: 2rem; }
+  #mainview .columns-3 { column-count: 3; column-gap: 2rem; }
+}
+@media (max-width: 1023.98px) {
+  #mainview .columns-2, #mainview .columns-3 { column-count: 1; }
+}
+
+/* Optional utility: drop cap on first paragraph inside .dropcap wrapper */
+#mainview .dropcap p:first-of-type::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 3.2em;
+  line-height: 0.9;
+  padding-right: 0.1em;
+  padding-top: 0.05em;
+  color: var(--text);
+}
+
+/* Homepage index cards: use newspaper typography */
+#mainview .index .card-title { 
+  font-family: var(--display, var(--serif));
+  letter-spacing: 0.002em;
+  font-weight: 600; /* 降权重，更接近报纸标题质感 */
+}
+#mainview .index .card-excerpt { 
+  font-family: var(--serif);
+  font-size: 0.95rem; /* 略回落字号，减轻视觉厚重 */
+  line-height: 1.55;
+  color: var(--muted); /* 改回次要色，营造报纸灰度 */
+  font-weight: 400;
+}
+
+/* 卡片元信息：小型大写+中等权重，报纸感更强 */
+#mainview .index .card-meta {
+  font-size: 0.74rem;
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+/* 内容区采用灰度抗锯齿，边缘更细腻，降低“粗”感 */
+#mainview { -webkit-font-smoothing: antialiased; }
 
