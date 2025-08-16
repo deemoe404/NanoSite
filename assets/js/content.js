@@ -11,6 +11,9 @@ export function stripMarkdownToText(md) {
     if (raw.trim().startsWith('|')) continue; // skip tables for snippet
     if (/^\s*#+\s*/.test(raw)) continue; // skip titles entirely for snippet
     if (/^\s*>/.test(raw)) raw = raw.replace(/^\s*>\s?/, '');
+  // strip list markers (unordered and ordered)
+  raw = raw.replace(/^\s*[-*+]\s+/, '');
+  raw = raw.replace(/^\s*\d{1,9}[\.)]\s+/, '');
     // images -> alt text
     raw = raw.replace(/!\[([^\]]*)\]\([^\)]*\)/g, '$1');
     // links -> text

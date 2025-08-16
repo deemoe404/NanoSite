@@ -76,6 +76,21 @@ export function mdParse(markdown, baseDir) {
   let isInCode = false, isInBigCode = false, isInTable = false, isInTodo = false, isInPara = false;
   let codeLang = '';
   const closePara = () => { if (isInPara) { html += '</p>'; isInPara = false; } };
+  // Basic list support (unordered/ordered, with simple nesting by indent)
+  const listStack = []; // stack of { indent: number, type: 'ul'|'ol' }
+  const countIndent = (s) => {
+    let n = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === ' ') n += 1; else if (s[i] === '\t') n += 4; else break;
+    }
+    return n;
+  };
+  const closeAllLists = () => {
+    while (listStack.length) {
+      const last = listStack.pop();
+      html += (last.type === 'ul') ? '</ul>' : '</ol>';
+    }
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -104,8 +119,12 @@ export function mdParse(markdown, baseDir) {
 
     const rawLine = escapeMarkdown(line);
 
+    // If currently inside a list but the next line starts a fenced code/table/blockquote/header,
+    // we'll close lists right before handling those blocks (see below after matches).
+
     // Blockquote
     if (rawLine.startsWith('>')) {
+      closeAllLists();
       closePara();
       let quote = `${rawLine.slice(1).trim()}`;
       let j = i + 1;
@@ -158,6 +177,7 @@ export function mdParse(markdown, baseDir) {
     // To-do list
     const match = rawLine.match(/^[-*] \[([ x])\]/);
     if (match) {
+      closeAllLists();
       closePara();
       if (!isInTodo) { isInTodo = true; html += '<ul class="todo">'; }
       const taskText = replaceInline(escapeHtml(rawLine.slice(5).trim()), baseDir);
@@ -168,8 +188,59 @@ export function mdParse(markdown, baseDir) {
       continue;
     } else if (isInTodo) { html += '</ul>'; isInTodo = false; }
 
+    // Standard unordered/ordered lists (not todo)
+    const ulm = rawLine.match(/^(\s*)[-*+]\s+(.+)$/);
+    const olm = ulm ? null : rawLine.match(/^(\s*)(\d{1,9})[\.)]\s+(.+)$/);
+    if (ulm || olm) {
+      const indent = countIndent((ulm ? ulm[1] : olm[1]) || '');
+      const type = ulm ? 'ul' : 'ol';
+      const content = ulm ? ulm[2] : olm[3];
+      closePara();
+      // Adjust nesting based on indent
+      if (!listStack.length) {
+        html += (type === 'ul') ? '<ul>' : '<ol>';
+        listStack.push({ indent, type });
+      } else {
+        let last = listStack[listStack.length - 1];
+        if (indent > last.indent) {
+          // New nested list
+          html += (type === 'ul') ? '<ul>' : '<ol>';
+          listStack.push({ indent, type });
+        } else {
+          // Pop until indent fits
+          while (listStack.length && indent < listStack[listStack.length - 1].indent) {
+            const popped = listStack.pop();
+            html += (popped.type === 'ul') ? '</ul>' : '</ol>';
+          }
+          // Ensure correct list type at current indent
+          last = listStack[listStack.length - 1];
+          if (!last || last.type !== type) {
+            if (last && last.indent === indent) {
+              const popped = listStack.pop();
+              html += (popped.type === 'ul') ? '</ul>' : '</ol>';
+            }
+            html += (type === 'ul') ? '<ul>' : '<ol>';
+            listStack.push({ indent, type });
+          }
+        }
+      }
+      // List item content
+      html += `<li>${replaceInline(escapeHtml(String(content).trim()), baseDir)}</li>`;
+      // Continue to next line; we'll close lists when pattern breaks
+      const next = (i + 1 < lines.length) ? escapeMarkdown(lines[i + 1]) : '';
+      if (!next || (!next.match(/^(\s*)[-*+]\s+(.+)$/) && !next.match(/^(\s*)\d{1,9}[\.)]\s+(.+)$/))) {
+        // Next line isn't a list item; close all open lists
+        closeAllLists();
+      }
+      continue;
+    } else if (listStack.length) {
+      // Current line is not a list; ensure lists are closed
+      closeAllLists();
+    }
+
     // Headings
     if (rawLine.startsWith('#')) {
+      closeAllLists();
       closePara();
       const level = rawLine.match(/^#+/)[0].length;
       const text = replaceInline(escapeHtml(rawLine.slice(level).trim()), baseDir);
@@ -182,7 +253,7 @@ export function mdParse(markdown, baseDir) {
     }
 
     // Blank line => close paragraph
-    if (rawLine.trim() === '') { closePara(); continue; }
+    if (rawLine.trim() === '') { closeAllLists(); closePara(); continue; }
 
     // Regular paragraph text
     if (!isInPara) { html += '<p>'; isInPara = true; }
@@ -193,6 +264,7 @@ export function mdParse(markdown, baseDir) {
   if (isInPara) html += '</p>';
   if (isInTable) html += '</tbody></table>';
   if (isInTodo) html += '</ul>';
+  if (listStack.length) { while (listStack.length) { const last = listStack.pop(); html += (last.type === 'ul') ? '</ul>' : '</ol>'; } }
 
   return { post: html, toc: `${tocParser(tochirc, tochtml)}` };
 }
