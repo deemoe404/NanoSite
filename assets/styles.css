@@ -103,10 +103,9 @@ li {
   margin-bottom: 0.3125rem;
 }
 
-/* Todo list */
-.todo {
-  list-style: none;
-  padding-left: 0;
+/* Tabs */
+.tabs { 
+  display: inline-flex; 
 }
 .todo li {
   margin: 0.375rem 0;
@@ -125,6 +124,13 @@ blockquote { border-left: 0.1875rem solid var(--primary); margin: 1rem 0; paddin
 code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background-color: color-mix(in srgb, var(--text) 8%, transparent); padding: .08rem .35rem; border-radius: 0.25rem; font-size: .94em; }
 
 .inline {
+
+/* Keep anchors inside a persistent track to avoid overlay flicker during updates */
+.tabs-track {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+}
   border: solid 0.0625rem rgba(0, 0, 0, 0.1);
   border-radius: 0.3125rem;
 }
@@ -398,49 +404,97 @@ ul.collapsed, li > ul.collapsed { display: none; }
   padding: 0.25rem; 
   border: 0.0625rem solid var(--border); 
   border-radius: 0.625rem;
-  /* Optimized smooth animation properties - only width, not height */
+  /* Enhanced smooth animation properties with better spring feel */
   box-shadow: var(--shadow);
   transition: 
-    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
-    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
-    width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
-    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), 
+    transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), 
+    width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
   white-space: nowrap;
-  will-change: transform, opacity;
+  will-change: transform, opacity, width;
   /* Fixed height to prevent initial jump */
   min-height: 2.5rem;
 }
 
-/* Sliding indicator - optimized for smoothness */
+/* Moving highlight overlay - Apple-style smooth and elegant */
+.tabs .highlight-overlay {
+  position: absolute;
+  top: 0.25rem;
+  left: var(--highlight-left, 0);
+  width: var(--highlight-width, 0);
+  height: calc(100% - 0.5rem);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  border: 0.0625rem solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-radius: 0.5rem;
+  box-shadow: 
+    0 0.125rem 0.25rem rgba(37, 99, 235, 0.15),
+    0 0.0625rem 0.125rem rgba(37, 99, 235, 0.1);
+  transition: 
+    left 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.75s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  opacity: var(--highlight-opacity, 0);
+  z-index: 1;
+  will-change: left, width, opacity;
+  pointer-events: none;
+}
+
+/* Sliding indicator - Apple-style elegant and refined */
 .tabs::before {
   content: '';
   position: absolute;
   bottom: -0.0625rem;
   left: var(--indicator-left, 0);
   width: var(--indicator-width, 0);
-  height: 0.1875rem;
+  height: 0.15rem;
   background: linear-gradient(90deg, 
     transparent 0%, 
-    var(--primary) 15%, 
-    var(--primary) 85%, 
+    var(--primary) 20%, 
+    var(--primary) 80%, 
     transparent 100%
   );
-  border-radius: 0.09375rem;
+  border-radius: 0.075rem;
+  transition: 
+    left 0.85s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  opacity: var(--indicator-opacity, 0);
+  z-index: 0; /* keep indicator behind the moving overlay to avoid flicker */
+  transform: translateX(7.5%);
+  will-change: left, width, opacity;
+}
+
+/* Preview indicator for hover effect - subtle Apple-style */
+.tabs::after {
+  content: '';
+  position: absolute;
+  bottom: -0.0625rem;
+  left: var(--preview-left, 0);
+  width: var(--preview-width, 0);
+  height: 0.15rem;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    color-mix(in srgb, var(--primary) 25%, transparent) 20%, 
+    color-mix(in srgb, var(--primary) 25%, transparent) 80%, 
+    transparent 100%
+  );
+  border-radius: 0.075rem;
   transition: 
     left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
-    width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
-    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: var(--indicator-opacity, 0);
-  z-index: 1;
-  transform: translateX(10%);
+    width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
+    opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  opacity: var(--preview-opacity, 0);
+  z-index: 0;
+  transform: translateX(7.5%);
   will-change: left, width, opacity;
 }
 
 .tabs:hover {
-  box-shadow: 0 0.1875rem 0.375rem rgba(0, 0, 0, 0.1);
-  transform: translateY(-0.0625rem);
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.08);
+  transform: translateY(-0.03125rem);
 }
 
 .tab { 
@@ -450,32 +504,47 @@ ul.collapsed, li > ul.collapsed { display: none; }
   color: var(--text); 
   text-decoration: none; 
   border: 0.0625rem solid transparent;
-  /* Optimized smooth animation properties */
+  background: transparent;
+  /* Apple-style gentle and refined animations */
   transition: 
-    background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1),
-    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+    color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
+    transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+  border-color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   flex-shrink: 0;
   white-space: nowrap;
-  will-change: transform, background-color;
+  will-change: transform, background-color, color, box-shadow, border-color;
+  z-index: 2; /* Above the highlight overlay */
 }
 
 .tab:hover { 
-  background: color-mix(in srgb, var(--primary) 12%, transparent); 
+  background: color-mix(in srgb, var(--primary) 8%, transparent); 
   color: var(--primary);
-  transform: translateY(-0.0625rem);
-  box-shadow: 0 0.1875rem 0.375rem rgba(37, 99, 235, 0.18);
+  text-decoration: none;
+  transform: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(37, 99, 235, 0.12);
 }
 
 .tab.active { 
-  background: color-mix(in srgb, var(--primary) 16%, transparent); 
+  background: transparent !important; /* Let the overlay handle the background */
   color: var(--primary); 
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); 
-  font-weight: 600;
-  box-shadow: 0 0.1875rem 0.375rem rgba(37, 99, 235, 0.25);
+  /* Remove individual background/border since overlay handles it */
+}
+
+/* Smooth transition states - Apple-style subtle feedback */
+.tab.activating {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+  color: var(--primary);
+  transform: translateY(-0.015625rem);
+}
+
+/* Smooth transition for deactivating tabs */
+.tab.deactivating {
+  background: color-mix(in srgb, var(--primary) 3%, transparent);
+  color: var(--muted);
+  transform: translateY(0);
 }
 
 /* Remove individual tab indicators since we're using the sliding one */

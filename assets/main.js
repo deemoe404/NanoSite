@@ -414,20 +414,37 @@ function renderTabs(activeSlug, searchQuery) {
   
   // No transition on first load - just set content
   if (!hasInitiallyRendered) {
-    nav.innerHTML = html;
+    // Create a persistent track so overlay (and ::before/::after) aren't recreated
+    nav.innerHTML = `<div class="tabs-track">${html}</div>`;
+    // Create the highlight overlay element
+    ensureHighlightOverlay(nav);
     hasInitiallyRendered = true;
-    updateSlidingIndicator(nav);
+    updateMovingHighlight(nav);
     return;
   }
   
   // Smooth transition only after initial render
-  if (nav.innerHTML !== html) {
+  const currentTrack = nav.querySelector('.tabs-track');
+  const currentMarkup = currentTrack ? currentTrack.innerHTML : '';
+  if (currentMarkup !== html) {
+    // Mark currently active tab for deactivation animation
+    const currentActiveTab = nav.querySelector('.tab.active');
+    if (currentActiveTab) {
+      currentActiveTab.classList.add('deactivating');
+    }
+    
     // Measure current width only
     const currentWidth = nav.offsetWidth;
     
     // Create a temporary hidden element to measure new width
-    const tempNav = nav.cloneNode(true);
-    tempNav.innerHTML = html;
+    const tempNav = nav.cloneNode(false);
+    tempNav.style.position = 'absolute';
+    tempNav.style.visibility = 'hidden';
+    tempNav.style.pointerEvents = 'none';
+    tempNav.style.width = 'auto';
+    tempNav.style.zIndex = '-1000';
+    // Use same structure as real DOM to get consistent width
+    tempNav.innerHTML = `<div class="tabs-track">${html}</div>`;
     tempNav.style.position = 'absolute';
     tempNav.style.visibility = 'hidden';
     tempNav.style.pointerEvents = 'none';
@@ -438,57 +455,130 @@ function renderTabs(activeSlug, searchQuery) {
     const newWidth = tempNav.offsetWidth;
     nav.parentNode.removeChild(tempNav);
     
-    // Set explicit width only and start transition
-    nav.style.width = `${currentWidth}px`;
-    nav.style.transition = 'opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.25, 0.8, 0.25, 1)';
-    nav.style.opacity = '0.7';
+  // Set explicit width only and start transition (no opacity changes)
+  nav.style.width = `${currentWidth}px`;
+  nav.style.transition = 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
     
-    // Use optimized timing for smoother perception
+    // Use Apple-style timing for more elegant perception
     setTimeout(() => {
-      nav.innerHTML = html;
-      nav.style.opacity = '1';
+      // Only replace inner track content, keep wrapper/overlay
+      if (!nav.querySelector('.tabs-track')) {
+        nav.innerHTML = `<div class="tabs-track">${html}</div>`;
+      } else {
+        nav.querySelector('.tabs-track').innerHTML = html;
+      }
+  // Ensure highlight overlay exists after content change
+  ensureHighlightOverlay(nav);
       nav.style.width = `${newWidth}px`;
       
-      // Update indicator immediately when content changes
-      updateSlidingIndicator(nav);
+      // Update highlight immediately when content changes
+      updateMovingHighlight(nav);
       
       // Reset width to auto after transition
       setTimeout(() => {
         nav.style.width = 'auto';
         nav.style.transition = ''; // Reset transition
-      }, 350); // Match the width transition duration
-    }, 80); // Slightly faster for better perceived performance
+      }, 600); // Match the width transition duration
+    }, 150); // Longer for more graceful perception
   } else {
-    // Just update indicator position if content hasn't changed
-    updateSlidingIndicator(nav);
+    // Just update highlight position if content hasn't changed
+    updateMovingHighlight(nav);
   }
 }
 
-// Update the sliding indicator position with optimized smoothness
-function updateSlidingIndicator(nav) {
+let _pendingHighlightRaf = 0;
+
+// Ensure the highlight overlay element exists
+function ensureHighlightOverlay(nav) {
   if (!nav) return;
   
-  // Use double requestAnimationFrame for better timing
-  requestAnimationFrame(() => {
+  let overlay = nav.querySelector('.highlight-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'highlight-overlay';
+    // Place overlay before the track so it sits visually beneath text but above background
+    nav.appendChild(overlay);
+  }
+  return overlay;
+}
+
+// Update the moving highlight overlay position
+function updateMovingHighlight(nav) {
+  if (!nav) return;
+
+  ensureHighlightOverlay(nav);
+
+  // Coalesce multiple calls into a single rAF to avoid flicker
+  if (_pendingHighlightRaf) cancelAnimationFrame(_pendingHighlightRaf);
+  _pendingHighlightRaf = requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       const activeTab = nav.querySelector('.tab.active');
-      
+
+      // Clean up any previous transition classes once per tick
+      nav.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('activating', 'deactivating');
+      });
+
       if (activeTab) {
         const tabRect = activeTab.getBoundingClientRect();
         const navRect = nav.getBoundingClientRect();
-        
-        const left = tabRect.left - navRect.left;
+        const left = Math.max(0, tabRect.left - navRect.left);
         const width = tabRect.width;
-        
-        // Update indicator position and size with optimized values
+
+        nav.style.setProperty('--highlight-left', `${left}px`);
+        nav.style.setProperty('--highlight-width', `${width}px`);
+        nav.style.setProperty('--highlight-opacity', '1');
+
         nav.style.setProperty('--indicator-left', `${left}px`);
-        nav.style.setProperty('--indicator-width', `${width * 0.85}px`);
+        nav.style.setProperty('--indicator-width', `${Math.max(0, width * 0.85)}px`);
         nav.style.setProperty('--indicator-opacity', '1');
+
+        activeTab.classList.add('activating');
+        setTimeout(() => activeTab.classList.remove('activating'), 420);
       } else {
-        // Hide indicator smoothly
+        nav.style.setProperty('--highlight-opacity', '0');
         nav.style.setProperty('--indicator-opacity', '0');
       }
+
+      setupTabHoverEffects(nav);
+      _pendingHighlightRaf = 0;
     });
+  });
+}
+
+// Setup hover preview effects for tabs
+function setupTabHoverEffects(nav) {
+  if (!nav) return;
+  
+  // Remove existing listeners
+  nav.querySelectorAll('.tab').forEach(tab => {
+    tab.removeEventListener('mouseenter', tab._hoverHandler);
+    tab.removeEventListener('mouseleave', tab._leaveHandler);
+  });
+  
+  nav.querySelectorAll('.tab').forEach(tab => {
+    // Store handlers for cleanup
+    tab._hoverHandler = function() {
+      if (this.classList.contains('active')) return;
+      
+      const tabRect = this.getBoundingClientRect();
+      const navRect = nav.getBoundingClientRect();
+      
+      const left = tabRect.left - navRect.left;
+      const width = tabRect.width;
+      
+      // Show preview for both overlay and indicator
+      nav.style.setProperty('--preview-left', `${left}px`);
+      nav.style.setProperty('--preview-width', `${width * 0.85}px`);
+      nav.style.setProperty('--preview-opacity', '0.4'); // More subtle Apple-style preview
+    };
+    
+    tab._leaveHandler = function() {
+      nav.style.setProperty('--preview-opacity', '0');
+    };
+    
+    tab.addEventListener('mouseenter', tab._hoverHandler);
+    tab.addEventListener('mouseleave', tab._leaveHandler);
   });
 }
 
@@ -896,23 +986,39 @@ function routeAndRender() {
   renderFooterNav();
 }
 
-// Optimized smooth click feedback
+// Enhanced smooth click feedback with immediate highlight movement
 function addTabClickAnimation(tab) {
   if (!tab || !tab.classList.contains('tab')) return;
   
-  // Enhanced spring-like click feedback
-  tab.style.transition = 'transform 0.12s cubic-bezier(0.25, 0.8, 0.25, 1)';
-  tab.style.transform = 'scale(0.96) translateY(0.0625rem)';
-  
-  setTimeout(() => {
-    tab.style.transition = 'transform 0.18s cubic-bezier(0.25, 0.8, 0.25, 1)';
-    tab.style.transform = 'scale(1) translateY(0)';
-  }, 60);
-  
-  // Reset transition after animation
-  setTimeout(() => {
-    tab.style.transition = '';
-  }, 200);
+  // Immediate visual feedback before navigation
+  const nav = tab.closest('#tabsNav');
+  if (nav && nav.id === 'tabsNav') {
+    // Mark current active tab for deactivation
+    const currentActive = nav.querySelector('.tab.active');
+    if (currentActive && currentActive !== tab) {
+      currentActive.classList.add('deactivating');
+    }
+    
+    // Pre-move highlight to clicked tab for immediate feedback
+    if (!tab.classList.contains('active')) {
+      const tabRect = tab.getBoundingClientRect();
+      const navRect = nav.getBoundingClientRect();
+      
+      const left = tabRect.left - navRect.left;
+      const width = tabRect.width;
+      
+      // Immediately start moving the highlight overlay
+      nav.style.setProperty('--highlight-left', `${left}px`);
+      nav.style.setProperty('--highlight-width', `${width}px`);
+      nav.style.setProperty('--highlight-opacity', '0.7'); // Slightly dimmer during transition for Apple-style elegance
+      
+      // Also move the bottom indicator
+      nav.style.setProperty('--indicator-left', `${left}px`);
+      nav.style.setProperty('--indicator-width', `${width * 0.85}px`);
+      
+      tab.classList.add('activating');
+    }
+  }
 }
 
 // Intercept in-app navigation and use History API
@@ -960,7 +1066,7 @@ window.addEventListener('popstate', () => {
 window.addEventListener('resize', () => {
   const nav = document.getElementById('tabsNav');
   if (nav) {
-    updateSlidingIndicator(nav);
+  updateMovingHighlight(nav);
   }
 });
 
