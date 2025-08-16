@@ -812,6 +812,8 @@ function displayIndex(parsed) {
   hydrateCardCovers('#mainview');
   applyLazyLoadingIn('#mainview');
   sequentialLoadCovers('#mainview', 1);
+  // Apply masonry layout after initial paint
+  requestAnimationFrame(() => applyMasonry('.index'));
 
   setupSearch(entries);
   renderTabs('posts');
@@ -842,6 +844,9 @@ function displayIndex(parsed) {
           metaEl.innerHTML = readHtml;
         }
       }
+  // Recompute masonry span for the updated card
+  const container = document.querySelector('.index');
+  if (container && el) updateMasonryItem(container, el);
     }).catch(() => {});
   });
 }
@@ -915,6 +920,8 @@ function displaySearch(query) {
   if (input) input.value = q;
   setupSearch(Object.entries(postsIndexCache || {}));
   setDocTitle(t('titles.search', q));
+  // Apply masonry after search render
+  requestAnimationFrame(() => applyMasonry('.index'));
 
   const cards = Array.from(document.querySelectorAll('.index a'));
   pageEntries.forEach(([title, meta], idx) => {
@@ -937,8 +944,78 @@ function displaySearch(query) {
           metaEl.innerHTML = readHtml;
         }
       }
+  const container = document.querySelector('.index');
+  if (container && el) updateMasonryItem(container, el);
     }).catch(() => {});
   });
+}
+
+// --- Masonry helpers: keep gaps consistent while letting cards auto-height ---
+function applyMasonry(selector = '.index') {
+  try {
+    const container = document.querySelector(selector);
+    if (!container) return;
+  const cs = getComputedStyle(container);
+  const gap = toPx(cs.rowGap || cs.gap || '0', container);
+  const rowStr = String(cs.gridAutoRows || '0');
+  const row = toPx(rowStr, container);
+  if (!row) return;
+    const items = Array.from(container.querySelectorAll('a'));
+    items.forEach(item => calcAndSetSpan(container, item, row, gap));
+    // Re-run once images load to account for cover height
+    const imgs = container.querySelectorAll('img');
+    imgs.forEach(img => {
+      if (img.complete) {
+        calcAndSetSpan(container, img.closest('a'), row, gap);
+      } else {
+        img.addEventListener('load', () => calcAndSetSpan(container, img.closest('a'), row, gap), { once: true });
+      }
+    });
+  } catch (_) {}
+}
+
+function updateMasonryItem(container, item) {
+  try {
+    if (!container || !item) return;
+  const cs = getComputedStyle(container);
+  const gap = toPx(cs.rowGap || cs.gap || '0', container);
+  const rowStr = String(cs.gridAutoRows || '0');
+  const row = toPx(rowStr, container);
+  if (!row) return;
+    calcAndSetSpan(container, item, row, gap);
+  } catch (_) {}
+}
+
+function calcAndSetSpan(container, item, row, gapPx) {
+  if (!container || !item) return;
+  item.style.gridRowEnd = 'auto';
+  // Include gap: use clientHeight to avoid subpixel rounding; slight epsilon
+  const total = item.clientHeight + gapPx + 0.5;
+  const span = Math.max(1, Math.round(total / (row + gapPx)));
+  item.style.gridRowEnd = `span ${span}`;
+}
+
+// Recalculate on resize for responsive columns
+window.addEventListener('resize', debounce(() => applyMasonry('.index'), 150));
+
+// Simple debounce utility (scoped here)
+function debounce(fn, wait) {
+  let t;
+  return function() {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(this, arguments), wait);
+  }
+}
+
+// Convert a CSS length to pixels; supports px, rem, em
+function toPx(val, ctxEl) {
+  const s = String(val || '').trim();
+  if (!s) return 0;
+  if (s.endsWith('px')) return parseFloat(s);
+  if (s.endsWith('rem')) return parseFloat(s) * parseFloat(getComputedStyle(document.documentElement).fontSize);
+  if (s.endsWith('em')) return parseFloat(s) * parseFloat(getComputedStyle(ctxEl || document.documentElement).fontSize);
+  // Fallback: try parseFloat assuming pixels
+  return parseFloat(s) || 0;
 }
 
 function displayStaticTab(slug) {

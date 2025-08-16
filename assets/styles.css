@@ -188,8 +188,14 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   display: grid; 
   grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr)); /* Increase minimum width */
   gap: 1.25rem; /* Increase spacing */
+  /* Let each card size to its content instead of stretching to equal heights */
+  align-items: start;
+  /* Masonry row unit for JS-calculated spanning */
+  grid-auto-rows: 0.2rem;
+  /* Pack items more tightly, reducing holes */
+  grid-auto-flow: dense;
 }
-.index a { display: block; border: 0.0625rem solid var(--border); border-radius: 0.75rem; color: var(--text); background: var(--card); text-decoration: none; box-shadow: var(--shadow); transition: transform .12s ease-out, box-shadow .15s ease, border-color .15s ease; overflow: hidden; will-change: transform, box-shadow; }
+.index a { display: block; border: 0.0625rem solid var(--border); border-radius: 0.75rem; color: var(--text); background: var(--card); text-decoration: none; box-shadow: var(--shadow); transition: transform .12s ease-out, box-shadow .15s ease, border-color .15s ease; overflow: hidden; will-change: transform, box-shadow; height: auto; align-self: start; }
 .index a:hover { transform: translateY(-0.0625rem); box-shadow: 0 0.375rem 1.25rem rgba(0,0,0,.08); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
 .index .card-cover-wrap { position: relative; width: 100%; aspect-ratio: 16 / 10; height: auto; overflow: hidden; background: color-mix(in srgb, var(--text) 4%, transparent); }
 .index .card-cover { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity .3s ease, transform .3s ease; will-change: opacity, transform; opacity: 0; }
