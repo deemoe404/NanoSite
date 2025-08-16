@@ -6,7 +6,9 @@
   "siteKeywords": { "default": "static blog, markdown, github pages, blog"},
   "avatar": "assets/avatar.png",
   "profileLinks": [
-    { "label": "GitHub", "href": "https://github.com/deemoe404" }
+    { "label": "GitHub", "href": "https://github.com/deemoe404" },
+    { "label": "ORCID", "href": "https://orcid.org/0009-0005-4213-5418" },
+    { "label": "E-Mail", "href": "mailto:deemoe404@gmail.com" }
   ],
   "contentOutdatedDays": 180,
   
