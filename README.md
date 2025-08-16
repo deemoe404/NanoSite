@@ -7,9 +7,11 @@ Perfect for blogs, notes, wikis, journals, or book chapters.
 Highlights:
 - Write in Markdown (`.md` files)
 - Works on GitHub Pages (free hosting)
-- Search, tags, reading time, and dark mode
+ - Search, tags, reading time, dark mode, and theme packs
 - Optional tabs (About, Projects, etc.)
 - Optional multi‑language UI and posts
+ - Automatic Table of Contents with copyable anchors
+ - Built-in pagination for large indexes and searches
 
 ---
 
@@ -18,10 +20,12 @@ Highlights:
 - `index.html`: The site entry page.
 - `site.json`: Your site name, subtitle, avatar, and profile links.
 - `assets/`: CSS and JavaScript for the site (no changes required for most users).
+ - `assets/themes/packs.json`: Theme pack list (Native, GitHub, Apple, OpenAI, Minimalism).
 - `wwwroot/`: Your content — Markdown files and data files.
   - `wwwroot/index.json`: List of posts (what shows on the homepage).
   - `wwwroot/tabs.json`: List of extra tabs (About, Projects, etc.).
   - Images: you can keep images next to your posts under `wwwroot/post/...` or in `assets/`. Use correct relative paths in your Markdown.
+ - `index_seo.html`: SEO helper (generate sitemap.xml, robots.txt, and starter meta tags).
 
 ---
 
@@ -95,6 +99,17 @@ A new “About” tab will appear in the top bar.
 
 ---
 
+## Themes (optional)
+
+Switch between built-in theme packs from the sidebar: Native, GitHub, Apple, OpenAI, Minimalism.
+
+- The selector reads `assets/themes/packs.json`. Add or rename packs there.
+- CSS for each pack lives in `assets/themes/<pack>/theme.css`.
+
+Dark mode toggles separately and respects system preference or your saved choice.
+
+---
+
 ## Organize Your Content
 
 - Posts live in `wwwroot/` and must be listed in `wwwroot/index.json`.
@@ -102,6 +117,7 @@ A new “About” tab will appear in the top bar.
 - Images can live anywhere in this repository. Use a correct relative path in Markdown, for example:
   - If your post is `wwwroot/my-first-post.md`, `![Alt](images/pic.png)` points to `wwwroot/images/pic.png`.
 - The first `#` heading in a Markdown file is used as the page title.
+- Optional card image fields on posts (in `index.json`), in order of preference: `thumb`  ‑ `cover`  ‑ `image`.
 
 ---
 
@@ -113,8 +129,7 @@ Create in‑site links directly in Markdown:
   - The value after `id=` must match the `location` in `wwwroot/index.json` (e.g., `notes/day1.md`).
 - Link to a tab: `[About](?tab=about)`
   - The tab slug is usually the tab title in lowercase ASCII. If your title uses non‑Latin characters or you’re unsure, click the tab and copy the address bar URL.
-- Link to a section in a post: `[Jump to section](?id=my-first-post.md#my-section)`
-  - Headings in posts become anchors automatically; use the link icon in the heading or copy the URL after clicking it.
+- Link to a section in a post: click the heading’s `#` icon to copy the correct URL (anchor IDs are auto-generated).
 
 External links work as usual: `[My Site](https://example.com)`.
 
@@ -139,6 +154,21 @@ You can offer the UI and content in multiple languages.
 ```
 
 If a language version is missing, the site falls back to the default.
+
+Tabs support languages too. Example `wwwroot/tabs.json`:
+
+```
+{
+  "About": {
+    "en": { "title": "About", "location": "tab/about.md" },
+    "zh": { "title": "关于", "location": "tab/about.zh.md" },
+    "ja": { "title": "概要", "location": "tab/about.ja.md" }
+  }
+}
+```
+
+Notes:
+- Preferred format is a single unified JSON with per-language blocks (as above). Legacy files `index.<lang>.json` and `tabs.<lang>.json` also work as a fallback.
 
 ---
 
@@ -177,6 +207,7 @@ Add SEO‑related fields in `site.json`:
 
 Notes:
 - `resourceURL` is optional and used as the base when composing absolute URLs for resources (e.g., OG images). It can include a path and should end with a `/`.
+- `siteKeywords` is used by the SEO generator (below) when producing a starter `<meta name="keywords">` for `index.html`. Runtime meta keywords on article pages are derived from post tags.
 
 ### Post‑Level SEO
 From each Markdown post, the site automatically derives:
@@ -187,10 +218,12 @@ From each Markdown post, the site automatically derives:
 
 ### SEO File Generation
 Use the built‑in generator to create sitemap and robots files:
-1) Open `seo-generator.html` in your browser
+1) Open `index_seo.html` in your browser
 2) Use “Sitemap Generator” to create `sitemap.xml`
 3) Use “Robots.txt Generator” to create `robots.txt`
 4) Copy or download the files and place them in the repository root
+
+Tip: The “HTML Meta Tags” tab in the generator can produce initial `<head>` tags for `index.html` based on your `site.json`.
 
 Best practices:
 - Write descriptive H1 titles in Markdown (first `# heading`)
@@ -202,18 +235,54 @@ All SEO features work automatically — no compilation needed.
 
 ---
 
+## Pagination
+
+The All Posts and Search views paginate automatically (8 items per page).
+
+- Navigate via the pager, or use `?tab=posts&page=2` (search: `?tab=search&q=term&page=2`).
+
+---
+
 ## Tips & Troubleshooting
 
 - Open with a local server: Some browsers block loading `site.json` from a file. Use `python3 -m http.server 8000` and open `http://localhost:8000/`.
 - JSON must be valid: No trailing commas, use double quotes. If the page looks empty, check your recent edits in `index.json`, `tabs.json`, or `site.json`.
 - File paths are relative to `wwwroot/`: If an image or post doesn’t show, check the `location` path.
-- Theme and search: Use the theme toggle in the sidebar; search by title or tag on the Search tab.
+- Theme and search: Use the theme toggle and theme pack picker in the sidebar; search by title or tag on the Search tab.
+- Headings have link icons (#). Click to copy a direct link to that section.
+- Images lazy-load and use skeleton placeholders to keep layout stable.
 
 ---
 
 ## Need more control?
 
 Advanced users can customize UI text and language behavior in `assets/js/i18n.js`. The app automatically detects language from the URL (`?lang`), your last choice, or your browser language.
+
+---
+
+## Optional extras
+
+### Outdated content warning
+
+Set `contentOutdatedDays` in `site.json` (default 180). If a post’s `date` is older than this threshold, the post page shows a dismissible “outdated” notice at the top.
+
+```
+{
+  "contentOutdatedDays": 365
+}
+```
+
+### Error overlay and one-click issue report
+
+When a JavaScript error occurs, NanoSite shows a small error card with buttons to copy details. You can add a “report issue” button by setting a URL in `site.json` (for example, a GitHub “new issue” link that accepts title/body query parameters):
+
+```
+{
+  "reportIssueURL": "https://github.com/<owner>/<repo>/issues/new"
+}
+```
+
+The reporter pre-fills structured context (route, query, user agent) into the issue body.
 
 ---
 
