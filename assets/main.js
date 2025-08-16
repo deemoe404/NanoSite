@@ -717,8 +717,7 @@ function displayPost(postname) {
   if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
     try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
-  // Always use the localized title from index.json for display/meta/tab labels
-  const articleTitle = fallback;
+    const articleTitle = getArticleTitleFromMain() || fallback;
     // If title changed after parsing, update the card's title text
     try {
       const titleEl = document.querySelector('#mainview .post-meta-card .post-meta-title');
@@ -734,7 +733,7 @@ function displayPost(postname) {
       updateSEO(seoData, siteConfig);
     } catch (_) { /* ignore SEO errors */ }
     
-  renderTabs('post', articleTitle);
+    renderTabs('post', articleTitle);
     const toc = document.getElementById('tocview');
     if (toc) {
       toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
