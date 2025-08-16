@@ -248,11 +248,11 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 }
 #mainview .post-outdated-card { position: relative; overflow: hidden; transition: opacity .22s ease, transform .22s ease, height .24s ease, margin .24s ease, padding .24s ease; will-change: opacity, transform, height; }
 #mainview .post-outdated-card.is-dismissing { opacity: 0; transform: translateY(-6px); margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; pointer-events: none; }
-#mainview .post-outdated-card .post-outdated-content { padding-right: 2rem; }
+#mainview .post-outdated-card .post-outdated-content { padding-right: calc(1.75rem + 0.75rem + 0.25rem); }
 #mainview .post-outdated-card .post-outdated-close {
   position: absolute;
   top: 50%;
-  right: 0.35rem;
+  right: 0.75rem; /* match card's vertical padding for visual symmetry */
   width: 1.75rem;
   height: 1.75rem;
   display: inline-flex;
