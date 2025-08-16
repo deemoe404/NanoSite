@@ -524,8 +524,8 @@ ul.collapsed, li > ul.collapsed { display: none; }
   height: 0.15rem;
   background: linear-gradient(90deg, 
     transparent 0%, 
-    var(--primary) 20%, 
-    var(--primary) 80%, 
+  color-mix(in srgb, var(--primary) 35%, transparent) 49%, 
+  color-mix(in srgb, var(--primary) 35%, transparent) 51%, 
     transparent 100%
   );
   border-radius: 0.075rem;
@@ -549,8 +549,8 @@ ul.collapsed, li > ul.collapsed { display: none; }
   height: 0.15rem;
   background: linear-gradient(90deg, 
     transparent 0%, 
-    color-mix(in srgb, var(--primary) 25%, transparent) 20%, 
-    color-mix(in srgb, var(--primary) 25%, transparent) 80%, 
+  color-mix(in srgb, var(--primary) 25%, transparent) 49%, 
+  color-mix(in srgb, var(--primary) 25%, transparent) 51%, 
     transparent 100%
   );
   border-radius: 0.075rem;
