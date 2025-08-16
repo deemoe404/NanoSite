@@ -1,0 +1,158 @@
+/* Minimalism theme pack - 极简主义 */
+:root {
+  /* 极简色彩 - 浅色模式 */
+  --bg: #ffffff;
+  --text: #2c2c2c;
+  --muted: #888888;
+  --primary: #000000;
+  --primary-hover: #333333;
+  --card: #fafafa;
+  --border: #eeeeee;
+  --code-bg: #f8f8f8;
+  --code-text: #2c2c2c;
+  --hr: #eeeeee;
+  --shadow: none; /* 极简 - 无阴影 */
+}
+
+[data-theme="dark"] {
+  /* 极简色彩 - 深色模式 */
+  --bg: #1a1a1a;
+  --text: #e8e8e8;
+  --muted: #999999;
+  --primary: #ffffff;
+  --primary-hover: #cccccc;
+  --card: #222222;
+  --border: #333333;
+  --code-bg: #0f0f0f;
+  --code-text: #e8e8e8;
+  --hr: #333333;
+  --shadow: none; /* 极简 - 无阴影 */
+}
+
+/* 全局极简样式 */
+body {
+  line-height: 1.8 !important;
+  letter-spacing: 0.01em !important;
+  background: var(--bg) !important;
+}
+
+/* 完全移除 mapview 的所有装饰！！！ */
+#mapview {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+}
+
+/* 完全移除导航栏的所有装饰！！！ */
+#tabsNav, .tabs, nav {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 99px !important;
+  outline: none !important;
+}
+
+/* 移除导航项的所有悬停效果！！！ */
+.tab, .tab:hover, .tab:focus, .tab:active,
+.nav-item, .nav-item:hover, .nav-item:focus, .nav-item:active,
+.nav-link, .nav-link:hover, .nav-link:focus, .nav-link:active,
+#tabsNav a, #tabsNav a:hover, #tabsNav a:focus, #tabsNav a:active,
+.tabs a, .tabs a:hover, .tabs a:focus, .tabs a:active {
+  background: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 99px !important;
+  outline: none !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+/* 完全覆盖 .tab 的悬停阴影效果 */
+.tab:hover {
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  transform: none !important;
+  transition: none !important;
+  border-radius: 99px !important;
+}
+
+/* 移除 .tabs 容器的悬停效果 */
+.tabs:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* 高亮覆膜也要大圆角！！！ */
+.tabs .highlight-overlay,
+.highlight-overlay {
+  border-radius: 99px !important;
+}
+
+/* 极简卡片样式 */
+.box {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* 极简按钮样式 */
+.btn, button {
+  border: 1px solid var(--primary) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--primary) !important;
+  font-weight: 400 !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn:hover, button:hover {
+  background: var(--primary) !important;
+  color: var(--bg) !important;
+}
+
+/* 极简链接 */
+a {
+  color: var(--primary) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid transparent !important;
+  transition: border-color 0.2s ease !important;
+}
+
+a:hover {
+  border-bottom-color: var(--primary) !important;
+}
