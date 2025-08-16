@@ -287,6 +287,10 @@ body {
   color: var(--muted);
 }
 
+.index a {
+  border-radius: 1rem;
+}
+
 /* 内容区采用灰度抗锯齿，边缘更细腻，降低“粗”感 */
 #mainview { -webkit-font-smoothing: antialiased; }
 
