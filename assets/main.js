@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
@@ -1240,7 +1240,7 @@ Promise.allSettled([
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
     }
     postsIndexCache = posts;
-    // Reflect available content languages in the UI selector (for unified index)
+  // Reflect available content languages in the UI selector (for unified index)
     try { refreshLanguageSelector(); } catch (_) {}
     // Render site identity and profile links from site config
     try {
@@ -1256,6 +1256,16 @@ Promise.allSettled([
       if (cfgTitle) setBaseSiteTitle(cfgTitle);
     } catch (_) {}
     try { renderSiteLinks(siteConfig); } catch (_) {}
+
+    // Apply site-controlled theme after loading config
+    try {
+      applyThemeConfig(siteConfig);
+      // If site enforces a specific pack, ensure the selector reflects it
+      const sel = document.getElementById('themePack');
+      if (sel && siteConfig && siteConfig.themeOverride !== false && siteConfig.themePack) {
+        sel.value = siteConfig.themePack;
+      }
+    } catch (_) {}
 
     // Initialize global error reporter with optional report URL from site config
     try {

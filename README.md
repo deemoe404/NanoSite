@@ -108,6 +108,20 @@ Switch between built-in theme packs from the sidebar: Native, GitHub, Apple, Ope
 
 Dark mode toggles separately and respects system preference or your saved choice.
 
+Site owners can set a default or enforce a theme in `site.json`:
+
+```json
+{
+  "themeMode": "auto",   // "dark" | "light" | "auto" (auto follows system)
+  "themePack": "native", // one of assets/themes/packs.json values
+  "themeOverride": true   // true to enforce site choice over user saved prefs
+}
+```
+
+Notes:
+- When `themeOverride` is true (default), the site’s `themeMode` and `themePack` take precedence and the UI reflects that choice.
+- When false, they act as defaults and are applied only if the user hasn’t chosen yet.
+
 ---
 
 ## Organize Your Content

@@ -9,5 +9,9 @@
     { "label": "GitHub", "href": "https://github.com/deemoe404" },
     { "label": "Blog", "href": "https://dee.moe" }
   ],
-  "contentOutdatedDays": 180
+  "contentOutdatedDays": 180,
+  
+  "themeMode": "auto",
+  "themePack": "minimalism",
+  "themeOverride": true
 }

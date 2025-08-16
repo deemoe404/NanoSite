@@ -27,6 +27,49 @@ export function applySavedTheme() {
   loadThemePack(getSavedThemePack());
 }
 
+// Apply theme according to site config. When override = true, it forces the
+// site-defined values and updates localStorage to keep UI in sync.
+export function applyThemeConfig(siteConfig) {
+  const cfg = siteConfig || {};
+  const override = cfg.themeOverride !== false; // default true
+  const mode = (cfg.themeMode || '').toLowerCase(); // 'dark' | 'light' | 'auto'
+  const pack = (cfg.themePack || '').trim();
+
+  const setMode = (m) => {
+    if (m === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('theme', 'dark'); } catch (_) {}
+    } else if (m === 'light') {
+      document.documentElement.removeAttribute('data-theme');
+      try { localStorage.setItem('theme', 'light'); } catch (_) {}
+    } else { // auto
+      // Remove explicit choice to allow system preference to drive
+      try { localStorage.removeItem('theme'); } catch (_) {}
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+  };
+
+  if (override) {
+    if (mode === 'dark' || mode === 'light' || mode === 'auto') setMode(mode);
+    if (pack) {
+      // Force pack and persist
+      try { localStorage.setItem('themePack', pack); } catch (_) {}
+      loadThemePack(pack);
+    }
+  } else {
+    // Respect user choice; but if site provides a default and no user choice exists,
+    // apply it once without persisting as an override
+    const hasUserTheme = (() => { try { return !!localStorage.getItem('theme'); } catch (_) { return false; } })();
+    const hasUserPack = (() => { try { return !!localStorage.getItem('themePack'); } catch (_) { return false; } })();
+    if (!hasUserTheme && (mode === 'dark' || mode === 'light' || mode === 'auto')) setMode(mode);
+    if (!hasUserPack && pack) loadThemePack(pack);
+  }
+}
+
 export function bindThemeToggle() {
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
