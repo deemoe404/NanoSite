@@ -209,6 +209,76 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 #mainview .index .card-cover { margin: 0; border-radius: 0; box-shadow: none; }
 .index a:hover .card-cover { transform: scale(1.03); }
 
+/* Post meta card (title, date, read time, tags) */
+.post-meta-card {
+  border: 0.0625rem solid var(--border);
+  background: var(--card);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  box-shadow: var(--shadow);
+  margin: 0.25rem 0 1rem;
+}
+.post-meta-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 0.25rem;
+}
+.post-meta-line {
+  color: var(--muted);
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+  margin: 0.125rem 0 0.5rem;
+}
+
+/* Post meta excerpt: slightly tighter line-height and a bit more space before tags */
+#mainview .post-meta-card .post-meta-excerpt { color: var(--muted); font-size: .93rem; line-height: 1.35; margin: 0.2rem 0 0.85rem; }
+
+#mainview .post-outdated-card {
+  border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border));
+  background: color-mix(in srgb, #f59e0b 18%, var(--card));
+  color: var(--text);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  box-shadow: var(--shadow);
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+#mainview .post-outdated-card { position: relative; overflow: hidden; transition: opacity .22s ease, transform .22s ease, height .24s ease, margin .24s ease, padding .24s ease; will-change: opacity, transform, height; }
+#mainview .post-outdated-card.is-dismissing { opacity: 0; transform: translateY(-6px); margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; pointer-events: none; }
+#mainview .post-outdated-card .post-outdated-content { padding-right: 2rem; }
+#mainview .post-outdated-card .post-outdated-close {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.0625rem solid color-mix(in srgb, #f59e0b 40%, var(--border));
+  background: color-mix(in srgb, #f59e0b 25%, var(--card));
+  color: var(--text);
+  border-radius: 999px;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 1rem;
+  transform: translateY(-50%);
+  transition: transform .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+#mainview .post-outdated-card .post-outdated-close:hover { background: color-mix(in srgb, #f59e0b 35%, var(--card)); transform: translateY(-50%) scale(1.05); }
+#mainview .post-outdated-card .post-outdated-close:active { transform: translateY(-50%) scale(0.96); }
+#mainview .post-outdated-card .post-outdated-close:focus-visible { outline: none; box-shadow: 0 0 0 0.15rem color-mix(in srgb, #f59e0b 35%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  #mainview .post-outdated-card { transition: none; }
+  #mainview .post-outdated-card .post-outdated-close { transition: none; }
+}
+#mainview .post-meta-card .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0; }
+#mainview .post-meta-card .tag { font-size: .8rem; }
+
 /* Removed generic intrinsic-size hint to avoid ratio mismatch across themes */
 
 @media (prefers-reduced-motion: reduce) {
@@ -224,7 +294,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index .card-meta { padding: 0.375rem 0.875rem 0.625rem; color: var(--muted); font-size: .72rem; display:flex; align-items:center; gap:0.5rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; border-top: 0.0625rem solid var(--border); margin-top: 0.25rem; opacity: .9; }
 .index .card-sep { opacity: .6; margin: 0 0.125rem; }
 .index .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0 0.875rem 0.875rem; }
-.index .tag { display:inline-block; margin: 0; font-size:.8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.1rem .4rem; border-radius: 999px; }
+.index .tag, .tags .tag { display:inline-block; margin: 0; font-size:.8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.1rem .4rem; border-radius: 999px; }
 
 /* Pagination */
 .pagination { display:flex; align-items:center; justify-content:center; gap:0.375rem; margin: 0.5rem 0 0.25rem; flex-wrap: wrap; }

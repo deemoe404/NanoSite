@@ -8,5 +8,6 @@
   "profileLinks": [
     { "label": "GitHub", "href": "https://github.com/deemoe404" },
     { "label": "Blog", "href": "https://dee.moe" }
-  ]
+  ],
+  "contentOutdatedDays": 180
 }

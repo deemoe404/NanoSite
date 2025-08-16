@@ -389,6 +389,51 @@ function getArticleTitleFromMain() {
   return text.replace(/^#+\s*/, '').trim();
 }
 
+// Render a metadata card (title/date/read time/tags) for the current post
+function renderPostMetaCard(title, meta, markdown) {
+  try {
+    const safeTitle = escapeHtml(String(title || ''));
+    const hasDate = meta && meta.date;
+    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
+    let readHtml = '';
+    try {
+      const minutes = computeReadTime(String(markdown || ''), 200);
+      readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
+    } catch (_) {}
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (readHtml) parts.push(readHtml);
+    const metaLine = parts.length ? `<div class="post-meta-line">${parts.join('<span class="card-sep">•</span>')}</div>` : '';
+    const excerptHtml = (meta && meta.excerpt) ? `<div class="post-meta-excerpt">${escapeHtml(String(meta.excerpt))}</div>` : '';
+    const tags = meta ? renderTags(meta.tag) : '';
+    return `<section class="post-meta-card" aria-label="Post meta">
+      <div class="post-meta-title">${safeTitle}</div>
+      ${metaLine}
+      ${excerptHtml}
+      ${tags || ''}
+    </section>`;
+  } catch (_) {
+    return '';
+  }
+}
+
+// Render an outdated warning card if the post date exceeds the configured threshold
+function renderOutdatedCard(meta) {
+  try {
+    const hasDate = meta && meta.date;
+    if (!hasDate) return '';
+    const published = new Date(String(meta.date));
+    if (isNaN(published.getTime())) return '';
+    const diffDays = Math.floor((Date.now() - published.getTime()) / (1000 * 60 * 60 * 24));
+    const threshold = (siteConfig && Number.isFinite(Number(siteConfig.contentOutdatedDays))) ? Number(siteConfig.contentOutdatedDays) : 180;
+    if (diffDays < threshold) return '';
+    return `<section class="post-outdated-card" role="note">
+      <div class="post-outdated-content">${t('ui.outdatedWarning')}</div>
+      <button type="button" class="post-outdated-close" aria-label="${t('ui.close')}" title="${t('ui.close')}">×</button>
+    </section>`;
+  } catch (_) { return ''; }
+}
+
 let hasInitiallyRendered = false;
 
 function renderTabs(activeSlug, searchQuery) {
@@ -634,17 +679,28 @@ function displayPost(postname) {
     
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
     const baseDir = `wwwroot/${dir}`;
-    const output = mdParse(markdown, baseDir);
-    // Render main content first so we can read the first heading reliably
-    const mainEl = document.getElementById('mainview');
-    if (mainEl) mainEl.innerHTML = output.post;
+  const output = mdParse(markdown, baseDir);
+  // Compute fallback title using index cache before rendering
+  const fallback = postsByLocationTitle[postname] || postname;
+  // Try to get metadata for this post from index cache
+  const postMetadata = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname)?.[1] || {};
+  // Tentatively render meta card with fallback title first; we'll update title after reading h1
+  const preTitle = fallback;
+  const outdatedCardHtml = renderOutdatedCard(postMetadata);
+  const metaCardHtml = renderPostMetaCard(preTitle, postMetadata, markdown);
+  // Render outdated card + meta card + main content so we can read first heading reliably
+  const mainEl = document.getElementById('mainview');
+  if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
     try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
-    const fallback = postsByLocationTitle[postname] || postname;
     const articleTitle = getArticleTitleFromMain() || fallback;
+    // If title changed after parsing, update the card's title text
+    try {
+      const titleEl = document.querySelector('#mainview .post-meta-card .post-meta-title');
+      if (titleEl) titleEl.textContent = articleTitle;
+    } catch (_) {}
     
     // Update SEO meta tags for the post
-    const postMetadata = (Object.values(postsIndexCache || {}) || []).find(p => p && p.location === postname) || {};
     try {
       const seoData = extractSEOFromMarkdown(markdown, { 
         ...postMetadata, 
@@ -1028,6 +1084,29 @@ function isModifiedClick(event) {
 
 document.addEventListener('click', (e) => {
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
+  // Handle outdated card close button
+  const closeBtn = e.target && e.target.closest ? e.target.closest('.post-outdated-close') : null;
+  if (closeBtn) {
+    const card = closeBtn.closest('.post-outdated-card');
+    if (card) {
+      // Animate height collapse + fade/translate, then remove
+      const startHeight = card.scrollHeight;
+      card.style.height = startHeight + 'px';
+      // Force reflow so the browser acknowledges the starting height
+      // eslint-disable-next-line no-unused-expressions
+      card.getBoundingClientRect();
+      card.classList.add('is-dismissing');
+      // Next frame, set height to 0 to trigger transition
+      requestAnimationFrame(() => {
+        card.style.height = '0px';
+      });
+      const cleanup = () => { card.remove(); };
+      card.addEventListener('transitionend', cleanup, { once: true });
+      // Fallback removal in case transitionend doesn't fire
+      setTimeout(cleanup, 500);
+    }
+    return;
+  }
   if (!a) return;
   
   // Add animation for tab clicks
