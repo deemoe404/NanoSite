@@ -1,13 +1,14 @@
 {
-  "siteTitle": { "default": "NanoSite - Zero-Dependency Static Blog", "zh": "NanoSite - 零依赖静态博客", "ja": "NanoSite - ゼロ依存静的ブログ" },
-  "siteSubtitle": { "default": "No compilation needed - just edit Markdown files", "zh": "无需编译 - 只需编辑 Markdown 文件", "ja": "コンパイル不要 - Markdownファイルを編集するだけ" },
-  "siteDescription": { "default": "A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.", "zh": "一个用于简单博客和文档的纯前端模板。无需编译 - 只需编辑 Markdown 文件并部署。", "ja": "シンプルなブログとドキュメント用の純粋なフロントエンドテンプレート。コンパイル不要 - Markdownファイルを編集してデプロイするだけ。" },
-  "resourceURL": "https://nano.dee.moe/wwwroot/",
-  "siteKeywords": { "default": "static blog, markdown, no build, github pages, zero dependency, blog template", "zh": "静态博客, markdown, 无构建, github pages, 零依赖, 博客模板", "ja": "静的ブログ, markdown, ビルドなし, github pages, ゼロ依存, ブログテンプレート" },
+  "siteTitle": { "default": "deemoe's journal"},
+  "siteSubtitle": { "default": "眼见何事，情系何处，身在何方，心思何人" },
+  "siteDescription": { "default": "deemoe's journal" },
+  "resourceURL": "https://dee.moe/wwwroot/",
+  "siteKeywords": { "default": "static blog, markdown, github pages, blog"},
   "avatar": "assets/avatar.png",
   "profileLinks": [
     { "label": "GitHub", "href": "https://github.com/deemoe404" },
-    { "label": "Blog", "href": "https://dee.moe" }
+    { "label": "ORCID", "href": "https://orcid.org/0009-0005-4213-5418" },
+    { "label": "E-Mail", "href": "mailto:deemoe404@gmail.com" }
   ],
   "contentOutdatedDays": 180,
   
