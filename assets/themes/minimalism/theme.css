@@ -115,6 +115,8 @@ body {
   -webkit-backdrop-filter: none !important;
   border-radius: 0 !important;
   outline: none !important;
+  /* allow deactivating effect to be visible */
+  /* keep transforms off by default but not when .deactivating is present */
   transform: none !important;
   transition: none !important;
   animation: none !important;
@@ -128,6 +130,28 @@ body {
   transform: none !important;
   transition: none !important;
   border-radius: 0 !important;
+}
+
+/* Restore gentle exit motion for deactivating state even in minimal theme */
+#tabsNav .tab[data-slug="post"].deactivating, #tabsNav .tab[data-slug="search"].deactivating,
+.tabs .tab[data-slug="post"].deactivating, .tabs .tab[data-slug="search"].deactivating {
+  transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1) 0s, opacity .14s linear .02s !important;
+  transform: scale(1.08) translateY(-0.015625rem) !important;
+  opacity: 0 !important;
+}
+
+/* Allow entrance animation for activating state */
+#tabsNav .tab[data-slug="post"].activating, #tabsNav .tab[data-slug="search"].activating,
+.tabs .tab[data-slug="post"].activating, .tabs .tab[data-slug="search"].activating {
+  opacity: 0 !important;
+  transform: scale(1.08) translateY(-0.015625rem) !important;
+}
+
+#tabsNav .tab[data-slug="post"].activating.in, #tabsNav .tab[data-slug="search"].activating.in,
+.tabs .tab[data-slug="post"].activating.in, .tabs .tab[data-slug="search"].activating.in {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1) 0s, opacity .14s linear .02s !important;
 }
 
 /* 移除 .tabs 容器的悬停效果 */

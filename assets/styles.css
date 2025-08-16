@@ -482,7 +482,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
     width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
     opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
-  overflow: hidden;
+  /* allow horizontal overflow during highlight move to avoid clipping */
+  overflow-y: hidden;
+  overflow-x: visible;
   white-space: nowrap;
   will-change: transform, opacity, width;
   /* Fixed height to prevent initial jump */
@@ -503,9 +505,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
     0 0.125rem 0.25rem rgba(37, 99, 235, 0.15),
     0 0.0625rem 0.125rem rgba(37, 99, 235, 0.1);
   transition: 
-    left 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-    width 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    left 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.28s cubic-bezier(0.25, 0.8, 0.25, 1);
   opacity: var(--highlight-opacity, 0);
   z-index: 1;
   will-change: left, width, opacity;
@@ -579,7 +581,8 @@ ul.collapsed, li > ul.collapsed { display: none; }
   transition: 
     background-color 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
     color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
-    transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1),
+  transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1),
+  opacity 0.45s cubic-bezier(0.25, 0.8, 0.25, 1),
     box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
   border-color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
@@ -603,18 +606,46 @@ ul.collapsed, li > ul.collapsed { display: none; }
   /* Remove individual background/border since overlay handles it */
 }
 
-/* Smooth transition states - Apple-style subtle feedback */
-.tab.activating {
-  background: color-mix(in srgb, var(--primary) 6%, transparent);
-  color: var(--primary);
-  transform: translateY(-0.015625rem);
+/* Reverse of poof: appear from slightly larger and transparent to normal */
+#tabsNav .tab[data-slug="post"].activating,
+#tabsNav .tab[data-slug="search"].activating,
+.tabs .tab[data-slug="post"].activating,
+.tabs .tab[data-slug="search"].activating {
+  /* initial state */
+  opacity: 0;
+  transform: scale(1.08) translateY(-0.015625rem);
+}
+
+#tabsNav .tab[data-slug="post"].activating.in,
+#tabsNav .tab[data-slug="search"].activating.in,
+.tabs .tab[data-slug="post"].activating.in,
+.tabs .tab[data-slug="search"].activating.in {
+  /* animate to final state */
+  opacity: 1;
+  transform: none;
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) 0s,
+    opacity 0.14s linear 0.02s;
 }
 
 /* Smooth transition for deactivating tabs */
-.tab.deactivating {
+#tabsNav .tab[data-slug="post"].deactivating,
+#tabsNav .tab[data-slug="search"].deactivating,
+.tabs .tab[data-slug="post"].deactivating,
+.tabs .tab[data-slug="search"].deactivating {
   background: color-mix(in srgb, var(--primary) 3%, transparent);
   color: var(--muted);
-  transform: translateY(0);
+  /* fade out + scale up slightly for a softer exit */
+  opacity: 0;
+  /* slightly larger scale for a 'poof' feel */
+  transform: scale(1.08) translateY(-0.015625rem);
+  transition:
+  /* snappy swift-out for transform; quick linear fade */
+  transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) 0s,
+  opacity 0.14s linear 0.02s,
+    color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1),
+    background-color 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+  pointer-events: none;
 }
 
 /* Remove individual tab indicators since we're using the sliding one */

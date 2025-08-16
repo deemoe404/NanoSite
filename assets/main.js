@@ -442,7 +442,7 @@ function renderTabs(activeSlug, searchQuery) {
   
   const make = (slug, label) => {
     const href = withLangParam(`?tab=${encodeURIComponent(slug)}`);
-    return `<a class="tab${activeSlug===slug?' active':''}" href="${href}">${label}</a>`;
+  return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${label}</a>`;
   };
   
   let html = make('posts', t('ui.allPosts'));
@@ -450,11 +450,11 @@ function renderTabs(activeSlug, searchQuery) {
   if (activeSlug === 'search') {
     const q = String(searchQuery || '').trim();
     const href = withLangParam(`?tab=search${q ? `&q=${encodeURIComponent(q)}` : ''}`);
-    html += `<a class="tab active" href="${href}">${t('ui.searchTab')}</a>`;
+  html += `<a class="tab active" data-slug="search" href="${href}">${t('ui.searchTab')}</a>`;
   } else if (activeSlug === 'post') {
     const raw = String(searchQuery || t('ui.postTab')).trim();
     const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
-    html += `<span class="tab active">${label}</span>`;
+  html += `<span class="tab active" data-slug="post">${label}</span>`;
   }
   
   // No transition on first load - just set content
@@ -472,10 +472,13 @@ function renderTabs(activeSlug, searchQuery) {
   const currentTrack = nav.querySelector('.tabs-track');
   const currentMarkup = currentTrack ? currentTrack.innerHTML : '';
   if (currentMarkup !== html) {
-    // Mark currently active tab for deactivation animation
+    // Mark currently active tab for deactivation animation (only dynamic tabs)
     const currentActiveTab = nav.querySelector('.tab.active');
     if (currentActiveTab) {
-      currentActiveTab.classList.add('deactivating');
+      const curSlug = (currentActiveTab.dataset && currentActiveTab.dataset.slug) || '';
+      if (curSlug === 'post' || curSlug === 'search') {
+        currentActiveTab.classList.add('deactivating');
+      }
     }
     
     // Measure current width only
@@ -502,10 +505,13 @@ function renderTabs(activeSlug, searchQuery) {
     
   // Set explicit width only and start transition (no opacity changes)
   nav.style.width = `${currentWidth}px`;
-  nav.style.transition = 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+  // If new width is smaller (shrinking), hold a tiny delay to let overlay move first
+  const shrinking = newWidth < currentWidth;
+  nav.style.transition = `width 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${shrinking ? '0.06s' : '0s'}`;
     
     // Use Apple-style timing for more elegant perception
-    setTimeout(() => {
+  // Wait a bit longer so the deactivating animation can play smoothly
+  setTimeout(() => {
       // Only replace inner track content, keep wrapper/overlay
       if (!nav.querySelector('.tabs-track')) {
         nav.innerHTML = `<div class="tabs-track">${html}</div>`;
@@ -514,17 +520,33 @@ function renderTabs(activeSlug, searchQuery) {
       }
   // Ensure highlight overlay exists after content change
   ensureHighlightOverlay(nav);
-      nav.style.width = `${newWidth}px`;
+  nav.style.width = `${newWidth}px`;
       
       // Update highlight immediately when content changes
       updateMovingHighlight(nav);
+      // Trigger activating->in sequence only for dynamic tabs (post/search)
+      try {
+        const newActive = nav.querySelector('.tab.active');
+        const newSlug = (newActive && newActive.dataset && newActive.dataset.slug) || '';
+        if (newActive && (newSlug === 'post' || newSlug === 'search')) {
+          newActive.classList.add('activating');
+          // next frame add .in to play entrance animation
+          requestAnimationFrame(() => {
+            newActive.classList.add('in');
+            // cleanup after animation completes
+            setTimeout(() => {
+              newActive.classList.remove('activating', 'in');
+            }, 260);
+          });
+        }
+      } catch (_) {}
       
       // Reset width to auto after transition
       setTimeout(() => {
         nav.style.width = 'auto';
         nav.style.transition = ''; // Reset transition
-      }, 600); // Match the width transition duration
-    }, 150); // Longer for more graceful perception
+  }, 660); // Match the width transition duration + optional delay
+  }, 180); // Snappy swap timed with ~0.14–0.2s poof
   } else {
     // Just update highlight position if content hasn't changed
     updateMovingHighlight(nav);
