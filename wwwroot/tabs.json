@@ -1,7 +1,5 @@
 {
   "About": {
-    "en": { "title": "About", "location": "tab/about.md" },
-    "zh": { "title": "关于", "location": "tab/about.zh.md" },
-    "ja": { "title": "概要", "location": "tab/about.ja.md" }
+    "en": { "title": "About", "location": "tab/about.md" }
   }
 }
