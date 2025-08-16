@@ -234,7 +234,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 }
 
 /* Post meta excerpt: slightly tighter line-height and a bit more space before tags */
-#mainview .post-meta-card .post-meta-excerpt { color: var(--muted); font-size: .93rem; line-height: 1.35; margin: 0.2rem 0 0.85rem; }
+#mainview .post-meta-card .post-meta-excerpt { color: var(--muted); font-size: .93rem; line-height: 1.35; margin: 0.2rem 0 0.85rem; white-space: pre-line; }
 
 #mainview .post-outdated-card {
   border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border));
