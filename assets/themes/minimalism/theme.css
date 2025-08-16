@@ -37,7 +37,7 @@ body {
 }
 
 /* 完全移除 mapview 的所有装饰！！！ */
-#mapview {
+#mapview, #mainview {
   background: none !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -62,6 +62,15 @@ body {
   outline: none !important;
 }
 
+#searchbox {
+    background-color: transparent !important;
+    border-color: transparent !important;
+}
+
+#searchInput {
+    border-radius: 99px !important;
+}
+
 /* 完全移除导航栏的所有装饰！！！ */
 #tabsNav, .tabs, nav {
   background: none !important;
@@ -74,7 +83,7 @@ body {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-radius: 99px !important;
+  border-radius: 0 !important;
   outline: none !important;
 }
 
@@ -94,7 +103,7 @@ body {
   box-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-radius: 99px !important;
+  border-radius: 0 !important;
   outline: none !important;
   transform: none !important;
   transition: none !important;
@@ -108,7 +117,7 @@ body {
   background-color: transparent !important;
   transform: none !important;
   transition: none !important;
-  border-radius: 99px !important;
+  border-radius: 0 !important;
 }
 
 /* 移除 .tabs 容器的悬停效果 */
@@ -146,13 +155,22 @@ body {
 }
 
 /* 极简链接 */
-a {
+/* a {
   color: var(--primary) !important;
   text-decoration: none !important;
   border-bottom: 1px solid transparent !important;
   transition: border-color 0.2s ease !important;
-}
+} */
 
-a:hover {
+/* a:hover {
   border-bottom-color: var(--primary) !important;
-}
+} */
+
+/* --- Vertical spacing between mapview and mainview --- */
+/* Configurable gap; adjust as needed */
+:root { --view-gap: 24px; }
+
+/* Only add space when stacked one after the other */
+#mapview + #mainview { margin-top: var(--view-gap, 24px) !important; }
+#mainview + #mapview { margin-top: var(--view-gap, 24px) !important; }
+
