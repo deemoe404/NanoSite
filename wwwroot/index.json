@@ -6,6 +6,14 @@
     "excerpt": "I aimed to streamline my workflow using a single machine but encountered limitations across platforms—Windows became unstable, Arch required excessive maintenance, and macOS lacked NVIDIA GPU support. \n\n Ultimately, I adopted a headless Linux setup accessed via SSH and VSCode with Dev Containers from my Mac. This approach offers stability, flexibility, and strong remote development capabilities—though GUI dependencies still remain unavoidable in some cases."
   },
 
+  "volcal_baseline": {
+    "en": { "title": "A data-driven pipeline for large-scale open-pit-mine excavation monitoring from multi-temporal 3-D point clouds", "location": "post/volcal_baseline/main.md" },
+    "tag": ["Computer Vision", "Point Cloud"],
+    "date": "2025-06-04",
+    "image": "post/volcal_baseline/PC_Raw_RGB_4.png",
+    "excerpt": "A data-driven 3D point cloud framework for open-pit mine monitoring that automatically adapts parameters, integrates registration, change detection, and DEM-based volume analysis, achieving high accuracy and robustness even under noise and misalignment"
+  },
+
   "What XR Should Be in 2023": {
     "en": { "title": "What XR Should Be in 2023", "location": "post/what-xr-should-be-in-2023/main.md" },
     "tag": ["XR", "AI", "Technology"],
