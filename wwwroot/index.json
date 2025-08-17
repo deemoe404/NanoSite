@@ -1,4 +1,14 @@
 {
+  "Meet NanoSite": {
+    "en": {
+      "title": "Meet NanoSite",
+      "location": "post/meet-nanosite/main.md"
+    },
+    "tag": ["NanoSite", "Technology"],
+    "date": "2025-08-17",
+    "excerpt": "Build a simple personal website from plain text files (Markdown). No build tools, no databases — just edit files and publish. Perfect for blogs, notes, wikis, journals, or book chapters."
+  },
+
   "What I Wish I Knew Before Going Headless": {
     "en": {
       "title": "What I Wish I Knew Before Going Headless",
