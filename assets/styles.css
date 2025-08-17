@@ -215,6 +215,14 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 #mainview .index .card-cover { margin: 0; border-radius: 0; box-shadow: none; }
 .index a:hover .card-cover { transform: scale(1.03); }
 
+/* Post videos: wrapper ensures rounded clipping across browsers */
+.post-video-wrap { position: relative; width: 100%; margin: 1rem auto; border-radius: 0.5rem; overflow: hidden; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); }
+.post-video-wrap .post-video { display: block; width: 100%; height: auto; background: transparent; border-radius: inherit; }
+/* Try to enforce clipping on WebKit controls */
+.post-video::-webkit-media-controls-enclosure { border-radius: inherit; overflow: hidden; }
+.post-video::-webkit-media-controls { border-radius: inherit; overflow: hidden; }
+.post-video::-webkit-media-controls-panel { border-radius: inherit; overflow: hidden; }
+
 /* Post meta card (title, date, read time, tags) */
 .post-meta-card {
   border: 0.0625rem solid var(--border);
