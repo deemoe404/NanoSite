@@ -318,3 +318,18 @@ body {
 /* 内容区采用灰度抗锯齿，边缘更细腻，降低“粗”感 */
 #mainview { -webkit-font-smoothing: antialiased; }
 
+
+/* ------------------------------------------- */
+/* Code blocks                                 */
+/* 去掉代码块内 <code> 文字的额外背景和内边距 */
+/* 仅影响在 <pre> 中的 <code>，不改变行内 <code> */
+pre code,
+#mainview pre code {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
