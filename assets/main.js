@@ -587,6 +587,14 @@ function hydrateInternalLinkCards(container) {
       wrapper.className = 'link-card-wrap';
       wrapper.innerHTML = `<a class="link-card" href="${href}">${cover}<div class="card-title">${escapeHtml(title)}</div><div class="card-excerpt">${t('ui.loading')}</div><div class="card-meta">${dateHtml}</div>${tagsHtml}</a>`;
 
+      // If index metadata provides an explicit excerpt, prefer it immediately
+      try {
+        const exNode = wrapper.querySelector('.card-excerpt');
+        if (exNode && meta && meta.excerpt) {
+          exNode.textContent = String(meta.excerpt);
+        }
+      } catch (_) {}
+
       // Placement rules:
       // - If standalone in LI: replace the anchor to keep list structure
       // - If standalone in P/DIV: replace the container with the card
@@ -626,7 +634,8 @@ function hydrateInternalLinkCards(container) {
         const card = wrapper.querySelector('a.link-card');
         if (!card) return;
         const exEl = card.querySelector('.card-excerpt');
-        if (exEl) exEl.textContent = ex;
+  // Only override excerpt if no explicit excerpt in metadata
+  if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
         const metaEl = card.querySelector('.card-meta');
         if (metaEl) {
           const readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
@@ -1141,12 +1150,17 @@ function displayIndex(parsed) {
   pageEntries.forEach(([title, meta], idx) => {
     const loc = meta && meta.location ? String(meta.location) : '';
     if (!loc) return;
+    const el = cards[idx];
+    if (!el) return;
+    const exEl = el.querySelector('.card-excerpt');
+    // Prefer explicit excerpt from index.json when available
+    if (exEl && meta && meta.excerpt) {
+      try { exEl.textContent = String(meta.excerpt); } catch (_) {}
+    }
     getFile('wwwroot/' + loc).then(md => {
       const ex = extractExcerpt(md, 50);
-      const el = cards[idx];
-      if (!el) return;
-      const exEl = el.querySelector('.card-excerpt');
-      if (exEl) exEl.textContent = ex;
+      // Only set excerpt from markdown if no explicit excerpt in metadata
+      if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
       // compute and render read time
       const minutes = computeReadTime(md, 200);
       const metaEl = el.querySelector('.card-meta');
@@ -1243,12 +1257,17 @@ function displaySearch(query) {
   pageEntries.forEach(([title, meta], idx) => {
     const loc = meta && meta.location ? String(meta.location) : '';
     if (!loc) return;
+    const el = cards[idx];
+    if (!el) return;
+    const exEl = el.querySelector('.card-excerpt');
+    // Prefer explicit excerpt from index.json when available
+    if (exEl && meta && meta.excerpt) {
+      try { exEl.textContent = String(meta.excerpt); } catch (_) {}
+    }
     getFile('wwwroot/' + loc).then(md => {
       const ex = extractExcerpt(md, 50);
-      const el = cards[idx];
-      if (!el) return;
-      const exEl = el.querySelector('.card-excerpt');
-      if (exEl) exEl.textContent = ex;
+      // Only set excerpt from markdown if no explicit excerpt in metadata
+      if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
       const minutes = computeReadTime(md, 200);
       const metaEl = el.querySelector('.card-meta');
       if (metaEl) {
