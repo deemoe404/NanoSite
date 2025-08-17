@@ -284,7 +284,7 @@ function transformUnifiedContent(obj, lang) {
       const v = val[lk];
       if (v == null) return null;
       if (typeof v === 'string') return { title: null, location: v };
-      if (typeof v === 'object') return { title: v.title || null, location: v.location || null };
+      if (typeof v === 'object') return { title: v.title || null, location: v.location || null, excerpt: v.excerpt || null };
       return null;
     };
     // Try requested lang, then site default, then common English code, then legacy 'default'
@@ -302,7 +302,8 @@ function transformUnifiedContent(obj, lang) {
       image: val.image || undefined,
       tag: val.tag != null ? val.tag : (val.tags != null ? val.tags : undefined),
       date: val.date || undefined,
-      excerpt: val.excerpt || undefined
+      // Prefer language-specific excerpt; fall back to top-level excerpt for legacy data
+      excerpt: (chosen && chosen.excerpt) || val.excerpt || undefined
     };
     out[title] = meta;
   }
