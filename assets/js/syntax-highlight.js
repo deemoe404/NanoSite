@@ -37,6 +37,18 @@ const highlightRules = {
     { type: 'property', pattern: /[\w\-]+(?=\s*:)/g },
     { type: 'string', pattern: /(["'])(?:(?!\1)[^\\\r\n]|\\.)*\1/g },
     { type: 'number', pattern: /\b\d+(\.\d+)?(px|em|rem|%|vh|vw|deg|ms|s)?\b/g }
+  ],
+  
+  markdown: [
+    { type: 'comment', pattern: /<!--[\s\S]*?-->/g },
+    { type: 'keyword', pattern: /^#{1,6}\s.*/gm },
+    { type: 'keyword', pattern: /^\*{3,}$|^-{3,}$|^_{3,}$/gm },
+    { type: 'string', pattern: /\*\*(.*?)\*\*/g },
+    { type: 'string', pattern: /\*(.*?)\*/g },
+    { type: 'string', pattern: /`([^`]+)`/g },
+    { type: 'keyword', pattern: /^\s*[-*+]\s/gm },
+    { type: 'keyword', pattern: /^\s*\d+\.\s/gm },
+    { type: 'string', pattern: /\[([^\]]+)\]\(([^)]+)\)/g }
   ]
 };
 
