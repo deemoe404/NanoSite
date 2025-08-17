@@ -1,13 +1,19 @@
 {
   "What I Wish I Knew Before Going Headless": {
-    "en": { "title": "What I Wish I Knew Before Going Headless", "location": "post/what-i-wish-i-knew-before-going-headless.md" },
+    "en": {
+      "title": "What I Wish I Knew Before Going Headless",
+      "location": "post/what-i-wish-i-knew-before-going-headless.md"
+    },
     "tag": ["Linux", "Technology"],
     "date": "2025-07-18",
     "excerpt": "I aimed to streamline my workflow using a single machine but encountered limitations across platforms—Windows became unstable, Arch required excessive maintenance, and macOS lacked NVIDIA GPU support. \n\n Ultimately, I adopted a headless Linux setup accessed via SSH and VSCode with Dev Containers from my Mac. This approach offers stability, flexibility, and strong remote development capabilities—though GUI dependencies still remain unavoidable in some cases."
   },
 
   "volcal_baseline": {
-    "en": { "title": "A data-driven pipeline for large-scale open-pit-mine excavation monitoring from multi-temporal 3-D point clouds", "location": "post/volcal_baseline/main.md" },
+    "en": {
+      "title": "A data-driven pipeline for large-scale open-pit-mine excavation monitoring from multi-temporal 3-D point clouds",
+      "location": "post/volcal_baseline/main.md"
+    },
     "tag": ["Computer Vision", "Point Cloud"],
     "date": "2025-06-04",
     "image": "post/volcal_baseline/PC_Raw_RGB_4.png",
@@ -15,7 +21,10 @@
   },
 
   "What XR Should Be in 2023": {
-    "en": { "title": "What XR Should Be in 2023", "location": "post/what-xr-should-be-in-2023/main.md" },
+    "en": {
+      "title": "What XR Should Be in 2023",
+      "location": "post/what-xr-should-be-in-2023/main.md"
+    },
     "tag": ["XR", "AI", "Technology"],
     "date": "2023-06-13",
     "image": "post/what-xr-should-be-in-2023/comp.png",
@@ -23,7 +32,10 @@
   },
 
   "Introducing rmcv - Computer Vision Library for Robomaster": {
-    "en": { "title": "Introducing rmcv - Computer Vision Library for Robomaster", "location": "post/introducing-rmcv/main.md" },
+    "en": {
+      "title": "Introducing rmcv - Computer Vision Library for Robomaster",
+      "location": "post/introducing-rmcv/main.md"
+    },
     "tag": ["Robomaster", "Computer Vision", "OpenCV", "C++"],
     "date": "2022-06-12",
     "image": "post/introducing-rmcv/award.jpeg",
@@ -31,7 +43,10 @@
   },
 
   "frogy": {
-    "en": { "title": "TimeFrogy - ScreenTime Tracker", "location": "post/frogy/main.md" },
+    "en": {
+      "title": "TimeFrogy - ScreenTime Tracker",
+      "location": "post/frogy/main.md"
+    },
     "tag": ["WPF", "C#"],
     "image": "post/frogy/screenshot.png",
     "date": "2021-06-13",
