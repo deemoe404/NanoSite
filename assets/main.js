@@ -244,7 +244,7 @@ function hydrateCardCovers(container) {
   try {
     const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
     if (!root) return;
-    const wraps = root.querySelectorAll('.index .card-cover-wrap');
+    const wraps = root.querySelectorAll('.index .card-cover-wrap, .link-card .card-cover-wrap');
     wraps.forEach(wrap => {
       const img = wrap.querySelector('img.card-cover');
       if (!img) return;
@@ -256,6 +256,12 @@ function hydrateCardCovers(container) {
       if (img.complete && img.naturalWidth > 0) { done(); return; }
       img.addEventListener('load', done, { once: true });
       img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
+      // Kick off loading immediately for link-card covers (index covers are loaded sequentially elsewhere)
+      const inIndex = !!wrap.closest('.index');
+      const ds = img.getAttribute('data-src');
+      if (!inIndex && ds && !img.getAttribute('src')) {
+        img.src = ds;
+      }
     });
   } catch (_) {}
 }
@@ -324,6 +330,109 @@ function hydratePostImages(container) {
       // Kick off load after wiring handlers
       const ds = img.getAttribute('data-src');
       if (ds) img.src = ds;
+    });
+  } catch (_) {}
+}
+
+// Transform standalone internal links (?id=...) into rich article cards
+function hydrateInternalLinkCards(container) {
+  try {
+    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
+    if (!root) return;
+    const anchors = Array.from(root.querySelectorAll('a[href^="?id="]'));
+    if (!anchors.length) return;
+
+    const isWhitespaceOnlySiblings = (el) => {
+      const p = el && el.parentNode;
+      if (!p) return false;
+      const nodes = Array.from(p.childNodes || []);
+      return nodes.every(n => (n === el) || (n.nodeType === Node.TEXT_NODE && !String(n.textContent || '').trim()));
+    };
+
+    const parseId = (href) => {
+      try { const u = new URL(href, window.location.href); return u.searchParams.get('id'); } catch (_) { return null; }
+    };
+
+    // Simple cache to avoid refetching the same markdown multiple times per page
+    const mdCache = new Map(); // location -> Promise<string>
+
+    anchors.forEach(a => {
+      const loc = parseId(a.getAttribute('href') || '');
+      if (!loc || !allowedLocations.has(loc)) return;
+
+      // Only convert when link is the only content in its block container (p/li/div)
+      const parent = a.parentElement;
+      const isStandalone = parent && ['P', 'LI', 'DIV'].includes(parent.tagName) && isWhitespaceOnlySiblings(a);
+      const titleAttr = (a.getAttribute('title') || '').trim();
+      const forceCard = /\b(card|preview)\b/i.test(titleAttr) || a.hasAttribute('data-card') || a.classList.contains('card');
+      if (!isStandalone && !forceCard) return;
+
+      // Lookup metadata from loaded index cache
+      const title = postsByLocationTitle[loc] || loc;
+      const meta = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === loc)?.[1] || {};
+      const href = withLangParam(`?id=${encodeURIComponent(loc)}`);
+      const tagsHtml = meta ? renderTags(meta.tag) : '';
+      const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
+      const coverSrc = meta && (meta.thumb || meta.cover || meta.image);
+      const cover = (coverSrc)
+        ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(title)}" data-src="${cardImageSrc(coverSrc)}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
+        : fallbackCover(title);
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'link-card-wrap';
+      wrapper.innerHTML = `<a class="link-card" href="${href}">${cover}<div class="card-title">${escapeHtml(title)}</div><div class="card-excerpt">${t('ui.loading')}</div><div class="card-meta">${dateHtml}</div>${tagsHtml}</a>`;
+
+      // Placement rules:
+      // - If standalone in LI: replace the anchor to keep list structure
+      // - If standalone in P/DIV: replace the container with the card
+      // - If forced (title contains 'card' or similar) but not standalone:
+      //   insert the card right after the parent block, remove the anchor;
+      //   if the parent becomes empty, remove it too.
+      if (parent.tagName === 'LI' && isStandalone) {
+        a.replaceWith(wrapper);
+      } else if (isStandalone && (parent.tagName === 'P' || parent.tagName === 'DIV')) {
+        const target = parent;
+        target.parentNode.insertBefore(wrapper, target);
+        target.remove();
+      } else {
+        // forced-card, inline inside a block
+        const after = parent.nextSibling;
+        parent.parentNode.insertBefore(wrapper, after);
+        // remove the anchor from inline text
+        a.remove();
+        // if paragraph becomes empty/whitespace, remove it
+        if (!parent.textContent || !parent.textContent.trim()) {
+          parent.remove();
+        }
+      }
+
+      // Lazy-hydrate cover image
+      hydrateCardCovers(wrapper);
+
+      // Fetch markdown to compute excerpt + read time
+      const ensureMd = (l) => {
+        if (!mdCache.has(l)) mdCache.set(l, getFile('wwwroot/' + l).catch(() => ''));
+        return mdCache.get(l);
+      };
+      ensureMd(loc).then(md => {
+        if (!wrapper.isConnected) return;
+        const ex = extractExcerpt(md, 50);
+        const minutes = computeReadTime(md, 200);
+        const card = wrapper.querySelector('a.link-card');
+        if (!card) return;
+        const exEl = card.querySelector('.card-excerpt');
+        if (exEl) exEl.textContent = ex;
+        const metaEl = card.querySelector('.card-meta');
+        if (metaEl) {
+          const readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
+          if (metaEl.querySelector('.card-date')) {
+            const dEl = metaEl.querySelector('.card-date');
+            metaEl.innerHTML = `${dEl.outerHTML}<span class="card-sep">•</span>${readHtml}`;
+          } else {
+            metaEl.innerHTML = readHtml;
+          }
+        }
+      }).catch(() => {});
     });
   } catch (_) {}
 }
@@ -717,6 +826,7 @@ function displayPost(postname) {
   if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
     try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+  try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   // Always use the localized title from index.json for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
@@ -1047,10 +1157,11 @@ function displayStaticTab(slug) {
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `wwwroot/${dir}`;
       const output = mdParse(md, baseDir);
-      const mv = document.getElementById('mainview');
-      if (mv) mv.innerHTML = output.post;
+  const mv = document.getElementById('mainview');
+  if (mv) mv.innerHTML = output.post;
       try { hydratePostImages('#mainview'); } catch (_) {}
       try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+  try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
       const pageTitle = (firstHeading && firstHeading.textContent && firstHeading.textContent.trim()) || tab.title;
       
