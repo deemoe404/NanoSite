@@ -1388,8 +1388,9 @@ function displayStaticTab(slug) {
       try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
-      const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
-      const pageTitle = (firstHeading && firstHeading.textContent && firstHeading.textContent.trim()) || tab.title;
+  // Always use the title defined in tabs.json for the browser/SEO title,
+  // instead of deriving it from the first heading in the markdown.
+  const pageTitle = tab.title;
       
       // Update SEO meta tags for the tab page
       try {
