@@ -334,120 +334,210 @@ function hydratePostImages(container) {
   } catch (_) {}
 }
 
-// Capture first frame from post videos to use as a poster when none is provided
+
+// Auto-generate preview posters for videos to avoid gray screen before play
 function hydratePostVideos(container) {
   try {
     const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
     if (!root) return;
-  const videos = Array.from(root.querySelectorAll('video.post-video'));
-    if (!videos.length) return;
+    const videos = Array.from(root.querySelectorAll('video'));
+  const queue = videos.filter(video => video && !video.hasAttribute('poster') && video.dataset.autoposterDone !== '1');
 
-    const timeout = (ms) => new Promise(res => setTimeout(res, ms));
+    const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
-  const capturePoster = async (video) => {
-      if (!video || video.getAttribute('poster')) return; // already has poster
-      if (video.dataset.posterGenerated) return; // avoid duplicate work
-      video.dataset.posterGenerated = '1';
+    const waitForMetadata = (video) => new Promise(resolve => {
+      if (!video) return resolve();
+      if (video.readyState >= 2) return resolve(); // HAVE_CURRENT_DATA is safest for draw
+      const onMeta = () => { /* keep waiting for data */ };
+      const onData = () => { cleanup(); resolve(); };
+      const onErr = () => { cleanup(); resolve(); };
+      const cleanup = () => {
+        video.removeEventListener('loadedmetadata', onMeta);
+        video.removeEventListener('loadeddata', onData);
+        video.removeEventListener('error', onErr);
+      };
+      video.addEventListener('loadedmetadata', onMeta, { once: true });
+      video.addEventListener('loadeddata', onData, { once: true });
+      video.addEventListener('error', onErr, { once: true });
+      // Safety timeout: if we only get metadata, proceed after 1200ms
+      setTimeout(() => { cleanup(); resolve(); }, 1200);
+    });
+
+    const processVideo = async (video) => {
       try {
-        // Ensure metadata is available
-    if (!(video.videoWidth > 0 && video.videoHeight > 0)) {
-          await Promise.race([
-            new Promise(res => video.addEventListener('loadedmetadata', () => res(), { once: true })),
-            timeout(4000)
-          ]);
-        }
+        // Skip if already set
+        if (!video || video.hasAttribute('poster') || video.dataset.autoposterDone === '1') return;
+        // Ensure minimal attributes for better UX
+  if (!video.hasAttribute('preload')) video.setAttribute('preload', 'metadata');
+  if (!video.hasAttribute('playsinline')) video.setAttribute('playsinline', '');
 
-        const w = Math.max(1, video.videoWidth || 0);
-        const h = Math.max(1, video.videoHeight || 0);
-        if (!(w > 1 && h > 1)) return;
+        await waitForMetadata(video);
 
-        // Nudge to first frame to force frame availability under metadata-only preload
-        const originalTime = video.currentTime;
-        let seeked = false;
-        try { video.pause?.(); } catch (_) {}
-        try {
-          const target = 0.000001;
-          if (Math.abs((video.currentTime || 0) - target) > 1e-6) video.currentTime = target;
-          await Promise.race([
-            new Promise(res => video.addEventListener('seeked', () => { seeked = true; res(); }, { once: true })),
-            new Promise(res => video.addEventListener('loadeddata', () => res(), { once: true })),
-            timeout(4000)
-          ]);
-        } catch (_) { /* ignore */ }
+  // Snapshot original state to safely restore after probing
+  const origTime = (() => { try { return Number(video.currentTime) || 0; } catch(_) { return 0; } })();
+  const wasPaused = !!video.paused;
 
-        // Some browsers require readyState >= HAVE_CURRENT_DATA before drawing
-        if (!(video.readyState >= 2)) {
-          await Promise.race([
-            new Promise(res => video.addEventListener('loadeddata', () => res(), { once: true })),
-            timeout(2000)
-          ]);
-        }
-
-        // If still not drawable, try a one-time preload bump to fetch a keyframe
-        if (!(video.readyState >= 2)) {
-          const prevPreload = video.getAttribute('preload') || '';
-          try { video.setAttribute('preload', 'auto'); video.load(); } catch (_) {}
-          await Promise.race([
-            new Promise(res => video.addEventListener('loadeddata', () => res(), { once: true })),
-            timeout(4000)
-          ]);
-          if (prevPreload) video.setAttribute('preload', prevPreload);
-        }
-
-        // Draw to canvas
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d', { willReadFrequently: false });
-        if (!ctx) return;
-  try { ctx.drawImage(video, 0, 0, w, h); } catch (_) { return; }
-
-        // Prefer WebP; fallback to JPEG for older browsers
-        let dataUrl = '';
-        try { dataUrl = canvas.toDataURL('image/webp', 0.85); } catch (_) {}
-        if (!dataUrl || dataUrl.length < 32) {
-          try { dataUrl = canvas.toDataURL('image/jpeg', 0.85); } catch (_) { dataUrl = ''; }
-        }
-        if (dataUrl) video.setAttribute('poster', dataUrl);
-
-        // Restore time if we changed it
-        if (seeked && typeof originalTime === 'number' && Math.abs(originalTime) > 1e-6) {
-          try { video.currentTime = originalTime; } catch (_) {}
-        }
-      } catch (_) { /* noop */ }
-      finally {
-        // Remove placeholder if present
-        try {
-          const wrap = video.closest('.post-video-wrap');
-          const ph = wrap && wrap.querySelector('.ph-skeleton');
-          if (ph) ph.remove();
-        } catch (_) {}
-      }
-    };
-
-    // Defer work until near viewport for better perf
-    let io = null;
-    if ('IntersectionObserver' in window) {
-      io = new IntersectionObserver((entries) => {
-        entries.forEach(e => {
-          if (e.isIntersecting) {
-            const v = e.target;
-            io.unobserve(v);
-            if (!v.getAttribute('poster')) capturePoster(v);
-            else {
-              // Poster already present, just remove placeholder
-              const wrap = v.closest('.post-video-wrap');
-              const ph = wrap && wrap.querySelector('.ph-skeleton');
-              if (ph) ph.remove();
+        const drawPoster = () => {
+          try {
+            const w = Math.max(1, Number(video.videoWidth) || 0);
+            const h = Math.max(1, Number(video.videoHeight) || 0);
+            if (!w || !h) return false;
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return false;
+            ctx.drawImage(video, 0, 0, w, h);
+            // Reject too-dark frames
+            try {
+              const small = document.createElement('canvas');
+              small.width = 16; small.height = 16;
+              const sctx = small.getContext('2d');
+              if (sctx) {
+                sctx.drawImage(canvas, 0, 0, 16, 16);
+                const img = sctx.getImageData(0, 0, 16, 16);
+                let sum = 0, n = img.data.length / 4;
+                for (let i = 0; i < img.data.length; i += 4) {
+                  const r = img.data[i], g = img.data[i+1], b = img.data[i+2];
+                  sum += 0.2126*r + 0.7152*g + 0.0722*b;
+                }
+                const avg = sum / n;
+                if (avg < 10) return false;
+              }
+            } catch(_) {}
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+            if (dataUrl && dataUrl.startsWith('data:image')) {
+              video.setAttribute('poster', dataUrl);
+              video.dataset.autoposterDone = '1';
+              return true;
             }
+          } catch (_) {}
+          return false;
+        };
+
+        const captureAt = (t) => new Promise((resolve) => {
+          const cleanup = () => {
+            video.removeEventListener('seeked', onSeeked);
+            video.removeEventListener('error', onError);
+          };
+          const onSeeked = () => {
+            const ok = drawPoster();
+            cleanup();
+            // Restore position to avoid leaving the media in a probed time
+            try { if (Number.isFinite(origTime)) video.currentTime = origTime; } catch(_) {}
+            resolve(ok);
+          };
+          const onError = () => {
+            cleanup();
+            try { if (Number.isFinite(origTime)) video.currentTime = origTime; } catch(_) {}
+            resolve(false);
+          };
+          video.addEventListener('seeked', onSeeked, { once: true });
+          video.addEventListener('error', onError, { once: true });
+          try {
+            // Only seek to times within seekable ranges
+            const seekable = video.seekable;
+            if (!seekable || seekable.length === 0) { cleanup(); resolve(false); return; }
+            let target = Number.isFinite(t) ? t : 0;
+            let clamped = false;
+            for (let i = 0; i < seekable.length; i++) {
+              const start = seekable.start(i);
+              const end = seekable.end(i);
+              if (target >= start && target <= end) { clamped = true; break; }
+            }
+            if (!clamped) {
+              const start = seekable.start(0);
+              // Push a small epsilon inside the range
+              target = Math.min(seekable.end(0) - 0.01, start + 0.12);
+            }
+            if (!Number.isFinite(target) || target < 0) { cleanup(); resolve(false); return; }
+            video.currentTime = target;
+          } catch (_) {
+            cleanup(); resolve(false);
           }
         });
-      }, { rootMargin: '200px' });
-      videos.forEach(v => io.observe(v));
-    } else {
-      videos.forEach(v => { if (!v.getAttribute('poster')) capturePoster(v); else { const wrap = v.closest('.post-video-wrap'); const ph = wrap && wrap.querySelector('.ph-skeleton'); if (ph) ph.remove(); } });
-    }
+
+        const captureWithRVFC = () => new Promise((resolve) => {
+          try {
+            if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) {
+              resolve(false); return;
+            }
+            const rvfc = video.requestVideoFrameCallback.bind(video);
+            const id = rvfc(() => { const ok = drawPoster(); resolve(!!ok); });
+            setTimeout(() => { try { video.cancelVideoFrameCallback && video.cancelVideoFrameCallback(id); } catch(_){} resolve(false); }, 450);
+          } catch (_) { resolve(false); }
+        });
+
+    const captureByPlayPause = async () => {
+          const wasPaused = video.paused;
+          const wasMuted = video.muted;
+          try {
+      // Only attempt if user has interacted, to avoid blocked autoplay states
+      if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return false;
+            video.muted = true;
+            await (video.play && video.play().catch(() => {}));
+            await delay(180);
+            const ok = drawPoster();
+            if (ok) return true;
+          } catch (_) {}
+          finally {
+            try { video.pause && video.pause(); } catch(_) {}
+      try { if (Number.isFinite(origTime)) video.currentTime = origTime; } catch(_) {}
+            video.muted = wasMuted;
+            if (!wasPaused) { try { await video.play(); } catch(_) {} }
+          }
+          return false;
+        };
+
+        // Attempt strategies
+        // Build offsets inside first seekable range
+        const offsets = [];
+        const seekable = video.seekable;
+        const hasRange = seekable && seekable.length > 0;
+        const rStart = hasRange ? seekable.start(0) : 0;
+        const rEnd = hasRange ? seekable.end(0) : Math.max(1, Number(video.duration) || 1);
+        const dur = Math.max(0, rEnd - rStart);
+        const base = dur > 0.25 ? Math.min(rStart + 0.25, rStart + dur / 12) : rStart + 0.14;
+        offsets.push(base);
+        if (dur) {
+          offsets.push(Math.min(rEnd - 0.5, rStart + dur * 0.05));
+          offsets.push(Math.min(rEnd - 0.1, rStart + dur * 0.1));
+        }
+
+        if (drawPoster()) return;
+        if (await captureWithRVFC()) return;
+        // Avoid aggressive seeks on iOS Safari or QuickTime MOV sources
+        const ua = navigator.userAgent || '';
+        const isIOS = /iP(hone|ad|od)/.test(ua) || (/Mac/.test(ua) && 'ontouchend' in document);
+        const srcUrl = String(video.currentSrc || (video.querySelector('source') && video.querySelector('source').src) || '').toLowerCase();
+        const isMov = srcUrl.endsWith('.mov') || srcUrl.includes('video/quicktime');
+        if (isMov) {
+          // Skip auto poster for MOV/QuickTime to avoid WebKit decode issues
+        } else if (!isIOS) {
+          for (const off of offsets) {
+            const ok = await captureAt(off);
+            if (ok) { return; }
+          }
+          const ok0 = await captureAt(0);
+          if (ok0) { return; }
+        }
+        await captureByPlayPause();
+
+        // Ensure final state is sane
+        try { if (Number.isFinite(origTime)) video.currentTime = origTime; } catch(_) {}
+        if (!wasPaused) { try { await video.play(); } catch(_) {} }
+      } catch (_) { /* ignore per-video errors */ }
+    };
+
+    (async () => {
+      for (const v of queue) {
+        await processVideo(v);
+        // brief gap between videos to reduce decoder contention
+        await delay(80);
+      }
+    })();
   } catch (_) {}
 }
+
 
 // Transform standalone internal links (?id=...) into rich article cards
 function hydrateInternalLinkCards(container) {
@@ -940,9 +1030,9 @@ function displayPost(postname) {
   const mainEl = document.getElementById('mainview');
   if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
   try { hydratePostImages('#mainview'); } catch (_) {}
-  try { hydratePostVideos('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
+  try { hydratePostVideos('#mainview'); } catch (_) {}
   // Always use the localized title from index.json for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
@@ -1276,9 +1366,9 @@ function displayStaticTab(slug) {
   const mv = document.getElementById('mainview');
   if (mv) mv.innerHTML = output.post;
   try { hydratePostImages('#mainview'); } catch (_) {}
-  try { hydratePostVideos('#mainview'); } catch (_) {}
       try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
+  try { hydratePostVideos('#mainview'); } catch (_) {}
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
       const pageTitle = (firstHeading && firstHeading.textContent && firstHeading.textContent.trim()) || tab.title;
       

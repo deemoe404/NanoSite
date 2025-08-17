@@ -71,7 +71,7 @@ function replaceInline(text, baseDir) {
             const extraHtml = extraSources
               .map(s => `<source src="${s.src}" type="${typeFor(s.type)}">`)
               .join('');
-                    return `<div class="post-video-wrap"><div class="ph-skeleton" aria-hidden="true"></div><video class="post-video" controls playsinline preload="metadata"${posterAttr}${t}${aria}><source src="${url}" type="${type}">${extraHtml}Sorry, your browser doesn't support embedded videos.</video></div>`;
+                    return `<div class="post-video-wrap"><video class="post-video" controls playsinline preload="metadata"${posterAttr}${t}${aria}><source src="${url}" type="${type}">${extraHtml}Sorry, your browser doesn't support embedded videos.</video></div>`;
           }
           const t = title ? ` title="${title}"` : '';
           return `<img src="${url}" alt="${alt}"${t}>`;
