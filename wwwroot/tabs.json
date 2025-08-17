@@ -8,6 +8,7 @@
   },
 
   "About": {
-    "en": { "title": "About", "location": "tab/about.md" }
+    "en": { "title": "About", "location": "tab/about/en.md" },
+    "zh": { "title": "关于", "location": "tab/about/zh.md" }
   }
 }
