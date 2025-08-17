@@ -1,4 +1,8 @@
 {
+  "gallery": {
+    "en": { "title": "Gallery", "location": "tab/gallery.md" }
+  },
+
   "About": {
     "en": { "title": "About", "location": "tab/about.md" }
   }
