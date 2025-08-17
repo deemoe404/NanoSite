@@ -334,6 +334,121 @@ function hydratePostImages(container) {
   } catch (_) {}
 }
 
+// Capture first frame from post videos to use as a poster when none is provided
+function hydratePostVideos(container) {
+  try {
+    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
+    if (!root) return;
+  const videos = Array.from(root.querySelectorAll('video.post-video'));
+    if (!videos.length) return;
+
+    const timeout = (ms) => new Promise(res => setTimeout(res, ms));
+
+  const capturePoster = async (video) => {
+      if (!video || video.getAttribute('poster')) return; // already has poster
+      if (video.dataset.posterGenerated) return; // avoid duplicate work
+      video.dataset.posterGenerated = '1';
+      try {
+        // Ensure metadata is available
+    if (!(video.videoWidth > 0 && video.videoHeight > 0)) {
+          await Promise.race([
+            new Promise(res => video.addEventListener('loadedmetadata', () => res(), { once: true })),
+            timeout(4000)
+          ]);
+        }
+
+        const w = Math.max(1, video.videoWidth || 0);
+        const h = Math.max(1, video.videoHeight || 0);
+        if (!(w > 1 && h > 1)) return;
+
+        // Nudge to first frame to force frame availability under metadata-only preload
+        const originalTime = video.currentTime;
+        let seeked = false;
+        try { video.pause?.(); } catch (_) {}
+        try {
+          const target = 0.000001;
+          if (Math.abs((video.currentTime || 0) - target) > 1e-6) video.currentTime = target;
+          await Promise.race([
+            new Promise(res => video.addEventListener('seeked', () => { seeked = true; res(); }, { once: true })),
+            new Promise(res => video.addEventListener('loadeddata', () => res(), { once: true })),
+            timeout(4000)
+          ]);
+        } catch (_) { /* ignore */ }
+
+        // Some browsers require readyState >= HAVE_CURRENT_DATA before drawing
+        if (!(video.readyState >= 2)) {
+          await Promise.race([
+            new Promise(res => video.addEventListener('loadeddata', () => res(), { once: true })),
+            timeout(2000)
+          ]);
+        }
+
+        // If still not drawable, try a one-time preload bump to fetch a keyframe
+        if (!(video.readyState >= 2)) {
+          const prevPreload = video.getAttribute('preload') || '';
+          try { video.setAttribute('preload', 'auto'); video.load(); } catch (_) {}
+          await Promise.race([
+            new Promise(res => video.addEventListener('loadeddata', () => res(), { once: true })),
+            timeout(4000)
+          ]);
+          if (prevPreload) video.setAttribute('preload', prevPreload);
+        }
+
+        // Draw to canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d', { willReadFrequently: false });
+        if (!ctx) return;
+  try { ctx.drawImage(video, 0, 0, w, h); } catch (_) { return; }
+
+        // Prefer WebP; fallback to JPEG for older browsers
+        let dataUrl = '';
+        try { dataUrl = canvas.toDataURL('image/webp', 0.85); } catch (_) {}
+        if (!dataUrl || dataUrl.length < 32) {
+          try { dataUrl = canvas.toDataURL('image/jpeg', 0.85); } catch (_) { dataUrl = ''; }
+        }
+        if (dataUrl) video.setAttribute('poster', dataUrl);
+
+        // Restore time if we changed it
+        if (seeked && typeof originalTime === 'number' && Math.abs(originalTime) > 1e-6) {
+          try { video.currentTime = originalTime; } catch (_) {}
+        }
+      } catch (_) { /* noop */ }
+      finally {
+        // Remove placeholder if present
+        try {
+          const wrap = video.closest('.post-video-wrap');
+          const ph = wrap && wrap.querySelector('.ph-skeleton');
+          if (ph) ph.remove();
+        } catch (_) {}
+      }
+    };
+
+    // Defer work until near viewport for better perf
+    let io = null;
+    if ('IntersectionObserver' in window) {
+      io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            const v = e.target;
+            io.unobserve(v);
+            if (!v.getAttribute('poster')) capturePoster(v);
+            else {
+              // Poster already present, just remove placeholder
+              const wrap = v.closest('.post-video-wrap');
+              const ph = wrap && wrap.querySelector('.ph-skeleton');
+              if (ph) ph.remove();
+            }
+          }
+        });
+      }, { rootMargin: '200px' });
+      videos.forEach(v => io.observe(v));
+    } else {
+      videos.forEach(v => { if (!v.getAttribute('poster')) capturePoster(v); else { const wrap = v.closest('.post-video-wrap'); const ph = wrap && wrap.querySelector('.ph-skeleton'); if (ph) ph.remove(); } });
+    }
+  } catch (_) {}
+}
+
 // Transform standalone internal links (?id=...) into rich article cards
 function hydrateInternalLinkCards(container) {
   try {
@@ -824,7 +939,8 @@ function displayPost(postname) {
   // Render outdated card + meta card + main content so we can read first heading reliably
   const mainEl = document.getElementById('mainview');
   if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
-    try { hydratePostImages('#mainview'); } catch (_) {}
+  try { hydratePostImages('#mainview'); } catch (_) {}
+  try { hydratePostVideos('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   // Always use the localized title from index.json for display/meta/tab labels
@@ -1159,7 +1275,8 @@ function displayStaticTab(slug) {
       const output = mdParse(md, baseDir);
   const mv = document.getElementById('mainview');
   if (mv) mv.innerHTML = output.post;
-      try { hydratePostImages('#mainview'); } catch (_) {}
+  try { hydratePostImages('#mainview'); } catch (_) {}
+  try { hydratePostVideos('#mainview'); } catch (_) {}
       try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
       const firstHeading = document.querySelector('#mainview h1, #mainview h2, #mainview h3');

@@ -21,10 +21,60 @@ function replaceInline(text, baseDir) {
       result += parts[i]
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Images: optional title
+        // Images or Videos via image syntax: optional title
         .replace(/!\[(.*?)\]\(([^\s\)]*?)(?:\s*&quot;(.*?)&quot;)?\)/g, (m, alt, src, title) => {
+          const url = resolveImageSrc(src, baseDir);
+          const isVideo = /\.(mp4|mov|webm|ogg)(\?.*)?$/i.test(src || '');
+          if (isVideo) {
+            const ext = String(src || '').split('?')[0].split('.').pop().toLowerCase();
+            const type = ({ mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', ogg: 'video/ogg' }[ext]) || 'video/mp4';
+            const t = title ? ` title="${title}"` : '';
+            const aria = alt ? ` aria-label="${alt}"` : '';
+            // Poster: allow specifying via title e.g. \"...|poster=frame.jpg\"
+            // (Don't guess a basename image; missing files would block auto-capture poster logic.)
+            let poster = null;
+            if (title && String(title).trim()) {
+              const parts = String(title).split(/\s*[|;]\s*/);
+              for (const p of parts) {
+                const m2 = p.match(/^poster\s*=\s*(.+)$/i);
+                if (m2) { poster = m2[1]; break; }
+              }
+            }
+            const posterAttr = poster ? ` poster="${resolveImageSrc(poster, baseDir)}"` : '';
+
+            // Alternate sources for better compatibility
+            let extraSources = [];
+            if (title && String(title).trim()) {
+              const parts = String(title).split(/\s*[|;]\s*/);
+              for (const p of parts) {
+                let m;
+                // sources=foo.mp4,bar.webm (explicit paths)
+                m = p.match(/^sources\s*=\s*(.+)$/i);
+                if (m) {
+                  const list = m[1].split(/\s*,\s*/).filter(Boolean);
+                  extraSources.push(...list.map(s => ({ src: resolveImageSrc(s, baseDir), type: s.split('?')[0].split('.').pop().toLowerCase() })));
+                  continue;
+                }
+                // formats=mp4,webm (same basename as primary)
+                m = p.match(/^formats\s*=\s*(.+)$/i);
+                if (m) {
+                  try {
+                    const baseNoQuery = String(src || '').split('?')[0];
+                    const baseNoExt = baseNoQuery.replace(/\.[^.]+$/, '');
+                    const fmts = m[1].split(/\s*,\s*/).filter(Boolean);
+                    fmts.forEach(f => { extraSources.push({ src: resolveImageSrc(`${baseNoExt}.${f}`, baseDir), type: String(f).toLowerCase() }); });
+                  } catch (_) { /* noop */ }
+                }
+              }
+            }
+            const typeFor = (e) => ({ mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', ogg: 'video/ogg' }[e] || 'video/mp4');
+            const extraHtml = extraSources
+              .map(s => `<source src="${s.src}" type="${typeFor(s.type)}">`)
+              .join('');
+                    return `<div class="post-video-wrap"><div class="ph-skeleton" aria-hidden="true"></div><video class="post-video" controls playsinline preload="metadata"${posterAttr}${t}${aria}><source src="${url}" type="${type}">${extraHtml}Sorry, your browser doesn't support embedded videos.</video></div>`;
+          }
           const t = title ? ` title="${title}"` : '';
-          return `<img src="${resolveImageSrc(src, baseDir)}" alt="${alt}"${t}>`;
+          return `<img src="${url}" alt="${alt}"${t}>`;
         })
         // Links (non-image): optional title, no lookbehind
         .replace(/(^|[^!])\[(.*?)\]\(([^\s\)]*?)(?:\s*&quot;(.*?)&quot;)?\)/g, (m, prefix, text2, href, title) => {
