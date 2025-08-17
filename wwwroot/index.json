@@ -2,7 +2,11 @@
   "Meet NanoSite": {
     "en": {
       "title": "Meet NanoSite",
-      "location": "post/meet-nanosite/main.md"
+      "location": "post/meet-nanosite/main_en.md"
+    },
+    "zh": {
+      "title": "初识 NanoSite",
+      "location": "post/meet-nanosite/main_zh.md"
     },
     "tag": ["NanoSite", "Technology"],
     "date": "2025-08-17",
