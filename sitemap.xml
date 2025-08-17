@@ -2,145 +2,55 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://nano.dee.moe/</loc>
-    <lastmod>2025-08-15</lastmod>
+    <lastmod>2025-08-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Fseo-best-practices.md</loc>
-    <lastmod>2025-01-15</lastmod>
+    <loc>https://nano.dee.moe/?id=post%2Fwhat-i-wish-i-knew-before-going-headless.md</loc>
+    <lastmod>2025-07-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Fdocs%2Fsite-config-guide.md</loc>
-    <lastmod>2025-08-15</lastmod>
+    <loc>https://nano.dee.moe/?id=post%2Fvolcal_baseline%2Fmain.md</loc>
+    <lastmod>2025-06-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Fintro%2Fabout-this-project.md</loc>
-    <lastmod>2025-08-13</lastmod>
+    <loc>https://nano.dee.moe/?id=post%2Fwhat-xr-should-be-in-2023%2Fmain.md</loc>
+    <lastmod>2023-06-13</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Fintro%2Fmarkdown-showcase.md</loc>
-    <lastmod>2025-08-13</lastmod>
+    <loc>https://nano.dee.moe/?id=post%2Fintroducing-rmcv%2Fmain.md</loc>
+    <lastmod>2022-06-12</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-kyoto%2Fmain.md</loc>
-    <lastmod>2024-02-03</lastmod>
+    <loc>https://nano.dee.moe/?id=post%2Ffrogy%2Fmain.md</loc>
+    <lastmod>2021-06-13</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-tokyo%2Fmain.md</loc>
-    <lastmod>2024-02-06</lastmod>
+    <loc>https://nano.dee.moe/?tab=gallery</loc>
+    <lastmod>2025-08-17</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-03.md</loc>
-    <lastmod>2024-02-10</lastmod>
+    <loc>https://nano.dee.moe/?tab=publications</loc>
+    <lastmod>2025-08-17</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-04.md</loc>
-    <lastmod>2024-02-14</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-05.md</loc>
-    <lastmod>2024-02-18</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-06.md</loc>
-    <lastmod>2024-02-23</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-07.md</loc>
-    <lastmod>2024-02-27</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-08.md</loc>
-    <lastmod>2024-03-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-09.md</loc>
-    <lastmod>2024-03-07</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-10.md</loc>
-    <lastmod>2024-03-12</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-11.md</loc>
-    <lastmod>2024-03-17</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-12.md</loc>
-    <lastmod>2024-03-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-13.md</loc>
-    <lastmod>2024-03-27</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-14.md</loc>
-    <lastmod>2024-04-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-15.md</loc>
-    <lastmod>2024-04-07</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-16.md</loc>
-    <lastmod>2024-04-12</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-17.md</loc>
-    <lastmod>2024-04-17</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://nano.dee.moe/?id=post%2Ftrip-log-18.md</loc>
-    <lastmod>2024-04-22</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://nano.dee.moe/?tab=about</loc>
-    <lastmod>2025-08-15</lastmod>
+    <lastmod>2025-08-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
