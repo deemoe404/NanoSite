@@ -1,4 +1,17 @@
-.DS_Store
+# workspace
+.vscode/
 NanoSite.code-workspace
 AGENTS.md
-.vscode/
+
+# deploy
+CNAME
+robots.txt
+sitemap.xml
+.nojekyll
+
+# macOS
+.DS_Store
+
+# distribution
+LICENSE
+README.md
