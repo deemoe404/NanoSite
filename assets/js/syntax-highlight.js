@@ -62,21 +62,38 @@ function simpleHighlight(code, language) {
   if (!rules) return escapeHtml(code);
   
   let result = code; // 先不进行HTML转义
-  
+
+  // 仅在未被标记的片段中执行替换，避免嵌套高亮导致标记泄漏
+  const MARK_START = '__HIGHLIGHTED__';
+  const MARK_END = '__END__';
+  function protectedReplace(input, regex, wrapFn) {
+    let out = '';
+    let i = 0;
+    while (i < input.length) {
+      const start = input.indexOf(MARK_START, i);
+      if (start === -1) {
+        out += input.slice(i).replace(regex, wrapFn);
+        break;
+      }
+      // 处理标记前的片段
+      out += input.slice(i, start).replace(regex, wrapFn);
+      // 原样拷贝已标记片段
+      const end = input.indexOf(MARK_END, start);
+      if (end === -1) { // 不完整标记，直接附加剩余
+        out += input.slice(start);
+        break;
+      }
+      out += input.slice(start, end + MARK_END.length);
+      i = end + MARK_END.length;
+    }
+    return out;
+  }
+
   // 应用每个规则
   rules.forEach(rule => {
-    if (rule.pattern) {
-      // 创建新的正则表达式实例避免状态问题
-      const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
-      result = result.replace(regex, (match) => {
-        // 避免重复高亮
-        if (match.includes('__HIGHLIGHTED__')) {
-          return match;
-        }
-        // 使用临时标记避免HTML转义问题
-        return `__HIGHLIGHTED__${rule.type}__${match}__END__`;
-      });
-    }
+    if (!rule.pattern) return;
+    const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
+    result = protectedReplace(result, regex, (match) => `__HIGHLIGHTED__${rule.type}__${match}__END__`);
   });
   
   // HTML转义整个结果
@@ -168,13 +185,91 @@ export function initSyntaxHighlighting() {
       const originalCode = codeElement.textContent;
       const highlightedCode = simpleHighlight(originalCode, language);
       codeElement.innerHTML = highlightedCode;
+
+      // 确保代码滚动容器与浮动标签分离，避免水平滚动时标签跟随移动
+      // 结构：<pre class="with-code-scroll"><div class="code-scroll"><code>...</code></div><div class="syntax-language-label"/></pre>
+      if (!preElement.classList.contains('with-code-scroll')) {
+        const currentParent = codeElement.parentElement;
+        if (!currentParent || !currentParent.classList.contains('code-scroll')) {
+          const scrollWrap = document.createElement('div');
+          scrollWrap.className = 'code-scroll';
+          // 将 code 放入滚动容器
+          preElement.insertBefore(scrollWrap, codeElement);
+          scrollWrap.appendChild(codeElement);
+        }
+        preElement.classList.add('with-code-scroll');
+      }
       
-      // 添加语言标签
-      if (!preElement.querySelector('.syntax-language-label')) {
-        const languageLabel = document.createElement('div');
+      // 添加/增强语言标签（支持悬浮复制与点击复制）
+      let languageLabel = preElement.querySelector('.syntax-language-label');
+      if (!languageLabel) {
+        languageLabel = document.createElement('div');
         languageLabel.className = 'syntax-language-label';
-        languageLabel.textContent = language.toUpperCase();
         preElement.appendChild(languageLabel);
+      }
+
+      // 统一设置基础属性与交互绑定（避免重复绑定）
+      const getT = (key, fallback) => {
+        try { return (window.__ns_t && typeof window.__ns_t === 'function') ? window.__ns_t(key) : fallback; } catch (_) { return fallback; }
+      };
+      // 在 main.js 中 t() 已导出，这里尽量从全局桥接，若不可用则使用英文回退
+      const TXT_COPY = getT('code.copy', 'Copy');
+      const TXT_COPIED = getT('code.copied', 'Copied');
+      const TXT_FAILED = getT('code.failed', 'Failed');
+      const TXT_ARIA = getT('code.copyAria', 'Copy code');
+
+      const langText = (language || '').toUpperCase();
+      languageLabel.dataset.lang = langText;
+      languageLabel.setAttribute('role', 'button');
+      languageLabel.setAttribute('tabindex', '0');
+  languageLabel.setAttribute('aria-label', TXT_ARIA);
+      languageLabel.textContent = langText;
+      
+      if (!languageLabel.dataset.bound) {
+  const copyCode = async () => {
+          const rawText = codeElement.textContent || '';
+          let ok = false;
+          if (navigator.clipboard && window.isSecureContext) {
+            try { await navigator.clipboard.writeText(rawText); ok = true; } catch (_) { ok = false; }
+          }
+          if (!ok) {
+            try {
+              const ta = document.createElement('textarea');
+              ta.value = rawText;
+              ta.style.position = 'fixed';
+              ta.style.opacity = '0';
+              document.body.appendChild(ta);
+              ta.focus();
+              ta.select();
+              ok = document.execCommand('copy');
+              document.body.removeChild(ta);
+            } catch (_) { ok = false; }
+          }
+
+          // 反馈
+          const old = languageLabel.dataset.lang || 'CODE';
+          languageLabel.classList.add('is-copied');
+          languageLabel.textContent = ok ? TXT_COPIED.toUpperCase() : TXT_FAILED.toUpperCase();
+          setTimeout(() => {
+            languageLabel.classList.remove('is-copied');
+            languageLabel.textContent = old;
+          }, 1200);
+        };
+
+        languageLabel.addEventListener('mouseenter', () => {
+          languageLabel.classList.add('is-hover');
+          languageLabel.textContent = TXT_COPY.toUpperCase();
+        });
+        languageLabel.addEventListener('mouseleave', () => {
+          languageLabel.classList.remove('is-hover');
+          languageLabel.textContent = languageLabel.dataset.lang || 'CODE';
+        });
+        languageLabel.addEventListener('click', copyCode);
+        languageLabel.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyCode(); }
+        });
+
+        languageLabel.dataset.bound = '1';
       }
     }
   });
