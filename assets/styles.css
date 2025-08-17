@@ -136,6 +136,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation M
 }
 
 pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1.1rem; overflow: auto; border: 0.0625rem solid var(--border); border-radius: 0.5rem; box-shadow: var(--shadow); line-height: 1.55; font-size: .95rem; tab-size: 2; position: relative; }
+/* 当我们注入滚动容器时，避免 pre 本身水平滚动以固定标签 */
+pre.with-code-scroll { overflow: hidden; }
+.code-scroll { overflow: auto; overflow-y: hidden; /* 仅允许水平滚动（纵向交给页面）*/ }
+.code-scroll code { display: block; min-width: 100%; }
 
 /* 语法高亮样式 - 针对亮色主题优化 */
 .syntax-keyword { color: #d73a49; font-weight: 600; }
@@ -199,6 +203,10 @@ pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1
   opacity: 0.8;
   backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+  transition: transform .12s ease, opacity .12s ease, background-color .12s ease, color .12s ease;
 }
 
 [data-theme="dark"] .syntax-language-label {
@@ -206,6 +214,13 @@ pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1
   color: var(--code-text);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* Hover/Copied states */
+.syntax-language-label.is-hover { opacity: 1; /* 去掉上浮动画 */ transform: none; }
+.syntax-language-label.is-copied { opacity: 1; background: #16a34a; color: #fff; border-color: rgba(0,0,0,0.1); }
+[data-theme="dark"] .syntax-language-label.is-copied { background: #22c55e; color: #001b0a; }
+
+.syntax-language-label:focus-visible { outline: none; box-shadow: 0 0 0 0.12rem color-mix(in srgb, var(--primary) 50%, transparent); }
 
 /* Image style */
 img { max-width: 100%; height: auto; display: block; }

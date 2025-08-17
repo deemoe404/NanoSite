@@ -1603,6 +1603,8 @@ window.addEventListener('resize', () => {
 // Initialize i18n first so localized UI renders correctly
 const defaultLang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
 initI18n({ defaultLang });
+// Expose translate helper for modules that don't import i18n directly
+try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
 // Ensure theme controls are present, then apply and bind
 mountThemeControls();

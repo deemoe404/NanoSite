@@ -40,6 +40,12 @@ const translations = {
       noResultsTitle: 'No results',
       noResultsBody: (q) => `No posts found for "${q}".`
     },
+    code: {
+      copy: 'Copy',
+      copied: 'Copied',
+      failed: 'Failed',
+      copyAria: 'Copy code'
+    },
     errors: {
       postNotFoundTitle: 'Post not found',
       postNotFoundBody: 'The requested post could not be loaded.',
@@ -88,6 +94,12 @@ const translations = {
       backToAllPosts: '返回全部文章',
       noResultsTitle: '没有结果',
       noResultsBody: (q) => `未找到与 “${q}” 匹配的文章。`
+    },
+    code: {
+      copy: '复制',
+      copied: '已复制',
+      failed: '复制失败',
+      copyAria: '复制代码'
     },
     errors: {
       postNotFoundTitle: '文章未找到',
@@ -138,6 +150,12 @@ const translations = {
       backToAllPosts: 'すべての記事へ戻る',
       noResultsTitle: '結果なし',
       noResultsBody: (q) => `「${q}」に一致する記事は見つかりませんでした。`
+    },
+    code: {
+      copy: 'コピー',
+      copied: 'コピーしました',
+      failed: 'コピー失敗',
+      copyAria: 'コードをコピー'
     },
     errors: {
       postNotFoundTitle: '記事が見つかりません',
