@@ -245,16 +245,19 @@ export function mdParse(markdown, baseDir) {
       const indent = countIndent((ulm ? ulm[1] : olm[1]) || '');
       const type = ulm ? 'ul' : 'ol';
       const content = ulm ? ulm[2] : olm[3];
+      const itemStartNum = ulm ? null : Number(olm[2]);
       closePara();
       // Adjust nesting based on indent
       if (!listStack.length) {
-        html += (type === 'ul') ? '<ul>' : '<ol>';
+        if (type === 'ul') html += '<ul>';
+        else html += (itemStartNum && itemStartNum !== 1) ? `<ol start="${itemStartNum}">` : '<ol>';
         listStack.push({ indent, type });
       } else {
         let last = listStack[listStack.length - 1];
         if (indent > last.indent) {
           // New nested list
-          html += (type === 'ul') ? '<ul>' : '<ol>';
+          if (type === 'ul') html += '<ul>';
+          else html += (itemStartNum && itemStartNum !== 1) ? `<ol start="${itemStartNum}">` : '<ol>';
           listStack.push({ indent, type });
         } else {
           // Pop until indent fits
@@ -269,7 +272,8 @@ export function mdParse(markdown, baseDir) {
               const popped = listStack.pop();
               html += (popped.type === 'ul') ? '</ul>' : '</ol>';
             }
-            html += (type === 'ul') ? '<ul>' : '<ol>';
+            if (type === 'ul') html += '<ul>';
+            else html += (itemStartNum && itemStartNum !== 1) ? `<ol start="${itemStartNum}">` : '<ol>';
             listStack.push({ indent, type });
           }
         }
