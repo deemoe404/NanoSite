@@ -7,6 +7,7 @@ import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallback
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext } from './js/errors.js';
+import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -1072,6 +1073,7 @@ function displayPost(postname) {
     try { setDocTitle(articleTitle); } catch (_) {}
     try { setupAnchors(); } catch (_) {}
     try { setupTOC(); } catch (_) {}
+    try { initSyntaxHighlighting(); } catch (_) {}
     // If URL contains a hash, ensure we jump after content is in DOM
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
@@ -1391,6 +1393,7 @@ function displayStaticTab(slug) {
       try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
+  try { initSyntaxHighlighting(); } catch (_) {}
   // Always use the title defined in tabs.json for the browser/SEO title,
   // instead of deriving it from the first heading in the markdown.
   const pageTitle = tab.title;

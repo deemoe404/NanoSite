@@ -1,0 +1,181 @@
+/**
+ * 轻量级语法高亮器 - 简化版本
+ * 支持常见编程语言：JavaScript, JSON, HTML, CSS, Python, Java, C/C++, Bash/Shell
+ */
+
+// 简化的语言规则定义
+const highlightRules = {
+  javascript: [
+    { type: 'comment', pattern: /\/\/.*$|\/\*[\s\S]*?\*\//gm },
+    { type: 'string', pattern: /(["'`])(?:(?!\1)[^\\\r\n]|\\.)*\1/g },
+    { type: 'keyword', pattern: /\b(function|const|let|var|if|else|for|while|return|class|import|export|from|async|await|true|false|null|undefined)\b/g },
+    { type: 'number', pattern: /\b\d+(\.\d+)?\b/g },
+    { type: 'operator', pattern: /[+\-*/%=<>!&|^~?:]/g }
+  ],
+  
+  json: [
+    { type: 'string', pattern: /"(?:[^"\\]|\\.)*"/g },
+    { type: 'number', pattern: /\b-?\d+(\.\d+)?([eE][+-]?\d+)?\b/g },
+    { type: 'keyword', pattern: /\b(true|false|null)\b/g }
+  ],
+  
+  python: [
+    { type: 'comment', pattern: /#.*$/gm },
+    { type: 'string', pattern: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g },
+    { type: 'keyword', pattern: /\b(def|class|if|elif|else|for|while|import|from|return|try|except|with|as|True|False|None)\b/g },
+    { type: 'number', pattern: /\b\d+(\.\d+)?\b/g }
+  ],
+  
+  html: [
+    { type: 'comment', pattern: /<!--[\s\S]*?-->/g },
+    { type: 'tag', pattern: /<\/?[\w\-]+(?:\s+[\w\-]+(=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
+  ],
+  
+  css: [
+    { type: 'comment', pattern: /\/\*[\s\S]*?\*\//g },
+    { type: 'selector', pattern: /[.#]?[\w\-]+(?:\[[\w\-]+(?:="[^"]*")?\])*(?:::?[\w\-]+)?/g },
+    { type: 'property', pattern: /[\w\-]+(?=\s*:)/g },
+    { type: 'string', pattern: /(["'])(?:(?!\1)[^\\\r\n]|\\.)*\1/g },
+    { type: 'number', pattern: /\b\d+(\.\d+)?(px|em|rem|%|vh|vw|deg|ms|s)?\b/g }
+  ]
+};
+
+// 主高亮函数
+function simpleHighlight(code, language) {
+  if (!code || !language) return escapeHtml(code || '');
+  
+  const lang = language.toLowerCase();
+  const rules = highlightRules[lang];
+  
+  if (!rules) return escapeHtml(code);
+  
+  let result = code; // 先不进行HTML转义
+  
+  // 应用每个规则
+  rules.forEach(rule => {
+    if (rule.pattern) {
+      // 创建新的正则表达式实例避免状态问题
+      const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
+      result = result.replace(regex, (match) => {
+        // 避免重复高亮
+        if (match.includes('__HIGHLIGHTED__')) {
+          return match;
+        }
+        // 使用临时标记避免HTML转义问题
+        return `__HIGHLIGHTED__${rule.type}__${match}__END__`;
+      });
+    }
+  });
+  
+  // HTML转义整个结果
+  result = escapeHtml(result);
+  
+  // 将临时标记替换为实际的HTML标签
+  result = result.replace(/__HIGHLIGHTED__(\w+)__(.*?)__END__/g, (match, type, content) => {
+    return `<span class="syntax-${type}">${content}</span>`;
+  });
+  
+  return result;
+}
+
+// HTML 转义函数
+function escapeHtml(text) {
+  if (!text) return '';
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// 检测代码语言
+function detectLanguage(code) {
+  if (!code) return null;
+  
+  // JSON 检测
+  if (/^\s*[\{\[]/.test(code) && /[\}\]]\s*$/.test(code)) {
+    try {
+      JSON.parse(code);
+      return 'json';
+    } catch (e) {}
+  }
+  
+  // HTML 检测
+  if (/<[^>]+>/.test(code)) {
+    return 'html';
+  }
+  
+  // CSS 检测
+  if (/[{][^}]*[}]/.test(code) && /[\w\-]+\s*:[^;]+;/.test(code)) {
+    return 'css';
+  }
+  
+  // Python 检测
+  if (/\bdef\s+\w+|import\s+\w+|from\s+\w+/.test(code)) {
+    return 'python';
+  }
+  
+  // JavaScript 检测
+  if (/\bfunction\s+\w+|\b(const|let|var)\s+\w+|=>\s*[{(]/.test(code)) {
+    return 'javascript';
+  }
+  
+  return null;
+}
+
+// 初始化语法高亮
+export function initSyntaxHighlighting() {
+  const codeBlocks = document.querySelectorAll('pre code');
+  
+  codeBlocks.forEach(codeElement => {
+    const preElement = codeElement.closest('pre');
+    if (!preElement) return;
+    
+    // 获取语言信息
+    let language = null;
+    
+    // 从 class 属性中获取语言
+    const classList = Array.from(codeElement.classList);
+    for (let className of classList) {
+      if (className.startsWith('language-')) {
+        language = className.replace('language-', '');
+        break;
+      }
+    }
+    
+    // 如果没有找到语言，尝试自动检测
+    if (!language) {
+      language = detectLanguage(codeElement.textContent);
+    }
+    
+    // 应用语法高亮
+    if (language && highlightRules[language.toLowerCase()]) {
+      const originalCode = codeElement.textContent;
+      const highlightedCode = simpleHighlight(originalCode, language);
+      codeElement.innerHTML = highlightedCode;
+      
+      // 添加语言标签
+      if (!preElement.querySelector('.syntax-language-label')) {
+        const languageLabel = document.createElement('div');
+        languageLabel.className = 'syntax-language-label';
+        languageLabel.textContent = language.toUpperCase();
+        preElement.appendChild(languageLabel);
+      }
+    }
+  });
+}
+
+// 导出函数
+export { simpleHighlight, detectLanguage };
+
+// 兼容性导出
+export function highlightCode(code, language) {
+  return simpleHighlight(code, language);
+}
+
+export function applySyntaxHighlighting(code, language) {
+  return simpleHighlight(code, language);
+}

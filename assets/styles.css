@@ -135,7 +135,77 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation M
   border-radius: 0.3125rem;
 }
 
-pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1.1rem; overflow: auto; border: 0.0625rem solid var(--border); border-radius: 0.5rem; box-shadow: var(--shadow); line-height: 1.55; font-size: .95rem; tab-size: 2; }
+pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1.1rem; overflow: auto; border: 0.0625rem solid var(--border); border-radius: 0.5rem; box-shadow: var(--shadow); line-height: 1.55; font-size: .95rem; tab-size: 2; position: relative; }
+
+/* 语法高亮样式 - 针对亮色主题优化 */
+.syntax-keyword { color: #d73a49; font-weight: 600; }
+.syntax-string { color: #22863a; }
+.syntax-number { color: #005cc5; }
+.syntax-comment { color: #6a737d; font-style: italic; opacity: 0.9; }
+.syntax-operator { color: #d73a49; }
+.syntax-punctuation { color: #586069; }
+.syntax-tag { color: #22863a; font-weight: 600; }
+.syntax-property { color: #005cc5; }
+.syntax-selector { color: #6f42c1; font-weight: 600; }
+
+/* 保留复数形式的兼容性 */
+.syntax-keywords { color: #d73a49; font-weight: 600; }
+.syntax-strings { color: #22863a; }
+.syntax-numbers { color: #005cc5; }
+.syntax-comments { color: #6a737d; font-style: italic; opacity: 0.9; }
+.syntax-operators { color: #d73a49; }
+.syntax-tags { color: #22863a; font-weight: 600; }
+.syntax-attributes { color: #6f42c1; }
+.syntax-selectors { color: #6f42c1; font-weight: 600; }
+.syntax-properties { color: #005cc5; }
+.syntax-preprocessor { color: #e36209; font-weight: 600; }
+.syntax-variables { color: #e36209; }
+
+/* 深色主题下的语法高亮调整 */
+[data-theme="dark"] .syntax-keyword { color: #ff7b72; }
+[data-theme="dark"] .syntax-string { color: #a5d6ff; }
+[data-theme="dark"] .syntax-number { color: #79c0ff; }
+[data-theme="dark"] .syntax-comment { color: #8b949e; }
+[data-theme="dark"] .syntax-operator { color: #ff7b72; }
+[data-theme="dark"] .syntax-tag { color: #7ee787; }
+[data-theme="dark"] .syntax-property { color: #79c0ff; }
+[data-theme="dark"] .syntax-selector { color: #d2a8ff; }
+
+/* 深色主题下的复数形式兼容性 */
+[data-theme="dark"] .syntax-keywords { color: #ff7b72; }
+[data-theme="dark"] .syntax-strings { color: #a5d6ff; }
+[data-theme="dark"] .syntax-numbers { color: #79c0ff; }
+[data-theme="dark"] .syntax-comments { color: #8b949e; }
+[data-theme="dark"] .syntax-operators { color: #ff7b72; }
+[data-theme="dark"] .syntax-punctuation { color: #c9d1d9; }
+[data-theme="dark"] .syntax-tags { color: #7ee787; }
+[data-theme="dark"] .syntax-attributes { color: #d2a8ff; }
+[data-theme="dark"] .syntax-selectors { color: #d2a8ff; }
+[data-theme="dark"] .syntax-properties { color: #79c0ff; }
+[data-theme="dark"] .syntax-preprocessor { color: #ffa657; }
+[data-theme="dark"] .syntax-variables { color: #ffa657; }
+
+/* 语言标签样式 */
+.syntax-language-label {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.8;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .syntax-language-label {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--code-text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
 /* Image style */
 img { max-width: 100%; height: auto; display: block; }
