@@ -3,6 +3,10 @@
     "en": { "title": "Gallery", "location": "tab/gallery.md" }
   },
 
+  "publications": {
+    "en": { "title": "Publications", "location": "tab/publications.md" }
+  },
+
   "About": {
     "en": { "title": "About", "location": "tab/about.md" }
   }

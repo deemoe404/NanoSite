@@ -10,7 +10,7 @@ This project is a library for RoboMaster computer vision based on OpenCV. The fu
 - SVM for object classification and tracking
 - Kalman Filter for movement prediction
 
-Source Code: [rmcv on Github](https://github.com/deemoe404/rmcv)
+Source Code: [rmcv on GitHub](https://github.com/deemoe404/rmcv)
 
 ## Live Demo
 

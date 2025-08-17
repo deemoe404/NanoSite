@@ -20,5 +20,13 @@
     "date": "2022-06-12",
     "image": "post/introducing-rmcv/award.jpeg",
     "excerpt": "This project is a library for RoboMaster computer vision based on OpenCV."
+  },
+
+  "frogy": {
+    "en": { "title": "TimeFrogy - ScreenTime Tracker", "location": "post/frogy/main.md" },
+    "tag": ["WPF"],
+    "image": "post/frogy/screenshot.png",
+    "date": "2021-06-13",
+    "excerpt": "TimeFrogy is a Windows application that draws inspiration from iOS' \"Screen Time\" and Android's \"Digital Wellbeing.\" It serves as a tool for monitoring and managing your screen time."
   }
 }
