@@ -579,9 +579,10 @@ function hydrateInternalLinkCards(container) {
       const tagsHtml = meta ? renderTags(meta.tag) : '';
       const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
       const coverSrc = meta && (meta.thumb || meta.cover || meta.image);
+      const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
       const cover = (coverSrc)
         ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(title)}" data-src="${cardImageSrc(coverSrc)}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
-        : fallbackCover(title);
+        : (useFallbackCover ? fallbackCover(title) : '');
 
       const wrapper = document.createElement('div');
       wrapper.className = 'link-card-wrap';
@@ -1111,9 +1112,10 @@ function displayIndex(parsed) {
     const tag = value ? renderTags(value.tag) : '';
     // Prefer a smaller thumbnail if provided: `thumb` or `cover`; fallback to `image`
     const coverSrc = value && (value.thumb || value.cover || value.image);
+    const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
     const cover = (value && coverSrc)
       ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
-      : fallbackCover(key);
+      : (useFallbackCover ? fallbackCover(key) : '');
     // pre-render meta line with date if available; read time appended after fetch
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
@@ -1214,9 +1216,10 @@ function displaySearch(query) {
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
     const coverSrc = value && (value.thumb || value.cover || value.image);
+    const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
     const cover = (value && coverSrc)
       ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
-      : fallbackCover(key);
+      : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
     html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;

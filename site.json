@@ -14,5 +14,7 @@
   
   "themeMode": "auto",
   "themePack": "minimalism",
-  "themeOverride": true
+  "themeOverride": true,
+
+  "cardCoverFallback": false
 }

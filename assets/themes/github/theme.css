@@ -65,6 +65,16 @@ body { background: var(--bg) !important; }
   border-radius: 0 !important;
   box-shadow: none !important;
 }
+/* When there is no cover element (e.g., fallback disabled), collapse to single column */
+.index a:not(:has(.card-cover-wrap)) {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: auto auto auto auto !important;
+  grid-template-areas:
+    "title"
+    "excerpt"
+    "meta"
+    "tags" !important;
+}
 .index a:last-child { border-bottom: none; }
 .index a:hover { background: color-mix(in srgb, var(--text) 3%, transparent) !important; border: none !important; border-bottom: 0.0625rem solid var(--border) !important; transform: none !important; box-shadow: none !important; }
 .index .card-cover-wrap { grid-area: cover; width: 5rem !important; height: auto !important; aspect-ratio: 10 / 16 !important; border-radius: 0.25rem; overflow: hidden; background: color-mix(in srgb, var(--text) 6%, transparent); align-self: center; }
