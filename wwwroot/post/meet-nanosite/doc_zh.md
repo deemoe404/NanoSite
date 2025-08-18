@@ -4,7 +4,7 @@ date: 2025-08-17
 tags:
 	- NanoSite
 	- 文档
-excerpt: NanoSite 的使用文档
+excerpt: 无需构建步骤即可直接用 Markdown 文件创建内容网站，只需将文件放入 wwwroot/，在 JSON 中列出并发布，即可兼容 GitHub Pages。本指南涵盖项目结构、配置文件、内容加载、主题、搜索、标签、SEO、媒体以及部署方法。
 author: deemoe
 ---
 

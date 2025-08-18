@@ -4,7 +4,7 @@ date: 2025-08-17
 tags:
   - NanoSite
   - Documentation
-excerpt: Documentation for NanoSite
+excerpt: Create a content site directly from Markdown files with no build steps—just place them in wwwroot/, list them in JSON, and publish (works with GitHub Pages). The guide covers project structure, config files, content loading, themes, search, tags, SEO, media, and deployment tips.
 author: deemoe
 ---
 
