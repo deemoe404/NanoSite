@@ -128,6 +128,7 @@ export function mdParse(markdown, baseDir) {
   let html = '', tochtml = [], tochirc = [];
   let isInCode = false, isInBigCode = false, isInTable = false, isInTodo = false, isInPara = false;
   let codeLang = '';
+  let codeBlockIndent = ''; // Store the indent level of the opening code block
   const closePara = () => { if (isInPara) { html += '</p>'; isInPara = false; } };
   // Basic list support (unordered/ordered, with simple nesting by indent)
   const listStack = []; // stack of { indent: number, type: 'ul'|'ol' }
@@ -147,26 +148,57 @@ export function mdParse(markdown, baseDir) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const ltrim3 = line.replace(/^( {0,3})/, '');
+    const ltrimmed = line.replace(/^\s*/, '');
+    const lineIndent = line.match(/^\s*/)[0]; // Capture the indent of current line
 
     // Code blocks
-    if (ltrim3.startsWith('````')) {
+    if (ltrimmed.startsWith('````')) {
       closePara();
-      if (!isInBigCode) { isInBigCode = true; codeLang = (ltrim3.slice(4).trim().split(/\s+/)[0] || '').toLowerCase(); html += `<pre><code${codeLang?` class=\"language-${codeLang}\"`:''}>`; }
-      else { isInBigCode = false; codeLang = ''; html += '</code></pre>'; }
+      if (!isInBigCode) { 
+        isInBigCode = true; 
+        codeBlockIndent = lineIndent; // Remember the indent level
+        codeLang = (ltrimmed.slice(4).trim().split(/\s+/)[0] || '').toLowerCase(); 
+        // Calculate indent level (tab = 4 spaces, each level = 2rem roughly)
+        const indentLevel = Math.floor(lineIndent.replace(/\t/g, '    ').length / 4);
+        const indentClass = indentLevel > 0 ? ` code-indent-${indentLevel}` : '';
+        html += `<pre class="code-block${indentClass}"><code${codeLang?` class=\"language-${codeLang}\"`:''}>`; 
+      }
+      else { 
+        isInBigCode = false; 
+        codeBlockIndent = '';
+        codeLang = ''; 
+        html += '</code></pre>'; 
+      }
       continue;
     } else if (isInBigCode) {
-      html += `${escapeHtml(line)}\n`;
+      // Remove the same level of indentation as the opening block
+      const contentLine = line.startsWith(codeBlockIndent) ? line.slice(codeBlockIndent.length) : line;
+      html += `${escapeHtml(contentLine)}\n`;
       continue;
     }
 
-    if (ltrim3.startsWith('```') && !isInBigCode) {
+    if (ltrimmed.startsWith('```') && !isInBigCode) {
       closePara();
-      if (!isInCode) { isInCode = true; codeLang = (ltrim3.slice(3).trim().split(/\s+/)[0] || '').toLowerCase(); html += `<pre><code${codeLang?` class=\"language-${codeLang}\"`:''}>`; }
-      else { isInCode = false; codeLang = ''; html += '</code></pre>'; }
+      if (!isInCode) { 
+        isInCode = true; 
+        codeBlockIndent = lineIndent; // Remember the indent level
+        codeLang = (ltrimmed.slice(3).trim().split(/\s+/)[0] || '').toLowerCase(); 
+        // Calculate indent level (tab = 4 spaces, each level = 2rem roughly)
+        const indentLevel = Math.floor(lineIndent.replace(/\t/g, '    ').length / 4);
+        const indentClass = indentLevel > 0 ? ` code-indent-${indentLevel}` : '';
+        html += `<pre class="code-block${indentClass}"><code${codeLang?` class=\"language-${codeLang}\"`:''}>`; 
+      }
+      else { 
+        isInCode = false; 
+        codeBlockIndent = '';
+        codeLang = ''; 
+        html += '</code></pre>'; 
+      }
       continue;
     } else if (isInCode) {
-      html += `${escapeHtml(line)}\n`;
+      // Remove the same level of indentation as the opening block
+      const contentLine = line.startsWith(codeBlockIndent) ? line.slice(codeBlockIndent.length) : line;
+      html += `${escapeHtml(contentLine)}\n`;
       continue;
     }
 

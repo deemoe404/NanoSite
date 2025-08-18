@@ -136,6 +136,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation M
 }
 
 pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1.1rem; overflow: auto; border: 0.0625rem solid var(--border); border-radius: 0.5rem; box-shadow: var(--shadow); line-height: 1.55; font-size: .95rem; tab-size: 2; position: relative; }
+
+/* Indented code blocks (for nested content like lists) */
+.code-block.code-indent-1 { margin-left: 1.25rem; }
+.code-block.code-indent-2 { margin-left: 2.5rem; }
+.code-block.code-indent-3 { margin-left: 3.75rem; }
+.code-block.code-indent-4 { margin-left: 5rem; }
+
 /* 当我们注入滚动容器时，避免 pre 本身水平滚动以固定标签 */
 pre.with-code-scroll { overflow: hidden; }
 .code-scroll { overflow: auto; overflow-y: hidden; /* 仅允许水平滚动（纵向交给页面）*/ }
