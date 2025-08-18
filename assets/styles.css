@@ -545,7 +545,20 @@ ul.collapsed, li > ul.collapsed { display: none; }
 #mapview {
   display: flex;
   justify-content: space-between;
+  /* Prevent any horizontal scrollbar from appearing in the nav area */
+  overflow-x: hidden;
+  max-width: 100%;
 }
+
+/* Ensure tabs don't trigger their own scrollbars and fit the container */
+#mapview .tabs {
+  max-width: 100%;
+}
+
+/* Suppress any scrollbar rendering in WebKit within mapview (defensive) */
+#mapview::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* And in Firefox */
+#mapview { scrollbar-width: none; }
 
 /* Loading state */
 .loading { 
@@ -837,6 +850,17 @@ ul.collapsed, li > ul.collapsed { display: none; }
   gap: 1.5rem;
   padding: 0 1.25rem;
   /* Prevent grid container distortion when content changes */
+}
+
+/* Compact tabs mode: when nav collapses due to small width */
+#tabsNav.compact .tabs-track {
+  gap: 0.375rem;
+}
+#tabsNav.compact .tab {
+  max-width: 70vw;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .content {

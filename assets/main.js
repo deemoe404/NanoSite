@@ -780,6 +780,7 @@ function renderTabs(activeSlug, searchQuery) {
   return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${label}</a>`;
   };
   
+  // Build full tab list first
   let html = make('posts', t('ui.allPosts'));
   for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
   if (activeSlug === 'search') {
@@ -793,6 +794,77 @@ function renderTabs(activeSlug, searchQuery) {
     const raw = String(searchQuery || t('ui.postTab')).trim();
     const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
   html += `<span class="tab active" data-slug="post">${label}</span>`;
+  }
+
+  // Helper: measure width of given markup inside a temporary element
+  const measureWidth = (markup) => {
+    try {
+      const tempNav = nav.cloneNode(false);
+      tempNav.innerHTML = `<div class="tabs-track">${markup}</div>`;
+      tempNav.style.position = 'absolute';
+      tempNav.style.visibility = 'hidden';
+      tempNav.style.pointerEvents = 'none';
+      tempNav.style.width = 'auto';
+      tempNav.style.zIndex = '-1000';
+      // Use the same parent to ensure identical CSS context
+      (nav.parentNode || document.body).appendChild(tempNav);
+      const w = tempNav.offsetWidth;
+      tempNav.parentNode.removeChild(tempNav);
+      return w;
+    } catch (_) {
+      return 0;
+    }
+  };
+
+  // If full tab list doesn't fit, collapse to minimal: All Posts + active tab
+  try {
+    const containerWidth = (nav.parentElement && nav.parentElement.clientWidth) || nav.clientWidth || 0;
+    const fullWidth = measureWidth(html);
+    if (containerWidth && fullWidth && fullWidth > containerWidth - 8) {
+      // Build compact HTML
+      let compact = make('posts', t('ui.allPosts'));
+      if (activeSlug === 'search') {
+        const sp = new URLSearchParams(window.location.search);
+        const tag = (sp.get('tag') || '').trim();
+        const q = (sp.get('q') || String(searchQuery || '')).trim();
+        const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+        const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+        compact += `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+      } else if (activeSlug === 'post') {
+        const raw = String(searchQuery || t('ui.postTab')).trim();
+        const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
+        compact += `<span class="tab active" data-slug="post">${label}</span>`;
+      } else if (activeSlug && activeSlug !== 'posts') {
+        // Active static tab from tabs.json
+        const info = tabsBySlug[activeSlug];
+        const label = info && info.title ? info.title : activeSlug;
+        compact += make(activeSlug, label).replace('"tab ', '"tab active ');
+      }
+      // If compact still doesn't fit (e.g. very long post title), truncate active label harder
+      if (measureWidth(compact) > containerWidth - 8) {
+        // Try with an even shorter label for post/search
+        if (activeSlug === 'post') {
+          const raw = String(searchQuery || t('ui.postTab')).trim();
+          const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
+          compact = make('posts', t('ui.allPosts')) + `<span class="tab active" data-slug="post">${label}</span>`;
+        } else if (activeSlug === 'search') {
+          const sp = new URLSearchParams(window.location.search);
+          const tag = (sp.get('tag') || '').trim();
+          const q = (sp.get('q') || String(searchQuery || '')).trim();
+          const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+          const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
+          const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+          compact = make('posts', t('ui.allPosts')) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+        }
+      }
+      html = compact;
+      nav.classList.add('compact');
+    } else {
+      nav.classList.remove('compact');
+    }
+  } catch (_) {
+    // On any error, fall back to full tabs
+    nav.classList.remove('compact');
   }
   
   // No transition on first load - just set content
@@ -823,23 +895,7 @@ function renderTabs(activeSlug, searchQuery) {
     const currentWidth = nav.offsetWidth;
     
     // Create a temporary hidden element to measure new width
-    const tempNav = nav.cloneNode(false);
-    tempNav.style.position = 'absolute';
-    tempNav.style.visibility = 'hidden';
-    tempNav.style.pointerEvents = 'none';
-    tempNav.style.width = 'auto';
-    tempNav.style.zIndex = '-1000';
-    // Use same structure as real DOM to get consistent width
-    tempNav.innerHTML = `<div class="tabs-track">${html}</div>`;
-    tempNav.style.position = 'absolute';
-    tempNav.style.visibility = 'hidden';
-    tempNav.style.pointerEvents = 'none';
-    tempNav.style.width = 'auto';
-    tempNav.style.zIndex = '-1000';
-    nav.parentNode.appendChild(tempNav);
-    
-    const newWidth = tempNav.offsetWidth;
-    nav.parentNode.removeChild(tempNav);
+    const newWidth = measureWidth(html);
     
   // Set explicit width only and start transition (no opacity changes)
   nav.style.width = `${currentWidth}px`;
@@ -1005,6 +1061,38 @@ function renderFooterNav() {
     html += ' ' + make(href, label, isActive(slug) ? 'active' : '');
   }
   nav.innerHTML = html;
+}
+
+// Re-evaluate and collapse/expand tabs on viewport changes (debounced)
+let _tabsResizeTimer = 0;
+function setupResponsiveTabsObserver() {
+  try {
+    if (setupResponsiveTabsObserver.__done) return;
+    setupResponsiveTabsObserver.__done = true;
+    const rerender = () => {
+      try {
+        const id = getQueryVariable('id');
+        const tab = (getQueryVariable('tab') || '').toLowerCase();
+        const q = getQueryVariable('q') || '';
+        const tag = getQueryVariable('tag') || '';
+        if (id) {
+          renderTabs('post');
+        } else if (tab === 'search') {
+          renderTabs('search', tag || q);
+        } else if (tab && tab !== 'posts' && tabsBySlug[tab]) {
+          renderTabs(tab);
+        } else {
+          renderTabs('posts');
+        }
+      } catch (_) {}
+    };
+    const handler = () => {
+      clearTimeout(_tabsResizeTimer);
+      _tabsResizeTimer = setTimeout(rerender, 140);
+    };
+    window.addEventListener('resize', handler, { passive: true });
+    window.addEventListener('orientationchange', handler, { passive: true });
+  } catch (_) {}
 }
 
 function displayPost(postname) {
@@ -1922,6 +2010,8 @@ bindSeoGenerator();
 bindThemePackPicker();
 // Localize search placeholder ASAP
 try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
+// Observe viewport changes for responsive tabs
+setupResponsiveTabsObserver();
 
 Promise.allSettled([
   // Load transformed posts index for current UI language
