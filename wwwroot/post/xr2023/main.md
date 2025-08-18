@@ -5,7 +5,7 @@ tags:
   - XR
   - AI
   - Technology
-image: post/what-xr-should-be-in-2023/comp.png
+image: post/xr2023/comp.png
 excerpt: XR is being brought to the public again after Apple announced their new XR headset, Apple Vision Pro. However, Apple is hesitant about this product as, during WWDC, no one other than those featured in the promotion video was seen wearing it. The reason is obvious: using a computer that covers your face in front of a camera is weird (not to mention that it is way bigger than some other XR "glasses").
 author: deemoe
 ---
