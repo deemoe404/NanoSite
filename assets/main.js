@@ -1079,10 +1079,13 @@ function displayPost(postname) {
     }
     const searchBox = document.getElementById('searchbox');
     if (searchBox) smoothHide(searchBox);
+  const tagBox = document.getElementById('tagview');
+  if (tagBox) smoothHide(tagBox);
     try { setDocTitle(articleTitle); } catch (_) {}
     try { setupAnchors(); } catch (_) {}
     try { setupTOC(); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
+  try { renderTagSidebar(postsIndexCache); } catch (_) {}
     // If URL contains a hash, ensure we jump after content is in DOM
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
@@ -1102,6 +1105,8 @@ function displayPost(postname) {
     setDocTitle(t('ui.notFound'));
     const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothHide(searchBox);
+  const tagBox = document.getElementById('tagview');
+  if (tagBox) smoothHide(tagBox);
   });
 }
 
@@ -1154,9 +1159,12 @@ function displayIndex(parsed) {
   requestAnimationFrame(() => applyMasonry('.index'));
 
   setupSearch(entries);
+  try { renderTagSidebar(postsIndexCache); } catch (_) {}
   renderTabs('posts');
   const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothShow(searchBox);
+  const tagBox = document.getElementById('tagview');
+  if (tagBox) smoothShow(tagBox);
   setDocTitle(t('titles.allPosts'));
 
   const cards = Array.from(document.querySelectorAll('.index a'));
@@ -1195,23 +1203,29 @@ function displayIndex(parsed) {
 }
 
 function displaySearch(query) {
+  const rawTag = getQueryVariable('tag');
   const q = String(query || '').trim();
-  if (!q) return displayIndex(postsIndexCache);
+  const tagFilter = rawTag ? String(rawTag).trim() : '';
+  if (!q && !tagFilter) return displayIndex(postsIndexCache);
 
   const toc = document.getElementById('tocview');
   smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
 
-  // Filter by title or tags
+  // Filter by title or tags; if tagFilter present, restrict to exact tag match (case-insensitive)
   const allEntries = Object.entries(postsIndexCache || {});
   const ql = q.toLowerCase();
+  const tagl = tagFilter.toLowerCase();
   const filtered = allEntries.filter(([title, meta]) => {
-    const inTitle = String(title || '').toLowerCase().includes(ql);
     const tagVal = meta && meta.tag;
-    let tagStr = '';
-    if (Array.isArray(tagVal)) tagStr = tagVal.join(',');
-    else if (typeof tagVal === 'string') tagStr = tagVal;
-    else if (tagVal != null) tagStr = String(tagVal);
-    const inTags = String(tagStr || '').toLowerCase().includes(ql);
+    const tags = Array.isArray(tagVal)
+      ? tagVal.map(x => String(x))
+      : (typeof tagVal === 'string' ? String(tagVal).split(',') : (tagVal != null ? [String(tagVal)] : []));
+    const normTags = tags.map(s => s.trim()).filter(Boolean);
+    if (tagFilter) {
+      return normTags.some(tg => tg.toLowerCase() === tagl);
+    }
+    const inTitle = String(title || '').toLowerCase().includes(ql);
+    const inTags = normTags.some(tg => tg.toLowerCase().includes(ql));
     return inTitle || inTags;
   });
 
@@ -1257,15 +1271,18 @@ function displaySearch(query) {
   document.getElementById('mainview').innerHTML = html;
   hydrateCardCovers('#mainview');
   sequentialLoadCovers('#mainview', 1);
-  renderTabs('search', q);
+  renderTabs('search', tagFilter ? t('ui.tagSearch', tagFilter) : q);
   const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothShow(searchBox);
+  const tagBox = document.getElementById('tagview');
+  if (tagBox) smoothShow(tagBox);
   const input = document.getElementById('searchInput');
   if (input) input.value = q;
   setupSearch(Object.entries(postsIndexCache || {}));
-  setDocTitle(t('titles.search', q));
+  setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
   // Apply masonry after search render
   requestAnimationFrame(() => applyMasonry('.index'));
+  try { renderTagSidebar(postsIndexCache); } catch (_) {}
 
   const cards = Array.from(document.querySelectorAll('.index a'));
   pageEntries.forEach(([title, meta], idx) => {
@@ -1386,6 +1403,8 @@ function displayStaticTab(slug) {
   if (main) main.innerHTML = renderSkeletonArticle();
   const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothHide(searchBox);
+  const tagBox = document.getElementById('tagview');
+  if (tagBox) smoothHide(tagBox);
   renderTabs(slug);
   getFile('wwwroot/' + tab.location)
     .then(md => {
@@ -1403,6 +1422,7 @@ function displayStaticTab(slug) {
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
   try { initSyntaxHighlighting(); } catch (_) {}
+  try { renderTagSidebar(postsIndexCache); } catch (_) {}
   // Always use the title defined in tabs.json for the browser/SEO title,
   // instead of deriving it from the first heading in the markdown.
   const pageTitle = tab.title;
@@ -1467,13 +1487,15 @@ function routeAndRender() {
     displayPost(id);
   } else if (tab === 'search') {
     const q = getQueryVariable('q') || '';
-    renderTabs('search', q);
+    const tag = getQueryVariable('tag') || '';
+  renderTabs('search', tag || q);
     displaySearch(q);
     // Update SEO for search page
     try {
+      const title = tag ? `Tag: ${tag} - NanoSite` : (q ? `Search: ${q} - NanoSite` : 'Search - NanoSite');
       updateSEO({
-        title: q ? `Search: ${q} - NanoSite` : 'Search - NanoSite',
-        description: q ? `Search results for "${q}"` : 'Search through blog posts and content',
+        title,
+        description: tag ? `Posts tagged \"${tag}\"` : (q ? `Search results for \"${q}\"` : 'Search through blog posts and content'),
         type: 'website'
       }, siteConfig);
     } catch (_) { /* ignore SEO errors to avoid breaking UI */ }
@@ -1504,6 +1526,48 @@ function routeAndRender() {
   }
   // Keep footer nav in sync as route/tabs may impact labels
   renderFooterNav();
+}
+
+// --- Tag sidebar ---
+function aggregateTags(indexMap) {
+  const counts = new Map();
+  try {
+    for (const [, meta] of Object.entries(indexMap || {})) {
+      const v = meta && meta.tag;
+      let arr = [];
+      if (Array.isArray(v)) arr = v;
+      else if (typeof v === 'string') arr = v.split(',');
+      else if (v != null) arr = [String(v)];
+      arr.map(x => String(x).trim()).filter(Boolean).forEach(tag => {
+        const key = tag.toLowerCase();
+        const cur = counts.get(key) || { label: tag, count: 0 };
+        // Preserve first-seen original casing for label
+        if (!cur.label) cur.label = tag;
+        cur.count++;
+        counts.set(key, cur);
+      });
+    }
+  } catch (_) {}
+  return Array.from(counts.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function renderTagSidebar(indexMap) {
+  const root = document.getElementById('tagview');
+  if (!root) return;
+  const items = aggregateTags(indexMap);
+  const currentTag = (getQueryVariable('tag') || '').trim().toLowerCase();
+  const total = items.reduce((s, x) => s + x.count, 0);
+  const allHref = withLangParam('?tab=search');
+  const header = `<div class="section-title">${t('ui.tags')}</div>`;
+  if (!items.length) { root.innerHTML = header + `<div class="muted">${t('ui.allTags')}</div>`; return; }
+  const lis = items.map(({ label, count }) => {
+    const isActive = label.trim().toLowerCase() === currentTag;
+    const href = withLangParam(`?tab=search&tag=${encodeURIComponent(label)}`);
+    return `<li><a class="tag-link${isActive ? ' active' : ''}" href="${href}"><span class="tag-name">${escapeHtml(label)}</span><span class="tag-count">${count}</span></a></li>`;
+  }).join('');
+  root.innerHTML = header + `<ul class="tag-list">` +
+    `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}"><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>` +
+    lis + `</ul>`;
 }
 
 // Enhanced smooth click feedback with immediate highlight movement
@@ -1603,6 +1667,7 @@ document.addEventListener('click', (e) => {
 
 window.addEventListener('popstate', () => {
   routeAndRender();
+  try { renderTagSidebar(postsIndexCache); } catch (_) {}
 });
 
 // Update sliding indicator on window resize
@@ -1630,6 +1695,8 @@ applySavedTheme();
 bindThemeToggle();
 bindSeoGenerator();
 bindThemePackPicker();
+// Localize search placeholder ASAP
+try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
 
 Promise.allSettled([
   // Load transformed posts index for current UI language

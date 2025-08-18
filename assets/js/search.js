@@ -10,11 +10,13 @@ export function setupSearch(entries){
       if (q) {
         url.searchParams.set('tab', 'search');
         url.searchParams.set('q', q);
+  url.searchParams.delete('tag');
         url.searchParams.delete('id');
         url.searchParams.delete('page');
       } else {
         url.searchParams.set('tab', 'posts');
         url.searchParams.delete('q');
+  url.searchParams.delete('tag');
         url.searchParams.delete('id');
         url.searchParams.delete('page');
       }

@@ -40,7 +40,10 @@ const translations = {
       indexUnavailable: 'Index unavailable',
       backToAllPosts: 'Back to all posts',
       noResultsTitle: 'No results',
-      noResultsBody: (q) => `No posts found for "${q}".`
+  noResultsBody: (q) => `No posts found for "${q}".`,
+  tags: 'Tags',
+  tagSearch: (tag) => `Tag: ${tag}`,
+  allTags: 'All tags'
     },
     code: {
       copy: 'Copy',
@@ -95,7 +98,10 @@ const translations = {
       indexUnavailable: '索引不可用',
       backToAllPosts: '返回全部文章',
       noResultsTitle: '没有结果',
-      noResultsBody: (q) => `未找到与 “${q}” 匹配的文章。`
+  noResultsBody: (q) => `未找到与 “${q}” 匹配的文章。`,
+  tags: '标签',
+  tagSearch: (tag) => `标签：${tag}`,
+  allTags: '全部标签'
     },
     code: {
       copy: '复制',
@@ -151,7 +157,10 @@ const translations = {
       indexUnavailable: 'インデックスを読み込めません',
       backToAllPosts: 'すべての記事へ戻る',
       noResultsTitle: '結果なし',
-      noResultsBody: (q) => `「${q}」に一致する記事は見つかりませんでした。`
+  noResultsBody: (q) => `「${q}」に一致する記事は見つかりませんでした。`,
+  tags: 'タグ',
+  tagSearch: (tag) => `タグ: ${tag}`,
+  allTags: 'すべてのタグ'
     },
     code: {
       copy: 'コピー',
