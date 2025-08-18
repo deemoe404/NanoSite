@@ -1358,14 +1358,29 @@ function updateMasonryItem(container, item) {
 function calcAndSetSpan(container, item, row, gapPx) {
   if (!container || !item) return;
   item.style.gridRowEnd = 'auto';
-  // Include gap: use clientHeight to avoid subpixel rounding; slight epsilon
-  const total = item.clientHeight + gapPx + 0.5;
-  const span = Math.max(1, Math.round(total / (row + gapPx)));
+  // Measure with sub-pixel precision and always round up to avoid short spans
+  const rect = item.getBoundingClientRect();
+  const height = Math.max(0, rect.height || 0);
+  // Include vertical margins explicitly since they're outside the box height
+  const cs = getComputedStyle(item);
+  const mt = parseFloat(cs.marginTop) || 0;
+  const mb = parseFloat(cs.marginBottom) || 0;
+  const total = height + mt + mb + gapPx; // include the grid gap once per item
+  const denom = row + gapPx;
+  const span = Math.max(1, Math.ceil(total / (denom > 0 ? denom : 1)));
   item.style.gridRowEnd = `span ${span}`;
 }
 
 // Recalculate on resize for responsive columns
 window.addEventListener('resize', debounce(() => applyMasonry('.index'), 150));
+
+// Re-apply masonry after fonts load (text metrics can change heights slightly)
+try {
+  if (document && document.fonts && !window.__masonryFontsReadyApplied) {
+    window.__masonryFontsReadyApplied = true;
+    document.fonts.ready.then(() => applyMasonry('.index')).catch(() => {});
+  }
+} catch (_) { /* noop */ }
 
 // Simple debounce utility (scoped here)
 function debounce(fn, wait) {
