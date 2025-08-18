@@ -1,4 +1,5 @@
 // errors.js — lightweight global error overlay and reporter
+import { t } from './i18n.js';
 
 let reporterConfig = {
   reportUrl: null,
@@ -101,17 +102,25 @@ function renderOverlayCard(payload, onDone) {
   const card = document.createElement('div');
   card.className = 'error-card';
   card.setAttribute('role', 'alert');
+  const localizeName = (name) => {
+    const s = String(name || '').trim();
+    const lower = s.toLowerCase();
+    if (!s) return t('ui.error') || 'Error';
+    if (lower === 'warning') return t('ui.warning') || 'Warning';
+    if (lower === 'error') return t('ui.error') || 'Error';
+    return s;
+  };
   card.innerHTML = `
-    <div class="error-head">⚠️ ${escapeHtmlShort(payload.name)}: ${escapeHtmlShort(payload.message)}</div>
+    <div class="error-head">⚠️ ${escapeHtmlShort(localizeName(payload.name))}: ${escapeHtmlShort(payload.message)}</div>
     <div class="error-meta">${new Date(payload.time).toLocaleString()} · ${escapeHtmlShort(payload.app)}</div>
     <details class="error-details">
-      <summary>Details</summary>
+      <summary>${escapeHtmlShort(t('ui.details') || 'Details')}</summary>
       <pre class="error-pre">${escapeHtmlLong(JSON.stringify(payload, null, 2))}</pre>
     </details>
     <div class="error-actions">
-      <button class="btn-copy">Copy details</button>
-      ${reporterConfig.reportUrl ? '<button class="btn-report">Report issue</button>' : ''}
-      <button class="btn-dismiss">Dismiss</button>
+      <button class="btn-copy">${escapeHtmlShort(t('ui.copyDetails') || t('code.copy') || 'Copy')}</button>
+      ${reporterConfig.reportUrl ? `<button class="btn-report">${escapeHtmlShort(t('ui.reportIssue') || 'Report issue')}</button>` : ''}
+      <button class="btn-dismiss">${escapeHtmlShort(t('ui.close') || 'Close')}</button>
     </div>
   `;
 
@@ -142,7 +151,11 @@ function renderOverlayCard(payload, onDone) {
   card.querySelector('.btn-copy')?.addEventListener('click', async () => {
     const ok = await copyToClipboard(JSON.stringify(payload, null, 2));
     const btn = card.querySelector('.btn-copy');
-    if (btn) { const old = btn.textContent; btn.textContent = ok ? 'Copied!' : 'Copy failed'; setTimeout(() => { btn.textContent = old; }, 1500); }
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = ok ? (t('code.copied') || 'Copied') : (t('code.failed') || 'Failed');
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    }
   });
   const reportBtn = card.querySelector('.btn-report');
   if (reportBtn) reportBtn.addEventListener('click', () => openReportUrl(payload));

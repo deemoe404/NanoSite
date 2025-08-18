@@ -33,27 +33,31 @@ const translations = {
       loading: 'Loading…',
       top: 'Top',
       minRead: 'min read',
-  close: 'Close',
-  copyLink: 'Copy link',
-  linkCopied: 'Link copied',
-  outdatedWarning: 'Caution: This blog post may contain outdated information as it has been published a long time ago.',
+      close: 'Close',
+      copyLink: 'Copy link',
+      linkCopied: 'Link copied',
+      outdatedWarning: 'Caution: This blog post may contain outdated information as it has been published a long time ago.',
       notFound: 'Not Found',
       pageUnavailable: 'Page Unavailable',
       indexUnavailable: 'Index unavailable',
       backToAllPosts: 'Back to all posts',
       noResultsTitle: 'No results',
-  noResultsBody: (q) => `No posts found for "${q}".`,
-  tags: 'Tags',
-  tagSearch: (tag) => `Tag: ${tag}`,
-  allTags: 'All tags'
-  ,
-  more: 'More',
-  less: 'Less'
+      noResultsBody: (q) => `No posts found for "${q}".`,
+      tags: 'Tags',
+      tagSearch: (tag) => `Tag: ${tag}`,
+      allTags: 'All tags',
+      more: 'More',
+      less: 'Less',
+      details: 'Details',
+      copyDetails: 'Copy details',
+      reportIssue: 'Report issue',
+      warning: 'Warning',
+      error: 'Error'
     },
     code: {
       copy: 'Copy',
-      copied: 'Copied',
-      failed: 'Failed',
+      copied: 'Copied!',
+      failed: 'Copy failed',
       copyAria: 'Copy code'
     },
     errors: {
@@ -96,22 +100,26 @@ const translations = {
       loading: '加载中…',
       top: '顶部',
       minRead: '分钟阅读',
-  close: '关闭',
-  copyLink: '复制链接',
-  linkCopied: '已复制链接',
-  outdatedWarning: '提示：这篇文章发布已久，内容可能已过时。',
+      close: '关闭',
+      copyLink: '复制链接',
+      linkCopied: '已复制链接',
+      outdatedWarning: '提示：这篇文章发布已久，内容可能已过时。',
       notFound: '未找到',
       pageUnavailable: '页面不可用',
       indexUnavailable: '索引不可用',
       backToAllPosts: '返回全部文章',
       noResultsTitle: '没有结果',
-  noResultsBody: (q) => `未找到与 “${q}” 匹配的文章。`,
-  tags: '标签',
-  tagSearch: (tag) => `标签：${tag}`,
-  allTags: '全部标签'
-  ,
-  more: '更多',
-  less: '收起'
+      noResultsBody: (q) => `未找到与 “${q}” 匹配的文章。`,
+      tags: '标签',
+      tagSearch: (tag) => `标签：${tag}`,
+      allTags: '全部标签',
+      more: '更多',
+      less: '收起',
+      details: '详情',
+      copyDetails: '复制详情',
+      reportIssue: '报告问题',
+      warning: '警告',
+      error: '错误'
     },
     code: {
       copy: '复制',
@@ -147,8 +155,7 @@ const translations = {
       allPosts: '全部文章',
       search: (q) => `搜索：${q}`
     }
-  }
-  ,
+  },
   ja: {
     ui: {
       allPosts: 'すべての記事',
@@ -160,22 +167,26 @@ const translations = {
       loading: '読み込み中…',
       top: 'トップ',
       minRead: '分で読めます',
-  close: '閉じる',
-  copyLink: 'リンクをコピー',
-  linkCopied: 'リンクをコピーしました',
-  outdatedWarning: '注意：公開から時間が経っているため、内容が古くなっている可能性があります。',
+      close: '閉じる',
+      copyLink: 'リンクをコピー',
+      linkCopied: 'リンクをコピーしました',
+      outdatedWarning: '注意：公開から時間が経っているため、内容が古くなっている可能性があります。',
       notFound: '見つかりません',
       pageUnavailable: 'ページを表示できません',
       indexUnavailable: 'インデックスを読み込めません',
       backToAllPosts: 'すべての記事へ戻る',
       noResultsTitle: '結果なし',
-  noResultsBody: (q) => `「${q}」に一致する記事は見つかりませんでした。`,
-  tags: 'タグ',
-  tagSearch: (tag) => `タグ: ${tag}`,
-  allTags: 'すべてのタグ'
-  ,
-  more: 'もっと見る',
-  less: '折りたたむ'
+      noResultsBody: (q) => `「${q}」に一致する記事は見つかりませんでした。`,
+      tags: 'タグ',
+      tagSearch: (tag) => `タグ: ${tag}`,
+      allTags: 'すべてのタグ',
+      more: 'もっと見る',
+      less: '折りたたむ',
+      details: '詳細',
+      copyDetails: '詳細をコピー',
+      reportIssue: '問題を報告',
+      warning: '警告',
+      error: 'エラー'
     },
     code: {
       copy: 'コピー',
@@ -212,7 +223,7 @@ const translations = {
       search: (q) => `検索: ${q}`
     }
   }
-  // Additional languages can be added here, e.g., zh, es, etc.
+  // Additional languages can be added here
 };
 
 let currentLang = DEFAULT_LANG;
