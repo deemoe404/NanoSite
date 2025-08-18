@@ -238,7 +238,7 @@ export function t(path, vars) {
 // --- Content loading (unified JSON with fallback, plus legacy support) ---
 
 // Normalize common language labels seen in content JSON to BCP-47-ish codes
-function normalizeLangKey(k) {
+export function normalizeLangKey(k) {
   const raw = String(k || '').trim();
   const lower = raw.toLowerCase();
   const map = new Map([
@@ -290,6 +290,13 @@ function transformUnifiedContent(obj, lang) {
     // Try requested lang, then site default, then common English code, then legacy 'default'
     const nlang = normalizeLangKey(lang);
     chosen = tryPick(nlang) || tryPick(baseDefaultLang) || tryPick('en') || tryPick('default');
+    // If still not chosen, fall back to the first available variant (for single-language entries)
+    if (!chosen && variantKeys.length) {
+      for (const vk of variantKeys) {
+        const pick = tryPick(normalizeLangKey(vk));
+        if (pick) { chosen = pick; break; }
+      }
+    }
     // Fallback to legacy flat shape if not unified
     if (!chosen && 'location' in val) {
       chosen = { title: key, location: String(val.location || '') };
@@ -365,10 +372,23 @@ function transformUnifiedTabs(obj, lang) {
     };
     const nlang = normalizeLangKey(lang);
     let chosen = tryPick(nlang) || tryPick(baseDefaultLang) || tryPick('en') || tryPick('default');
+    // If not found, fall back to the first available variant to ensure visibility
+    if (!chosen && variantKeys.length) {
+      for (const vk of variantKeys) {
+        const pick = tryPick(normalizeLangKey(vk));
+        if (pick) { chosen = pick; break; }
+      }
+    }
     if (!chosen && 'location' in val) chosen = { title: key, location: String(val.location || '') };
     if (!chosen || !chosen.location) continue;
     const title = chosen.title || key;
-    out[title] = { location: chosen.location };
+    // Provide a stable slug derived from the base key so it stays consistent across languages
+    const stableSlug = String(key || '').toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9\-]/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '') || ('t-' + Math.abs(Array.from(String(key||'')).reduce((h,c)=>((h<<5)-h)+c.charCodeAt(0)|0,0)).toString(36));
+    out[title] = { location: chosen.location, slug: stableSlug };
   }
   return { entries: out, availableLangs: Array.from(langsSeen).sort() };
 }

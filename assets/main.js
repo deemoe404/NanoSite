@@ -4,7 +4,7 @@ import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
-import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang } from './js/i18n.js';
+import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
@@ -14,8 +14,12 @@ const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw
 
 let postsByLocationTitle = {};
 let tabsBySlug = {};
+// Map a stable base slug (language-agnostic) -> current language slug
+let stableToCurrentTabSlug = {};
 let postsIndexCache = {};
 let allowedLocations = new Set();
+// Cross-language location aliases: any known variant -> preferred for current lang
+let locationAliasMap = new Map();
 const PAGE_SIZE = 8;
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
@@ -1421,7 +1425,16 @@ function displayStaticTab(slug) {
 
 // Simple router: render based on current URL
 function routeAndRender() {
-  const id = getQueryVariable('id');
+  const rawId = getQueryVariable('id');
+  const id = (rawId && locationAliasMap.has(rawId)) ? locationAliasMap.get(rawId) : rawId;
+  // Reflect remapped ID in the URL without triggering navigation
+  try {
+    if (id && rawId && id !== rawId) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('id', id);
+      history.replaceState({}, '', url.toString());
+    }
+  } catch (_) {}
   const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
   const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
 
@@ -1635,11 +1648,17 @@ Promise.allSettled([
     siteConfig = results[2] && results[2].status === 'fulfilled' ? (results[2].value || {}) : {};
     const rawIndex = results[3] && results[3].status === 'fulfilled' ? (results[3].value || null) : null;
     tabsBySlug = {};
+    stableToCurrentTabSlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {
-      const slug = slugifyTab(title);
+      // Prefer a stable slug coming from unified tabs (when available); fallback to computed slug
+      const unifiedSlug = (cfg && typeof cfg === 'object' && cfg.slug) ? String(cfg.slug) : null;
+      const slug = unifiedSlug || slugifyTab(title);
       const loc = typeof cfg === 'string' ? cfg : String(cfg.location || '');
       if (!loc) continue;
       tabsBySlug[slug] = { title, location: loc };
+      // Map stable base slug to current slug to preserve active tab across language switches
+      const baseKey = (unifiedSlug ? unifiedSlug : slug);
+      stableToCurrentTabSlug[baseKey] = slug;
     }
     // Build a whitelist of allowed post file paths. Start with the current-language
     // transformed entries, then include any language-variant locations discovered
@@ -1666,6 +1685,35 @@ Promise.allSettled([
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
     }
     postsIndexCache = posts;
+    // Build cross-language location alias map so switching languages keeps the same article
+    locationAliasMap = new Map();
+    try {
+      if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+        const cur = (getCurrentLang && getCurrentLang()) || 'en';
+        const curNorm = normalizeLangKey(cur);
+        for (const [, entry] of Object.entries(rawIndex)) {
+          if (!entry || typeof entry !== 'object') continue;
+          const reserved = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
+          const variants = [];
+          for (const [k, v] of Object.entries(entry)) {
+            if (reserved.has(k)) continue;
+            const nk = normalizeLangKey(k);
+            if (k === 'location' && typeof v === 'string') {
+              variants.push({ lang: 'default', location: String(v) });
+            } else if (typeof v === 'string') {
+              variants.push({ lang: nk, location: String(v) });
+            } else if (v && typeof v === 'object' && typeof v.location === 'string') {
+              variants.push({ lang: nk, location: String(v.location) });
+            }
+          }
+          if (!variants.length) continue;
+          const findBy = (langs) => variants.find(x => langs.includes(x.lang));
+          let chosen = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+          if (!chosen) chosen = variants[0];
+          variants.forEach(v => { if (v.location && chosen.location) locationAliasMap.set(v.location, chosen.location); });
+        }
+      }
+    } catch (_) { /* ignore alias build errors */ }
   // Reflect available content languages in the UI selector (for unified index)
     try { refreshLanguageSelector(); } catch (_) {}
     // Render site identity and profile links from site config
@@ -1730,7 +1778,7 @@ Promise.allSettled([
     const mainviewContainer = document.getElementById('mainview')?.closest('.box');
     if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
     
-    routeAndRender();
+  routeAndRender();
   })
   .catch(() => {
     document.getElementById('tocview').innerHTML = '';
