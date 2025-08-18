@@ -145,8 +145,11 @@ pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1
 
 /* 当我们注入滚动容器时，避免 pre 本身水平滚动以固定标签 */
 pre.with-code-scroll { overflow: hidden; }
-.code-scroll { overflow: auto; overflow-y: hidden; /* 仅允许水平滚动（纵向交给页面）*/ }
-.code-scroll code { display: block; min-width: 100%; }
+.code-scroll { overflow: auto; overflow-y: hidden; /* 仅允许水平滚动（纵向交给页面）*/ display: flex; align-items: stretch; }
+.code-scroll.code-with-gutter { /* ensure horizontal layout with gutter */ display: flex; }
+.code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding-right: 0.75rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0.75rem; position: sticky; left: 0; background: var(--code-bg); z-index: 1; }
+.code-scroll .code-gutter span { display: block; line-height: 1.55; }
+.code-scroll code { display: block; white-space: pre; flex: 1 1 auto; min-width: 0; }
 
 /* 语法高亮样式 - 针对亮色主题优化 */
 .syntax-keyword { color: #d73a49; font-weight: 600; }

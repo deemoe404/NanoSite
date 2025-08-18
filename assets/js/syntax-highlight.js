@@ -201,9 +201,11 @@ export function initSyntaxHighlighting() {
       language = detectLanguage(codeElement.textContent);
     }
     
-    // 应用语法高亮
+    // 记录原始代码文本用于行号计算
+    const originalCode = codeElement.textContent || '';
+
+    // 应用语法高亮（若识别到语言且支持）
     if (language && highlightRules[language.toLowerCase()]) {
-      const originalCode = codeElement.textContent;
       const highlightedCode = simpleHighlight(originalCode, language);
       codeElement.innerHTML = highlightedCode;
 
@@ -220,6 +222,56 @@ export function initSyntaxHighlighting() {
         }
         preElement.classList.add('with-code-scroll');
       }
+    }
+
+    // 无论是否高亮，统一包装为滚动容器并添加行号
+    if (!preElement.classList.contains('with-code-scroll')) {
+      const currentParent = codeElement.parentElement;
+      if (!currentParent || !currentParent.classList.contains('code-scroll')) {
+        const scrollWrap = document.createElement('div');
+        scrollWrap.className = 'code-scroll';
+        preElement.insertBefore(scrollWrap, codeElement);
+        scrollWrap.appendChild(codeElement);
+      }
+      preElement.classList.add('with-code-scroll');
+    }
+
+    const scrollWrap = preElement.querySelector('.code-scroll');
+    if (scrollWrap && !scrollWrap.classList.contains('code-with-gutter')) {
+      scrollWrap.classList.add('code-with-gutter');
+    }
+
+    if (scrollWrap) {
+      // 如果还没有 gutter，则创建并插入到 code 之前
+      let gutter = scrollWrap.querySelector('.code-gutter');
+      if (!gutter) {
+        gutter = document.createElement('div');
+        gutter.className = 'code-gutter';
+        gutter.setAttribute('aria-hidden', 'true');
+        scrollWrap.insertBefore(gutter, codeElement);
+      }
+
+      // 依据原始代码的行数渲染行号
+      // 去除文本末尾的单个换行，避免末尾空白行导致行号多一行
+      const trimmed = originalCode.endsWith('\n') ? originalCode.slice(0, -1) : originalCode;
+      const lineCount = trimmed ? (trimmed.match(/\n/g) || []).length + 1 : 1;
+      // 只在首次或数量变化时重建，避免重复 DOM 操作
+      const currentCount = gutter.childElementCount;
+      if (currentCount !== lineCount) {
+        const frag = document.createDocumentFragment();
+        for (let i = 1; i <= lineCount; i++) {
+          const s = document.createElement('span');
+          s.textContent = String(i);
+          frag.appendChild(s);
+        }
+        gutter.innerHTML = '';
+        gutter.appendChild(frag);
+      }
+
+      // 动态设置 gutter 宽度以适配位数（再加一点余量）
+      const digits = String(lineCount).length;
+      gutter.style.width = `${Math.max(2, digits + 1)}ch`;
+    }
       
       // 添加/增强语言标签（支持悬浮复制与点击复制）
       let languageLabel = preElement.querySelector('.syntax-language-label');
@@ -292,7 +344,6 @@ export function initSyntaxHighlighting() {
 
         languageLabel.dataset.bound = '1';
       }
-    }
   });
 }
 
