@@ -9,6 +9,7 @@ let extraContext = {};
 // Queue for sequential overlays (show one at a time)
 let overlayQueue = [];
 let overlayShowing = false;
+const overlayDedup = new Set();
 
 function ensureOverlayRoot() {
   let root = document.getElementById('errorOverlayRoot');
@@ -76,7 +77,13 @@ function copyToClipboard(text) {
 
 export function showErrorOverlay(err, context = {}) {
   try {
-    overlayQueue.push({ err, context });
+    // Basic dedupe: avoid enqueuing identical name+message+url within a short window
+    const key = `${(err && err.name) || 'Error'}|${(err && err.message) || (context && context.message) || ''}|${(context && context.assetUrl) || ''}`;
+    if (!overlayDedup.has(key)) {
+      overlayDedup.add(key);
+      setTimeout(() => overlayDedup.delete(key), 5000);
+      overlayQueue.push({ err, context });
+    }
     processOverlayQueue();
   } catch (_) {
     // Fallback to immediate render if queueing somehow fails
@@ -131,9 +138,14 @@ function renderOverlayCard(payload, onDone) {
   card.style.transition = 'transform 180ms ease, opacity 160ms ease-out';
 
   let dismissed = false;
+  let removed = false;
   const finalizeRemove = () => {
+    if (removed) return; removed = true;
+    try { clearTimeout(autoTimer); } catch (_) {}
     if (card && card.parentNode) card.parentNode.removeChild(card);
-    if (typeof onDone === 'function') try { onDone(); } catch (_) {}
+    if (typeof onDone === 'function') {
+      try { onDone(); } catch (_) {}
+    }
   };
   const animateOut = () => {
     if (dismissed) return; dismissed = true;
@@ -143,7 +155,8 @@ function renderOverlayCard(payload, onDone) {
     card.style.opacity = '0';
     const onEnd = () => { card.removeEventListener('transitionend', onEnd); finalizeRemove(); };
     card.addEventListener('transitionend', onEnd);
-    setTimeout(onEnd, 260); // safety
+    // Safety: ensure removal even if transitionend doesn't fire
+    setTimeout(onEnd, 300);
   };
 
   // Wire actions
