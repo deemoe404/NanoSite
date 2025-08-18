@@ -1,92 +1,22 @@
 {
   "Meet NanoSite": {
-    "en": {
-      "title": "Meet NanoSite",
-      "location": "post/meet-nanosite/main_en.md",
-      "excerpt": "Build a simple personal website from plain text files (Markdown). No build tools, no databases — just edit files and publish. Perfect for blogs, notes, wikis, journals, or book chapters."
-    },
-    "zh": {
-      "title": "初识 NanoSite",
-      "location": "post/meet-nanosite/main_zh.md",
-      "excerpt": "用纯文本文件（Markdown）构建一个简单的个人网站。无需构建工具，无需数据库——只需编辑文件并发布。非常适合博客、笔记、维基、日记或书籍章节。"
-    },
-    "ja": {
-      "title": "NanoSite との出会い",
-      "location": "post/meet-nanosite/main_en.md",
-      "excerpt": "プレーンテキストファイル（Markdown）からシンプルな個人ウェブサイトを構築します。ビルドツールもデータベースも不要 — ファイルを編集して公開するだけ。ブログ、ノート、ウィキ、ジャーナル、または書籍の章に最適です。"
-    },
-    "tag": [
-      "NanoSite",
-      "Technology"
-    ],
-    "image": "post/meet-nanosite/hero.png",
-    "date": "2025-08-17"
+    "en": "post/meet-nanosite/main_en.md",
+    "zh": "post/meet-nanosite/main_zh.md",
+    "ja": "post/meet-nanosite/main_en.md"
   },
   "What I Wish I Knew Before Going Headless": {
-    "en": {
-      "title": "What I Wish I Knew Before Going Headless",
-      "location": "post/what-i-wish-i-knew-before-going-headless.md",
-      "excerpt": "I aimed to streamline my workflow using a single machine but encountered limitations across platforms—Windows became unstable, Arch required excessive maintenance, and macOS lacked NVIDIA GPU support. \n\n Ultimately, I adopted a headless Linux setup accessed via SSH and VSCode with Dev Containers from my Mac. This approach offers stability, flexibility, and strong remote development capabilities—though GUI dependencies still remain unavoidable in some cases."
-    },
-    "tag": [
-      "Linux",
-      "Technology"
-    ],
-    "date": "2025-07-18"
+    "en": "post/what-i-wish-i-knew-before-going-headless.md"
   },
   "volcal_baseline": {
-    "en": {
-      "title": "A data-driven pipeline for large-scale open-pit-mine excavation monitoring from multi-temporal 3-D point clouds",
-      "location": "post/volcal_baseline/main.md",
-      "excerpt": "A data-driven 3D point cloud framework for open-pit mine monitoring that automatically adapts parameters, integrates registration, change detection, and DEM-based volume analysis, achieving high accuracy and robustness even under noise and misalignment"
-    },
-    "tag": [
-      "Computer Vision",
-      "Point Cloud"
-    ],
-    "date": "2025-06-04",
-    "image": "post/volcal_baseline/PC_Raw_RGB_4.png"
+    "en": "post/volcal_baseline/main.md"
   },
   "What XR Should Be in 2023": {
-    "en": {
-      "title": "What XR Should Be in 2023",
-      "location": "post/what-xr-should-be-in-2023/main.md",
-      "excerpt": "XR is being brought to the public again after Apple announced their new XR headset, Apple Vision Pro. However, Apple is hesitant about this product as, during WWDC, no one other than those featured in the promotion video was seen wearing it. The reason is obvious: using a computer that covers your face in front of a camera is weird (not to mention that it is way bigger than some other XR \"glasses\")."
-    },
-    "tag": [
-      "XR",
-      "AI",
-      "Technology"
-    ],
-    "date": "2023-06-13",
-    "image": "post/what-xr-should-be-in-2023/comp.png"
+    "en": "post/what-xr-should-be-in-2023/main.md"
   },
   "Introducing rmcv - Computer Vision Library for Robomaster": {
-    "en": {
-      "title": "Introducing rmcv - Computer Vision Library for Robomaster",
-      "location": "post/introducing-rmcv/main.md",
-      "excerpt": "This project is a library for RoboMaster computer vision based on OpenCV."
-    },
-    "tag": [
-      "Robomaster",
-      "Computer Vision",
-      "OpenCV",
-      "C++"
-    ],
-    "date": "2022-06-12",
-    "image": "post/introducing-rmcv/award.jpeg"
+    "en": "post/introducing-rmcv/main.md"
   },
   "frogy": {
-    "en": {
-      "title": "TimeFrogy - ScreenTime Tracker",
-      "location": "post/frogy/main.md",
-      "excerpt": "TimeFrogy is a Windows application that draws inspiration from iOS' \"Screen Time\" and Android's \"Digital Wellbeing.\" It serves as a tool for monitoring and managing your screen time."
-    },
-    "tag": [
-      "WPF",
-      "C#"
-    ],
-    "image": "post/frogy/screenshot.png",
-    "date": "2021-06-13"
+    "en": "post/frogy/main.md"
   }
 }

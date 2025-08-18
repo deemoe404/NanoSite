@@ -1,4 +1,5 @@
 import { escapeHtml, escapeMarkdown, sanitizeUrl, resolveImageSrc } from './utils.js';
+import { stripFrontMatter } from './content.js';
 
 function isPipeTableSeparator(line) {
   // Matches a classic Markdown table separator like:
@@ -121,7 +122,9 @@ function tocParser(titleLevels, liTags) {
 }
 
 export function mdParse(markdown, baseDir) {
-  const lines = String(markdown || '').split('\n');
+  // Strip front matter before parsing
+  const cleanedMarkdown = stripFrontMatter(markdown);
+  const lines = String(cleanedMarkdown || '').split('\n');
   let html = '', tochtml = [], tochirc = [];
   let isInCode = false, isInBigCode = false, isInTable = false, isInTodo = false, isInPara = false;
   let codeLang = '';

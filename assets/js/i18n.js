@@ -8,6 +8,8 @@
 //   Existing per-language files `index.<lang>.json` and `tabs.<lang>.json` remain supported as a fallback.
 // - To show a friendly name in the language dropdown, add an entry to `languageNames`.
 
+import { parseFrontMatter } from './content.js';
+
 // Default language fallback when no user/browser preference is available.
 const DEFAULT_LANG = 'en';
 // Site base default language (can be overridden by initI18n via <html lang>)
@@ -317,6 +319,67 @@ function transformUnifiedContent(obj, lang) {
   return { entries: out, availableLangs: Array.from(langsSeen).sort() };
 }
 
+// Load content metadata from simplified JSON and Markdown front matter
+async function loadContentFromFrontMatter(obj, lang) {
+  const out = {};
+  const langsSeen = new Set();
+  const nlang = normalizeLangKey(lang);
+  
+  // Collect all available languages from the simplified JSON
+  for (const [key, val] of Object.entries(obj || {})) {
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      Object.keys(val).forEach(k => {
+        const nk = normalizeLangKey(k);
+        if (nk !== 'default') langsSeen.add(nk);
+      });
+    }
+  }
+  
+  // Process each entry
+  for (const [key, val] of Object.entries(obj || {})) {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+    
+    // Find the best path for the current language
+    let chosenPath = val[nlang] || val[baseDefaultLang] || val['en'] || val['default'];
+    
+    // Fallback to first available path
+    if (!chosenPath) {
+      const paths = Object.values(val).filter(p => typeof p === 'string');
+      if (paths.length > 0) chosenPath = paths[0];
+    }
+    
+    if (!chosenPath) continue;
+    
+    try {
+      // Load the markdown file and extract front matter
+      const response = await fetch(`wwwroot/${chosenPath}`);
+      if (!response.ok) continue;
+      
+      const content = await response.text();
+      const { frontMatter } = parseFrontMatter(content);
+      
+      // Build metadata object
+      const meta = {
+        location: chosenPath,
+        image: frontMatter.image || undefined,
+        tag: frontMatter.tags || frontMatter.tag || undefined,
+        date: frontMatter.date || undefined,
+        excerpt: frontMatter.excerpt || undefined
+      };
+      
+      // Use title from front matter or fallback to key
+      const title = frontMatter.title || key;
+      out[title] = meta;
+    } catch (error) {
+      console.warn(`Failed to load content from ${chosenPath}:`, error);
+      // Fallback to basic metadata
+      out[key] = { location: chosenPath };
+    }
+  }
+  
+  return { entries: out, availableLangs: Array.from(langsSeen).sort() };
+}
+
 // Try to load unified JSON (`base.json`) first; if not unified or missing, fallback to legacy
 // per-language files (base.<currentLang>.json -> base.<default>.json -> base.json)
 export async function loadContentJson(basePath, baseName) {
@@ -328,14 +391,35 @@ export async function loadContentJson(basePath, baseName) {
       // Heuristic: if any entry contains a `default` or a non-reserved language-like key, treat as unified
       const keys = Object.keys(obj || {});
       let isUnified = false;
+      let isSimplified = false;
+      
+      // Check if it's a simplified format (just path mappings) or unified format
       for (const k of keys) {
         const v = obj[k];
         if (v && typeof v === 'object' && !Array.isArray(v)) {
+          // Check for simplified format (language -> path mapping)
+          const innerKeys = Object.keys(v);
+          const hasOnlyPaths = innerKeys.every(ik => typeof v[ik] === 'string');
+          
+          if (hasOnlyPaths) {
+            isSimplified = true;
+            break;
+          }
+          
+          // Check for unified format
           if ('default' in v) { isUnified = true; break; }
-          const inner = Object.keys(v);
-          if (inner.some(ik => !['tag','tags','image','date','excerpt','location'].includes(ik))) { isUnified = true; break; }
+          if (innerKeys.some(ik => !['tag','tags','image','date','excerpt','location'].includes(ik))) { isUnified = true; break; }
         }
       }
+      
+      if (isSimplified) {
+        // Handle simplified format - load metadata from front matter
+        const current = getCurrentLang();
+        const { entries, availableLangs } = await loadContentFromFrontMatter(obj, current);
+        __setContentLangs(availableLangs);
+        return entries;
+      }
+      
       if (isUnified) {
         const current = getCurrentLang();
         const { entries, availableLangs } = transformUnifiedContent(obj, current);

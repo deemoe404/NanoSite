@@ -1,3 +1,16 @@
+---
+title: Introducing rmcv - Computer Vision Library for Robomaster
+date: 2022-06-12
+tags:
+  - Robomaster
+  - Computer Vision
+  - OpenCV
+  - C++
+image: post/introducing-rmcv/award.jpeg
+excerpt: This project is a library for RoboMaster computer vision based on OpenCV.
+author: deemoe
+---
+
 ![Award](award.jpeg "Award")
 
 This project is a library for RoboMaster computer vision based on OpenCV. The functions that currently implemented includes:

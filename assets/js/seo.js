@@ -2,6 +2,7 @@
 // This maintains SEO benefits while keeping the "no compilation needed" philosophy
 
 import { getCurrentLang, DEFAULT_LANG } from './i18n.js';
+import { parseFrontMatter } from './content.js';
 
 /**
  * Generate a fallback image using SVG when no avatar is configured
@@ -399,33 +400,37 @@ function updateStructuredData(options, siteConfig = {}) {
  * @returns {Object} SEO options
  */
 export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) {
-  const title = metadata.title || extractTitleFromMarkdown(content, siteConfig);
-  const description = metadata.excerpt || extractExcerptFromMarkdown(content, siteConfig);
-  const tags = metadata.tags || extractTagsFromMarkdown(content);
+  // First try to extract data from front matter
+  const { frontMatter } = parseFrontMatter(content);
+  
+  // Use front matter data with fallback to metadata and extraction
+  const title = frontMatter.title || metadata.title || extractTitleFromMarkdown(content, siteConfig);
+  const description = frontMatter.excerpt || metadata.excerpt || extractExcerptFromMarkdown(content, siteConfig);
+  const tags = frontMatter.tags || frontMatter.tag || metadata.tags || metadata.tag || extractTagsFromMarkdown(content);
   
   // Get resource base from site config for building absolute resource URLs
   const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
   
-  // Determine image: article image > article-specific fallback > site avatar > site fallback
+  // Determine image: front matter > metadata > article-specific fallback > site avatar > site fallback
   let image;
-  if (metadata.image || metadata.cover) {
+  if (frontMatter.image || metadata.image || metadata.cover) {
     // Article has an image configured
-    image = metadata.image || metadata.cover;
+    image = frontMatter.image || metadata.image || metadata.cover;
   } else {
     // No article image - generate fallback based on article title
     console.log('🎨 No image configured for article, generating fallback for:', title);
     image = generateFallbackImage(title);
   }
   
-  // Try to extract date from content or metadata
-  const publishedTime = metadata.date || extractDateFromMarkdown(content);
+  // Try to extract date from front matter, then metadata, then content
+  const publishedTime = frontMatter.date || metadata.date || extractDateFromMarkdown(content);
   
   return {
     title,
     description,
     image: (image.startsWith('http') || image.startsWith('data:')) ? image : `${resourceBase}${image.replace(/^\/+/, '')}`,
     type: 'article',
-    author: metadata.author || 'NanoSite',
+    author: frontMatter.author || metadata.author || 'NanoSite',
     publishedTime: publishedTime ? new Date(publishedTime).toISOString() : null,
     tags,
     url: window.location.href

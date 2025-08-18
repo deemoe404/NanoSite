@@ -1,3 +1,13 @@
+---
+title: What I Wish I Knew Before Going Headless
+date: 2025-07-18
+tags:
+  - Linux
+  - Technology
+excerpt: I aimed to streamline my workflow using a single machine but encountered limitations across platforms—Windows became unstable, Arch required excessive maintenance, and macOS lacked NVIDIA GPU support. Ultimately, I adopted a headless Linux setup accessed via SSH and VSCode with Dev Containers from my Mac. This approach offers stability, flexibility, and strong remote development capabilities—though GUI dependencies still remain unavoidable in some cases.
+author: deemoe
+---
+
 ## The Myth of the Perfect Setup
 
 I’ve always been a fan of **using a single computer for everything**. Back when I was on Windows, my setup was a ThinkPad X1 Extreme paired with a Thunderbolt GPU dock—one machine to handle it all. But as Windows grew increasingly bloated and less efficient, I started searching for alternatives.

@@ -1,3 +1,14 @@
+---
+title: TimeFrogy - ScreenTime Tracker
+date: 2021-06-13
+tags:
+  - WPF
+  - C#
+image: post/frogy/screenshot.png
+excerpt: TimeFrogy is a Windows application that draws inspiration from iOS' "Screen Time" and Android's "Digital Wellbeing." It serves as a tool for monitoring and managing your screen time.
+author: deemoe
+---
+
 Here are the key features it currently offers:
 
 - **App Usage Tracking:** TimeFrogy records your app usage to help you understand how you spend your time on your computer.
