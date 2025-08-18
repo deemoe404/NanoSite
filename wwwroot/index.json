@@ -1,19 +1,19 @@
 {
-  "Meet NanoSite": {
+  "nanoSite": {
     "en": "post/meet-nanosite/main_en.md",
     "zh": "post/meet-nanosite/main_zh.md",
-    "ja": "post/meet-nanosite/main_en.md"
+    "ja": "post/meet-nanosite/main_ja.md"
   },
-  "What I Wish I Knew Before Going Headless": {
+  "headless": {
     "en": "post/what-i-wish-i-knew-before-going-headless.md"
   },
   "volcal_baseline": {
     "en": "post/volcal_baseline/main.md"
   },
-  "What XR Should Be in 2023": {
+  "xr2023": {
     "en": "post/what-xr-should-be-in-2023/main.md"
   },
-  "Introducing rmcv - Computer Vision Library for Robomaster": {
+  "rmcv": {
     "en": "post/introducing-rmcv/main.md"
   },
   "frogy": {
