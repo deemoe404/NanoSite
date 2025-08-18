@@ -1,20 +1,38 @@
 {
-  "siteTitle": { "default": "deemoe's journal"},
-  "siteSubtitle": { "default": "眼见何事，情系何处，身在何方，心思何人" },
-  "siteDescription": { "default": "deemoe's journal" },
+  "siteTitle": {
+    "default": "deemoe's journal",
+    "zh": "deemoe 的日志",
+    "ja": "deemoe のジャーナル"
+  },
+  "siteSubtitle": {
+    "default": "Thanks for playing my game.",
+    "zh": "眼见何事，情系何处，身在何方，心思何人"
+  },
+  "siteDescription": {
+    "default": "deemoe's journal"
+  },
   "resourceURL": "https://dee.moe/wwwroot/",
-  "siteKeywords": { "default": "static blog, markdown, github pages, blog"},
+  "siteKeywords": {
+    "default": "static blog, markdown, github pages, blog"
+  },
   "avatar": "assets/avatar.png",
   "profileLinks": [
-    { "label": "GitHub", "href": "https://github.com/deemoe404" },
-    { "label": "ORCID", "href": "https://orcid.org/0009-0005-4213-5418" },
-    { "label": "E-Mail", "href": "mailto:deemoe404@gmail.com" }
+    {
+      "label": "GitHub",
+      "href": "https://github.com/deemoe404"
+    },
+    {
+      "label": "ORCID",
+      "href": "https://orcid.org/0009-0005-4213-5418"
+    },
+    {
+      "label": "E-Mail",
+      "href": "mailto:deemoe404@gmail.com"
+    }
   ],
   "contentOutdatedDays": 180,
-  
   "themeMode": "user",
   "themePack": "minimalism",
   "themeOverride": true,
-
   "cardCoverFallback": false
 }
