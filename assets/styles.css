@@ -1243,6 +1243,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
 #tagview .tag-toggle { margin-top: 0.5rem; width: 100%; padding: .4rem .6rem; border-radius: 0.5rem; border: 0.0625rem solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
 #tagview .tag-toggle:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); color: var(--primary); }
 
+/* When expanded, add a bit more breathing room above the toggle */
+#tagview .tag-list.compact:not(.is-collapsed) + .tag-toggle { margin-top: 1rem; }
+
 /* Tag Tooltip */
 .tag-tooltip {
   position: fixed;
