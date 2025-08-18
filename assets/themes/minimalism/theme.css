@@ -302,6 +302,16 @@ body {
   font-weight: 400;
 }
 
+/* Inline link cards inside post content: match homepage typography */
+#mainview .link-card .card-title {
+  font-family: var(--display, var(--serif));
+  letter-spacing: 0.002em;
+  font-weight: 600; /* 与首页卡片标题一致 */
+}
+#mainview .link-card .card-excerpt {
+  font-family: var(--serif);
+}
+
 /* 卡片元信息：小型大写+中等权重，报纸感更强 */
 #mainview .index .card-meta {
   font-size: 0.74rem;
