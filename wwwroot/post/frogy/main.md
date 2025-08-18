@@ -4,7 +4,7 @@ date: 2021-06-13
 tags:
   - WPF
   - C#
-image: post/frogy/screenshot.png
+image: post/frogy/hero.jpeg
 excerpt: TimeFrogy is a Windows application that draws inspiration from iOS' "Screen Time" and Android's "Digital Wellbeing." It serves as a tool for monitoring and managing your screen time.
 author: deemoe
 ---
