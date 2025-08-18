@@ -49,6 +49,22 @@ const highlightRules = {
     { type: 'keyword', pattern: /^\s*[-*+]\s/gm },
     { type: 'keyword', pattern: /^\s*\d+\.\s/gm },
     { type: 'string', pattern: /\[([^\]]+)\]\(([^)]+)\)/g }
+  ],
+  
+  bash: [
+    { type: 'comment', pattern: /#.*$/gm },
+    { type: 'string', pattern: /(["'])(?:(?!\1)[^\\\r\n]|\\.)*\1/g },
+    { type: 'keyword', pattern: /\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|break|continue|local|export|source|alias|unalias|cd|pwd|ls|mkdir|rmdir|rm|cp|mv|cat|grep|awk|sed|sort|uniq|head|tail|echo|printf|read|test)\b/g },
+    { type: 'operator', pattern: /[&|;><(){}[\]$!]/g },
+    { type: 'number', pattern: /\b\d+\b/g }
+  ],
+  
+  shell: [
+    { type: 'comment', pattern: /#.*$/gm },
+    { type: 'string', pattern: /(["'])(?:(?!\1)[^\\\r\n]|\\.)*\1/g },
+    { type: 'keyword', pattern: /\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|break|continue|local|export|source|alias|unalias|cd|pwd|ls|mkdir|rmdir|rm|cp|mv|cat|grep|awk|sed|sort|uniq|head|tail|echo|printf|read|test)\b/g },
+    { type: 'operator', pattern: /[&|;><(){}[\]$!]/g },
+    { type: 'number', pattern: /\b\d+\b/g }
   ]
 };
 
@@ -150,6 +166,11 @@ function detectLanguage(code) {
   // JavaScript 检测
   if (/\bfunction\s+\w+|\b(const|let|var)\s+\w+|=>\s*[{(]/.test(code)) {
     return 'javascript';
+  }
+  
+  // Bash/Shell 检测
+  if (/(^|\n)\s*#!\s*\/.*\/(bash|sh)|^\s*#.*$|^\s*(if|for|while|function)\s+.*;\s*then|^\s*(export|alias|cd|echo|grep|awk|sed)\s+/.test(code)) {
+    return 'bash';
   }
   
   return null;
