@@ -567,8 +567,13 @@ function hydrateInternalLinkCards(container) {
     const mdCache = new Map(); // location -> Promise<string>
 
     anchors.forEach(a => {
-      const loc = parseId(a.getAttribute('href') || '');
-      if (!loc || !allowedLocations.has(loc)) return;
+      const rawLoc = parseId(a.getAttribute('href') || '');
+      if (!rawLoc) return;
+      // Prefer current-language alias if available (e.g., link points to main_en.md but UI is zh)
+      const aliased = (locationAliasMap && locationAliasMap.has(rawLoc)) ? locationAliasMap.get(rawLoc) : rawLoc;
+      // Allow either the raw location or its alias (covers cross-language links)
+      if (!allowedLocations.has(rawLoc) && !allowedLocations.has(aliased)) return;
+      const loc = aliased;
 
       // Only convert when link is the only content in its block container (p/li/div)
       const parent = a.parentElement;
@@ -578,9 +583,9 @@ function hydrateInternalLinkCards(container) {
       if (!isStandalone && !forceCard) return;
 
       // Lookup metadata from loaded index cache
-      const title = postsByLocationTitle[loc] || loc;
-      const meta = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === loc)?.[1] || {};
-      const href = withLangParam(`?id=${encodeURIComponent(loc)}`);
+  const title = postsByLocationTitle[loc] || loc;
+  const meta = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === loc)?.[1] || {};
+  const href = withLangParam(`?id=${encodeURIComponent(loc)}`);
       const tagsHtml = meta ? renderTags(meta.tag) : '';
       const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
       const coverSrc = meta && (meta.thumb || meta.cover || meta.image);
