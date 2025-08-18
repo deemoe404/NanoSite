@@ -336,13 +336,9 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   padding: 0.875rem 1rem;
   box-shadow: var(--shadow);
   margin: 0.25rem 0 1rem;
+  position: relative;
 }
-.post-meta-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  line-height: 1.25;
-  margin: 0 0 0.25rem;
-}
+.post-meta-title { font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin: 0 0 0.25rem; }
 .post-meta-line {
   color: var(--muted);
   font-size: 0.85rem;
@@ -397,6 +393,41 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 }
 #mainview .post-meta-card .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0; }
 #mainview .post-meta-card .tag { font-size: .8rem; }
+
+/* Reserve space on the right for the copy button */
+#mainview .post-meta-card { padding-right: 3rem; }
+
+/* Copy link button on post meta card (text button) */
+#mainview .post-meta-card { padding-right: 3rem; }
+#mainview .post-meta-card .post-meta-title { padding-right: 7rem; }
+#mainview .post-meta-card .post-meta-copy {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.6rem;
+  border: 0.0625rem solid var(--border);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+  transition: transform .12s ease-out, background-color .18s ease, box-shadow .18s ease, color .18s ease;
+}
+#mainview .post-meta-card .post-meta-copy:hover { background: color-mix(in srgb, var(--text) 10%, transparent); transform: translateY(-1px); }
+#mainview .post-meta-card .post-meta-copy:active { transform: translateY(0); }
+#mainview .post-meta-card .post-meta-copy:focus-visible { outline: none; box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--primary) 35%, transparent); }
+#mainview .post-meta-card .post-meta-copy.copied { box-shadow: 0 0 0 0.15rem color-mix(in srgb, var(--primary) 45%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  #mainview .post-meta-card .post-meta-copy { transition: none; }
+}
 
 /* Removed generic intrinsic-size hint to avoid ratio mismatch across themes */
 

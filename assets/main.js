@@ -742,6 +742,7 @@ function renderPostMetaCard(title, meta, markdown) {
     const tags = meta ? renderTags(meta.tag) : '';
     return `<section class="post-meta-card" aria-label="Post meta">
       <div class="post-meta-title">${safeTitle}</div>
+      <button type="button" class="post-meta-copy" aria-label="${t('ui.copyLink')}" title="${t('ui.copyLink')}">${t('ui.copyLink')}</button>
       ${metaLine}
       ${excerptHtml}
       ${tags || ''}
@@ -1056,6 +1057,31 @@ function displayPost(postname) {
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
+  // Wire up copy-link button on the post meta card
+  try {
+    const copyBtn = document.querySelector('#mainview .post-meta-card .post-meta-copy');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        const url = String(location.href || '').split('#')[0];
+        let ok = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(url); ok = true;
+          } else {
+            const tmp = document.createElement('textarea');
+            tmp.value = url; document.body.appendChild(tmp); tmp.select();
+            ok = document.execCommand('copy'); document.body.removeChild(tmp);
+          }
+        } catch (_) { ok = false; }
+        if (ok) {
+          const prevTitle = copyBtn.getAttribute('title') || '';
+          copyBtn.classList.add('copied');
+          copyBtn.setAttribute('title', t('ui.linkCopied') || t('code.copied'));
+          setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.setAttribute('title', prevTitle || t('ui.copyLink')); }, 1000);
+        }
+      });
+    }
+  } catch (_) {}
   // Always use the localized title from index.json for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
