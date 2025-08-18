@@ -12,7 +12,7 @@
   ],
   "contentOutdatedDays": 180,
   
-  "themeMode": "auto",
+  "themeMode": "user",
   "themePack": "minimalism",
   "themeOverride": true,
 

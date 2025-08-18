@@ -32,7 +32,7 @@ export function applySavedTheme() {
 export function applyThemeConfig(siteConfig) {
   const cfg = siteConfig || {};
   const override = cfg.themeOverride !== false; // default true
-  const mode = (cfg.themeMode || '').toLowerCase(); // 'dark' | 'light' | 'auto'
+  const mode = (cfg.themeMode || '').toLowerCase(); // 'dark' | 'light' | 'auto' | 'user'
   const pack = (cfg.themePack || '').trim();
 
   const setMode = (m) => {
@@ -55,6 +55,10 @@ export function applyThemeConfig(siteConfig) {
 
   if (override) {
     if (mode === 'dark' || mode === 'light' || mode === 'auto') setMode(mode);
+    else if (mode === 'user') {
+      // Respect user choice entirely; if none, fall back to system preference
+      applySavedTheme();
+    }
     if (pack) {
       // Force pack and persist
       try { localStorage.setItem('themePack', pack); } catch (_) {}
@@ -65,7 +69,11 @@ export function applyThemeConfig(siteConfig) {
     // apply it once without persisting as an override
     const hasUserTheme = (() => { try { return !!localStorage.getItem('theme'); } catch (_) { return false; } })();
     const hasUserPack = (() => { try { return !!localStorage.getItem('themePack'); } catch (_) { return false; } })();
-    if (!hasUserTheme && (mode === 'dark' || mode === 'light' || mode === 'auto')) setMode(mode);
+    if (!hasUserTheme) {
+      if (mode === 'dark' || mode === 'light' || mode === 'auto') setMode(mode);
+      // When mode is 'user' and there's no saved user theme, do nothing here;
+      // the boot code/applySavedTheme already applied system preference as a soft default.
+    }
     if (!hasUserPack && pack) loadThemePack(pack);
   }
 }
