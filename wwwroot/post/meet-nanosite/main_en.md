@@ -1,3 +1,5 @@
+![hero](hero.png)
+
 Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
 ## Highlights

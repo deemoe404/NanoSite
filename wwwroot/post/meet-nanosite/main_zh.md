@@ -1,3 +1,5 @@
+![hero](hero.png)
+
 源代码: [GitHub 上的 NanoSite](https://github.com/deemoe404/NanoSite)
 
 ## 亮点
