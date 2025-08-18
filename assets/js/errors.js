@@ -5,6 +5,9 @@ let reporterConfig = {
   siteTitle: 'NanoSite'
 };
 let extraContext = {};
+// Queue for sequential overlays (show one at a time)
+let overlayQueue = [];
+let overlayShowing = false;
 
 function ensureOverlayRoot() {
   let root = document.getElementById('errorOverlayRoot');
@@ -71,8 +74,30 @@ function copyToClipboard(text) {
 }
 
 export function showErrorOverlay(err, context = {}) {
+  try {
+    overlayQueue.push({ err, context });
+    processOverlayQueue();
+  } catch (_) {
+    // Fallback to immediate render if queueing somehow fails
+    try { renderOverlayCard(formatReportPayload(err, context)); } catch (_) {}
+  }
+}
+
+function processOverlayQueue() {
+  if (overlayShowing) return;
+  const next = overlayQueue.shift();
+  if (!next) return;
+  overlayShowing = true;
+  const payload = formatReportPayload(next.err, next.context);
+  renderOverlayCard(payload, () => {
+    overlayShowing = false;
+    // Next tick to avoid tight recursion
+    setTimeout(processOverlayQueue, 0);
+  });
+}
+
+function renderOverlayCard(payload, onDone) {
   const root = ensureOverlayRoot();
-  const payload = formatReportPayload(err, context);
   const card = document.createElement('div');
   card.className = 'error-card';
   card.setAttribute('role', 'alert');
@@ -90,8 +115,30 @@ export function showErrorOverlay(err, context = {}) {
     </div>
   `;
 
-  const onDismiss = () => { if (card && card.parentNode) card.parentNode.removeChild(card); };
-  card.querySelector('.btn-dismiss')?.addEventListener('click', onDismiss);
+  // Enter animation (opacity + slight translate/scale)
+  card.style.willChange = 'transform, opacity';
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(10px) scale(0.98)';
+  card.style.transition = 'transform 180ms ease, opacity 160ms ease-out';
+
+  let dismissed = false;
+  const finalizeRemove = () => {
+    if (card && card.parentNode) card.parentNode.removeChild(card);
+    if (typeof onDone === 'function') try { onDone(); } catch (_) {}
+  };
+  const animateOut = () => {
+    if (dismissed) return; dismissed = true;
+    // Exit animation
+    card.style.transition = 'transform 180ms ease, opacity 140ms ease-in';
+    card.style.transform = 'translateY(10px) scale(0.98)';
+    card.style.opacity = '0';
+    const onEnd = () => { card.removeEventListener('transitionend', onEnd); finalizeRemove(); };
+    card.addEventListener('transitionend', onEnd);
+    setTimeout(onEnd, 260); // safety
+  };
+
+  // Wire actions
+  card.querySelector('.btn-dismiss')?.addEventListener('click', animateOut);
   card.querySelector('.btn-copy')?.addEventListener('click', async () => {
     const ok = await copyToClipboard(JSON.stringify(payload, null, 2));
     const btn = card.querySelector('.btn-copy');
@@ -100,9 +147,25 @@ export function showErrorOverlay(err, context = {}) {
   const reportBtn = card.querySelector('.btn-report');
   if (reportBtn) reportBtn.addEventListener('click', () => openReportUrl(payload));
 
+  // Insert and play enter animation on next frame
   root.appendChild(card);
-  // Auto-fade after a while but keep details available if expanded
-  setTimeout(() => { if (!card.querySelector('.error-details')?.open) onDismiss(); }, 120000);
+  requestAnimationFrame(() => { requestAnimationFrame(() => {
+    card.style.opacity = '1';
+    card.style.transform = 'translateY(0) scale(1)';
+  }); });
+
+  // Auto-dismiss after 2 minutes unless details expanded
+  const autoTimer = setTimeout(() => {
+    try {
+      if (!card.querySelector('.error-details')?.open) animateOut();
+    } catch (_) { animateOut(); }
+  }, 120000);
+
+  // If user expands details, keep it longer; if they collapse again, leave timer as-is
+  try {
+    const det = card.querySelector('.error-details');
+    if (det) det.addEventListener('toggle', () => { /* no-op for now */ });
+  } catch (_) {}
 }
 
 export function initErrorReporter(options = {}) {
