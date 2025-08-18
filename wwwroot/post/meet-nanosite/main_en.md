@@ -61,4 +61,4 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
   }
   ```
 
-🎉 Congratulations! You've set up your NanoSite. Reload the page, and you should see your post card on the homepage. Click to read it. For more customization options, check the documentation.
+🎉 Congratulations! You've set up your NanoSite. Reload the page, and you should see your post card on the homepage. Click to read it. For more customization options, check the [documentation](?id=post/meet-nanosite/doc_en.md).
