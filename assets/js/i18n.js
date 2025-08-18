@@ -44,6 +44,9 @@ const translations = {
   tags: 'Tags',
   tagSearch: (tag) => `Tag: ${tag}`,
   allTags: 'All tags'
+  ,
+  more: 'More',
+  less: 'Less'
     },
     code: {
       copy: 'Copy',
@@ -102,6 +105,9 @@ const translations = {
   tags: '标签',
   tagSearch: (tag) => `标签：${tag}`,
   allTags: '全部标签'
+  ,
+  more: '更多',
+  less: '收起'
     },
     code: {
       copy: '复制',
@@ -161,6 +167,9 @@ const translations = {
   tags: 'タグ',
   tagSearch: (tag) => `タグ: ${tag}`,
   allTags: 'すべてのタグ'
+  ,
+  more: 'もっと見る',
+  less: '折りたたむ'
     },
     code: {
       copy: 'コピー',

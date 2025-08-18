@@ -782,9 +782,12 @@ function renderTabs(activeSlug, searchQuery) {
   let html = make('posts', t('ui.allPosts'));
   for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
   if (activeSlug === 'search') {
-    const q = String(searchQuery || '').trim();
-    const href = withLangParam(`?tab=search${q ? `&q=${encodeURIComponent(q)}` : ''}`);
-  html += `<a class="tab active" data-slug="search" href="${href}">${t('ui.searchTab')}</a>`;
+    const sp = new URLSearchParams(window.location.search);
+    const tag = (sp.get('tag') || '').trim();
+    const q = (sp.get('q') || String(searchQuery || '')).trim();
+    const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+    const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+  html += `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
   } else if (activeSlug === 'post') {
     const raw = String(searchQuery || t('ui.postTab')).trim();
     const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
@@ -1492,10 +1495,12 @@ function routeAndRender() {
     displaySearch(q);
     // Update SEO for search page
     try {
-      const title = tag ? `Tag: ${tag} - NanoSite` : (q ? `Search: ${q} - NanoSite` : 'Search - NanoSite');
+      const localizedTitle = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+      const baseSite = (() => { try { return document.title.split('·').slice(1).join('·').trim(); } catch { return ''; } })();
+      const title = baseSite ? `${localizedTitle} - ${baseSite}` : localizedTitle;
       updateSEO({
         title,
-        description: tag ? `Posts tagged \"${tag}\"` : (q ? `Search results for \"${q}\"` : 'Search through blog posts and content'),
+        description: tag ? `Posts tagged "${tag}"` : (q ? `Search results for "${q}"` : 'Search through blog posts and content'),
         type: 'website'
       }, siteConfig);
     } catch (_) { /* ignore SEO errors to avoid breaking UI */ }
@@ -1565,9 +1570,44 @@ function renderTagSidebar(indexMap) {
     const href = withLangParam(`?tab=search&tag=${encodeURIComponent(label)}`);
     return `<li><a class="tag-link${isActive ? ' active' : ''}" href="${href}"><span class="tag-name">${escapeHtml(label)}</span><span class="tag-count">${count}</span></a></li>`;
   }).join('');
-  root.innerHTML = header + `<ul class="tag-list">` +
-    `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}"><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>` +
-    lis + `</ul>`;
+  const allItem = `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}"><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>`;
+  root.innerHTML = header + `
+    <div class="tagbox">
+      <ul class="tag-list compact" data-collapsed="true">
+        ${allItem}
+        ${lis}
+      </ul>
+      <button type="button" class="tag-toggle" aria-expanded="false">${t('ui.more')}</button>
+    </div>`;
+  // Auto-expand to ensure active tag visible when collapsed would hide it
+  try {
+    const list = root.querySelector('.tag-list');
+    const active = root.querySelector('.tag-link.active');
+    const toggle = root.querySelector('.tag-toggle');
+    const ensureVisible = () => {
+      if (!list || !active || !toggle) return;
+      if (!list.classList.contains('is-collapsed')) return; // class set by CSS init below
+      const rect = active.getBoundingClientRect();
+      const lrect = list.getBoundingClientRect();
+      if (rect.bottom > lrect.bottom) {
+        // expand to show current
+        list.classList.remove('is-collapsed');
+        list.dataset.collapsed = 'false';
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.textContent = t('ui.less');
+      }
+    };
+    // Initialize collapse class and wire toggle
+    list.classList.add('is-collapsed');
+    toggle.addEventListener('click', () => {
+      const collapsed = list.classList.toggle('is-collapsed');
+      list.dataset.collapsed = collapsed ? 'true' : 'false';
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      toggle.textContent = collapsed ? t('ui.more') : t('ui.less');
+    });
+    // After first paint, ensure active visible
+    requestAnimationFrame(() => ensureVisible());
+  } catch (_) {}
 }
 
 // Enhanced smooth click feedback with immediate highlight movement
