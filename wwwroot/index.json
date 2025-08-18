@@ -4,6 +4,11 @@
     "zh": "post/meet-nanosite/main_zh.md",
     "ja": "post/meet-nanosite/main_ja.md"
   },
+  "nanodoc": {
+    "en": "post/meet-nanosite/doc_en.md",
+    "zh": "post/meet-nanosite/doc_zh.md",
+    "ja": "post/meet-nanosite/doc_ja.md"
+  },
   "headless": {
     "en": "post/what-i-wish-i-knew-before-going-headless.md"
   },
