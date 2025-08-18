@@ -1607,7 +1607,120 @@ function renderTagSidebar(indexMap) {
     });
     // After first paint, ensure active visible
     requestAnimationFrame(() => ensureVisible());
+    
+    // Setup tag tooltips for truncated text
+    setupTagTooltips(root);
   } catch (_) {}
+}
+
+// Setup tag tooltips for displaying full tag names when truncated
+function setupTagTooltips(tagRoot) {
+  if (!tagRoot) return;
+  
+  let currentTooltip = null;
+  let tooltipTimeout = null;
+  
+  // Create and manage tooltip
+  function createTooltip() {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tag-tooltip';
+    document.body.appendChild(tooltip);
+    return tooltip;
+  }
+  
+  function showTooltip(tagElement, text) {
+    // Don't show tooltip if text is not truncated
+    const tagName = tagElement.querySelector('.tag-name');
+    if (!tagName || tagName.scrollWidth <= tagName.clientWidth) return;
+    
+    if (!currentTooltip) {
+      currentTooltip = createTooltip();
+    }
+    
+    currentTooltip.textContent = text;
+
+    // Reset placement class
+    currentTooltip.classList.remove('below');
+
+    // Measure target and tooltip in viewport coordinates
+    const rect = tagElement.getBoundingClientRect();
+
+    // Temporarily make visible to measure accurate size
+    currentTooltip.style.visibility = 'hidden';
+    currentTooltip.style.display = 'block';
+    const ttWidth = currentTooltip.offsetWidth;
+    const ttHeight = currentTooltip.offsetHeight;
+    const padding = 8; // viewport padding
+
+    // Preferred: above
+    let top = rect.top - ttHeight - 8;
+    let left = rect.left + (rect.width / 2) - (ttWidth / 2);
+
+    // If not enough space above, place below
+    if (top < padding) {
+      top = Math.min(window.innerHeight - padding - ttHeight, rect.bottom + 8);
+      currentTooltip.classList.add('below');
+    }
+
+    // Clamp horizontally
+    if (left < padding) left = padding;
+    if (left + ttWidth > window.innerWidth - padding) {
+      left = window.innerWidth - padding - ttWidth;
+    }
+
+    // Apply position using fixed coordinates
+    currentTooltip.style.left = `${left}px`;
+    currentTooltip.style.top = `${top}px`;
+    currentTooltip.style.visibility = '';
+    
+    // Show with animation
+    requestAnimationFrame(() => {
+      if (currentTooltip) {
+        currentTooltip.classList.add('show');
+      }
+    });
+  }
+  
+  function hideTooltip() {
+    if (currentTooltip) {
+      currentTooltip.classList.remove('show');
+      setTimeout(() => {
+        if (currentTooltip && !currentTooltip.classList.contains('show')) {
+          document.body.removeChild(currentTooltip);
+          currentTooltip = null;
+        }
+      }, 200); // Match CSS transition duration
+    }
+  }
+  
+  // Add event listeners to all tag links
+  const tagLinks = tagRoot.querySelectorAll('.tag-link');
+  tagLinks.forEach(tagLink => {
+    const tagNameElement = tagLink.querySelector('.tag-name');
+    if (!tagNameElement) return;
+    
+    const fullText = tagNameElement.textContent.trim();
+    
+    tagLink.addEventListener('mouseenter', () => {
+      clearTimeout(tooltipTimeout);
+      tooltipTimeout = setTimeout(() => {
+        showTooltip(tagLink, fullText);
+      }, 500); // Delay to avoid showing tooltip on quick hover
+    });
+    
+    tagLink.addEventListener('mouseleave', () => {
+      clearTimeout(tooltipTimeout);
+      hideTooltip();
+    });
+  });
+
+  // Hide or reposition tooltip on scroll/resize; use a single shared listener
+  const onScrollOrResize = () => {
+    // Simply hide for now to avoid jank; could recompute if needed
+    hideTooltip();
+  };
+  window.addEventListener('scroll', onScrollOrResize, { passive: true });
+  window.addEventListener('resize', onScrollOrResize);
 }
 
 // Enhanced smooth click feedback with immediate highlight movement
