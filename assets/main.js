@@ -1712,6 +1712,12 @@ function setupTagTooltips(tagRoot) {
       clearTimeout(tooltipTimeout);
       hideTooltip();
     });
+
+    // Also hide immediately on click (in-app nav may not trigger scroll)
+    tagLink.addEventListener('click', () => {
+      clearTimeout(tooltipTimeout);
+      hideTooltip();
+    });
   });
 
   // Hide or reposition tooltip on scroll/resize; use a single shared listener
@@ -1721,6 +1727,31 @@ function setupTagTooltips(tagRoot) {
   };
   window.addEventListener('scroll', onScrollOrResize, { passive: true });
   window.addEventListener('resize', onScrollOrResize);
+
+  // Hide when toggling the tag list expand/collapse
+  try {
+    const toggleBtn = tagRoot.querySelector('.tag-toggle');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        clearTimeout(tooltipTimeout);
+        hideTooltip();
+      });
+    }
+  } catch (_) {}
+
+  // Hide when user clicks anywhere inside the tag area (safety net)
+  tagRoot.addEventListener('click', () => {
+    clearTimeout(tooltipTimeout);
+    hideTooltip();
+  });
+
+  // Hide on Escape key
+  const onKeydown = (e) => { if (e && e.key === 'Escape') hideTooltip(); };
+  window.addEventListener('keydown', onKeydown);
+
+  // Hide on any document click (outside hover scenario)
+  const onDocClick = () => { hideTooltip(); };
+  document.addEventListener('click', onDocClick);
 }
 
 // Enhanced smooth click feedback with immediate highlight movement
