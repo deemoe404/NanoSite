@@ -6,7 +6,7 @@ import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
-import { initErrorReporter, setReporterContext } from './js/errors.js';
+import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 
 // Lightweight fetch helper
@@ -279,7 +279,7 @@ function hydratePostImages(container) {
     const candidates = Array.from(root.querySelectorAll('img'))
       .filter(img => !img.classList.contains('card-cover'))
       .filter(img => !img.closest('table'));
-    candidates.forEach(img => {
+  candidates.forEach(img => {
       // Skip if already in a wrapper
       if (img.closest('.post-image-wrap')) return;
       // If the image lives inside a paragraph with other text, avoid restructuring
@@ -337,6 +337,95 @@ function hydratePostImages(container) {
       if (ds) img.src = ds;
     });
   } catch (_) {}
+}
+// --- Asset watchdog: warn when image assets exceed configured threshold ---
+async function checkImageSize(url, timeoutMs = 4000) {
+  // Try HEAD first; fall back to range request when HEAD not allowed
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    clearTimeout(t);
+    if (!r.ok) throw new Error(`HEAD ${r.status}`);
+    const len = r.headers.get('content-length');
+    return len ? parseInt(len, 10) : null;
+  } catch (_) {
+    clearTimeout(t);
+    // Range fetch 0-0 to read Content-Range when possible
+    try {
+      const r = await fetch(url, { method: 'GET', headers: { 'Range': 'bytes=0-0' } });
+      const cr = r.headers.get('content-range');
+      if (cr) {
+        const m = /\/(\d+)$/.exec(cr);
+        if (m) return parseInt(m[1], 10);
+      }
+      const len = r.headers.get('content-length');
+      return len ? parseInt(len, 10) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+function formatBytes(n) {
+  if (!n && n !== 0) return '';
+  const kb = n / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+}
+
+async function warnLargeImagesIn(container, cfg = {}) {
+  try {
+    const enabled = !!(cfg && cfg.enabled);
+    const thresholdKB = Math.max(1, parseInt((cfg && cfg.thresholdKB) || 500, 10));
+    if (!enabled) return;
+    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('img'));
+    const seen = new Set();
+    // Resolve relative to page for consistent fetch URLs
+    const toAbs = (s) => {
+      try { return new URL(s, window.location.href).toString(); } catch { return s; }
+    };
+    const tasks = imgs
+      .map(img => img.getAttribute('src') || img.getAttribute('data-src'))
+      .filter(Boolean)
+      .map(u => toAbs(u))
+      .filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
+    const limit = 4;
+    let i = 0;
+    const next = async () => {
+      const idx = i++;
+      if (idx >= tasks.length) return;
+      const url = tasks[idx];
+      const size = await checkImageSize(url);
+      if (typeof size === 'number' && size > thresholdKB * 1024) {
+        try {
+          const lang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
+          const name = url.split('/').pop() || url;
+          const msg = (lang === 'zh' || lang?.startsWith('zh'))
+            ? `发现大图资源：${name}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
+            : (lang === 'ja')
+              ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
+              : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
+          const e = new Error(msg);
+          try { e.name = 'Warning'; } catch(_) {}
+          showErrorOverlay(e, {
+            message: msg,
+            origin: 'asset.watchdog',
+            kind: 'image',
+            thresholdKB,
+            sizeBytes: size,
+            url
+          });
+        } catch (_) {}
+      }
+      return next();
+    };
+    const starters = Array.from({ length: Math.min(limit, tasks.length) }, () => next());
+    await Promise.all(starters);
+  } catch (_) { /* silent */ }
 }
 
 
@@ -1160,6 +1249,11 @@ function displayPost(postname) {
   if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
   try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+    // After images are in DOM, run large-image watchdog if enabled in site config
+    try {
+      const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+      warnLargeImagesIn('#mainview', cfg);
+    } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
   // Wire up copy-link button on the post meta card
@@ -1288,6 +1382,11 @@ function displayIndex(parsed) {
   document.getElementById('mainview').innerHTML = html;
   hydrateCardCovers('#mainview');
   applyLazyLoadingIn('#mainview');
+  // Check potential large thumbnails on index view
+  try {
+    const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+    warnLargeImagesIn('#mainview', cfg);
+  } catch (_) {}
   sequentialLoadCovers('#mainview', 1);
   // Apply masonry layout after initial paint
   requestAnimationFrame(() => applyMasonry('.index'));
@@ -1405,6 +1504,11 @@ function displaySearch(query) {
   document.getElementById('mainview').innerHTML = html;
   hydrateCardCovers('#mainview');
   sequentialLoadCovers('#mainview', 1);
+  // Check potential large thumbnails on search view
+  try {
+    const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+    warnLargeImagesIn('#mainview', cfg);
+  } catch (_) {}
   renderTabs('search', tagFilter ? t('ui.tagSearch', tagFilter) : q);
   const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothShow(searchBox);
@@ -1568,6 +1672,11 @@ function displayStaticTab(slug) {
   if (mv) mv.innerHTML = output.post;
   try { hydratePostImages('#mainview'); } catch (_) {}
       try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+      // After images are in DOM, run large-image watchdog if enabled in site config
+      try {
+        const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+        warnLargeImagesIn('#mainview', cfg);
+      } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
   try { initSyntaxHighlighting(); } catch (_) {}
