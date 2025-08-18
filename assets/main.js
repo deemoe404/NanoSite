@@ -818,53 +818,60 @@ function renderTabs(activeSlug, searchQuery) {
 
   // If full tab list doesn't fit, collapse to minimal: All Posts + active tab
   try {
-    const containerWidth = (nav.parentElement && nav.parentElement.clientWidth) || nav.clientWidth || 0;
+    const containerWidth = ((nav.parentElement && nav.parentElement.getBoundingClientRect && nav.parentElement.getBoundingClientRect().width) || nav.clientWidth || 0);
     const fullWidth = measureWidth(html);
-    if (containerWidth && fullWidth && fullWidth > containerWidth - 8) {
-      // Build compact HTML
-      let compact = make('posts', t('ui.allPosts'));
-      if (activeSlug === 'search') {
+    // Build compact HTML candidate
+    let compact = make('posts', t('ui.allPosts'));
+    if (activeSlug === 'search') {
+      const sp = new URLSearchParams(window.location.search);
+      const tag = (sp.get('tag') || '').trim();
+      const q = (sp.get('q') || String(searchQuery || '')).trim();
+      const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+      const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+      compact += `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+    } else if (activeSlug === 'post') {
+      const raw = String(searchQuery || t('ui.postTab')).trim();
+      const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
+      compact += `<span class="tab active" data-slug="post">${label}</span>`;
+    } else if (activeSlug && activeSlug !== 'posts') {
+      // Active static tab from tabs.json
+      const info = tabsBySlug[activeSlug];
+      const label = info && info.title ? info.title : activeSlug;
+      compact += make(activeSlug, label).replace('"tab ', '"tab active ');
+    }
+    // If compact still doesn't fit (e.g. very long post title), truncate active label harder
+    if (containerWidth && measureWidth(compact) > containerWidth - 8) {
+      if (activeSlug === 'post') {
+        const raw = String(searchQuery || t('ui.postTab')).trim();
+        const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
+        compact = make('posts', t('ui.allPosts')) + `<span class="tab active" data-slug="post">${label}</span>`;
+      } else if (activeSlug === 'search') {
         const sp = new URLSearchParams(window.location.search);
         const tag = (sp.get('tag') || '').trim();
         const q = (sp.get('q') || String(searchQuery || '')).trim();
+        const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+        const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
         const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-        const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-        compact += `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
-      } else if (activeSlug === 'post') {
-        const raw = String(searchQuery || t('ui.postTab')).trim();
-        const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
-        compact += `<span class="tab active" data-slug="post">${label}</span>`;
-      } else if (activeSlug && activeSlug !== 'posts') {
-        // Active static tab from tabs.json
-        const info = tabsBySlug[activeSlug];
-        const label = info && info.title ? info.title : activeSlug;
-        compact += make(activeSlug, label).replace('"tab ', '"tab active ');
+        compact = make('posts', t('ui.allPosts')) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
       }
-      // If compact still doesn't fit (e.g. very long post title), truncate active label harder
-      if (measureWidth(compact) > containerWidth - 8) {
-        // Try with an even shorter label for post/search
-        if (activeSlug === 'post') {
-          const raw = String(searchQuery || t('ui.postTab')).trim();
-          const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
-          compact = make('posts', t('ui.allPosts')) + `<span class="tab active" data-slug="post">${label}</span>`;
-        } else if (activeSlug === 'search') {
-          const sp = new URLSearchParams(window.location.search);
-          const tag = (sp.get('tag') || '').trim();
-          const q = (sp.get('q') || String(searchQuery || '')).trim();
-          const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-          const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
-          const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-          compact = make('posts', t('ui.allPosts')) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
-        }
-      }
+    }
+
+    // Hysteresis to avoid flicker on tiny viewport changes (e.g., mobile URL bar show/hide)
+    const currentlyCompact = nav.classList.contains('compact');
+    const fullFits = !!(containerWidth && fullWidth && (fullWidth <= containerWidth - 8));
+    const fullFitsComfortably = !!(containerWidth && fullWidth && (fullWidth <= containerWidth - 40));
+
+    let useCompact = currentlyCompact ? !fullFitsComfortably : !fullFits;
+    // Choose markup accordingly
+    if (useCompact) {
       html = compact;
       nav.classList.add('compact');
     } else {
+      // Keep/return to full list
       nav.classList.remove('compact');
     }
   } catch (_) {
-    // On any error, fall back to full tabs
-    nav.classList.remove('compact');
+    // On any error, fall back to current mode without forcing reflow
   }
   
   // No transition on first load - just set content
@@ -1069,6 +1076,14 @@ function setupResponsiveTabsObserver() {
   try {
     if (setupResponsiveTabsObserver.__done) return;
     setupResponsiveTabsObserver.__done = true;
+    const getCurrentPostTitle = () => {
+      try {
+        const el = document.querySelector('#mainview .post-meta-card .post-meta-title');
+        const txt = (el && el.textContent) ? el.textContent.trim() : '';
+        if (txt) return txt;
+      } catch (_) {}
+      try { return getArticleTitleFromMain() || ''; } catch (_) { return ''; }
+    };
     const rerender = () => {
       try {
         const id = getQueryVariable('id');
@@ -1076,7 +1091,9 @@ function setupResponsiveTabsObserver() {
         const q = getQueryVariable('q') || '';
         const tag = getQueryVariable('tag') || '';
         if (id) {
-          renderTabs('post');
+          // Preserve the current article title on responsive re-render
+          const title = getCurrentPostTitle();
+          renderTabs('post', title);
         } else if (tab === 'search') {
           renderTabs('search', tag || q);
         } else if (tab && tab !== 'posts' && tabsBySlug[tab]) {

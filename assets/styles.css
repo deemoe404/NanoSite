@@ -665,8 +665,9 @@ ul.collapsed, li > ul.collapsed { display: none; }
   overflow-x: visible;
   white-space: nowrap;
   will-change: transform, opacity, width;
-  /* Fixed height to prevent initial jump */
-  min-height: 2.5rem;
+  /* Fixed height to prevent jumps when switching compact/full */
+  height: 2.5rem;
+  align-items: center;
 }
 
 /* Moving highlight overlay - Apple-style smooth and elegant */
