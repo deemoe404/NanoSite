@@ -9,7 +9,7 @@ excerpt: 用纯文本文件（Markdown）构建一个简单的个人网站。无
 author: deemoe
 ---
 
-![hero](hero.png)
+![hero](hero.jpeg)
 
 源代码: [GitHub 上的 NanoSite](https://github.com/deemoe404/NanoSite)
 

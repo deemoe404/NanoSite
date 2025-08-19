@@ -9,7 +9,7 @@ excerpt: プレーンテキスト（Markdown）からシンプルな個人サイ
 author: deemoe
 ---
 
-![hero](hero.png)
+![hero](hero.jpeg)
 
 ソースコード: [GitHub の NanoSite](https://github.com/deemoe404/NanoSite)
 

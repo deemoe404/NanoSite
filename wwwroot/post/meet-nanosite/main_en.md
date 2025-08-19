@@ -9,7 +9,7 @@ excerpt: Build a simple personal website from plain text files (Markdown). No bu
 author: deemoe
 ---
 
-![hero](hero.png)
+![hero](hero.jpeg)
 
 Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
