@@ -46,6 +46,14 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 4) **Start writing!**
   - Create a new Markdown file under `wwwroot/`, for example `wwwroot/my-first-post.md`:
   ```markdown
+  ---
+  title: My First Post
+  date: 2025-08-17
+  tags:
+    - Note
+    - Technology
+  ---
+
   # My First Post
 
   Hello! This is my first post. I can write text, lists, and add images.
@@ -54,9 +62,7 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
   ```json
   {
     "My First Post": {
-      "location": "my-first-post.md", // Path to the Markdown file
-      "tag": ["Note"],                // Tags for the post
-      "date": "2025-08-13"            // Publication date
+      "en": "my-first-post.md" // Path to the Markdown file
     }
   }
   ```

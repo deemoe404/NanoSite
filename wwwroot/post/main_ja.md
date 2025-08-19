@@ -46,6 +46,13 @@ author: deemoe
 4) **書き始めましょう！**
    - `wwwroot/` 配下に Markdown ファイルを作成（例: `wwwroot/my-first-post.md`）:
    ```markdown
+  ---
+  title: はじめての投稿
+  date: 2025-08-17
+  tags:
+    - メモ
+    - 技術
+  ---
    # はじめての投稿
 
    こんにちは！これが最初の投稿です。本文、リスト、画像の追加などができます。
@@ -54,9 +61,7 @@ author: deemoe
    ```json
    {
      "はじめての投稿": {
-       "location": "my-first-post.md", // Markdown ファイルへのパス
-       "tag": ["メモ"],                 // 投稿のタグ
-       "date": "2025-08-13"            // 公開日
+       "ja": "my-first-post.md" // Markdown ファイルへのパス
      }
    }
    ```

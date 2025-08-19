@@ -46,6 +46,14 @@ author: deemoe
 4) 开始写作！
   - 在 `wwwroot/` 下新建一个 Markdown 文件，例如 `wwwroot/my-first-post.md`：
   ```markdown
+  ---
+  title: 我的第一篇文章
+  date: 2025-08-17
+  tags:
+    - 笔记
+    - 技术
+  ---
+
   # 我的第一篇文章
 
   你好！这是我的第一篇文章。我可以编写文本、列表，并添加图片。
@@ -54,9 +62,7 @@ author: deemoe
   ```json
   {
     "我的第一篇文章": {
-      "location": "my-first-post.md", // Markdown 文件路径
-      "tag": ["Note"],                // 文章标签
-      "date": "2025-08-13"            // 发布日期
+      "zh": "my-first-post.md"
     }
   }
   ```
