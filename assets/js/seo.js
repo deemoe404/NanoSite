@@ -182,7 +182,8 @@ export function updateSEO(options = {}, siteConfig = {}) {
   const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite - Zero-Dependency Static Blog');
   const defaultDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.');
   // Base for resources (images); falls back to current location when not set
-  const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
+  const resourceBaseRaw = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
+  const resourceBase = resourceBaseRaw.endsWith('/') ? resourceBaseRaw : (resourceBaseRaw + '/');
   
   // Generate fallback image if no avatar configured
   const defaultImage = siteConfig.avatar ? 
@@ -425,10 +426,23 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   // Try to extract date from front matter, then metadata, then content
   const publishedTime = frontMatter.date || metadata.date || extractDateFromMarkdown(content);
   
+  // If image is relative (e.g., 'cover.jpg'), resolve it against the markdown's folder
+  const resolveRelativeImage = (img) => {
+    const s = String(img || '').trim();
+    if (!s) return s;
+    if (/^(https?:|data:)/i.test(s) || s.startsWith('/')) return s;
+    const loc = String(metadata.location || '').trim();
+    const lastSlash = loc.lastIndexOf('/');
+    const baseDir = lastSlash >= 0 ? loc.slice(0, lastSlash + 1) : '';
+    return (baseDir + s).replace(/^\/+/, '');
+  };
+
+  const finalImage = resolveRelativeImage(image);
+
   return {
     title,
     description,
-    image: (image.startsWith('http') || image.startsWith('data:')) ? image : `${resourceBase}${image.replace(/^\/+/, '')}`,
+  image: (finalImage && (finalImage.startsWith('http') || finalImage.startsWith('data:'))) ? finalImage : `${resourceBase}${String(finalImage || '').replace(/^\/+/, '')}`,
     type: 'article',
     author: frontMatter.author || metadata.author || 'NanoSite',
     publishedTime: publishedTime ? new Date(publishedTime).toISOString() : null,

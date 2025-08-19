@@ -4,7 +4,7 @@ date: 2025-08-17
 tags:
   - NanoSite
   - Technology
-image: post/meet-nanosite/hero.jpeg
+image: hero.jpeg
 excerpt: Build a simple personal website from plain text files (Markdown). No build tools, no databases — just edit files and publish. Perfect for blogs, notes, wikis, journals, or book chapters.
 author: deemoe
 ---

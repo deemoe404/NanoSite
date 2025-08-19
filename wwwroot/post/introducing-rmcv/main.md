@@ -6,7 +6,7 @@ tags:
   - Computer Vision
   - OpenCV
   - C++
-image: post/introducing-rmcv/award.jpeg
+image: award.jpeg
 excerpt: This project is a library for RoboMaster computer vision based on OpenCV.
 author: deemoe
 ---

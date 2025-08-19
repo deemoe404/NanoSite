@@ -4,7 +4,7 @@ date: 2025-06-04
 tags:
   - Computer Vision
   - Point Cloud
-image: post/volcal_baseline/PC_Raw_RGB_4.png
+image: PC_Raw_RGB_4.png
 excerpt: A data-driven 3D point cloud framework for open-pit mine monitoring that automatically adapts parameters, integrates registration, change detection, and DEM-based volume analysis, achieving high accuracy and robustness even under noise and misalignment.
 author: deemoe
 ---

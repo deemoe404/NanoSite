@@ -677,7 +677,15 @@ function hydrateInternalLinkCards(container) {
   const href = withLangParam(`?id=${encodeURIComponent(loc)}`);
       const tagsHtml = meta ? renderTags(meta.tag) : '';
       const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
-      const coverSrc = meta && (meta.thumb || meta.cover || meta.image);
+      // Allow relative frontmatter image (e.g., 'cover.jpg'); resolve against the post's folder
+      const rawCover = meta && (meta.thumb || meta.cover || meta.image);
+      let coverSrc = rawCover;
+  if (rawCover && typeof rawCover === 'string' && !/^https?:\/\//i.test(rawCover) && !rawCover.startsWith('/') && !rawCover.includes('/')) {
+        const baseLoc = (meta && meta.location) || loc; // use current link's location as base
+        const lastSlash = String(baseLoc || '').lastIndexOf('/');
+        const baseDir = lastSlash >= 0 ? String(baseLoc).slice(0, lastSlash + 1) : '';
+        coverSrc = (baseDir + rawCover).replace(/\/+/, '/');
+      }
       const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
       const cover = (coverSrc)
         ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(title)}" data-src="${cardImageSrc(coverSrc)}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
@@ -1293,7 +1301,9 @@ function displayPost(postname) {
     try {
       const seoData = extractSEOFromMarkdown(markdown, { 
         ...postMetadata, 
-        title: articleTitle 
+        title: articleTitle,
+        // Ensure location present for relative image resolution
+        location: postname
       }, siteConfig);
       updateSEO(seoData, siteConfig);
     } catch (_) { /* ignore SEO errors */ }
@@ -1355,7 +1365,13 @@ function displayIndex(parsed) {
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
     // Prefer a smaller thumbnail if provided: `thumb` or `cover`; fallback to `image`
-    const coverSrc = value && (value.thumb || value.cover || value.image);
+    let coverSrc = value && (value.thumb || value.cover || value.image);
+  if (coverSrc && typeof coverSrc === 'string' && !/^https?:\/\//i.test(coverSrc) && !coverSrc.startsWith('/') && !coverSrc.includes('/')) {
+      const baseLoc = value && value.location ? String(value.location) : '';
+      const lastSlash = baseLoc.lastIndexOf('/');
+      const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
+      coverSrc = (baseDir + coverSrc).replace(/\/+/, '/');
+    }
     const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
     const cover = (value && coverSrc)
       ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
@@ -1473,7 +1489,13 @@ function displaySearch(query) {
   let html = '<div class="index">';
   for (const [key, value] of pageEntries) {
     const tag = value ? renderTags(value.tag) : '';
-    const coverSrc = value && (value.thumb || value.cover || value.image);
+    let coverSrc = value && (value.thumb || value.cover || value.image);
+  if (coverSrc && typeof coverSrc === 'string' && !/^https?:\/\//i.test(coverSrc) && !coverSrc.startsWith('/') && !coverSrc.includes('/')) {
+      const baseLoc = value && value.location ? String(value.location) : '';
+      const lastSlash = baseLoc.lastIndexOf('/');
+      const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
+      coverSrc = (baseDir + coverSrc).replace(/\/+/, '/');
+    }
     const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
     const cover = (value && coverSrc)
       ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
@@ -1689,7 +1711,8 @@ function displayStaticTab(slug) {
       try {
         const seoData = extractSEOFromMarkdown(md, { 
           title: pageTitle,
-          author: tab.author || 'NanoSite'
+          author: tab.author || 'NanoSite',
+          location: tab.location
         }, siteConfig);
         updateSEO(seoData, siteConfig);
       } catch (_) {}

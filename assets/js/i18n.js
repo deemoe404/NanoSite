@@ -394,9 +394,21 @@ async function loadContentFromFrontMatter(obj, lang) {
       const { frontMatter } = parseFrontMatter(content);
       
       // Build metadata object
+      // Resolve relative image path (e.g., "cover.jpg") against the markdown's folder
+      const resolveImagePath = (img) => {
+        const s = String(img || '').trim();
+        if (!s) return undefined;
+        // Absolute or protocol URLs stay as-is
+        if (/^(https?:|data:)/i.test(s) || s.startsWith('/')) return s;
+        // Resolve relative to the markdown location (without wwwroot/ prefix)
+        const lastSlash = chosenPath.lastIndexOf('/');
+        const baseDir = lastSlash >= 0 ? chosenPath.slice(0, lastSlash + 1) : '';
+        return (baseDir + s).replace(/\/+/g, '/');
+      };
+
       const meta = {
         location: chosenPath,
-        image: frontMatter.image || undefined,
+        image: resolveImagePath(frontMatter.image) || undefined,
         tag: frontMatter.tags || frontMatter.tag || undefined,
         date: frontMatter.date || undefined,
         excerpt: frontMatter.excerpt || undefined
