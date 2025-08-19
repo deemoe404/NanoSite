@@ -46,19 +46,19 @@ Perfect for personal blogs, knowledge bases, or lightweight websites hosted on G
 
 ## 🌍 Live Demo
 
-You can see **Nanosite in action**:
+### Official Demo
+- 🚀 Nanosite Demo  
+  👉 https://nano.dee.moe  
+  ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)  
+  Preview the default theme and configuration.
 
-- 🏠 **My Blog** (built entirely with this system):  
-  👉 [dee.moe](https://dee.moe)  
-  ![Blog Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
+### Built with Nanosite
+- [deemoe's journal](https://dee.moe) — Thanks for playing my game.  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
 
-- 📖 **Demo Website** (powered by Nanosite):  
-  👉 [nano.dee.moe](https://nano.dee.moe)  
-  ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)
-
-The demo site includes:
-- An **Introduction** article: how to get started quickly.  
-- A **Configuration Guide**: explaining every parameter in `config.json`.  
+> Want to add your site here? Open a PR to be listed. Add using this format (example):
+> ```
+> [Site Name](https://example.com) — one-line intro  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fexample.com&label=online)
+> ```
 
 ---
 
