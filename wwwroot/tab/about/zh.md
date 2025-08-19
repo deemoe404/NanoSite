@@ -20,6 +20,8 @@
 
 ### 你可能也想认识他们...
 
+[Alvin](https://blog.alubin.space/)
+
 [Meteor](https://Ghl.info/)
 
 [Jelly](https://blog.jellyqwq.top)

@@ -35,6 +35,8 @@ But you… are long gone.”
 
 ### You might want to know them too...
 
+[Alvin](https://blog.alubin.space/)
+
 [Meteor](https://Ghl.info/)
 
 [Jelly](https://blog.jellyqwq.top)
