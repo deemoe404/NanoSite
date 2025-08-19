@@ -4,7 +4,7 @@ date: 2025-08-17
 tags:
   - 微站
   - 技术
-image: post/meet-nanosite/hero.png
+image: post/meet-nanosite/hero.jpeg
 excerpt: 用纯文本文件（Markdown）构建一个简单的个人网站。无需构建工具，无需数据库——只需编辑文件并发布。非常适合博客、笔记、维基、日记或书籍章节。
 author: deemoe
 ---

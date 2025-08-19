@@ -4,7 +4,7 @@ date: 2025-08-17
 tags:
   - NanoSite
   - 技術
-image: post/meet-nanosite/hero.png
+image: post/meet-nanosite/hero.jpeg
 excerpt: プレーンテキスト（Markdown）からシンプルな個人サイトを作成。ビルドツールもデータベースも不要—ファイルを編集して公開するだけ。ブログ、メモ、Wiki、日記、書籍の各章に最適です。
 author: deemoe
 ---
