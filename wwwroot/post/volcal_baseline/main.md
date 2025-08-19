@@ -13,7 +13,7 @@ This project proposes a data-driven framework for excavation monitoring in large
 
 The workflow integrates coarse-to-fine registration (EGS + G-ICP), robust change detection (M3C2 with adaptive scaling), and DEM-based volumetric analysis. Experiments on benchmark datasets and a real limestone quarry demonstrate that the method achieves sub-2% volume error even under challenging conditions, offering a reliable and automated solution for sustainable and intelligent mining practices.
 
-![result](ipr270130-fig-0005-m.jpg)
+![result](ipr270130-fig-0005-m.jpeg)
 
 Source Code: [volcal_baseline on GitHub](https://github.com/deemoe404/volcal_baseline)
 Paper: [IET Image Processing](https://doi.org/10.1049/ipr2.70130)
