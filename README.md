@@ -85,9 +85,9 @@ Full documentation is available at:
 
 ## 🛠 Roadmap
 
-- [ ] Theming support  
-- [ ] Search index  
-- [ ] Multi-language mode  
+- [x] Theming support  
+- [x] Search index  
+- [x] Multi-language mode  
 
 Contributions are welcome! Please feel free to open issues and PRs.
 
