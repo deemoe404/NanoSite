@@ -80,6 +80,8 @@ Notes:
 
 Supports three shapes. Pick the one that fits your workflow.
 
+Note: Use a single format per file; don't mix formats in the same JSON.
+
 1) Simplified per-language paths (current repo uses this). The app fetches the Markdown and derives metadata from front matter:
 
 ```json
@@ -154,6 +156,27 @@ Notes:
 
 - The slug in URLs (e.g., `?tab=about`) is derived from the base key when using unified/simplified `tabs.json`, so it stays stable across languages; with legacy per-language shapes, the slug may vary by language.
 - The tab page title used in the browser/SEO is the `title` defined in `tabs.json`.
+- Use a single format per file; don't mix formats in the same JSON.
+
+Simplified example (language → path):
+
+```json
+{
+  "About": {
+    "en": "tab/about/en.md",
+    "zh": "tab/about/zh.md",
+    "ja": "tab/about/ja.md"
+  }
+}
+```
+
+Legacy flat map (single-language) example:
+
+```json
+{
+  "About": { "location": "tab/about/en.md" }
+}
+```
 
 
 ## Site settings: `site.json`
@@ -310,5 +333,3 @@ python3 -m http.server 8000
   ```
 
 Happy writing.
-
-

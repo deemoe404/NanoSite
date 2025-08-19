@@ -80,6 +80,8 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 
 3 つの形をサポート。使いやすいものを選択してください。
 
+注意：同一の JSON ファイル内で形式を混在させないでください。1 ファイルにつき 1 形式で使用してください。
+
 1) 簡易（本リポジトリが使用）：言語ごとのパスを記述。アプリが Markdown を取得し、Front Matter からメタを抽出：
 
 ```json
@@ -156,6 +158,27 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 
 - URL のスラグ（例 `?tab=about`）は、統合/簡易の `tabs.json`（項目キーを基準）を使う場合に言語を跨いで安定します。レガシーな言語別形式では、言語ごとに異なる場合があります。
 - ブラウザ/SEO のタイトルは `tabs.json` の `title` を使用。
+- 注意：同一の JSON ファイル内で形式を混在させないでください。1 ファイルにつき 1 形式で使用してください。
+
+簡易形式の例（言語 → パス）：
+
+```json
+{
+  "About": {
+    "en": "tab/about/en.md",
+    "zh": "tab/about/zh.md",
+    "ja": "tab/about/ja.md"
+  }
+}
+```
+
+レガシー（単一言語）の例：
+
+```json
+{
+  "About": { "location": "tab/about/en.md" }
+}
+```
 
 
 ## サイト設定：`site.json`

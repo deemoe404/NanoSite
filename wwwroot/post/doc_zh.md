@@ -80,6 +80,8 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 
 支持三种格式，按需选择。
 
+注意：同一 JSON 文件请仅使用一种格式，不要混用。
+
 1) 简化版（当前仓库使用）：按语言给出路径，应用会拉取 Markdown 并从前言区提取元数据：
 
 ```json
@@ -156,6 +158,27 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 
 - URL 中的 slug（如 `?tab=about`）在使用统一/简化 `tabs.json`（以条目键名为基准）时可在不同语言间保持稳定；在传统按语言拆分的格式下，slug 可能因语言不同而变化。
 - 浏览器/SEO 标题取自 `tabs.json` 中的 `title`。
+- 注意：同一 JSON 文件请仅使用一种格式，不要混用。
+
+简化版示例（语言 → 路径）：
+
+```json
+{
+  "About": {
+    "en": "tab/about/en.md",
+    "zh": "tab/about/zh.md",
+    "ja": "tab/about/ja.md"
+  }
+}
+```
+
+旧版（单语）示例：
+
+```json
+{
+  "About": { "location": "tab/about/en.md" }
+}
+```
 
 
 ## 站点设置：`site.json`
