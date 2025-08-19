@@ -8,5 +8,10 @@
     "en": "post/doc_en.md",
     "zh": "post/doc_zh.md",
     "ja": "post/doc_ja.md"
+  },
+  "githubpages": {
+    "en": "post/githubpages_en.md",
+    "zh": "post/githubpages_zh.md",
+    "ja": "post/githubpages_ja.md"
   }
 }
