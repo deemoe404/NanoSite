@@ -49,10 +49,11 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
     "siteTitle":    "My Site",           // Site title
     "siteSubtitle": "Welcome!",          // Site subtitle
     "avatar":       "assets/avatar.png", // Path to site avatar image
-    "profileLinks": [                    // Personal links (multiple supported)
+    "profileLinks": [                    // Personal links (any label supported)
       { "label": "GitHub",   "href": "https://github.com/your-username" },
       { "label": "Twitter",  "href": "https://twitter.com/your-username" },
-      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" }
+      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" },
+      // ... other personal links
     ]
   }
   ```

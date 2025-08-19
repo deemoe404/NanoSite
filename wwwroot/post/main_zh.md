@@ -48,10 +48,11 @@ author: deemoe
     "siteTitle":    "My Site",           // 站点标题
     "siteSubtitle": "Welcome!",          // 站点副标题
     "avatar":       "assets/avatar.png", // 站点头像图片路径
-    "profileLinks": [                    // 个人链接（支持多个）
+    "profileLinks": [                    // 个人链接（支持任意标签）
       { "label": "GitHub",   "href": "https://github.com/your-username" },
       { "label": "Twitter",  "href": "https://twitter.com/your-username" },
-      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" }
+      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" },
+      // ... 其他个人链接
     ]
   }
   ```

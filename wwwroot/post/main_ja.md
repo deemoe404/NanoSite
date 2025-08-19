@@ -49,10 +49,11 @@ author: deemoe
      "siteTitle":    "My Site",           // サイトのタイトル
      "siteSubtitle": "Welcome!",          // サイトのサブタイトル
      "avatar":       "assets/avatar.png", // サイトのアバター画像パス
-     "profileLinks": [                    // 個人リンク（複数可）
+     "profileLinks": [                    // 個人リンク（任意のラベルに対応）
        { "label": "GitHub",   "href": "https://github.com/your-username" },
        { "label": "Twitter",  "href": "https://twitter.com/your-username" },
-       { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" }
+       { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" },
+       // ... その他の個人リンク
      ]
    }
    ```
