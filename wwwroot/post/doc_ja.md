@@ -57,7 +57,9 @@ Markdown 内でのサイト内リンク例：`[この記事](?id=post/frogy/main
 ---
 title: 記事タイトル
 date: 2025-08-18
-tags: [タグA, タグB]
+tags:
+  - タグA
+  - タグB
 excerpt: カードとメタ説明に使う短い要約。
 author: your-name
 image: path/to/cover.jpg   # 任意。OG 画像などに使用
@@ -152,7 +154,7 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 
 注意：
 
-- URL のスラグ（例 `?tab=about`）は基底タイトルから生成され、言語を跨いで安定します。
+- URL のスラグ（例 `?tab=about`）は、統合/簡易の `tabs.json`（項目キーを基準）を使う場合に言語を跨いで安定します。レガシーな言語別形式では、言語ごとに異なる場合があります。
 - ブラウザ/SEO のタイトルは `tabs.json` の `title` を使用。
 
 

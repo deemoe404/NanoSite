@@ -57,7 +57,9 @@ Markdown 中的站内跳转链接示例：`[看看这篇](?id=post/frogy/main.md
 ---
 title: 文章标题
 date: 2025-08-18
-tags: [标签A, 标签B]
+tags:
+  - 标签A
+  - 标签B
 excerpt: 一句话摘要，用于卡片与 meta 描述。
 author: your-name
 image: path/to/cover.jpg   # 可选；用于社交分享图
@@ -152,7 +154,7 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 
 说明：
 
-- URL 中的 slug（如 `?tab=about`）由基础标题生成，并在不同语言间保持稳定。
+- URL 中的 slug（如 `?tab=about`）在使用统一/简化 `tabs.json`（以条目键名为基准）时可在不同语言间保持稳定；在传统按语言拆分的格式下，slug 可能因语言不同而变化。
 - 浏览器/SEO 标题取自 `tabs.json` 中的 `title`。
 
 

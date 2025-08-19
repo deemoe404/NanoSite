@@ -57,7 +57,9 @@ Write Markdown in `wwwroot/`. Recommended front matter (optional but useful for 
 ---
 title: My Article Title
 date: 2025-08-18
-tags: [TagA, TagB]
+tags:
+  - TagA
+  - TagB
 excerpt: One-sentence summary used on cards and meta description.
 author: your-name
 image: path/to/cover.jpg   # optional; used for social preview
@@ -150,7 +152,7 @@ Tabs are static pages. Use the same three shapes as posts. Example (current repo
 
 Notes:
 
-- The slug in URLs (e.g., `?tab=about`) is derived from the base title and kept stable across languages.
+- The slug in URLs (e.g., `?tab=about`) is derived from the base key when using unified/simplified `tabs.json`, so it stays stable across languages; with legacy per-language shapes, the slug may vary by language.
 - The tab page title used in the browser/SEO is the `title` defined in `tabs.json`.
 
 
@@ -308,6 +310,5 @@ python3 -m http.server 8000
   ```
 
 Happy writing.
-
 
 
