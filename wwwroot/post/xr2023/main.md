@@ -5,12 +5,12 @@ tags:
   - XR
   - AI
   - Technology
-image: post/xr2023/comp.png
+image: post/xr2023/comp.jpeg
 excerpt: XR is being brought to the public again after Apple announced their new XR headset, Apple Vision Pro. However, Apple is hesitant about this product as, during WWDC, no one other than those featured in the promotion video was seen wearing it. The reason is obvious: using a computer that covers your face in front of a camera is weird (not to mention that it is way bigger than some other XR "glasses").
 author: deemoe
 ---
 
-![headset-and-glasses](comp.png "Headset and Glasses")
+![headset-and-glasses](comp.jpeg "Headset and Glasses")
 
 ## Is Vision Pro the Answer?
 
@@ -24,7 +24,7 @@ While the Vision Pro may have the most powerful system to passthrough the realit
 
 There are two categories of "R"s out there. One aims to provide extra content in your vision (XR), while the other is more like a "display" rather than something entirely new (VR). Microsoft Hololens focuses on the first category, HTC Vivw falls into the second category, while Apple is attempting to combine both aspects simultaneously.
 
-![xr-and-vr](xr-vr.png "XR and VR")
+![xr-and-vr](xr-vr.jpeg "XR and VR")
 
 This article will only be discussing the second category since "VR" is already quite good at utilizing desktop graphics. Since "XR" refers to "Extended Reality", what kinds of extra information it can add to our reality?
 
@@ -34,7 +34,7 @@ The Hololens and Vision Pro both mention a type of assistance that their devices
 
 Hololens is designed for military and industrial usage, but Apple? Really? 
 
-![sci-fi](sci-fi.png "sci-fi")
+![sci-fi](sci-fi.jpeg "sci-fi")
 
 For most people, something that we really do in everyday life is more like:
 
