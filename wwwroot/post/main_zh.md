@@ -25,13 +25,23 @@ author: deemoe
 
 ## 快速上手
 
-1) 在 [GitHub](https://github.com/deemoe404/NanoSite/) 获取项目：Fork 或直接下载 ZIP 并解压。
-2) 本地预览（推荐）
+
+1）前往 [项目仓库页面](https://github.com/deemoe404/NanoSite)。  
+2）点击右上角绿色的 **Use this template** 按钮。  
+3）选择 **Create a new repository**，并为其命名（可自定义）。  
+4）将新仓库下载到本地  
+  - 方式一：使用 Git 克隆仓库  
+    - `git clone https://github.com/your-username/your-repo.git`
+  - 方式二：下载 ZIP 文件  
+    - 点击绿色 **Code** 按钮，然后选择 **Download ZIP**。
+  - 方式三：使用 GitHub Desktop  
+    - 如果已安装 GitHub Desktop，可在网页上选择 "Open with GitHub Desktop"。
+5) 本地预览（推荐）
   - 在项目目录启动一个简单的服务器：
     - macOS/Linux: `python3 -m http.server 8000`
     - Windows（PowerShell）: `py -m http.server 8000`
   - 在浏览器打开 `http://localhost:8000/`。
-3) 设置站点名称与链接
+6) 设置站点名称与链接
     - 打开项目根目录的 `site.json`，编辑基础设置：
   ```json
   {
@@ -43,7 +53,7 @@ author: deemoe
     ]
   }
   ```
-4) 开始写作！
+7) 开始写作！
   - 在 `wwwroot/` 下新建一个 Markdown 文件，例如 `wwwroot/my-first-post.md`：
   ```markdown
   ---

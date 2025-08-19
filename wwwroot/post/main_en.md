@@ -25,13 +25,22 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
 ## Quick Start in 5 minutes
 
-1) **Get the project On [GitHub](https://github.com/deemoe404/NanoSite/)**: Fork or simply download ZIP and unzip.
-2) **Preview locally** (recommended)
+1) Go to the [repository page](https://github.com/deemoe404/NanoSite).  
+2) Click the green **Use this template** button in the top right.  
+3) Select **Create a new repository** and name it whatever you like. 
+4) Get your new repository locally
+  - Option 1: Clone the repository using Git
+    - `git clone https://github.com/your-username/your-repo.git`
+  - Option 2: Download the ZIP file
+    - Click on the green **Code** button, then **Download ZIP**.
+  - Option 3: Use GitHub Desktop
+    - If you have GitHub Desktop installed, you can use "Open with GitHub Desktop" from the web.
+5) **Preview locally** (recommended)
   - In the project folder, start a simple server:
     - macOS/Linux: `python3 -m http.server 8000`
     - Windows (PowerShell): `py -m http.server 8000`
   - Open `http://localhost:8000/` in your browser.
-3) **Set your site name and links**
+6) **Set your site name and links**
     - Open `site.json` (in the project root) and edit basic settings:
   ```json
   {
@@ -43,7 +52,7 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
     ]
   }
   ```
-4) **Start writing!**
+7) **Start writing!**
   - Create a new Markdown file under `wwwroot/`, for example `wwwroot/my-first-post.md`:
   ```markdown
   ---

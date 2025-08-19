@@ -25,13 +25,22 @@ author: deemoe
 
 ## 5分でクイックスタート
 
-1) **[GitHub](https://github.com/deemoe404/NanoSite/) からプロジェクトを入手**: フォークするか、ZIP をダウンロードして解凍。
-2) **ローカルでプレビュー**（推奨）
+1) [リポジトリページ](https://github.com/deemoe404/NanoSite)にアクセスします。  
+2) 右上の緑色の **Use this template** ボタンをクリックします。  
+3) **Create a new repository** を選択し、好きな名前を付けてください。  
+4) 新しいリポジトリをローカルに取得します  
+  - オプション1: Gitを使ってリポジトリをクローンする  
+    - `git clone https://github.com/your-username/your-repo.git`
+  - オプション2: ZIPファイルをダウンロードする  
+    - 緑色の **Code** ボタンをクリックし、**Download ZIP** を選択します。
+  - オプション3: GitHub Desktopを使う  
+    - GitHub Desktop がインストールされている場合は、リポジトリページから 「Open with GitHub Desktop」 を使用できます。
+5) **ローカルでプレビュー**（推奨）
    - プロジェクトフォルダで簡易サーバーを起動:
      - macOS/Linux: `python3 -m http.server 8000`
      - Windows（PowerShell）: `py -m http.server 8000`
    - ブラウザで `http://localhost:8000/` を開く。
-3) **サイト名とリンクを設定**
+6) **サイト名とリンクを設定**
    - ルートの `site.json` を開き、基本設定を編集:
    ```json
    {
@@ -43,7 +52,7 @@ author: deemoe
      ]
    }
    ```
-4) **書き始めましょう！**
+7) **書き始めましょう！**
    - `wwwroot/` 配下に Markdown ファイルを作成（例: `wwwroot/my-first-post.md`）:
    ```markdown
   ---
