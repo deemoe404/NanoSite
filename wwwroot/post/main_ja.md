@@ -25,6 +25,8 @@ author: deemoe
 
 ## 5分でクイックスタート
 
+> ⚠️ 注意: `JSON` はコメントをサポートしません。以下のコード例のコメントは説明用です。実際のファイルでは削除してください。
+
 1) [リポジトリページ](https://github.com/deemoe404/NanoSite)にアクセスします。  
 2) 右上の緑色の **Use this template** ボタンをクリックします。  
 3) **Create a new repository** を選択し、好きな名前を付けてください。  
@@ -44,11 +46,13 @@ author: deemoe
    - ルートの `site.json` を開き、基本設定を編集:
    ```json
    {
-     "siteTitle": "My Site",        // サイトのタイトル
-     "siteSubtitle": "Welcome!",    // サイトのサブタイトル
-     "avatar": "assets/avatar.png", // サイトのアバター画像パス
-     "profileLinks": [
-       { "label": GitHub/Twitter/…, "href": プロフィールの URL }
+     "siteTitle":    "My Site",           // サイトのタイトル
+     "siteSubtitle": "Welcome!",          // サイトのサブタイトル
+     "avatar":       "assets/avatar.png", // サイトのアバター画像パス
+     "profileLinks": [                    // 個人リンク（複数可）
+       { "label": "GitHub",   "href": "https://github.com/your-username" },
+       { "label": "Twitter",  "href": "https://twitter.com/your-username" },
+       { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" }
      ]
    }
    ```
@@ -70,9 +74,13 @@ author: deemoe
    ```json
    {
      "はじめての投稿": {
-       "ja": "my-first-post.md" // Markdown ファイルへのパス
-     }
+       "ja": "my-first-post.md"
+     },
+     "xxxx": {
+       "ja": "xxxx.md"
+     },
+     // ... その他の記事は必要に応じて登録
    }
    ```
 
-🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。さらにカスタマイズする場合は[ドキュメント](?id=post/meet-nanosite/doc_ja.md)をご覧ください。
+🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。さらにカスタマイズする場合は[ドキュメント](?id=post/doc_ja.md)をご覧ください。GitHub Pages へのデプロイ方法は[こちら](?id=post/githubpages_ja.md)。

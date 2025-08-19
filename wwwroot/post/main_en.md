@@ -25,6 +25,8 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
 ## Quick Start in 5 minutes
 
+> ⚠️ Note: `JSON` does not support comments. The comments in these examples are for explanation only; remove them in real files.
+
 1) Go to the [repository page](https://github.com/deemoe404/NanoSite).  
 2) Click the green **Use this template** button in the top right.  
 3) Select **Create a new repository** and name it whatever you like. 
@@ -44,11 +46,13 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
     - Open `site.json` (in the project root) and edit basic settings:
   ```json
   {
-    "siteTitle": "My Site",        // Title of your site
-    "siteSubtitle": "Welcome!",    // Subtitle for your site
-    "avatar": "assets/avatar.png", // Path to your site avatar image
-    "profileLinks": [
-      { "label": Github/Twitter/..., "href": URL to Profile }
+    "siteTitle":    "My Site",           // Site title
+    "siteSubtitle": "Welcome!",          // Site subtitle
+    "avatar":       "assets/avatar.png", // Path to site avatar image
+    "profileLinks": [                    // Personal links (multiple supported)
+      { "label": "GitHub",   "href": "https://github.com/your-username" },
+      { "label": "Twitter",  "href": "https://twitter.com/your-username" },
+      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" }
     ]
   }
   ```
@@ -71,9 +75,13 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
   ```json
   {
     "My First Post": {
-      "en": "my-first-post.md" // Path to the Markdown file
-    }
+      "en": "my-first-post.md"
+    },
+    "xxxx": {
+      "en": "xxxx.md"
+    },
+    // ... register other posts as needed
   }
   ```
 
-🎉 Congratulations! You've set up your NanoSite. Reload the page, and you should see your post card on the homepage. Click to read it. For more customization options, check the [documentation](?id=post/meet-nanosite/doc_en.md).
+🎉 Congratulations! You've set up NanoSite. Reload the page and you should see your post card on the homepage. Click to read it. For more customization options, see the [docs](?id=post/doc_en.md); for deploying to GitHub Pages, see [here](?id=post/githubpages_en.md).
