@@ -3,7 +3,7 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -371,13 +371,7 @@ async function checkImageSize(url, timeoutMs = 4000) {
   }
 }
 
-function formatBytes(n) {
-  if (!n && n !== 0) return '';
-  const kb = n / 1024;
-  if (kb < 1024) return `${Math.round(kb)} KB`;
-  const mb = kb / 1024;
-  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
-}
+// formatBytes moved to utils.js
 
 async function warnLargeImagesIn(container, cfg = {}) {
   try {
@@ -789,30 +783,7 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
   } catch (_) {}
 }
 
-function renderSkeletonArticle() {
-  return `
-    <div class="skeleton-article" aria-busy="true" aria-live="polite">
-      <div class="skeleton-block skeleton-title w-70"></div>
-      <div class="skeleton-block skeleton-line w-95"></div>
-      <div class="skeleton-block skeleton-line w-90"></div>
-      <div class="skeleton-block skeleton-line w-85"></div>
-      <div class="skeleton-block skeleton-line w-40"></div>
-      <div class="skeleton-block skeleton-image w-100"></div>
-      <div class="skeleton-block skeleton-line w-90"></div>
-      <div class="skeleton-block skeleton-line w-95"></div>
-      <div class="skeleton-block skeleton-line w-80"></div>
-      <div class="skeleton-block skeleton-line w-60"></div>
-      <div style="margin: 1.25rem 0;">
-        <div class="skeleton-block skeleton-line w-30" style="height: 1.25rem; margin-bottom: 0.75rem;"></div>
-        <div class="skeleton-block skeleton-line w-85"></div>
-        <div class="skeleton-block skeleton-line w-75"></div>
-        <div class="skeleton-block skeleton-line w-90"></div>
-      </div>
-      <div class="skeleton-block skeleton-line w-95"></div>
-      <div class="skeleton-block skeleton-line w-80"></div>
-      <div class="skeleton-block skeleton-line w-45"></div>
-    </div>`;
-}
+// renderSkeletonArticle moved to utils.js
 
 function getArticleTitleFromMain() {
   const h = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
@@ -1785,9 +1756,7 @@ function addTabClickAnimation(tab) {
 }
 
 // Intercept in-app navigation and use History API
-function isModifiedClick(event) {
-  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
-}
+// isModifiedClick moved to utils.js
 
 document.addEventListener('click', (e) => {
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
