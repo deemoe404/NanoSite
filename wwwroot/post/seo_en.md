@@ -26,12 +26,12 @@ Sometimes spiders have difficulty crawling JavaScript-heavy sites. To ensure you
 1) Open `/index_seo.html` of you website in your browser, remember to host the NanoSite using production server or GitHub Pages first.
 
 2) Navigate to the "Site Configuration" section and ensure all fields are filled out correctly. If not, edit information in the `site.json` file and try again.
-![config_check](config_check.jpeg)
+![config_check](config_check.png)
 
 3) Navigate to "Sitemap Generator" sections, click "Generate Sitemap" to create the necessary files. You can either download them or copy the generated code into your own files.
-![generate](generate.jpeg)
+![generate](generate.png)
 
 4) Navigate to "Robots.txt Generator" section, click "Generate Robots.txt" to create the necessary files. You can either download them or copy the generated code into your own files.
 
 5) Navigate to "HTML Meta Tags" section, click "Generate HTML Meta Tags" to create 4 clusters of meta tags for your site. Place them in the corresponding sections of your HTML files.
-![html](html.jpeg)
+![html](html.png)

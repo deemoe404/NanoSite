@@ -26,12 +26,12 @@ NanoSite 内置 SEO 标签生成器，会根据页面内容自动生成常用的
 1) 在浏览器中打开你网站的 `/index_seo.html`（请先将 NanoSite 部署到生产环境或 GitHub Pages）。
 
 2) 前往「站点配置」区域，确保所有字段填写正确；若不完整，请编辑 `site.json` 后重试。
-![config_check](config_check.jpeg)
+![config_check](config_check.png)
 
 3) 进入「Sitemap 生成器」区域，点击「生成 Sitemap」以创建相关文件。你可以选择下载，或将生成的代码复制到你的文件中。
-![generate](generate.jpeg)
+![generate](generate.png)
 
 4) 进入「Robots.txt 生成器」区域，点击「生成 Robots.txt」以创建相关文件。你可以选择下载，或将生成的代码复制到你的文件中。
 
 5) 进入「HTML Meta 标签」区域，点击「生成 HTML Meta 标签」，为站点生成四组常用 meta 标签。将它们放入对应的 HTML 位置。
-![html](html.jpeg)
+![html](html.png)

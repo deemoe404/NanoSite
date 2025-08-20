@@ -26,12 +26,12 @@ JavaScript 依存度の高いサイトは、クローラが適切にクロール
 1) サイトの `/index_seo.html` をブラウザで開きます（本番サーバーまたは GitHub Pages にデプロイしてから実行してください）。
 
 2) 「サイト設定」セクションで各項目が正しく入力されているか確認します。不足があれば `site.json` を編集して再確認してください。
-![config_check](config_check.jpeg)
+![config_check](config_check.png)
 
 3) 「サイトマップ生成」セクションで「Generate Sitemap」をクリックし、必要なファイルを生成します。ダウンロードするか、生成コードを自分のファイルにコピーできます。
-![generate](generate.jpeg)
+![generate](generate.png)
 
 4) 「Robots.txt 生成」セクションで「Generate Robots.txt」をクリックし、必要なファイルを生成します。ダウンロードするか、生成コードをコピーしてください。
 
 5) 「HTML Meta タグ」セクションで「Generate HTML Meta Tags」をクリックし、サイト用の4つのタグ群を生成します。対応する HTML の位置に配置してください。
-![html](html.jpeg)
+![html](html.png)
