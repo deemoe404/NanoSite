@@ -84,4 +84,10 @@ author: deemoe
    }
    ```
 
-🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。さらにカスタマイズする場合は[ドキュメント](?id=post/doc_ja.md)をご覧ください。GitHub Pages へのデプロイ方法は[こちら](?id=post/githubpages_ja.md)。
+🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。
+
+## 次のステップ
+
+- さらにカスタマイズ: [ドキュメント](?id=post/doc_ja.md) を参照。
+- デプロイ: [GitHub Pages へのデプロイ](?id=post/githubpages_ja.md) を参照。
+- SEO 対応: [SEO 最適化](?id=post/seo_ja.md) を参照。

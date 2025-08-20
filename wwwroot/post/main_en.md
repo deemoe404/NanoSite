@@ -85,4 +85,10 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
   }
   ```
 
-🎉 Congratulations! You've set up NanoSite. Reload the page and you should see your post card on the homepage. Click to read it. For more customization options, see the [docs](?id=post/doc_en.md); for deploying to GitHub Pages, see [here](?id=post/githubpages_en.md).
+🎉 Congratulations! You've set up NanoSite. Reload the page and you should see your post card on the homepage. Click to read it. 
+
+## What's Next?
+
+- For more customization options, see the [Documentation](?id=post/doc_en.md).
+- For deploying to GitHub Pages, see [Deploying to GitHub Pages](?id=post/githubpages_en.md).
+- For SEO optimization, see [SEO optimization](?id=post/seo_en.md).

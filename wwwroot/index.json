@@ -13,5 +13,10 @@
     "en": "post/githubpages_en.md",
     "zh": "post/githubpages_zh.md",
     "ja": "post/githubpages_ja.md"
+  },
+  "seo": {
+    "en": "post/seo_en.md",
+    "zh": "post/seo_zh.md",
+    "ja": "post/seo_ja.md"
   }
 }
