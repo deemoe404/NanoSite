@@ -55,10 +55,8 @@ Perfect for personal blogs, knowledge bases, or lightweight websites hosted on G
 ### Built with Nanosite
 - [deemoe's journal](https://dee.moe) — Thanks for playing my game.  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
 
-> Want to add your site here? Open a PR to be listed. Add using this format (example):
-> ```
-> [Site Name](https://example.com) — one-line intro  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fexample.com&label=online)
-> ```
+- [Mrfunnypig's Blog](https://mrfunnypig.github.io/Blog/) — Thanks for reading my story. ![Status](https://img.shields.io/website?url=https://mrfunnypig.github.io/Blog/&label=online)
+
 
 ---
 
