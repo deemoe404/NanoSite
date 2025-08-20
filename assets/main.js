@@ -12,6 +12,8 @@ import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from 
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
+import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
+import { renderPostMetaCard } from './js/templates.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -27,9 +29,6 @@ let locationAliasMap = new Map();
 const PAGE_SIZE = 8;
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
-function prefersReducedMotion() {
-  try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; }
-}
 
 function smoothShow(el) {
   if (!el) return;
@@ -785,44 +784,7 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
 
 // renderSkeletonArticle moved to utils.js
 
-function getArticleTitleFromMain() {
-  const h = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
-  if (!h) return null;
-  const clone = h.cloneNode(true);
-  const anchors = clone.querySelectorAll('a.anchor');
-  anchors.forEach(a => a.remove());
-  const text = (clone.textContent || '').replace(/\s+/g, ' ').trim();
-  return text.replace(/^#+\s*/, '').trim();
-}
-
-// Render a metadata card (title/date/read time/tags) for the current post
-function renderPostMetaCard(title, meta, markdown) {
-  try {
-    const safeTitle = escapeHtml(String(title || ''));
-    const hasDate = meta && meta.date;
-    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
-    let readHtml = '';
-    try {
-      const minutes = computeReadTime(String(markdown || ''), 200);
-      readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
-    } catch (_) {}
-    const parts = [];
-    if (dateHtml) parts.push(dateHtml);
-    if (readHtml) parts.push(readHtml);
-    const metaLine = parts.length ? `<div class="post-meta-line">${parts.join('<span class="card-sep">•</span>')}</div>` : '';
-    const excerptHtml = (meta && meta.excerpt) ? `<div class="post-meta-excerpt">${escapeHtml(String(meta.excerpt))}</div>` : '';
-    const tags = meta ? renderTags(meta.tag) : '';
-    return `<section class="post-meta-card" aria-label="Post meta">
-      <div class="post-meta-title">${safeTitle}</div>
-      <button type="button" class="post-meta-copy" aria-label="${t('ui.copyLink')}" title="${t('ui.copyLink')}">${t('ui.copyLink')}</button>
-      ${metaLine}
-      ${excerptHtml}
-      ${tags || ''}
-    </section>`;
-  } catch (_) {
-    return '';
-  }
-}
+// RenderPostMetaCard moved to ./js/templates.js
 
 // Render an outdated warning card if the post date exceeds the configured threshold
 function renderOutdatedCard(meta) {
