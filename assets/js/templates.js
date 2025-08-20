@@ -32,3 +32,21 @@ export function renderPostMetaCard(title, meta, markdown) {
   }
 }
 
+// Render an outdated warning card if the post date exceeds the configured threshold
+export function renderOutdatedCard(meta, siteCfg) {
+  try {
+    const hasDate = meta && meta.date;
+    if (!hasDate) return '';
+    const published = new Date(String(meta.date));
+    if (isNaN(published.getTime())) return '';
+    const diffDays = Math.floor((Date.now() - published.getTime()) / (1000 * 60 * 60 * 24));
+    const threshold = (siteCfg && Number.isFinite(Number(siteCfg.contentOutdatedDays)))
+      ? Number(siteCfg.contentOutdatedDays)
+      : 180;
+    if (diffDays < threshold) return '';
+    return `<section class="post-outdated-card" role="note">
+      <div class="post-outdated-content">${t('ui.outdatedWarning')}</div>
+      <button type="button" class="post-outdated-close" aria-label="${t('ui.close')}" title="${t('ui.close')}">×</button>
+    </section>`;
+  } catch (_) { return ''; }
+}

@@ -13,7 +13,7 @@ import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js'
 import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
-import { renderPostMetaCard } from './js/templates.js';
+import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -786,22 +786,7 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
 
 // RenderPostMetaCard moved to ./js/templates.js
 
-// Render an outdated warning card if the post date exceeds the configured threshold
-function renderOutdatedCard(meta) {
-  try {
-    const hasDate = meta && meta.date;
-    if (!hasDate) return '';
-    const published = new Date(String(meta.date));
-    if (isNaN(published.getTime())) return '';
-    const diffDays = Math.floor((Date.now() - published.getTime()) / (1000 * 60 * 60 * 24));
-    const threshold = (siteConfig && Number.isFinite(Number(siteConfig.contentOutdatedDays))) ? Number(siteConfig.contentOutdatedDays) : 180;
-    if (diffDays < threshold) return '';
-    return `<section class="post-outdated-card" role="note">
-      <div class="post-outdated-content">${t('ui.outdatedWarning')}</div>
-      <button type="button" class="post-outdated-close" aria-label="${t('ui.close')}" title="${t('ui.close')}">×</button>
-    </section>`;
-  } catch (_) { return ''; }
-}
+// RenderOutdatedCard moved to ./js/templates.js
 
 let hasInitiallyRendered = false;
 
@@ -1187,7 +1172,7 @@ function displayPost(postname) {
   const postMetadata = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname)?.[1] || {};
   // Tentatively render meta card with fallback title first; we'll update title after reading h1
   const preTitle = fallback;
-  const outdatedCardHtml = renderOutdatedCard(postMetadata);
+  const outdatedCardHtml = renderOutdatedCard(postMetadata, siteConfig);
   const metaCardHtml = renderPostMetaCard(preTitle, postMetadata, markdown);
   // Render outdated card + meta card + main content so we can read first heading reliably
   const mainEl = document.getElementById('mainview');
