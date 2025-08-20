@@ -10,6 +10,7 @@ import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/er
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
+import { installLightbox } from './js/lightbox.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -1871,6 +1872,8 @@ applySavedTheme();
 bindThemeToggle();
 bindSeoGenerator();
 bindThemePackPicker();
+// Install lightweight image viewer (delegated; safe to call once)
+try { installLightbox({ root: '#mainview' }); } catch (_) {}
 // Localize search placeholder ASAP
 try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
 // Observe viewport changes for responsive tabs
