@@ -11,6 +11,7 @@ import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { installLightbox } from './js/lightbox.js';
+import { renderPostNav } from './js/post-nav.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -1258,6 +1259,7 @@ function displayPost(postname) {
   // Render outdated card + meta card + main content so we can read first heading reliably
   const mainEl = document.getElementById('mainview');
   if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
+  try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
   try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
     // After images are in DOM, run large-image watchdog if enabled in site config

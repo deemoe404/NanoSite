@@ -551,6 +551,60 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .pagination .active { background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); font-weight: 700; }
 .pagination .disabled { opacity: .5; pointer-events: none; }
 
+/* Post bottom navigation (Prev/Next) */
+.post-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  /* Bigger vertical breathing room above and below */
+  margin: 3rem 0 3rem;
+}
+.post-nav a,
+.post-nav span {
+  display: inline-flex;
+  align-items: center;
+  /* Keep tight spacing between label and title to avoid a split-button feel */
+  gap: 0.35rem;
+  padding: .6rem .75rem;
+  border: 0.0625rem solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--text);
+  text-decoration: none;
+  min-height: 2.5rem;
+}
+.post-nav a:hover { 
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+.post-nav .disabled { opacity: .5; pointer-events: none; justify-content: center; }
+.post-nav-prev { justify-content: flex-start; }
+.post-nav-next { justify-content: flex-end; }
+.post-nav .nav-label { font-weight: 700; opacity: .8; }
+.post-nav .nav-title { 
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+
+/* Ensure inner text elements never look like separate mini-buttons */
+.post-nav .nav-label,
+.post-nav .nav-title {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 520px) {
+  .post-nav { grid-template-columns: 1fr; }
+  .post-nav-next, .post-nav-prev { justify-content: center; }
+  .post-nav .nav-title { max-width: 60%; }
+}
+
 .hero { border:0.0625rem solid var(--border); background: radial-gradient(37.5rem 15rem at 0% -10%, rgba(37,99,235,.12), transparent 40%), var(--card); border-radius: 0.875rem; padding: 1.25rem; box-shadow: var(--shadow); margin-bottom: 1rem; }
 .hero h2 { margin: 0 0 .35rem; font-size: 1.6rem; }
 .hero p { margin: 0; color: var(--muted); }
