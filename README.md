@@ -40,7 +40,7 @@ Perfect for personal blogs, knowledge bases, or lightweight websites hosted on G
 - 📝 **Markdown-first** – write posts like plain notes.  
 - 🌐 **GitHub Pages Ready** – simply push and host.  
 - 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).  
-- 🎨 **Configurable** – customize your site using a simple `config.json`.  
+- 🎨 **Configurable** – customize your site using a simple `site.yaml`.  
 
 ---
 
