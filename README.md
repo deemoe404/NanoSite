@@ -65,6 +65,8 @@ Create your own site using **GitHub Template**:
 
 ➡️ Full documentation is also available at Official Demo: [Documentation for NanoSite](https://nano.dee.moe/?id=post%2Fdoc%2Fdoc_en.md&lang=en).
 
+> You can also fork the project, but keep in mind that syncing updates may require resolving conflicts, especially with data files.
+
 ## 📜 License
 
 MIT License © 2025 [deemoe404](https://github.com/deemoe404)  
