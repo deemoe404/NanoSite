@@ -200,6 +200,7 @@ export function initErrorReporter(options = {}) {
     siteTitle: options.siteTitle || reporterConfig.siteTitle || 'NanoSite'
   };
   if (!window.__nano_error_handlers_installed) {
+    // 1) Runtime script errors (bubble phase)
     window.addEventListener('error', (e) => {
       try {
         showErrorOverlay(
@@ -214,6 +215,36 @@ export function initErrorReporter(options = {}) {
         );
       } catch (_) {}
     });
+    // 2) Resource load errors (capture phase) — catch 404s for <img>, <link>, <script>, media
+    window.addEventListener('error', (e) => {
+      try {
+        const target = e && e.target;
+        if (!target || target === window) return;
+        const tag = (target.tagName || '').toLowerCase();
+        if (!tag) return;
+        let url = '';
+        if (tag === 'img' || tag === 'script') {
+          url = target.currentSrc || target.src || '';
+        } else if (tag === 'link') {
+          url = target.href || '';
+        } else if (tag === 'video' || tag === 'audio') {
+          try { url = target.currentSrc || (target.querySelector('source') && target.querySelector('source').src) || ''; } catch(_) { url = ''; }
+        } else {
+          return; // ignore other elements
+        }
+        const msg = (t('errors.resourceLoadFailed') || 'Resource failed to load') + `: <${tag}> ${url || ''}`.trim();
+        const err = new Error(msg);
+        try { err.name = 'Warning'; } catch(_) {}
+        showErrorOverlay(err, {
+          message: msg,
+          origin: 'resource.error',
+          tagName: tag,
+          assetUrl: url,
+          filename: url
+        });
+      } catch (_) { /* swallow */ }
+    }, true);
+    // 3) Unhandled promise rejections
     window.addEventListener('unhandledrejection', (e) => {
       try {
         showErrorOverlay(

@@ -1260,6 +1260,19 @@ function displayPost(postname) {
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
     
+    // Surface an overlay for missing post (e.g., 404)
+    try {
+      const err = new Error((t('errors.postNotFoundBody') || 'The requested post could not be loaded.'));
+      try { err.name = 'Warning'; } catch(_) {}
+      showErrorOverlay(err, {
+        message: err.message,
+        origin: 'view.post.notfound',
+        filename: 'wwwroot/' + postname,
+        assetUrl: 'wwwroot/' + postname,
+        id: postname
+      });
+    } catch (_) {}
+
     document.getElementById('tocview').innerHTML = '';
     const backHref = withLangParam('?tab=posts');
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
@@ -1573,11 +1586,20 @@ function displayStaticTab(slug) {
       
       try { setDocTitle(pageTitle); } catch (_) {}
     })
-    .catch(() => {
+    .catch((e) => {
       // 移除加载状态类，即使出错也要移除
       if (contentEl) contentEl.classList.remove('loading');
       if (sidebarEl) sidebarEl.classList.remove('loading');
       
+      // Surface an overlay for missing static tab page
+      try {
+        const url = 'wwwroot/' + tab.location;
+        const msg = (t('errors.pageUnavailableBody') || 'Could not load this tab.') + (e && e.message ? ` (${e.message})` : '');
+        const err = new Error(msg);
+        try { err.name = 'Warning'; } catch(_) {}
+        showErrorOverlay(err, { message: msg, origin: 'view.tab.unavailable', tagName: 'md', filename: url, assetUrl: url, tab: slug });
+      } catch (_) {}
+
       document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.pageUnavailableTitle')}</h3><p>${t('errors.pageUnavailableBody')}</p></div>`;
       setDocTitle(t('ui.pageUnavailable'));
     });
@@ -1784,6 +1806,9 @@ initI18n({ defaultLang });
 // Expose translate helper for modules that don't import i18n directly
 try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
+// Install error reporter early to catch resource 404s (e.g., theme CSS, images)
+try { initErrorReporter({}); } catch (_) {}
+
 // Ensure theme controls are present, then apply and bind
 mountThemeControls();
 applySavedTheme();
@@ -1951,9 +1976,15 @@ Promise.allSettled([
     
   routeAndRender();
   })
-  .catch(() => {
+  .catch((e) => {
     document.getElementById('tocview').innerHTML = '';
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('ui.indexUnavailable')}</h3><p>${t('errors.indexUnavailableBody')}</p></div>`;
+    // Surface an overlay for boot/index failures (network/unified JSON issues)
+    try {
+      const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
+      try { err.name = 'Warning'; } catch(_) {}
+      showErrorOverlay(err, { message: err.message, origin: 'boot.indexUnavailable', error: (e && e.message) || String(e || '') });
+    } catch (_) {}
   });
 
 // Footer: set dynamic year once
