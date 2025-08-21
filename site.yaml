@@ -31,7 +31,7 @@ siteKeywords:
 contentOutdatedDays: 180  # Days before content is considered outdated
 cardCoverFallback: false  # Use a generated fallback cover image if none provided
 errorOverlay: true        # Show error overlay on the page if an error occurs
-pageSize: 2               # Number of posts per page on the index list
+pageSize: 8               # Number of posts per page on the index list
 defaultLanguage: en       # Default UI/content language (e.g., en, zh, ja)
 
 # Theme override configurations
