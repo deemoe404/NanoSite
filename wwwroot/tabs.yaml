@@ -10,3 +10,14 @@ About:
   ja:
     title: 概要
     location: tab/about/ja.md
+
+History:
+  en:
+    title: Updates
+    location: tab/history/en.md
+  zh:
+    title: 更新日志
+    location: tab/history/zh.md
+  ja:
+    title: 更新履歴
+    location: tab/history/ja.md
