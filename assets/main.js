@@ -159,6 +159,28 @@ function smoothHide(el, onDone) {
   setTimeout(finalize, Math.max(HEIGHT_MS, MARGIN_MS, PADDING_MS) + BUFFER_MS);
 }
 
+// Global delegate for version selector changes to survive re-renders
+try {
+  if (!window.__ns_version_select_bound) {
+    window.__ns_version_select_bound = true;
+    const handler = (e) => {
+      try {
+        const el = e && e.target;
+        if (!el || !el.classList || !el.classList.contains('post-version-select')) return;
+        const loc = String(el.value || '').trim();
+        if (!loc) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('id', loc);
+        const lang = (getCurrentLang && getCurrentLang()) || 'en';
+        url.searchParams.set('lang', lang);
+        window.location.assign(url.toString());
+      } catch (_) {}
+    };
+    document.addEventListener('change', handler, true);
+    document.addEventListener('input', handler, true);
+  }
+} catch (_) {}
+
 // Ensure element height fully resets to its natural auto height
 function ensureAutoHeight(el) {
   if (!el) return;
@@ -1169,8 +1191,17 @@ function displayPost(postname) {
   const output = mdParse(markdown, baseDir);
   // Compute fallback title using index cache before rendering
   const fallback = postsByLocationTitle[postname] || postname;
-  // Try to get metadata for this post from index cache
-  const postMetadata = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname)?.[1] || {};
+  // Try to get metadata for this post from index cache. Support versioned entries.
+  let postEntry = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname);
+  let postMetadata = postEntry ? postEntry[1] : {};
+  if (!postEntry) {
+    const found = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => Array.isArray(v && v.versions) && v.versions.some(ver => ver && ver.location === postname));
+    if (found) {
+      const baseMeta = found[1];
+      const match = (baseMeta.versions || []).find(ver => ver.location === postname) || {};
+      postMetadata = { ...match, versions: baseMeta.versions || [] };
+    }
+  }
   // Tentatively render meta card with fallback title first; we'll update title after reading h1
   const preTitle = fallback;
   const outdatedCardHtml = renderOutdatedCard(postMetadata, siteConfig);
@@ -1316,7 +1347,10 @@ function displayIndex(parsed) {
     // pre-render meta line with date if available; read time appended after fetch
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
-    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
+    const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
+    const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
+    const metaInner = dateHtml + (dateHtml && versionsHtml ? `<span class=\"card-sep\">•</span>` : '') + (versionsHtml || '');
+    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
   }
   html += '</div>';
   // Pagination controls
@@ -1374,12 +1408,13 @@ function displayIndex(parsed) {
       if (metaEl) {
         const dateEl = metaEl.querySelector('.card-date');
         const readHtml = `<span class=\"card-read\">${minutes} ${t('ui.minRead')}</span>`;
-        if (dateEl && dateEl.textContent.trim()) {
-          // add a separator dot if date exists
-          metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
-        } else {
-          metaEl.innerHTML = readHtml;
-        }
+        const verCount = (meta && Array.isArray(meta.versions)) ? meta.versions.length : 0;
+        const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
+        const parts = [];
+        if (dateEl && dateEl.textContent.trim()) parts.push(dateEl.outerHTML);
+        parts.push(readHtml);
+        if (versionsHtml) parts.push(versionsHtml);
+        metaEl.innerHTML = parts.join('<span class=\"card-sep\">•</span>');
       }
   // Recompute masonry span for the updated card
   const container = document.querySelector('.index');
@@ -1439,7 +1474,10 @@ function displaySearch(query) {
       : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
-    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${dateHtml}</div>${tag}</a>`;
+    const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
+    const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
+    const metaInner = dateHtml + (dateHtml && versionsHtml ? `<span class=\"card-sep\">•</span>` : '') + (versionsHtml || '');
+    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
   }
   html += '</div>';
 
@@ -1501,11 +1539,13 @@ function displaySearch(query) {
       if (metaEl) {
         const dateEl = metaEl.querySelector('.card-date');
         const readHtml = `<span class=\"card-read\">${minutes} ${t('ui.minRead')}</span>`;
-        if (dateEl && dateEl.textContent.trim()) {
-          metaEl.innerHTML = `${dateEl.outerHTML}<span class=\"card-sep\">•</span>${readHtml}`;
-        } else {
-          metaEl.innerHTML = readHtml;
-        }
+        const verCount = (meta && Array.isArray(meta.versions)) ? meta.versions.length : 0;
+        const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
+        const parts = [];
+        if (dateEl && dateEl.textContent.trim()) parts.push(dateEl.outerHTML);
+        parts.push(readHtml);
+        if (versionsHtml) parts.push(versionsHtml);
+        metaEl.innerHTML = parts.join('<span class=\"card-sep\">•</span>');
       }
   const container = document.querySelector('.index');
   if (container && el) updateMasonryItem(container, el);
@@ -1609,6 +1649,7 @@ function displayStaticTab(slug) {
 // Simple router: render based on current URL
 function routeAndRender() {
   const rawId = getQueryVariable('id');
+  // Always apply cross-language aliasing when available so switching language rewrites to the correct variant
   const id = (rawId && locationAliasMap.has(rawId)) ? locationAliasMap.get(rawId) : rawId;
   // Reflect remapped ID in the URL without triggering navigation
   try {
@@ -1860,7 +1901,12 @@ async function softResetToSiteDefaultLanguage() {
       stableToCurrentTabSlug[baseKey] = slug;
     }
 
-    const baseAllowed = new Set(Object.values(posts).map(v => String(v.location)));
+    const baseAllowed = new Set();
+    Object.values(posts).forEach(v => {
+      if (!v) return;
+      if (v.location) baseAllowed.add(String(v.location));
+      if (Array.isArray(v.versions)) v.versions.forEach(ver => { if (ver && ver.location) baseAllowed.add(String(ver.location)); });
+    });
     if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
       try {
         for (const [, entry] of Object.entries(rawIndex)) {
@@ -1868,16 +1914,36 @@ async function softResetToSiteDefaultLanguage() {
           for (const [k, v] of Object.entries(entry)) {
             if (['tag','tags','image','date','excerpt','thumb','cover'].includes(k)) continue;
             if (k === 'location' && typeof v === 'string') { baseAllowed.add(String(v)); continue; }
+            if (Array.isArray(v)) { v.forEach(item => { if (typeof item === 'string') baseAllowed.add(String(item)); }); continue; }
             if (v && typeof v === 'object' && typeof v.location === 'string') baseAllowed.add(String(v.location));
             else if (typeof v === 'string') baseAllowed.add(String(v));
           }
-        }
-      } catch (_) {}
+    }
+  } catch (_) {}
+  // Wire up version selector (if multiple versions available)
+  try {
+    const verSel = document.querySelector('#mainview .post-meta-card select.post-version-select');
+    if (verSel) {
+      verSel.addEventListener('change', (e) => {
+        try {
+          const loc = String(e.target.value || '').trim();
+          if (!loc) return;
+          // Build an explicit URL to avoid any helper side effects
+          const url = new URL(window.location.href);
+          url.searchParams.set('id', loc);
+          const lang = (getCurrentLang && getCurrentLang()) || 'en';
+          url.searchParams.set('lang', lang);
+          window.location.assign(url.toString());
+        } catch (_) {}
+      });
+    }
+  } catch (_) {}
     }
     allowedLocations = baseAllowed;
     postsByLocationTitle = {};
     for (const [title, meta] of Object.entries(posts)) {
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
+      if (meta && Array.isArray(meta.versions)) meta.versions.forEach(ver => { if (ver && ver.location) postsByLocationTitle[ver.location] = title; });
     }
     postsIndexCache = posts;
     locationAliasMap = new Map();
@@ -1896,15 +1962,33 @@ async function softResetToSiteDefaultLanguage() {
               variants.push({ lang: 'default', location: String(v) });
             } else if (typeof v === 'string') {
               variants.push({ lang: nk, location: String(v) });
+            } else if (Array.isArray(v)) {
+              // For version arrays, include all paths for aliasing
+              v.forEach(item => { if (typeof item === 'string') variants.push({ lang: nk, location: String(item) }); });
             } else if (v && typeof v === 'object' && typeof v.location === 'string') {
               variants.push({ lang: nk, location: String(v.location) });
             }
           }
           if (!variants.length) continue;
           const findBy = (langs) => variants.find(x => langs.includes(x.lang));
-          let chosen = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
-          if (!chosen) chosen = variants[0];
-          variants.forEach(v => { if (v.location && chosen.location) locationAliasMap.set(v.location, chosen.location); });
+          // Prefer the primary location for the current language as computed in postsIndexCache
+          let chosen = null;
+          let chosenLocation = null;
+          try {
+            const seed = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+            if (seed && postsByLocationTitle && postsIndexCache) {
+              const title = postsByLocationTitle[seed.location];
+              const meta = title ? postsIndexCache[title] : null;
+              if (meta && meta.location) chosenLocation = String(meta.location);
+            }
+          } catch (_) {}
+          if (chosenLocation) {
+            chosen = { lang: curNorm, location: chosenLocation };
+          } else {
+            chosen = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+            if (!chosen) chosen = variants[0];
+          }
+          variants.forEach(v => { if (v.location && chosen.location && v.lang !== curNorm) locationAliasMap.set(v.location, chosen.location); });
         }
       }
     } catch (_) {}
@@ -2016,7 +2100,12 @@ loadSiteConfig()
     // Build a whitelist of allowed post file paths. Start with the current-language
     // transformed entries, then include any language-variant locations discovered
     // from the raw unified index.yaml (if present).
-    const baseAllowed = new Set(Object.values(posts).map(v => String(v.location)));
+    const baseAllowed = new Set();
+    Object.values(posts).forEach(v => {
+      if (!v) return;
+      if (v.location) baseAllowed.add(String(v.location));
+      if (Array.isArray(v.versions)) v.versions.forEach(ver => { if (ver && ver.location) baseAllowed.add(String(ver.location)); });
+    });
     if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
       try {
         for (const [, entry] of Object.entries(rawIndex)) {
@@ -2024,8 +2113,14 @@ loadSiteConfig()
           for (const [k, v] of Object.entries(entry)) {
             // Skip known non-variant keys
             if (['tag','tags','image','date','excerpt','thumb','cover'].includes(k)) continue;
-            // Support both unified and legacy shapes
+            const nk = normalizeLangKey(k);
+            const cur = (getCurrentLang && getCurrentLang()) || 'en';
+            const curNorm = normalizeLangKey(cur);
+            const allowLang = (nk === 'default' || nk === curNorm || k === 'location');
+            if (!allowLang) continue;
+            // Support both unified and legacy shapes (only for allowed languages)
             if (k === 'location' && typeof v === 'string') { baseAllowed.add(String(v)); continue; }
+            if (Array.isArray(v)) { v.forEach(item => { if (typeof item === 'string') baseAllowed.add(String(item)); }); continue; }
             if (v && typeof v === 'object' && typeof v.location === 'string') baseAllowed.add(String(v.location));
             else if (typeof v === 'string') baseAllowed.add(String(v));
           }
@@ -2036,6 +2131,7 @@ loadSiteConfig()
     postsByLocationTitle = {};
     for (const [title, meta] of Object.entries(posts)) {
       if (meta && meta.location) postsByLocationTitle[meta.location] = title;
+      if (meta && Array.isArray(meta.versions)) meta.versions.forEach(ver => { if (ver && ver.location) postsByLocationTitle[ver.location] = title; });
     }
     postsIndexCache = posts;
     // Build cross-language location alias map so switching languages keeps the same article
@@ -2055,15 +2151,32 @@ loadSiteConfig()
               variants.push({ lang: 'default', location: String(v) });
             } else if (typeof v === 'string') {
               variants.push({ lang: nk, location: String(v) });
+            } else if (Array.isArray(v)) {
+              v.forEach(item => { if (typeof item === 'string') variants.push({ lang: nk, location: String(item) }); });
             } else if (v && typeof v === 'object' && typeof v.location === 'string') {
               variants.push({ lang: nk, location: String(v.location) });
             }
           }
           if (!variants.length) continue;
           const findBy = (langs) => variants.find(x => langs.includes(x.lang));
-          let chosen = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
-          if (!chosen) chosen = variants[0];
-          variants.forEach(v => { if (v.location && chosen.location) locationAliasMap.set(v.location, chosen.location); });
+          // Prefer the primary location for the current language as computed in postsIndexCache
+          let chosen = null;
+          let chosenLocation = null;
+          try {
+            const seed = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+            if (seed && postsByLocationTitle && postsIndexCache) {
+              const title = postsByLocationTitle[seed.location];
+              const meta = title ? postsIndexCache[title] : null;
+              if (meta && meta.location) chosenLocation = String(meta.location);
+            }
+          } catch (_) {}
+          if (chosenLocation) {
+            chosen = { lang: curNorm, location: chosenLocation };
+          } else {
+            chosen = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+            if (!chosen) chosen = variants[0];
+          }
+          variants.forEach(v => { if (v.location && chosen.location && v.lang !== curNorm) locationAliasMap.set(v.location, chosen.location); });
         }
       }
     } catch (_) { /* ignore alias build errors */ }
