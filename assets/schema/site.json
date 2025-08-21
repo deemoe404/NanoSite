@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nanosite.schema/site.schema.json",
+  "title": "NanoSite Site Configuration",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "siteTitle": {
+      "$ref": "#/$defs/localizedString"
+    },
+    "siteSubtitle": {
+      "$ref": "#/$defs/localizedString"
+    },
+    "siteDescription": {
+      "$ref": "#/$defs/localizedString"
+    },
+    "siteKeywords": {
+      "$ref": "#/$defs/localizedString"
+    },
+    "resourceURL": {
+      "type": "string"
+    },
+    "avatar": {
+      "type": "string"
+    },
+    "profileLinks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      }
+    },
+    "links": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "contentOutdatedDays": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "themeMode": {
+      "type": "string",
+      "enum": [
+        "dark",
+        "light",
+        "auto",
+        "user"
+      ]
+    },
+    "themePack": {
+      "type": "string"
+    },
+    "themeOverride": {
+      "type": "boolean"
+    },
+    "cardCoverFallback": {
+      "type": "boolean"
+    },
+    "reportIssueURL": {
+      "type": "string"
+    },
+    "errorOverlay": {
+      "type": "boolean"
+    },
+    "assetWarnings": {
+      "type": "object",
+      "properties": {
+        "largeImage": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "thresholdKB": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "link": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "href": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "href"
+      ],
+      "additionalProperties": false
+    },
+    "localizedString": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "default": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  }
+}
