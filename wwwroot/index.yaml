@@ -5,9 +5,15 @@ nanoSite:
   zh: post/main/main_zh.md
   ja: post/main/main_ja.md
 nanodoc:
-  en: post/doc/doc_en.md
-  zh: post/doc/doc_zh.md
-  ja: post/doc/doc_ja.md
+  en:
+    - post/doc/v1.0.0/doc_en.md
+    - post/doc/v2.0.0/doc_en.md
+  zh:
+    - post/doc/v1.0.0/doc_zh.md
+    - post/doc/v2.0.0/doc_zh.md
+  ja:
+    - post/doc/v1.0.0/doc_ja.md
+    - post/doc/v2.0.0/doc_ja.md
 githubpages:
   en: post/page/githubpages_en.md
   zh: post/page/githubpages_zh.md
