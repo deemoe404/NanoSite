@@ -24,9 +24,20 @@ export function renderPostMetaCard(title, meta, markdown) {
       const versions = Array.isArray(meta && meta.versions) ? meta.versions : [];
       if (versions.length > 1 && meta && meta.location) {
         const current = String(meta.location);
+        // Determine latest by date; fallback to first item
+        const latestLoc = (() => {
+          let best = null; let bestTs = -Infinity;
+          for (const v of versions) {
+            const ts = new Date(String(v && v.date || '')).getTime();
+            if (Number.isFinite(ts) && ts > bestTs) { bestTs = ts; best = v && v.location; }
+          }
+          return best || (versions[0] && versions[0].location) || null;
+        })();
         const opts = versions
           .map(v => {
-            const label = String(v.versionLabel || v.date || v.location || '').trim() || '—';
+            const base = String(v.versionLabel || v.date || v.location || '').trim() || '—';
+            const isLatest = latestLoc && v.location === latestLoc;
+            const label = isLatest ? `${base} ${t('ui.latestSuffix')}` : base;
             const sel = (v.location === current) ? ' selected' : '';
             return `<option value="${escapeHtml(String(v.location))}"${sel}>${escapeHtml(label)}</option>`;
           })
