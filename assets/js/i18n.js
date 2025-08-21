@@ -2,13 +2,14 @@
 // Usage & extension:
 // - To change the default language, edit DEFAULT_LANG below (or set <html lang="xx"> in index.html; boot code passes that into initI18n).
 // - To add a new UI language, add a new top-level key to `translations` (e.g., `es`, `fr`) mirroring the `en` structure.
-// - Content i18n now supports a single unified JSON with per-language entries and default fallback.
-//   Prefer using one `wwwroot/index.json` that stores, per post, a `default` block and optional language blocks
+// - Content i18n supports a single unified YAML with per-language entries and default fallback.
+//   Prefer using one `wwwroot/index.yaml` that stores, per post, a `default` block and optional language blocks
 //   (e.g., `en`, `zh`, `ja`) describing `title` and `location`. Missing languages fall back to `default`.
-//   Existing per-language files `index.<lang>.json` and `tabs.<lang>.json` remain supported as a fallback.
+//   Legacy per-language files like `index.<lang>.yaml` and `tabs.<lang>.yaml` are also supported.
 // - To show a friendly name in the language dropdown, add an entry to `languageNames`.
 
 import { parseFrontMatter } from './content.js';
+import { fetchConfigWithYamlFallback } from './yaml.js';
 
 // Default language fallback when no user/browser preference is available.
 const DEFAULT_LANG = 'en';
@@ -427,14 +428,16 @@ async function loadContentFromFrontMatter(obj, lang) {
   return { entries: out, availableLangs: Array.from(langsSeen).sort() };
 }
 
-// Try to load unified JSON (`base.json`) first; if not unified or missing, fallback to legacy
-// per-language files (base.<currentLang>.json -> base.<default>.json -> base.json)
+// Try to load unified YAML (`base.yaml`) first; if not unified or missing, fallback to legacy
+// per-language files (base.<currentLang>.yaml -> base.<default>.yaml -> base.yaml)
 export async function loadContentJson(basePath, baseName) {
-  // Try unified
+  // YAML only (unified or simplified)
   try {
-    const r = await fetch(`${basePath}/${baseName}.json`);
-    if (r.ok) {
-      const obj = await r.json();
+    const obj = await fetchConfigWithYamlFallback([
+      `${basePath}/${baseName}.yaml`,
+      `${basePath}/${baseName}.yml`
+    ]);
+    if (obj && typeof obj === 'object' && Object.keys(obj).length) {
       // Heuristic: if any entry contains a `default` or a non-reserved language-like key, treat as unified
       const keys = Object.keys(obj || {});
       let isUnified = false;
@@ -478,11 +481,11 @@ export async function loadContentJson(basePath, baseName) {
     }
   } catch (_) { /* fall back */ }
 
-  // Legacy per-language JSON chain
+  // Legacy per-language YAML chain
   return loadLangJson(basePath, baseName);
 }
 
-// Transform unified tabs JSON into a flat map: title -> { location }
+// Transform unified tabs YAML into a flat map: title -> { location }
 function transformUnifiedTabs(obj, lang) {
   const out = {};
   const langsSeen = new Set();
@@ -527,9 +530,11 @@ function transformUnifiedTabs(obj, lang) {
 // Load tabs in unified format first, then fall back to legacy per-language files
 export async function loadTabsJson(basePath, baseName) {
   try {
-    const r = await fetch(`${basePath}/${baseName}.json`);
-    if (r.ok) {
-      const obj = await r.json();
+    const obj = await fetchConfigWithYamlFallback([
+      `${basePath}/${baseName}.yaml`,
+      `${basePath}/${baseName}.yml`
+    ]);
+    if (obj && typeof obj === 'object') {
       let isUnified = false;
       for (const [k, v] of Object.entries(obj || {})) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
@@ -566,18 +571,18 @@ export function withLangParam(urlStr) {
 // base.<currentLang>.json -> base.<default>.json -> base.json
 export async function loadLangJson(basePath, baseName) {
   const attempts = [
-    `${basePath}/${baseName}.${currentLang}.json`,
-    `${basePath}/${baseName}.${DEFAULT_LANG}.json`,
-    `${basePath}/${baseName}.json`
+    `${basePath}/${baseName}.${currentLang}.yaml`,
+    `${basePath}/${baseName}.${currentLang}.yml`,
+    `${basePath}/${baseName}.${DEFAULT_LANG}.yaml`,
+    `${basePath}/${baseName}.${DEFAULT_LANG}.yml`,
+    `${basePath}/${baseName}.yaml`,
+    `${basePath}/${baseName}.yml`
   ];
-  for (const p of attempts) {
-    try {
-      const r = await fetch(p);
-      if (!r.ok) continue;
-      return await r.json();
-    } catch (_) { /* try next */ }
+  try {
+    return await fetchConfigWithYamlFallback(attempts);
+  } catch (_) {
+    return {};
   }
-  return {};
 }
 
 // Update static DOM bits outside main render cycle (sidebar card, search placeholder)

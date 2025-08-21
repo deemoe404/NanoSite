@@ -8,6 +8,7 @@ import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
+import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { installLightbox } from './js/lightbox.js';
@@ -171,13 +172,12 @@ function ensureAutoHeight(el) {
   } catch (_) {}
 }
 
-// --- Site config (root-level site.json) ---
+// --- Site config (root-level site.yaml) ---
 let siteConfig = {};
 async function loadSiteConfig() {
   try {
-    const r = await fetch('site.json');
-    if (!r.ok) return {};
-    return await r.json();
+    // YAML only
+    return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
   } catch (_) { return {}; }
 }
 
@@ -853,7 +853,7 @@ function renderTabs(activeSlug, searchQuery) {
       const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
       compact += `<span class="tab active" data-slug="post">${label}</span>`;
     } else if (activeSlug && activeSlug !== 'posts') {
-      // Active static tab from tabs.json
+      // Active static tab from tabs.yaml
       const info = tabsBySlug[activeSlug];
       const label = info && info.title ? info.title : activeSlug;
       compact += make(activeSlug, label).replace('"tab ', '"tab active ');
@@ -1212,7 +1212,7 @@ function displayPost(postname) {
       });
     }
   } catch (_) {}
-  // Always use the localized title from index.json for display/meta/tab labels
+  // Always use the localized title from index.yaml for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
     try {
@@ -1359,7 +1359,7 @@ function displayIndex(parsed) {
     const el = cards[idx];
     if (!el) return;
     const exEl = el.querySelector('.card-excerpt');
-    // Prefer explicit excerpt from index.json when available
+    // Prefer explicit excerpt from index.yaml when available
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
@@ -1487,7 +1487,7 @@ function displaySearch(query) {
     const el = cards[idx];
     if (!el) return;
     const exEl = el.querySelector('.card-excerpt');
-    // Prefer explicit excerpt from index.json when available
+    // Prefer explicit excerpt from index.yaml when available
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
@@ -1570,7 +1570,7 @@ function displayStaticTab(slug) {
   try { hydratePostVideos('#mainview'); } catch (_) {}
   try { initSyntaxHighlighting(); } catch (_) {}
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
-  // Always use the title defined in tabs.json for the browser/SEO title,
+  // Always use the title defined in tabs.yaml for the browser/SEO title,
   // instead of deriving it from the first heading in the markdown.
   const pageTitle = tab.title;
       
@@ -1829,12 +1829,11 @@ Promise.allSettled([
   loadTabsJson('wwwroot', 'tabs'),
   // Load site config
   loadSiteConfig(),
-  // Also fetch the raw index.json to collect all variant locations across languages
+  // Also fetch the raw index (YAML) to collect all variant locations across languages
   (async () => {
     try {
-      const r = await fetch('wwwroot/index.json');
-      if (!r.ok) return null;
-      return await r.json();
+      const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']);
+      return (obj && typeof obj === 'object') ? obj : null;
     } catch (_) { return null; }
   })()
 ])
@@ -1858,7 +1857,7 @@ Promise.allSettled([
     }
     // Build a whitelist of allowed post file paths. Start with the current-language
     // transformed entries, then include any language-variant locations discovered
-    // from the raw unified index.json (if present).
+    // from the raw unified index.yaml (if present).
     const baseAllowed = new Set(Object.values(posts).map(v => String(v.location)));
     if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
       try {

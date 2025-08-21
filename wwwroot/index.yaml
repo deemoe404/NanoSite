@@ -1,0 +1,19 @@
+nanoSite:
+  en: post/main/main_en.md
+  zh: post/main/main_zh.md
+  ja: post/main/main_ja.md
+nanodoc:
+  en: post/doc/doc_en.md
+  zh: post/doc/doc_zh.md
+  ja: post/doc/doc_ja.md
+githubpages:
+  en: post/page/githubpages_en.md
+  zh: post/page/githubpages_zh.md
+  ja: post/page/githubpages_ja.md
+seo:
+  en: post/seo/seo_en.md
+  zh: post/seo/seo_zh.md
+  ja: post/seo/seo_ja.md
+test:
+  en: post/test/main.md
+

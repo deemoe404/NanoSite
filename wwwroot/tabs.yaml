@@ -1,0 +1,11 @@
+About:
+  en:
+    title: About
+    location: tab/en.md
+  zh:
+    title: 关于
+    location: tab/zh.md
+  ja:
+    title: 概要
+    location: tab/ja.md
+
