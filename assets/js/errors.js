@@ -5,6 +5,7 @@ let reporterConfig = {
   reportUrl: null,
   siteTitle: 'NanoSite'
 };
+let overlayUIEnabled = false;
 let extraContext = {};
 // Queue for sequential overlays (show one at a time)
 let overlayQueue = [];
@@ -76,6 +77,7 @@ function copyToClipboard(text) {
 }
 
 export function showErrorOverlay(err, context = {}) {
+  if (!overlayUIEnabled) return; // overlay UI disabled by config
   try {
     // Basic dedupe: avoid enqueuing identical name+message+url within a short window
     const key = `${(err && err.name) || 'Error'}|${(err && err.message) || (context && context.message) || ''}|${(context && context.assetUrl) || ''}`;
@@ -199,6 +201,8 @@ export function initErrorReporter(options = {}) {
     reportUrl: options.reportUrl || reporterConfig.reportUrl || null,
     siteTitle: options.siteTitle || reporterConfig.siteTitle || 'NanoSite'
   };
+  // Allow toggling the overlay UI (default off)
+  try { overlayUIEnabled = !!options.enableOverlay; } catch (_) { overlayUIEnabled = false; }
   if (!window.__nano_error_handlers_installed) {
     // 1) Runtime script errors (bubble phase)
     window.addEventListener('error', (e) => {

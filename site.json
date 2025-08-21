@@ -30,6 +30,7 @@
   "themePack": "minimalism",
   "themeOverride": true,
   "cardCoverFallback": false,
+  "errorOverlay": true,
   "assetWarnings": {
     "largeImage": {
       "enabled": true,

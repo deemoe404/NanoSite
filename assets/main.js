@@ -1948,7 +1948,8 @@ Promise.allSettled([
       };
       initErrorReporter({
         reportUrl: siteConfig && siteConfig.reportIssueURL,
-        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite'
+        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite',
+        enableOverlay: !!(siteConfig && siteConfig.errorOverlay === true)
       });
     } catch (_) {}
     
