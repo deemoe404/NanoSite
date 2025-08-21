@@ -65,6 +65,38 @@ const highlightRules = {
     { type: 'keyword', pattern: /\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|exit|break|continue|local|export|source|alias|unalias|cd|pwd|ls|mkdir|rmdir|rm|cp|mv|cat|grep|awk|sed|sort|uniq|head|tail|echo|printf|read|test)\b/g },
     { type: 'operator', pattern: /[&|;><(){}[\]$!]/g },
     { type: 'number', pattern: /\b\d+\b/g }
+  ],
+
+  // YAML / YML — light but useful highlighting
+  yaml: [
+    // comments
+    { type: 'comment', pattern: /#.*$/gm },
+    // keys (match key and colon together; simple but effective)
+    { type: 'property', pattern: /(^|\n)\s*[-\s]*([A-Za-z_][\w\-\.]*|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/g },
+    // booleans and null-like
+    { type: 'keyword', pattern: /\b(true|false|on|off|yes|no|null)\b/gi },
+    // numbers
+    { type: 'number', pattern: /\b-?\d+(?:\.\d+)?\b/g },
+    // strings (quoted)
+    { type: 'string', pattern: /"(?:[^"\\]|\\.)*"|'[^']*'/g },
+    // anchors & aliases
+    { type: 'variables', pattern: /[&*][A-Za-z0-9_\-]+/g },
+    // tags like !Ref, !!str
+    { type: 'preprocessor', pattern: /!{1,2}[A-Za-z0-9_:\-]+/g },
+    // punctuation tokens
+    { type: 'punctuation', pattern: /[:{},\[\]\-]>?/g }
+  ],
+
+  // Alias for `.yml`
+  yml: [
+    { type: 'comment', pattern: /#.*$/gm },
+    { type: 'property', pattern: /(^|\n)\s*[-\s]*([A-Za-z_][\w\-\.]*|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/g },
+    { type: 'keyword', pattern: /\b(true|false|on|off|yes|no|null)\b/gi },
+    { type: 'number', pattern: /\b-?\d+(?:\.\d+)?\b/g },
+    { type: 'string', pattern: /"(?:[^"\\]|\\.)*"|'[^']*'/g },
+    { type: 'variables', pattern: /[&*][A-Za-z0-9_\-]+/g },
+    { type: 'preprocessor', pattern: /!{1,2}[A-Za-z0-9_:\-]+/g },
+    { type: 'punctuation', pattern: /[:{},\[\]\-]>?/g }
   ]
 };
 
@@ -115,8 +147,8 @@ function simpleHighlight(code, language) {
   // HTML转义整个结果
   result = escapeHtml(result);
   
-  // 将临时标记替换为实际的HTML标签
-  result = result.replace(/__HIGHLIGHTED__(\w+)__(.*?)__END__/g, (match, type, content) => {
+  // 将临时标记替换为实际的HTML标签（允许匹配跨行内容）
+  result = result.replace(/__HIGHLIGHTED__(\w+)__([\s\S]*?)__END__/g, (match, type, content) => {
     return `<span class="syntax-${type}">${content}</span>`;
   });
   
@@ -173,6 +205,14 @@ function detectLanguage(code) {
     return 'bash';
   }
   
+  // YAML 检测（典型 header、键值对和列表）
+  const yamlHeader = /(^|\n)\s*---\s*(\n|$)/;
+  const yamlKey = /(^|\n)\s*[-\s]*[A-Za-z_"'][\w\-\."']*\s*:/;
+  const yamlList = /(^|\n)\s*-\s+[^\n]+/;
+  if (yamlHeader.test(code) || (yamlKey.test(code) && /\n/.test(code)) || yamlList.test(code)) {
+    return 'yaml';
+  }
+
   return null;
 }
 
