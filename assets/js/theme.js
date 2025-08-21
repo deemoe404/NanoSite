@@ -139,6 +139,9 @@ export function mountThemeControls() {
         <label for="langSelect" class="tool-label">${t('tools.language')}</label>
         <select id="langSelect" aria-label="${t('tools.language')}" title="${t('tools.language')}"></select>
       </div>
+      <div class="tool-item">
+        <button id="langReset" class="btn icon-btn" aria-label="${t('tools.resetLanguage')}" title="${t('tools.resetLanguage')}"><span class="icon">♻️</span><span class="btn-text">${t('tools.resetLanguage')}</span></button>
+      </div>
     </div>`;
 
   const toc = document.getElementById('tocview');
@@ -196,6 +199,21 @@ export function mountThemeControls() {
     langSel.addEventListener('change', () => {
       const val = langSel.value || 'en';
       switchLanguage(val);
+    });
+  }
+
+  // Bind language reset button
+  const resetBtn = wrapper.querySelector('#langReset');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      // Clear saved language and drop URL param, then soft-reset without full reload
+      try { localStorage.removeItem('lang'); } catch (_) {}
+      try { const url = new URL(window.location.href); url.searchParams.delete('lang'); history.replaceState(history.state, document.title, url.toString()); } catch (_) {}
+      try { (window.__ns_softResetLang && window.__ns_softResetLang()); } catch (_) { /* fall through */ }
+      // If soft reset isn't available for some reason, fall back to reload
+      if (!window.__ns_softResetLang) {
+        try { window.location.reload(); } catch (_) {}
+      }
     });
   }
 }

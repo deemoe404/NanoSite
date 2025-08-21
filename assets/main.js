@@ -27,7 +27,8 @@ let postsIndexCache = {};
 let allowedLocations = new Set();
 // Cross-language location aliases: any known variant -> preferred for current lang
 let locationAliasMap = new Map();
-const PAGE_SIZE = 8;
+// Default page size; can be overridden by site.yaml (pageSize/postsPerPage)
+let PAGE_SIZE = 8;
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
 
@@ -1802,7 +1803,9 @@ window.addEventListener('resize', () => {
 // 3) Load localized index/tabs JSON with fallback chain and render
 // Initialize i18n first so localized UI renders correctly
 const defaultLang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
-initI18n({ defaultLang });
+// Bootstrap i18n without persisting to localStorage so site.yaml can
+// still override the default language on first load.
+initI18n({ defaultLang, persist: false });
 // Expose translate helper for modules that don't import i18n directly
 try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
@@ -1822,26 +1825,181 @@ try { const input = document.getElementById('searchInput'); if (input) input.set
 // Observe viewport changes for responsive tabs
 setupResponsiveTabsObserver();
 
-Promise.allSettled([
-  // Load transformed posts index for current UI language
-  loadContentJson('wwwroot', 'index'),
-  // Load tabs (may be unified or legacy)
-  loadTabsJson('wwwroot', 'tabs'),
-  // Load site config
-  loadSiteConfig(),
-  // Also fetch the raw index (YAML) to collect all variant locations across languages
-  (async () => {
+// Soft reset to the site's default language without full reload
+async function softResetToSiteDefaultLanguage() {
+  try {
+    const def = (siteConfig && (siteConfig.defaultLanguage || siteConfig.defaultLang)) || defaultLang || 'en';
+    // Switch language immediately (do not persist to mimic reset semantics)
+    initI18n({ lang: String(def), persist: false });
+    // Reflect placeholder promptly
+    try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
+    // Update URL to drop any lang param so defaults apply going forward
+    try { const u = new URL(window.location.href); u.searchParams.delete('lang'); history.replaceState(history.state, document.title, u.toString()); } catch (_) {}
+  } catch (_) {}
+  // Reload localized content and tabs for the new language, then rerender
+  try {
+    const results = await Promise.allSettled([
+      loadContentJson('wwwroot', 'index'),
+      loadTabsJson('wwwroot', 'tabs'),
+      (async () => { try { const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']); return (obj && typeof obj === 'object') ? obj : null; } catch (_) { return null; } })()
+    ]);
+    const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
+    const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
+    const rawIndex = results[2] && results[2].status === 'fulfilled' ? (results[2].value || null) : null;
+
+    // Rebuild tabs and caches (mirrors boot path)
+    tabsBySlug = {};
+    stableToCurrentTabSlug = {};
+    for (const [title, cfg] of Object.entries(tabs)) {
+      const unifiedSlug = (cfg && typeof cfg === 'object' && cfg.slug) ? String(cfg.slug) : null;
+      const slug = unifiedSlug || slugifyTab(title);
+      const loc = typeof cfg === 'string' ? cfg : String(cfg.location || '');
+      if (!loc) continue;
+      tabsBySlug[slug] = { title, location: loc };
+      const baseKey = (unifiedSlug ? unifiedSlug : slug);
+      stableToCurrentTabSlug[baseKey] = slug;
+    }
+
+    const baseAllowed = new Set(Object.values(posts).map(v => String(v.location)));
+    if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+      try {
+        for (const [, entry] of Object.entries(rawIndex)) {
+          if (!entry || typeof entry !== 'object') continue;
+          for (const [k, v] of Object.entries(entry)) {
+            if (['tag','tags','image','date','excerpt','thumb','cover'].includes(k)) continue;
+            if (k === 'location' && typeof v === 'string') { baseAllowed.add(String(v)); continue; }
+            if (v && typeof v === 'object' && typeof v.location === 'string') baseAllowed.add(String(v.location));
+            else if (typeof v === 'string') baseAllowed.add(String(v));
+          }
+        }
+      } catch (_) {}
+    }
+    allowedLocations = baseAllowed;
+    postsByLocationTitle = {};
+    for (const [title, meta] of Object.entries(posts)) {
+      if (meta && meta.location) postsByLocationTitle[meta.location] = title;
+    }
+    postsIndexCache = posts;
+    locationAliasMap = new Map();
     try {
-      const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']);
-      return (obj && typeof obj === 'object') ? obj : null;
-    } catch (_) { return null; }
-  })()
-])
+      if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+        const cur = (getCurrentLang && getCurrentLang()) || 'en';
+        const curNorm = normalizeLangKey(cur);
+        for (const [, entry] of Object.entries(rawIndex)) {
+          if (!entry || typeof entry !== 'object') continue;
+          const reserved = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
+          const variants = [];
+          for (const [k, v] of Object.entries(entry)) {
+            if (reserved.has(k)) continue;
+            const nk = normalizeLangKey(k);
+            if (k === 'location' && typeof v === 'string') {
+              variants.push({ lang: 'default', location: String(v) });
+            } else if (typeof v === 'string') {
+              variants.push({ lang: nk, location: String(v) });
+            } else if (v && typeof v === 'object' && typeof v.location === 'string') {
+              variants.push({ lang: nk, location: String(v.location) });
+            }
+          }
+          if (!variants.length) continue;
+          const findBy = (langs) => variants.find(x => langs.includes(x.lang));
+          let chosen = findBy([curNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+          if (!chosen) chosen = variants[0];
+          variants.forEach(v => { if (v.location && chosen.location) locationAliasMap.set(v.location, chosen.location); });
+        }
+      }
+    } catch (_) {}
+    try { refreshLanguageSelector(); } catch (_) {}
+    // Rebuild the Tools panel so all labels reflect the new language
+    try {
+      const tools = document.getElementById('tools');
+      if (tools && tools.parentElement) tools.parentElement.removeChild(tools);
+      // Recreate and rebind controls
+      mountThemeControls();
+      applySavedTheme();
+      bindThemeToggle();
+      bindSeoGenerator();
+      bindThemePackPicker();
+      refreshLanguageSelector();
+    } catch (_) {}
+    try {
+      renderSiteIdentity(siteConfig);
+      const cfgTitle = (function pick(val){
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        const lang = getCurrentLang && getCurrentLang();
+        const v = (lang && val[lang]) || val.default || '';
+        return typeof v === 'string' ? v : '';
+      })(siteConfig && siteConfig.siteTitle);
+      if (cfgTitle) setBaseSiteTitle(cfgTitle);
+    } catch (_) {}
+    try { renderSiteLinks(siteConfig); } catch (_) {}
+    try {
+      const lang = getCurrentLang && getCurrentLang();
+      const getLocalizedValue = (val) => {
+        if (!val) return '';
+        if (typeof val === 'string') return val;
+        return (lang && val[lang]) || val.default || '';
+      };
+      updateSEO({
+        title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+        type: 'website', url: window.location.href
+      }, siteConfig);
+    } catch (_) {}
+    routeAndRender();
+  } catch (_) {
+    try { window.location.reload(); } catch (__) {}
+  }
+}
+// Expose as a global so the UI can call it
+try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catch (_) {}
+
+// Load site config first so we can honor defaultLanguage before fetching localized content
+loadSiteConfig()
+  .then(cfg => {
+    siteConfig = cfg || {};
+    // Apply site-configured defaults early
+    try {
+      // 1) Page size (pagination)
+      const cfgPageSize = (siteConfig && (siteConfig.pageSize || siteConfig.postsPerPage));
+      if (cfgPageSize != null) {
+        const n = parseInt(cfgPageSize, 10);
+        if (!isNaN(n) && n > 0) PAGE_SIZE = n;
+      }
+      // 2) Default language: honor only when user hasn't chosen via URL/localStorage
+      const cfgDefaultLang = (siteConfig && (siteConfig.defaultLanguage || siteConfig.defaultLang));
+      if (cfgDefaultLang) {
+        let hasUrlLang = false;
+        try { const u = new URL(window.location.href); hasUrlLang = !!u.searchParams.get('lang'); } catch (_) {}
+        let savedLang = '';
+        try { savedLang = String(localStorage.getItem('lang') || ''); } catch (_) {}
+        const hasSaved = !!savedLang;
+        const htmlDefault = String(defaultLang || 'en').toLowerCase();
+        const savedIsHtmlDefault = savedLang && savedLang.toLowerCase() === htmlDefault;
+        if (!hasUrlLang && (!hasSaved || savedIsHtmlDefault)) {
+          // Force language to site default, not just the fallback
+          initI18n({ lang: String(cfgDefaultLang) });
+          try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
+        }
+      }
+    } catch (_) { /* ignore site default application errors */ }
+
+    // Now fetch localized content and tabs for the (possibly updated) language
+    return Promise.allSettled([
+      loadContentJson('wwwroot', 'index'),
+      loadTabsJson('wwwroot', 'tabs'),
+      (async () => {
+        try {
+          const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']);
+          return (obj && typeof obj === 'object') ? obj : null;
+        } catch (_) { return null; }
+      })()
+    ]);
+  })
   .then(results => {
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
-    siteConfig = results[2] && results[2].status === 'fulfilled' ? (results[2].value || {}) : {};
-    const rawIndex = results[3] && results[3].status === 'fulfilled' ? (results[3].value || null) : null;
+    const rawIndex = results[2] && results[2].status === 'fulfilled' ? (results[2].value || null) : null;
     tabsBySlug = {};
     stableToCurrentTabSlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {

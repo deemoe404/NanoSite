@@ -73,6 +73,17 @@
     "errorOverlay": {
       "type": "boolean"
     },
+    "pageSize": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "postsPerPage": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "defaultLanguage": {
+      "type": "string"
+    },
     "assetWarnings": {
       "type": "object",
       "properties": {
