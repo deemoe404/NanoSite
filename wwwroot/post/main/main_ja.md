@@ -25,8 +25,6 @@ author: deemoe
 
 ## 5分でクイックスタート
 
-> ⚠️ 注意: `JSON` はコメントをサポートしません。以下のコード例のコメントは説明用です。実際のファイルでは削除してください。
-
 1) [リポジトリページ](https://github.com/deemoe404/NanoSite)にアクセスします。  
 2) 右上の緑色の **Use this template** ボタンをクリックします。  
 3) **Create a new repository** を選択し、好きな名前を付けてください。  
@@ -43,19 +41,18 @@ author: deemoe
      - Windows（PowerShell）: `py -m http.server 8000`
    - ブラウザで `http://localhost:8000/` を開く。
 6) **サイト名とリンクを設定**
-   - ルートの `site.json` を開き、基本設定を編集:
-   ```json
-   {
-     "siteTitle":    "My Site",           // サイトのタイトル
-     "siteSubtitle": "Welcome!",          // サイトのサブタイトル
-     "avatar":       "assets/avatar.png", // サイトのアバター画像パス
-     "profileLinks": [                    // 個人リンク（任意のラベルに対応）
-       { "label": "GitHub",   "href": "https://github.com/your-username" },
-       { "label": "Twitter",  "href": "https://twitter.com/your-username" },
-       { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" },
-       // ... その他の個人リンク
-     ]
-   }
+   - ルートの `site.yaml` を開き、基本設定を編集:
+   ```yaml
+   siteTitle: "My Site"
+   siteSubtitle: "Welcome!"
+   avatar: assets/avatar.png
+   profileLinks:
+     - label: GitHub
+       href: https://github.com/your-username
+     - label: Twitter
+       href: https://twitter.com/your-username
+     - label: LinkedIn
+       href: https://www.linkedin.com/in/your-profile
    ```
 7) **書き始めましょう！**
    - `wwwroot/` 配下に Markdown ファイルを作成（例: `wwwroot/my-first-post.md`）:
@@ -71,17 +68,12 @@ author: deemoe
 
    こんにちは！これが最初の投稿です。本文、リスト、画像の追加などができます。
    ```
-   - ホームに表示されるよう `wwwroot/index.json` に登録:
-   ```json
-   {
-     "はじめての投稿": {
-       "ja": "my-first-post.md"
-     },
-     "xxxx": {
-       "ja": "xxxx.md"
-     },
-     // ... その他の記事は必要に応じて登録
-   }
+   - ホームに表示されるよう `wwwroot/index.yaml` に登録:
+   ```yaml
+   はじめての投稿:
+     ja: my-first-post.md
+   xxxx:
+     ja: xxxx.md
    ```
 
 🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。

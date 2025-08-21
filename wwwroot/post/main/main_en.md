@@ -1,6 +1,6 @@
 ---
 title: Meet NanoSite
-date: 2025-08-17
+date: 2005-08-17
 tags:
   - NanoSite
   - Technology
@@ -25,8 +25,6 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
 ## Quick Start in 5 minutes
 
-> ⚠️ Note: `JSON` does not support comments. The comments in these examples are for explanation only; remove them in real files.
-
 1) Go to the [repository page](https://github.com/deemoe404/NanoSite).  
 2) Click the green **Use this template** button in the top right.  
 3) Select **Create a new repository** and name it whatever you like. 
@@ -43,19 +41,18 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
     - Windows (PowerShell): `py -m http.server 8000`
   - Open `http://localhost:8000/` in your browser.
 6) **Set your site name and links**
-    - Open `site.json` (in the project root) and edit basic settings:
-  ```json
-  {
-    "siteTitle":    "My Site",           // Site title
-    "siteSubtitle": "Welcome!",          // Site subtitle
-    "avatar":       "assets/avatar.png", // Path to site avatar image
-    "profileLinks": [                    // Personal links (any label supported)
-      { "label": "GitHub",   "href": "https://github.com/your-username" },
-      { "label": "Twitter",  "href": "https://twitter.com/your-username" },
-      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" },
-      // ... other personal links
-    ]
-  }
+    - Open `site.yaml` (in the project root) and edit basic settings:
+  ```yaml
+  siteTitle: "My Site"
+  siteSubtitle: "Welcome!"
+  avatar: assets/avatar.png
+  profileLinks:
+    - label: GitHub
+      href: https://github.com/your-username
+    - label: Twitter
+      href: https://twitter.com/your-username
+    - label: LinkedIn
+      href: https://www.linkedin.com/in/your-profile
   ```
 7) **Start writing!**
   - Create a new Markdown file under `wwwroot/`, for example `wwwroot/my-first-post.md`:
@@ -72,17 +69,12 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
   Hello! This is my first post. I can write text, lists, and add images.
   ```
-  - Register it in `wwwroot/index.json` so it shows on the homepage:
-  ```json
-  {
-    "My First Post": {
-      "en": "my-first-post.md"
-    },
-    "xxxx": {
-      "en": "xxxx.md"
-    },
-    // ... register other posts as needed
-  }
+  - Register it in `wwwroot/index.yaml` so it shows on the homepage:
+  ```yaml
+  My First Post:
+    en: my-first-post.md
+  xxxx:
+    en: xxxx.md
   ```
 
 🎉 Congratulations! You've set up NanoSite. Reload the page and you should see your post card on the homepage. Click to read it. 
