@@ -1,6 +1,7 @@
 ---
 title: NanoSite のご紹介
-date: 2025-08-17
+date: 2025-08-22
+version: v2.0.0
 tags:
   - NanoSite
   - 技術
