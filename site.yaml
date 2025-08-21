@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=./assets/schema/site.json
 
+# Site identity configurations
 siteTitle:
   default: NanoSite
   zh: 微站
@@ -8,25 +9,35 @@ siteSubtitle:
   default: Just Markdown. Just a website.
   zh: 写下 Markdown，就是你的网站。
   ja: 書くだけ、Markdown。それがサイトになる。
-siteDescription:
-  default: NanoSite - Just Markdown. Just a website.
-  zh: 微站 - 写下 Markdown，就是你的网站。
-  ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
-resourceURL: https://nano.dee.moe/wwwroot/
-siteKeywords:
-  default: static blog, markdown, github pages, blog
 avatar: assets/avatar.jpeg
+
+# Social media links
 profileLinks:
   - label: GitHub
     href: https://github.com/deemoe404/NanoSite
   - label: Demo
     href: https://nano.dee.moe/
-contentOutdatedDays: 180
+
+# SEO optimization configurations
+resourceURL: https://nano.dee.moe/wwwroot/
+siteDescription:
+  default: NanoSite - Just Markdown. Just a website.
+  zh: 微站 - 写下 Markdown，就是你的网站。
+  ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
+siteKeywords:
+  default: static blog, markdown, github pages, blog
+
+# Miscellaneous configurations
+contentOutdatedDays: 180  # Days before content is considered outdated
+cardCoverFallback: false  # Use a generated fallback cover image if none provided
+errorOverlay: true        # Show error overlay on the page if an error occurs
+
+# Theme override configurations
 themeMode: user
 themePack: minimalism
 themeOverride: true
-cardCoverFallback: false
-errorOverlay: true
+
+# Asset warnings configurations
 assetWarnings:
   largeImage:
     enabled: true
