@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=../assets/schema/tabs.json
+
 About:
   en:
     title: About
@@ -8,4 +10,3 @@ About:
   ja:
     title: 概要
     location: tab/ja.md
-

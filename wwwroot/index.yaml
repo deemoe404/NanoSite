@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=../assets/schema/index.json
+
 nanoSite:
   en: post/main/main_en.md
   zh: post/main/main_zh.md
@@ -16,4 +18,3 @@ seo:
   ja: post/seo/seo_ja.md
 test:
   en: post/test/main.md
-

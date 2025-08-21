@@ -79,6 +79,7 @@ const translations = {
       toggleTheme: 'Toggle Theme',
       themePack: 'Theme pack',
       language: 'Language',
+      resetLanguage: 'Reset language',
       seoGenerator: 'SEO Generator'
     },
     toc: {
@@ -146,6 +147,7 @@ const translations = {
       toggleTheme: '切换主题',
       themePack: '主题包',
       language: '语言',
+      resetLanguage: '重置语言',
       seoGenerator: 'SEO 生成器'
     },
     toc: {
@@ -213,6 +215,7 @@ const translations = {
       toggleTheme: 'テーマ切替',
       themePack: 'テーマパック',
       language: '言語',
+      resetLanguage: '言語をリセット',
       seoGenerator: 'SEOジェネレーター'
     },
     toc: {
@@ -250,7 +253,12 @@ export function initI18n(opts = {}) {
   baseDefaultLang = def || DEFAULT_LANG;
   // If translation bundle missing, fall back to default bundle for UI
   if (!translations[currentLang]) currentLang = def;
-  try { localStorage.setItem(STORAGE_KEY, currentLang); } catch (_) {}
+  // Persist only when allowed (default: true). This enables callers to
+  // perform a non-persistent bootstrap before site config is loaded.
+  const shouldPersist = (opts && Object.prototype.hasOwnProperty.call(opts, 'persist')) ? !!opts.persist : true;
+  if (shouldPersist) {
+    try { localStorage.setItem(STORAGE_KEY, currentLang); } catch (_) {}
+  }
   // Reflect on <html lang>
   document.documentElement.setAttribute('lang', currentLang);
   // Update a few static DOM bits (placeholders, site card)

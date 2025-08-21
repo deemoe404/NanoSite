@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nanosite.schema/tabs.schema.json",
+  "title": "NanoSite Tabs Configuration",
+  "type": "object",
+  "additionalProperties": { "$ref": "#/$defs/tabsEntry" },
+  "$defs": {
+    "legacyTabEntry": {
+      "type": "object",
+      "properties": {
+        "location": { "type": "string" },
+        "title": { "type": "string" }
+      },
+      "required": ["location"],
+      "additionalProperties": true
+    },
+    "tabLangEntry": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "location": { "type": "string" }
+          },
+          "required": ["location"],
+          "additionalProperties": true
+        }
+      ]
+    },
+    "unifiedTabsEntry": {
+      "type": "object",
+      "patternProperties": {
+        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": { "$ref": "#/$defs/tabLangEntry" },
+        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": { "$ref": "#/$defs/tabLangEntry" }
+      },
+      "additionalProperties": true,
+      "minProperties": 1
+    },
+    "tabsEntry": {
+      "oneOf": [
+        { "$ref": "#/$defs/legacyTabEntry" },
+        { "$ref": "#/$defs/unifiedTabsEntry" }
+      ]
+    }
+  }
+}
+

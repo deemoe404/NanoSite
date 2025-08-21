@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nanosite.schema/index.schema.json",
+  "title": "NanoSite Posts Index",
+  "type": "object",
+  "additionalProperties": { "$ref": "#/$defs/indexEntry" },
+  "$defs": {
+    "tags": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": ["string", "number"] } }
+      ]
+    },
+    "legacyEntry": {
+      "type": "object",
+      "properties": {
+        "location": { "type": "string" },
+        "title": { "type": "string" },
+        "tag": { "$ref": "#/$defs/tags" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "date": { "type": ["string", "number"] },
+        "image": { "type": "string" },
+        "thumb": { "type": "string" },
+        "cover": { "type": "string" },
+        "excerpt": { "type": "string" }
+      },
+      "required": ["location"],
+      "additionalProperties": true
+    },
+    "langEntry": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "location": { "type": "string" },
+            "excerpt": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "simplifiedOrUnifiedEntry": {
+      "type": "object",
+      "properties": {
+        "tag": { "$ref": "#/$defs/tags" },
+        "tags": { "$ref": "#/$defs/tags" },
+        "date": { "type": ["string", "number"] },
+        "image": { "type": "string" },
+        "thumb": { "type": "string" },
+        "cover": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "default": { "$ref": "#/$defs/langEntry" }
+      },
+      "patternProperties": {
+        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": { "$ref": "#/$defs/langEntry" },
+        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": { "$ref": "#/$defs/langEntry" }
+      },
+      "additionalProperties": true,
+      "minProperties": 1
+    },
+    "indexEntry": {
+      "oneOf": [
+        { "$ref": "#/$defs/legacyEntry" },
+        { "$ref": "#/$defs/simplifiedOrUnifiedEntry" }
+      ]
+    }
+  }
+}
+
