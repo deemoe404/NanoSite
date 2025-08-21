@@ -37,6 +37,8 @@ const translations = {
       close: 'Close',
       copyLink: 'Copy link',
       linkCopied: 'Link copied',
+      versionLabel: 'Version',
+      versionsCount: (n) => `${n} versions`,
       outdatedWarning: 'Caution: This blog post may contain outdated information as it has been published a long time ago.',
       notFound: 'Not Found',
       pageUnavailable: 'Page Unavailable',
@@ -105,6 +107,8 @@ const translations = {
       close: '关闭',
       copyLink: '复制链接',
       linkCopied: '已复制链接',
+      versionLabel: '版本',
+      versionsCount: (n) => `${n} 个版本`,
       outdatedWarning: '提示：这篇文章发布已久，内容可能已过时。',
       notFound: '未找到',
       pageUnavailable: '页面不可用',
@@ -173,6 +177,8 @@ const translations = {
       close: '閉じる',
       copyLink: 'リンクをコピー',
       linkCopied: 'リンクをコピーしました',
+      versionLabel: 'バージョン',
+      versionsCount: (n) => `${n} 個のバージョン`,
       outdatedWarning: '注意：公開から時間が経っているため、内容が古くなっている可能性があります。',
       notFound: '見つかりません',
       pageUnavailable: 'ページを表示できません',
@@ -364,6 +370,7 @@ function transformUnifiedContent(obj, lang) {
 }
 
 // Load content metadata from simplified JSON and Markdown front matter
+// Supports per-language single path (string) OR multiple versions (array of strings)
 async function loadContentFromFrontMatter(obj, lang) {
   const out = {};
   const langsSeen = new Set();
@@ -383,54 +390,73 @@ async function loadContentFromFrontMatter(obj, lang) {
   for (const [key, val] of Object.entries(obj || {})) {
     if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
     
-    // Find the best path for the current language
-    let chosenPath = val[nlang] || val[baseDefaultLang] || val['en'] || val['default'];
-    
-    // Fallback to first available path
-    if (!chosenPath) {
-      const paths = Object.values(val).filter(p => typeof p === 'string');
-      if (paths.length > 0) chosenPath = paths[0];
+    // Resolve the best language bucket first
+    let chosenBucketKey = null;
+    if (val[nlang] != null) chosenBucketKey = nlang;
+    else if (val[baseDefaultLang] != null) chosenBucketKey = baseDefaultLang;
+    else if (val['en'] != null) chosenBucketKey = 'en';
+    else if (val['default'] != null) chosenBucketKey = 'default';
+    // Fallback to first available key when none matched
+    if (!chosenBucketKey) {
+      const firstKey = Object.keys(val)[0];
+      if (firstKey) chosenBucketKey = firstKey;
     }
-    
-    if (!chosenPath) continue;
-    
-    try {
-      // Load the markdown file and extract front matter
-      const response = await fetch(`wwwroot/${chosenPath}`);
-      if (!response.ok) continue;
-      
-      const content = await response.text();
-      const { frontMatter } = parseFrontMatter(content);
-      
-      // Build metadata object
-      // Resolve relative image path (e.g., "cover.jpg") against the markdown's folder
-      const resolveImagePath = (img) => {
-        const s = String(img || '').trim();
-        if (!s) return undefined;
-        // Absolute or protocol URLs stay as-is
-        if (/^(https?:|data:)/i.test(s) || s.startsWith('/')) return s;
-        // Resolve relative to the markdown location (without wwwroot/ prefix)
-        const lastSlash = chosenPath.lastIndexOf('/');
-        const baseDir = lastSlash >= 0 ? chosenPath.slice(0, lastSlash + 1) : '';
-        return (baseDir + s).replace(/\/+/g, '/');
-      };
+    if (!chosenBucketKey) continue;
 
-      const meta = {
-        location: chosenPath,
-        image: resolveImagePath(frontMatter.image) || undefined,
-        tag: frontMatter.tags || frontMatter.tag || undefined,
-        date: frontMatter.date || undefined,
-        excerpt: frontMatter.excerpt || undefined
-      };
-      
-      // Use title from front matter or fallback to key
-      const title = frontMatter.title || key;
-      out[title] = meta;
-    } catch (error) {
-      console.warn(`Failed to load content from ${chosenPath}:`, error);
-      // Fallback to basic metadata
-      out[key] = { location: chosenPath };
+    const raw = val[chosenBucketKey];
+    // Normalize to an array of paths (versions)
+    const paths = Array.isArray(raw) ? raw.filter(x => typeof x === 'string') : (typeof raw === 'string' ? [raw] : []);
+    if (!paths.length) continue;
+
+    const variants = [];
+    for (const p of paths) {
+      try {
+        const response = await fetch(`wwwroot/${p}`);
+        if (!response || !response.ok) { continue; }
+        const content = await response.text();
+        const { frontMatter } = parseFrontMatter(content);
+
+        // Resolve relative image (e.g., 'cover.jpg') against this markdown's folder
+        const resolveImagePath = (img) => {
+          const s = String(img || '').trim();
+          if (!s) return undefined;
+          if (/^(https?:|data:)/i.test(s) || s.startsWith('/')) return s;
+          const lastSlash = p.lastIndexOf('/');
+          const baseDir = lastSlash >= 0 ? p.slice(0, lastSlash + 1) : '';
+          return (baseDir + s).replace(/\/+/g, '/');
+        };
+
+        variants.push({
+          location: p,
+          image: resolveImagePath(frontMatter.image) || undefined,
+          tag: frontMatter.tags || frontMatter.tag || undefined,
+          date: frontMatter.date || undefined,
+          excerpt: frontMatter.excerpt || undefined,
+          versionLabel: frontMatter.version || undefined,
+          __title: frontMatter.title || undefined
+        });
+      } catch (error) {
+        console.warn(`Failed to load content from ${p}:`, error);
+        variants.push({ location: p });
+      }
     }
+
+    // Choose the latest by date as the primary version
+    const toTime = (d) => { const t = new Date(String(d || '')).getTime(); return Number.isFinite(t) ? t : -Infinity; };
+    variants.sort((a, b) => toTime(b.date) - toTime(a.date));
+    const primary = variants[0];
+    if (!primary) continue;
+
+    // The displayed title prefers the primary's title
+    const title = (primary.__title) || key;
+    const { __title, versionLabel, ...restPrimary } = primary;
+    const meta = { ...restPrimary, versionLabel };
+    // Attach versions list for UI switching (omit internal title field)
+    meta.versions = variants.map(v => {
+      const { __title: _t, ...rest } = v;
+      return rest;
+    });
+    out[title] = meta;
   }
   
   return { entries: out, availableLangs: Array.from(langsSeen).sort() };
@@ -457,7 +483,12 @@ export async function loadContentJson(basePath, baseName) {
         if (v && typeof v === 'object' && !Array.isArray(v)) {
           // Check for simplified format (language -> path mapping)
           const innerKeys = Object.keys(v);
-          const hasOnlyPaths = innerKeys.every(ik => typeof v[ik] === 'string');
+          const hasOnlyPaths = innerKeys.every(ik => {
+            const val = v[ik];
+            if (typeof val === 'string') return true;
+            if (Array.isArray(val)) return val.every(item => typeof item === 'string');
+            return false;
+          });
           
           if (hasOnlyPaths) {
             isSimplified = true;
