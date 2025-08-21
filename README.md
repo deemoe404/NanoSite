@@ -14,15 +14,13 @@
   <a href="https://github.com/deemoe404/NanoSite/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/deemoe404/NanoSite" alt="License"/>
   </a>
-  <a href="https://github.com/deemoe404/NanoSite/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/deemoe404/NanoSite/deploy.yml?label=Pages%20Build" alt="GitHub Pages Deploy"/>
+  <a href="https://github.com/deemoe404/NanoSite/deployments/activity_log?environment=github-pages">
+    <img src="https://img.shields.io/github/deployments/deemoe404/NanoSite/github-pages?label=Pages%20Deploy">
   </a>
   <br/>
   <img src="https://img.shields.io/badge/Lighthouse-Performance%2096%2B-brightgreen" alt="Lighthouse Score"/>
   <img src="https://img.shields.io/badge/Lighthouse-SEO%20100-blue" alt="Lighthouse SEO"/>
 </p>
-
----
 
 ## 🚀 Introduction
 
@@ -32,8 +30,6 @@ Just drop your Markdown files into the repository, and everything is rendered di
 
 Perfect for personal blogs, knowledge bases, or lightweight websites hosted on GitHub Pages.
 
----
-
 ## ✨ Features
 
 - ⚡ **Zero Build** – no bundlers, compilers, or environments required.  
@@ -42,15 +38,10 @@ Perfect for personal blogs, knowledge bases, or lightweight websites hosted on G
 - 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).  
 - 🎨 **Configurable** – customize your site using a simple `site.yaml`.  
 
----
-
 ## 🌍 Live Demo
 
 ### Official Demo
-- 🚀 Nanosite Demo  
-  👉 https://nano.dee.moe  
-  ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)  
-  Preview the default theme and configuration.
+- 🚀 [Nanosite Demo](https://nano.dee.moe) — Preview the default theme and configuration. ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)
 
 ### Built with Nanosite
 - [deemoe's journal](https://dee.moe) — Thanks for playing my game.  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
@@ -62,8 +53,6 @@ Perfect for personal blogs, knowledge bases, or lightweight websites hosted on G
 > [Site Name](https://example.com) — one-line intro  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fexample.com&label=online)
 > ```
 
----
-
 ## 📦 Getting Started
 
 Create your own site using **GitHub Template**:
@@ -72,28 +61,9 @@ Create your own site using **GitHub Template**:
 2. Click the green **Use this template** button in the top right.  
 3. Select **Create a new repository** and name it whatever you like.  
 
-➡️ After creating your repository, please follow the **Quick Start guide** on our documentation site:  
-👉 [nano.dee.moe](https://nano.dee.moe)
+➡️ After creating your repository, please follow the **Quick Start guide** hosted on Official Demo: [Meet NanoSite](https://nano.dee.moe/?id=post%2Fmain%2Fmain_en.md&lang=en).
 
----
-
-## 📚 Documentation
-
-Full documentation is available at:  
-👉 [nano.dee.moe](https://nano.dee.moe)  
-![Docs Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)
-
----
-
-## 🛠 Roadmap
-
-- [x] Theming support  
-- [x] Search index  
-- [x] Multi-language mode  
-
-Contributions are welcome! Please feel free to open issues and PRs.
-
----
+➡️ Full documentation is also available at Official Demo: [Documentation for NanoSite](https://nano.dee.moe/?id=post%2Fdoc%2Fdoc_en.md&lang=en).
 
 ## 📜 License
 
