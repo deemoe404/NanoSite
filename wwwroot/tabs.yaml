@@ -1,16 +1,5 @@
 # yaml-language-server: $schema=../assets/schema/tabs.json
 
-About:
-  en:
-    title: About
-    location: tab/about/en.md
-  zh:
-    title: 关于
-    location: tab/about/zh.md
-  ja:
-    title: 概要
-    location: tab/about/ja.md
-
 History:
   en:
     title: Updates
@@ -21,3 +10,14 @@ History:
   ja:
     title: 更新履歴
     location: tab/history/ja.md
+
+About:
+  en:
+    title: About
+    location: tab/about/en.md
+  zh:
+    title: 关于
+    location: tab/about/zh.md
+  ja:
+    title: 概要
+    location: tab/about/ja.md
