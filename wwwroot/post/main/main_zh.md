@@ -25,8 +25,6 @@ author: deemoe
 
 ## 快速上手
 
-> ⚠️ 注意：`JSON` 语法并不支持注释。此处代码示例中的注释仅作为关键字说明存在，请在实际使用时删除注释。
-
 1) 前往 [项目仓库页面](https://github.com/deemoe404/NanoSite)。  
 2) 点击右上角绿色的 **Use this template** 按钮。  
 3) 选择 **Create a new repository**，并为其命名（可自定义）。  
@@ -42,19 +40,18 @@ author: deemoe
     - Windows（PowerShell）: `py -m http.server 8000`
   - 在浏览器打开 `http://localhost:8000/`。
 6) 设置站点名称与链接
-    - 打开项目根目录的 `site.json`，编辑基础设置：
-  ```json
-  {
-    "siteTitle":    "My Site",           // 站点标题
-    "siteSubtitle": "Welcome!",          // 站点副标题
-    "avatar":       "assets/avatar.png", // 站点头像图片路径
-    "profileLinks": [                    // 个人链接（支持任意标签）
-      { "label": "GitHub",   "href": "https://github.com/your-username" },
-      { "label": "Twitter",  "href": "https://twitter.com/your-username" },
-      { "label": "LinkedIn", "href": "https://www.linkedin.com/in/your-profile" },
-      // ... 其他个人链接
-    ]
-  }
+    - 打开项目根目录的 `site.yaml`，编辑基础设置：
+  ```yaml
+  siteTitle: "My Site"
+  siteSubtitle: "Welcome!"
+  avatar: assets/avatar.png
+  profileLinks:
+    - label: GitHub
+      href: https://github.com/your-username
+    - label: Twitter
+      href: https://twitter.com/your-username
+    - label: LinkedIn
+      href: https://www.linkedin.com/in/your-profile
   ```
 7) 开始写作！
   - 在 `wwwroot/` 下新建一个 Markdown 文件，例如 `wwwroot/my-first-post.md`：
@@ -71,17 +68,12 @@ author: deemoe
 
   你好！这是我的第一篇文章。我可以编写文本、列表，并添加图片。
   ```
-  - 在 `wwwroot/index.json` 中注册它，使其显示在首页：
-  ```json
-  {
-    "我的第一篇文章": {
-      "zh": "my-first-post.md"
-    },
-    "xxxx": {
-      "zh": "xxxx.md"
-    },
-    // ... 其他文章按需注册
-  }
+  - 在 `wwwroot/index.yaml` 中注册它，使其显示在首页：
+  ```yaml
+  我的第一篇文章:
+    zh: my-first-post.md
+  xxxx:
+    zh: xxxx.md
   ```
 
 🎉 恭喜！你已经完成微站的设置。刷新页面，你应该能在首页看到你的文章卡片，点击即可阅读。

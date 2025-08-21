@@ -225,7 +225,7 @@
             <h2>Site Configuration Preview</h2>
             <div class="instructions">
                 <h4>⚙️ Current Configuration:</h4>
-                <p>This shows your current site.json configuration that will be used for SEO generation.</p>
+                <p>This shows your current site.yaml configuration that will be used for SEO generation.</p>
             </div>
             
             <button class="btn-primary" onclick="loadSiteConfig()">Refresh Configuration</button>
@@ -236,14 +236,15 @@
             </div>
             
             <div class="output-group">
-                <h3>Raw site.json:</h3>
-                <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load your site.json..."></textarea>
+                <h3>Raw site.yaml:</h3>
+                <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
             </div>
         </div>
     </div>
 
     <script type="module">
         import { generateSitemapData } from './assets/js/seo.js';
+        import { fetchConfigWithYamlFallback } from './assets/js/yaml.js';
 
         let currentSiteConfig = {};
         let currentPostsData = {};
@@ -260,6 +261,21 @@
             event.target.classList.add('active');
         };
 
+        async function loadSiteConfigFlex() {
+            return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
+        }
+
+        async function loadSiteYamlRaw() {
+            const attempts = ['site.yaml', 'site.yml'];
+            for (const p of attempts) {
+                try {
+                    const r = await fetch(p);
+                    if (r.ok) return await r.text();
+                } catch (_) {}
+            }
+            return '';
+        }
+
         // Load and preview site configuration
         window.loadSiteConfig = async function() {
             const statusEl = document.getElementById('config-status');
@@ -268,12 +284,9 @@
             
             try {
                 statusEl.innerHTML = '<p>Loading configuration...</p>';
-                
-                const response = await fetch('site.json');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                currentSiteConfig = await response.json();
-                outputEl.value = JSON.stringify(currentSiteConfig, null, 2);
+                currentSiteConfig = await loadSiteConfigFlex();
+                const rawYaml = await loadSiteYamlRaw();
+                outputEl.value = rawYaml || '# site.yaml not found or failed to load';
                 
                 // Create preview
                 const getLocalizedValue = (val, fallback = 'Not set') => {
@@ -310,15 +323,14 @@
                 statusEl.innerHTML = '<p>Loading data...</p>';
                 
                 // Load all required data
-                const [postsResponse, tabsResponse, siteResponse] = await Promise.all([
-                    fetch('wwwroot/index.json'),
-                    fetch('wwwroot/tabs.json'),
-                    fetch('site.json')
+                const [postsObj, tabsObj] = await Promise.all([
+                    fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']),
+                    fetchConfigWithYamlFallback(['wwwroot/tabs.yaml','wwwroot/tabs.yml'])
                 ]);
                 
-                currentPostsData = postsResponse.ok ? await postsResponse.json() : {};
-                currentTabsData = tabsResponse.ok ? await tabsResponse.json() : {};
-                currentSiteConfig = siteResponse.ok ? await siteResponse.json() : {};
+                currentPostsData = postsObj || {};
+                currentTabsData = tabsObj || {};
+                currentSiteConfig = await loadSiteConfigFlex();
                 
                 // Generate sitemap data
                 const urls = generateSitemapData(currentPostsData, currentTabsData, currentSiteConfig);
@@ -348,10 +360,7 @@
                 
                 // Load site config if not already loaded
                 if (!currentSiteConfig.resourceURL) {
-                    const response = await fetch('site.json');
-                    if (response.ok) {
-                        currentSiteConfig = await response.json();
-                    }
+                    currentSiteConfig = await loadSiteConfigFlex();
                 }
                 
                 const robotsContent = generateRobotsTxt(currentSiteConfig);
@@ -391,10 +400,7 @@
                 
                 // Load site config if not already loaded
                 if (!currentSiteConfig.resourceURL) {
-                    const response = await fetch('site.json');
-                    if (response.ok) {
-                        currentSiteConfig = await response.json();
-                    }
+                    currentSiteConfig = await loadSiteConfigFlex();
                 }
                 
                 const metaContent = generateMetaTagsHTML(currentSiteConfig);

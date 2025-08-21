@@ -4,13 +4,13 @@ date: 2025-08-17
 tags:
   - NanoSite
   - Documentation
-excerpt: Create a content site directly from Markdown files with no build steps—just place them in wwwroot/, list them in JSON, and publish (works with GitHub Pages). The guide covers project structure, config files, content loading, themes, search, tags, SEO, media, and deployment tips.
+excerpt: Create a content site directly from Markdown files with no build steps—just place them in wwwroot/, list them in YAML, and publish (works with GitHub Pages). The guide covers project structure, config files, content loading, themes, search, tags, SEO, media, and deployment tips.
 author: deemoe
 ---
 
 # NanoSite Documentation
 
-Build a content site from plain Markdown files with zero build steps. Drop Markdown into `wwwroot/`, list them in JSON, and publish (GitHub Pages friendly).
+Build a content site from plain Markdown files with zero build steps. Drop Markdown into `wwwroot/`, list them in YAML, and publish (GitHub Pages friendly).
 
 This page explains:
 
@@ -24,14 +24,14 @@ This page explains:
 ## Project structure
 
 - `index.html` — Entry page with basic meta tags and containers for content, sidebar, and tabs. JS mounts the app here.
-- `site.json` — Site-wide settings (titles, avatar, theme defaults, etc.).
+- `site.yaml` — Site-wide settings (titles, avatar, theme defaults, etc.).
 - `assets/` — UI code and styles; no build required.
   - `assets/main.js` — App bootstrap and router.
   - `assets/js/*.js` — Features (i18n, markdown, search, theme, SEO, etc.).
   - `assets/themes/` — Theme packs CSS and `packs.json` (list of available packs).
 - `wwwroot/` — All content and data.
-  - `wwwroot/index.json` — Posts index (what appears on the home page and search).
-  - `wwwroot/tabs.json` — Static tab pages (About, Gallery, etc.).
+  - `wwwroot/index.yaml` — Posts index (what appears on the home page and search).
+  - `wwwroot/tabs.yaml` — Static tab pages (About, Gallery, etc.).
   - `wwwroot/post/**` — Markdown posts and assets.
   - `wwwroot/tab/**` — Markdown for static tabs.
 - Optional root files for SEO/CDN: `sitemap.xml`, `robots.txt`, `CNAME`.
@@ -43,7 +43,7 @@ Client-side router reads URL query params:
 
 - `?tab=posts` — All posts (default). Supports `&page=N` for pagination.
 - `?tab=search&q=term` — Search by title or tag. Can filter by `&tag=TagName`.
-- `?id=path/to/post.md` — Open a specific post (location must exist in `index.json`).
+- `?id=path/to/post.md` — Open a specific post (location must exist in `index.yaml`).
 - `?lang=en` — UI/content language. Persisted in localStorage, with browser and `<html lang>` fallbacks.
 
 Links in Markdown can navigate within the site: `[See this](?id=post/frogy/main.md)` or tabs: `[About](?tab=about)`.
@@ -72,53 +72,53 @@ Body text...
 
 Notes:
 
-- If `index.json` doesn’t provide metadata, the loader reads front matter for `title`, `date`, `tags`, `excerpt`, and `image`.
-- First H1 is used in-page; the card title comes from `index.json` or front matter title.
+- If `index.yaml` doesn’t provide metadata, the loader reads front matter for `title`, `date`, `tags`, `excerpt`, and `image`.
+- First H1 is used in-page; the card title comes from `index.yaml` or front matter title.
 
 
-## Posts index: `wwwroot/index.json`
+## Posts index: `wwwroot/index.yaml`
 
 Supports three shapes. Pick the one that fits your workflow.
 
-Note: Use a single format per file; don't mix formats in the same JSON.
+Note: Use a single format per file; don't mix formats in the same YAML file.
 
 1) Simplified per-language paths (current repo uses this). The app fetches the Markdown and derives metadata from front matter:
 
-```json
-{
-  "nanoSite": {
-    "en": "post/meet-nanosite/main_en.md",
-    "zh": "post/meet-nanosite/main_zh.md",
-    "ja": "post/meet-nanosite/main_ja.md"
-  },
-  "nanodoc": {
-    "en": "post/meet-nanosite/doc_en.md"
-  }
-}
+```yaml
+nanoSite:
+  en: post/meet-nanosite/main_en.md
+  zh: post/meet-nanosite/main_zh.md
+  ja: post/meet-nanosite/main_ja.md
+nanodoc:
+  en: post/meet-nanosite/doc_en.md
 ```
 
 2) Unified entries with full metadata per language (title + location), plus optional top-level fields:
 
-```json
-{
-  "My First Post": {
-    "en": { "title": "My First Post", "location": "post/foo.md", "excerpt": "..." },
-    "zh": { "title": "我的第一篇", "location": "post/foo_zh.md" },
-    "tag": ["Note"],
-    "date": "2025-08-13",
-    "image": "post/cover.jpg",
-    "thumb": "post/thumb.jpg",
-    "cover": "post/cover-wide.jpg"
-  }
-}
+```yaml
+My First Post:
+  en:
+    title: My First Post
+    location: post/foo.md
+    excerpt: "..."
+  zh:
+    title: 我的第一篇
+    location: post/foo_zh.md
+  tag: [Note]
+  date: 2025-08-13
+  image: post/cover.jpg
+  thumb: post/thumb.jpg
+  cover: post/cover-wide.jpg
 ```
 
 3) Legacy flat map (single-language):
 
-```json
-{
-  "My First Post": { "location": "post/foo.md", "tag": ["Note"], "date": "2025-08-13", "image": "..." }
-}
+```yaml
+My First Post:
+  location: post/foo.md
+  tag: [Note]
+  date: 2025-08-13
+  image: "..."
 ```
 
 Fields (any shape):
@@ -134,69 +134,79 @@ Behavior:
 
 - When using the simplified shape, metadata comes from Markdown front matter.
 - Cross-language navigation: if a link points to `main_en.md` but the UI is `zh`, the router can redirect to the `zh` variant when available.
-- Only `location`s present in `index.json` are allowed; unknown `?id=` shows a friendly error.
+- Only `location`s present in `index.yaml` are allowed; unknown `?id=` shows a friendly error.
 
 
-## Tabs: `wwwroot/tabs.json`
+## Tabs: `wwwroot/tabs.yaml`
 
 Tabs are static pages. Use the same three shapes as posts. Example (current repo):
 
-```json
-{
-  "gallery": { "en": { "title": "Gallery", "location": "tab/gallery.md" } },
-  "publications": { "en": { "title": "Publications", "location": "tab/publications.md" } },
-  "About": {
-    "en": { "title": "About", "location": "tab/about/en.md" },
-    "zh": { "title": "关于", "location": "tab/about/zh.md" }
-  }
-}
+```yaml
+gallery:
+  en:
+    title: Gallery
+    location: tab/gallery.md
+publications:
+  en:
+    title: Publications
+    location: tab/publications.md
+About:
+  en:
+    title: About
+    location: tab/about/en.md
+  zh:
+    title: 关于
+    location: tab/about/zh.md
 ```
 
 Notes:
 
-- The slug in URLs (e.g., `?tab=about`) is derived from the base key when using unified/simplified `tabs.json`, so it stays stable across languages; with legacy per-language shapes, the slug may vary by language.
-- The tab page title used in the browser/SEO is the `title` defined in `tabs.json`.
-- Use a single format per file; don't mix formats in the same JSON.
+- The slug in URLs (e.g., `?tab=about`) is derived from the base key when using unified/simplified `tabs.yaml`, so it stays stable across languages; with legacy per-language shapes, the slug may vary by language.
+- The tab page title used in the browser/SEO is the `title` defined in `tabs.yaml`.
+- Use a single format per file; don't mix formats in the same YAML file.
 
 Simplified example (language → path):
 
-```json
-{
-  "About": {
-    "en": "tab/about/en.md",
-    "zh": "tab/about/zh.md",
-    "ja": "tab/about/ja.md"
-  }
-}
+```yaml
+About:
+  en: tab/about/en.md
+  zh: tab/about/zh.md
+  ja: tab/about/ja.md
 ```
 
 Legacy flat map (single-language) example:
 
-```json
-{
-  "About": { "location": "tab/about/en.md" }
-}
+```yaml
+About:
+  location: tab/about/en.md
 ```
 
 
-## Site settings: `site.json`
+## Site settings: `site.yaml`
 
-```json
-{
-  "siteTitle": { "default": "deemoe's journal", "zh": "deemoe 的日志", "ja": "deemoe のジャーナル" },
-  "siteSubtitle": { "default": "Thanks for playing my game.", "zh": "眼见何事..." },
-  "siteDescription": { "default": "deemoe's journal" },
-  "resourceURL": "https://dee.moe/wwwroot/",
-  "siteKeywords": { "default": "static blog, markdown, github pages, blog" },
-  "avatar": "assets/avatar.png",
-  "profileLinks": [ { "label": "GitHub", "href": "https://github.com/you" } ],
-  "contentOutdatedDays": 180,
-  "themeMode": "user",
-  "themePack": "minimalism",
-  "themeOverride": true,
-  "cardCoverFallback": false,
-  "reportIssueURL": "https://github.com/<owner>/<repo>/issues/new"
-}
+```yaml
+siteTitle:
+  default: "deemoe's journal"
+  zh: "deemoe 的日志"
+  ja: "deemoe のジャーナル"
+siteSubtitle:
+  default: "Thanks for playing my game."
+  zh: "眼见何事..."
+siteDescription:
+  default: "deemoe's journal"
+resourceURL: https://dee.moe/wwwroot/
+siteKeywords:
+  default: static blog, markdown, github pages, blog
+avatar: assets/avatar.png
+profileLinks:
+  - label: GitHub
+    href: https://github.com/you
+contentOutdatedDays: 180
+themeMode: user
+themePack: minimalism
+themeOverride: true
+cardCoverFallback: false
+reportIssueURL: https://github.com/<owner>/<repo>/issues/new
 ```
 
 Parameters:
@@ -219,8 +229,8 @@ Parameters:
 ## Themes and UI tools
 
 - Theme toggle and theme pack selector are in the sidebar (Tools). Packs are defined in `assets/themes/packs.json` and their CSS in `assets/themes/<pack>/theme.css`.
-- Site owners can set defaults via `site.json` (see above). Users can still change via UI if `themeOverride` is `false`.
-- Language selector shows available UI/content languages. Content languages are auto-detected from `index.json`/`tabs.json` when using unified/simplified formats.
+- Site owners can set defaults via `site.yaml` (see above). Users can still change via UI if `themeOverride` is `false`.
+- Language selector shows available UI/content languages. Content languages are auto-detected from `index.yaml`/`tabs.yaml` when using unified/simplified formats.
 
 
 ## Search, tags, and pagination
@@ -264,12 +274,12 @@ If a paragraph contains only a link to a post (e.g., `?id=...`), it’s upgraded
 Runtime SEO updates meta tags per page (title, description, Open Graph, Twitter Card) and injects structured data (JSON-LD) for posts and site. Sources in order:
 
 1) Front matter in the Markdown (`title`, `excerpt`, `tags`, `date`, `image`)
-2) Metadata from `index.json`
+2) Metadata from `index.yaml`
 3) Auto-extracted fallback (H1/first paragraph) and generated fallback image
 
-You can also open `index_seo.html` to generate `sitemap.xml`, `robots.txt`, and starter `<head>` tags based on your `site.json`.
+You can also open `index_seo.html` to generate `sitemap.xml`, `robots.txt`, and starter `<head>` tags based on your `site.yaml`.
 
-Tip: Set `resourceURL` in `site.json` if your images are served from a CDN.
+Tip: Set `resourceURL` in `site.yaml` if your images are served from a CDN.
 
 
 ## Multi‑language
@@ -278,7 +288,7 @@ Tip: Set `resourceURL` in `site.json` if your images are served from a CDN.
 - Content supports:
   - Simplified per-language paths (as in this repo)
   - Unified entries with per-language blocks
-  - Legacy per-language JSON files (`index.en.json`, `index.zh.json`, ...), used as a fallback
+  - Legacy per-language YAML/JSON files (`index.en.yaml`/`index.en.json`, `index.zh.yaml`/`index.zh.json`, ...), used as a fallback
 - The router keeps you on the same article when switching languages if a variant exists.
 
 
@@ -300,10 +310,10 @@ python3 -m http.server 8000
 
 ## Troubleshooting
 
-- If the page looks empty after edits, validate your JSON (no trailing commas, double quotes only).
-- Paths in `index.json`/`tabs.json` must be relative to `wwwroot/`.
+- If the page looks empty after edits, validate your YAML (indentation, colons, valid lists and maps).
+- Paths in `index.yaml`/`tabs.yaml` must be relative to `wwwroot/`.
 - Some browsers block `file://` fetches; always preview via a local server.
-- Post not found? Ensure its `location` appears in `wwwroot/index.json`.
+- Post not found? Ensure its `location` appears in `wwwroot/index.yaml`.
 
 
 ## Quick recipes
@@ -311,25 +321,31 @@ python3 -m http.server 8000
 - Add a post quickly (simplified format):
 
   1) Create `wwwroot/post/new.md` with front matter
-  2) Add to `wwwroot/index.json`:
+  2) Add to `wwwroot/index.yaml`:
 
-  ```json
-  { "New Post": { "en": "post/new.md" } }
+  ```yaml
+  New Post:
+    en: post/new.md
   ```
 
 - Add a tab:
 
   1) Create `wwwroot/tab/about.md`
-  2) Add to `wwwroot/tabs.json`:
+  2) Add to `wwwroot/tabs.yaml`:
 
-  ```json
-  { "About": { "en": { "title": "About", "location": "tab/about.md" } } }
+  ```yaml
+  About:
+    en:
+      title: About
+      location: tab/about.md
   ```
 
 - Enforce a theme site-wide:
 
-  ```json
-  { "themeMode": "dark", "themePack": "apple", "themeOverride": true }
+  ```yaml
+  themeMode: dark
+  themePack: apple
+  themeOverride: true
   ```
 
 Happy writing.

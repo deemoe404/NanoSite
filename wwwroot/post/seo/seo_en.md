@@ -5,6 +5,7 @@ tags:
   - NanoSite
   - Technology
   - SEO
+image: hero.jpeg
 excerpt: SEO optimization means improving the visibility and ranking of your website in search engine results. This involves using best practices for on-page SEO, such as optimizing your content, images, and metadata, as well as off-page SEO techniques like building backlinks and promoting your site.
 author: deemoe
 ---
@@ -17,7 +18,7 @@ NanoSite comes with built-in SEO tags generator that automatically creates meta 
 - Open Graph tags for social media
 - Twitter Card tags
 
-You can customize the generated tags by providing additional information in the `site.json` file.
+You can customize the generated tags by providing additional information in the `site.yaml` file.
 
 ## Static SEO
 
@@ -25,7 +26,7 @@ Sometimes spiders have difficulty crawling JavaScript-heavy sites. To ensure you
 
 1) Open `/index_seo.html` of you website in your browser, remember to host the NanoSite using production server or GitHub Pages first.
 
-2) Navigate to the "Site Configuration" section and ensure all fields are filled out correctly. If not, edit information in the `site.json` file and try again.
+2) Navigate to the "Site Configuration" section and ensure all fields are filled out correctly. If not, edit information in the `site.yaml` file and try again.
 ![config_check](config_check.png)
 
 3) Navigate to "Sitemap Generator" sections, click "Generate Sitemap" to create the necessary files. You can either download them or copy the generated code into your own files.

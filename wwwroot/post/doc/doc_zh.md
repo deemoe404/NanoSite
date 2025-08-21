@@ -4,13 +4,13 @@ date: 2025-08-17
 tags:
 	- NanoSite
 	- 文档
-excerpt: 无需构建步骤即可直接用 Markdown 文件创建内容网站，只需将文件放入 wwwroot/，在 JSON 中列出并发布，即可兼容 GitHub Pages。本指南涵盖项目结构、配置文件、内容加载、主题、搜索、标签、SEO、媒体以及部署方法。
+excerpt: 无需构建步骤即可直接用 Markdown 文件创建内容网站，只需将文件放入 wwwroot/，在 YAML 中列出并发布，即可兼容 GitHub Pages。本指南涵盖项目结构、配置文件、内容加载、主题、搜索、标签、SEO、媒体以及部署方法。
 author: deemoe
 ---
 
 # NanoSite 使用文档
 
-用零构建流程的方式，从纯 Markdown 文件搭建内容站点。把 Markdown 放进 `wwwroot/`，在 JSON 里登记路径，然后直接发布（完全兼容 GitHub Pages）。
+用零构建流程的方式，从纯 Markdown 文件搭建内容站点。把 Markdown 放进 `wwwroot/`，在 YAML 里登记路径，然后直接发布（完全兼容 GitHub Pages）。
 
 本文包含：
 
@@ -24,14 +24,14 @@ author: deemoe
 ## 项目结构
 
 - `index.html` — 入口页面，包含基础 meta 与内容/侧边栏/标签区域。前端应用在此挂载。
-- `site.json` — 站点级设置（标题、头像、主题默认等）。
+- `site.yaml` — 站点级设置（标题、头像、主题默认等）。
 - `assets/` — 前端代码与样式；无需编译构建。
 	- `assets/main.js` — 应用启动与路由。
 	- `assets/js/*.js` — 功能模块（i18n、Markdown、搜索、主题、SEO 等）。
 	- `assets/themes/` — 主题包 CSS 与 `packs.json`（可用主题列表）。
 - `wwwroot/` — 内容与数据。
-	- `wwwroot/index.json` — 文章索引（首页与搜索使用）。
-	- `wwwroot/tabs.json` — 静态标签页（About、Gallery 等）。
+	- `wwwroot/index.yaml` — 文章索引（首页与搜索使用）。
+	- `wwwroot/tabs.yaml` — 静态标签页（About、Gallery 等）。
 	- `wwwroot/post/**` — Markdown 文章与资源。
 	- `wwwroot/tab/**` — 标签页的 Markdown 文件。
 - 可选 SEO/CDN 根文件：`sitemap.xml`、`robots.txt`、`CNAME`。
@@ -43,7 +43,7 @@ author: deemoe
 
 - `?tab=posts` — 全部文章（默认）。支持 `&page=N` 分页。
 - `?tab=search&q=关键词` — 按标题或标签搜索。也可用 `&tag=标签名` 过滤。
-- `?id=路径/到/文章.md` — 直接打开某篇文章（路径必须存在于 `index.json`）。
+- `?id=路径/到/文章.md` — 直接打开某篇文章（路径必须存在于 `index.yaml`）。
 - `?lang=zh` — UI/内容语言。存储在 localStorage，并回退到浏览器与 `<html lang>`。
 
 Markdown 中的站内跳转链接示例：`[看看这篇](?id=post/frogy/main.md)`，标签页：`[关于](?tab=about)`。
@@ -72,55 +72,55 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 
 说明：
 
-- 若 `index.json` 未提供元数据，加载器会读取前言区的 `title`、`date`、`tags`、`excerpt`、`image`。
-- 页面中的 H1 用于正文标题；卡片标题来自 `index.json` 或前言区标题。
+- 若 `index.yaml` 未提供元数据，加载器会读取前言区的 `title`、`date`、`tags`、`excerpt`、`image`。
+- 页面中的 H1 用于正文标题；卡片标题来自 `index.yaml` 或前言区标题。
 
 
-## 文章索引：`wwwroot/index.json`
+## 文章索引：`wwwroot/index.yaml`
 
 支持三种格式，按需选择。
 
-注意：同一 JSON 文件请仅使用一种格式，不要混用。
+注意：同一 YAML 文件请仅使用一种格式，不要混用。
 
 1) 简化版（当前仓库使用）：按语言给出路径，应用会拉取 Markdown 并从前言区提取元数据：
 
-```json
-{
-	"nanoSite": {
-		"en": "post/meet-nanosite/main_en.md",
-		"zh": "post/meet-nanosite/main_zh.md",
-		"ja": "post/meet-nanosite/main_ja.md"
-	},
-	"nanodoc": {
-		"en": "post/meet-nanosite/doc_en.md",
-		"zh": "post/meet-nanosite/doc_zh.md",
-		"ja": "post/meet-nanosite/doc_ja.md"
-	}
-}
+```yaml
+nanoSite:
+  en: post/meet-nanosite/main_en.md
+  zh: post/meet-nanosite/main_zh.md
+  ja: post/meet-nanosite/main_ja.md
+nanodoc:
+  en: post/meet-nanosite/doc_en.md
+  zh: post/meet-nanosite/doc_zh.md
+  ja: post/meet-nanosite/doc_ja.md
 ```
 
 2) 统一版：每种语言给出 `{title, location}`，还可在顶层放通用字段：
 
-```json
-{
-	"我的第一篇": {
-		"zh": { "title": "我的第一篇", "location": "post/foo_zh.md", "excerpt": "..." },
-		"en": { "title": "My First Post", "location": "post/foo.md" },
-		"tag": ["Note"],
-		"date": "2025-08-13",
-		"image": "post/cover.jpg",
-		"thumb": "post/thumb.jpg",
-		"cover": "post/cover-wide.jpg"
-	}
-}
+```yaml
+我的第一篇:
+  zh:
+    title: 我的第一篇
+    location: post/foo_zh.md
+    excerpt: "..."
+  en:
+    title: My First Post
+    location: post/foo.md
+  tag: [Note]
+  date: 2025-08-13
+  image: post/cover.jpg
+  thumb: post/thumb.jpg
+  cover: post/cover-wide.jpg
 ```
 
 3) 旧版（单语）：
 
-```json
-{
-	"我的第一篇": { "location": "post/foo_zh.md", "tag": ["Note"], "date": "2025-08-13", "image": "..." }
-}
+```yaml
+我的第一篇:
+  location: post/foo_zh.md
+  tag: [Note]
+  date: 2025-08-13
+  image: "..."
 ```
 
 字段说明（任一格式通用）：
@@ -136,69 +136,79 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 
 - 使用简化版时，元数据来自 Markdown 前言区。
 - 跨语言跳转：若链接指向 `main_en.md` 而 UI 为中文，存在中文变体时可自动重定向。
-- 只有出现在 `index.json` 的 `location` 才被允许；未知 `?id=` 会显示友好错误。
+- 只有出现在 `index.yaml` 的 `location` 才被允许；未知 `?id=` 会显示友好错误。
 
 
-## 标签页：`wwwroot/tabs.json`
+## 标签页：`wwwroot/tabs.yaml`
 
 标签页是静态页面，支持与文章相同的三种格式。示例（当前仓库）：
 
-```json
-{
-	"gallery": { "en": { "title": "Gallery", "location": "tab/gallery.md" } },
-	"publications": { "en": { "title": "Publications", "location": "tab/publications.md" } },
-	"About": {
-		"en": { "title": "About", "location": "tab/about/en.md" },
-		"zh": { "title": "关于", "location": "tab/about/zh.md" }
-	}
-}
+```yaml
+gallery:
+  en:
+    title: Gallery
+    location: tab/gallery.md
+publications:
+  en:
+    title: Publications
+    location: tab/publications.md
+关于:
+  en:
+    title: About
+    location: tab/about/en.md
+  zh:
+    title: 关于
+    location: tab/about/zh.md
 ```
 
 说明：
 
-- URL 中的 slug（如 `?tab=about`）在使用统一/简化 `tabs.json`（以条目键名为基准）时可在不同语言间保持稳定；在传统按语言拆分的格式下，slug 可能因语言不同而变化。
-- 浏览器/SEO 标题取自 `tabs.json` 中的 `title`。
-- 注意：同一 JSON 文件请仅使用一种格式，不要混用。
+- URL 中的 slug（如 `?tab=about`）在使用统一/简化 `tabs.yaml`（以条目键名为基准）时可在不同语言间保持稳定；在传统按语言拆分的格式下，slug 可能因语言不同而变化。
+- 浏览器/SEO 标题取自 `tabs.yaml` 中的 `title`。
+- 注意：同一 YAML 文件请仅使用一种格式，不要混用。
 
 简化版示例（语言 → 路径）：
 
-```json
-{
-  "About": {
-    "en": "tab/about/en.md",
-    "zh": "tab/about/zh.md",
-    "ja": "tab/about/ja.md"
-  }
-}
+```yaml
+About:
+  en: tab/about/en.md
+  zh: tab/about/zh.md
+  ja: tab/about/ja.md
 ```
 
 旧版（单语）示例：
 
-```json
-{
-  "About": { "location": "tab/about/en.md" }
-}
+```yaml
+About:
+  location: tab/about/en.md
 ```
 
 
-## 站点设置：`site.json`
+## 站点设置：`site.yaml`
 
-```json
-{
-	"siteTitle": { "default": "deemoe's journal", "zh": "deemoe 的日志", "ja": "deemoe のジャーナル" },
-	"siteSubtitle": { "default": "Thanks for playing my game.", "zh": "眼见何事..." },
-	"siteDescription": { "default": "deemoe's journal" },
-	"resourceURL": "https://dee.moe/wwwroot/",
-	"siteKeywords": { "default": "static blog, markdown, github pages, blog" },
-	"avatar": "assets/avatar.png",
-	"profileLinks": [ { "label": "GitHub", "href": "https://github.com/you" } ],
-	"contentOutdatedDays": 180,
-	"themeMode": "user",
-	"themePack": "minimalism",
-	"themeOverride": true,
-	"cardCoverFallback": false,
-	"reportIssueURL": "https://github.com/<owner>/<repo>/issues/new"
-}
+```yaml
+siteTitle:
+  default: "deemoe's journal"
+  zh: "deemoe 的日志"
+  ja: "deemoe のジャーナル"
+siteSubtitle:
+  default: "Thanks for playing my game."
+  zh: "眼见何事..."
+siteDescription:
+  default: "deemoe's journal"
+resourceURL: https://dee.moe/wwwroot/
+siteKeywords:
+  default: static blog, markdown, github pages, blog
+avatar: assets/avatar.png
+profileLinks:
+  - label: GitHub
+    href: https://github.com/you
+contentOutdatedDays: 180
+themeMode: user
+themePack: minimalism
+themeOverride: true
+cardCoverFallback: false
+reportIssueURL: https://github.com/<owner>/<repo>/issues/new
 ```
 
 参数：
@@ -221,7 +231,7 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 ## 主题与工具
 
 - 侧边栏（工具）包含主题切换与主题包选择。主题包定义在 `assets/themes/packs.json`，CSS 位于 `assets/themes/<pack>/theme.css`。
-- 站点可在 `site.json` 设定默认主题；若 `themeOverride` 为 `false`，用户仍可通过 UI 修改并保留偏好。
+- 站点可在 `site.yaml` 设定默认主题；若 `themeOverride` 为 `false`，用户仍可通过 UI 修改并保留偏好。
 - 语言下拉框会结合内容索引自动展示可用内容语言（统一/简化格式下）。
 
 
@@ -266,12 +276,12 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 运行时按页面动态更新 meta（标题、描述、Open Graph、Twitter Card），并注入结构化数据（JSON-LD）。数据来源优先级：
 
 1) Markdown 前言区（`title`、`excerpt`、`tags`、`date`、`image`）
-2) `index.json` 元数据
+2) `index.yaml` 元数据
 3) 自动回退（H1/首段）与生成的占位社交图
 
-你也可以打开 `index_seo.html`，生成 `sitemap.xml`、`robots.txt`，以及根据 `site.json` 生成初始 `<head>` 标签。
+你也可以打开 `index_seo.html`，生成 `sitemap.xml`、`robots.txt`，以及根据 `site.yaml` 生成初始 `<head>` 标签。
 
-提示：如果你的资源走 CDN，请在 `site.json` 里设置 `resourceURL`。
+提示：如果你的资源走 CDN，请在 `site.yaml` 里设置 `resourceURL`。
 
 
 ## 多语言
@@ -280,7 +290,7 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 - 内容支持：
 	- 简化版（本仓库示例）：按语言直接给出 Markdown 路径
 	- 统一版：每种语言的 `{title, location}`
-	- 旧版：`index.en.json`、`index.zh.json`...（回退）
+	- 旧版：`index.en.yaml`/`index.en.json`、`index.zh.yaml`/`index.zh.json`…（回退）
 - 切换语言时，若当前文章存在相应变体，路由会尽量保持在“同一篇”。
 
 
@@ -302,10 +312,10 @@ python3 -m http.server 8000
 
 ## 故障排查
 
-- 页面空白？请校验 JSON（不要尾随逗号，必须双引号）。
-- `index.json`/`tabs.json` 中的路径需相对 `wwwroot/`。
+- 页面空白？请校验 YAML（缩进、冒号、列表/键值结构）。
+- `index.yaml`/`tabs.yaml` 中的路径需相对 `wwwroot/`。
 - 一些浏览器禁止 `file://` 加载资源，请使用本地服务器预览。
-- 文章未找到？确认其 `location` 已写入 `wwwroot/index.json`。
+- 文章未找到？确认其 `location` 已写入 `wwwroot/index.yaml`。
 
 
 ## 小抄
@@ -313,25 +323,31 @@ python3 -m http.server 8000
 - 快速新增文章（简化格式）：
 
 	1) 创建 `wwwroot/post/new.md`（含前言区）
-	2) 向 `wwwroot/index.json` 添加：
+	2) 向 `wwwroot/index.yaml` 添加：
 
-	```json
-	{ "新文章": { "zh": "post/new.md" } }
+	```yaml
+	新文章:
+	  zh: post/new.md
 	```
 
 - 新增标签页：
 
 	1) 创建 `wwwroot/tab/about.md`
-	2) 向 `wwwroot/tabs.json` 添加：
+	2) 向 `wwwroot/tabs.yaml` 添加：
 
-	```json
-	{ "关于": { "zh": { "title": "关于", "location": "tab/about.md" } } }
+	```yaml
+	关于:
+	  zh:
+	    title: 关于
+	    location: tab/about.md
 	```
 
 - 全站强制主题：
 
-	```json
-	{ "themeMode": "dark", "themePack": "apple", "themeOverride": true }
+	```yaml
+	themeMode: dark
+	themePack: apple
+	themeOverride: true
 	```
 
 写作愉快。

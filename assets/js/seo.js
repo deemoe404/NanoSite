@@ -396,7 +396,7 @@ function updateStructuredData(options, siteConfig = {}) {
 /**
  * Extract SEO data from markdown content
  * @param {string} content - Markdown content
- * @param {Object} metadata - Post metadata from index.json
+ * @param {Object} metadata - Post metadata from index.yaml
  * @param {Object} siteConfig - Site configuration object
  * @returns {Object} SEO options
  */

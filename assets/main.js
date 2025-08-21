@@ -3,15 +3,18 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
+import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
+import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
+import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -27,9 +30,6 @@ let locationAliasMap = new Map();
 const PAGE_SIZE = 8;
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
-function prefersReducedMotion() {
-  try { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; }
-}
 
 function smoothShow(el) {
   if (!el) return;
@@ -172,13 +172,12 @@ function ensureAutoHeight(el) {
   } catch (_) {}
 }
 
-// --- Site config (root-level site.json) ---
+// --- Site config (root-level site.yaml) ---
 let siteConfig = {};
 async function loadSiteConfig() {
   try {
-    const r = await fetch('site.json');
-    if (!r.ok) return {};
-    return await r.json();
+    // YAML only
+    return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
   } catch (_) { return {}; }
 }
 
@@ -371,13 +370,7 @@ async function checkImageSize(url, timeoutMs = 4000) {
   }
 }
 
-function formatBytes(n) {
-  if (!n && n !== 0) return '';
-  const kb = n / 1024;
-  if (kb < 1024) return `${Math.round(kb)} KB`;
-  const mb = kb / 1024;
-  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
-}
+// formatBytes moved to utils.js
 
 async function warnLargeImagesIn(container, cfg = {}) {
   try {
@@ -789,86 +782,11 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
   } catch (_) {}
 }
 
-function renderSkeletonArticle() {
-  return `
-    <div class="skeleton-article" aria-busy="true" aria-live="polite">
-      <div class="skeleton-block skeleton-title w-70"></div>
-      <div class="skeleton-block skeleton-line w-95"></div>
-      <div class="skeleton-block skeleton-line w-90"></div>
-      <div class="skeleton-block skeleton-line w-85"></div>
-      <div class="skeleton-block skeleton-line w-40"></div>
-      <div class="skeleton-block skeleton-image w-100"></div>
-      <div class="skeleton-block skeleton-line w-90"></div>
-      <div class="skeleton-block skeleton-line w-95"></div>
-      <div class="skeleton-block skeleton-line w-80"></div>
-      <div class="skeleton-block skeleton-line w-60"></div>
-      <div style="margin: 1.25rem 0;">
-        <div class="skeleton-block skeleton-line w-30" style="height: 1.25rem; margin-bottom: 0.75rem;"></div>
-        <div class="skeleton-block skeleton-line w-85"></div>
-        <div class="skeleton-block skeleton-line w-75"></div>
-        <div class="skeleton-block skeleton-line w-90"></div>
-      </div>
-      <div class="skeleton-block skeleton-line w-95"></div>
-      <div class="skeleton-block skeleton-line w-80"></div>
-      <div class="skeleton-block skeleton-line w-45"></div>
-    </div>`;
-}
+// renderSkeletonArticle moved to utils.js
 
-function getArticleTitleFromMain() {
-  const h = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
-  if (!h) return null;
-  const clone = h.cloneNode(true);
-  const anchors = clone.querySelectorAll('a.anchor');
-  anchors.forEach(a => a.remove());
-  const text = (clone.textContent || '').replace(/\s+/g, ' ').trim();
-  return text.replace(/^#+\s*/, '').trim();
-}
+// RenderPostMetaCard moved to ./js/templates.js
 
-// Render a metadata card (title/date/read time/tags) for the current post
-function renderPostMetaCard(title, meta, markdown) {
-  try {
-    const safeTitle = escapeHtml(String(title || ''));
-    const hasDate = meta && meta.date;
-    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
-    let readHtml = '';
-    try {
-      const minutes = computeReadTime(String(markdown || ''), 200);
-      readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
-    } catch (_) {}
-    const parts = [];
-    if (dateHtml) parts.push(dateHtml);
-    if (readHtml) parts.push(readHtml);
-    const metaLine = parts.length ? `<div class="post-meta-line">${parts.join('<span class="card-sep">•</span>')}</div>` : '';
-    const excerptHtml = (meta && meta.excerpt) ? `<div class="post-meta-excerpt">${escapeHtml(String(meta.excerpt))}</div>` : '';
-    const tags = meta ? renderTags(meta.tag) : '';
-    return `<section class="post-meta-card" aria-label="Post meta">
-      <div class="post-meta-title">${safeTitle}</div>
-      <button type="button" class="post-meta-copy" aria-label="${t('ui.copyLink')}" title="${t('ui.copyLink')}">${t('ui.copyLink')}</button>
-      ${metaLine}
-      ${excerptHtml}
-      ${tags || ''}
-    </section>`;
-  } catch (_) {
-    return '';
-  }
-}
-
-// Render an outdated warning card if the post date exceeds the configured threshold
-function renderOutdatedCard(meta) {
-  try {
-    const hasDate = meta && meta.date;
-    if (!hasDate) return '';
-    const published = new Date(String(meta.date));
-    if (isNaN(published.getTime())) return '';
-    const diffDays = Math.floor((Date.now() - published.getTime()) / (1000 * 60 * 60 * 24));
-    const threshold = (siteConfig && Number.isFinite(Number(siteConfig.contentOutdatedDays))) ? Number(siteConfig.contentOutdatedDays) : 180;
-    if (diffDays < threshold) return '';
-    return `<section class="post-outdated-card" role="note">
-      <div class="post-outdated-content">${t('ui.outdatedWarning')}</div>
-      <button type="button" class="post-outdated-close" aria-label="${t('ui.close')}" title="${t('ui.close')}">×</button>
-    </section>`;
-  } catch (_) { return ''; }
-}
+// RenderOutdatedCard moved to ./js/templates.js
 
 let hasInitiallyRendered = false;
 
@@ -935,7 +853,7 @@ function renderTabs(activeSlug, searchQuery) {
       const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
       compact += `<span class="tab active" data-slug="post">${label}</span>`;
     } else if (activeSlug && activeSlug !== 'posts') {
-      // Active static tab from tabs.json
+      // Active static tab from tabs.yaml
       const info = tabsBySlug[activeSlug];
       const label = info && info.title ? info.title : activeSlug;
       compact += make(activeSlug, label).replace('"tab ', '"tab active ');
@@ -1254,7 +1172,7 @@ function displayPost(postname) {
   const postMetadata = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname)?.[1] || {};
   // Tentatively render meta card with fallback title first; we'll update title after reading h1
   const preTitle = fallback;
-  const outdatedCardHtml = renderOutdatedCard(postMetadata);
+  const outdatedCardHtml = renderOutdatedCard(postMetadata, siteConfig);
   const metaCardHtml = renderPostMetaCard(preTitle, postMetadata, markdown);
   // Render outdated card + meta card + main content so we can read first heading reliably
   const mainEl = document.getElementById('mainview');
@@ -1294,7 +1212,7 @@ function displayPost(postname) {
       });
     }
   } catch (_) {}
-  // Always use the localized title from index.json for display/meta/tab labels
+  // Always use the localized title from index.yaml for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
     try {
@@ -1342,6 +1260,19 @@ function displayPost(postname) {
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
     
+    // Surface an overlay for missing post (e.g., 404)
+    try {
+      const err = new Error((t('errors.postNotFoundBody') || 'The requested post could not be loaded.'));
+      try { err.name = 'Warning'; } catch(_) {}
+      showErrorOverlay(err, {
+        message: err.message,
+        origin: 'view.post.notfound',
+        filename: 'wwwroot/' + postname,
+        assetUrl: 'wwwroot/' + postname,
+        id: postname
+      });
+    } catch (_) {}
+
     document.getElementById('tocview').innerHTML = '';
     const backHref = withLangParam('?tab=posts');
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
@@ -1428,7 +1359,7 @@ function displayIndex(parsed) {
     const el = cards[idx];
     if (!el) return;
     const exEl = el.querySelector('.card-excerpt');
-    // Prefer explicit excerpt from index.json when available
+    // Prefer explicit excerpt from index.yaml when available
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
@@ -1556,7 +1487,7 @@ function displaySearch(query) {
     const el = cards[idx];
     if (!el) return;
     const exEl = el.querySelector('.card-excerpt');
-    // Prefer explicit excerpt from index.json when available
+    // Prefer explicit excerpt from index.yaml when available
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
@@ -1639,7 +1570,7 @@ function displayStaticTab(slug) {
   try { hydratePostVideos('#mainview'); } catch (_) {}
   try { initSyntaxHighlighting(); } catch (_) {}
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
-  // Always use the title defined in tabs.json for the browser/SEO title,
+  // Always use the title defined in tabs.yaml for the browser/SEO title,
   // instead of deriving it from the first heading in the markdown.
   const pageTitle = tab.title;
       
@@ -1655,11 +1586,20 @@ function displayStaticTab(slug) {
       
       try { setDocTitle(pageTitle); } catch (_) {}
     })
-    .catch(() => {
+    .catch((e) => {
       // 移除加载状态类，即使出错也要移除
       if (contentEl) contentEl.classList.remove('loading');
       if (sidebarEl) sidebarEl.classList.remove('loading');
       
+      // Surface an overlay for missing static tab page
+      try {
+        const url = 'wwwroot/' + tab.location;
+        const msg = (t('errors.pageUnavailableBody') || 'Could not load this tab.') + (e && e.message ? ` (${e.message})` : '');
+        const err = new Error(msg);
+        try { err.name = 'Warning'; } catch(_) {}
+        showErrorOverlay(err, { message: msg, origin: 'view.tab.unavailable', tagName: 'md', filename: url, assetUrl: url, tab: slug });
+      } catch (_) {}
+
       document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.pageUnavailableTitle')}</h3><p>${t('errors.pageUnavailableBody')}</p></div>`;
       setDocTitle(t('ui.pageUnavailable'));
     });
@@ -1785,9 +1725,7 @@ function addTabClickAnimation(tab) {
 }
 
 // Intercept in-app navigation and use History API
-function isModifiedClick(event) {
-  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
-}
+// isModifiedClick moved to utils.js
 
 document.addEventListener('click', (e) => {
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
@@ -1868,6 +1806,9 @@ initI18n({ defaultLang });
 // Expose translate helper for modules that don't import i18n directly
 try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
+// Install error reporter early to catch resource 404s (e.g., theme CSS, images)
+try { initErrorReporter({}); } catch (_) {}
+
 // Ensure theme controls are present, then apply and bind
 mountThemeControls();
 applySavedTheme();
@@ -1888,12 +1829,11 @@ Promise.allSettled([
   loadTabsJson('wwwroot', 'tabs'),
   // Load site config
   loadSiteConfig(),
-  // Also fetch the raw index.json to collect all variant locations across languages
+  // Also fetch the raw index (YAML) to collect all variant locations across languages
   (async () => {
     try {
-      const r = await fetch('wwwroot/index.json');
-      if (!r.ok) return null;
-      return await r.json();
+      const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']);
+      return (obj && typeof obj === 'object') ? obj : null;
     } catch (_) { return null; }
   })()
 ])
@@ -1917,7 +1857,7 @@ Promise.allSettled([
     }
     // Build a whitelist of allowed post file paths. Start with the current-language
     // transformed entries, then include any language-variant locations discovered
-    // from the raw unified index.json (if present).
+    // from the raw unified index.yaml (if present).
     const baseAllowed = new Set(Object.values(posts).map(v => String(v.location)));
     if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
       try {
@@ -2007,7 +1947,8 @@ Promise.allSettled([
       };
       initErrorReporter({
         reportUrl: siteConfig && siteConfig.reportIssueURL,
-        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite'
+        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite',
+        enableOverlay: !!(siteConfig && siteConfig.errorOverlay === true)
       });
     } catch (_) {}
     
@@ -2035,9 +1976,15 @@ Promise.allSettled([
     
   routeAndRender();
   })
-  .catch(() => {
+  .catch((e) => {
     document.getElementById('tocview').innerHTML = '';
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('ui.indexUnavailable')}</h3><p>${t('errors.indexUnavailableBody')}</p></div>`;
+    // Surface an overlay for boot/index failures (network/unified JSON issues)
+    try {
+      const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
+      try { err.name = 'Warning'; } catch(_) {}
+      showErrorOverlay(err, { message: err.message, origin: 'boot.indexUnavailable', error: (e && e.message) || String(e || '') });
+    } catch (_) {}
   });
 
 // Footer: set dynamic year once

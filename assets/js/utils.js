@@ -137,3 +137,43 @@ export function formatDisplayDate(input) {
     return escapeHtml(String(input));
   }
 }
+
+// Human-readable byte size formatting (pure)
+export function formatBytes(n) {
+  if (!n && n !== 0) return '';
+  const kb = n / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+}
+
+// Lightweight article skeleton markup (pure)
+export function renderSkeletonArticle() {
+  return `
+    <div class="skeleton-article" aria-busy="true" aria-live="polite">
+      <div class="skeleton-block skeleton-title w-70"></div>
+      <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-90"></div>
+      <div class="skeleton-block skeleton-line w-85"></div>
+      <div class="skeleton-block skeleton-line w-40"></div>
+      <div class="skeleton-block skeleton-image w-100"></div>
+      <div class="skeleton-block skeleton-line w-90"></div>
+      <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-80"></div>
+      <div class="skeleton-block skeleton-line w-60"></div>
+      <div style="margin: 1.25rem 0;">
+        <div class="skeleton-block skeleton-line w-30" style="height: 1.25rem; margin-bottom: 0.75rem;"></div>
+        <div class="skeleton-block skeleton-line w-85"></div>
+        <div class="skeleton-block skeleton-line w-75"></div>
+        <div class="skeleton-block skeleton-line w-90"></div>
+      </div>
+      <div class="skeleton-block skeleton-line w-95"></div>
+      <div class="skeleton-block skeleton-line w-80"></div>
+      <div class="skeleton-block skeleton-line w-45"></div>
+    </div>`;
+}
+
+// Check if a click is modified (meta/ctrl/shift/alt or non-left button) (pure)
+export function isModifiedClick(event) {
+  return event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
+}

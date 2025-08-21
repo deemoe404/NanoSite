@@ -1,0 +1,32 @@
+siteTitle:
+  default: NanoSite
+  zh: 微站
+  ja: ナノサイト
+siteSubtitle:
+  default: Just Markdown. Just a website.
+  zh: 写下 Markdown，就是你的网站。
+  ja: 書くだけ、Markdown。それがサイトになる。
+siteDescription:
+  default: NanoSite - Just Markdown. Just a website.
+  zh: 微站 - 写下 Markdown，就是你的网站。
+  ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
+resourceURL: https://nano.dee.moe/wwwroot/
+siteKeywords:
+  default: static blog, markdown, github pages, blog
+avatar: assets/avatar.jpeg
+profileLinks:
+  - label: GitHub
+    href: https://github.com/deemoe404/NanoSite
+  - label: Demo
+    href: https://nano.dee.moe/
+contentOutdatedDays: 180
+themeMode: user
+themePack: minimalism
+themeOverride: true
+cardCoverFallback: false
+errorOverlay: true
+assetWarnings:
+  largeImage:
+    enabled: true
+    thresholdKB: 500
+

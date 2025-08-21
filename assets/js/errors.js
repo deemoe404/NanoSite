@@ -5,6 +5,7 @@ let reporterConfig = {
   reportUrl: null,
   siteTitle: 'NanoSite'
 };
+let overlayUIEnabled = false;
 let extraContext = {};
 // Queue for sequential overlays (show one at a time)
 let overlayQueue = [];
@@ -76,6 +77,7 @@ function copyToClipboard(text) {
 }
 
 export function showErrorOverlay(err, context = {}) {
+  if (!overlayUIEnabled) return; // overlay UI disabled by config
   try {
     // Basic dedupe: avoid enqueuing identical name+message+url within a short window
     const key = `${(err && err.name) || 'Error'}|${(err && err.message) || (context && context.message) || ''}|${(context && context.assetUrl) || ''}`;
@@ -199,7 +201,10 @@ export function initErrorReporter(options = {}) {
     reportUrl: options.reportUrl || reporterConfig.reportUrl || null,
     siteTitle: options.siteTitle || reporterConfig.siteTitle || 'NanoSite'
   };
+  // Allow toggling the overlay UI (default off)
+  try { overlayUIEnabled = !!options.enableOverlay; } catch (_) { overlayUIEnabled = false; }
   if (!window.__nano_error_handlers_installed) {
+    // 1) Runtime script errors (bubble phase)
     window.addEventListener('error', (e) => {
       try {
         showErrorOverlay(
@@ -214,6 +219,36 @@ export function initErrorReporter(options = {}) {
         );
       } catch (_) {}
     });
+    // 2) Resource load errors (capture phase) — catch 404s for <img>, <link>, <script>, media
+    window.addEventListener('error', (e) => {
+      try {
+        const target = e && e.target;
+        if (!target || target === window) return;
+        const tag = (target.tagName || '').toLowerCase();
+        if (!tag) return;
+        let url = '';
+        if (tag === 'img' || tag === 'script') {
+          url = target.currentSrc || target.src || '';
+        } else if (tag === 'link') {
+          url = target.href || '';
+        } else if (tag === 'video' || tag === 'audio') {
+          try { url = target.currentSrc || (target.querySelector('source') && target.querySelector('source').src) || ''; } catch(_) { url = ''; }
+        } else {
+          return; // ignore other elements
+        }
+        const msg = (t('errors.resourceLoadFailed') || 'Resource failed to load') + `: <${tag}> ${url || ''}`.trim();
+        const err = new Error(msg);
+        try { err.name = 'Warning'; } catch(_) {}
+        showErrorOverlay(err, {
+          message: msg,
+          origin: 'resource.error',
+          tagName: tag,
+          assetUrl: url,
+          filename: url
+        });
+      } catch (_) { /* swallow */ }
+    }, true);
+    // 3) Unhandled promise rejections
     window.addEventListener('unhandledrejection', (e) => {
       try {
         showErrorOverlay(
