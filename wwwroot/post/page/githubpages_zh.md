@@ -5,11 +5,14 @@ tags:
   - 微站
   - 技术
   - GitHub Pages
+image: page.jpeg
 excerpt: 你可以将 NanoSite 免费托管在 GitHub Pages 上。本文作为一份自包含的参考，但仍请以 GitHub 官方文档为准以获取最准确的信息。
 author: deemoe
 ---
 
 > [GitHub Pages](https://pages.github.com) 并非 NanoSite 的一部分，因此这里的信息可能不是最新的。如遇问题，请优先参考 GitHub 官方文档。
+
+![page](page.jpeg)
 
 ## 如何为仓库启用 GitHub Pages
 

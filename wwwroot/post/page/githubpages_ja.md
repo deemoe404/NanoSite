@@ -5,11 +5,14 @@ tags:
   - NanoSite
   - 技術
   - GitHub Pages
+image: page.jpeg
 excerpt: NanoSite は GitHub Pages に無料でホスティングできます。本ガイドは自己完結の参考情報ですが、最新で正確な情報は常に GitHub の公式ドキュメントを参照してください。
 author: deemoe
 ---
 
 > [GitHub Pages](https://pages.github.com) は NanoSite の一部ではありません。ここにある情報が最新でない場合があります。問題がある場合は GitHub の公式ドキュメントを参照してください。
+
+![page](page.jpeg)
 
 ## リポジトリで GitHub Pages を有効にする方法
 

@@ -5,11 +5,14 @@ tags:
   - NanoSite
   - Technology
   - GitHub Pages
+image: page.jpeg
 excerpt: You can host NanoSite on GitHub Pages for free. This guide is provided as a self-contained reference; however, always consult the official GitHub documentation for the most accurate information.
 author: deemoe
 ---
 
 > [GitHub Pages](https://pages.github.com) is not part of NanoSite, so you might not find up-to-date information here. Always refer to the official GitHub documentation if you run into issues.
+
+![page](page.jpeg)
 
 ## How to Enable GitHub Pages for a Repository
 
