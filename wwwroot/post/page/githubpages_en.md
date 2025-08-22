@@ -27,6 +27,8 @@ To enable GitHub Pages for your repository, follow these steps:
 6. Click **Save**.
 7. After a few moments, your site will be published. The URL will be shown in the Pages section.
 
+![step](step.jpeg)
+
 - Make sure your repository is public if you want everyone to access your site.
 - You can use a custom domain by configuring it in the same section.
 
