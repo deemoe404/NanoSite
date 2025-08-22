@@ -1,4 +1,13 @@
 // General utilities and safe helpers
+// Content root helper: default to 'wwwroot' but allow runtime override via window.__ns_content_root
+export function getContentRoot() {
+  try {
+    const raw = (typeof window !== 'undefined' && window.__ns_content_root) ? String(window.__ns_content_root) : 'wwwroot';
+    return raw.replace(/^\/+|\/+$/g, '');
+  } catch (_) {
+    return 'wwwroot';
+  }
+}
 export function escapeHtml(text) {
   return typeof text === 'string'
     ? text
@@ -85,7 +94,7 @@ export function cardImageSrc(p) {
   const s = String(p || '').trim();
   if (!s) return '';
   if (/^https?:\/\//i.test(s)) return s;
-  return 'wwwroot/' + s.replace(/^\/+/, '');
+  return getContentRoot() + '/' + s.replace(/^\/+/, '');
 }
 
 export function fallbackCover(title) {

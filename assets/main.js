@@ -3,7 +3,7 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -766,7 +766,7 @@ function hydrateInternalLinkCards(container) {
 
       // Fetch markdown to compute excerpt + read time
       const ensureMd = (l) => {
-        if (!mdCache.has(l)) mdCache.set(l, getFile('wwwroot/' + l).catch(() => ''));
+        if (!mdCache.has(l)) mdCache.set(l, getFile(`${getContentRoot()}/${l}`).catch(() => ''));
         return mdCache.get(l);
       };
       ensureMd(loc).then(md => {
@@ -1197,7 +1197,7 @@ function displayPost(postname) {
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
 
-  return getFile('wwwroot/' + postname).then(markdown => {
+  return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
     if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes
@@ -1205,7 +1205,7 @@ function displayPost(postname) {
     if (sidebarEl) sidebarEl.classList.remove('loading');
     
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
-    const baseDir = `wwwroot/${dir}`;
+    const baseDir = `${getContentRoot()}/${dir}`;
   const output = mdParse(markdown, baseDir);
   // Compute fallback title using index cache before rendering
   const fallback = postsByLocationTitle[postname] || postname;
@@ -1327,8 +1327,8 @@ function displayPost(postname) {
       showErrorOverlay(err, {
         message: err.message,
         origin: 'view.post.notfound',
-        filename: 'wwwroot/' + postname,
-        assetUrl: 'wwwroot/' + postname,
+        filename: `${getContentRoot()}/${postname}`,
+        assetUrl: `${getContentRoot()}/${postname}`,
         id: postname
       });
     } catch (_) {}
@@ -1426,7 +1426,7 @@ function displayIndex(parsed) {
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
-    getFile('wwwroot/' + loc).then(md => {
+    getFile(`${getContentRoot()}/${loc}`).then(md => {
       const ex = extractExcerpt(md, 50);
       // Only set excerpt from markdown if no explicit excerpt in metadata
       if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
@@ -1558,7 +1558,7 @@ function displaySearch(query) {
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
-    getFile('wwwroot/' + loc).then(md => {
+    getFile(`${getContentRoot()}/${loc}`).then(md => {
       const ex = extractExcerpt(md, 50);
       // Only set excerpt from markdown if no explicit excerpt in metadata
       if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
@@ -1617,14 +1617,14 @@ function displayStaticTab(slug) {
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothHide(tagBox);
   renderTabs(slug);
-  getFile('wwwroot/' + tab.location)
+  getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
       // 移除加载状态类
       if (contentEl) contentEl.classList.remove('loading');
       if (sidebarEl) sidebarEl.classList.remove('loading');
       
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
-      const baseDir = `wwwroot/${dir}`;
+      const baseDir = `${getContentRoot()}/${dir}`;
       const output = mdParse(md, baseDir);
   const mv = document.getElementById('mainview');
   if (mv) mv.innerHTML = output.post;
@@ -1662,7 +1662,7 @@ function displayStaticTab(slug) {
       
       // Surface an overlay for missing static tab page
       try {
-        const url = 'wwwroot/' + tab.location;
+        const url = `${getContentRoot()}/${tab.location}`;
         const msg = (t('errors.pageUnavailableBody') || 'Could not load this tab.') + (e && e.message ? ` (${e.message})` : '');
         const err = new Error(msg);
         try { err.name = 'Warning'; } catch(_) {}
@@ -1919,9 +1919,9 @@ async function softResetToSiteDefaultLanguage() {
   // Reload localized content and tabs for the new language, then rerender
   try {
     const results = await Promise.allSettled([
-      loadContentJson('wwwroot', 'index'),
-      loadTabsJson('wwwroot', 'tabs'),
-      (async () => { try { const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']); return (obj && typeof obj === 'object') ? obj : null; } catch (_) { return null; } })()
+      loadContentJson(getContentRoot(), 'index'),
+      loadTabsJson(getContentRoot(), 'tabs'),
+      (async () => { try { const cr = getContentRoot(); const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]); return (obj && typeof obj === 'object') ? obj : null; } catch (_) { return null; } })()
     ]);
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
@@ -2081,6 +2081,11 @@ try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catc
 loadSiteConfig()
   .then(cfg => {
     siteConfig = cfg || {};
+    // Apply content root override early so subsequent loads honor it
+    try {
+      const rawRoot = (siteConfig && (siteConfig.contentRoot || siteConfig.contentBase || siteConfig.contentPath)) || 'wwwroot';
+      if (typeof window !== 'undefined') window.__ns_content_root = String(rawRoot).replace(/^\/+|\/+$/g, '');
+    } catch (_) {}
     // Apply site-configured defaults early
     try {
       // 1) Page size (pagination)
@@ -2109,11 +2114,12 @@ loadSiteConfig()
 
     // Now fetch localized content and tabs for the (possibly updated) language
     return Promise.allSettled([
-      loadContentJson('wwwroot', 'index'),
-      loadTabsJson('wwwroot', 'tabs'),
+      loadContentJson(getContentRoot(), 'index'),
+      loadTabsJson(getContentRoot(), 'tabs'),
       (async () => {
         try {
-          const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']);
+          const cr = getContentRoot();
+          const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]);
           return (obj && typeof obj === 'object') ? obj : null;
         } catch (_) { return null; }
       })()

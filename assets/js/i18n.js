@@ -9,6 +9,7 @@
 // - To show a friendly name in the language dropdown, add an entry to `languageNames`.
 
 import { parseFrontMatter } from './content.js';
+import { getContentRoot } from './utils.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 
 // Default language fallback when no user/browser preference is available.
@@ -414,7 +415,7 @@ async function loadContentFromFrontMatter(obj, lang) {
     const variants = [];
     for (const p of paths) {
       try {
-        const response = await fetch(`wwwroot/${p}`);
+        const response = await fetch(`${getContentRoot()}/${p}`);
         if (!response || !response.ok) { continue; }
         const content = await response.text();
         const { frontMatter } = parseFrontMatter(content);
