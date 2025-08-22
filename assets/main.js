@@ -29,6 +29,8 @@ let allowedLocations = new Set();
 let locationAliasMap = new Map();
 // Default page size; can be overridden by site.yaml (pageSize/postsPerPage)
 let PAGE_SIZE = 8;
+// Guard against overlapping post loads (rapid version switches/back-forward)
+let __activePostRequestId = 0;
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
 
@@ -176,9 +178,9 @@ try {
         // Use SPA navigation so back/forward keeps the selector in sync
         try {
           history.pushState({}, '', url.toString());
-          // Some parts of the app listen to popstate; dispatch to keep behavior consistent
-          try { window.dispatchEvent(new PopStateEvent('popstate')); } catch (_) { /* fallback to direct render */ }
-          if (typeof routeAndRender === 'function') routeAndRender();
+          // Dispatch a popstate event so the unified handler routes and renders once
+          try { window.dispatchEvent(new PopStateEvent('popstate')); } catch (_) { /* older browsers may not support constructor */ }
+          // Scroll to top for a consistent version switch experience
           try { window.scrollTo(0, 0); } catch (_) {}
         } catch (_) {
           // Fallback to full navigation if History API fails
@@ -1165,6 +1167,8 @@ function setupResponsiveTabsObserver() {
 }
 
 function displayPost(postname) {
+  // Bump request token to invalidate any in-flight older renders
+  const reqId = (++__activePostRequestId);
   // Add loading-state classes to keep layout stable
   const contentEl = document.querySelector('.content');
   const sidebarEl = document.querySelector('.sidebar');
@@ -1192,6 +1196,8 @@ function displayPost(postname) {
   if (main) main.innerHTML = renderSkeletonArticle();
 
   return getFile('wwwroot/' + postname).then(markdown => {
+    // Ignore stale responses if a newer navigation started
+    if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
@@ -1298,6 +1304,8 @@ function displayPost(postname) {
       }
     }
   }).catch(() => {
+    // Ignore stale errors if a newer navigation started
+    if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes even on error
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
