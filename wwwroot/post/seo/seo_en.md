@@ -8,6 +8,7 @@ tags:
 image: hero.jpeg
 excerpt: SEO optimization means improving the visibility and ranking of your website in search engine results. This involves using best practices for on-page SEO, such as optimizing your content, images, and metadata, as well as off-page SEO techniques like building backlinks and promoting your site.
 author: deemoe
+ai: true
 ---
 
 ## Dynamic SEO

@@ -8,6 +8,7 @@ tags:
 image: hero.jpeg
 excerpt: 用纯文本文件（Markdown）构建一个简单的个人网站。无需构建工具，无需数据库——只需编辑文件并发布。非常适合博客、笔记、维基、日记或书籍章节。
 author: deemoe
+ai: true
 ---
 
 ![hero](hero.jpeg)
