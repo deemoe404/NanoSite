@@ -22,14 +22,6 @@
   <img src="https://img.shields.io/badge/Lighthouse-SEO%20100-blue" alt="Lighthouse SEO"/>
 </p>
 
-## 🚀 Introduction
-
-**Nanosite** is a minimalist blogging & publishing system.  
-No Node.js, no Python, no build process required.  
-Just drop your Markdown files into the repository, and everything is rendered directly in the browser.  
-
-Perfect for personal blogs, knowledge bases, or lightweight websites hosted on GitHub Pages.
-
 ## ✨ Features
 
 - ⚡ **Zero Build** – no bundlers, compilers, or environments required.  
@@ -38,12 +30,11 @@ Perfect for personal blogs, knowledge bases, or lightweight websites hosted on G
 - 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).  
 - 🎨 **Configurable** – customize your site using a simple `site.yaml`.  
 
-## 🌍 Live Demo
+## 🌍 Built with Nanosite
 
 ### Official Demo
 - 🚀 [Nanosite Demo](https://nano.dee.moe) — Preview the default theme and configuration. ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)
 
-### Built with Nanosite
 - [deemoe's journal](https://dee.moe) — Thanks for playing my game.  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
 
 - [Mrfunnypig's Blog](https://mrfunnypig.github.io/Blog/) — Thanks for reading my story. ![Status](https://img.shields.io/website?url=https://mrfunnypig.github.io/Blog/&label=online)
