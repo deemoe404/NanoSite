@@ -7,4 +7,4 @@
 
 让我们开始吧：➡️ [初识微站](?id=post/main/v2.0.0/main_zh.md)。
 
-> 要是你对文档不过敏，这是一份更好的启动资料：➡️ [NanoSite 使用文档](?id=post/doc/v2.1.0/doc_zh.md)。😊
+> 要是你对文档不过敏，这是一份更好的启动资料：➡️ [微站指南](?id=post/doc/v2.1.0/doc_zh.md)。😊
