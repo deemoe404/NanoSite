@@ -7,6 +7,7 @@ tags:
   - Documentation
 excerpt: Create a content site directly from Markdown files with no build steps—just place them in wwwroot/, list them in YAML, and publish (works with GitHub Pages). The guide covers project structure, config files, content loading, themes, search, tags, SEO, media, and deployment tips.
 author: deemoe
+ai: true
 ---
 
 # NanoSite Documentation

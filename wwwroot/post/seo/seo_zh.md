@@ -8,6 +8,7 @@ tags:
 image: hero.jpeg
 excerpt: SEO（搜索引擎优化）旨在提升你的网站在搜索引擎结果中的可见性与排名。它包括站内 SEO 的最佳实践（优化内容、图片与元数据）以及站外 SEO（反向链接建设、推广等）。
 author: deemoe
+ai: true
 ---
 
 ## 动态 SEO

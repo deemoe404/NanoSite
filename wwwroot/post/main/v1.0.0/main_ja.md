@@ -8,6 +8,7 @@ tags:
 image: hero.jpeg
 excerpt: プレーンテキスト（Markdown）からシンプルな個人サイトを作成。ビルドツールもデータベースも不要—ファイルを編集して公開するだけ。ブログ、メモ、Wiki、日記、書籍の各章に最適です。
 author: deemoe
+ai: true
 ---
 
 ![hero](hero.jpeg)

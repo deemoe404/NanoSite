@@ -7,6 +7,7 @@ tags:
 	- ドキュメント
 excerpt: Markdown ファイルから直接コンテンツサイトを構築し、ビルド工程は不要です。wwwroot/ に配置し、YAML にリストして公開するだけで、GitHub Pages にも対応します。本ガイドでは、プロジェクト構造、設定ファイル、コンテンツ読み込み、テーマ、検索、タグ、SEO、メディア、デプロイ手順を解説します。
 author: deemoe
+ai: true
 ---
 
 # NanoSite ドキュメント

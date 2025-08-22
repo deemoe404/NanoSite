@@ -8,6 +8,7 @@ tags:
 image: hero.jpeg
 excerpt: Build a simple personal website from plain text files (Markdown). No build tools, no databases — just edit files and publish. Perfect for blogs, notes, wikis, journals, or book chapters.
 author: deemoe
+ai: true
 ---
 
 ![hero](hero.jpeg)
