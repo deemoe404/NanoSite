@@ -20,6 +20,12 @@
     "resourceURL": {
       "type": "string"
     },
+    "contentRoot": {
+      "type": "string",
+      "description": "Relative folder that contains site content (index.yaml, tabs.yaml, markdown posts). Defaults to 'wwwroot'.",
+      "default": "wwwroot",
+      "examples": ["wwwroot", "content", "docs"]
+    },
     "avatar": {
       "type": "string"
     },
