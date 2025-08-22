@@ -57,7 +57,9 @@ const translations = {
       copyDetails: 'Copy details',
       reportIssue: 'Report issue',
       warning: 'Warning',
-      error: 'Error'
+      error: 'Error',
+      aiFlagLabel: 'AI-assisted',
+      aiFlagTooltip: 'AI-assisted: generated or edited with an LLM'
     },
     code: {
       copy: 'Copy',
@@ -128,7 +130,9 @@ const translations = {
       copyDetails: '复制详情',
       reportIssue: '报告问题',
       warning: '警告',
-      error: '错误'
+      error: '错误',
+      aiFlagLabel: 'AI 参与',
+      aiFlagTooltip: 'AI 参与：本文由生成式 LLM 生成或修改'
     },
     code: {
       copy: '复制',
@@ -199,7 +203,9 @@ const translations = {
       copyDetails: '詳細をコピー',
       reportIssue: '問題を報告',
       warning: '警告',
-      error: 'エラー'
+      error: 'エラー',
+      aiFlagLabel: 'AI 参加',
+      aiFlagTooltip: 'AI 参加：本記事は生成系LLMで生成・編集されています'
     },
     code: {
       copy: 'コピー',
@@ -379,6 +385,11 @@ async function loadContentFromFrontMatter(obj, lang) {
   const out = {};
   const langsSeen = new Set();
   const nlang = normalizeLangKey(lang);
+  const truthy = (v) => {
+    if (v === true) return true;
+    const s = String(v ?? '').trim().toLowerCase();
+    return s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'on' || s === 'enabled';
+  };
   
   // Collect all available languages from the simplified JSON
   for (const [key, val] of Object.entries(obj || {})) {
@@ -437,6 +448,7 @@ async function loadContentFromFrontMatter(obj, lang) {
           date: frontMatter.date || undefined,
           excerpt: frontMatter.excerpt || undefined,
           versionLabel: frontMatter.version || undefined,
+          ai: truthy(frontMatter.ai || frontMatter.aiGenerated || frontMatter.llm) || undefined,
           __title: frontMatter.title || undefined
         });
       } catch (error) {

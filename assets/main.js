@@ -10,7 +10,7 @@ import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/er
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
-import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
+import { aggregateTags, renderTagSidebar, setupTagTooltips, attachHoverTooltip } from './js/tags.js';
 import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
@@ -1262,12 +1262,30 @@ function displayPost(postname) {
       });
     }
   } catch (_) {}
+  // Attach a floating tooltip to the AI flag (consistent with tag tooltips)
+  try {
+    const aiFlag = document.querySelector('#mainview .post-meta-card .ai-flag');
+    if (aiFlag) attachHoverTooltip(aiFlag, () => t('ui.aiFlagTooltip'), { delay: 0 });
+  } catch (_) {}
   // Always use the localized title from index.yaml for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
     try {
       const titleEl = document.querySelector('#mainview .post-meta-card .post-meta-title');
-      if (titleEl) titleEl.textContent = articleTitle;
+      if (titleEl) {
+        const ai = titleEl.querySelector('.ai-flag');
+        const prefix = ai ? ai.outerHTML : '';
+        titleEl.innerHTML = `${prefix}${escapeHtml(articleTitle)}`;
+        // Re-bind tooltip to fresh ai flag node after innerHTML swap
+        try {
+          const newAi = titleEl.querySelector('.ai-flag');
+          if (newAi) {
+            // Avoid native title tooltip overlap
+            newAi.removeAttribute('title');
+            attachHoverTooltip(newAi, () => t('ui.aiFlagTooltip'), { delay: 0 });
+          }
+        } catch (_) {}
+      }
     } catch (_) {}
     
     // Update SEO meta tags for the post
