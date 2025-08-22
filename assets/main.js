@@ -31,6 +31,8 @@ let locationAliasMap = new Map();
 let PAGE_SIZE = 8;
 // Guard against overlapping post loads (rapid version switches/back-forward)
 let __activePostRequestId = 0;
+// Track last route to harmonize scroll behavior on back/forward
+let __lastRouteKey = '';
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
 
@@ -1295,12 +1297,20 @@ function displayPost(postname) {
     try { setupTOC(); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
-    // If URL contains a hash, ensure we jump after content is in DOM
+    // If URL contains a hash, try to jump to it; if missing in this version, clear hash and scroll to top
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
       const target = document.getElementById(currentHash);
       if (target) {
         requestAnimationFrame(() => { target.scrollIntoView({ block: 'start' }); });
+      } else {
+        // Remove stale anchor to avoid unexpected jumps on future navigations
+        try {
+          const url = new URL(window.location.href);
+          url.hash = '';
+          history.replaceState({}, '', url.toString());
+        } catch (_) {}
+        try { window.scrollTo(0, 0); } catch (_) {}
       }
     }
   }).catch(() => {
@@ -1843,8 +1853,19 @@ document.addEventListener('click', (e) => {
 });
 
 window.addEventListener('popstate', () => {
+  const prevKey = __lastRouteKey || '';
   routeAndRender();
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
+  // Normalize scroll behavior: if navigating between different post IDs, scroll to top
+  try {
+    const id = getQueryVariable('id');
+    const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
+    const curKey = id ? `post:${id}` : `tab:${tab}`;
+    if (prevKey && prevKey.startsWith('post:') && curKey.startsWith('post:') && prevKey !== curKey) {
+      try { window.scrollTo(0, 0); } catch (_) {}
+    }
+    __lastRouteKey = curKey;
+  } catch (_) {}
 });
 
 // Update sliding indicator on window resize
