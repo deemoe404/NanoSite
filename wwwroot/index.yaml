@@ -14,12 +14,15 @@ nanodoc:
   en:
     - post/doc/v1.0.0/doc_en.md
     - post/doc/v2.0.0/doc_en.md
+    - post/doc/v2.1.0/doc_en.md
   zh:
     - post/doc/v1.0.0/doc_zh.md
     - post/doc/v2.0.0/doc_zh.md
+    - post/doc/v2.1.0/doc_zh.md
   ja:
     - post/doc/v1.0.0/doc_ja.md
     - post/doc/v2.0.0/doc_ja.md
+    - post/doc/v2.1.0/doc_ja.md
 githubpages:
   en: post/page/githubpages_en.md
   zh: post/page/githubpages_zh.md
