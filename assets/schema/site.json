@@ -1,36 +1,50 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nanosite.schema/site.schema.json",
   "title": "NanoSite Site Configuration",
+  "description": "Site configuration schema for NanoSite.",
+  "since": "v2.0.0",
   "type": "object",
   "additionalProperties": true,
   "properties": {
     "siteTitle": {
-      "$ref": "#/$defs/localizedString"
+      "$ref": "#/$defs/localizedString",
+      "description": "Localized site title."
     },
     "siteSubtitle": {
-      "$ref": "#/$defs/localizedString"
+      "$ref": "#/$defs/localizedString",
+      "description": "Localized site subtitle."
     },
     "siteDescription": {
-      "$ref": "#/$defs/localizedString"
+      "$ref": "#/$defs/localizedString",
+      "description": "Localized site description used for SEO."
     },
     "siteKeywords": {
-      "$ref": "#/$defs/localizedString"
+      "$ref": "#/$defs/localizedString",
+      "description": "Localized SEO keywords (comma-separated)."
     },
     "resourceURL": {
-      "type": "string"
+      "type": "string",
+      "description": "Base URL prefix for static resources.",
+      "format": "uri"
     },
     "contentRoot": {
       "type": "string",
       "description": "Relative folder that contains site content (index.yaml, tabs.yaml, markdown posts). Defaults to 'wwwroot'.",
       "default": "wwwroot",
-      "examples": ["wwwroot", "content", "docs"]
+      "examples": [
+        "wwwroot",
+        "content",
+        "docs"
+      ]
     },
     "avatar": {
-      "type": "string"
+      "type": "string",
+      "description": "Avatar image path or URL."
     },
     "profileLinks": {
       "type": "array",
+      "description": "List of profile links shown in header or footer.",
       "items": {
         "$ref": "#/$defs/link"
       }
@@ -39,12 +53,14 @@
       "oneOf": [
         {
           "type": "array",
+          "description": "Navigation links as an array.",
           "items": {
             "$ref": "#/$defs/link"
           }
         },
         {
           "type": "object",
+          "description": "Navigation links as a map of label to URL.",
           "additionalProperties": {
             "type": "string"
           }
@@ -53,10 +69,12 @@
     },
     "contentOutdatedDays": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Days after which content is considered outdated."
     },
     "themeMode": {
       "type": "string",
+      "description": "Theme mode selection.",
       "enum": [
         "dark",
         "light",
@@ -65,43 +83,55 @@
       ]
     },
     "themePack": {
-      "type": "string"
+      "type": "string",
+      "description": "Theme pack identifier to load."
     },
     "themeOverride": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Allow theme override via UI or config."
     },
     "cardCoverFallback": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Use card cover image as fallback when missing."
     },
     "reportIssueURL": {
-      "type": "string"
+      "type": "string",
+      "description": "URL for reporting site issues."
     },
     "errorOverlay": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Show error overlay in UI when enabled."
     },
     "pageSize": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "description": "Number of items per page for listings."
     },
     "postsPerPage": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "description": "Number of posts per page."
     },
     "defaultLanguage": {
-      "type": "string"
+      "type": "string",
+      "description": "Default language code (e.g., en, zh-CN)."
     },
     "assetWarnings": {
       "type": "object",
+      "description": "Settings for asset-related warnings.",
       "properties": {
         "largeImage": {
           "type": "object",
+          "description": "Warn when image files exceed size threshold.",
           "properties": {
             "enabled": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Enable large image warning."
             },
             "thresholdKB": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "File size threshold in kilobytes."
             }
           },
           "additionalProperties": false
@@ -115,10 +145,12 @@
       "type": "object",
       "properties": {
         "label": {
-          "type": "string"
+          "type": "string",
+          "description": "Link label to display."
         },
         "href": {
-          "type": "string"
+          "type": "string",
+          "description": "Destination URL."
         }
       },
       "required": [
@@ -136,7 +168,8 @@
           "type": "object",
           "properties": {
             "default": {
-              "type": "string"
+              "type": "string",
+              "description": "Default value when locale is not specified."
             }
           },
           "additionalProperties": {
