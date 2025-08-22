@@ -562,19 +562,23 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   /* Bigger vertical breathing room above and below */
   margin: 3rem 0 3rem;
 }
-.post-nav a,
-.post-nav span {
+/* Only style the top-level items (prev/next); not inner spans */
+.post-nav > a,
+.post-nav > span {
   display: inline-flex;
   align-items: center;
   /* Keep tight spacing between label and title to avoid a split-button feel */
   gap: 0.35rem;
-  padding: .6rem .75rem;
+  padding: .75rem .9rem; /* taller click target */
   border: 0.0625rem solid var(--border);
   border-radius: 0.5rem;
   background: var(--card);
   color: var(--text);
   text-decoration: none;
-  min-height: 2.5rem;
+  min-height: 3rem; /* ~48px for accessibility */
+  line-height: 1.25;
+  box-sizing: border-box;
+  min-width: 0; /* allow inner text to shrink without overflow */
 }
 .post-nav a:hover { 
   background: color-mix(in srgb, var(--primary) 10%, transparent);
@@ -583,14 +587,15 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 }
 .post-nav .disabled { opacity: .5; pointer-events: none; justify-content: center; }
 .post-nav-prev { justify-content: flex-start; }
-.post-nav-next { justify-content: flex-end; }
+.post-nav-next { justify-content: flex-start; }
 .post-nav .nav-label { font-weight: 700; opacity: .8; }
-.post-nav .nav-title { 
+.post-nav .nav-title {
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 70%;
+  min-width: 0; /* fix ellipsis clipping in flex context */
 }
 
 /* Ensure inner text elements never look like separate mini-buttons */
@@ -600,6 +605,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
+  display: block; /* ensure consistent line box; avoid inline-flex inheritance */
 }
 
 @media (max-width: 520px) {
