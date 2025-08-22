@@ -173,7 +173,17 @@ try {
         url.searchParams.set('id', loc);
         const lang = (getCurrentLang && getCurrentLang()) || 'en';
         url.searchParams.set('lang', lang);
-        window.location.assign(url.toString());
+        // Use SPA navigation so back/forward keeps the selector in sync
+        try {
+          history.pushState({}, '', url.toString());
+          // Some parts of the app listen to popstate; dispatch to keep behavior consistent
+          try { window.dispatchEvent(new PopStateEvent('popstate')); } catch (_) { /* fallback to direct render */ }
+          if (typeof routeAndRender === 'function') routeAndRender();
+          try { window.scrollTo(0, 0); } catch (_) {}
+        } catch (_) {
+          // Fallback to full navigation if History API fails
+          window.location.assign(url.toString());
+        }
       } catch (_) {}
     };
     document.addEventListener('change', handler, true);
