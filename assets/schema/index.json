@@ -1,42 +1,104 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nanosite.schema/index.schema.json",
   "title": "NanoSite Posts Index",
+  "description": "Schema for NanoSite posts index entries.",
+  "since": "v2.0.0",
   "type": "object",
-  "additionalProperties": { "$ref": "#/$defs/indexEntry" },
+  "additionalProperties": {
+    "$ref": "#/$defs/indexEntry"
+  },
   "$defs": {
     "tags": {
       "oneOf": [
-        { "type": "string" },
-        { "type": "array", "items": { "type": ["string", "number"] } }
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          }
+        }
       ]
     },
     "legacyEntry": {
       "type": "object",
       "properties": {
-        "location": { "type": "string" },
-        "title": { "type": "string" },
-        "tag": { "$ref": "#/$defs/tags" },
-        "tags": { "$ref": "#/$defs/tags" },
-        "date": { "type": ["string", "number"] },
-        "image": { "type": "string" },
-        "thumb": { "type": "string" },
-        "cover": { "type": "string" },
-        "excerpt": { "type": "string" }
+        "location": {
+          "type": "string",
+          "description": "Path or identifier for the post."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the post."
+        },
+        "tag": {
+          "$ref": "#/$defs/tags",
+          "description": "Single tag or list of tags (legacy)."
+        },
+        "tags": {
+          "$ref": "#/$defs/tags",
+          "description": "Tags associated with the post."
+        },
+        "date": {
+          "type": [
+            "string",
+            "number"
+          ],
+          "description": "Publication date (string) or timestamp (number)."
+        },
+        "image": {
+          "type": "string",
+          "description": "Main image URL for the post."
+        },
+        "thumb": {
+          "type": "string",
+          "description": "Thumbnail image URL for the post."
+        },
+        "cover": {
+          "type": "string",
+          "description": "Cover image URL for the post."
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "Short summary shown on cards and SEO."
+        }
       },
-      "required": ["location"],
+      "required": [
+        "location"
+      ],
       "additionalProperties": true
     },
     "langEntry": {
       "oneOf": [
-        { "type": "string" },
-        { "type": "array", "items": { "type": "string" } },
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         {
           "type": "object",
           "properties": {
-            "title": { "type": "string" },
-            "location": { "type": "string" },
-            "excerpt": { "type": "string" }
+            "title": {
+              "type": "string",
+              "description": "Localized title."
+            },
+            "location": {
+              "type": "string",
+              "description": "Localized path or slug."
+            },
+            "excerpt": {
+              "type": "string",
+              "description": "Localized excerpt or summary."
+            }
           },
           "additionalProperties": true
         }
@@ -45,26 +107,63 @@
     "simplifiedOrUnifiedEntry": {
       "type": "object",
       "properties": {
-        "tag": { "$ref": "#/$defs/tags" },
-        "tags": { "$ref": "#/$defs/tags" },
-        "date": { "type": ["string", "number"] },
-        "image": { "type": "string" },
-        "thumb": { "type": "string" },
-        "cover": { "type": "string" },
-        "excerpt": { "type": "string" },
-        "default": { "$ref": "#/$defs/langEntry" }
+        "tag": {
+          "$ref": "#/$defs/tags",
+          "description": "Single tag or list of tags."
+        },
+        "tags": {
+          "$ref": "#/$defs/tags",
+          "description": "Tags associated with the entry."
+        },
+        "date": {
+          "type": [
+            "string",
+            "number"
+          ],
+          "description": "Publication date (string) or timestamp (number)."
+        },
+        "image": {
+          "type": "string",
+          "description": "Main image URL for the post."
+        },
+        "thumb": {
+          "type": "string",
+          "description": "Thumbnail image URL for the post."
+        },
+        "cover": {
+          "type": "string",
+          "description": "Cover image URL for the post."
+        },
+        "excerpt": {
+          "type": "string",
+          "description": "Short summary shown on cards and SEO."
+        },
+        "default": {
+          "$ref": "#/$defs/langEntry",
+          "description": "Default language entry."
+        }
       },
       "patternProperties": {
-        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": { "$ref": "#/$defs/langEntry" },
-        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": { "$ref": "#/$defs/langEntry" }
+        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": {
+          "$ref": "#/$defs/langEntry",
+          "description": "Language-specific entry keyed by BCP-47 code (e.g., en, zh, ja)."
+        },
+        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": {
+          "$ref": "#/$defs/langEntry",
+          "description": "Language aliases supported for convenience."
+        }
       },
       "additionalProperties": true,
       "minProperties": 1
     },
     "indexEntry": {
       "oneOf": [
-        { "$ref": "#/$defs/legacyEntry" },
-        { "$ref": "#/$defs/simplifiedOrUnifiedEntry" }
+        {
+          "$ref": "#/$defs/legacyEntry"
+        },
+        {
+          "$ref": "#/$defs/simplifiedOrUnifiedEntry"
+        }
       ]
     }
   }

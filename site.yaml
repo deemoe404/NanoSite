@@ -3,10 +3,12 @@
 # Site identity configurations
 siteTitle:
   default: NanoSite
+  en: NanoSite
   zh: 微站
   ja: ナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
+  en: Just Markdown. Just a website.
   zh: 写下 Markdown，就是你的网站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
@@ -40,7 +42,8 @@ themeMode: user
 themePack: minimalism
 themeOverride: true
 
-# Asset warnings configurations
+# Maintenance configurations
+reportIssueURL: https://github.com/deemoe404/NanoSite/issues/new  # Enable prefilled GitHub issue link
 assetWarnings:
   largeImage:
     enabled: true
