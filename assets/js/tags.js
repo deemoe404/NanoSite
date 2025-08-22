@@ -124,6 +124,13 @@ export function setupTagTooltips(tagRoot) {
       left = window.innerWidth - padding - ttWidth;
     }
 
+    // Position arrow toward the tag's center even when clamped
+    try {
+      const centerX = rect.left + (rect.width / 2);
+      const pct = Math.max(5, Math.min(95, ((centerX - left) / ttWidth) * 100));
+      currentTooltip.style.setProperty('--arrow-pct', pct.toFixed(2) + '%');
+    } catch (_) {}
+
     currentTooltip.style.left = `${left}px`;
     currentTooltip.style.top = `${top}px`;
     currentTooltip.style.visibility = '';
@@ -194,4 +201,85 @@ export function setupTagTooltips(tagRoot) {
   const onKeydown = (e) => { if (e && e.key === 'Escape') hideTooltip(); };
   window.addEventListener('keydown', onKeydown);
   document.addEventListener('click', () => { hideTooltip(); });
+}
+
+// Attach a floating tooltip (styled like tag tooltips) to any element
+// Usage: attachHoverTooltip(element, () => 'tooltip text', { delay: 350 })
+export function attachHoverTooltip(el, textOrFn, opts = {}) {
+  if (!el) return;
+  const delay = Number.isFinite(opts.delay) ? opts.delay : 350;
+  let tmr = null;
+  let tip = null;
+  let visible = false;
+  const getText = () => (typeof textOrFn === 'function' ? textOrFn() : textOrFn);
+
+  const show = () => {
+    const text = String(getText() || '').trim();
+    if (!text) return;
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.className = 'tag-tooltip';
+      document.body.appendChild(tip);
+    }
+    tip.textContent = text;
+    tip.classList.remove('below', 'show');
+    tip.style.visibility = 'hidden';
+    tip.style.display = 'block';
+    const rect = el.getBoundingClientRect();
+    const w = tip.offsetWidth; const h = tip.offsetHeight; const pad = 8;
+    let top = rect.top - h - 8;
+    let left = rect.left + (rect.width / 2) - (w / 2);
+    if (top < pad) { top = Math.min(window.innerHeight - pad - h, rect.bottom + 8); tip.classList.add('below'); }
+    if (left < pad) left = pad;
+    if (left + w > window.innerWidth - pad) left = window.innerWidth - pad - w;
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+    tip.style.visibility = '';
+    requestAnimationFrame(() => { if (tip) tip.classList.add('show'); });
+    visible = true;
+
+    // Align arrow to trigger center even when tooltip is clamped to viewport
+    try {
+      const centerX = rect.left + (rect.width / 2);
+      const pct = Math.max(5, Math.min(95, ((centerX - left) / w) * 100));
+      tip.style.setProperty('--arrow-pct', pct.toFixed(2) + '%');
+    } catch (_) {}
+  };
+
+  const hide = () => {
+    if (tip) {
+      tip.classList.remove('show');
+      setTimeout(() => {
+        if (tip && !tip.classList.contains('show')) {
+          document.body.removeChild(tip);
+          tip = null;
+        }
+      }, 200);
+    }
+    visible = false;
+  };
+
+  const onEnter = () => { clearTimeout(tmr); tmr = setTimeout(show, delay); };
+  const onLeave = () => { clearTimeout(tmr); hide(); };
+  // Hover for pointer devices
+  el.addEventListener('mouseenter', onEnter);
+  el.addEventListener('mouseleave', onLeave);
+  el.addEventListener('blur', onLeave);
+  // Touch/click toggle to support touchscreens
+  el.addEventListener('click', (e) => {
+    try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+    clearTimeout(tmr);
+    if (visible) hide(); else show();
+  });
+  // Hide on outside click/scroll/resize or Escape
+  const outside = (ev) => {
+    if (!visible) return;
+    const t = ev && ev.target;
+    if (t && (t === el || (tip && tip.contains(t)))) return;
+    hide();
+  };
+  window.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('resize', hide);
+  document.addEventListener('click', outside);
+  window.addEventListener('keydown', (e) => { if (e && e.key === 'Escape') hide(); });
 }

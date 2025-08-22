@@ -422,6 +422,9 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   position: relative;
 }
 .post-meta-title { font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin: 0 0 0.25rem; }
+.post-meta-title .ai-flag { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin-right: 0.4rem; color: var(--primary); vertical-align: -0.15em; cursor: help; }
+.post-meta-title .ai-flag svg { width: 1em; height: 1em; }
+.post-meta-title .ai-flag { position: relative; }
 .post-meta-line {
   color: var(--muted);
   font-size: 0.85rem;
@@ -1395,13 +1398,22 @@ ul.collapsed, li > ul.collapsed { display: none; }
   width: min(92vw, 32.5rem);
   max-width: 32.5rem;
   position: relative;
+  /* Prevent horizontal overflow on small screens */
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
 }
 [data-theme="dark"] .error-card {
   /* darker theme requires stronger but softer falloff */
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
   border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
 }
-.error-head { font-weight: 700; margin-bottom: 0.25rem; }
+.error-head { 
+  font-weight: 700; 
+  margin-bottom: 0.25rem; 
+  /* Wrap long error names/messages instead of overflowing */
+  overflow-wrap: anywhere; 
+  word-break: break-word; 
+}
 .error-meta { font-size: .8rem; color: var(--muted); margin-bottom: 0.5rem; }
 .error-details { margin: 0.375rem 0 0.5rem; }
 .error-pre { 
