@@ -18,7 +18,7 @@ ai: false
   - `wwwroot/index.yaml` — 所有**文章**的索引，例如“旅行日志 - 马尔代夫”、“读书笔记：小王子”等。
   - `wwwroot/tabs.yaml` — 所有**页面**的索引，例如“关于本站”、“法律声明”等。
 
-> 您始终可以从 [v2.1.0/site.yaml](https://github.com/deemoe404/NanoSite/blob/2.1.0/site.yaml) 获取到 v2.1.0 版本的**默认**设置文件。
+> 您始终可以从 [v2.1.0/site.yaml](https://github.com/deemoe404/NanoSite/blob/v2.1.0/site.yaml) 获取到 v2.1.0 版本的**默认**设置文件。
 
 
 ## 网站基本信息设置

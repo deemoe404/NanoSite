@@ -18,7 +18,7 @@ Before using NanoSite, it helps to understand the core files/folders:
   - `wwwroot/index.yaml` — Index of all posts (e.g., “Travel Log — Maldives”, “Reading Notes: The Little Prince”).
   - `wwwroot/tabs.yaml` — Index of static pages (e.g., “About”, “Legal”).
 
-> You can always fetch the v2.1.0 default settings from v2.1.0/site.yaml.
+> You can always fetch the v2.1.0 default settings from [v2.1.0/site.yaml](https://github.com/deemoe404/NanoSite/blob/v2.1.0/site.yaml).
 
 
 ## Site Basics
