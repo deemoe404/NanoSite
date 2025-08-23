@@ -5,12 +5,14 @@
   --muted: #57606a;
   --primary: #0969da;
   --primary-hover: #1f6feb;
-  --card: #ffffff;
+  --card: #fafbfc; /* soften from pure white to subtle canvas */
   --border: #d0d7de;
   --code-bg: #f6f8fa;
   --code-text: #24292f;
   --hr: #d8dee4;
   --shadow: 0 0.0625rem 0.1875rem rgba(31,35,40,0.08), 0 0.0625rem 0.125rem rgba(31,35,40,0.06);
+  /* Link tones */
+  --link-visited: #6f42c1; /* fallback for visited */
 }
 
 [data-theme="dark"] {
@@ -25,6 +27,7 @@
   --code-text: #c9d1d9;
   --hr: #30363d;
   --shadow: 0 0.0625rem 0.1875rem rgba(1,4,9,0.4), 0 0.0625rem 0.125rem rgba(1,4,9,0.3);
+  --link-visited: #a371f7; /* fallback for visited in dark */
 }
 
 /* Layout and surfaces */
@@ -38,33 +41,62 @@ body { background: var(--bg) !important; }
 .sidebar { flex: 0 0 15rem !important; }
 
 /* Tabs: GitHub-like underline tabs */
-.tabs { background: transparent !important; border: none !important; padding: 0 !important; }
+.tabs { background: transparent !important; border: none !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; }
 .tab { border: none !important; border-bottom: 0.125rem solid transparent !important; border-radius: 0 !important; padding: .4rem .6rem !important; }
-.tab:hover { background: transparent !important; color: var(--text) !important; border-bottom-color: color-mix(in srgb, var(--primary) 40%, transparent) !important; }
-.tab.active { background: transparent !important; color: var(--text) !important; border-bottom-color: var(--primary) !important; font-weight: 600 !important; }
+.tab:hover { background: transparent !important; color: var(--text) !important; border-bottom-color: transparent !important; }
+/* Do not underline tabs on hover; keep underline only for active */
+.tabs .tab:hover { text-decoration: none !important; }
+.tab.active { background: transparent !important; color: var(--text) !important; border-bottom-color: var(--primary) !important; border-bottom-width: 0.15rem !important; font-weight: 600 !important; }
 .flex-split { align-items: end !important; }
-.tabs { width: 100% !important; border-bottom: 0.0625rem solid var(--border) !important; }
+.tabs { width: 100% !important; border-bottom: 0 !important; }
+
+/* Make the top navigator (box flex-split) match GitHub's flat bar look */
+.box.flex-split { 
+  background: transparent !important; 
+  border: 0 !important; 
+  box-shadow: none !important; 
+  padding: 0 !important; 
+  margin-bottom: 0 !important; /* rely on tabs' bottom border as the separator */
+}
+/* Slightly roomier tabs, left-aligned, no extra container padding */
+.box.flex-split .tabs { 
+  margin: 0 !important; 
+  padding: 0 !important; 
+}
+.box.flex-split .tab { 
+  padding: .5rem .75rem !important; 
+  font-weight: 500 !important; 
+}
+
+/* Cancel animated highlight overlay and indicators for GitHub theme */
+#tabsNav .highlight-overlay,
+.tabs .highlight-overlay { display: none !important; opacity: 0 !important; }
+.tabs::before, .tabs::after { content: none !important; display: none !important; }
+.tabs:hover { box-shadow: none !important; transform: none !important; }
 
 /* Index cards: flatter look */
 /* Turn grid into list with vertical text stack */
 .index { display: block !important; border: none !important; border-radius: 0 !important; overflow: visible !important; }
-.index a {
-  display: grid !important;
-  grid-template-columns: 5rem 1fr;
-  grid-template-rows: auto auto auto auto;
-  grid-template-areas:
-    "cover title"
-    "cover excerpt"
-    "cover meta"
-    "cover tags";
-  align-items: start;
-  gap: 0.375rem 0.75rem;
-  padding: 0.75rem;
-  border: none !important;
-  border-bottom: 0.0625rem solid var(--border) !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
+.index a { 
+  display: grid !important; 
+  grid-template-columns: 1fr !important; 
+  grid-template-rows: auto auto auto auto !important; 
+  grid-template-areas: 
+    "title" 
+    "excerpt" 
+    "meta" 
+    "tags" !important; 
+  align-items: start !important; 
+  gap: 0.35rem 0.75rem; 
+  padding: 0.6rem 0.75rem; /* 0.6rem (9.6px) vertical padding on all cards */ 
+  margin: 0 !important; /* override base theme margin (0.65rem 0) */
+  border: none !important; 
+  border-bottom: 0.0625rem solid var(--border) !important; 
+  border-radius: 0 !important; 
+  box-shadow: none !important; 
+} 
+/* Ensure first item uses the same vertical padding as others */
+.index a:first-child { padding-top: 0.6rem !important; }
 /* When there is no cover element (e.g., fallback disabled), collapse to single column */
 .index a:not(:has(.card-cover-wrap)) {
   grid-template-columns: 1fr !important;
@@ -76,41 +108,72 @@ body { background: var(--bg) !important; }
     "tags" !important;
 }
 .index a:last-child { border-bottom: none; }
-.index a:hover { background: color-mix(in srgb, var(--text) 3%, transparent) !important; border: none !important; border-bottom: 0.0625rem solid var(--border) !important; transform: none !important; box-shadow: none !important; }
-.index .card-cover-wrap { grid-area: cover; width: 5rem !important; height: auto !important; aspect-ratio: 10 / 16 !important; border-radius: 0.25rem; overflow: hidden; background: color-mix(in srgb, var(--text) 6%, transparent); align-self: center; }
-.index .card-cover { width: 100%; height: 100%; object-fit: cover; transition: none !important; }
+.index a:first-child { border-top-left-radius: 0.375rem; border-top-right-radius: 0.375rem; }
+.index a:last-child { border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem; }
+/* Restore subtle hover highlight, GitHub-like */
+.index a:hover { background: color-mix(in srgb, var(--primary) 10%, transparent) !important; border: none !important; border-bottom: 0.0625rem solid var(--border) !important; transform: none !important; box-shadow: none !important; }
+/* Fallback background when color-mix is unsupported */
+.index a:hover { background: #eaf2ff !important; }
+[data-theme="dark"] .index a:hover { background: rgba(56,139,253,0.10) !important; }
+/* cancel cover zoom on hover */
+.index a:hover .card-cover { transform: none !important; }
+.index .card-cover-wrap { display: none !important; }
+.index .card-cover { display: none !important; }
 .index .card-fallback { border-radius: 0.25rem; }
 .index .cover-initial { font-size: 1.2rem !important; }
 .index .card-title { grid-area: title; padding: 0 !important; font-weight: 600; }
-.index .card-excerpt { grid-area: excerpt; padding: 0 !important; margin-top: 0.125rem; }
-.index .card-meta { grid-area: meta; padding: 0 !important; margin-top: 0.375rem !important; border-top: none !important; gap: 0.375rem !important; }
+.index .card-excerpt { grid-area: excerpt; padding: 0 !important; margin-top: 0.1rem; }
+.index .card-meta { grid-area: meta; padding: 0 !important; margin-top: 0.25rem !important; border-top: none !important; gap: 0.35rem !important; }
 .index .tags { grid-area: tags; padding: 0 !important; gap: 0.375rem !important; }
 
 @media (max-width: 40rem) {
   .index a {
-    grid-template-columns: 4rem 1fr;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto auto !important;
+    grid-template-areas:
+      "title"
+      "excerpt"
+      "meta"
+      "tags" !important;
+    align-items: start !important;
+    padding: 0.6rem 0.75rem !important; /* match desktop: 0.6rem (9.6px) vertical padding */
   }
-  .index .card-cover-wrap { width: 4rem !important; height: auto !important; aspect-ratio: 10 / 16 !important; align-self: center; }
+  .index .card-cover-wrap { display: none !important; }
 }
 
 /* Blockquote: GitHub style */
 blockquote { border-left: 0.25rem solid var(--border) !important; background: transparent !important; font-style: normal !important; }
 
 /* Code and pre */
-code { background-color: var(--code-bg) !important; color: var(--code-text) !important; font-size: .9em !important; }
+code { background-color: var(--code-bg) !important; color: var(--code-text) !important; font-size: .85em !important; }
 pre { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 0.0625rem solid var(--border) !important; box-shadow: none !important; border-radius: 0.375rem !important; }
+/* Small screens: prefer wrapped code to reduce horizontal scroll */
+@media (max-width: 40rem) {
+  pre code { white-space: pre-wrap !important; word-break: break-word !important; }
+}
 
 /* Tables */
 .table-wrap table { border-color: var(--border) !important; }
 table { border-color: var(--border) !important; }
 table th { background-color: color-mix(in srgb, var(--text) 4%, transparent) !important; }
 table tr:nth-child(odd) { background-color: transparent !important; }
-table tr:nth-child(even) { background-color: color-mix(in srgb, var(--text) 2%, transparent) !important; }
-table tr:hover { background-color: color-mix(in srgb, var(--text) 6%, transparent) !important; }
+/* Reduce zebra striping; rely on hover + borders */
+table tr:nth-child(even) { background-color: transparent !important; }
+table tr:hover { background-color: color-mix(in srgb, var(--text) 4%, transparent) !important; }
+/* Fallbacks for browsers without color-mix */
+table th { background-color: #f5f7f9 !important; }
+[data-theme="dark"] table th { background-color: #0f141b !important; }
+table tr:nth-child(even) { background-color: transparent !important; }
+[data-theme="dark"] table tr:nth-child(even) { background-color: transparent !important; }
+table tr:hover { background-color: #f4f6f9 !important; }
+[data-theme="dark"] table tr:hover { background-color: rgba(110,118,129,0.10) !important; }
+
+/* Sticky table header for long tables */
+.table-wrap table thead th { position: sticky; top: 0; z-index: 1; background: var(--card) !important; }
 
 /* Pagination: simpler */
 .pagination a, .pagination span { border-radius: 0.375rem !important; box-shadow: none !important; }
-.pagination .active { background: color-mix(in srgb, var(--primary) 16%, transparent) !important; color: var(--text) !important; }
+.pagination .active { background: transparent !important; border: 0.0625rem solid var(--primary) !important; color: var(--primary) !important; }
 
 /* TOC */
 #tocview .toc-header { color: var(--muted) !important; }
@@ -126,6 +189,11 @@ h1 .anchor, h2 .anchor, h3 .anchor, h4 .anchor, h5 .anchor, h6 .anchor { color: 
 /* Typography: GitHub-like stack and spacing */
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji" !important; }
 #mainview { font-size: 1rem !important; line-height: 1.7 !important; }
+#mainview:has(.index) { 
+  padding: 0 !important; /* flush content */
+  overflow: hidden !important; /* clip child hovers to container radius */
+  border-radius: 0.375rem !important; /* match .box radius to avoid corner bleed */
+}
 #mainview h1 { font-size: 2rem !important; margin: 1.5rem 0 1rem !important; padding-bottom: .3em; border-bottom: 0.0625rem solid var(--hr); }
 #mainview h2 { font-size: 1.5rem !important; margin: 1.25rem 0 0.75rem !important; padding-bottom: .2em; border-bottom: 0.0625rem solid var(--hr); }
 #mainview h3 { font-size: 1.25rem !important; margin: 1rem 0 0.5rem !important; }
@@ -134,22 +202,58 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Ar
 #mainview ul, #mainview ol { margin: 0.75rem 0 0.75rem 1.5em !important; }
 
 /* Links */
-a:hover { text-decoration: none !important; }
+a:hover { text-decoration: underline !important; }
+/* Visited and external markers (subtle, GitHub-like) */
+/* Keep visited links same as regular link color (no purple) */
+a:visited { color: var(--primary) !important; }
+/* external link arrow for target=_blank */
+a[target="_blank"]::after { content: " \2197"; font-size: .85em; opacity: .6; margin-left: .15em; }
+/* Slightly stronger focus for dense link areas */
+.tabs .tab:focus-visible,
+.index a:focus-visible,
+.sidebar a:focus-visible,
+.pagination a:focus-visible { outline: 0.125rem solid var(--primary) !important; outline-offset: 0.125rem !important; border-radius: 0.375rem; }
 
 /* Inline code and code blocks */
-code { background-color: var(--code-bg) !important; color: var(--code-text) !important; font-size: .9em !important; border: 0.0625rem solid var(--border) !important; border-radius: 0.375rem !important; padding: .15em .35em !important; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace !important; }
-pre { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 0.0625rem solid var(--border) !important; box-shadow: none !important; border-radius: 0.375rem !important; font-size: 0.92rem !important; line-height: 1.45 !important; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace !important; }
+code { background-color: var(--code-bg) !important; color: var(--code-text) !important; font-size: .85em !important; border: 0.0625rem solid var(--border) !important; border-radius: 0.375rem !important; padding: .15em .35em !important; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace !important; }
+pre { background-color: var(--code-bg) !important; color: var(--code-text) !important; border: 0.0625rem solid var(--border) !important; box-shadow: none !important; border-radius: 0.375rem !important; font-size: 0.95rem !important; line-height: 1.55 !important; font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, "Liberation Mono", monospace !important; }
+/* Desktop: make code blocks slightly smaller while preserving gutter alignment */
+@media (min-width: 40rem) {
+  pre { font-size: 0.9rem !important; }
+}
+/* Avoid nested frame: remove code background/border inside pre; ensure font-size matches pre for gutter alignment */
+pre code { background: transparent !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; color: inherit !important; font-size: 1em !important; }
 
 /* Search input and buttons */
-#searchbox input[type="search"] { background: var(--bg) !important; border-color: var(--border) !important; border-radius: 0.375rem !important; }
-#tools .btn { background: var(--bg) !important; border-color: var(--border) !important; border-radius: 0.375rem !important; }
-#tools .btn:hover { background: color-mix(in srgb, var(--text) 6%, transparent) !important; }
+#searchbox input[type="search"] { background: var(--card) !important; border-color: var(--border) !important; border-radius: 0.375rem !important; }
+#tools .btn { background: var(--card) !important; border-color: var(--border) !important; border-radius: 0.375rem !important; }
+#tools .btn:hover { background: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+/* Fallback for color-mix */
+#tools .btn:hover { background: #eaf2ff !important; }
+[data-theme="dark"] #tools .btn:hover { background: rgba(56,139,253,0.10) !important; }
 
 /* Focus visible ring */
 a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 0.125rem solid var(--primary) !important; outline-offset: 0.125rem !important; }
 
-/* Tags as subtle labels */
-.index .tag, .tags .tag { background: color-mix(in srgb, var(--primary) 14%, transparent) !important; color: var(--text) !important; border: 0.0625rem solid var(--border) !important; }
+/* Tags as GitHub-like small labels */
+.index .tag, .tags .tag {
+  background: #f6f8fa !important;
+  color: var(--text) !important;
+  border: 0.0625rem solid var(--border) !important;
+  font-size: .75rem !important;
+  line-height: 1 !important;
+  padding: .15rem .4rem !important;
+  border-radius: .375rem !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+[data-theme="dark"] .index .tag,
+[data-theme="dark"] .tags .tag {
+  background: rgba(110,118,129,0.20) !important;
+  color: var(--text) !important;
+  border-color: #30363d !important;
+}
+/* (removed) old primary-tinted tag backgrounds; replaced with GitHub-like neutral labels */
 
 /* Notices */
 .notice { border-color: var(--border) !important; background: var(--card) !important; }
@@ -163,9 +267,11 @@ hr { border-top-color: var(--hr) !important; }
 
 /* Index list refinements */
 .index .card-title { color: var(--text) !important; }
-.index .card-excerpt { color: var(--muted) !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.index .card-excerpt { color: var(--muted) !important; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .index .card-meta { color: var(--muted) !important; font-size: 0.75rem !important; letter-spacing: .02em; text-transform: none !important; }
 .index .card-meta .card-sep { display: inline-block; opacity: .6; }
+
+/* Hide theme-driven cover images across GitHub theme */
 
 /* Sidebar: no border and no background */
 .sidebar .box { border: none !important; background: transparent !important; box-shadow: none !important; }
@@ -173,3 +279,90 @@ hr { border-top-color: var(--hr) !important; }
 /* Sidebar left-aligned content for GitHub theme */
 .site-card .avatar { margin: 0 !important; }
 .site-card .site-title, .site-card .site-subtitle, .site-card .social-links { text-align: left !important; }
+
+/* GitHub-like Tag Sidebar */
+#tagview .section-title { font-weight: 600 !important; font-size: .92rem !important; color: var(--muted) !important; margin-bottom: 0.5rem !important; letter-spacing: .01em !important; }
+#tagview .tagbox { display: block !important; }
+#tagview .tag-list { list-style: none !important; padding: 0 !important; margin: 0 !important; }
+/* Single column, compact stack */
+#tagview .tag-list.compact { display: block !important; }
+#tagview .tag-list.compact > li { margin: 0 0 .25rem 0 !important; }
+
+#tagview .tag-link { 
+  display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 0.5rem !important; 
+  padding: 0.35rem 0.5rem !important; 
+  border: 0.0625rem solid transparent !important; 
+  border-radius: 0.375rem !important; 
+  background: transparent !important; 
+  color: var(--text) !important; text-decoration: none !important; 
+}
+#tagview .tag-link:hover { background: color-mix(in srgb, var(--text) 4%, transparent) !important; border-color: var(--border) !important; }
+#tagview .tag-link.active {
+  background: transparent !important;
+  border-color: var(--primary) !important;
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+}
+#tagview .tag-name { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; flex: 1 1 auto !important; min-width: 0 !important; }
+#tagview .tag-count { font-size: .75rem !important; color: var(--muted) !important; background: color-mix(in srgb, var(--text) 6%, transparent) !important; padding: .05rem .4rem !important; border-radius: 999px !important; min-width: 1.5rem !important; text-align: center !important; }
+
+#tagview .tag-toggle { margin-top: 0.25rem !important; width: 100% !important; padding: .4rem .6rem !important; border-radius: 0.375rem !important; border: 0.0625rem solid var(--border) !important; background: var(--bg) !important; color: var(--text) !important; cursor: pointer !important; }
+#tagview .tag-toggle:hover { background: color-mix(in srgb, var(--text) 4%, transparent) !important; }
+
+/* Collapsed gradient hint (subtle) */
+#tagview .tag-list.compact.is-collapsed { max-height: 9.5rem !important; overflow: hidden !important; position: relative !important; }
+#tagview .tag-list.compact::after { content: '' !important; position: absolute !important; left: 0; right: 0; bottom: 0; height: 1.5rem; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--bg) 85%) !important; opacity: 1 !important; }
+
+/* Tooltip for truncated tags (flat, GitHub-like) */
+.tag-tooltip { position: fixed; z-index: 1000; background: var(--card); border: 0.0625rem solid var(--border); border-radius: 0.375rem !important; padding: 0.4rem 0.6rem; font-size: 0.85rem; color: var(--text); box-shadow: none !important; pointer-events: none; opacity: 0; transform: translateY(-0.25rem); transition: opacity 0.2s ease, transform 0.2s ease; white-space: normal; line-height: 1.35; max-width: min(28rem, 90vw); overflow-wrap: anywhere; word-break: break-word; }
+.tag-tooltip.show { opacity: 1; transform: translateY(0); }
+.tag-tooltip::before { content: ''; position: absolute; bottom: -0.3125rem; left: var(--arrow-pct, 50%); transform: translateX(-50%); width: 0; height: 0; border-left: 0.3125rem solid transparent; border-right: 0.3125rem solid transparent; border-top: 0.3125rem solid var(--border); }
+.tag-tooltip::after { content: ''; position: absolute; bottom: -0.25rem; left: var(--arrow-pct, 50%); transform: translateX(-50%); width: 0; height: 0; border-left: 0.25rem solid transparent; border-right: 0.25rem solid transparent; border-top: 0.25rem solid var(--card); }
+.tag-tooltip.below::before { top: -0.3125rem; bottom: auto; border-top: none; border-bottom: 0.3125rem solid var(--border); }
+.tag-tooltip.below::after { top: -0.25rem; bottom: auto; border-top: none; border-bottom: 0.25rem solid var(--card); }
+/* --- Animation/transition removal for GitHub theme --- */
+/* Disable smooth scrolling to match GitHub's snappy feel */
+html { scroll-behavior: auto !important; }
+
+/* Turn off transitions/animations on common interactive elements */
+.tabs, .tab, .tabs *,
+.index a, .index a *,
+.link-card, .link-card *,
+#tools .btn, #tools .btn *,
+.pagination a, .pagination span,
+.notice, .notice *,
+pre, pre *,
+code,
+img, .card-cover, .post-img,
+.ph-skeleton::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Progressive enhancement: allow no-cover class as non-:has() fallback */
+.index a.no-cover {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: auto auto auto auto !important;
+  grid-template-areas:
+    "title"
+    "excerpt"
+    "meta"
+    "tags" !important;
+}
+
+/* Motion reduction for users preferring less animation */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  .index a:hover { transform: none !important; box-shadow: none !important; }
+  .index .card-cover { transition: none !important; }
+}
+
+/* Print styles: focus on main content */
+@media print {
+  body { background: #ffffff !important; }
+  .sidebar, .hero, #searchbox, #tagview, #tools, .tabs, .site-footer { display: none !important; }
+  .container { max-width: 100% !important; gap: 0 !important; }
+  .content { flex: 1 1 auto !important; }
+  .box { box-shadow: none !important; border-color: #cccccc !important; }
+  a[href]::after { content: " (" attr(href) ")"; font-size: .85em; color: #6b7280; }
+}
