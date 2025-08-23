@@ -1,7 +1,4 @@
 [
   { "value": "minimalism", "label": "Minimalism" },
-  { "value": "native", "label": "Native" },
-  { "value": "github", "label": "GitHub" },
-  { "value": "apple",  "label": "Apple" },
-  { "value": "openai", "label": "OpenAI" }
+  { "value": "github", "label": "GitHub" }
 ]
