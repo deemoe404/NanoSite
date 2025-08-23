@@ -211,6 +211,56 @@ function ensureAutoHeight(el) {
 
 // --- Site config (root-level site.yaml) ---
 let siteConfig = {};
+
+// --- Feature helpers: landing tab and posts visibility ---
+function postsEnabled() {
+  try {
+    // Support multiple config keys for flexibility: showAllPosts (preferred), enableAllPosts, disableAllPosts
+    if (siteConfig && typeof siteConfig.showAllPosts === 'boolean') return !!siteConfig.showAllPosts;
+    if (siteConfig && typeof siteConfig.enableAllPosts === 'boolean') return !!siteConfig.enableAllPosts;
+    if (siteConfig && typeof siteConfig.disableAllPosts === 'boolean') return !siteConfig.disableAllPosts;
+  } catch (_) {}
+  return true; // default: enabled
+}
+
+function resolveLandingSlug() {
+  try {
+    const v = siteConfig && (siteConfig.landingTab || siteConfig.landing || siteConfig.homeTab || siteConfig.home);
+    if (!v) return null;
+    const wanted = String(v).trim().toLowerCase();
+    if (!wanted) return null;
+    // Prefer direct slug match
+    if (tabsBySlug && tabsBySlug[wanted]) return wanted;
+    // Fallback: match by displayed title (case-insensitive)
+    for (const [slug, info] of Object.entries(tabsBySlug || {})) {
+      const title = (info && info.title ? String(info.title) : '').trim().toLowerCase();
+      if (title && title === wanted) return slug;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function getHomeSlug() {
+  try {
+    // Always prefer explicit landingTab when provided
+    const explicit = resolveLandingSlug();
+    if (explicit) return explicit;
+    // Otherwise, default to posts when enabled, else first static tab or search
+    if (postsEnabled()) return 'posts';
+    return Object.keys(tabsBySlug || {})[0] || 'search';
+  } catch (_) { return 'search'; }
+}
+
+function getHomeLabel() {
+  const slug = getHomeSlug();
+  if (slug === 'posts') return t('ui.allPosts');
+  if (slug === 'search') return t('ui.searchTab');
+  try { return (tabsBySlug && tabsBySlug[slug] && tabsBySlug[slug].title) || slug; } catch (_) { return slug; }
+}
+
+// Expose a minimal API that other modules can consult if needed
+try { window.__ns_get_home_slug = () => getHomeSlug(); } catch (_) {}
+try { window.__ns_posts_enabled = () => postsEnabled(); } catch (_) {}
 async function loadSiteConfig() {
   try {
     // YAML only
@@ -836,9 +886,17 @@ function renderTabs(activeSlug, searchQuery) {
   return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${label}</a>`;
   };
   
-  // Build full tab list first
-  let html = make('posts', t('ui.allPosts'));
-  for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
+  // Build full tab list first (home first, optionally include All Posts if enabled), then other tabs
+  const homeSlug = getHomeSlug();
+  const homeLabel = getHomeLabel();
+  let html = make(homeSlug, homeLabel);
+  if (postsEnabled() && homeSlug !== 'posts') {
+    html += make('posts', t('ui.allPosts'));
+  }
+  for (const [slug, info] of Object.entries(tabsBySlug)) {
+    if (slug === homeSlug) continue;
+    html += make(slug, info.title);
+  }
   if (activeSlug === 'search') {
     const sp = new URLSearchParams(window.location.search);
     const tag = (sp.get('tag') || '').trim();
@@ -876,8 +934,8 @@ function renderTabs(activeSlug, searchQuery) {
   try {
     const containerWidth = ((nav.parentElement && nav.parentElement.getBoundingClientRect && nav.parentElement.getBoundingClientRect().width) || nav.clientWidth || 0);
     const fullWidth = measureWidth(html);
-    // Build compact HTML candidate
-    let compact = make('posts', t('ui.allPosts'));
+    // Build compact HTML candidate: Home + active only
+    let compact = make(homeSlug, homeLabel);
     if (activeSlug === 'search') {
       const sp = new URLSearchParams(window.location.search);
       const tag = (sp.get('tag') || '').trim();
@@ -900,7 +958,7 @@ function renderTabs(activeSlug, searchQuery) {
       if (activeSlug === 'post') {
         const raw = String(searchQuery || t('ui.postTab')).trim();
         const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
-        compact = make('posts', t('ui.allPosts')) + `<span class="tab active" data-slug="post">${label}</span>`;
+        compact = make(homeSlug, homeLabel) + `<span class="tab active" data-slug="post">${label}</span>`;
       } else if (activeSlug === 'search') {
         const sp = new URLSearchParams(window.location.search);
         const tag = (sp.get('tag') || '').trim();
@@ -908,7 +966,7 @@ function renderTabs(activeSlug, searchQuery) {
         const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
         const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
         const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-        compact = make('posts', t('ui.allPosts')) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+        compact = make(homeSlug, homeLabel) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
       }
     }
 
@@ -1112,13 +1170,20 @@ function setupTabHoverEffects(nav) {
 function renderFooterNav() {
   const nav = document.getElementById('footerNav');
   if (!nav) return;
-  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : 'posts')).toLowerCase();
+  const defaultTab = getHomeSlug();
+  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : defaultTab)).toLowerCase();
   const make = (href, label, cls = '') => `<a class="${cls}" href="${withLangParam(href)}">${label}</a>`;
   const isActive = (slug) => currentTab === slug;
   let html = '';
-  html += make('?tab=posts', t('ui.allPosts'), isActive('posts') ? 'active' : '');
+  const homeSlug = getHomeSlug();
+  const homeLabel = getHomeLabel();
+  html += make(`?tab=${encodeURIComponent(homeSlug)}`, homeLabel, isActive(homeSlug) ? 'active' : '');
+  if (postsEnabled() && homeSlug !== 'posts') {
+    html += ' ' + make('?tab=posts', t('ui.allPosts'), isActive('posts') ? 'active' : '');
+  }
   // (Search link intentionally omitted in footer)
   for (const [slug, info] of Object.entries(tabsBySlug)) {
+    if (slug === homeSlug) continue;
     const href = `?tab=${encodeURIComponent(slug)}`;
     const label = info && info.title ? info.title : slug;
     html += ' ' + make(href, label, isActive(slug) ? 'active' : '');
@@ -1352,8 +1417,9 @@ function displayPost(postname) {
     } catch (_) {}
 
     document.getElementById('tocview').innerHTML = '';
-    const backHref = withLangParam('?tab=posts');
-    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
+    const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
+    const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
+    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
     setDocTitle(t('ui.notFound'));
     const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothHide(searchBox);
@@ -1528,8 +1594,9 @@ function displaySearch(query) {
   html += '</div>';
 
   if (total === 0) {
-    const backHref = withLangParam('?tab=posts');
-    html = `<div class=\"notice\"><h3>${t('ui.noResultsTitle')}</h3><p>${t('ui.noResultsBody', escapeHtml(q))} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
+    const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
+    const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
+    html = `<div class=\"notice\"><h3>${t('ui.noResultsTitle')}</h3><p>${t('ui.noResultsBody', escapeHtml(q))} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
   } else if (totalPages > 1) {
     const encQ = encodeURIComponent(q);
     const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=search&q=${encQ}&page=${p}`)}\">${label}</a>`;
@@ -1705,7 +1772,11 @@ function routeAndRender() {
       history.replaceState({}, '', url.toString());
     }
   } catch (_) {}
-  const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
+  const tabParam = (getQueryVariable('tab') || '').toLowerCase();
+  const homeSlug = getHomeSlug();
+  let tab = tabParam || homeSlug;
+  // If posts are disabled but someone navigates to ?tab=posts, treat it as home
+  if (!postsEnabled() && tab === 'posts') tab = homeSlug;
   const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
 
   // Capture current navigation state for error reporting
