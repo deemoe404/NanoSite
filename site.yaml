@@ -39,7 +39,7 @@ contentRoot: wwwroot      # Root directory for content files
 
 # Theme override configurations
 themeMode: user
-themePack: minimalism
+themePack: native
 themeOverride: true
 
 # Maintenance configurations
