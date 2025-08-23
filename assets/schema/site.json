@@ -107,6 +107,22 @@
       "minimum": 1,
       "description": "Number of items per page for listings."
     },
+    "showAllPosts": {
+      "type": "boolean",
+      "description": "Whether to show the All Posts tab and index (default true)."
+    },
+    "enableAllPosts": {
+      "type": "boolean",
+      "description": "Alias of showAllPosts (true to enable)."
+    },
+    "disableAllPosts": {
+      "type": "boolean",
+      "description": "Inverse of showAllPosts (true to hide)."
+    },
+    "landingTab": {
+      "type": "string",
+      "description": "Slug or title of a tabs.yaml-defined page to use as the landing tab (applies regardless of showAllPosts)."
+    },
     "postsPerPage": {
       "type": "integer",
       "minimum": 1,
