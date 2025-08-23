@@ -44,3 +44,6 @@ assetWarnings:
   largeImage:
     enabled: true
     thresholdKB: 500
+
+landingTab: About   # Set to a tab slug or title defined in tabs.yaml
+showAllPosts: true      # Set to false to hide the All Posts tab/index
