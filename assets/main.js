@@ -761,6 +761,7 @@ function hydrateInternalLinkCards(container) {
   const href = withLangParam(`?id=${encodeURIComponent(loc)}`);
       const tagsHtml = meta ? renderTags(meta.tag) : '';
       const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
+      const draftHtml = meta && meta.draft ? `<span class="card-draft">${t('ui.draftBadge')}</span>` : '';
       // Allow relative frontmatter image (e.g., 'cover.jpg'); resolve against the post's folder
       const rawCover = meta && (meta.thumb || meta.cover || meta.image);
       let coverSrc = rawCover;
@@ -777,7 +778,8 @@ function hydrateInternalLinkCards(container) {
 
       const wrapper = document.createElement('div');
       wrapper.className = 'link-card-wrap';
-      wrapper.innerHTML = `<a class="link-card" href="${href}">${cover}<div class="card-title">${escapeHtml(title)}</div><div class="card-excerpt">${t('ui.loading')}</div><div class="card-meta">${dateHtml}</div>${tagsHtml}</a>`;
+      const initialMeta = [dateHtml, draftHtml].filter(Boolean).join('<span class="card-sep">•</span>');
+      wrapper.innerHTML = `<a class="link-card" href="${href}">${cover}<div class="card-title">${escapeHtml(title)}</div><div class="card-excerpt">${t('ui.loading')}</div><div class="card-meta">${initialMeta}</div>${tagsHtml}</a>`;
 
       // If index metadata provides an explicit excerpt, prefer it immediately
       try {
@@ -831,12 +833,12 @@ function hydrateInternalLinkCards(container) {
         const metaEl = card.querySelector('.card-meta');
         if (metaEl) {
           const readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
-          if (metaEl.querySelector('.card-date')) {
-            const dEl = metaEl.querySelector('.card-date');
-            metaEl.innerHTML = `${dEl.outerHTML}<span class="card-sep">•</span>${readHtml}`;
-          } else {
-            metaEl.innerHTML = readHtml;
-          }
+          const dEl = metaEl.querySelector('.card-date');
+          const parts = [];
+          if (dEl && dEl.textContent.trim()) parts.push(dEl.outerHTML);
+          parts.push(readHtml);
+          if (meta && meta.draft) parts.push(`<span class="card-draft">${t('ui.draftBadge')}</span>`);
+          metaEl.innerHTML = parts.join('<span class="card-sep">•</span>');
         }
       }).catch(() => {});
     });
@@ -1461,7 +1463,12 @@ function displayIndex(parsed) {
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
     const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
     const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
-    const metaInner = dateHtml + (dateHtml && versionsHtml ? `<span class=\"card-sep\">•</span>` : '') + (versionsHtml || '');
+    const draftHtml = (value && value.draft) ? `<span class=\"card-draft\">${t('ui.draftBadge')}</span>` : '';
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (versionsHtml) parts.push(versionsHtml);
+    if (draftHtml) parts.push(draftHtml);
+    const metaInner = parts.join('<span class=\"card-sep\">•</span>');
     html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
   }
   html += '</div>';
@@ -1526,6 +1533,7 @@ function displayIndex(parsed) {
         if (dateEl && dateEl.textContent.trim()) parts.push(dateEl.outerHTML);
         parts.push(readHtml);
         if (versionsHtml) parts.push(versionsHtml);
+        if (meta && meta.draft) parts.push(`<span class=\"card-draft\">${t('ui.draftBadge')}</span>`);
         metaEl.innerHTML = parts.join('<span class=\"card-sep\">•</span>');
       }
   // Recompute masonry span for the updated card
@@ -1588,7 +1596,12 @@ function displaySearch(query) {
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
     const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
     const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
-    const metaInner = dateHtml + (dateHtml && versionsHtml ? `<span class=\"card-sep\">•</span>` : '') + (versionsHtml || '');
+    const draftHtml = (value && value.draft) ? `<span class=\"card-draft\">${t('ui.draftBadge')}</span>` : '';
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (versionsHtml) parts.push(versionsHtml);
+    if (draftHtml) parts.push(draftHtml);
+    const metaInner = parts.join('<span class=\"card-sep\">•</span>');
     html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
   }
   html += '</div>';
@@ -1658,6 +1671,7 @@ function displaySearch(query) {
         if (dateEl && dateEl.textContent.trim()) parts.push(dateEl.outerHTML);
         parts.push(readHtml);
         if (versionsHtml) parts.push(versionsHtml);
+        if (meta && meta.draft) parts.push(`<span class=\"card-draft\">${t('ui.draftBadge')}</span>`);
         metaEl.innerHTML = parts.join('<span class=\"card-sep\">•</span>');
       }
   const container = document.querySelector('.index');
