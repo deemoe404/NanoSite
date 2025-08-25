@@ -477,6 +477,16 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   #mainview .post-outdated-card { transition: none; }
   #mainview .post-outdated-card .post-outdated-close { transition: none; }
 }
+#mainview .post-meta-card .post-draft-notice {
+  /* Remove the framed box; use accent color for text only */
+  border: none;
+  background: transparent;
+  color: #b45309; /* amber-700 like accent for visibility */
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.92rem;
+  margin: 0.125rem 0 0.35rem;
+}
 #mainview .post-meta-card .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0; }
 #mainview .post-meta-card .tag { font-size: .8rem; }
 
@@ -529,6 +539,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index .card-excerpt { padding: 0 0.875rem 0.625rem; color: var(--muted); font-size: .92rem; line-height: 1.5; max-height: 4.5em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; }
 .index .card-meta { padding: 0.375rem 0.875rem 0.625rem; color: var(--muted); font-size: .72rem; display:flex; align-items:center; gap:0.5rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; border-top: 0.0625rem solid var(--border); margin-top: 0.25rem; opacity: .9; }
 .index .card-sep { opacity: .6; margin: 0 0.125rem; }
+.index .card-draft, #mainview .link-card .card-draft { display:inline-block; padding: 0.075rem 0.35rem; border-radius: 0.35rem; font-weight: 800; color: #b45309; background: color-mix(in srgb, #f59e0b 18%, var(--card)); border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border)); font-size: .72rem; letter-spacing: .04em; }
 .index .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0 0.875rem 0.875rem; }
 .index .tag, .tags .tag { display:inline-block; margin: 0; font-size:.8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.1rem .4rem; border-radius: 999px; }
 
