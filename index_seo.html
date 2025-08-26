@@ -126,7 +126,7 @@
         .gh-controls { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
         .gh-field { display:flex; align-items:center; border:1px solid #d0d7de; background:#fff; border-radius:6px; overflow:hidden; height: 2.1rem; box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
         .gh-prefix { height:100%; display:flex; align-items:center; padding:0 0.5rem; color:#57606a; background:#f6f8fa; border-right:1px solid #d0d7de; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; }
-        .gh-input { border:0; outline:none; padding:0 0.5rem; min-width:16rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; height:100%; }
+        .gh-input { border:0; outline:none; padding:0 0.5rem; min-width:16rem; flex:1 1 auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; height:100%; }
         .gh-field.error { border-color:#ef4444; background:#fff7f7; }
         .gh-field.valid { border-color:#1f883d; }
         .gh-select { border:1px solid #d0d7de; background:#fff; border-radius:6px; padding:0.35rem 2rem 0.35rem 0.6rem; min-width:12rem; height:2.1rem; outline:none; transition: border-color .15s ease, box-shadow .15s ease; -webkit-appearance:none; appearance:none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'%3E%3Cpath fill='%2357606a' d='M5.516 7.548a.75.75 0 0 1 1.06 0L10 10.97l3.424-3.424a.75.75 0 1 1 1.06 1.06l-3.954 3.955a.75.75 0 0 1-1.06 0L5.516 8.608a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position: right .5rem center; box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
@@ -136,6 +136,10 @@
         .btn-gh:hover { background:#1a7f37; }
         .btn-gh:active { background:#187432; }
         .btn-gh:disabled { background:#94d3a2; cursor:not-allowed; }
+        .gh-inline-action { height:100%; padding:0 .55rem; border:0; border-left:1px solid #d0d7de; background:transparent; color:#0969da; cursor:pointer; }
+        .gh-inline-action:hover { background:#f6f8fa; color:#054da7; }
+        .btn-link { background:transparent; border:none; color:#0969da; cursor:pointer; padding:0 .25rem; height:2.1rem; text-decoration:underline; }
+        .btn-link:hover { color:#054da7; text-decoration:underline; }
         .gh-status { display:flex; gap:0.5rem; align-items:center; min-height:1.2rem; margin-top:0.5rem; }
         .badge { display:inline-flex; align-items:center; gap:0.4rem; padding:0.12rem 0.5rem; border-radius:999px; font-size:0.75rem; line-height:1; }
         .badge.ok { background:#e8f5e9; color:#16a34a; }
@@ -205,11 +209,12 @@
             <div class="gh-field">
                 <span class="gh-prefix">@</span>
                 <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^\/\s]+\/[^\/\s]+$">
+                <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
             </div>
             <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
                 <option value="" selected>Loading branches…</option>
             </select>
-            <div class="gh-actions">
+            <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
                 <button id="gh-save" class="btn-gh" type="button">Check</button>
             </div>
         </div>
@@ -270,8 +275,7 @@
                 <button class="btn-primary" onclick="generateSitemap()">Generate Sitemap</button>
                 <button class="btn-secondary" onclick="copySitemap()">Copy to Clipboard</button>
                 <button class="btn-secondary" onclick="downloadSitemap()">Download File</button>
-                <button class="btn-secondary" onclick="openSitemapNew()">Open on GitHub (new)</button>
-                <button class="btn-secondary" onclick="openSitemapEdit()">Open on GitHub (edit root/sitemap.xml)</button>
+                <button id="sitemap-gh-btn" class="btn-secondary" disabled title="Configure GitHub destination first">Open on GitHub</button>
             </div>
             <div id="sitemap-status"></div>
             
@@ -300,8 +304,7 @@
                 <button class="btn-primary" onclick="generateRobots()">Generate Robots.txt</button>
                 <button class="btn-secondary" onclick="copyRobots()">Copy to Clipboard</button>
                 <button class="btn-secondary" onclick="downloadRobots()">Download File</button>
-                <button class="btn-secondary" onclick="openRobotsNew()">Open on GitHub (new)</button>
-                <button class="btn-secondary" onclick="openRobotsEdit()">Open on GitHub (edit root/robots.txt)</button>
+                <button id="robots-gh-btn" class="btn-secondary" disabled title="Configure GitHub destination first">Open on GitHub</button>
             </div>
             <div id="robots-status"></div>
             
@@ -564,7 +567,7 @@
             return { owner: parts[0] || '', repo: parts[1] || '' };
         }
 
-        function readGhRepoCfg() {
+        function readGhRepoCfg(hydrate = true) {
             const storedSlug = localStorage.getItem('gh_slug');
             let owner = '', repo = '';
             if (storedSlug) {
@@ -576,8 +579,21 @@
             const branch = localStorage.getItem('gh_branch') || 'main';
             const $ = id => document.getElementById(id);
             const slugVal = owner && repo ? `${owner}/${repo}` : '';
-            if ($('gh-slug')) { $('gh-slug').value = slugVal; }
-            if ($('gh-branch')) { $('gh-branch').value = branch; }
+            if (hydrate) {
+                if ($('gh-slug')) { $('gh-slug').value = slugVal; }
+                if ($('gh-branch')) { $('gh-branch').value = branch; }
+            }
+            return { owner, repo, branch };
+        }
+        function getGhCfgFromUIOrStorage() {
+            const slugEl = document.getElementById('gh-slug');
+            const branchEl = document.getElementById('gh-branch');
+            let owner = '', repo = '', branch = '';
+            if (slugEl && slugEl.value) { ({ owner, repo } = parseSlug(slugEl.value)); }
+            if (branchEl && branchEl.value) branch = branchEl.value;
+            const stored = readGhRepoCfg(false);
+            if (!owner || !repo) { owner = stored.owner; repo = stored.repo; }
+            if (!branch) { branch = stored.branch; }
             return { owner, repo, branch };
         }
         window.saveGhRepoCfg = function () {
@@ -801,6 +817,7 @@
                 setFieldStatus('gh-branch-status', 'ok', `${branches.length} branches`);
                 repoIsValid = true;
                 updateSaveEnabled();
+                updateGhActionButtons();
             } catch (e) {
                 setFieldStatus('gh-branch-status', 'err', `Failed to load branches: ${e.message}`);
                 repoIsValid = false;
@@ -834,7 +851,7 @@
             slugInput.addEventListener('blur', validateSlugAndLoadBranches);
         }
         if (branchInput) {
-            branchInput.addEventListener('change', updateSaveEnabled);
+            branchInput.addEventListener('change', () => { updateSaveEnabled(); updateGhActionButtons(); });
         }
         if (saveBtn) {
             setSaveMode('check'); // default until validated
@@ -884,6 +901,38 @@
             document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); });
         })();
 
+        // Revert from site.yaml
+        (function initRevertFromSiteYaml(){
+            const btn = document.getElementById('gh-revert');
+            if (!btn) return;
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const slugEl = document.getElementById('gh-slug');
+                const branchEl = document.getElementById('gh-branch');
+                // Clear status
+                setFieldStatus('gh-slug-status', null, '');
+                setFieldStatus('gh-branch-status', null, '');
+                try {
+                    const cfg = await loadSiteConfigFlex();
+                    const inferred = getGhConfigFromSiteYaml(cfg);
+                    if (!inferred || !inferred.owner || !inferred.repo) {
+                        setFieldStatus('gh-slug-status', 'err', 'No GitHub repository found in site.yaml');
+                        return;
+                    }
+                    if (slugEl) slugEl.value = `${inferred.owner}/${inferred.repo}`;
+                    if (branchEl) { branchEl.value = (inferred.branch || 'main'); branchEl.disabled = true; branchEl.innerHTML = '<option value="" selected>Loading branches…</option>'; }
+                    // Trigger validation + branch loading based on new values
+                    await validateSlugAndLoadBranches();
+                    // Auto-save after successful validation and branch resolution
+                    if (slugEl && slugEl.value && branchEl && branchEl.value) {
+                        saveGhRepoCfg();
+                    }
+                } catch (err) {
+                    setFieldStatus('gh-slug-status', 'err', 'Failed to read site.yaml');
+                }
+            });
+        })();
+
         // Initial validation/population if we already have a slug
         // Initial check (if slug already present), but not while typing
         validateSlugAndLoadBranches();
@@ -914,43 +963,93 @@
 
         // Sitemap new/edit
         window.openSitemapNew = function() {
-            const cfg = readGhRepoCfg();
+            const cfg = getGhCfgFromUIOrStorage();
             const content = document.getElementById('sitemapOutput').value || '';
             if (!cfg.owner || !cfg.repo) return alert('Please fill owner/repo/branch first');
             safeOpenNewWithContent(cfg, '', 'sitemap.xml', content);
         };
         window.openSitemapEdit = function() {
-            const cfg = readGhRepoCfg();
+            const cfg = getGhCfgFromUIOrStorage();
             if (!cfg.owner || !cfg.repo) return alert('Please fill owner/repo/branch first');
             openUrl(ghEditUrl(cfg, 'sitemap.xml'));
         };
 
         // Robots new/edit
         window.openRobotsNew = function() {
-            const cfg = readGhRepoCfg();
+            const cfg = getGhCfgFromUIOrStorage();
             const content = document.getElementById('robotsOutput').value || '';
             if (!cfg.owner || !cfg.repo) return alert('Please fill owner/repo/branch first');
             safeOpenNewWithContent(cfg, '', 'robots.txt', content);
         };
         window.openRobotsEdit = function() {
-            const cfg = readGhRepoCfg();
+            const cfg = getGhCfgFromUIOrStorage();
             if (!cfg.owner || !cfg.repo) return alert('Please fill owner/repo/branch first');
             openUrl(ghEditUrl(cfg, 'robots.txt'));
         };
 
         // Meta: open index.html for manual paste
         window.openIndexHtmlEdit = function() {
-            const cfg = readGhRepoCfg();
+            const cfg = getGhCfgFromUIOrStorage();
             if (!cfg.owner || !cfg.repo) return alert('Please fill owner/repo/branch first');
             openUrl(ghEditUrl(cfg, 'index.html'));
         };
 
         // Optional: upload images/assets shortcut
         window.openUploadAssets = function() {
-            const cfg = readGhRepoCfg();
+            const cfg = getGhCfgFromUIOrStorage();
             if (!cfg.owner || !cfg.repo) return alert('Please fill owner/repo/branch first');
             openUrl(ghUploadUrl(cfg, 'assets'));
         };
+
+        // ---- GitHub file existence checks -> update action buttons ----
+        async function ghFileExists({owner, repo, branch}, path) {
+            try {
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path.replace(/^\/+/, '')}?ref=${encodeURIComponent(branch)}`;
+                const r = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+                if (r.status === 404) return false;
+                return r.ok;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function setGhBtnState(btn, exists, path, onNew, onEdit) {
+            if (!btn) return;
+            btn.disabled = false;
+            if (exists) {
+                btn.textContent = `Edit on GitHub`;
+                btn.onclick = onEdit;
+                btn.title = `Edit ${path} on GitHub`;
+                btn.setAttribute('aria-label', `Edit ${path} on GitHub`);
+            } else {
+                btn.textContent = 'Create on GitHub';
+                btn.onclick = onNew;
+                btn.title = `Create ${path} on GitHub`;
+                btn.setAttribute('aria-label', `Create ${path} on GitHub`);
+            }
+        }
+
+        async function updateGhActionButtons() {
+            const cfg = getGhCfgFromUIOrStorage();
+            const sitemapBtn = document.getElementById('sitemap-gh-btn');
+            const robotsBtn = document.getElementById('robots-gh-btn');
+            const hasCfg = !!(cfg.owner && cfg.repo && cfg.branch);
+            if (sitemapBtn) sitemapBtn.disabled = !hasCfg;
+            if (robotsBtn) robotsBtn.disabled = !hasCfg;
+            if (!hasCfg) return;
+            try {
+                const [siteExists, robotsExists] = await Promise.all([
+                    ghFileExists(cfg, 'sitemap.xml'),
+                    ghFileExists(cfg, 'robots.txt')
+                ]);
+                setGhBtnState(sitemapBtn, siteExists, 'sitemap.xml', window.openSitemapNew, window.openSitemapEdit);
+                setGhBtnState(robotsBtn, robotsExists, 'robots.txt', window.openRobotsNew, window.openRobotsEdit);
+            } catch (_) {
+                // On error, leave buttons enabled but default to "new"
+                if (sitemapBtn) setGhBtnState(sitemapBtn, false, 'sitemap.xml', window.openSitemapNew, window.openSitemapEdit);
+                if (robotsBtn) setGhBtnState(robotsBtn, false, 'robots.txt', window.openRobotsNew, window.openRobotsEdit);
+            }
+        }
 
         // Download functions
         window.downloadSitemap = function() {
