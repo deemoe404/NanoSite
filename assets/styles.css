@@ -467,6 +467,8 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.25rem 0 1rem;
   position: relative;
 }
+/* Add more spacing before the bottom meta card */
+#mainview .post-meta-card.post-meta-bottom { margin-top: 48px; }
 .post-meta-title {
   font-size: 1.5rem;
   font-weight: 800;
