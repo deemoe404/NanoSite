@@ -235,17 +235,36 @@ export function initSyntaxHighlighting() {
         break;
       }
     }
+    // 允许通过标记禁用高亮和复制：`nohighlight`、`plain`、`text` 或 data-nohighlight
+    const hasNoHighlightFlag = (
+      preElement.classList.contains('nohighlight') ||
+      codeElement.classList.contains('nohighlight') ||
+      codeElement.hasAttribute('data-nohighlight') ||
+      preElement.hasAttribute('data-nohighlight') ||
+      codeElement.classList.contains('plain') ||
+      codeElement.classList.contains('text') ||
+      classList.includes('language-plain') ||
+      classList.includes('language-text') ||
+      classList.includes('language-none') ||
+      classList.includes('language-raw')
+    );
     
     // 如果没有找到语言，尝试自动检测
     if (!language) {
       language = detectLanguage(codeElement.textContent);
     }
+
+    // 归一化并确定是否应禁用增强（复制按钮与高亮）
+    const normLang = (language || '').toLowerCase();
+    const isPlain = !normLang || normLang === 'plain' || normLang === 'text' || normLang === 'raw' || normLang === 'none';
+    const isSupported = !!(normLang && highlightRules[normLang]);
+    const disableEnhance = hasNoHighlightFlag || isPlain || !isSupported; // 未检测/不支持/显式plain
     
     // 记录原始代码文本用于行号计算
     const originalCode = codeElement.textContent || '';
 
-    // 应用语法高亮（若识别到语言且支持）
-    if (language && highlightRules[language.toLowerCase()]) {
+    // 应用语法高亮（若识别到语言且支持，且未禁用）
+    if (!disableEnhance && language && highlightRules[language.toLowerCase()]) {
       const highlightedCode = simpleHighlight(originalCode, language);
       codeElement.innerHTML = highlightedCode;
 
@@ -313,7 +332,7 @@ export function initSyntaxHighlighting() {
       gutter.style.width = `${Math.max(2, digits + 1)}ch`;
     }
       
-      // 添加/增强语言标签（支持悬浮复制与点击复制）
+      // 始终显示语言标签/复制按钮；当禁用高亮时标签显示为 PLAIN
       let languageLabel = preElement.querySelector('.syntax-language-label');
       if (!languageLabel) {
         languageLabel = document.createElement('div');
@@ -331,15 +350,15 @@ export function initSyntaxHighlighting() {
       const TXT_FAILED = getT('code.failed', 'Failed');
       const TXT_ARIA = getT('code.copyAria', 'Copy code');
 
-      const langText = (language || '').toUpperCase();
-      languageLabel.dataset.lang = langText;
+      const langText = disableEnhance ? 'PLAIN' : (language || '').toUpperCase();
+      languageLabel.dataset.lang = langText || 'PLAIN';
       languageLabel.setAttribute('role', 'button');
       languageLabel.setAttribute('tabindex', '0');
-  languageLabel.setAttribute('aria-label', TXT_ARIA);
-      languageLabel.textContent = langText;
+      languageLabel.setAttribute('aria-label', TXT_ARIA);
+      languageLabel.textContent = langText || 'PLAIN';
       
       if (!languageLabel.dataset.bound) {
-  const copyCode = async () => {
+        const copyCode = async () => {
           const rawText = codeElement.textContent || '';
           let ok = false;
           if (navigator.clipboard && window.isSecureContext) {
@@ -360,7 +379,7 @@ export function initSyntaxHighlighting() {
           }
 
           // 反馈
-          const old = languageLabel.dataset.lang || 'CODE';
+          const old = languageLabel.dataset.lang || 'PLAIN';
           languageLabel.classList.add('is-copied');
           languageLabel.textContent = ok ? TXT_COPIED.toUpperCase() : TXT_FAILED.toUpperCase();
           setTimeout(() => {
@@ -375,7 +394,7 @@ export function initSyntaxHighlighting() {
         });
         languageLabel.addEventListener('mouseleave', () => {
           languageLabel.classList.remove('is-hover');
-          languageLabel.textContent = languageLabel.dataset.lang || 'CODE';
+          languageLabel.textContent = languageLabel.dataset.lang || 'PLAIN';
         });
         languageLabel.addEventListener('click', copyCode);
         languageLabel.addEventListener('keydown', (e) => {

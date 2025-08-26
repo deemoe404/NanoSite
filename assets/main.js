@@ -15,6 +15,7 @@ import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
+import { applyLangHints } from './js/typography.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -1297,6 +1298,7 @@ function displayPost(postname) {
   try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
   try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+    try { applyLangHints('#mainview'); } catch (_) {}
     // After images are in DOM, run large-image watchdog if enabled in site config
     try {
       const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};

@@ -12,6 +12,8 @@
   --code-text: #e5e7eb;
   --hr: #e5e7eb;
   --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.06), 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04);
+  /* Serif stack for article-like body text (theme packs may override) */
+  --article-serif-stack: Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif", "STSong", serif;
 }
 
 [data-theme="dark"] {
@@ -69,8 +71,20 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
 /* duplicate rule cleanup handled above with theme variables */
 
 /* Paragraph style */
-#mainview { font-size: 1.04rem; line-height: 1.85; letter-spacing: .005em; hyphens: auto; text-wrap: pretty; }
-#mainview p { margin: .85rem 0; }
+#mainview {
+  font-size: 1.04rem;
+  line-height: 1.85;
+  letter-spacing: .005em;
+  /* Prefer LaTeX-like hyphenation for Latin scripts */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  /* Avoid overly aggressive breaking; allow long tokens to wrap when needed */
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+#mainview p { margin: .85rem 0; text-align: justify; text-justify: inter-ideograph; }
 #mainview p + p { margin-top: 1rem; }
 #mainview h1, #mainview h2, #mainview h3, #mainview h4, #mainview h5, #mainview h6 { scroll-margin-top: 6.25rem; text-wrap: balance; }
 #mainview h2 { margin: 1.6rem 0 .7rem; }
@@ -80,6 +94,38 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
 #mainview li { margin: .35rem 0; line-height: 1.75; }
 #mainview img { margin: 1rem auto; border-radius: 0.5rem; box-shadow: var(--shadow); }
 #mainview hr { margin: 1.4rem 0; }
+
+/* Article body: serif stack for a journal feel (theme packs can override) */
+#mainview p,
+#mainview li,
+#mainview blockquote,
+#mainview td,
+#mainview th { font-family: var(--article-serif-stack); }
+
+/* Language-aware refinements */
+/* English: enable automatic hyphenation clearly */
+:lang(en) #mainview,
+#mainview :lang(en) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  word-break: normal;
+}
+/* Chinese/Japanese: no hyphen insertion; stricter line breaking; no added tracking */
+:lang(zh) #mainview,
+#mainview :lang(zh),
+:lang(ja) #mainview,
+#mainview :lang(ja) {
+  hyphens: none;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  line-break: strict;
+  /* Allow normal CJK line breaking to avoid excessive justification stretching in Safari */
+  word-break: normal;
+  letter-spacing: 0;
+  /* Prefer character-based justification when supported */
+  text-justify: inter-character;
+}
 
 /* Horizontal rule style */
 hr { border: none; border-top: 0.0625rem solid var(--hr); margin: 1.25rem 0; }
@@ -421,7 +467,14 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.25rem 0 1rem;
   position: relative;
 }
-.post-meta-title { font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin: 0 0 0.25rem; }
+.post-meta-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 0.25rem;
+  /* Match body serif stack for a print-like look */
+  font-family: var(--article-serif-stack);
+}
 .post-meta-title .ai-flag { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin-right: 0.4rem; color: var(--primary); vertical-align: -0.15em; cursor: help; }
 .post-meta-title .ai-flag svg { width: 1em; height: 1em; }
 .post-meta-title .ai-flag { position: relative; }
@@ -434,8 +487,25 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.125rem 0 0.5rem;
 }
 
-/* Post meta excerpt: slightly tighter line-height and a bit more space before tags */
-#mainview .post-meta-card .post-meta-excerpt { color: var(--muted); font-size: .93rem; line-height: 1.35; margin: 0.2rem 0 0.85rem; white-space: pre-line; }
+/* Post meta excerpt: journal-like, justified, refined wrapping */
+#mainview .post-meta-card .post-meta-excerpt {
+  color: var(--muted);
+  font-size: .93rem;
+  line-height: 1.55;              /* more comfortable reading rhythm */
+  margin: 0.2rem 0 0.85rem;
+  white-space: normal;            /* avoid forced breaks from source */
+  text-align: justify;            /* full justification like journals */
+  text-align-last: left;          /* keep last line ragged-left */
+  text-justify: inter-ideograph;  /* better for CJK; ignored elsewhere */
+  text-wrap: pretty;              /* reduce runts/tight last words (progressive) */
+  hanging-punctuation: first allow-end; /* nicer edge (progressive) */
+  /* Enable hyphenation where appropriate; relies on :lang hints */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  /* Use the same serif stack as article body */
+  font-family: var(--article-serif-stack);
+}
 
 #mainview .post-outdated-card {
   border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border));
@@ -1280,9 +1350,12 @@ ul.collapsed, li > ul.collapsed { display: none; }
     min-height: 15.625rem; /* Reduce min-height */
     width: 100%;
     max-width: 100%;
-    overflow-wrap: break-word; /* Force long-word wrap */
-    word-break: break-word; /* Compatibility */
+    /* Allow long tokens to wrap, but prefer hyphenation over arbitrary breaks */
+    overflow-wrap: break-word; /* Allow long-word wrap when necessary */
+    word-break: normal; /* Do not force arbitrary breaks */
     hyphens: auto; /* Enable hyphenation */
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
     box-sizing: border-box;
   }
   
