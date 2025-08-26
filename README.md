@@ -32,7 +32,6 @@
 
 ## 🌍 Built with Nanosite
 
-### Official Demo
 - [Nanosite](https://nano.dee.moe) — Just Markdown. Just a website. ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)
 
 - [deemoe's journal](https://dee.moe) — Thanks for playing my game.  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
