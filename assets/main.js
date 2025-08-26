@@ -1292,9 +1292,11 @@ function displayPost(postname) {
   const preTitle = fallback;
   const outdatedCardHtml = renderOutdatedCard(postMetadata, siteConfig);
   const metaCardHtml = renderPostMetaCard(preTitle, postMetadata, markdown);
-  // Render outdated card + meta card + main content so we can read first heading reliably
+  // Clone meta card for bottom and add a modifier class for styling hooks
+  const bottomMetaCardHtml = (metaCardHtml || '').replace('post-meta-card', 'post-meta-card post-meta-bottom');
+  // Render outdated card + meta card + main content + bottom meta card
   const mainEl = document.getElementById('mainview');
-  if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
+  if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post + bottomMetaCardHtml;
   try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
   try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
@@ -1306,10 +1308,10 @@ function displayPost(postname) {
     } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
-  // Wire up copy-link button on the post meta card
+  // Wire up copy-link buttons on all post meta cards
   try {
-    const copyBtn = document.querySelector('#mainview .post-meta-card .post-meta-copy');
-    if (copyBtn) {
+    const copyBtns = Array.from(document.querySelectorAll('#mainview .post-meta-card .post-meta-copy'));
+    copyBtns.forEach((copyBtn) => {
       copyBtn.addEventListener('click', async () => {
         const url = String(location.href || '').split('#')[0];
         let ok = false;
@@ -1329,19 +1331,19 @@ function displayPost(postname) {
           setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.setAttribute('title', prevTitle || t('ui.copyLink')); }, 1000);
         }
       });
-    }
+    });
   } catch (_) {}
-  // Attach a floating tooltip to the AI flag (consistent with tag tooltips)
+  // Attach floating tooltips to all AI flags (consistent with tag tooltips)
   try {
-    const aiFlag = document.querySelector('#mainview .post-meta-card .ai-flag');
-    if (aiFlag) attachHoverTooltip(aiFlag, () => t('ui.aiFlagTooltip'), { delay: 0 });
+    const aiFlags = Array.from(document.querySelectorAll('#mainview .post-meta-card .ai-flag'));
+    aiFlags.forEach((aiFlag) => attachHoverTooltip(aiFlag, () => t('ui.aiFlagTooltip'), { delay: 0 }));
   } catch (_) {}
   // Always use the localized title from index.yaml for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
     try {
-      const titleEl = document.querySelector('#mainview .post-meta-card .post-meta-title');
-      if (titleEl) {
+      const titleEls = Array.from(document.querySelectorAll('#mainview .post-meta-card .post-meta-title'));
+      titleEls.forEach((titleEl) => {
         const ai = titleEl.querySelector('.ai-flag');
         const prefix = ai ? ai.outerHTML : '';
         titleEl.innerHTML = `${prefix}${escapeHtml(articleTitle)}`;
@@ -1354,7 +1356,7 @@ function displayPost(postname) {
             attachHoverTooltip(newAi, () => t('ui.aiFlagTooltip'), { delay: 0 });
           }
         } catch (_) {}
-      }
+      });
     } catch (_) {}
     
     // Update SEO meta tags for the post
@@ -2064,10 +2066,10 @@ async function softResetToSiteDefaultLanguage() {
           }
     }
   } catch (_) {}
-  // Wire up version selector (if multiple versions available)
+  // Wire up version selector(s) (if multiple versions available)
   try {
-    const verSel = document.querySelector('#mainview .post-meta-card select.post-version-select');
-    if (verSel) {
+    const verSels = Array.from(document.querySelectorAll('#mainview .post-meta-card select.post-version-select'));
+    verSels.forEach((verSel) => {
       verSel.addEventListener('change', (e) => {
         try {
           const loc = String(e.target.value || '').trim();
@@ -2080,7 +2082,7 @@ async function softResetToSiteDefaultLanguage() {
           window.location.assign(url.toString());
         } catch (_) {}
       });
-    }
+    });
   } catch (_) {}
     }
     allowedLocations = baseAllowed;
