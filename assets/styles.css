@@ -12,6 +12,8 @@
   --code-text: #e5e7eb;
   --hr: #e5e7eb;
   --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.06), 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04);
+  /* Serif stack for article-like body text (theme packs may override) */
+  --article-serif-stack: Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif", "STSong", serif;
 }
 
 [data-theme="dark"] {
@@ -69,8 +71,20 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
 /* duplicate rule cleanup handled above with theme variables */
 
 /* Paragraph style */
-#mainview { font-size: 1.04rem; line-height: 1.85; letter-spacing: .005em; hyphens: auto; text-wrap: pretty; }
-#mainview p { margin: .85rem 0; }
+#mainview {
+  font-size: 1.04rem;
+  line-height: 1.85;
+  letter-spacing: .005em;
+  /* Prefer LaTeX-like hyphenation for Latin scripts */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  /* Avoid overly aggressive breaking; allow long tokens to wrap when needed */
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+#mainview p { margin: .85rem 0; text-align: justify; text-justify: inter-ideograph; }
 #mainview p + p { margin-top: 1rem; }
 #mainview h1, #mainview h2, #mainview h3, #mainview h4, #mainview h5, #mainview h6 { scroll-margin-top: 6.25rem; text-wrap: balance; }
 #mainview h2 { margin: 1.6rem 0 .7rem; }
@@ -80,6 +94,38 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
 #mainview li { margin: .35rem 0; line-height: 1.75; }
 #mainview img { margin: 1rem auto; border-radius: 0.5rem; box-shadow: var(--shadow); }
 #mainview hr { margin: 1.4rem 0; }
+
+/* Article body: serif stack for a journal feel (theme packs can override) */
+#mainview p,
+#mainview li,
+#mainview blockquote,
+#mainview td,
+#mainview th { font-family: var(--article-serif-stack); }
+
+/* Language-aware refinements */
+/* English: enable automatic hyphenation clearly */
+:lang(en) #mainview,
+#mainview :lang(en) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  word-break: normal;
+}
+/* Chinese/Japanese: no hyphen insertion; stricter line breaking; no added tracking */
+:lang(zh) #mainview,
+#mainview :lang(zh),
+:lang(ja) #mainview,
+#mainview :lang(ja) {
+  hyphens: none;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  line-break: strict;
+  /* Allow normal CJK line breaking to avoid excessive justification stretching in Safari */
+  word-break: normal;
+  letter-spacing: 0;
+  /* Prefer character-based justification when supported */
+  text-justify: inter-character;
+}
 
 /* Horizontal rule style */
 hr { border: none; border-top: 0.0625rem solid var(--hr); margin: 1.25rem 0; }
@@ -1280,9 +1326,12 @@ ul.collapsed, li > ul.collapsed { display: none; }
     min-height: 15.625rem; /* Reduce min-height */
     width: 100%;
     max-width: 100%;
-    overflow-wrap: break-word; /* Force long-word wrap */
-    word-break: break-word; /* Compatibility */
+    /* Allow long tokens to wrap, but prefer hyphenation over arbitrary breaks */
+    overflow-wrap: break-word; /* Allow long-word wrap when necessary */
+    word-break: normal; /* Do not force arbitrary breaks */
     hyphens: auto; /* Enable hyphenation */
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
     box-sizing: border-box;
   }
   
