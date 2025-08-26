@@ -272,7 +272,7 @@
             </div>
             
             <div class="file-actions">
-                <button class="btn-primary" onclick="generateSitemap()">Generate Sitemap</button>
+                <button class="btn-primary" onclick="generateSitemap()" title="Refresh sitemap">Refresh</button>
                 <button class="btn-secondary" onclick="copySitemap()">Copy to Clipboard</button>
                 <button class="btn-secondary" onclick="downloadSitemap()">Download File</button>
                 <button id="sitemap-gh-btn" class="btn-secondary" disabled title="Configure GitHub destination first">Open on GitHub</button>
@@ -301,7 +301,7 @@
             </div>
             
             <div class="file-actions">
-                <button class="btn-primary" onclick="generateRobots()">Generate Robots.txt</button>
+                <button class="btn-primary" onclick="generateRobots()" title="Refresh robots.txt">Refresh</button>
                 <button class="btn-secondary" onclick="copyRobots()">Copy to Clipboard</button>
                 <button class="btn-secondary" onclick="downloadRobots()">Download File</button>
                 <button id="robots-gh-btn" class="btn-secondary" disabled title="Configure GitHub destination first">Open on GitHub</button>
@@ -333,7 +333,7 @@
             </div>
             
             <div class="file-actions">
-                <button class="btn-primary" onclick="generateMetaTags()">Generate Meta Tags</button>
+                <button class="btn-primary" onclick="generateMetaTags()" title="Refresh meta tags">Refresh</button>
                 <button class="btn-secondary" onclick="copyMetaTags()">Copy to Clipboard</button>
                 <!-- <button class="btn-secondary" onclick="downloadMetaTags()">Download HTML</button> -->
                 <button class="btn-secondary" onclick="openIndexHtmlEdit()">Open index.html on GitHub (edit)</button>
@@ -386,7 +386,19 @@
             
             // Show selected tab
             document.getElementById(tabName + '-tab').classList.add('active');
-            event.target.classList.add('active');
+            if (window.event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                const btn = document.querySelector(`.tabs .tab[onclick*="'${tabName}'"]`);
+                if (btn) btn.classList.add('active');
+            }
+
+            // Auto-generate when switching into these tabs
+            try {
+                if (tabName === 'sitemap') generateSitemap();
+                if (tabName === 'robots') generateRobots();
+                if (tabName === 'meta') generateMetaTags();
+            } catch (e) { /* no-op */ }
         };
 
         async function loadSiteConfigFlex() {
@@ -1210,6 +1222,8 @@
 
         // Load site config on page load
         loadSiteConfig();
+        // Auto-generate for default active tab (sitemap)
+        try { generateSitemap(); } catch (_) {}
     </script>
 </body>
 </html>
