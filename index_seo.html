@@ -215,7 +215,7 @@
         .spinner { width:12px; height:12px; border:2px solid #c9d1d9; border-top-color:#0969da; border-radius:50%; display:inline-block; animation: spin .8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         /* Title + fullscreen help modal */
-        .gh-titlebar { display:flex; align-items:center; gap:0.5rem; position: relative; }
+        .gh-titlebar { display:flex; align-items:center; gap:0.25rem; position: relative; margin-bottom: 0.75rem; }
         .info-btn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; font-weight:600; font-size:12px; line-height:1; box-shadow: 0 1px 0 rgba(27,31,36,.04); }
         .info-btn:hover { background:#f6f8fa; }
         .info-btn:focus { outline:none; box-shadow:0 0 0 3px rgba(9,105,218,.3); border-color:#0969da; }
@@ -279,7 +279,7 @@
 
     <div class="container">
         <div class="gh-titlebar">
-            <h3 style="margin:0;">GitHub Destination</h3>
+            <h4 style="margin:0rem;">GitHub Destination</h4>
             <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
         </div>
         <div class="gh-controls">
