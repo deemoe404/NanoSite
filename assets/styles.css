@@ -487,13 +487,22 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.125rem 0 0.5rem;
 }
 
-/* Post meta excerpt: match article body font for print-like feel */
+/* Post meta excerpt: journal-like, justified, refined wrapping */
 #mainview .post-meta-card .post-meta-excerpt {
   color: var(--muted);
   font-size: .93rem;
-  line-height: 1.35;
+  line-height: 1.55;              /* more comfortable reading rhythm */
   margin: 0.2rem 0 0.85rem;
-  white-space: pre-line;
+  white-space: normal;            /* avoid forced breaks from source */
+  text-align: justify;            /* full justification like journals */
+  text-align-last: left;          /* keep last line ragged-left */
+  text-justify: inter-ideograph;  /* better for CJK; ignored elsewhere */
+  text-wrap: pretty;              /* reduce runts/tight last words (progressive) */
+  hanging-punctuation: first allow-end; /* nicer edge (progressive) */
+  /* Enable hyphenation where appropriate; relies on :lang hints */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
   /* Use the same serif stack as article body */
   font-family: var(--article-serif-stack);
 }
