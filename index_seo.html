@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEO Generator - NanoSite</title>
     <style>
+        /* Bottom breathing room */
+        body { padding-bottom: clamp(24px, 6vh, 96px); }
         *, *::before, *::after { box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
@@ -260,6 +262,14 @@
         .field-status.ok { color: #16a34a; }
         .field-status.warn { color: #f59e0b; }
         .field-status.err { color: #dc2626; }
+
+        /* Footer */
+        .site-footer { border-top: 1px solid #d0d7de; margin-top: 2rem; margin-bottom: clamp(24px, 6vh, 96px); padding: .9rem 0 calc(1rem + env(safe-area-inset-bottom)); color:#57606a; font-size:.9rem; }
+        .site-footer .footer-inner { display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
+        .site-footer a { color:#0969da; text-decoration:none; }
+        .site-footer a:hover { text-decoration:underline; }
+        .site-footer .dot { color:#8c959f; margin: 0 .35rem; }
+        .site-footer .brand { font-weight:600; color:#24292f; }
     </style>
 </head>
 <body>
@@ -465,6 +475,22 @@
             </div>
         </div>
     </div>
+
+    <!-- Footer -->
+    <footer class="site-footer" role="contentinfo">
+        <div class="footer-inner">
+            <div>
+                <span class="brand">NanoSite SEO Generator</span>
+                <span class="dot">•</span>
+                <a href="https://nano.dee.moe" target="_blank" rel="noopener">nano.dee.moe</a>
+                <span class="dot">•</span>
+                <a href="https://github.com/deemoe404/nanosite" target="_blank" rel="noopener">deemoe404/nanosite</a>
+            </div>
+            <div>
+                © <span id="footer-year"></span> NanoSite contributors
+            </div>
+        </div>
+    </footer>
 
     <script type="module">
         import { generateSitemapData } from './assets/js/seo.js';
@@ -1579,6 +1605,8 @@
         loadSiteConfig();
         // Auto-generate for default active tab (sitemap)
         try { generateSitemap(); } catch (_) {}
+        // Footer year
+        try { document.getElementById('footer-year').textContent = new Date().getFullYear(); } catch (_) {}
     </script>
 </body>
 </html>
