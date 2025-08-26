@@ -2368,8 +2368,19 @@ loadSiteConfig()
         const v = (lang && val[lang]) || val.default || '';
         return typeof v === 'string' ? v : '';
       };
+      const resolveReportUrl = (cfg) => {
+        try {
+          if (!cfg || typeof cfg !== 'object') return null;
+          // Derive from repo fields when available
+          const repo = cfg.repo || {};
+          const owner = repo && typeof repo.owner === 'string' ? repo.owner.trim() : '';
+          const name = repo && typeof repo.name === 'string' ? repo.name.trim() : '';
+          if (owner && name) return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/issues/new`;
+          return null;
+        } catch (_) { return null; }
+      };
       initErrorReporter({
-        reportUrl: siteConfig && siteConfig.reportIssueURL,
+        reportUrl: resolveReportUrl(siteConfig),
         siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite',
         enableOverlay: !!(siteConfig && siteConfig.errorOverlay === true)
       });
