@@ -467,7 +467,14 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.25rem 0 1rem;
   position: relative;
 }
-.post-meta-title { font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin: 0 0 0.25rem; }
+.post-meta-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 0.25rem;
+  /* Match body serif stack for a print-like look */
+  font-family: var(--article-serif-stack);
+}
 .post-meta-title .ai-flag { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin-right: 0.4rem; color: var(--primary); vertical-align: -0.15em; cursor: help; }
 .post-meta-title .ai-flag svg { width: 1em; height: 1em; }
 .post-meta-title .ai-flag { position: relative; }
@@ -480,8 +487,16 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.125rem 0 0.5rem;
 }
 
-/* Post meta excerpt: slightly tighter line-height and a bit more space before tags */
-#mainview .post-meta-card .post-meta-excerpt { color: var(--muted); font-size: .93rem; line-height: 1.35; margin: 0.2rem 0 0.85rem; white-space: pre-line; }
+/* Post meta excerpt: match article body font for print-like feel */
+#mainview .post-meta-card .post-meta-excerpt {
+  color: var(--muted);
+  font-size: .93rem;
+  line-height: 1.35;
+  margin: 0.2rem 0 0.85rem;
+  white-space: pre-line;
+  /* Use the same serif stack as article body */
+  font-family: var(--article-serif-stack);
+}
 
 #mainview .post-outdated-card {
   border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border));
