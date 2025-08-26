@@ -3,18 +3,19 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
-import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
+import { aggregateTags, renderTagSidebar, setupTagTooltips, attachHoverTooltip } from './js/tags.js';
 import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
+import { applyLangHints } from './js/typography.js';
 
 // Lightweight fetch helper
 const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
@@ -29,6 +30,10 @@ let allowedLocations = new Set();
 let locationAliasMap = new Map();
 // Default page size; can be overridden by site.yaml (pageSize/postsPerPage)
 let PAGE_SIZE = 8;
+// Guard against overlapping post loads (rapid version switches/back-forward)
+let __activePostRequestId = 0;
+// Track last route to harmonize scroll behavior on back/forward
+let __lastRouteKey = '';
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
 
@@ -173,7 +178,17 @@ try {
         url.searchParams.set('id', loc);
         const lang = (getCurrentLang && getCurrentLang()) || 'en';
         url.searchParams.set('lang', lang);
-        window.location.assign(url.toString());
+        // Use SPA navigation so back/forward keeps the selector in sync
+        try {
+          history.pushState({}, '', url.toString());
+          // Dispatch a popstate event so the unified handler routes and renders once
+          try { window.dispatchEvent(new PopStateEvent('popstate')); } catch (_) { /* older browsers may not support constructor */ }
+          // Scroll to top for a consistent version switch experience
+          try { window.scrollTo(0, 0); } catch (_) {}
+        } catch (_) {
+          // Fallback to full navigation if History API fails
+          window.location.assign(url.toString());
+        }
       } catch (_) {}
     };
     document.addEventListener('change', handler, true);
@@ -197,6 +212,56 @@ function ensureAutoHeight(el) {
 
 // --- Site config (root-level site.yaml) ---
 let siteConfig = {};
+
+// --- Feature helpers: landing tab and posts visibility ---
+function postsEnabled() {
+  try {
+    // Support multiple config keys for flexibility: showAllPosts (preferred), enableAllPosts, disableAllPosts
+    if (siteConfig && typeof siteConfig.showAllPosts === 'boolean') return !!siteConfig.showAllPosts;
+    if (siteConfig && typeof siteConfig.enableAllPosts === 'boolean') return !!siteConfig.enableAllPosts;
+    if (siteConfig && typeof siteConfig.disableAllPosts === 'boolean') return !siteConfig.disableAllPosts;
+  } catch (_) {}
+  return true; // default: enabled
+}
+
+function resolveLandingSlug() {
+  try {
+    const v = siteConfig && (siteConfig.landingTab || siteConfig.landing || siteConfig.homeTab || siteConfig.home);
+    if (!v) return null;
+    const wanted = String(v).trim().toLowerCase();
+    if (!wanted) return null;
+    // Prefer direct slug match
+    if (tabsBySlug && tabsBySlug[wanted]) return wanted;
+    // Fallback: match by displayed title (case-insensitive)
+    for (const [slug, info] of Object.entries(tabsBySlug || {})) {
+      const title = (info && info.title ? String(info.title) : '').trim().toLowerCase();
+      if (title && title === wanted) return slug;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function getHomeSlug() {
+  try {
+    // Always prefer explicit landingTab when provided
+    const explicit = resolveLandingSlug();
+    if (explicit) return explicit;
+    // Otherwise, default to posts when enabled, else first static tab or search
+    if (postsEnabled()) return 'posts';
+    return Object.keys(tabsBySlug || {})[0] || 'search';
+  } catch (_) { return 'search'; }
+}
+
+function getHomeLabel() {
+  const slug = getHomeSlug();
+  if (slug === 'posts') return t('ui.allPosts');
+  if (slug === 'search') return t('ui.searchTab');
+  try { return (tabsBySlug && tabsBySlug[slug] && tabsBySlug[slug].title) || slug; } catch (_) { return slug; }
+}
+
+// Expose a minimal API that other modules can consult if needed
+try { window.__ns_get_home_slug = () => getHomeSlug(); } catch (_) {}
+try { window.__ns_posts_enabled = () => postsEnabled(); } catch (_) {}
 async function loadSiteConfig() {
   try {
     // YAML only
@@ -697,6 +762,7 @@ function hydrateInternalLinkCards(container) {
   const href = withLangParam(`?id=${encodeURIComponent(loc)}`);
       const tagsHtml = meta ? renderTags(meta.tag) : '';
       const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
+      const draftHtml = meta && meta.draft ? `<span class="card-draft">${t('ui.draftBadge')}</span>` : '';
       // Allow relative frontmatter image (e.g., 'cover.jpg'); resolve against the post's folder
       const rawCover = meta && (meta.thumb || meta.cover || meta.image);
       let coverSrc = rawCover;
@@ -713,7 +779,8 @@ function hydrateInternalLinkCards(container) {
 
       const wrapper = document.createElement('div');
       wrapper.className = 'link-card-wrap';
-      wrapper.innerHTML = `<a class="link-card" href="${href}">${cover}<div class="card-title">${escapeHtml(title)}</div><div class="card-excerpt">${t('ui.loading')}</div><div class="card-meta">${dateHtml}</div>${tagsHtml}</a>`;
+      const initialMeta = [dateHtml, draftHtml].filter(Boolean).join('<span class="card-sep">•</span>');
+      wrapper.innerHTML = `<a class="link-card" href="${href}">${cover}<div class="card-title">${escapeHtml(title)}</div><div class="card-excerpt">${t('ui.loading')}</div><div class="card-meta">${initialMeta}</div>${tagsHtml}</a>`;
 
       // If index metadata provides an explicit excerpt, prefer it immediately
       try {
@@ -752,7 +819,7 @@ function hydrateInternalLinkCards(container) {
 
       // Fetch markdown to compute excerpt + read time
       const ensureMd = (l) => {
-        if (!mdCache.has(l)) mdCache.set(l, getFile('wwwroot/' + l).catch(() => ''));
+        if (!mdCache.has(l)) mdCache.set(l, getFile(`${getContentRoot()}/${l}`).catch(() => ''));
         return mdCache.get(l);
       };
       ensureMd(loc).then(md => {
@@ -767,12 +834,12 @@ function hydrateInternalLinkCards(container) {
         const metaEl = card.querySelector('.card-meta');
         if (metaEl) {
           const readHtml = `<span class="card-read">${minutes} ${t('ui.minRead')}</span>`;
-          if (metaEl.querySelector('.card-date')) {
-            const dEl = metaEl.querySelector('.card-date');
-            metaEl.innerHTML = `${dEl.outerHTML}<span class="card-sep">•</span>${readHtml}`;
-          } else {
-            metaEl.innerHTML = readHtml;
-          }
+          const dEl = metaEl.querySelector('.card-date');
+          const parts = [];
+          if (dEl && dEl.textContent.trim()) parts.push(dEl.outerHTML);
+          parts.push(readHtml);
+          if (meta && meta.draft) parts.push(`<span class="card-draft">${t('ui.draftBadge')}</span>`);
+          metaEl.innerHTML = parts.join('<span class="card-sep">•</span>');
         }
       }).catch(() => {});
     });
@@ -822,9 +889,17 @@ function renderTabs(activeSlug, searchQuery) {
   return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${label}</a>`;
   };
   
-  // Build full tab list first
-  let html = make('posts', t('ui.allPosts'));
-  for (const [slug, info] of Object.entries(tabsBySlug)) html += make(slug, info.title);
+  // Build full tab list first (home first, optionally include All Posts if enabled), then other tabs
+  const homeSlug = getHomeSlug();
+  const homeLabel = getHomeLabel();
+  let html = make(homeSlug, homeLabel);
+  if (postsEnabled() && homeSlug !== 'posts') {
+    html += make('posts', t('ui.allPosts'));
+  }
+  for (const [slug, info] of Object.entries(tabsBySlug)) {
+    if (slug === homeSlug) continue;
+    html += make(slug, info.title);
+  }
   if (activeSlug === 'search') {
     const sp = new URLSearchParams(window.location.search);
     const tag = (sp.get('tag') || '').trim();
@@ -862,8 +937,8 @@ function renderTabs(activeSlug, searchQuery) {
   try {
     const containerWidth = ((nav.parentElement && nav.parentElement.getBoundingClientRect && nav.parentElement.getBoundingClientRect().width) || nav.clientWidth || 0);
     const fullWidth = measureWidth(html);
-    // Build compact HTML candidate
-    let compact = make('posts', t('ui.allPosts'));
+    // Build compact HTML candidate: Home + active only
+    let compact = make(homeSlug, homeLabel);
     if (activeSlug === 'search') {
       const sp = new URLSearchParams(window.location.search);
       const tag = (sp.get('tag') || '').trim();
@@ -886,7 +961,7 @@ function renderTabs(activeSlug, searchQuery) {
       if (activeSlug === 'post') {
         const raw = String(searchQuery || t('ui.postTab')).trim();
         const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
-        compact = make('posts', t('ui.allPosts')) + `<span class="tab active" data-slug="post">${label}</span>`;
+        compact = make(homeSlug, homeLabel) + `<span class="tab active" data-slug="post">${label}</span>`;
       } else if (activeSlug === 'search') {
         const sp = new URLSearchParams(window.location.search);
         const tag = (sp.get('tag') || '').trim();
@@ -894,7 +969,7 @@ function renderTabs(activeSlug, searchQuery) {
         const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
         const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
         const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-        compact = make('posts', t('ui.allPosts')) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+        compact = make(homeSlug, homeLabel) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
       }
     }
 
@@ -1098,13 +1173,20 @@ function setupTabHoverEffects(nav) {
 function renderFooterNav() {
   const nav = document.getElementById('footerNav');
   if (!nav) return;
-  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : 'posts')).toLowerCase();
+  const defaultTab = getHomeSlug();
+  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : defaultTab)).toLowerCase();
   const make = (href, label, cls = '') => `<a class="${cls}" href="${withLangParam(href)}">${label}</a>`;
   const isActive = (slug) => currentTab === slug;
   let html = '';
-  html += make('?tab=posts', t('ui.allPosts'), isActive('posts') ? 'active' : '');
+  const homeSlug = getHomeSlug();
+  const homeLabel = getHomeLabel();
+  html += make(`?tab=${encodeURIComponent(homeSlug)}`, homeLabel, isActive(homeSlug) ? 'active' : '');
+  if (postsEnabled() && homeSlug !== 'posts') {
+    html += ' ' + make('?tab=posts', t('ui.allPosts'), isActive('posts') ? 'active' : '');
+  }
   // (Search link intentionally omitted in footer)
   for (const [slug, info] of Object.entries(tabsBySlug)) {
+    if (slug === homeSlug) continue;
     const href = `?tab=${encodeURIComponent(slug)}`;
     const label = info && info.title ? info.title : slug;
     html += ' ' + make(href, label, isActive(slug) ? 'active' : '');
@@ -1155,6 +1237,8 @@ function setupResponsiveTabsObserver() {
 }
 
 function displayPost(postname) {
+  // Bump request token to invalidate any in-flight older renders
+  const reqId = (++__activePostRequestId);
   // Add loading-state classes to keep layout stable
   const contentEl = document.querySelector('.content');
   const sidebarEl = document.querySelector('.sidebar');
@@ -1181,13 +1265,15 @@ function displayPost(postname) {
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
 
-  return getFile('wwwroot/' + postname).then(markdown => {
+  return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
+    // Ignore stale responses if a newer navigation started
+    if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
     
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
-    const baseDir = `wwwroot/${dir}`;
+    const baseDir = `${getContentRoot()}/${dir}`;
   const output = mdParse(markdown, baseDir);
   // Compute fallback title using index cache before rendering
   const fallback = postsByLocationTitle[postname] || postname;
@@ -1206,12 +1292,15 @@ function displayPost(postname) {
   const preTitle = fallback;
   const outdatedCardHtml = renderOutdatedCard(postMetadata, siteConfig);
   const metaCardHtml = renderPostMetaCard(preTitle, postMetadata, markdown);
-  // Render outdated card + meta card + main content so we can read first heading reliably
+  // Clone meta card for bottom and add a modifier class for styling hooks
+  const bottomMetaCardHtml = (metaCardHtml || '').replace('post-meta-card', 'post-meta-card post-meta-bottom');
+  // Render outdated card + meta card + main content + bottom meta card
   const mainEl = document.getElementById('mainview');
-  if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post;
+  if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post + bottomMetaCardHtml;
   try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
   try { hydratePostImages('#mainview'); } catch (_) {}
     try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+    try { applyLangHints('#mainview'); } catch (_) {}
     // After images are in DOM, run large-image watchdog if enabled in site config
     try {
       const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
@@ -1219,10 +1308,10 @@ function displayPost(postname) {
     } catch (_) {}
   try { hydrateInternalLinkCards('#mainview'); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
-  // Wire up copy-link button on the post meta card
+  // Wire up copy-link buttons on all post meta cards
   try {
-    const copyBtn = document.querySelector('#mainview .post-meta-card .post-meta-copy');
-    if (copyBtn) {
+    const copyBtns = Array.from(document.querySelectorAll('#mainview .post-meta-card .post-meta-copy'));
+    copyBtns.forEach((copyBtn) => {
       copyBtn.addEventListener('click', async () => {
         const url = String(location.href || '').split('#')[0];
         let ok = false;
@@ -1242,14 +1331,32 @@ function displayPost(postname) {
           setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.setAttribute('title', prevTitle || t('ui.copyLink')); }, 1000);
         }
       });
-    }
+    });
+  } catch (_) {}
+  // Attach floating tooltips to all AI flags (consistent with tag tooltips)
+  try {
+    const aiFlags = Array.from(document.querySelectorAll('#mainview .post-meta-card .ai-flag'));
+    aiFlags.forEach((aiFlag) => attachHoverTooltip(aiFlag, () => t('ui.aiFlagTooltip'), { delay: 0 }));
   } catch (_) {}
   // Always use the localized title from index.yaml for display/meta/tab labels
   const articleTitle = fallback;
     // If title changed after parsing, update the card's title text
     try {
-      const titleEl = document.querySelector('#mainview .post-meta-card .post-meta-title');
-      if (titleEl) titleEl.textContent = articleTitle;
+      const titleEls = Array.from(document.querySelectorAll('#mainview .post-meta-card .post-meta-title'));
+      titleEls.forEach((titleEl) => {
+        const ai = titleEl.querySelector('.ai-flag');
+        const prefix = ai ? ai.outerHTML : '';
+        titleEl.innerHTML = `${prefix}${escapeHtml(articleTitle)}`;
+        // Re-bind tooltip to fresh ai flag node after innerHTML swap
+        try {
+          const newAi = titleEl.querySelector('.ai-flag');
+          if (newAi) {
+            // Avoid native title tooltip overlap
+            newAi.removeAttribute('title');
+            attachHoverTooltip(newAi, () => t('ui.aiFlagTooltip'), { delay: 0 });
+          }
+        } catch (_) {}
+      });
     } catch (_) {}
     
     // Update SEO meta tags for the post
@@ -1279,15 +1386,25 @@ function displayPost(postname) {
     try { setupTOC(); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
-    // If URL contains a hash, ensure we jump after content is in DOM
+    // If URL contains a hash, try to jump to it; if missing in this version, clear hash and scroll to top
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
       const target = document.getElementById(currentHash);
       if (target) {
         requestAnimationFrame(() => { target.scrollIntoView({ block: 'start' }); });
+      } else {
+        // Remove stale anchor to avoid unexpected jumps on future navigations
+        try {
+          const url = new URL(window.location.href);
+          url.hash = '';
+          history.replaceState({}, '', url.toString());
+        } catch (_) {}
+        try { window.scrollTo(0, 0); } catch (_) {}
       }
     }
   }).catch(() => {
+    // Ignore stale errors if a newer navigation started
+    if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes even on error
     if (contentEl) contentEl.classList.remove('loading');
     if (sidebarEl) sidebarEl.classList.remove('loading');
@@ -1299,15 +1416,16 @@ function displayPost(postname) {
       showErrorOverlay(err, {
         message: err.message,
         origin: 'view.post.notfound',
-        filename: 'wwwroot/' + postname,
-        assetUrl: 'wwwroot/' + postname,
+        filename: `${getContentRoot()}/${postname}`,
+        assetUrl: `${getContentRoot()}/${postname}`,
         id: postname
       });
     } catch (_) {}
 
     document.getElementById('tocview').innerHTML = '';
-    const backHref = withLangParam('?tab=posts');
-    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
+    const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
+    const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
+    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
     setDocTitle(t('ui.notFound'));
     const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothHide(searchBox);
@@ -1349,7 +1467,12 @@ function displayIndex(parsed) {
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
     const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
     const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
-    const metaInner = dateHtml + (dateHtml && versionsHtml ? `<span class=\"card-sep\">•</span>` : '') + (versionsHtml || '');
+    const draftHtml = (value && value.draft) ? `<span class=\"card-draft\">${t('ui.draftBadge')}</span>` : '';
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (versionsHtml) parts.push(versionsHtml);
+    if (draftHtml) parts.push(draftHtml);
+    const metaInner = parts.join('<span class=\"card-sep\">•</span>');
     html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
   }
   html += '</div>';
@@ -1398,7 +1521,7 @@ function displayIndex(parsed) {
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
-    getFile('wwwroot/' + loc).then(md => {
+    getFile(`${getContentRoot()}/${loc}`).then(md => {
       const ex = extractExcerpt(md, 50);
       // Only set excerpt from markdown if no explicit excerpt in metadata
       if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
@@ -1414,6 +1537,7 @@ function displayIndex(parsed) {
         if (dateEl && dateEl.textContent.trim()) parts.push(dateEl.outerHTML);
         parts.push(readHtml);
         if (versionsHtml) parts.push(versionsHtml);
+        if (meta && meta.draft) parts.push(`<span class=\"card-draft\">${t('ui.draftBadge')}</span>`);
         metaEl.innerHTML = parts.join('<span class=\"card-sep\">•</span>');
       }
   // Recompute masonry span for the updated card
@@ -1476,14 +1600,20 @@ function displaySearch(query) {
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
     const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
     const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
-    const metaInner = dateHtml + (dateHtml && versionsHtml ? `<span class=\"card-sep\">•</span>` : '') + (versionsHtml || '');
+    const draftHtml = (value && value.draft) ? `<span class=\"card-draft\">${t('ui.draftBadge')}</span>` : '';
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (versionsHtml) parts.push(versionsHtml);
+    if (draftHtml) parts.push(draftHtml);
+    const metaInner = parts.join('<span class=\"card-sep\">•</span>');
     html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
   }
   html += '</div>';
 
   if (total === 0) {
-    const backHref = withLangParam('?tab=posts');
-    html = `<div class=\"notice\"><h3>${t('ui.noResultsTitle')}</h3><p>${t('ui.noResultsBody', escapeHtml(q))} <a href=\"${backHref}\">${t('ui.backToAllPosts')}</a>.</p></div>`;
+    const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
+    const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
+    html = `<div class=\"notice\"><h3>${t('ui.noResultsTitle')}</h3><p>${t('ui.noResultsBody', escapeHtml(q))} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
   } else if (totalPages > 1) {
     const encQ = encodeURIComponent(q);
     const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=search&q=${encQ}&page=${p}`)}\">${label}</a>`;
@@ -1530,7 +1660,7 @@ function displaySearch(query) {
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
-    getFile('wwwroot/' + loc).then(md => {
+    getFile(`${getContentRoot()}/${loc}`).then(md => {
       const ex = extractExcerpt(md, 50);
       // Only set excerpt from markdown if no explicit excerpt in metadata
       if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
@@ -1545,6 +1675,7 @@ function displaySearch(query) {
         if (dateEl && dateEl.textContent.trim()) parts.push(dateEl.outerHTML);
         parts.push(readHtml);
         if (versionsHtml) parts.push(versionsHtml);
+        if (meta && meta.draft) parts.push(`<span class=\"card-draft\">${t('ui.draftBadge')}</span>`);
         metaEl.innerHTML = parts.join('<span class=\"card-sep\">•</span>');
       }
   const container = document.querySelector('.index');
@@ -1589,14 +1720,14 @@ function displayStaticTab(slug) {
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothHide(tagBox);
   renderTabs(slug);
-  getFile('wwwroot/' + tab.location)
+  getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
       // 移除加载状态类
       if (contentEl) contentEl.classList.remove('loading');
       if (sidebarEl) sidebarEl.classList.remove('loading');
       
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
-      const baseDir = `wwwroot/${dir}`;
+      const baseDir = `${getContentRoot()}/${dir}`;
       const output = mdParse(md, baseDir);
   const mv = document.getElementById('mainview');
   if (mv) mv.innerHTML = output.post;
@@ -1634,7 +1765,7 @@ function displayStaticTab(slug) {
       
       // Surface an overlay for missing static tab page
       try {
-        const url = 'wwwroot/' + tab.location;
+        const url = `${getContentRoot()}/${tab.location}`;
         const msg = (t('errors.pageUnavailableBody') || 'Could not load this tab.') + (e && e.message ? ` (${e.message})` : '');
         const err = new Error(msg);
         try { err.name = 'Warning'; } catch(_) {}
@@ -1659,7 +1790,11 @@ function routeAndRender() {
       history.replaceState({}, '', url.toString());
     }
   } catch (_) {}
-  const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
+  const tabParam = (getQueryVariable('tab') || '').toLowerCase();
+  const homeSlug = getHomeSlug();
+  let tab = tabParam || homeSlug;
+  // If posts are disabled but someone navigates to ?tab=posts, treat it as home
+  if (!postsEnabled() && tab === 'posts') tab = homeSlug;
   const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
 
   // Capture current navigation state for error reporting
@@ -1825,8 +1960,19 @@ document.addEventListener('click', (e) => {
 });
 
 window.addEventListener('popstate', () => {
+  const prevKey = __lastRouteKey || '';
   routeAndRender();
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
+  // Normalize scroll behavior: if navigating between different post IDs, scroll to top
+  try {
+    const id = getQueryVariable('id');
+    const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
+    const curKey = id ? `post:${id}` : `tab:${tab}`;
+    if (prevKey && prevKey.startsWith('post:') && curKey.startsWith('post:') && prevKey !== curKey) {
+      try { window.scrollTo(0, 0); } catch (_) {}
+    }
+    __lastRouteKey = curKey;
+  } catch (_) {}
 });
 
 // Update sliding indicator on window resize
@@ -1880,9 +2026,9 @@ async function softResetToSiteDefaultLanguage() {
   // Reload localized content and tabs for the new language, then rerender
   try {
     const results = await Promise.allSettled([
-      loadContentJson('wwwroot', 'index'),
-      loadTabsJson('wwwroot', 'tabs'),
-      (async () => { try { const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']); return (obj && typeof obj === 'object') ? obj : null; } catch (_) { return null; } })()
+      loadContentJson(getContentRoot(), 'index'),
+      loadTabsJson(getContentRoot(), 'tabs'),
+      (async () => { try { const cr = getContentRoot(); const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]); return (obj && typeof obj === 'object') ? obj : null; } catch (_) { return null; } })()
     ]);
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
@@ -1920,10 +2066,10 @@ async function softResetToSiteDefaultLanguage() {
           }
     }
   } catch (_) {}
-  // Wire up version selector (if multiple versions available)
+  // Wire up version selector(s) (if multiple versions available)
   try {
-    const verSel = document.querySelector('#mainview .post-meta-card select.post-version-select');
-    if (verSel) {
+    const verSels = Array.from(document.querySelectorAll('#mainview .post-meta-card select.post-version-select'));
+    verSels.forEach((verSel) => {
       verSel.addEventListener('change', (e) => {
         try {
           const loc = String(e.target.value || '').trim();
@@ -1936,7 +2082,7 @@ async function softResetToSiteDefaultLanguage() {
           window.location.assign(url.toString());
         } catch (_) {}
       });
-    }
+    });
   } catch (_) {}
     }
     allowedLocations = baseAllowed;
@@ -2042,6 +2188,11 @@ try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catc
 loadSiteConfig()
   .then(cfg => {
     siteConfig = cfg || {};
+    // Apply content root override early so subsequent loads honor it
+    try {
+      const rawRoot = (siteConfig && (siteConfig.contentRoot || siteConfig.contentBase || siteConfig.contentPath)) || 'wwwroot';
+      if (typeof window !== 'undefined') window.__ns_content_root = String(rawRoot).replace(/^\/+|\/+$/g, '');
+    } catch (_) {}
     // Apply site-configured defaults early
     try {
       // 1) Page size (pagination)
@@ -2070,11 +2221,12 @@ loadSiteConfig()
 
     // Now fetch localized content and tabs for the (possibly updated) language
     return Promise.allSettled([
-      loadContentJson('wwwroot', 'index'),
-      loadTabsJson('wwwroot', 'tabs'),
+      loadContentJson(getContentRoot(), 'index'),
+      loadTabsJson(getContentRoot(), 'tabs'),
       (async () => {
         try {
-          const obj = await fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']);
+          const cr = getContentRoot();
+          const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]);
           return (obj && typeof obj === 'object') ? obj : null;
         } catch (_) { return null; }
       })()
@@ -2216,8 +2368,19 @@ loadSiteConfig()
         const v = (lang && val[lang]) || val.default || '';
         return typeof v === 'string' ? v : '';
       };
+      const resolveReportUrl = (cfg) => {
+        try {
+          if (!cfg || typeof cfg !== 'object') return null;
+          // Derive from repo fields when available
+          const repo = cfg.repo || {};
+          const owner = repo && typeof repo.owner === 'string' ? repo.owner.trim() : '';
+          const name = repo && typeof repo.name === 'string' ? repo.name.trim() : '';
+          if (owner && name) return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/issues/new`;
+          return null;
+        } catch (_) { return null; }
+      };
       initErrorReporter({
-        reportUrl: siteConfig && siteConfig.reportIssueURL,
+        reportUrl: resolveReportUrl(siteConfig),
         siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite',
         enableOverlay: !!(siteConfig && siteConfig.errorOverlay === true)
       });

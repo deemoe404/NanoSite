@@ -3,10 +3,12 @@
 # Site identity configurations
 siteTitle:
   default: NanoSite
+  en: NanoSite
   zh: 微站
   ja: ナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
+  en: Just Markdown. Just a website.
   zh: 写下 Markdown，就是你的网站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
@@ -33,10 +35,11 @@ cardCoverFallback: false  # Use a generated fallback cover image if none provide
 errorOverlay: true        # Show error overlay on the page if an error occurs
 pageSize: 8               # Number of posts per page on the index list
 defaultLanguage: en       # Default UI/content language (e.g., en, zh, ja)
+contentRoot: wwwroot      # Root directory for content files
 
 # Theme override configurations
 themeMode: user
-themePack: minimalism
+themePack: native
 themeOverride: true
 
 # Repository information used for internal linking of "report issue" etc.

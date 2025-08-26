@@ -1,29 +1,51 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://nanosite.schema/tabs.schema.json",
   "title": "NanoSite Tabs Configuration",
+  "description": "Tabs configuration schema for NanoSite.",
+  "since": "v2.0.0",
   "type": "object",
-  "additionalProperties": { "$ref": "#/$defs/tabsEntry" },
+  "additionalProperties": {
+    "$ref": "#/$defs/tabsEntry"
+  },
   "$defs": {
     "legacyTabEntry": {
       "type": "object",
       "properties": {
-        "location": { "type": "string" },
-        "title": { "type": "string" }
+        "location": {
+          "type": "string",
+          "description": "Path or identifier for the tab content."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title for the tab."
+        }
       },
-      "required": ["location"],
+      "required": [
+        "location"
+      ],
       "additionalProperties": true
     },
     "tabLangEntry": {
       "oneOf": [
-        { "type": "string" },
+        {
+          "type": "string"
+        },
         {
           "type": "object",
           "properties": {
-            "title": { "type": "string" },
-            "location": { "type": "string" }
+            "title": {
+              "type": "string",
+              "description": "Localized title for the tab."
+            },
+            "location": {
+              "type": "string",
+              "description": "Localized path or identifier for the tab content."
+            }
           },
-          "required": ["location"],
+          "required": [
+            "location"
+          ],
           "additionalProperties": true
         }
       ]
@@ -31,18 +53,27 @@
     "unifiedTabsEntry": {
       "type": "object",
       "patternProperties": {
-        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": { "$ref": "#/$defs/tabLangEntry" },
-        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": { "$ref": "#/$defs/tabLangEntry" }
+        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": {
+          "$ref": "#/$defs/tabLangEntry",
+          "description": "Tab entry keyed by language code (e.g., en, zh-CN)."
+        },
+        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": {
+          "$ref": "#/$defs/tabLangEntry",
+          "description": "Common language aliases supported for convenience."
+        }
       },
       "additionalProperties": true,
       "minProperties": 1
     },
     "tabsEntry": {
       "oneOf": [
-        { "$ref": "#/$defs/legacyTabEntry" },
-        { "$ref": "#/$defs/unifiedTabsEntry" }
+        {
+          "$ref": "#/$defs/legacyTabEntry"
+        },
+        {
+          "$ref": "#/$defs/unifiedTabsEntry"
+        }
       ]
     }
   }
 }
-

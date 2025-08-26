@@ -265,6 +265,11 @@
             return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
         }
 
+        function getContentRootFrom(cfg) {
+            const raw = (cfg && (cfg.contentRoot || cfg.contentBase || cfg.contentPath)) || 'wwwroot';
+            return String(raw).replace(/^\/+|\/+$/g, '');
+        }
+
         async function loadSiteYamlRaw() {
             const attempts = ['site.yaml', 'site.yml'];
             for (const p of attempts) {
@@ -323,9 +328,12 @@
                 statusEl.innerHTML = '<p>Loading data...</p>';
                 
                 // Load all required data
+                // Load site config to determine content root (default: wwwroot)
+                currentSiteConfig = await loadSiteConfigFlex();
+                const cr = getContentRootFrom(currentSiteConfig);
                 const [postsObj, tabsObj] = await Promise.all([
-                    fetchConfigWithYamlFallback(['wwwroot/index.yaml','wwwroot/index.yml']),
-                    fetchConfigWithYamlFallback(['wwwroot/tabs.yaml','wwwroot/tabs.yml'])
+                    fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]),
+                    fetchConfigWithYamlFallback([`${cr}/tabs.yaml`,`${cr}/tabs.yml`])
                 ]);
                 
                 currentPostsData = postsObj || {};
@@ -470,6 +478,7 @@
         function generateRobotsTxt(siteConfig) {
             // Use site's base URL (remove current file path)
             const baseUrl = window.location.origin + '/';
+            const cr = getContentRootFrom(siteConfig);
             
             let robots = `User-agent: *\n`;
             robots += `Allow: /\n\n`;
@@ -478,7 +487,7 @@
             robots += `Sitemap: ${baseUrl}sitemap.xml\n\n`;
             
             robots += `# Allow crawling of main content\n`;
-            robots += `Allow: /wwwroot/\n`;
+            robots += `Allow: /${cr}/\n`;
             robots += `Allow: /assets/\n\n`;
             
             robots += `# Disallow admin or internal directories\n`;

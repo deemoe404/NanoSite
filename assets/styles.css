@@ -12,6 +12,8 @@
   --code-text: #e5e7eb;
   --hr: #e5e7eb;
   --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.06), 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04);
+  /* Serif stack for article-like body text (theme packs may override) */
+  --article-serif-stack: Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif", "STSong", serif;
 }
 
 [data-theme="dark"] {
@@ -69,8 +71,20 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
 /* duplicate rule cleanup handled above with theme variables */
 
 /* Paragraph style */
-#mainview { font-size: 1.04rem; line-height: 1.85; letter-spacing: .005em; hyphens: auto; text-wrap: pretty; }
-#mainview p { margin: .85rem 0; }
+#mainview {
+  font-size: 1.04rem;
+  line-height: 1.85;
+  letter-spacing: .005em;
+  /* Prefer LaTeX-like hyphenation for Latin scripts */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  /* Avoid overly aggressive breaking; allow long tokens to wrap when needed */
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+#mainview p { margin: .85rem 0; text-align: justify; text-justify: inter-ideograph; }
 #mainview p + p { margin-top: 1rem; }
 #mainview h1, #mainview h2, #mainview h3, #mainview h4, #mainview h5, #mainview h6 { scroll-margin-top: 6.25rem; text-wrap: balance; }
 #mainview h2 { margin: 1.6rem 0 .7rem; }
@@ -80,6 +94,38 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
 #mainview li { margin: .35rem 0; line-height: 1.75; }
 #mainview img { margin: 1rem auto; border-radius: 0.5rem; box-shadow: var(--shadow); }
 #mainview hr { margin: 1.4rem 0; }
+
+/* Article body: serif stack for a journal feel (theme packs can override) */
+#mainview p,
+#mainview li,
+#mainview blockquote,
+#mainview td,
+#mainview th { font-family: var(--article-serif-stack); }
+
+/* Language-aware refinements */
+/* English: enable automatic hyphenation clearly */
+:lang(en) #mainview,
+#mainview :lang(en) {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  word-break: normal;
+}
+/* Chinese/Japanese: no hyphen insertion; stricter line breaking; no added tracking */
+:lang(zh) #mainview,
+#mainview :lang(zh),
+:lang(ja) #mainview,
+#mainview :lang(ja) {
+  hyphens: none;
+  -webkit-hyphens: none;
+  -ms-hyphens: none;
+  line-break: strict;
+  /* Allow normal CJK line breaking to avoid excessive justification stretching in Safari */
+  word-break: normal;
+  letter-spacing: 0;
+  /* Prefer character-based justification when supported */
+  text-justify: inter-character;
+}
 
 /* Horizontal rule style */
 hr { border: none; border-top: 0.0625rem solid var(--hr); margin: 1.25rem 0; }
@@ -421,7 +467,19 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.25rem 0 1rem;
   position: relative;
 }
-.post-meta-title { font-size: 1.5rem; font-weight: 800; line-height: 1.25; margin: 0 0 0.25rem; }
+/* Add more spacing before the bottom meta card */
+#mainview .post-meta-card.post-meta-bottom { margin-top: 48px; }
+.post-meta-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 0.25rem;
+  /* Match body serif stack for a print-like look */
+  font-family: var(--article-serif-stack);
+}
+.post-meta-title .ai-flag { display: inline-flex; align-items: center; justify-content: center; width: 1.25em; height: 1.25em; margin-right: 0.4rem; color: var(--primary); vertical-align: -0.15em; cursor: help; }
+.post-meta-title .ai-flag svg { width: 1em; height: 1em; }
+.post-meta-title .ai-flag { position: relative; }
 .post-meta-line {
   color: var(--muted);
   font-size: 0.85rem;
@@ -431,8 +489,25 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   margin: 0.125rem 0 0.5rem;
 }
 
-/* Post meta excerpt: slightly tighter line-height and a bit more space before tags */
-#mainview .post-meta-card .post-meta-excerpt { color: var(--muted); font-size: .93rem; line-height: 1.35; margin: 0.2rem 0 0.85rem; white-space: pre-line; }
+/* Post meta excerpt: journal-like, justified, refined wrapping */
+#mainview .post-meta-card .post-meta-excerpt {
+  color: var(--muted);
+  font-size: .93rem;
+  line-height: 1.55;              /* more comfortable reading rhythm */
+  margin: 0.2rem 0 0.85rem;
+  white-space: normal;            /* avoid forced breaks from source */
+  text-align: justify;            /* full justification like journals */
+  text-align-last: left;          /* keep last line ragged-left */
+  text-justify: inter-ideograph;  /* better for CJK; ignored elsewhere */
+  text-wrap: pretty;              /* reduce runts/tight last words (progressive) */
+  hanging-punctuation: first allow-end; /* nicer edge (progressive) */
+  /* Enable hyphenation where appropriate; relies on :lang hints */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -ms-hyphens: auto;
+  /* Use the same serif stack as article body */
+  font-family: var(--article-serif-stack);
+}
 
 #mainview .post-outdated-card {
   border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border));
@@ -473,6 +548,16 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 @media (prefers-reduced-motion: reduce) {
   #mainview .post-outdated-card { transition: none; }
   #mainview .post-outdated-card .post-outdated-close { transition: none; }
+}
+#mainview .post-meta-card .post-draft-notice {
+  /* Remove the framed box; use accent color for text only */
+  border: none;
+  background: transparent;
+  color: #b45309; /* amber-700 like accent for visibility */
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.92rem;
+  margin: 0.125rem 0 0.35rem;
 }
 #mainview .post-meta-card .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0; }
 #mainview .post-meta-card .tag { font-size: .8rem; }
@@ -526,6 +611,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 .index .card-excerpt { padding: 0 0.875rem 0.625rem; color: var(--muted); font-size: .92rem; line-height: 1.5; max-height: 4.5em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; }
 .index .card-meta { padding: 0.375rem 0.875rem 0.625rem; color: var(--muted); font-size: .72rem; display:flex; align-items:center; gap:0.5rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; border-top: 0.0625rem solid var(--border); margin-top: 0.25rem; opacity: .9; }
 .index .card-sep { opacity: .6; margin: 0 0.125rem; }
+.index .card-draft, #mainview .link-card .card-draft { display:inline-block; padding: 0.075rem 0.35rem; border-radius: 0.35rem; font-weight: 800; color: #b45309; background: color-mix(in srgb, #f59e0b 18%, var(--card)); border: 0.0625rem solid color-mix(in srgb, #f59e0b 35%, var(--border)); font-size: .72rem; letter-spacing: .04em; }
 .index .tags { display:flex; flex-wrap: wrap; gap:0.375rem; padding: 0 0.875rem 0.875rem; }
 .index .tag, .tags .tag { display:inline-block; margin: 0; font-size:.8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.1rem .4rem; border-radius: 999px; }
 
@@ -559,19 +645,23 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   /* Bigger vertical breathing room above and below */
   margin: 3rem 0 3rem;
 }
-.post-nav a,
-.post-nav span {
+/* Only style the top-level items (prev/next); not inner spans */
+.post-nav > a,
+.post-nav > span {
   display: inline-flex;
   align-items: center;
   /* Keep tight spacing between label and title to avoid a split-button feel */
   gap: 0.35rem;
-  padding: .6rem .75rem;
+  padding: .75rem .9rem; /* taller click target */
   border: 0.0625rem solid var(--border);
   border-radius: 0.5rem;
   background: var(--card);
   color: var(--text);
   text-decoration: none;
-  min-height: 2.5rem;
+  min-height: 3rem; /* ~48px for accessibility */
+  line-height: 1.25;
+  box-sizing: border-box;
+  min-width: 0; /* allow inner text to shrink without overflow */
 }
 .post-nav a:hover { 
   background: color-mix(in srgb, var(--primary) 10%, transparent);
@@ -580,14 +670,15 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 }
 .post-nav .disabled { opacity: .5; pointer-events: none; justify-content: center; }
 .post-nav-prev { justify-content: flex-start; }
-.post-nav-next { justify-content: flex-end; }
+.post-nav-next { justify-content: flex-start; }
 .post-nav .nav-label { font-weight: 700; opacity: .8; }
-.post-nav .nav-title { 
+.post-nav .nav-title {
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 70%;
+  min-width: 0; /* fix ellipsis clipping in flex context */
 }
 
 /* Ensure inner text elements never look like separate mini-buttons */
@@ -597,6 +688,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
+  display: block; /* ensure consistent line box; avoid inline-flex inheritance */
 }
 
 @media (max-width: 520px) {
@@ -1260,9 +1352,12 @@ ul.collapsed, li > ul.collapsed { display: none; }
     min-height: 15.625rem; /* Reduce min-height */
     width: 100%;
     max-width: 100%;
-    overflow-wrap: break-word; /* Force long-word wrap */
-    word-break: break-word; /* Compatibility */
+    /* Allow long tokens to wrap, but prefer hyphenation over arbitrary breaks */
+    overflow-wrap: break-word; /* Allow long-word wrap when necessary */
+    word-break: normal; /* Do not force arbitrary breaks */
     hyphens: auto; /* Enable hyphenation */
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
     box-sizing: border-box;
   }
   
@@ -1395,13 +1490,22 @@ ul.collapsed, li > ul.collapsed { display: none; }
   width: min(92vw, 32.5rem);
   max-width: 32.5rem;
   position: relative;
+  /* Prevent horizontal overflow on small screens */
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
 }
 [data-theme="dark"] .error-card {
   /* darker theme requires stronger but softer falloff */
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.3);
   border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
 }
-.error-head { font-weight: 700; margin-bottom: 0.25rem; }
+.error-head { 
+  font-weight: 700; 
+  margin-bottom: 0.25rem; 
+  /* Wrap long error names/messages instead of overflowing */
+  overflow-wrap: anywhere; 
+  word-break: break-word; 
+}
 .error-meta { font-size: .8rem; color: var(--muted); margin-bottom: 0.5rem; }
 .error-details { margin: 0.375rem 0 0.5rem; }
 .error-pre { 
