@@ -94,9 +94,24 @@
       "type": "boolean",
       "description": "Use card cover image as fallback when missing."
     },
-    "reportIssueURL": {
-      "type": "string",
-      "description": "URL for reporting site issues."
+    "repo": {
+      "type": "object",
+      "description": "Repository info used to construct helper URLs (e.g., report issue).",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Repository owner or organization (e.g., octocat)."
+        },
+        "name": {
+          "type": "string",
+          "description": "Repository name (e.g., hello-world)."
+        },
+        "branch": {
+          "type": "string",
+          "description": "Default branch name (e.g., main or gh-pages)."
+        }
+      },
+      "additionalProperties": true
     },
     "errorOverlay": {
       "type": "boolean",
