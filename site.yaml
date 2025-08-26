@@ -42,8 +42,13 @@ themeMode: user
 themePack: native
 themeOverride: true
 
-# Maintenance configurations
-reportIssueURL: https://github.com/deemoe404/NanoSite/issues/new  # Enable prefilled GitHub issue link
+# Repository information used for internal linking of "report issue" etc.
+repo:
+  owner: deemoe404
+  name: NanoSite
+  branch: main
+
+# Asset warnings configurations
 assetWarnings:
   largeImage:
     enabled: true
