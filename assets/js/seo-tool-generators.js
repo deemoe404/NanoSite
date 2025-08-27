@@ -284,9 +284,7 @@ function validateMeta(){
   } catch (_) { t('err', 'Validation failed'); return false; }
 }
 
-// Beautifiers
-function beautifySitemap(){ const id='sitemapOutput'; const el = document.getElementById(id); if (!el) return; const v = formatXML(getEditorValue(id) || el.value || ''); el.value = v; try { setEditorValue(id, v); } catch(_){} t('ok','Sitemap beautified'); }
-function beautifyMeta(){ const id='metaOutput'; const el = document.getElementById(id); if (!el) return; const v = formatHTMLFragment(getEditorValue(id) || el.value || ''); el.value = v; try { setEditorValue(id, v); } catch(_){} t('ok','Meta tags beautified'); }
+// Beautifiers removed (no longer used)
 
 // Copy/Download glue
 function copySitemap(){ copyFromTextarea('sitemapOutput', 'Sitemap copied'); }
@@ -306,8 +304,6 @@ window.copyMetaTags = copyMetaTags;
 window.validateSitemap = validateSitemap;
 window.validateRobots = validateRobots;
 window.validateMeta = validateMeta;
-window.beautifySitemap = beautifySitemap;
-window.beautifyMeta = beautifyMeta;
 window.downloadSitemap = downloadSitemap;
 window.downloadRobots = downloadRobots;
 window.downloadMetaTags = downloadMetaTags;
