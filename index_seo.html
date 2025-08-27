@@ -175,11 +175,13 @@
             display: inline-flex;
             align-items: center;
             gap: .4rem;
-            padding: .25rem .5rem;
+            height: 1.875rem; /* 30px */
+            padding: 0 .5rem;
             border-radius: 999px;
             border: 1px solid currentColor;
             font-weight: 600;
             font-size: .82rem;
+            line-height: 1;
         }
         .success { color: #1f883d; background: #e8f5e9; border-color: #1f883d; }
         .error { color: #dc2626; background: #fde8e8; border-color: #dc2626; }
@@ -231,6 +233,12 @@
         .toolbar .divider { width:1px; height:2rem; background:#e6e8eb; }
         .toolbar .toolbar-more { display:none; }
         #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 1.4rem; margin: 0 0 .5rem 0; }
+        /* Inline status + action */
+        .status-inline { display: inline-flex; align-items: center; gap: 6px; }
+        .icon-btn { width: 1.875rem; height: 1.875rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; line-height: 0; }
+        .icon-btn:hover { background:#f6f8fa; color:#24292f; }
+        .icon-btn:focus { outline:none; box-shadow:0 0 0 3px rgba(9,105,218,.3); border-color:#0969da; }
+        .icon-btn svg { display:block; width:16px; height:16px; transform: translateY(0.5px); }
         /* Output polish */
         .output-group textarea { margin-top: .25rem; border-color:#d0d7de; }
         /* Toasts (overlay, no layout shift) */
@@ -494,13 +502,6 @@
     <!-- Configuration Tab -->
     <div id="config-tab" class="tab-content">
         <div class="container">
-            <h2>Site Configuration Preview</h2>
-            <div class="instructions">
-                <h4>⚙️ Current Configuration:</h4>
-                <p>This shows your current site.yaml configuration that will be used for SEO generation.</p>
-            </div>
-            
-            <button class="btn-primary" onclick="loadSiteConfig()">Refresh Configuration</button>
             <div id="config-status"></div>
             
             <div class="config-preview" id="configPreview">
