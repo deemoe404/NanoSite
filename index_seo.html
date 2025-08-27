@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEO Generator - NanoSite</title>
     <style>
+        :root {
+            --code-bg: #f6f8fa;
+            --code-text: #24292f;
+            --border: #d0d7de;
+            --primary: #0969da;
+            --shadow: none;
+        }
+        /* Bottom breathing room */
+        body { padding-bottom: clamp(24px, 6vh, 96px); }
+        *, *::before, *::after { box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
             max-width: 62.5rem; 
@@ -13,9 +23,10 @@
             line-height: 1.6;
         }
         .container { 
-            background: #f8f9fa; 
-            border-radius: 0.5rem; 
-            padding: 1.25rem; 
+            background: #ffffff; 
+            border: 1px solid #e6e8eb;
+            border-radius: 10px; 
+            padding: 1rem; 
             margin-bottom: 1.25rem;
         }
         .tabs {
@@ -43,47 +54,136 @@
             display: block;
         }
         .btn-primary { 
-            background: #007acc; 
-            color: white; 
-            border: none; 
-            padding: 0.75rem 1.5rem; 
-            border-radius: 0.375rem; 
+            background: #0969da; 
+            color: #fff; 
+            border: 1px solid rgba(27,31,36,0.15); 
+            padding: 0.5rem 0.9rem; 
+            border-radius: 8px; 
             cursor: pointer; 
-            font-size: 1rem;
-            margin-right: 0.625rem;
+            font-size: 0.95rem;
+            height: 2.25rem;
         }
+        .btn-primary:hover { background: #0757b7; }
         .btn-secondary {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.375rem;
+            background: #fff;
+            color: #24292f;
+            border: 1px solid #d0d7de;
+            padding: 0.45rem 0.8rem;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 1rem;
-            margin-right: 0.625rem;
+            font-size: 0.93rem;
+            height: 2.25rem;
         }
-        .btn-primary:hover { background: #005a9e; }
-        .btn-secondary:hover { background: #545b62; }
+        .btn-secondary:hover { background: #f6f8fa; }
+        .btn-tertiary { 
+            background: transparent; 
+            color: #57606a; 
+            border: 1px dashed #d0d7de; 
+            padding: 0.45rem 0.8rem; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.9rem;
+            height: 2.25rem;
+        }
+        .btn-tertiary:hover { background: #f6f8fa; color: #24292f; }
         textarea { 
+            display: block;
             width: 100%; 
-            height: 25rem; 
+            max-width: 100%;
+            height: 24rem; 
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; 
             font-size: 0.8125rem;
-            border: 0.0625rem solid #ddd;
-            border-radius: 0.25rem;
-            padding: 0.625rem;
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            padding: 0.75rem;
+            background: #fff;
             resize: vertical;
+            overflow: auto;
         }
         .output-group {
-            margin-bottom: 1.875rem;
+            margin-bottom: 1.25rem;
+            background: transparent;
+            border: 0;
+            padding: 0;
         }
+        /* Code editor styling (line numbers + highlight) */
+        .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
+        .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
+        .hi-editor .code-scroll .code-gutter { 
+            flex: 0 0 auto; 
+            text-align: right; 
+            padding: 1rem 0.5rem; 
+            user-select: none; 
+            color: rgba(36,41,47,.6); 
+            border-right: 1px solid rgba(36,41,47,.12); 
+            margin-right: 0; 
+            background: var(--code-bg);
+            position: sticky; 
+            left: 0; 
+            z-index: 1; 
+            /* Ensure gutter uses identical metrics as code */
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; 
+            font-size: 12px; 
+            line-height: 20px;
+            font-weight: 400;
+            font-variant-ligatures: none;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0;
+        }
+        .hi-editor .code-scroll .code-gutter span { 
+            display: block; 
+            line-height: inherit; 
+            font-variant-numeric: tabular-nums; 
+        }
+        .hi-editor { position: relative; }
+        .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
+        .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
+        .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+        .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: contain; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+        /* Active line highlight */
+        .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
+        .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
+        .hi-editor .code-scroll .code-gutter span.is-active { background: transparent; color: #0f172a; font-weight: 600; }
+        .hi-editor .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
+        .syntax-keyword { color: #d73a49; font-weight: 600; }
+        .syntax-string { color: #22863a; }
+        .syntax-number { color: #005cc5; }
+        /* Slightly lighter comment for better contrast in robots.txt and others */
+        .syntax-comment { color: #8c959f; font-style: italic; opacity: 0.95; }
+        .syntax-operator { color: #d73a49; }
+        .syntax-punctuation { color: #586069; }
+        .syntax-tag { color: #22863a; font-weight: 600; }
+        .syntax-property { color: #005cc5; }
+        .syntax-selector { color: #6f42c1; font-weight: 600; }
+        .syntax-preprocessor { color: #e36209; font-weight: 600; }
+        .syntax-variables { color: #e36209; }
+        .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
+        .syntax-language-label.is-hover { opacity: 1; }
+        .syntax-language-label.is-copied { opacity: 1; background: #16a34a; color: #fff; border-color: rgba(0,0,0,0.1); }
+        /* Ensure visible colors inside custom editor */
+        .hi-editor .syntax-keyword { color: #cf222e !important; font-weight: 700; }
+        .hi-editor .syntax-comment { color: #8c959f !important; opacity: 0.95; }
+        .hi-editor .syntax-string { color: #1a7f37 !important; }
+        .hi-editor .syntax-number { color: #0550ae !important; }
         .output-group h3 {
-            margin-bottom: 0.625rem;
-            color: #495057;
+            margin: 0 0 0.5rem 0;
+            color: #24292f;
+            font-weight: 600;
+            font-size: 0.95rem;
         }
-        .success { color: #22c55e; font-weight: 600; }
-        .error { color: #ef4444; font-weight: 600; }
-        .warning { color: #f59e0b; font-weight: 600; }
+        .success, .error, .warning {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .25rem .5rem;
+            border-radius: 999px;
+            border: 1px solid currentColor;
+            font-weight: 600;
+            font-size: .82rem;
+        }
+        .success { color: #1f883d; background: #e8f5e9; border-color: #1f883d; }
+        .error { color: #dc2626; background: #fde8e8; border-color: #dc2626; }
+        .warning { color: #b45309; background: #fff7ed; border-color: #f59e0b; }
         .config-preview {
             background: white;
             border: 0.0625rem solid #ddd;
@@ -122,15 +222,193 @@
             margin-bottom: 0.9375rem;
             flex-wrap: wrap;
         }
+        /* New toolbar layout for tab sections */
+        .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
+        .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+        .btn-compact { padding: 0.4rem 0.8rem; height: 2.25rem; }
+        .btn-secondary.btn-compact { padding:0.4rem 0.9rem; }
+        .info-btn { margin-left: .25rem; }
+        .toolbar .divider { width:1px; height:2rem; background:#e6e8eb; }
+        .toolbar .toolbar-more { display:none; }
+        #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 1.4rem; margin: 0 0 .5rem 0; }
+        /* Output polish */
+        .output-group textarea { margin-top: .25rem; border-color:#d0d7de; }
+        /* Toasts (overlay, no layout shift) */
+        .toast-container { position: fixed; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1100; }
+        .toast { display:flex; align-items:center; gap:.5rem; padding:.55rem .75rem; border-radius:8px; box-shadow: 0 8px 24px rgba(140,149,159,.28), 0 1px 0 rgba(27,31,36,.06); border:1px solid #d0d7de; background:#fff; color:#24292f; font-size:.92rem; }
+        .toast.ok { border-color:#1f883d; }
+        .toast.err { border-color:#dc2626; }
+        .toast.warn { border-color:#f59e0b; }
+        
+        @media (max-width: 640px) {
+            .toolbar { gap:.5rem; }
+            .left-actions, .right-actions { gap:.4rem; }
+            textarea { height: 16rem; }
+        }
+        /* Collapse extra toolbar actions on narrow screens */
+        @media (max-width: 880px) {
+            .toolbar .toolbar-more { display: inline-flex; }
+            /* Hide extras by default on narrow */
+            .toolbar .is-extra { display: none !important; }
+            .toolbar .divider { display: none !important; }
+            /* When expanded, force show */
+            .toolbar.expanded .is-extra { display: inline-flex !important; }
+            .toolbar.expanded .divider { display: block !important; }
+        }
+        /* GitHub controls: compact, cleaner */
+        .gh-controls { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+        .gh-field { display:flex; align-items:center; border:1px solid #d0d7de; background:#fff; border-radius:6px; overflow:hidden; height: 2.1rem; box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
+        .gh-prefix { height:100%; display:flex; align-items:center; padding:0 0.5rem; color:#57606a; background:#f6f8fa; border-right:1px solid #d0d7de; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; }
+        .gh-input { border:0; outline:none; padding:0 0.5rem; min-width:16rem; flex:1 1 auto; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; height:100%; }
+        .gh-field.error { border-color:#ef4444; background:#fff7f7; }
+        .gh-field.valid { border-color:#1f883d; }
+        .gh-select { border:1px solid #d0d7de; background:#fff; border-radius:6px; padding:0.35rem 2rem 0.35rem 0.6rem; min-width:12rem; height:2.1rem; outline:none; transition: border-color .15s ease, box-shadow .15s ease; -webkit-appearance:none; appearance:none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'%3E%3Cpath fill='%2357606a' d='M5.516 7.548a.75.75 0 0 1 1.06 0L10 10.97l3.424-3.424a.75.75 0 1 1 1.06 1.06l-3.954 3.955a.75.75 0 0 1-1.06 0L5.516 8.608a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position: right .5rem center; box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
+        .gh-select:focus { border-color:#0969da; box-shadow:0 0 0 3px rgba(9,105,218,.3); }
+        .gh-select:disabled { background:#f6f8fa; color:#8c959f; }
+        .btn-gh { background:#1f883d; color:#fff; border:1px solid rgba(27,31,36,0.15); border-radius:8px; padding:0.4rem 0.85rem; height:2.25rem; cursor:pointer; box-shadow: 0 1px 0 rgba(27,31,36,.1); }
+        .btn-gh:hover { background:#1a7f37; }
+        .btn-gh:active { background:#187432; }
+        .btn-gh:disabled { background:#94d3a2; cursor:not-allowed; }
+        .gh-inline-action { height:100%; padding:0 .55rem; border:0; border-left:1px solid #d0d7de; background:transparent; color:#0969da; cursor:pointer; }
+        .gh-inline-action:hover { background:#f6f8fa; color:#054da7; }
+        .btn-link { background:transparent; border:none; color:#0969da; cursor:pointer; padding:0 .25rem; height:2.1rem; text-decoration:underline; }
+        .btn-link:hover { color:#054da7; text-decoration:underline; }
+        .gh-status { display:flex; gap:0.5rem; align-items:center; min-height:1.2rem; margin-top:0.5rem; }
+        .badge { display:inline-flex; align-items:center; gap:0.4rem; padding:0.12rem 0.5rem; border-radius:999px; font-size:0.75rem; line-height:1; }
+        .badge.ok { background:#e8f5e9; color:#16a34a; }
+        .badge.err { background:#fde8e8; color:#dc2626; }
+        .badge.warn { background:#fff7ed; color:#f59e0b; }
+        .spinner { width:12px; height:12px; border:2px solid #c9d1d9; border-top-color:#0969da; border-radius:50%; display:inline-block; animation: spin .8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* Title + fullscreen help modal */
+        .gh-titlebar { display:flex; align-items:center; gap:0.25rem; position: relative; margin-bottom: 0.75rem; }
+        .info-btn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; font-weight:600; font-size:12px; line-height:1; box-shadow: 0 1px 0 rgba(27,31,36,.04); }
+        .info-btn:hover { background:#f6f8fa; }
+        .info-btn:focus { outline:none; box-shadow:0 0 0 3px rgba(9,105,218,.3); border-color:#0969da; }
+        /* removed small tab popover in favor of fullscreen modal */
+        html, body { height: 100%; }
+        @supports (-webkit-touch-callout: none) {
+            html, body { height: -webkit-fill-available; }
+        }
+        .gh-overlay { position: fixed; top:0; left:0; right:0; bottom:0; width:100vw; height:100vh; min-height: var(--vvh, 100vh); background: rgba(27,31,36,.38); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display:none; z-index: 1000; padding: clamp(12px, 4vw, 24px); overflow: auto; overscroll-behavior: contain; }
+        @supports (height: 100dvh) { .gh-overlay { height: 100dvh; } }
+        @supports (height: 100lvh) { .gh-overlay { height: 100lvh; } }
+        .gh-overlay.open { display:grid; place-items: start center; }
+        /* Soften the bottom edge on iOS Safari where browser UI can't be blurred */
+        .gh-overlay::after { content:""; position: fixed; left:0; right:0; bottom:0; height: max(48px, env(safe-area-inset-bottom)); pointer-events:none; background: linear-gradient(to bottom, rgba(27,31,36,0) 0%, rgba(27,31,36,0.22) 40%, rgba(27,31,36,0.32) 100%); }
+        .gh-modal { background:#fff; border:1px solid #d0d7de; border-radius:14px; width: min(640px, 92vw); max-height: min(82vh, 82svh); box-shadow: 0 16px 48px rgba(140,149,159,.28), 0 1px 0 rgba(27,31,36,.06); overflow: auto; margin: calc(env(safe-area-inset-top) + clamp(16px, 8vh, 96px)) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+        .gh-modal-header { display:flex; align-items:center; justify-content:space-between; padding: .85rem 1rem; border-bottom:1px solid #d0d7de; }
+        .gh-modal-header h4 { margin:0; font-size:1.05rem; color:#24292f; letter-spacing:.2px; }
+        .close-btn { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:6px; background:#fff; color:#57606a; cursor:pointer; padding:0; }
+        .close-btn:hover { background:#f6f8fa; }
+        .gh-modal-body { padding: 1rem 1.1rem 1.1rem; line-height: 1.65; font-size: .96rem; color:#24292f; }
+        .gh-modal-body p { margin: 0 0 .75rem; }
+        .gh-modal-body ul { margin: .25rem 0 .6rem 1.2rem; padding:0; }
+        .gh-modal-body li { margin: .35rem 0; }
+        @media (max-width: 480px) {
+            .gh-modal { width: 94vw; }
+            .gh-modal-body { font-size: .98rem; }
+        }
+        .gh-modal-body code { 
+            background:#f6f8fa; 
+            border:1px solid #d0d7de; 
+            border-radius:6px; 
+            padding: 0 .35rem; 
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace; 
+            font-weight: 600; 
+            color:#24292f; 
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+        }
+        /* Prevent background scroll when modal open (fallback class) */
+        .no-scroll { overflow: hidden !important; }
+        /* Inline validation styles */
+        .input-error { border-color: #ef4444 !important; background: #fff7f7; }
+        .input-valid { border-color: #22c55e !important; }
+        .field-status { font-size: 0.85rem; margin-top: 0.25rem; }
+        .field-status.ok { color: #16a34a; }
+        .field-status.warn { color: #f59e0b; }
+        .field-status.err { color: #dc2626; }
+
+        /* Footer */
+        .site-footer { border-top: 1px solid #d0d7de; margin-top: 2rem; margin-bottom: clamp(24px, 6vh, 96px); padding: .9rem 0 calc(1rem + env(safe-area-inset-bottom)); color:#57606a; font-size:.9rem; }
+        .site-footer .footer-inner { display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
+        .site-footer a { color:#0969da; text-decoration:none; }
+        .site-footer a:hover { text-decoration:underline; }
+        .site-footer .dot { color:#8c959f; margin: 0 .35rem; }
+        .site-footer .brand { font-weight:600; color:#24292f; }
     </style>
 </head>
 <body>
+    <div id="toast-root" class="toast-container" aria-live="polite" aria-atomic="true"></div>
     <h1>🔍 NanoSite SEO Generator</h1>
-    <p>Generate sitemap.xml and robots.txt files for your NanoSite. This tool reads your site configuration and content to create optimized SEO files.</p>
+    <p>Quickly create the files that help search engines understand your site (SEO files). This tool uses your NanoSite settings and content to generate a sitemap, robots.txt, and meta tags — ready to copy or commit to GitHub.</p>
+
+    <div class="container">
+        <div class="gh-titlebar">
+            <h4 style="margin:0rem;">GitHub Destination</h4>
+            <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
+        </div>
+        <div class="gh-controls">
+            <div class="gh-field">
+                <span class="gh-prefix">@</span>
+                <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^\/\s]+\/[^\/\s]+$">
+                <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
+            </div>
+            <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
+                <option value="" selected>Loading branches…</option>
+            </select>
+            <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
+                <button id="gh-save" class="btn-gh" type="button">Check</button>
+            </div>
+        </div>
+        <div class="gh-status">
+            <span id="gh-slug-status" class="badge"></span>
+            <span id="gh-branch-status" class="badge"></span>
+        </div>
+        
+    </div>
+
+    <!-- Fullscreen help overlay -->
+    <div id="gh-help-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="gh-modal" role="document">
+            <div class="gh-modal-header">
+                <h4>💡 What is GitHub Destination?</h4>
+                <button id="gh-help-close" class="close-btn" type="button" aria-label="Close">×</button>
+            </div>
+            <div class="gh-modal-body">
+                <p>This tells the tool which GitHub repository your site lives in.</p>
+                <p><b>How to fill it in:</b></p>
+                <ul>
+                    <li>If your site already has this info in <code>site.yaml</code>, it will show up here automatically.</li>
+                    <li>If not, just type your <code>username/repository</code> and branch name, then click <b>Save</b>.</li>
+                </ul>
+                <p><b>Where it’s stored:</b></p>
+                <ul>
+                    <li>The setting is saved only in your browser (local storage).</li>
+                    <li>Nothing is uploaded anywhere until you open GitHub yourself.</li>
+                </ul>
+                <p><b>Why it matters:</b></p>
+                <p>When you click “Open on GitHub” (to create or edit files), the tool will use this information to take you straight to the correct repository page.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen tab help overlay -->
+    <div id="tab-help-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="gh-modal" role="document">
+            <div class="gh-modal-header">
+                <h4 id="tab-help-title">Help</h4>
+                <button id="tab-help-close" class="close-btn" type="button" aria-label="Close">×</button>
+            </div>
+            <div id="tab-help-body" class="gh-modal-body"></div>
+        </div>
+    </div>
+
+    
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('sitemap')">Sitemap Generator</button>
-        <button class="tab" onclick="switchTab('robots')">Robots.txt Generator</button>
+        <button class="tab active" onclick="switchTab('sitemap')">Sitemap</button>
+        <button class="tab" onclick="switchTab('robots')">Robots.txt</button>
         <button class="tab" onclick="switchTab('meta')">HTML Meta Tags</button>
         <button class="tab" onclick="switchTab('config')">Site Configuration</button>
     </div>
@@ -138,21 +416,19 @@
     <!-- Sitemap Tab -->
     <div id="sitemap-tab" class="tab-content active">
         <div class="container">
-            <h2>Sitemap.xml Generator</h2>
-            <div class="instructions">
-                <h4>📋 Instructions:</h4>
-                <ol>
-                    <li>Click "Generate Sitemap" to create XML content based on your posts and tabs</li>
-                    <li>Copy the generated XML content</li>
-                    <li>Save it as <code>sitemap.xml</code> in your website's root directory</li>
-                    <li>Make sure your robots.txt references the sitemap URL</li>
-                </ol>
-            </div>
-            
-            <div class="file-actions">
-                <button class="btn-primary" onclick="generateSitemap()">Generate Sitemap</button>
-                <button class="btn-secondary" onclick="copySitemap()">Copy to Clipboard</button>
-                <button class="btn-secondary" onclick="downloadSitemap()">Download File</button>
+            <div class="toolbar">
+                <div class="left-actions">
+                    <button class="btn-primary btn-compact" onclick="generateSitemap()" title="Refresh sitemap">Refresh</button>
+                    <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
+                    <button class="btn-tertiary btn-compact is-extra" onclick="validateSitemap()" title="Validate XML">Validate</button>
+                    <div class="divider is-extra"></div>
+                    <button class="btn-secondary btn-compact is-extra" onclick="copySitemap()">Copy</button>
+                    <button class="btn-secondary btn-compact is-extra" onclick="downloadSitemap()">Download</button>
+                </div>
+                <div class="right-actions">
+                    <button id="sitemap-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
+                    <button id="sitemap-help-btn" class="info-btn" type="button" aria-label="Sitemap help" aria-expanded="false">?</button>
+                </div>
             </div>
             <div id="sitemap-status"></div>
             
@@ -166,21 +442,19 @@
     <!-- Robots.txt Tab -->
     <div id="robots-tab" class="tab-content">
         <div class="container">
-            <h2>Robots.txt Generator</h2>
-            <div class="instructions">
-                <h4>🤖 Instructions:</h4>
-                <ol>
-                    <li>Click "Generate Robots.txt" to create content based on your site configuration</li>
-                    <li>Copy the generated content</li>
-                    <li>Save it as <code>robots.txt</code> in your website's root directory</li>
-                    <li>The file includes proper sitemap references and crawling guidelines</li>
-                </ol>
-            </div>
-            
-            <div class="file-actions">
-                <button class="btn-primary" onclick="generateRobots()">Generate Robots.txt</button>
-                <button class="btn-secondary" onclick="copyRobots()">Copy to Clipboard</button>
-                <button class="btn-secondary" onclick="downloadRobots()">Download File</button>
+            <div class="toolbar">
+                <div class="left-actions">
+                    <button class="btn-primary btn-compact" onclick="generateRobots()" title="Refresh robots.txt">Refresh</button>
+                    <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
+                    <button class="btn-tertiary btn-compact is-extra" onclick="validateRobots()" title="Validate robots.txt">Validate</button>
+                    <div class="divider is-extra"></div>
+                    <button class="btn-secondary btn-compact is-extra" onclick="copyRobots()">Copy</button>
+                    <button class="btn-secondary btn-compact is-extra" onclick="downloadRobots()">Download</button>
+                </div>
+                <div class="right-actions">
+                    <button id="robots-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
+                    <button id="robots-help-btn" class="info-btn" type="button" aria-label="Robots help" aria-expanded="false">?</button>
+                </div>
             </div>
             <div id="robots-status"></div>
             
@@ -194,21 +468,19 @@
     <!-- HTML Meta Tags Tab -->
     <div id="meta-tab" class="tab-content">
         <div class="container">
-            <h2>HTML Meta Tags Generator</h2>
-            <div class="instructions">
-                <h4>🏷️ Instructions:</h4>
-                <ol>
-                    <li>Click "Generate Meta Tags" to create HTML meta tags based on your site configuration</li>
-                    <li>Copy the generated HTML content</li>
-                    <li>Replace the empty meta tags in your <code>index.html</code> file</li>
-                    <li>The tags include SEO, Open Graph, and Twitter Card metadata</li>
-                </ol>
-            </div>
-            
-            <div class="file-actions">
-                <button class="btn-primary" onclick="generateMetaTags()">Generate Meta Tags</button>
-                <button class="btn-secondary" onclick="copyMetaTags()">Copy to Clipboard</button>
-                <!-- <button class="btn-secondary" onclick="downloadMetaTags()">Download HTML</button> -->
+            <div class="toolbar">
+                <div class="left-actions">
+                    <button class="btn-primary btn-compact" onclick="generateMetaTags()" title="Refresh meta tags">Refresh</button>
+                    <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
+                    <button class="btn-tertiary btn-compact is-extra" onclick="validateMeta()" title="Validate tags">Validate</button>
+                    <div class="divider is-extra"></div>
+                    <button class="btn-secondary btn-compact is-extra" onclick="copyMetaTags()">Copy</button>
+                    <button class="btn-secondary btn-compact is-extra" onclick="downloadMetaTags()">Download</button>
+                </div>
+                <div class="right-actions">
+                    <button class="btn-gh btn-compact" onclick="openIndexHtmlEdit()">Open index.html on GitHub</button>
+                    <button id="meta-help-btn" class="info-btn" type="button" aria-label="Meta help" aria-expanded="false">?</button>
+                </div>
             </div>
             <div id="meta-status"></div>
             
@@ -242,353 +514,23 @@
         </div>
     </div>
 
-    <script type="module">
-        import { generateSitemapData } from './assets/js/seo.js';
-        import { fetchConfigWithYamlFallback } from './assets/js/yaml.js';
+    <!-- Footer -->
+    <footer class="site-footer" role="contentinfo">
+        <div class="footer-inner">
+            <div>
+                <span class="brand">NanoSite SEO Generator</span>
+                <span class="dot">•</span>
+                <a href="https://nano.dee.moe" target="_blank" rel="noopener">nano.dee.moe</a>
+                <span class="dot">•</span>
+                <a href="https://github.com/deemoe404/nanosite" target="_blank" rel="noopener">deemoe404/nanosite</a>
+            </div>
+            <div>
+                © <span id="footer-year"></span> NanoSite contributors
+            </div>
+        </div>
+    </footer>
 
-        let currentSiteConfig = {};
-        let currentPostsData = {};
-        let currentTabsData = {};
+    <script type="module" src="./assets/js/seo-tool-main.js"></script>
 
-        // Tab switching
-        window.switchTab = function(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            
-            // Show selected tab
-            document.getElementById(tabName + '-tab').classList.add('active');
-            event.target.classList.add('active');
-        };
-
-        async function loadSiteConfigFlex() {
-            return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
-        }
-
-        function getContentRootFrom(cfg) {
-            const raw = (cfg && (cfg.contentRoot || cfg.contentBase || cfg.contentPath)) || 'wwwroot';
-            return String(raw).replace(/^\/+|\/+$/g, '');
-        }
-
-        async function loadSiteYamlRaw() {
-            const attempts = ['site.yaml', 'site.yml'];
-            for (const p of attempts) {
-                try {
-                    const r = await fetch(p);
-                    if (r.ok) return await r.text();
-                } catch (_) {}
-            }
-            return '';
-        }
-
-        // Load and preview site configuration
-        window.loadSiteConfig = async function() {
-            const statusEl = document.getElementById('config-status');
-            const previewEl = document.getElementById('configPreview');
-            const outputEl = document.getElementById('configOutput');
-            
-            try {
-                statusEl.innerHTML = '<p>Loading configuration...</p>';
-                currentSiteConfig = await loadSiteConfigFlex();
-                const rawYaml = await loadSiteYamlRaw();
-                outputEl.value = rawYaml || '# site.yaml not found or failed to load';
-                
-                // Create preview
-                const getLocalizedValue = (val, fallback = 'Not set') => {
-                    if (!val) return fallback;
-                    if (typeof val === 'string') return val;
-                    return val.default || fallback;
-                };
-                
-                previewEl.innerHTML = `
-                    <h4>Site Configuration</h4>
-                    <div class="config-item"><span class="config-label">Site Title:</span> ${getLocalizedValue(currentSiteConfig.siteTitle)}</div>
-                    <div class="config-item"><span class="config-label">Resource URL:</span> ${currentSiteConfig.resourceURL || 'Not set'}</div>
-                    <div class="config-item"><span class="config-label">Description:</span> ${getLocalizedValue(currentSiteConfig.siteDescription)}</div>
-                    <div class="config-item"><span class="config-label">Keywords:</span> ${getLocalizedValue(currentSiteConfig.siteKeywords)}</div>
-                    <div class="config-item"><span class="config-label">Avatar:</span> ${currentSiteConfig.avatar || 'Not set'}</div>
-                    <div class="config-item"><span class="config-label">Profile Links:</span> ${currentSiteConfig.profileLinks ? currentSiteConfig.profileLinks.length + ' links' : 'None'}</div>
-                `;
-                
-                statusEl.innerHTML = '<p class="success">✓ Configuration loaded successfully!</p>';
-                
-            } catch (error) {
-                console.error('Error loading site config:', error);
-                statusEl.innerHTML = `<p class="error">✗ Error loading configuration: ${error.message}</p>`;
-                previewEl.innerHTML = '<h4>Failed to load configuration</h4>';
-            }
-        };
-
-        // Generate sitemap
-        window.generateSitemap = async function() {
-            const statusEl = document.getElementById('sitemap-status');
-            const outputEl = document.getElementById('sitemapOutput');
-            
-            try {
-                statusEl.innerHTML = '<p>Loading data...</p>';
-                
-                // Load all required data
-                // Load site config to determine content root (default: wwwroot)
-                currentSiteConfig = await loadSiteConfigFlex();
-                const cr = getContentRootFrom(currentSiteConfig);
-                const [postsObj, tabsObj] = await Promise.all([
-                    fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]),
-                    fetchConfigWithYamlFallback([`${cr}/tabs.yaml`,`${cr}/tabs.yml`])
-                ]);
-                
-                currentPostsData = postsObj || {};
-                currentTabsData = tabsObj || {};
-                currentSiteConfig = await loadSiteConfigFlex();
-                
-                // Generate sitemap data
-                const urls = generateSitemapData(currentPostsData, currentTabsData, currentSiteConfig);
-                
-                // Generate XML
-                const xml = generateSitemapXML(urls);
-                
-                outputEl.value = xml;
-                statusEl.innerHTML = `<p class="success">✓ Sitemap generated successfully! Found ${urls.length} URLs.</p>`;
-                
-                // Auto-select the text for easy copying
-                outputEl.select();
-                
-            } catch (error) {
-                console.error('Error generating sitemap:', error);
-                statusEl.innerHTML = `<p class="error">✗ Error generating sitemap: ${error.message}</p>`;
-            }
-        };
-
-        // Generate robots.txt
-        window.generateRobots = async function() {
-            const statusEl = document.getElementById('robots-status');
-            const outputEl = document.getElementById('robotsOutput');
-            
-            try {
-                statusEl.innerHTML = '<p>Generating robots.txt...</p>';
-                
-                // Load site config if not already loaded
-                if (!currentSiteConfig.resourceURL) {
-                    currentSiteConfig = await loadSiteConfigFlex();
-                }
-                
-                const robotsContent = generateRobotsTxt(currentSiteConfig);
-                outputEl.value = robotsContent;
-                
-                statusEl.innerHTML = '<p class="success">✓ Robots.txt generated successfully!</p>';
-                outputEl.select();
-                
-            } catch (error) {
-                console.error('Error generating robots.txt:', error);
-                statusEl.innerHTML = `<p class="error">✗ Error generating robots.txt: ${error.message}</p>`;
-            }
-        };
-
-        // Copy functions
-        window.copySitemap = function() {
-            const outputEl = document.getElementById('sitemapOutput');
-            outputEl.select();
-            document.execCommand('copy');
-            document.getElementById('sitemap-status').innerHTML = '<p class="success">✓ Sitemap copied to clipboard!</p>';
-        };
-
-        window.copyRobots = function() {
-            const outputEl = document.getElementById('robotsOutput');
-            outputEl.select();
-            document.execCommand('copy');
-            document.getElementById('robots-status').innerHTML = '<p class="success">✓ Robots.txt copied to clipboard!</p>';
-        };
-
-        // Generate HTML meta tags
-        window.generateMetaTags = async function() {
-            const statusEl = document.getElementById('meta-status');
-            const outputEl = document.getElementById('metaOutput');
-            
-            try {
-                statusEl.innerHTML = '<p>Generating HTML meta tags...</p>';
-                
-                // Load site config if not already loaded
-                if (!currentSiteConfig.resourceURL) {
-                    currentSiteConfig = await loadSiteConfigFlex();
-                }
-                
-                const metaContent = generateMetaTagsHTML(currentSiteConfig);
-                outputEl.value = metaContent;
-                
-                statusEl.innerHTML = '<p class="success">✓ HTML meta tags generated successfully!</p>';
-                outputEl.select();
-                
-            } catch (error) {
-                console.error('Error generating meta tags:', error);
-                statusEl.innerHTML = `<p class="error">✗ Error generating meta tags: ${error.message}</p>`;
-            }
-        };
-
-        window.copyMetaTags = function() {
-            const outputEl = document.getElementById('metaOutput');
-            outputEl.select();
-            document.execCommand('copy');
-            document.getElementById('meta-status').innerHTML = '<p class="success">✓ Meta tags copied to clipboard!</p>';
-        };
-
-        // Download functions
-        window.downloadSitemap = function() {
-            const content = document.getElementById('sitemapOutput').value;
-            downloadFile('sitemap.xml', content, 'application/xml');
-        };
-
-        window.downloadRobots = function() {
-            const content = document.getElementById('robotsOutput').value;
-            downloadFile('robots.txt', content, 'text/plain');
-        };
-
-        window.downloadMetaTags = function() {
-            const content = document.getElementById('metaOutput').value;
-            downloadFile('meta-tags.html', content, 'text/html');
-        };
-
-        function downloadFile(filename, content, mimeType) {
-            const blob = new Blob([content], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function generateSitemapXML(urls) {
-            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-            xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-            
-            urls.forEach(url => {
-                xml += '  <url>\n';
-                xml += `    <loc>${escapeXML(url.loc)}</loc>\n`;
-                xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
-                xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
-                xml += `    <priority>${url.priority}</priority>\n`;
-                xml += '  </url>\n';
-            });
-            
-            xml += '</urlset>';
-            return xml;
-        }
-
-        function generateRobotsTxt(siteConfig) {
-            // Use site's base URL (remove current file path)
-            const baseUrl = window.location.origin + '/';
-            const cr = getContentRootFrom(siteConfig);
-            
-            let robots = `User-agent: *\n`;
-            robots += `Allow: /\n\n`;
-            
-            robots += `# Sitemap\n`;
-            robots += `Sitemap: ${baseUrl}sitemap.xml\n\n`;
-            
-            robots += `# Allow crawling of main content\n`;
-            robots += `Allow: /${cr}/\n`;
-            robots += `Allow: /assets/\n\n`;
-            
-            robots += `# Disallow admin or internal directories\n`;
-            robots += `Disallow: /admin/\n`;
-            robots += `Disallow: /.git/\n`;
-            robots += `Disallow: /node_modules/\n`;
-            robots += `Disallow: /.env\n`;
-            robots += `Disallow: /package.json\n`;
-            robots += `Disallow: /package-lock.json\n\n`;
-            
-            robots += `# SEO tools (allow but not priority)\n`;
-            robots += `Allow: /seo-generator.html\n`;
-            robots += `Allow: /sitemap-generator.html\n\n`;
-            
-            robots += `# Crawl delay (be nice to servers)\n`;
-            robots += `Crawl-delay: 1\n\n`;
-            
-            robots += `# Generated by NanoSite SEO Generator\n`;
-            robots += `# ${new Date().toISOString()}\n`;
-            
-            return robots;
-        }
-
-        function generateMetaTagsHTML(siteConfig) {
-            // Use site's base URL
-            const baseUrl = window.location.origin + '/';
-            
-            // Helper to get localized value with fallback
-            const getLocalizedValue = (val, fallback = '') => {
-                if (!val) return fallback;
-                if (typeof val === 'string') return val;
-                return val.default || fallback;
-            };
-            
-            // Extract values from site config
-            const siteTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
-            const siteDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end blog template');
-            const siteKeywords = getLocalizedValue(siteConfig.siteKeywords, 'blog, static site, markdown');
-            const avatar = siteConfig.avatar || 'assets/avatar.png';
-            const fullAvatarUrl = avatar.startsWith('http') ? avatar : baseUrl + avatar;
-            
-            let html = `  <!-- Primary SEO Meta Tags -->\n`;
-            html += `  <title>${escapeHTML(siteTitle)}</title>\n`;
-            html += `  <meta name="title" content="${escapeHTML(siteTitle)}">\n`;
-            html += `  <meta name="description" content="${escapeHTML(siteDescription)}">\n`;
-            html += `  <meta name="keywords" content="${escapeHTML(siteKeywords)}">\n`;
-            html += `  <meta name="author" content="${escapeHTML(siteTitle)}">\n`;
-            html += `  <meta name="robots" content="index, follow">\n`;
-            html += `  <link rel="canonical" href="${baseUrl}">\n`;
-            html += `  \n`;
-            html += `  <!-- Open Graph / Facebook -->\n`;
-            html += `  <meta property="og:type" content="website">\n`;
-            html += `  <meta property="og:url" content="${baseUrl}">\n`;
-            html += `  <meta property="og:title" content="${escapeHTML(siteTitle)}">\n`;
-            html += `  <meta property="og:description" content="${escapeHTML(siteDescription)}">\n`;
-            html += `  <meta property="og:image" content="${fullAvatarUrl}">\n`;
-            html += `  <meta property="og:logo" content="${fullAvatarUrl}">\n`;
-            html += `  \n`;
-            html += `  <!-- Twitter -->\n`;
-            html += `  <meta property="twitter:card" content="summary_large_image">\n`;
-            html += `  <meta property="twitter:url" content="${baseUrl}">\n`;
-            html += `  <meta property="twitter:title" content="${escapeHTML(siteTitle)}">\n`;
-            html += `  <meta property="twitter:description" content="${escapeHTML(siteDescription)}">\n`;
-            html += `  <meta property="twitter:image" content="${fullAvatarUrl}">\n`;
-            html += `  \n`;
-            html += `  <!-- Initial meta tags - will be updated by dynamic SEO system -->\n`;
-            html += `  <meta name="theme-color" content="#1a1a1a">\n`;
-            html += `  <meta name="msapplication-TileColor" content="#1a1a1a">\n`;
-            html += `  <link rel="icon" type="image/png" href="${avatar}">`;
-            
-            return html;
-        }
-
-        function escapeHTML(str) {
-            return String(str || '').replace(/[&<>"']/g, function(char) {
-                switch (char) {
-                    case '&': return '&amp;';
-                    case '<': return '&lt;';
-                    case '>': return '&gt;';
-                    case '"': return '&quot;';
-                    case "'": return '&#39;';
-                    default: return char;
-                }
-            });
-        }
-
-        function escapeXML(str) {
-            return str.replace(/[<>&'"]/g, function(char) {
-                switch (char) {
-                    case '<': return '&lt;';
-                    case '>': return '&gt;';
-                    case '&': return '&amp;';
-                    case "'": return '&apos;';
-                    case '"': return '&quot;';
-                    default: return char;
-                }
-            });
-        }
-
-        // Load site config on page load
-        loadSiteConfig();
-    </script>
 </body>
 </html>
