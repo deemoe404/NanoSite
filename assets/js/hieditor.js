@@ -149,9 +149,9 @@ function renderHighlight(codeEl, gutterEl, value, language) {
     safeHtml = escapeHtmlInline(raw);
   }
   codeEl.innerHTML = safeHtml;
-  // Update line numbers
-  const trimmed = raw.endsWith('\n') ? raw.slice(0, -1) : raw;
-  const lineCount = trimmed ? (trimmed.match(/\n/g) || []).length + 1 : 1;
+  // Update line numbers (include trailing blank line)
+  // Count all lines by counting newlines + 1; if empty, still show 1
+  const lineCount = raw === '' ? 1 : ((raw.match(/\n/g) || []).length + 1);
   if (!gutterEl) return;
   if (gutterEl.childElementCount !== lineCount) {
     const frag = document.createDocumentFragment();
@@ -223,8 +223,12 @@ function makeEditor(targetTextarea, language, readOnly) {
 
   // Auto-resize to fit content height (no inner scrollbar)
   const applyHeights = () => {
-    // Temporarily reset to auto to measure
-    ta.style.height = 'auto';
+    // Robust auto-resize (also shrinks after large deletions)
+    // Collapse first to force reflow, then grow to scrollHeight
+    ta.style.height = '0px';
+    // Force reflow to ensure scrollHeight is recalculated
+    // eslint-disable-next-line no-unused-expressions
+    ta.offsetHeight;
     const minH = 0; // grow exactly with content height
     const h = Math.max(minH, ta.scrollHeight);
     ta.style.height = h + 'px';
