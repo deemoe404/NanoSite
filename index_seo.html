@@ -415,14 +415,30 @@
     
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('sitemap')">Sitemap</button>
+        <button class="tab active" onclick="switchTab('config')">Configuration</button>
+        <button class="tab" onclick="switchTab('sitemap')">Sitemap</button>
         <button class="tab" onclick="switchTab('robots')">Robots.txt</button>
         <button class="tab" onclick="switchTab('meta')">HTML Meta Tags</button>
-        <button class="tab" onclick="switchTab('config')">Site Configuration</button>
+    </div>
+
+    <!-- Configuration Tab -->
+    <div id="config-tab" class="tab-content active">
+        <div class="container">
+            <div id="config-status"></div>
+            
+            <div class="config-preview" id="configPreview">
+                <h4>Loading configuration...</h4>
+            </div>
+            
+            <div class="output-group">
+                <h3>Raw site.yaml:</h3>
+                <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
+            </div>
+        </div>
     </div>
 
     <!-- Sitemap Tab -->
-    <div id="sitemap-tab" class="tab-content active">
+    <div id="sitemap-tab" class="tab-content">
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
@@ -495,22 +511,6 @@
             <div class="output-group">
                 <h3>Generated HTML Meta Tags:</h3>
                 <textarea id="metaOutput" placeholder="Click 'Generate Meta Tags' to create the HTML content..."></textarea>
-            </div>
-        </div>
-    </div>
-
-    <!-- Configuration Tab -->
-    <div id="config-tab" class="tab-content">
-        <div class="container">
-            <div id="config-status"></div>
-            
-            <div class="config-preview" id="configPreview">
-                <h4>Loading configuration...</h4>
-            </div>
-            
-            <div class="output-group">
-                <h3>Raw site.yaml:</h3>
-                <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
             </div>
         </div>
     </div>
