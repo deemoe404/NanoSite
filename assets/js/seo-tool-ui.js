@@ -25,16 +25,7 @@ export function toggleToolbarMore(btn){
 }
 window.toggleToolbarMore = toggleToolbarMore;
 
-// Wrap toggle for textareas
-export function toggleWrap(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const nowOff = el.getAttribute('wrap') !== 'off' ? 'off' : 'soft';
-  el.setAttribute('wrap', nowOff);
-  try { window.__seoEditorToggleWrap && window.__seoEditorToggleWrap(id); } catch (_) {}
-  try { showToast('ok', nowOff === 'off' ? 'Wrap: off' : 'Wrap: on'); } catch (_) {}
-}
-window.toggleWrap = toggleWrap;
+// (wrap toggle removed; editors are fixed to no-wrap)
 
 // Tab switching; auto trigger generators when switching
 export function switchTab(tabName) {

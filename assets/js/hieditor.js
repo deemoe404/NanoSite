@@ -86,8 +86,9 @@ function makeEditor(targetTextarea, language, readOnly) {
   ta.spellcheck = false;
   ta.autocapitalize = 'off';
   ta.autocorrect = 'off';
-  // default to soft wrap to avoid horizontal scrollbar
-  ta.setAttribute('wrap', 'soft');
+  // force wrap off to avoid line wrapping
+  ta.setAttribute('wrap', 'off');
+  ta.style.whiteSpace = 'pre';
   if (readOnly) ta.setAttribute('readonly', 'readonly');
 
   body.appendChild(pre);
@@ -106,8 +107,8 @@ function makeEditor(targetTextarea, language, readOnly) {
   renderHighlight(code, gutter, ta.value, language);
   // Sync wrap to code element initially
   try {
-    const wrapSoft = (ta.getAttribute('wrap') || 'off') !== 'off';
-    code.style.whiteSpace = wrapSoft ? 'pre-wrap' : 'pre';
+    // always keep white-space as pre (no wrap)
+    code.style.whiteSpace = 'pre';
   } catch (_) {}
 
   // Auto-resize to fit content height (no inner scrollbar)
@@ -199,11 +200,11 @@ function makeEditor(targetTextarea, language, readOnly) {
   const api = {
     setValue(text) { ta.value = String(text || ''); hiddenTa.value = ta.value; renderHighlight(code, gutter, ta.value, language); applyHeights(); },
     getValue() { return ta.value || ''; },
-    setWrap(on) {
-      ta.setAttribute('wrap', on ? 'soft' : 'off');
-      ta.style.whiteSpace = on ? 'pre-wrap' : 'pre';
-      code.style.whiteSpace = on ? 'pre-wrap' : 'pre';
-      // wrapping changes height; recompute
+    setWrap(_) {
+      // ignore external requests; enforce no-wrap
+      ta.setAttribute('wrap', 'off');
+      ta.style.whiteSpace = 'pre';
+      code.style.whiteSpace = 'pre';
       applyHeights();
       updateActiveLines();
     },
@@ -236,8 +237,8 @@ export function getEditorValue(id) {
 export function toggleEditorWrap(id) {
   const ed = editors.get(id);
   if (!ed) return;
-  const nowOff = !(ed.textarea.getAttribute('wrap') !== 'off');
-  ed.setWrap(nowOff);
+  // always force off
+  ed.setWrap(false);
 }
 
 // Expose to window for other modules

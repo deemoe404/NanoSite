@@ -108,7 +108,7 @@
         }
         /* Code editor styling (line numbers + highlight) */
         .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 24px; font-size: .95rem; tab-size: 2; position: relative; margin: 0; }
-        .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow: hidden; position: relative; }
+        .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
         .hi-editor .code-scroll .code-gutter { 
             flex: 0 0 auto; 
             text-align: right; 
@@ -118,6 +118,9 @@
             border-right: 1px solid rgba(36,41,47,.12); 
             margin-right: 0; 
             background: var(--code-bg);
+            position: sticky; 
+            left: 0; 
+            z-index: 1; 
             /* Ensure gutter uses identical metrics as code */
             font-family: 'Monaco','Menlo','Ubuntu Mono',monospace; 
             font-size: .95rem; 
@@ -129,8 +132,8 @@
             font-variant-numeric: tabular-nums; 
         }
         .hi-editor { position: relative; }
-        .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: hidden; }
-        .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: hidden; pointer-events: none; }
+        .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
+        .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
         .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: 'Monaco','Menlo','Ubuntu Mono',monospace; font-size: .95rem; line-height: 24px; }
         .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: 'Monaco','Menlo','Ubuntu Mono',monospace; font-size: .95rem; line-height: 24px; white-space: pre-wrap; overflow: hidden; overscroll-behavior: contain; tab-size: 2; }
         /* Active line highlight */
@@ -410,7 +413,6 @@
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateSitemap()" title="Validate XML">Validate</button>
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="beautifySitemap()" title="Format XML">Beautify</button>
-                    <button class="btn-secondary btn-compact is-extra" onclick="toggleWrap('sitemapOutput')" title="Toggle line wrap">Wrap</button>
                     
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="copySitemap()">Copy</button>
@@ -439,7 +441,7 @@
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateRobots()" title="Validate robots.txt">Validate</button>
                     <div class="divider is-extra"></div>
-                    <button class="btn-secondary btn-compact is-extra" onclick="toggleWrap('robotsOutput')" title="Toggle line wrap">Wrap</button>
+                    
                     
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="copyRobots()">Copy</button>
@@ -472,7 +474,6 @@
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateMeta()" title="Validate tags">Validate</button>
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="beautifyMeta()" title="Format HTML">Beautify</button>
-                    <button class="btn-secondary btn-compact is-extra" onclick="toggleWrap('metaOutput')" title="Toggle line wrap">Wrap</button>
                     
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="copyMetaTags()">Copy</button>
