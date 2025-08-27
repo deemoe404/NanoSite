@@ -104,14 +104,17 @@ function yamlFallbackHighlight(raw) {
       s = protectedReplaceHTML(s, /(^|\s)!{1,2}[A-Za-z0-9_:\-]+/g, (m) => span('preprocessor', m));
       // Key at line start or after list dash: key:
       s = s.replace(/^(\s*-\s*)?([A-Za-z_][\w\-\.]*|&[A-Za-z0-9_\-]+|\*[A-Za-z0-9_\-]+|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/, (m, g1 = '', g2 = '') => `${g1 || ''}${span('property', g2 + ':')}`);
+      // Wrap comments early so later rules don't affect them
+      s = s.replace(/(^|\s)#.*$/, (m) => span('comment', m));
+      // Dates and times (treat as single tokens)
+      s = protectedReplaceHTML(s, /\b\d{4}-\d{2}-\d{2}\b/g, (m) => span('number', m));
+      s = protectedReplaceHTML(s, /\b\d{2}:\d{2}(?::\d{2})?\b/g, (m) => span('number', m));
       // Booleans/null
       s = protectedReplaceHTML(s, /\b(true|false|on|off|yes|no|null)\b/gi, (m) => span('keyword', m));
       // Numbers
       s = protectedReplaceHTML(s, /\b-?\d+(?:\.\d+)?\b/g, (m) => span('number', m));
-      // Punctuation (light)
-      s = protectedReplaceHTML(s, /[:{},\[\]\-]/g, (m) => span('punctuation', m));
-      // Trailing or whole-line comments (after other tokens)
-      s = s.replace(/(^|\s)#([^<].*)$/, (m, g1, g2) => `${g1}${span('comment', '#' + g2)}`);
+      // Punctuation (include block scalar indicators | and >)
+      s = protectedReplaceHTML(s, /[:{},\[\]\-|>]/g, (m) => span('punctuation', m));
       return s;
     }).join('\n');
     return out;

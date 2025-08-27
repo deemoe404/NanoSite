@@ -83,35 +83,41 @@ const highlightRules = {
   ],
 
   // YAML / YML — light but useful highlighting
+  // Order matters: keys -> strings -> comments (so '#' inside quotes is preserved)
   yaml: [
-    // comments
-    { type: 'comment', pattern: /#.*$/gm },
     // keys (match key and colon together; simple but effective)
     { type: 'property', pattern: /(^|\n)\s*[-\s]*([A-Za-z_][\w\-\.]*|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/g },
-    // booleans and null-like
-    { type: 'keyword', pattern: /\b(true|false|on|off|yes|no|null)\b/gi },
-    // numbers
-    { type: 'number', pattern: /\b-?\d+(?:\.\d+)?\b/g },
     // strings (quoted)
     { type: 'string', pattern: /"(?:[^"\\]|\\.)*"|'[^']*'/g },
+    // comments (after strings so '#' inside quotes are not treated as comments)
+    { type: 'comment', pattern: /#.*$/gm },
+    // dates and times as whole tokens
+    { type: 'number', pattern: /\b\d{4}-\d{2}-\d{2}\b/g },
+    { type: 'number', pattern: /\b\d{2}:\d{2}(?::\d{2})?\b/g },
     // anchors & aliases
     { type: 'variables', pattern: /[&*][A-Za-z0-9_\-]+/g },
     // tags like !Ref, !!str
     { type: 'preprocessor', pattern: /!{1,2}[A-Za-z0-9_:\-]+/g },
-    // punctuation tokens
-    { type: 'punctuation', pattern: /[:{},\[\]\-]>?/g }
+    // booleans and null-like
+    { type: 'keyword', pattern: /\b(true|false|on|off|yes|no|null)\b/gi },
+    // numbers
+    { type: 'number', pattern: /\b-?\d+(?:\.\d+)?\b/g },
+    // punctuation tokens (include block scalar indicators)
+    { type: 'punctuation', pattern: /[:{},\[\]\-|>]/g }
   ],
 
   // Alias for `.yml`
   yml: [
-    { type: 'comment', pattern: /#.*$/gm },
     { type: 'property', pattern: /(^|\n)\s*[-\s]*([A-Za-z_][\w\-\.]*|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/g },
-    { type: 'keyword', pattern: /\b(true|false|on|off|yes|no|null)\b/gi },
-    { type: 'number', pattern: /\b-?\d+(?:\.\d+)?\b/g },
     { type: 'string', pattern: /"(?:[^"\\]|\\.)*"|'[^']*'/g },
+    { type: 'comment', pattern: /#.*$/gm },
+    { type: 'number', pattern: /\b\d{4}-\d{2}-\d{2}\b/g },
+    { type: 'number', pattern: /\b\d{2}:\d{2}(?::\d{2})?\b/g },
     { type: 'variables', pattern: /[&*][A-Za-z0-9_\-]+/g },
     { type: 'preprocessor', pattern: /!{1,2}[A-Za-z0-9_:\-]+/g },
-    { type: 'punctuation', pattern: /[:{},\[\]\-]>?/g }
+    { type: 'keyword', pattern: /\b(true|false|on|off|yes|no|null)\b/gi },
+    { type: 'number', pattern: /\b-?\d+(?:\.\d+)?\b/g },
+    { type: 'punctuation', pattern: /[:{},\[\]\-|>]/g }
   ],
 
   // robots.txt — highlight directives, comments, URLs and numbers
