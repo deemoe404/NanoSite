@@ -41,7 +41,18 @@ export async function loadSiteConfig() {
       return val.default || fallback;
     };
     if (previewEl) previewEl.innerHTML = `
-      <h4>Site Configuration</h4>
+      <div class="config-header">
+        <h3>Current Configuration</h3>
+        <div class="status-inline">
+          <p class="success">✓ Loaded</p>
+          <button class="icon-btn" type="button" onclick="loadSiteConfig()" title="Refresh configuration" aria-label="Refresh configuration">
+            <svg class="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+              <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+            </svg>
+          </button>
+        </div>
+      </div>
       <div class="config-item"><span class="config-label">Site Title:</span> ${getLocalizedValue(state.currentSiteConfig.siteTitle)}</div>
       <div class="config-item"><span class="config-label">Resource URL:</span> ${state.currentSiteConfig.resourceURL || 'Not set'}</div>
       <div class="config-item"><span class="config-label">Description:</span> ${getLocalizedValue(state.currentSiteConfig.siteDescription)}</div>
@@ -49,22 +60,11 @@ export async function loadSiteConfig() {
       <div class="config-item"><span class="config-label">Avatar:</span> ${state.currentSiteConfig.avatar || 'Not set'}</div>
       <div class="config-item"><span class="config-label">Content Root:</span> ${getContentRootFrom(state.currentSiteConfig)}</div>
     `;
-    if (statusEl) {
-      statusEl.innerHTML = `
-        <div class="status-inline">
-          <p class="success">✓ Configuration loaded.</p>
-          <button class="icon-btn" type="button" onclick="loadSiteConfig()" title="Refresh configuration" aria-label="Refresh configuration">
-            <svg class="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
-              <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
-            </svg>
-          </button>
-        </div>`;
-    }
+    if (statusEl) { try { statusEl.innerHTML = ''; } catch(_) {} }
   } catch (error) {
     console.error('Error loading site config:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error loading configuration: ${error.message}</p>`;
-    if (previewEl) previewEl.innerHTML = '<h4>Failed to load configuration</h4>';
+    if (previewEl) previewEl.innerHTML = '<h3>Failed to load configuration</h3>';
   }
 }
 

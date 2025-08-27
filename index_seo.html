@@ -188,15 +188,17 @@
         .warning { color: #b45309; background: #fff7ed; border-color: #f59e0b; }
         .config-preview {
             background: white;
-            border: 0.0625rem solid #ddd;
+            border: 0;
             border-radius: 0.25rem;
-            padding: 0.9375rem;
+            padding: 0;
             margin-bottom: 1.25rem;
         }
-        .config-preview h4 {
+        .config-preview h3 {
             margin-top: 0;
             color: #495057;
         }
+        .config-header { display:flex; align-items:center; gap:.25rem; flex-wrap:wrap; }
+        .config-header h3 { margin: 0; line-height: 1.875rem; }
         .config-item {
             margin-bottom: 0.5rem;
             font-family: monospace;
@@ -424,14 +426,12 @@
     <!-- Configuration Tab -->
     <div id="config-tab" class="tab-content active">
         <div class="container">
-            <div id="config-status"></div>
             
             <div class="config-preview" id="configPreview">
-                <h4>Loading configuration...</h4>
+                <h3>Loading configuration...</h3>
             </div>
             
             <div class="output-group">
-                <h3>Raw site.yaml:</h3>
                 <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
             </div>
         </div>
