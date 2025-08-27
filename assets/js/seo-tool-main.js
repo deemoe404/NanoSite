@@ -6,10 +6,10 @@ import './seo-tool-generators.js';
 import './seo-tool-github.js';
 import { initSeoEditors } from './hieditor.js';
 
-// Kick initial actions
+// Initialize code editors first to avoid any race with value injection
+try { initSeoEditors(); } catch (_) {}
+
+// Kick initial actions (after editors exist so values render highlighted immediately)
 try { window.loadSiteConfig && window.loadSiteConfig(); } catch (_) {}
 try { window.generateSitemap && window.generateSitemap(); } catch (_) {}
 try { window.validateSlugAndLoadBranches && window.validateSlugAndLoadBranches(); } catch (_) {}
-
-// Initialize code editors after DOM ready
-try { initSeoEditors(); } catch (_) {}

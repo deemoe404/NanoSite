@@ -39,6 +39,21 @@ export function switchTab(tabName) {
     const btn = document.querySelector(`.tabs .tab[onclick*="'${tabName}'"]`);
     if (btn) btn.classList.add('active');
   }
+  // When a tab becomes visible, refresh its editor layout so
+  // hidden-at-init textareas expand to full height and accept clicks.
+  try {
+    const map = {
+      sitemap: 'sitemapOutput',
+      robots: 'robotsOutput',
+      meta: 'metaOutput',
+      config: 'configOutput'
+    };
+    const id = map[tabName];
+    if (id && window.__seoEditorToggleWrap) {
+      // Defer to next tick to ensure CSS display changes are applied
+      setTimeout(() => { try { window.__seoEditorToggleWrap(id); } catch (_) {} }, 0);
+    }
+  } catch (_) {}
   try {
     if (tabName === 'sitemap' && window.generateSitemap) window.generateSitemap();
     if (tabName === 'robots' && window.generateRobots) window.generateRobots();

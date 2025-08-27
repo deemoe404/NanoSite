@@ -75,6 +75,49 @@ function robotsFallbackHighlight(raw) {
   }
 }
 
+function yamlFallbackHighlight(raw) {
+  try {
+    const lines = String(raw || '').split('\n');
+    const span = (cls, txt) => `<span class="syntax-${cls}">${txt}</span>`;
+    const esc = (t) => String(t || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+    const protectedReplaceHTML = (input, regex, wrapFn) => {
+      // Avoid re-wrapping inside existing spans
+      let out = '';
+      let i = 0; const spanRe = /<span[^>]*>[\s\S]*?<\/span>/gi; let m;
+      while ((m = spanRe.exec(input)) !== null) {
+        const start = m.index; const end = spanRe.lastIndex;
+        const before = input.slice(i, start);
+        out += before.replace(regex, wrapFn);
+        out += m[0]; i = end;
+      }
+      out += input.slice(i).replace(regex, wrapFn);
+      return out;
+    };
+    const out = lines.map((line) => {
+      let s = esc(line);
+      // Comments (# ...), but ignore hashes inside quotes by doing it after quotes are wrapped
+      // First, quoted strings
+      s = protectedReplaceHTML(s, /"(?:[^"\\]|\\.)*"|'[^']*'/g, (m) => span('string', m));
+      // Anchors & aliases
+      s = protectedReplaceHTML(s, /(^|\s)[&*][A-Za-z0-9_\-]+/g, (m) => span('variables', m));
+      // Tags (e.g., !Ref, !!str)
+      s = protectedReplaceHTML(s, /(^|\s)!{1,2}[A-Za-z0-9_:\-]+/g, (m) => span('preprocessor', m));
+      // Key at line start or after list dash: key:
+      s = s.replace(/^(\s*-\s*)?([A-Za-z_][\w\-\.]*|&[A-Za-z0-9_\-]+|\*[A-Za-z0-9_\-]+|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/, (m, g1 = '', g2 = '') => `${g1 || ''}${span('property', g2 + ':')}`);
+      // Booleans/null
+      s = protectedReplaceHTML(s, /\b(true|false|on|off|yes|no|null)\b/gi, (m) => span('keyword', m));
+      // Numbers
+      s = protectedReplaceHTML(s, /\b-?\d+(?:\.\d+)?\b/g, (m) => span('number', m));
+      // Punctuation (light)
+      s = protectedReplaceHTML(s, /[:{},\[\]\-]/g, (m) => span('punctuation', m));
+      // Trailing or whole-line comments (after other tokens)
+      s = s.replace(/(^|\s)#([^<].*)$/, (m, g1, g2) => `${g1}${span('comment', '#' + g2)}`);
+      return s;
+    }).join('\n');
+    return out;
+  } catch (_) { return escapeHtmlInline(raw || ''); }
+}
+
 function cleanupMarkerArtifacts(html) {
   if (!html) return html;
   // Convert any leftover marker tokens into spans (defensive guard)
@@ -134,6 +177,10 @@ function renderHighlight(codeEl, gutterEl, value, language) {
   if ((language || '').toLowerCase() === 'robots') {
     // Force robots-specific highlighter for reliable result
     html = robotsFallbackHighlight(raw);
+    if (!/syntax-\w+/.test(html)) html = escapeHtmlInline(raw);
+  } else if ((language || '').toLowerCase() === 'yaml' || (language || '').toLowerCase() === 'yml') {
+    // YAML tends to be whitespace-sensitive; use robust fallback
+    html = yamlFallbackHighlight(raw);
     if (!/syntax-\w+/.test(html)) html = escapeHtmlInline(raw);
   } else {
     // Update highlighted HTML; rely on main highlighter. If nothing matched, show plain escaped.
