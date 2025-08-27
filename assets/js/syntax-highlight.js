@@ -116,15 +116,19 @@ const highlightRules = {
 
   // robots.txt — highlight directives, comments, URLs and numbers
   robots: [
+    // Line-leading directive token and its first colon (treat as a keyword block)
+    // e.g. "User-agent:" "Disallow:" "Sitemap:" etc., including custom directives
+    { type: 'keyword', pattern: /^\s*[A-Za-z][A-Za-z-]*\s*:/gm },
+    // Comments
     { type: 'comment', pattern: /#.*$/gm },
-    // Common directives
+    // Known directives anywhere in line (fallback if not at start)
     { type: 'keyword', pattern: /\b(User-agent|Disallow|Allow|Sitemap|Crawl-delay|Host|Clean-param)\b/gi },
     // URLs
     { type: 'string', pattern: /(https?:\/\/[^\s#]+)/gi },
     // Numbers (e.g., Crawl-delay)
     { type: 'number', pattern: /\b\d+\b/g },
-    // Punctuation like colons and wildcards
-    { type: 'punctuation', pattern: /[:*]/g }
+    // Wildcards and leftover punctuation
+    { type: 'punctuation', pattern: /[/*$]/g }
   ]
 };
 

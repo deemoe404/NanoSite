@@ -33,6 +33,48 @@ function xmlFallbackHighlight(raw) {
   } catch (_) { return escapeHtmlInline(raw || ''); }
 }
 
+function robotsFallbackHighlight(raw) {
+  try {
+    const lines = String(raw || '').split('\n');
+    const spanWrap = (cls, txt) => `<span class="syntax-${cls}">${txt}</span>`;
+    const protectedReplaceHTML = (input, regex, wrapFn) => {
+      let out = '';
+      let i = 0;
+      const spanRe = /<span[^>]*>[\s\S]*?<\/span>/gi;
+      let m;
+      while ((m = spanRe.exec(input)) !== null) {
+        const start = m.index;
+        const end = spanRe.lastIndex;
+        const before = input.slice(i, start);
+        out += before.replace(regex, wrapFn);
+        out += m[0];
+        i = end;
+      }
+      out += input.slice(i).replace(regex, wrapFn);
+      return out;
+    };
+    const out = lines.map((line) => {
+      let esc = escapeHtmlInline(line);
+      // Whole-line comments
+      if (/^\s*#/.test(line)) {
+        return spanWrap('comment', esc);
+      }
+      // Line-leading directive + first colon
+      esc = esc.replace(/^(\s*)([A-Za-z][A-Za-z-]*\s*:)/, (m, g1, g2) => `${g1}${spanWrap('keyword', g2)}`);
+      // URLs
+      esc = protectedReplaceHTML(esc, /(https?:\/\/[^\s#]+)/gi, (m) => spanWrap('string', m));
+      // Numbers
+      esc = protectedReplaceHTML(esc, /\b\d+\b/g, (m) => spanWrap('number', m));
+      // Wildcards/punctuation
+      esc = protectedReplaceHTML(esc, /[/*$]/g, (m) => spanWrap('punctuation', m));
+      return esc;
+    }).join('\n');
+    return out;
+  } catch (_) {
+    return escapeHtmlInline(raw || '');
+  }
+}
+
 function cleanupMarkerArtifacts(html) {
   if (!html) return html;
   // Convert any leftover marker tokens into spans (defensive guard)
@@ -88,10 +130,17 @@ function createLangLabel(text, onCopy) {
 
 function renderHighlight(codeEl, gutterEl, value, language) {
   const raw = String(value || '');
-  // Update highlighted HTML; rely on main highlighter. If nothing matched, show plain escaped.
-  let html = simpleHighlight(raw, language || 'plain') || '';
-  if (!/syntax-\w+/.test(html)) {
-    html = escapeHtmlInline(raw);
+  let html;
+  if ((language || '').toLowerCase() === 'robots') {
+    // Force robots-specific highlighter for reliable result
+    html = robotsFallbackHighlight(raw);
+    if (!/syntax-\w+/.test(html)) html = escapeHtmlInline(raw);
+  } else {
+    // Update highlighted HTML; rely on main highlighter. If nothing matched, show plain escaped.
+    html = simpleHighlight(raw, language || 'plain') || '';
+    if (!/syntax-\w+/.test(html)) {
+      html = escapeHtmlInline(raw);
+    }
   }
   // Final guard: ensure no marker artifacts leak to UI
   let safeHtml = cleanupMarkerArtifacts(html);
