@@ -31,10 +31,19 @@ const highlightRules = {
     { type: 'tag', pattern: /<\/?[\w\-]+(?:\s+[\w\-]+(=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
   ],
   
-  // XML — reuse similar rules as HTML for tags/comments
+  // XML — add PI, CDATA, strings, numbers, and tags
   xml: [
+    // XML comments
     { type: 'comment', pattern: /<!--[\s\S]*?-->/g },
-    { type: 'tag', pattern: /<\/?[\w\-:.]+(?:\s+[\w\-:.]+(=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
+    // XML declaration / processing instructions, e.g., <?xml version="1.0"?>
+    { type: 'preprocessor', pattern: /<\?[\s\S]*?\?>/g },
+    // CDATA sections (treat as comments for readability)
+    { type: 'comment', pattern: /<!\[CDATA\[[\s\S]*?\]\]>/g },
+    // Attribute/string values
+    { type: 'string', pattern: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g },
+    // (Temporarily disable XML number highlighting to avoid content corruption)
+    // Tags (names + attributes)
+    { type: 'tag', pattern: /<\/?[\w\-:.]+(?:\s+[\w\-:.]+(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
   ],
   
   css: [
@@ -170,6 +179,9 @@ function simpleHighlight(code, language) {
   result = result.replace(/__HIGHLIGHTED__(\w+)__([\s\S]*?)__END__/g, (match, type, content) => {
     return `<span class="syntax-${type}">${content}</span>`;
   });
+
+  // 兜底：清理任何可能泄漏到界面的标记残留
+  result = cleanupMarkerArtifacts(result);
   
   return result;
 }
@@ -185,6 +197,24 @@ function escapeHtml(text) {
     "'": '&#039;'
   };
   return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// 清理任何可能遗留在可视层的占位标记，防御性处理
+function cleanupMarkerArtifacts(html) {
+  if (!html) return html;
+  let out = String(html);
+  // 通用：仅处理带显式结束标记的形式，避免跨段误吞
+  out = out.replace(/__H[A-Z]*?__([A-Za-z-]+)__([\s\S]*?)(?:__END__|__E__)/gi, (m, t, c) => `<span class="syntax-${t.toLowerCase()}">${c}</span>`);
+  // 具体已知形式（冗余加强）
+  out = out.replace(/__HIGHLIGHTED__(\w+)__([\s\S]*?)__END__/g, (m, t, c) => `<span class="syntax-${t}">${c}</span>`);
+  out = out.replace(/__H__(\w+)__([\s\S]*?)__E__/g, (m, t, c) => `<span class="syntax-${t}">${c}</span>`);
+  out = out.replace(/__HILIGHTED__(\w+)__([\s\S]*?)__/g, (m, t, c) => `<span class="syntax-${t}">${c}</span>`);
+  // 移除孤立类型标记（未成对的 __tag__/__number__ 等）
+  out = out.replace(/__(tag|string|number|comment|operator|punctuation|property|selector|preprocessor|variables|keyword|attributes)__+/gi, '');
+  // 终极兜底：去掉任何残留的起止标记，保留内容
+  out = out.replace(/__H[A-Z_]*__/g, '');
+  out = out.replace(/__(?:END|E)__/g, '');
+  return out;
 }
 
 // 检测代码语言
@@ -242,6 +272,8 @@ export function initSyntaxHighlighting() {
   codeBlocks.forEach(codeElement => {
     const preElement = codeElement.closest('pre');
     if (!preElement) return;
+    // Skip editor-internal pre blocks (handled by hieditor)
+    if (preElement.classList && preElement.classList.contains('hi-pre')) return;
     
     // 获取语言信息
     let language = null;

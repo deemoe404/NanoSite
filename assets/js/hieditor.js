@@ -1,5 +1,56 @@
 import { simpleHighlight } from './syntax-highlight.js';
 
+function escapeHtmlInline(text) {
+  if (!text) return '';
+  return String(text).replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  })[m]);
+}
+
+function xmlFallbackHighlight(raw) {
+  const MARK = (t, s) => `__H__${t}__${s}__E__`;
+  let tmp = String(raw || '');
+  try {
+    // PI
+    tmp = tmp.replace(/<\?[\s\S]*?\?>/g, (m) => MARK('preprocessor', m));
+    // Comments
+    tmp = tmp.replace(/<!--[\s\S]*?-->/g, (m) => MARK('comment', m));
+    // CDATA
+    tmp = tmp.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, (m) => MARK('comment', m));
+    // Attribute values (keep simple)
+    tmp = tmp.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => MARK('string', m));
+    // Dates and times as whole tokens
+    tmp = tmp.replace(/\b\d{4}-\d{2}-\d{2}\b/g, (m) => MARK('number', m));
+    tmp = tmp.replace(/\b\d{2}:\d{2}(?::\d{2})?\b/g, (m) => MARK('number', m));
+    // General numbers (integers/decimals)
+    tmp = tmp.replace(/\b\d+(?:\.\d+)?\b/g, (m) => MARK('number', m));
+    // Tags (keep last so it wraps the "<...>" blocks)
+    tmp = tmp.replace(/<\/?[\w\-:.]+(?:\s+[\w\-:.]+(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g, (m) => MARK('tag', m));
+    // Escape and unwrap
+    tmp = escapeHtmlInline(tmp);
+    tmp = tmp.replace(/__H__(\w+)__([\s\S]*?)__E__/g, (m, type, content) => `<span class="syntax-${type}">${content}</span>`);
+    return tmp;
+  } catch (_) { return escapeHtmlInline(raw || ''); }
+}
+
+function cleanupMarkerArtifacts(html) {
+  if (!html) return html;
+  // Convert any leftover marker tokens into spans (defensive guard)
+  let out = String(html);
+  // Generic: only convert well-formed markers that include an explicit terminator
+  out = out.replace(/__H[A-Z]*?__([A-Za-z-]+)__([\s\S]*?)(?:__END__|__E__)/gi, (m, t, c) => `<span class="syntax-${t.toLowerCase()}">${c}</span>`);
+  // Specific known forms
+  out = out.replace(/__HIGHLIGHTED__(\w+)__([\s\S]*?)__END__/g, (m, t, c) => `<span class="syntax-${t}">${c}</span>`);
+  out = out.replace(/__H__(\w+)__([\s\S]*?)__E__/g, (m, t, c) => `<span class="syntax-${t}">${c}</span>`);
+  out = out.replace(/__HILIGHTED__(\w+)__([\s\S]*?)__/g, (m, t, c) => `<span class="syntax-${t}">${c}</span>`);
+  // Remove stray type tokens like __tag__ / __number__ if they remain
+  out = out.replace(/__(tag|string|number|comment|operator|punctuation|property|selector|preprocessor|variables|keyword|attributes)__+/gi, '');
+  // Absolute safety: strip any remaining start/end tokens so UI never shows raw markers
+  out = out.replace(/__H[A-Z_]*__/g, '');
+  out = out.replace(/__(?:END|E)__/g, '');
+  return out;
+}
+
 const editors = new Map();
 
 function createLangLabel(text, onCopy) {
@@ -37,8 +88,18 @@ function createLangLabel(text, onCopy) {
 
 function renderHighlight(codeEl, gutterEl, value, language) {
   const raw = String(value || '');
-  // Update highlighted HTML
-  codeEl.innerHTML = simpleHighlight(raw, language || 'plain');
+  // Update highlighted HTML; rely on main highlighter. If nothing matched, show plain escaped.
+  let html = simpleHighlight(raw, language || 'plain') || '';
+  if (!/syntax-\w+/.test(html)) {
+    html = escapeHtmlInline(raw);
+  }
+  // Final guard: ensure no marker artifacts leak to UI
+  let safeHtml = cleanupMarkerArtifacts(html);
+  if (/__H[A-Z_]/.test(safeHtml) || /tag__/.test(safeHtml)) {
+    // Fallback to plain escaped if markers still leak
+    safeHtml = escapeHtmlInline(raw);
+  }
+  codeEl.innerHTML = safeHtml;
   // Update line numbers
   const trimmed = raw.endsWith('\n') ? raw.slice(0, -1) : raw;
   const lineCount = trimmed ? (trimmed.match(/\n/g) || []).length + 1 : 1;
