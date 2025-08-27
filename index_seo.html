@@ -197,6 +197,55 @@
             margin-top: 0;
             color: #495057;
         }
+        /* Pretty details/summary sections for configuration */
+        .config-preview details { border: 1px solid #e6e8eb; border-radius: 10px; background: linear-gradient(#ffffff, #fbfbfc); box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
+        .config-preview details + details { margin-top: .75rem; }
+        .config-preview summary { list-style: none; display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; cursor: pointer; user-select: none; color: #24292f; font-weight: 600; }
+        .config-preview summary:hover { background: #f6f8fa; }
+        .config-preview summary::-webkit-details-marker { display: none; }
+        .config-preview summary:focus { outline: none; box-shadow: 0 0 0 3px rgba(9,105,218,.3) inset; border-radius: 10px; }
+        .config-preview summary::before { content: '▸'; color: #57606a; display: inline-block; width: 1rem; text-align: center; transition: transform .18s ease; }
+        .config-preview details[open] > summary::before { transform: rotate(90deg); }
+        .config-preview .section-body { padding: .3rem .9rem .9rem; }
+        .config-preview .section-body .config-item { background: transparent; }
+        /* Items layout */
+        .config-preview .config-item { display: grid; grid-template-columns: 14rem 1fr; gap: .5rem; padding: .35rem .25rem; border-bottom: 1px solid #d0d7de; }
+        /* Ensure value column contents size to content, not stretch */
+        .config-preview .config-item > :nth-child(2) { justify-self: start; align-self: center; }
+        .config-preview .config-item:last-child { border-bottom: 0; }
+        .config-preview .config-label { color: #57606a; font-weight: 600; min-width: 14rem; position: relative; }
+        /* Nicer native-ish tooltip via title attr hint */
+        .config-preview .config-label[title] { text-decoration: underline dotted rgba(87,96,106,.5); text-underline-offset: 2px; cursor: help; }
+        .config-preview .config-item em { color: #8c959f; }
+        /* Link lists */
+        .config-preview .config-list { margin: .1rem 0 .2rem 0; padding-left: 1.25rem; }
+        .config-preview .config-list li { margin: .15rem 0; }
+        .config-preview .config-list a { color: #0969da; text-decoration: none; }
+        .config-preview .config-list a:hover { text-decoration: underline; }
+        .config-preview .dim { color: #8c959f; }
+        /* Chips for keywords */
+        .config-preview .chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+        .config-preview .chip { display: inline-flex; align-items: center; height: 1.5rem; padding: 0 .5rem; border-radius: 999px; background: #f6f8fa; color: #57606a; border: 1px solid #e6e8eb; font-size: .75rem; }
+        /* Avatar preview */
+        .config-preview .config-avatar { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; vertical-align: middle; margin-right: .5rem; border: 1px solid #e6e8eb; background: #f6f8fa; }
+        .config-preview .config-avatar-block { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .35rem; }
+        .config-preview .config-avatar-path code { background: #f6f8fa; border: 1px solid #e6e8eb; padding: .1rem .35rem; border-radius: 6px; }
+        /* Boolean badges */
+        .config-preview .bool { display: inline-flex; align-items:center; height: 1.25rem; padding: 0 .5rem; border-radius: 999px; font-weight: 600; font-size: .75rem; border: 1px solid; }
+        .config-preview .bool-true { background: #e8f5e9; color: #1f883d; border-color: #1f883d; }
+        .config-preview .bool-false { background: #fde8e8; color: #dc2626; border-color: #dc2626; }
+        /* Badges in preview */
+        .config-preview .badge { border: 0; font-weight: 600; padding: .16rem .5rem; border-radius: 999px; font-size: .72rem; }
+        .config-preview .badge.warn { background: #fff7ed; color: #b45309; }
+        .config-preview .badge.ok { background: #e8f5e9; color: #1f883d; }
+        .config-preview .badge.err { background: #fde8e8; color: #dc2626; }
+        /* Header row inside preview */
+        .config-preview .config-header { display: flex; align-items: center; justify-content: space-between; padding: .25rem 0 .5rem; border-bottom: 1px solid #e6e8eb; margin-bottom: .75rem; }
+        .config-preview .config-header h3 { margin: 0; color: #24292f; font-weight: 700; }
+        @media (max-width: 880px) {
+          .config-preview .config-item { grid-template-columns: 1fr; }
+          .config-preview .config-label { min-width: 0; }
+        }
         .config-header { display:flex; align-items:center; gap:.25rem; flex-wrap:wrap; }
         .config-header h3 { margin: 0; line-height: 1.875rem; }
         .config-item {
