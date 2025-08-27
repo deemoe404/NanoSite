@@ -1,4 +1,6 @@
 import { state } from './seo-tool-state.js';
+import { initSyntaxHighlighting } from './syntax-highlight.js';
+import { setEditorValue, getEditorValue } from './hieditor.js';
 import { generateSitemapData } from './seo.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import { getContentRootFrom, loadSiteConfigFlex } from './seo-tool-config.js';
@@ -134,6 +136,30 @@ function generateMetaTagsHTML(siteConfig) {
   return html;
 }
 
+// --- Code preview helper ---
+function updateCodePreview(previewId, content, language) {
+  try {
+    const pre = document.getElementById(previewId);
+    if (!pre) return;
+    // Ensure structure contains a code element
+    let code = pre.querySelector('code');
+    if (!code) {
+      code = document.createElement('code');
+      pre.innerHTML = '';
+      pre.appendChild(code);
+    }
+    // Assign explicit language class for highlighter
+    const langClass = `language-${(language || 'plain').toLowerCase()}`;
+    // Reset existing language-* classes
+    Array.from(code.classList).forEach(c => { if (c.startsWith('language-')) code.classList.remove(c); });
+    code.classList.add(langClass);
+    // Set raw text (clears previous markup if any)
+    code.textContent = content || '';
+    // Apply highlighter/line numbers
+    try { initSyntaxHighlighting(); } catch (_) {}
+  } catch (_) {}
+}
+
 // Public API for onclick bindings
 async function generateSitemap() {
   const statusEl = document.getElementById('sitemap-status');
@@ -152,6 +178,7 @@ async function generateSitemap() {
     const urls = generateSitemapData(state.currentPostsData, state.currentTabsData, state.currentSiteConfig);
     const xml = generateSitemapXML(urls);
     if (outputEl) outputEl.value = xml;
+    try { setEditorValue('sitemapOutput', xml); } catch (_) {}
     if (statusEl) statusEl.innerHTML = `<p class="success">✓ Sitemap generated successfully! Found ${urls.length} URLs.</p>`;
     t('ok', `Sitemap generated (${urls.length} URLs)`);
     outputEl && outputEl.select();
@@ -170,6 +197,7 @@ async function generateRobots() {
     if (!state.currentSiteConfig.resourceURL) state.currentSiteConfig = await loadSiteConfigFlex();
     const robotsContent = generateRobotsTxt(state.currentSiteConfig);
     if (outputEl) outputEl.value = robotsContent;
+    try { setEditorValue('robotsOutput', robotsContent); } catch (_) {}
     if (statusEl) statusEl.innerHTML = '<p class="success">✓ Robots.txt generated successfully!</p>';
     outputEl && outputEl.select();
     t('ok', 'Robots.txt generated');
@@ -188,6 +216,7 @@ async function generateMetaTags() {
     if (!state.currentSiteConfig.resourceURL) state.currentSiteConfig = await loadSiteConfigFlex();
     const metaContent = generateMetaTagsHTML(state.currentSiteConfig);
     if (outputEl) outputEl.value = metaContent;
+    try { setEditorValue('metaOutput', metaContent); } catch (_) {}
     if (statusEl) statusEl.innerHTML = '<p class="success">✓ HTML meta tags generated successfully!</p>';
     outputEl && outputEl.select();
     t('ok', 'Meta tags generated');
@@ -198,8 +227,12 @@ async function generateMetaTags() {
 }
 
 function copyFromTextarea(id, okMsg){
-  const el = document.getElementById(id);
-  const val = el ? el.value : '';
+  let val = '';
+  try { val = getEditorValue(id) || ''; } catch (_) {}
+  if (!val) {
+    const el = document.getElementById(id);
+    val = el ? (el.value || '') : '';
+  }
   if (!val) return;
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(val)
@@ -218,7 +251,7 @@ function downloadFile(filename, content, mimeType) {
 
 // Validators
 function validateSitemap(){
-  const val = (document.getElementById('sitemapOutput') || {}).value || '';
+  const val = getEditorValue('sitemapOutput') || (document.getElementById('sitemapOutput') || {}).value || '';
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(val, 'application/xml');
@@ -230,7 +263,7 @@ function validateSitemap(){
   } catch (e) { t('err', 'Validation failed'); return false; }
 }
 function validateRobots(){
-  const val = ((document.getElementById('robotsOutput') || {}).value || '').toLowerCase();
+  const val = (getEditorValue('robotsOutput') || (document.getElementById('robotsOutput') || {}).value || '').toLowerCase();
   const hasUA = val.includes('user-agent');
   const hasSM = val.includes('sitemap:');
   if (hasUA && hasSM) { t('ok', 'Robots looks OK'); return true; }
@@ -239,7 +272,7 @@ function validateRobots(){
   return false;
 }
 function validateMeta(){
-  const frag = (document.getElementById('metaOutput') || {}).value || '';
+  const frag = getEditorValue('metaOutput') || (document.getElementById('metaOutput') || {}).value || '';
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(`<head>${frag}</head>`, 'text/html');
@@ -252,16 +285,16 @@ function validateMeta(){
 }
 
 // Beautifiers
-function beautifySitemap(){ const el = document.getElementById('sitemapOutput'); if (!el) return; el.value = formatXML(el.value || ''); t('ok','Sitemap beautified'); }
-function beautifyMeta(){ const el = document.getElementById('metaOutput'); if (!el) return; el.value = formatHTMLFragment(el.value || ''); t('ok','Meta tags beautified'); }
+function beautifySitemap(){ const id='sitemapOutput'; const el = document.getElementById(id); if (!el) return; const v = formatXML(getEditorValue(id) || el.value || ''); el.value = v; try { setEditorValue(id, v); } catch(_){} t('ok','Sitemap beautified'); }
+function beautifyMeta(){ const id='metaOutput'; const el = document.getElementById(id); if (!el) return; const v = formatHTMLFragment(getEditorValue(id) || el.value || ''); el.value = v; try { setEditorValue(id, v); } catch(_){} t('ok','Meta tags beautified'); }
 
 // Copy/Download glue
 function copySitemap(){ copyFromTextarea('sitemapOutput', 'Sitemap copied'); }
 function copyRobots(){ copyFromTextarea('robotsOutput', 'Robots.txt copied'); }
 function copyMetaTags(){ copyFromTextarea('metaOutput', 'Meta tags copied'); }
-function downloadSitemap(){ const c = (document.getElementById('sitemapOutput')||{}).value || ''; downloadFile('sitemap.xml', c, 'application/xml'); }
-function downloadRobots(){ const c = (document.getElementById('robotsOutput')||{}).value || ''; downloadFile('robots.txt', c, 'text/plain'); }
-function downloadMetaTags(){ const c = (document.getElementById('metaOutput')||{}).value || ''; downloadFile('meta-tags.html', c, 'text/html'); }
+function downloadSitemap(){ const c = (getEditorValue('sitemapOutput')) || ''; downloadFile('sitemap.xml', c, 'application/xml'); }
+function downloadRobots(){ const c = (getEditorValue('robotsOutput')) || ''; downloadFile('robots.txt', c, 'text/plain'); }
+function downloadMetaTags(){ const c = (getEditorValue('metaOutput')) || ''; downloadFile('meta-tags.html', c, 'text/html'); }
 
 // Expose to window for inline attributes
 window.generateSitemap = generateSitemap;
@@ -282,3 +315,7 @@ window.downloadMetaTags = downloadMetaTags;
 // Make state discoverable to UI overlay for editor
 window.__seoToolState = state;
 
+// Expose a small helper to update preview when external edits occur
+window.__seoUpdatePreview = function(id){
+  try { const ta = document.getElementById(id); const val = ta ? (ta.value || '') : ''; setEditorValue(id, val); } catch (_) {}
+}

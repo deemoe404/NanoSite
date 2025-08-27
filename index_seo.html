@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEO Generator - NanoSite</title>
     <style>
+        :root {
+            --code-bg: #f6f8fa;
+            --code-text: #24292f;
+            --border: #d0d7de;
+            --primary: #0969da;
+            --shadow: none;
+        }
         /* Bottom breathing room */
         body { padding-bottom: clamp(24px, 6vh, 96px); }
         *, *::before, *::after { box-sizing: border-box; }
@@ -99,6 +106,52 @@
             border: 0;
             padding: 0;
         }
+        /* Code editor styling (line numbers + highlight) */
+        .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 24px; font-size: .95rem; tab-size: 2; position: relative; margin: 0; }
+        .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow: hidden; position: relative; }
+        .hi-editor .code-scroll .code-gutter { 
+            flex: 0 0 auto; 
+            text-align: right; 
+            padding: 1rem 0.5rem; 
+            user-select: none; 
+            color: rgba(36,41,47,.6); 
+            border-right: 1px solid rgba(36,41,47,.12); 
+            margin-right: 0; 
+            background: var(--code-bg);
+            /* Ensure gutter uses identical metrics as code */
+            font-family: 'Monaco','Menlo','Ubuntu Mono',monospace; 
+            font-size: .95rem; 
+            line-height: 24px;
+        }
+        .hi-editor .code-scroll .code-gutter span { 
+            display: block; 
+            line-height: inherit; 
+            font-variant-numeric: tabular-nums; 
+        }
+        .hi-editor { position: relative; }
+        .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: hidden; }
+        .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: hidden; pointer-events: none; }
+        .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: 'Monaco','Menlo','Ubuntu Mono',monospace; font-size: .95rem; line-height: 24px; }
+        .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: 'Monaco','Menlo','Ubuntu Mono',monospace; font-size: .95rem; line-height: 24px; white-space: pre-wrap; overflow: hidden; overscroll-behavior: contain; tab-size: 2; }
+        /* Active line highlight */
+        .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
+        .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
+        .hi-editor .code-scroll .code-gutter span.is-active { background: transparent; color: #0f172a; font-weight: 600; }
+        .hi-editor .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
+        .syntax-keyword { color: #d73a49; font-weight: 600; }
+        .syntax-string { color: #22863a; }
+        .syntax-number { color: #005cc5; }
+        .syntax-comment { color: #6a737d; font-style: italic; opacity: 0.9; }
+        .syntax-operator { color: #d73a49; }
+        .syntax-punctuation { color: #586069; }
+        .syntax-tag { color: #22863a; font-weight: 600; }
+        .syntax-property { color: #005cc5; }
+        .syntax-selector { color: #6f42c1; font-weight: 600; }
+        .syntax-preprocessor { color: #e36209; font-weight: 600; }
+        .syntax-variables { color: #e36209; }
+        .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
+        .syntax-language-label.is-hover { opacity: 1; }
+        .syntax-language-label.is-copied { opacity: 1; background: #16a34a; color: #fff; border-color: rgba(0,0,0,0.1); }
         .output-group h3 {
             margin: 0 0 0.5rem 0;
             color: #24292f;
@@ -338,21 +391,7 @@
         </div>
     </div>
 
-    <!-- Fullscreen editor overlay -->
-    <div id="editor-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
-        <div class="gh-modal" role="document" style="width:min(900px,94vw); max-height:min(88vh,88svh);">
-            <div class="gh-modal-header">
-                <h4 id="editor-title">Editor</h4>
-                <div style="display:flex; align-items:center; gap:.5rem;">
-                    <button id="editor-apply" class="btn-gh" type="button" title="Apply changes">Apply</button>
-                    <button id="editor-close" class="close-btn" type="button" aria-label="Close">×</button>
-                </div>
-            </div>
-            <div class="gh-modal-body" style="padding:0;">
-                <textarea id="editor-textarea" style="width:100%; height:min(70vh,70svh); border:0; border-radius:0; outline:none; padding:1rem; font-family:'Monaco','Menlo','Ubuntu Mono',monospace; font-size:.88rem; line-height:1.5;"></textarea>
-            </div>
-        </div>
-    </div>
+    
 
     <div class="tabs">
         <button class="tab active" onclick="switchTab('sitemap')">Sitemap</button>
@@ -372,7 +411,7 @@
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="beautifySitemap()" title="Format XML">Beautify</button>
                     <button class="btn-secondary btn-compact is-extra" onclick="toggleWrap('sitemapOutput')" title="Toggle line wrap">Wrap</button>
-                    <button class="btn-secondary btn-compact is-extra" onclick="openFullscreenEditor('sitemapOutput','sitemap.xml')" title="Fullscreen editor">Fullscreen</button>
+                    
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="copySitemap()">Copy</button>
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadSitemap()">Download</button>
@@ -401,7 +440,7 @@
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateRobots()" title="Validate robots.txt">Validate</button>
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="toggleWrap('robotsOutput')" title="Toggle line wrap">Wrap</button>
-                    <button class="btn-secondary btn-compact is-extra" onclick="openFullscreenEditor('robotsOutput','robots.txt')" title="Fullscreen editor">Fullscreen</button>
+                    
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="copyRobots()">Copy</button>
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadRobots()">Download</button>
@@ -434,7 +473,7 @@
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="beautifyMeta()" title="Format HTML">Beautify</button>
                     <button class="btn-secondary btn-compact is-extra" onclick="toggleWrap('metaOutput')" title="Toggle line wrap">Wrap</button>
-                    <button class="btn-secondary btn-compact is-extra" onclick="openFullscreenEditor('metaOutput','meta-tags.html')" title="Fullscreen editor">Fullscreen</button>
+                    
                     <div class="divider is-extra"></div>
                     <button class="btn-secondary btn-compact is-extra" onclick="copyMetaTags()">Copy</button>
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadMetaTags()">Download</button>

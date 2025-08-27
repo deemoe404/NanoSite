@@ -34,6 +34,7 @@ export async function loadSiteConfig() {
     state.currentSiteConfig = await loadSiteConfigFlex();
     const rawYaml = await loadSiteYamlRaw();
     if (outputEl) outputEl.value = rawYaml || '# site.yaml not found or failed to load';
+    try { window.__seoEditorSet ? window.__seoEditorSet('configOutput', outputEl.value) : (window.__seoUpdatePreview && window.__seoUpdatePreview('configOutput')); } catch (_) {}
     const getLocalizedValue = (val, fallback = 'Not set') => {
       if (!val) return fallback;
       if (typeof val === 'string') return val;
@@ -58,4 +59,3 @@ export async function loadSiteConfig() {
 
 // Expose for inline calls
 window.loadSiteConfig = loadSiteConfig;
-

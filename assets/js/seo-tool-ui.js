@@ -31,6 +31,7 @@ export function toggleWrap(id) {
   if (!el) return;
   const nowOff = el.getAttribute('wrap') !== 'off' ? 'off' : 'soft';
   el.setAttribute('wrap', nowOff);
+  try { window.__seoEditorToggleWrap && window.__seoEditorToggleWrap(id); } catch (_) {}
   try { showToast('ok', nowOff === 'off' ? 'Wrap: off' : 'Wrap: on'); } catch (_) {}
 }
 window.toggleWrap = toggleWrap;
@@ -206,55 +207,7 @@ window.switchTab = switchTab;
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') close(); });
 })();
 
-// Fullscreen editor overlay
-(function initEditorOverlay(){
-  const overlay = document.getElementById('editor-overlay');
-  const titleEl = document.getElementById('editor-title');
-  const ta = document.getElementById('editor-textarea');
-  const applyBtn = document.getElementById('editor-apply');
-  const closeBtn = document.getElementById('editor-close');
-  if (!overlay || !titleEl || !ta || !applyBtn || !closeBtn) return;
-  let scrollY = 0;
-  function close(){
-    overlay.classList.remove('open');
-    overlay.setAttribute('aria-hidden','true');
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, scrollY);
-    try { window.__seoToolState && (window.__seoToolState.currentEditorTargetId = null, window.__seoToolState.currentEditorFilename=''); } catch (_) {}
-  }
-  function open(){
-    scrollY = window.scrollY || window.pageYOffset || 0;
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-    overlay.classList.add('open');
-    overlay.setAttribute('aria-hidden','false');
-  }
-  window.openFullscreenEditor = function(targetId, filename){
-    try { window.__seoToolState && (window.__seoToolState.currentEditorTargetId = targetId, window.__seoToolState.currentEditorFilename = filename || 'Editor'); } catch (_) {}
-    titleEl.textContent = filename || 'Editor';
-    const src = document.getElementById(targetId);
-    ta.value = src ? (src.value || '') : '';
-    open();
-  }
-  applyBtn.addEventListener('click', ()=>{
-    const id = (window.__seoToolState && window.__seoToolState.currentEditorTargetId) || null;
-    if (id){ const dst = document.getElementById(id); if (dst) dst.value = ta.value; }
-    try { showToast('ok', 'Changes applied'); } catch (_) {}
-    close();
-  });
-  closeBtn.addEventListener('click', close);
-  overlay.addEventListener('click', close);
-  overlay.querySelector('.gh-modal')?.addEventListener('click', (e)=> e.stopPropagation());
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && overlay.classList.contains('open')) close(); });
-})();
+// (Fullscreen editor removed by request)
 
 // Footer year
 try { document.getElementById('footer-year').textContent = new Date().getFullYear(); } catch (_) {}
-

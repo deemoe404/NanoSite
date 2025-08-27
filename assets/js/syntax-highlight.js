@@ -31,6 +31,12 @@ const highlightRules = {
     { type: 'tag', pattern: /<\/?[\w\-]+(?:\s+[\w\-]+(=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
   ],
   
+  // XML — reuse similar rules as HTML for tags/comments
+  xml: [
+    { type: 'comment', pattern: /<!--[\s\S]*?-->/g },
+    { type: 'tag', pattern: /<\/?[\w\-:.]+(?:\s+[\w\-:.]+(=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
+  ],
+  
   css: [
     { type: 'comment', pattern: /\/\*[\s\S]*?\*\//g },
     { type: 'selector', pattern: /[.#]?[\w\-]+(?:\[[\w\-]+(?:="[^"]*")?\])*(?:::?[\w\-]+)?/g },
@@ -97,6 +103,19 @@ const highlightRules = {
     { type: 'variables', pattern: /[&*][A-Za-z0-9_\-]+/g },
     { type: 'preprocessor', pattern: /!{1,2}[A-Za-z0-9_:\-]+/g },
     { type: 'punctuation', pattern: /[:{},\[\]\-]>?/g }
+  ],
+
+  // robots.txt — highlight directives, comments, URLs and numbers
+  robots: [
+    { type: 'comment', pattern: /#.*$/gm },
+    // Common directives
+    { type: 'keyword', pattern: /\b(User-agent|Disallow|Allow|Sitemap|Crawl-delay|Host|Clean-param)\b/gi },
+    // URLs
+    { type: 'string', pattern: /(https?:\/\/[^\s#]+)/gi },
+    // Numbers (e.g., Crawl-delay)
+    { type: 'number', pattern: /\b\d+\b/g },
+    // Punctuation like colons and wildcards
+    { type: 'punctuation', pattern: /[:*]/g }
   ]
 };
 
