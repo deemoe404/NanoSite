@@ -132,11 +132,94 @@ const highlightRules = {
   ]
 };
 
+// 专用的 HTML 高亮（标签名、属性名、等号、字符串分别着色）
+function highlightHtmlRich(raw) {
+  if (!raw) return '';
+  const esc = (t) => {
+    return String(t || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+  };
+  const renderTag = (tagRaw) => {
+    try {
+      // Parse basics
+      const isClosing = /^<\//.test(tagRaw);
+      const selfClose = /\/\s*>$/.test(tagRaw);
+      const endTrim = selfClose ? 2 : 1; // '/>' vs '>'
+      const startTrim = isClosing ? 2 : 1; // '</' vs '<'
+      const inner = tagRaw.slice(startTrim, tagRaw.length - endTrim);
+      const m = inner.match(/^\s*([A-Za-z][A-Za-z0-9:-]*)([\s\S]*)$/);
+      if (!m) return esc(tagRaw);
+      const tagName = m[1] || '';
+      let attrChunk = m[2] || '';
+      let out = '';
+      // Leading < or </ and tag name
+      out += `<span class="syntax-tag">&lt;${isClosing ? '/' : ''}${esc(tagName)}</span>`;
+      if (!isClosing && attrChunk) {
+        // Walk attributes while preserving spacing
+        const attrRegex = /(\s+)([A-Za-z_:][\w:.-]*)(?:\s*(=)\s*("[^"\\]*"|'[^'\\]*'|[^\s"'=<>`]+))?/g;
+        let lastIndex = 0; let part = '';
+        let am;
+        while ((am = attrRegex.exec(attrChunk)) !== null) {
+          // Append any skipped raw text (unlikely)
+          if (am.index > lastIndex) { part += esc(attrChunk.slice(lastIndex, am.index)); }
+          const space = am[1] || '';
+          const name = am[2] || '';
+          const eq = am[3] || '';
+          const val = am[4];
+          part += space;
+          part += `<span class=\"syntax-property\">${esc(name)}</span>`;
+          if (eq) {
+            part += `<span class=\"syntax-operator\">=</span>`;
+            if (val != null) {
+              if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                const q = val[0];
+                const inner = val.slice(1, -1);
+                part += `<span class=\"syntax-string\">${esc(q + inner + q)}</span>`;
+              } else {
+                part += `<span class=\"syntax-string\">${esc(val)}</span>`;
+              }
+            }
+          }
+          lastIndex = attrRegex.lastIndex;
+        }
+        // Trailing text in attrChunk
+        if (lastIndex < attrChunk.length) part += esc(attrChunk.slice(lastIndex));
+        out += part;
+      }
+      // Trailing /> or >
+      out += `<span class=\"syntax-tag\">${selfClose ? '/&gt;' : '&gt;'}</span>`;
+      return out;
+    } catch (_) {
+      return esc(tagRaw);
+    }
+  };
+  // Walk the string and replace comments/tags, escape the rest
+  const tokenRe = /<!--[\s\S]*?-->|<\/?[A-Za-z][A-Za-z0-9:-]*\s*[^>]*>?/g;
+  let out = '';
+  let i = 0; let m;
+  while ((m = tokenRe.exec(raw)) !== null) {
+    const start = m.index; const end = tokenRe.lastIndex;
+    if (start > i) out += esc(raw.slice(i, start));
+    const tok = m[0];
+    if (tok.startsWith('<!--')) {
+      out += `<span class=\"syntax-comment\">${esc(tok)}</span>`;
+    } else {
+      out += renderTag(tok);
+    }
+    i = end;
+  }
+  if (i < raw.length) out += esc(raw.slice(i));
+  return out;
+}
+
 // 主高亮函数
 function simpleHighlight(code, language) {
   if (!code || !language) return escapeHtml(code || '');
   
   const lang = language.toLowerCase();
+  // 为 HTML 启用更细粒度的高亮（支持属性名/值/等号）
+  if (lang === 'html' || lang === 'htm') {
+    try { return highlightHtmlRich(code); } catch (_) {}
+  }
   const rules = highlightRules[lang];
   
   if (!rules) return escapeHtml(code);
