@@ -1,6 +1,83 @@
 import { loadSiteConfigFlex } from './seo-tool-config.js';
 
 // ---- GitHub Repo config helpers ----
+function setGlobalStatus(mode, html, opts = {}) {
+  try {
+    const box = document.getElementById('global-status');
+    if (!box) return;
+    const curMode = box.dataset.mode || '';
+    // Prevent downgrading from ok -> warn unless forced
+    if (!opts.force && mode === 'warn' && curMode === 'ok') return;
+    // Avoid clearing to empty when we already have a state
+    if (!opts.force && !mode && (curMode === 'ok' || curMode === 'warn' || curMode === 'err')) return;
+    box.className = `global-status ${mode || ''}`;
+    box.dataset.mode = mode || '';
+    box.innerHTML = html || '';
+  } catch (_) {}
+}
+
+function renderRepoLink(owner, repo, branch, extraText) {
+  const o = String(owner || '');
+  const r = String(repo || '');
+  const b = String(branch || '');
+  const slug = (o && r) ? `${o}/${r}` : '';
+  const href = slug ? `https://github.com/${o}/${r}` : '';
+  const branchText = b ? ` (${b})` : '';
+  const extra = extraText ? ` · ${extraText}` : '';
+  if (!slug) return `<span><span class="dot"></span><span>No repository</span></span>`;
+  return `<span class="dot"></span><a href="${href}" target="_blank" rel="noopener">@${slug}</a><span>${branchText}${extra}</span>`;
+}
+
+// Compute global status from current UI (single source of truth binding)
+function syncGlobalFromUI(force = true) {
+  try {
+    const slugEl = document.getElementById('gh-slug');
+    const branchEl = document.getElementById('gh-branch');
+    const slug = slugEl ? String(slugEl.value || '').trim() : '';
+    const { owner, repo } = parseSlug(slug);
+    const branch = branchEl ? String(branchEl.value || '').trim() : '';
+    const slugStatus = document.getElementById('gh-slug-status');
+    const branchStatus = document.getElementById('gh-branch-status');
+    const cls = (el) => (el && (el.classList.contains('err') ? 'err' : el.classList.contains('warn') ? 'warn' : el.classList.contains('ok') ? 'ok' : '')) || '';
+    const slugCls = cls(slugStatus);
+    const branchCls = cls(branchStatus);
+    const slugText = (slugStatus && slugStatus.textContent) ? slugStatus.textContent.trim() : '';
+    const branchText = (branchStatus && branchStatus.textContent) ? branchStatus.textContent.trim() : '';
+
+    if (!owner || !repo) {
+      setGlobalStatus('', '<span class="dot"></span><span>Ready</span>', { force });
+      return;
+    }
+    // Error has highest priority
+    if (slugCls === 'err') {
+      setGlobalStatus('err', `<span class="dot"></span><span>${slugText || 'Invalid repository'}</span>`, { force });
+      return;
+    }
+    if (branchCls === 'err') {
+      setGlobalStatus('err', `<span class="dot"></span><span>${branchText || 'Branch error'}</span>`, { force });
+      return;
+    }
+    // Loading states
+    if (slugCls === 'warn' && /checking/i.test(slugText)) {
+      setGlobalStatus('warn', `<span class="dot"></span><span>Checking @${owner}/${repo}…</span>`, { force });
+      return;
+    }
+    if (branchCls === 'warn' && /loading/i.test(branchText)) {
+      setGlobalStatus('warn', renderRepoLink(owner, repo, branch || '', 'Loading branches…'), { force });
+      return;
+    }
+    // OK states
+    if (slugCls === 'ok' && branchCls === 'ok') {
+      // try to extract number of branches from branchText like "3 branches"
+      const m = branchText.match(/(\d+)\s+branches?/i);
+      const extra = m ? `${m[1]} branches` : 'OK';
+      setGlobalStatus('ok', renderRepoLink(owner, repo, branch || '', extra), { force });
+      return;
+    }
+    // Fallback when repo entered but not checked
+    setGlobalStatus('warn', renderRepoLink(owner, repo, branch || '', 'Pending check'), { force });
+  } catch (_) {}
+}
 function parseSlug(slug) {
   const s = String(slug || '').trim();
   if (!s) return { owner: '', repo: '' };
@@ -25,6 +102,8 @@ function readGhRepoCfg(hydrate = true) {
     if ($('gh-slug')) { $('gh-slug').value = slugVal; }
     if ($('gh-branch')) { $('gh-branch').value = branch; }
   }
+  // Bind global status to current UI
+  try { syncGlobalFromUI(true); } catch (_) {}
   return { owner, repo, branch };
 }
 
@@ -76,6 +155,15 @@ function saveGhRepoCfg () {
   localStorage.setItem('gh_owner', owner);
   localStorage.setItem('gh_repo', repo);
   localStorage.setItem('gh_branch', branch);
+  // If current UI has a validated repo, keep OK state; otherwise mark pending
+  if (repoIsValid && branch) {
+    try {
+      localStorage.setItem('gh_checked', '1');
+      setGlobalStatus('ok', renderRepoLink(owner, repo, branch, 'Saved'));
+    } catch (_) {}
+  } else {
+    try { setGlobalStatus('warn', renderRepoLink(owner, repo, branch, 'Pending check')); } catch (_) {}
+  }
   if ($('gh-slug')) $('gh-slug').value = slug;
   alert('Saved.');
 }
@@ -98,6 +186,7 @@ async function autoFillGhRepoCfgFromSiteYaml() {
       const $ = id => document.getElementById(id);
       if ($('gh-slug')) $('gh-slug').value = slug;
       if ($('gh-branch') && inferred.branch) $('gh-branch').value = inferred.branch;
+      try { syncGlobalFromUI(true); } catch (_) {}
     }
   } catch (_) {}
 }
@@ -114,6 +203,7 @@ function setFieldStatus(id, type, text, withSpinner = false) {
   } else {
     el.textContent = text || '';
   }
+  try { syncGlobalFromUI(true); } catch (_) {}
 }
 function setInputState(input, state) {
   if (!input) return;
@@ -167,7 +257,14 @@ function populateBranchSuggestions(branches, preferred) {
     const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'No branches found'; select.appendChild(opt); select.disabled = true; return;
   }
   for (const name of unique) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; select.appendChild(opt); }
-  select.disabled = false; if (preferred) select.value = preferred;
+  select.disabled = false;
+  // Auto-pick branch: preferred -> main -> master -> first
+  let pick = preferred && unique.includes(preferred) ? preferred : '';
+  if (!pick && unique.includes('main')) pick = 'main';
+  if (!pick && unique.includes('master')) pick = 'master';
+  if (!pick) pick = unique[0];
+  try { select.value = pick; } catch (_) { /* ignore */ }
+  try { updateSaveEnabled(); updateGhActionButtons(); syncGlobalFromUI(true); } catch (_) {}
 }
 
 async function validateSlugAndLoadBranches() {
@@ -178,7 +275,9 @@ async function validateSlugAndLoadBranches() {
   if (!owner || !repo) {
     setInputState(slugEl, slugEl.value.trim() ? 'error' : null);
     setFieldStatus('gh-slug-status', slugEl.value.trim() ? 'err' : null, slugEl.value.trim() ? 'Format must be owner/repo' : '');
-    repoIsValid = false; updateSaveEnabled(); return;
+    repoIsValid = false; updateSaveEnabled();
+    syncGlobalFromUI(true);
+    return;
   }
   setFieldStatus('gh-slug-status', 'warn', 'Checking repository…', true);
   setInputState(slugEl, null);
@@ -189,6 +288,7 @@ async function validateSlugAndLoadBranches() {
   if (!info.exists) {
     setInputState(slugEl, 'error');
     setFieldStatus('gh-slug-status', 'err', info.error ? String(info.error) : 'Repository not found on GitHub');
+    syncGlobalFromUI(true);
     repoIsValid = false; updateSaveEnabled(); return;
   }
   setInputState(slugEl, 'valid');
@@ -197,10 +297,19 @@ async function validateSlugAndLoadBranches() {
   try {
     const branches = await fetchBranches(owner, repo);
     populateBranchSuggestions(branches, (branchEl && branchEl.value) ? branchEl.value : (localStorage.getItem('gh_branch') || info.default_branch));
-    setFieldStatus('gh-branch-status', 'ok', `${branches.length} branches`);
+    const countText = `${branches.length} branches`;
+    setFieldStatus('gh-branch-status', 'ok', countText);
+    syncGlobalFromUI(true);
+    try {
+      localStorage.setItem('gh_checked', '1');
+      localStorage.setItem('gh_last_ok_slug', `${owner}/${repo}`);
+      localStorage.setItem('gh_last_ok_branch', (branchEl && branchEl.value) ? branchEl.value : (localStorage.getItem('gh_branch') || info.default_branch));
+      localStorage.setItem('gh_last_ok_time', String(Date.now()));
+    } catch (_) {}
     repoIsValid = true; updateSaveEnabled(); updateGhActionButtons();
   } catch (e) {
     setFieldStatus('gh-branch-status', 'err', `Failed to load branches: ${e.message}`);
+    syncGlobalFromUI(true);
     repoIsValid = false; updateSaveEnabled();
   }
 }
@@ -218,11 +327,20 @@ window.validateSlugAndLoadBranches = validateSlugAndLoadBranches;
       if (branchInput) { branchInput.disabled = true; branchInput.value = ''; branchInput.innerHTML = '<option value="" selected>Loading branches…</option>'; }
       setInputState(slugInput, null);
       repoIsValid = false; updateSaveEnabled();
+      syncGlobalFromUI(true);
     });
     slugInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); slugInput.blur(); validateSlugAndLoadBranches(); } });
-    slugInput.addEventListener('blur', validateSlugAndLoadBranches);
+    slugInput.addEventListener('blur', () => { validateSlugAndLoadBranches(); });
   }
-  if (branchInput) branchInput.addEventListener('change', () => { updateSaveEnabled(); updateGhActionButtons(); });
+  if (branchInput) branchInput.addEventListener('change', () => {
+    updateSaveEnabled(); updateGhActionButtons();
+    try {
+      const slugEl = document.getElementById('gh-slug');
+      const { owner, repo } = parseSlug(slugEl?.value || '');
+      const branch = branchInput.value || '';
+      if (owner && repo && branch) syncGlobalFromUI(true);
+    } catch (_) {}
+  });
   if (saveBtn) setSaveMode('check');
 })();
 
@@ -241,14 +359,19 @@ window.validateSlugAndLoadBranches = validateSlugAndLoadBranches;
       const inferred = getGhConfigFromSiteYaml(cfg);
       if (!inferred || !inferred.owner || !inferred.repo) {
         setFieldStatus('gh-slug-status', 'err', 'No GitHub repository found in site.yaml');
+        setGlobalStatus('err', '<span class="dot"></span><span>No repository in site.yaml</span>');
         return;
       }
       if (slugEl) slugEl.value = `${inferred.owner}/${inferred.repo}`;
       if (branchEl) { branchEl.value = (inferred.branch || 'main'); branchEl.disabled = true; branchEl.innerHTML = '<option value="" selected>Loading branches…</option>'; }
+      // Immediately reflect checking status in the global indicator
+      try { setGlobalStatus('warn', `<span class=\"dot\"></span><span>Checking @${inferred.owner}/${inferred.repo}…</span>`); } catch (_) {}
       await validateSlugAndLoadBranches();
+      // Save without downgrading status
       if (slugEl && slugEl.value && branchEl && branchEl.value) saveGhRepoCfg();
     } catch (err) {
       setFieldStatus('gh-slug-status', 'err', 'Failed to read site.yaml');
+      setGlobalStatus('err', '<span class="dot"></span><span>Failed to read site.yaml</span>');
     }
   });
 })();
@@ -316,4 +439,3 @@ window.updateGhActionButtons = updateGhActionButtons;
 
 // Initial validation if slug present
 validateSlugAndLoadBranches();
-

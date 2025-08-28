@@ -12,6 +12,14 @@
             --primary: #0969da;
             --shadow: none;
         }
+        .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+        .global-status { display:flex; align-items:center; gap:.45rem; color:#57606a; font-size:.92rem; }
+        .global-status .dot { width:8px; height:8px; border-radius:50%; background:#8c959f; display:inline-block; }
+        .global-status.ok .dot { background:#1f883d; }
+        .global-status.warn .dot { background:#f59e0b; }
+        .global-status.err .dot { background:#dc2626; }
+        .global-status a { color:#0969da; text-decoration:none; }
+        .global-status a:hover { text-decoration:underline; }
         /* Bottom breathing room */
         body { padding-bottom: clamp(24px, 6vh, 96px); }
         *, *::before, *::after { box-sizing: border-box; }
@@ -263,7 +271,7 @@
         .config-preview .badge.ok { background: #e8f5e9; color: #1f883d; }
         .config-preview .badge.err { background: #fde8e8; color: #dc2626; }
         /* Header row inside preview */
-        .config-preview .config-header { display: flex; align-items: center; justify-content: space-between; padding: .25rem 0 .5rem; border-bottom: 1px solid #e6e8eb; margin-bottom: .75rem; }
+        .config-preview .config-header { display: flex; align-items: center; justify-content: space-between; padding: .25rem 0 .5rem; border-bottom: 0; margin-bottom: .75rem; }
         .config-preview .config-header h3 { margin: 0; color: #24292f; font-weight: 700; }
         .config-preview .config-header-left { display:flex; align-items:center; gap:.5rem; }
         .config-preview .config-src-link { margin-left: .5rem; color: #0969da; text-decoration: none; font-weight: 500; }
@@ -395,6 +403,8 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         /* Title + fullscreen help modal */
         .gh-titlebar { display:flex; align-items:center; gap:0.25rem; position: relative; margin-bottom: 0.75rem; }
+        .gh-titlebar h3 { margin:0; color:#24292f; font-weight:700; line-height: 1.875rem; }
+        .section-divider { border-top:1px solid #d0d7de; margin: .9rem 0 .75rem; }
         .info-btn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; font-weight:600; font-size:12px; line-height:1; box-shadow: 0 1px 0 rgba(27,31,36,.04); }
         .info-btn:hover { background:#f6f8fa; }
         .info-btn:focus { outline:none; box-shadow:0 0 0 3px rgba(9,105,218,.3); border-color:#0969da; }
@@ -454,33 +464,13 @@
 </head>
 <body>
     <div id="toast-root" class="toast-container" aria-live="polite" aria-atomic="true"></div>
-    <h1>🔍 NanoSite SEO Generator</h1>
+    <div class="page-titlebar">
+        <h1>🔍 NanoSite SEO Generator</h1>
+        <div id="global-status" class="global-status" role="status" aria-live="polite"></div>
+    </div>
     <p>Quickly create the files that help search engines understand your site (SEO files). This tool uses your NanoSite settings and content to generate a sitemap, robots.txt, and meta tags — ready to copy or commit to GitHub.</p>
 
-    <div class="container">
-        <div class="gh-titlebar">
-            <h4 style="margin:0rem;">GitHub Destination</h4>
-            <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
-        </div>
-        <div class="gh-controls">
-            <div class="gh-field">
-                <span class="gh-prefix">@</span>
-                <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^\/\s]+\/[^\/\s]+$">
-                <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
-            </div>
-            <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
-                <option value="" selected>Loading branches…</option>
-            </select>
-            <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
-                <button id="gh-save" class="btn-gh" type="button">Check</button>
-            </div>
-        </div>
-        <div class="gh-status">
-            <span id="gh-slug-status" class="badge"></span>
-            <span id="gh-branch-status" class="badge"></span>
-        </div>
-        
-    </div>
+    
 
     <!-- Fullscreen help overlay -->
     <div id="gh-help-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
@@ -541,6 +531,30 @@
     <!-- Configuration Tab -->
     <div id="config-tab" class="tab-content active">
         <div class="container">
+            <!-- GitHub Destination (moved into Pre-check above Site Configuration) -->
+            <div class="gh-titlebar">
+                <h3>GitHub Destination</h3>
+                <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
+            </div>
+            <div class="gh-controls">
+                <div class="gh-field">
+                    <span class="gh-prefix">@</span>
+                    <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^\/\s]+\/[^\/\s]+$">
+                    <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
+                </div>
+                <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
+                    <option value="" selected>Loading branches…</option>
+                </select>
+                <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
+                    <button id="gh-save" class="btn-gh" type="button">Check</button>
+                </div>
+            </div>
+            <div class="gh-status">
+                <span id="gh-slug-status" class="badge"></span>
+                <span id="gh-branch-status" class="badge"></span>
+            </div>
+            <div class="section-divider" aria-hidden="true"></div>
+
             
             <div class="config-preview" id="configPreview">
                 <h3>Loading configuration...</h3>
