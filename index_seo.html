@@ -12,6 +12,14 @@
             --primary: #0969da;
             --shadow: none;
         }
+        .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+        .global-status { display:flex; align-items:center; gap:.45rem; color:#57606a; font-size:.92rem; }
+        .global-status .dot { width:8px; height:8px; border-radius:50%; background:#8c959f; display:inline-block; }
+        .global-status.ok .dot { background:#1f883d; }
+        .global-status.warn .dot { background:#f59e0b; }
+        .global-status.err .dot { background:#dc2626; }
+        .global-status a { color:#0969da; text-decoration:none; }
+        .global-status a:hover { text-decoration:underline; }
         /* Bottom breathing room */
         body { padding-bottom: clamp(24px, 6vh, 96px); }
         *, *::before, *::after { box-sizing: border-box; }
@@ -33,7 +41,15 @@
             display: flex;
             border-bottom: 0.125rem solid #e9ecef;
             margin-bottom: 1.25rem;
+            position: sticky;
+            top: 0; /* stick to top */
+            z-index: 200; /* above content cards */
+            background: #fff; /* prevent bleed-through */
+            /* iOS safe area */
+            padding-top: env(safe-area-inset-top, 0);
+            gap: .1rem .25rem;
         }
+        .tabs .tab-item { position: relative; display: inline-flex; align-items: center; }
         .tab {
             padding: 0.625rem 1.25rem;
             background: none;
@@ -42,6 +58,7 @@
             font-size: 1rem;
             border-bottom: 0.125rem solid transparent;
         }
+        .tab.has-help { padding-right: 2.9rem; }
         .tab.active {
             border-bottom-color: #007acc;
             color: #007acc;
@@ -139,7 +156,7 @@
         .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
         .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
         .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
-        .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: contain; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+        .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: none; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
         /* Active line highlight */
         .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
         .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
@@ -197,23 +214,37 @@
             margin-top: 0;
             color: #495057;
         }
-        /* Pretty details/summary sections for configuration */
-        .config-preview details { border: 1px solid #e6e8eb; border-radius: 10px; background: linear-gradient(#ffffff, #fbfbfc); box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
-        .config-preview details + details { margin-top: .75rem; }
-        .config-preview summary { list-style: none; display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; cursor: pointer; user-select: none; color: #24292f; font-weight: 600; }
-        .config-preview summary:hover { background: #f6f8fa; }
-        .config-preview summary::-webkit-details-marker { display: none; }
-        .config-preview summary:focus { outline: none; box-shadow: 0 0 0 3px rgba(9,105,218,.3) inset; border-radius: 10px; }
-        .config-preview summary::before { content: '▸'; color: #57606a; display: inline-block; width: 1rem; text-align: center; transition: transform .18s ease; }
-        .config-preview details[open] > summary::before { transform: rotate(90deg); }
+        /* Non-collapsible config groups */
+        .config-preview .config-group {
+          border: 1px solid #d0d7de;
+          border-radius: 12px;
+          background: linear-gradient(180deg, #f3f6fb 0%, #e9eef5 100%);
+          box-shadow: 0 1px 2px rgba(27,31,36,.08), inset 0 1px 0 rgba(255,255,255,.6);
+          overflow: hidden;
+        }
+        /* Alternate tint to better separate sections */
+        .config-preview .config-group:nth-of-type(2n) {
+          background: linear-gradient(180deg, #f1f5fa 0%, #e6ecf4 100%);
+        }
+        .config-preview .config-group + .config-group { margin-top: .9rem; }
+        .config-preview .config-group-title {
+          display: flex; align-items: center; gap: .5rem; padding: .65rem .9rem;
+          color: #24292f; font-weight: 700; letter-spacing: .2px;
+          background: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(246,248,250,.9) 100%);
+          border-bottom: 1px solid #d8dee4;
+        }
         .config-preview .section-body { padding: .3rem .9rem .9rem; }
         .config-preview .section-body .config-item { background: transparent; }
         /* Items layout */
         .config-preview .config-item { display: grid; grid-template-columns: 14rem 1fr; gap: .5rem; padding: .35rem .25rem; border-bottom: 1px solid #d0d7de; }
         /* Ensure value column contents size to content, not stretch */
-        .config-preview .config-item > :nth-child(2) { justify-self: start; align-self: center; }
+        .config-preview .config-item > :nth-child(2) { justify-self: start; align-self: start; }
+        .config-preview .config-value { display: inline-flex; gap: .35rem; flex-wrap: wrap; align-items: center; }
         .config-preview .config-item:last-child { border-bottom: 0; }
-        .config-preview .config-label { color: #57606a; font-weight: 600; min-width: 14rem; position: relative; }
+        .config-preview .config-label { color: #57606a; font-weight: 600; min-width: 14rem; position: relative; display: inline-flex; flex-direction: column; gap: .2rem; }
+        .config-preview .config-label-text { line-height: 1.2; }
+        .config-preview .config-label-hint { line-height: 1; }
+        .config-preview .mini-badge { display: inline-flex; align-items:center; height: 1rem; padding: 0 .4rem; border-radius: 999px; font-size: .68rem; background: #eef2f7; color: #57606a; border: 1px solid #d0d7de; }
         /* Nicer native-ish tooltip via title attr hint */
         .config-preview .config-label[title] { text-decoration: underline dotted rgba(87,96,106,.5); text-underline-offset: 2px; cursor: help; }
         .config-preview .config-item em { color: #8c959f; }
@@ -240,8 +271,29 @@
         .config-preview .badge.ok { background: #e8f5e9; color: #1f883d; }
         .config-preview .badge.err { background: #fde8e8; color: #dc2626; }
         /* Header row inside preview */
-        .config-preview .config-header { display: flex; align-items: center; justify-content: space-between; padding: .25rem 0 .5rem; border-bottom: 1px solid #e6e8eb; margin-bottom: .75rem; }
+        .config-preview .config-header { display: flex; align-items: center; justify-content: space-between; padding: .25rem 0 .5rem; border-bottom: 0; margin-bottom: .75rem; }
         .config-preview .config-header h3 { margin: 0; color: #24292f; font-weight: 700; }
+        .config-preview .config-header-left { display:flex; align-items:center; gap:.5rem; }
+        .config-preview .config-src-link { margin-left: .5rem; color: #0969da; text-decoration: none; font-weight: 500; }
+        .config-preview .config-src-link:hover { text-decoration: underline; }
+        /* Two-pane layout */
+        .config-preview .config-split { display: grid; grid-template-columns: 15rem 1fr; gap: 1rem; }
+        .config-preview .config-cats { display: flex; flex-direction: column; gap: .25rem; align-self: start; padding: .25rem .75rem .25rem 0; border-right: 1px solid #d0d7de; border-radius: 0; background: transparent; }
+        .config-preview .cat-item { text-align: left; background: transparent; border: 0; color:#24292f; border-radius: 6px; padding: .45rem .6rem; cursor: pointer; font-size: .92rem; display: flex; align-items: center; gap: .45rem; }
+        .config-preview .cat-icon { width: 1.1rem; text-align: center; opacity: .9; }
+        .config-preview .cat-item:hover { background: #eaeef2; }
+        .config-preview .cat-item.active { background: #ddf4ff; color: #0969da; font-weight: 600; box-shadow: inset 2px 0 0 #0969da; }
+        .config-preview .config-pane { min-height: 10rem; border: 0; border-radius: 0; background: transparent; overflow: visible; }
+        .config-preview .pane-title { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding: .4rem 0 .6rem; font-weight: 600; color: #24292f; border-bottom: 0; background: transparent; }
+        .config-preview .pane-title-left { display:flex; align-items:center; gap:.45rem; }
+        .config-preview .pane-icon { width: 1.1rem; text-align:center; }
+        .config-preview .pane-top-link { color:#0969da; text-decoration: none; font-weight: 500; font-size: .9rem; }
+        .config-preview .pane-top-link:hover { text-decoration: underline; }
+        @media (max-width: 880px) {
+          .config-preview .config-split { grid-template-columns: 1fr; }
+          .config-preview .config-cats { flex-direction: row; overflow-x: auto; white-space: nowrap; border-radius: 8px; border-right: 0; padding: .25rem 0; }
+          .config-preview .cat-item { flex: 0 0 auto; }
+        }
         @media (max-width: 880px) {
           .config-preview .config-item { grid-template-columns: 1fr; }
           .config-preview .config-label { min-width: 0; }
@@ -281,9 +333,19 @@
         .btn-compact { padding: 0.4rem 0.8rem; height: 2.25rem; }
         .btn-secondary.btn-compact { padding:0.4rem 0.9rem; }
         .info-btn { margin-left: .25rem; }
+        /* View toggle */
+        .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
+        .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
+        .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; }
+        .view-toggle .vt-btn:hover { text-decoration:underline; }
+        .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+        /* Composite tab help icon inside button */
+        .tabs .tab-help { position: absolute; right: .6rem; top: 50%; transform: translateY(-50%); z-index: 1; }
+        /* Tighter alignment when help buttons are in the tab bar */
+        .tabs .info-btn { align-self: center; margin-right: .4rem; }
         .toolbar .divider { width:1px; height:2rem; background:#e6e8eb; }
         .toolbar .toolbar-more { display:none; }
-        #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 1.4rem; margin: 0 0 .5rem 0; }
+        #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 0; margin: 0; }
         /* Inline status + action */
         .status-inline { display: inline-flex; align-items: center; gap: 6px; }
         .icon-btn { width: 1.875rem; height: 1.875rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; line-height: 0; }
@@ -341,13 +403,16 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         /* Title + fullscreen help modal */
         .gh-titlebar { display:flex; align-items:center; gap:0.25rem; position: relative; margin-bottom: 0.75rem; }
+        .gh-titlebar h3 { margin:0; color:#24292f; font-weight:700; line-height: 1.875rem; }
+        .section-divider { border-top:1px solid #d0d7de; margin: .9rem 0 .75rem; }
         .info-btn { width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; font-weight:600; font-size:12px; line-height:1; box-shadow: 0 1px 0 rgba(27,31,36,.04); }
         .info-btn:hover { background:#f6f8fa; }
         .info-btn:focus { outline:none; box-shadow:0 0 0 3px rgba(9,105,218,.3); border-color:#0969da; }
         /* removed small tab popover in favor of fullscreen modal */
-        html, body { height: 100%; }
+        /* Avoid forcing fixed height on html/body to not break sticky elements */
+        html, body { min-height: 100%; }
         @supports (-webkit-touch-callout: none) {
-            html, body { height: -webkit-fill-available; }
+            html, body { min-height: -webkit-fill-available; }
         }
         .gh-overlay { position: fixed; top:0; left:0; right:0; bottom:0; width:100vw; height:100vh; min-height: var(--vvh, 100vh); background: rgba(27,31,36,.38); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display:none; z-index: 1000; padding: clamp(12px, 4vw, 24px); overflow: auto; overscroll-behavior: contain; }
         @supports (height: 100dvh) { .gh-overlay { height: 100dvh; } }
@@ -399,33 +464,13 @@
 </head>
 <body>
     <div id="toast-root" class="toast-container" aria-live="polite" aria-atomic="true"></div>
-    <h1>🔍 NanoSite SEO Generator</h1>
+    <div class="page-titlebar">
+        <h1>🔍 NanoSite SEO Generator</h1>
+        <div id="global-status" class="global-status" role="status" aria-live="polite"></div>
+    </div>
     <p>Quickly create the files that help search engines understand your site (SEO files). This tool uses your NanoSite settings and content to generate a sitemap, robots.txt, and meta tags — ready to copy or commit to GitHub.</p>
 
-    <div class="container">
-        <div class="gh-titlebar">
-            <h4 style="margin:0rem;">GitHub Destination</h4>
-            <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
-        </div>
-        <div class="gh-controls">
-            <div class="gh-field">
-                <span class="gh-prefix">@</span>
-                <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^\/\s]+\/[^\/\s]+$">
-                <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
-            </div>
-            <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
-                <option value="" selected>Loading branches…</option>
-            </select>
-            <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
-                <button id="gh-save" class="btn-gh" type="button">Check</button>
-            </div>
-        </div>
-        <div class="gh-status">
-            <span id="gh-slug-status" class="badge"></span>
-            <span id="gh-branch-status" class="badge"></span>
-        </div>
-        
-    </div>
+    
 
     <!-- Fullscreen help overlay -->
     <div id="gh-help-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
@@ -466,21 +511,56 @@
     
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('config')">Configuration</button>
-        <button class="tab" onclick="switchTab('sitemap')">Sitemap</button>
-        <button class="tab" onclick="switchTab('robots')">Robots.txt</button>
-        <button class="tab" onclick="switchTab('meta')">HTML Meta Tags</button>
+        <div class="tab-item">
+            <button class="tab active" onclick="switchTab('config')">Pre-check</button>
+        </div>
+        <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('sitemap')">Sitemap</button>
+            <button id="sitemap-help-btn" class="info-btn tab-help" type="button" aria-label="Sitemap help" aria-expanded="false">?</button>
+        </div>
+        <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('robots')">Robots.txt</button>
+            <button id="robots-help-btn" class="info-btn tab-help" type="button" aria-label="Robots help" aria-expanded="false">?</button>
+        </div>
+        <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('meta')">HTML Meta Tags</button>
+            <button id="meta-help-btn" class="info-btn tab-help" type="button" aria-label="Meta help" aria-expanded="false">?</button>
+        </div>
     </div>
 
     <!-- Configuration Tab -->
     <div id="config-tab" class="tab-content active">
         <div class="container">
+            <!-- GitHub Destination (moved into Pre-check above Site Configuration) -->
+            <div class="gh-titlebar">
+                <h3>GitHub Destination</h3>
+                <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
+            </div>
+            <div class="gh-controls">
+                <div class="gh-field">
+                    <span class="gh-prefix">@</span>
+                    <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^\/\s]+\/[^\/\s]+$">
+                    <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
+                </div>
+                <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
+                    <option value="" selected>Loading branches…</option>
+                </select>
+                <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
+                    <button id="gh-save" class="btn-gh" type="button">Check</button>
+                </div>
+            </div>
+            <div class="gh-status">
+                <span id="gh-slug-status" class="badge"></span>
+                <span id="gh-branch-status" class="badge"></span>
+            </div>
+            <div class="section-divider" aria-hidden="true"></div>
+
             
             <div class="config-preview" id="configPreview">
                 <h3>Loading configuration...</h3>
             </div>
             
-            <div class="output-group">
+            <div class="output-group" style="display:none;">
                 <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
             </div>
         </div>
@@ -491,7 +571,6 @@
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
-                    <button class="btn-primary btn-compact" onclick="generateSitemap()" title="Refresh sitemap">Refresh</button>
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateSitemap()" title="Validate XML">Validate</button>
                     <div class="divider is-extra"></div>
@@ -499,15 +578,25 @@
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadSitemap()">Download</button>
                 </div>
                 <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="sitemap" onclick="return __switchView('sitemap','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="sitemap" onclick="return __switchView('sitemap','source', this)">Source</a>
+                    </div>
                     <button id="sitemap-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
-                    <button id="sitemap-help-btn" class="info-btn" type="button" aria-label="Sitemap help" aria-expanded="false">?</button>
                 </div>
             </div>
             <div id="sitemap-status"></div>
-            
-            <div class="output-group">
-                <h3>Generated sitemap.xml:</h3>
-                <textarea id="sitemapOutput" placeholder="Click 'Generate Sitemap' to create the XML content..."></textarea>
+
+            <!-- Human-friendly sitemap preview -->
+            <div class="config-preview" id="sitemapPreview">
+              <h3>Loading sitemap...</h3>
+            </div>
+
+            <!-- Raw source (hidden by default, shown via Source link) -->
+            <div class="output-group" style="display:none;">
+                <textarea id="sitemapOutput" placeholder="Click 'Refresh' to generate the XML..."></textarea>
             </div>
         </div>
     </div>
@@ -517,7 +606,6 @@
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
-                    <button class="btn-primary btn-compact" onclick="generateRobots()" title="Refresh robots.txt">Refresh</button>
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateRobots()" title="Validate robots.txt">Validate</button>
                     <div class="divider is-extra"></div>
@@ -525,15 +613,25 @@
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadRobots()">Download</button>
                 </div>
                 <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="robots" onclick="return __switchView('robots','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="robots" onclick="return __switchView('robots','source', this)">Source</a>
+                    </div>
                     <button id="robots-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
-                    <button id="robots-help-btn" class="info-btn" type="button" aria-label="Robots help" aria-expanded="false">?</button>
                 </div>
             </div>
             <div id="robots-status"></div>
-            
-            <div class="output-group">
-                <h3>Generated robots.txt:</h3>
-                <textarea id="robotsOutput" placeholder="Click 'Generate Robots.txt' to create the content..."></textarea>
+
+            <!-- Human-friendly robots.txt preview -->
+            <div class="config-preview" id="robotsPreview">
+              <h3>Loading robots.txt...</h3>
+            </div>
+
+            <!-- Raw source (hidden by default, shown via Source link) -->
+            <div class="output-group" style="display:none;">
+                <textarea id="robotsOutput" placeholder="Click 'Refresh' to generate robots.txt..."></textarea>
             </div>
         </div>
     </div>
@@ -543,7 +641,6 @@
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
-                    <button class="btn-primary btn-compact" onclick="generateMetaTags()" title="Refresh meta tags">Refresh</button>
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateMeta()" title="Validate tags">Validate</button>
                     <div class="divider is-extra"></div>
@@ -551,15 +648,25 @@
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadMetaTags()">Download</button>
                 </div>
                 <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="meta" onclick="return __switchView('meta','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="meta" onclick="return __switchView('meta','source', this)">Source</a>
+                    </div>
                     <button class="btn-gh btn-compact" onclick="openIndexHtmlEdit()">Open index.html on GitHub</button>
-                    <button id="meta-help-btn" class="info-btn" type="button" aria-label="Meta help" aria-expanded="false">?</button>
                 </div>
             </div>
             <div id="meta-status"></div>
-            
-            <div class="output-group">
-                <h3>Generated HTML Meta Tags:</h3>
-                <textarea id="metaOutput" placeholder="Click 'Generate Meta Tags' to create the HTML content..."></textarea>
+
+            <!-- Human-friendly meta tags preview -->
+            <div class="config-preview" id="metaPreview">
+              <h3>Loading meta tags...</h3>
+            </div>
+
+            <!-- Raw source (hidden by default, shown via Source link) -->
+            <div class="output-group" style="display:none;">
+                <textarea id="metaOutput" placeholder="Click 'Refresh' to generate meta tags..."></textarea>
             </div>
         </div>
     </div>

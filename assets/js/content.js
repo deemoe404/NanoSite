@@ -74,76 +74,75 @@ export function computeReadTime(md, wpm = 200) {
 
 // Parse YAML front matter from markdown content
 export function parseFrontMatter(content) {
-  const trimmed = String(content || '').trim();
-  
-  // Check if content starts with YAML front matter
-  if (!trimmed.startsWith('---')) {
-    return { frontMatter: {}, content: trimmed };
+  const raw = String(content || '');
+  // Must start with '---' on first line
+  if (!/^---\s*(?:\n|\r\n)/.test(raw)) {
+    return { frontMatter: {}, content: raw.trim() };
   }
-  
-  // Find the end of front matter
-  const lines = trimmed.split('\n');
+
+  const lines = raw.split('\n');
   let endIndex = -1;
-  
   for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === '---') {
-      endIndex = i;
-      break;
-    }
+    if (lines[i].trim() === '---') { endIndex = i; break; }
   }
-  
-  if (endIndex === -1) {
-    return { frontMatter: {}, content: trimmed };
-  }
-  
-  // Extract front matter and content
+  if (endIndex === -1) return { frontMatter: {}, content: raw.trim() };
+
   const frontMatterLines = lines.slice(1, endIndex);
   const contentLines = lines.slice(endIndex + 1);
-  
-  // Parse simple YAML (key: value format)
-  const frontMatter = {};
-  let currentKey = null;
+
+  const fm = {};
   let currentArray = null;
-  
-  for (const line of frontMatterLines) {
-    const trimmedLine = line.trim();
-    
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
-      continue; // Skip empty lines and comments
+
+  // Remove wrapping quote-like characters (ASCII and common Unicode)
+  const stripQuoteLike = (s) => {
+    let out = String(s || '');
+    const pairs = [["\"","\""],["'","'"],["“","”"],["‘","’"],["«","»"]];
+    for (const [L,R] of pairs) {
+      if (out.startsWith(L) && out.endsWith(R)) { out = out.slice(L.length, out.length - R.length); break; }
     }
-    
-    // Handle array items
-    if (trimmedLine.startsWith('- ')) {
-      if (currentArray) {
-        currentArray.push(trimmedLine.substring(2).trim());
+    return out;
+  };
+
+  for (const line0 of frontMatterLines) {
+    const line = line0.replace(/\r$/, '');
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    // Array item
+    if (/^-\s+/.test(t)) {
+      if (currentArray) currentArray.push(stripQuoteLike(t.slice(2).trim()));
+      continue;
+    }
+    // key: value
+    const m = t.match(/^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/);
+    if (m) {
+      const key = m[1];
+      const val = m[2];
+      currentArray = null;
+      if (val === '' || val == null) {
+        currentArray = [];
+        fm[key] = currentArray;
+      } else {
+        const v = stripQuoteLike(val.trim());
+        if (/^(true|false)$/i.test(v)) fm[key] = /^true$/i.test(v);
+        else fm[key] = v;
       }
       continue;
     }
-    
-    // Handle key: value pairs
-    const colonIndex = trimmedLine.indexOf(':');
-    if (colonIndex > 0) {
-      const key = trimmedLine.substring(0, colonIndex).trim();
-      const value = trimmedLine.substring(colonIndex + 1).trim();
-      
-      currentKey = key;
-      currentArray = null;
-      
-      if (value) {
-        // Single value - remove quotes if present
-        frontMatter[key] = value.replace(/^["']|["']$/g, '');
-      } else {
-        // Start of array
-        currentArray = [];
-        frontMatter[key] = currentArray;
-      }
-    }
   }
-  
-  return {
-    frontMatter,
-    content: contentLines.join('\n').trim()
-  };
+
+  // Fallback pass: scan block to fill missing fields
+  const block = frontMatterLines.join('\n');
+  const ensure = (k, get) => { if (fm[k] == null) { try { const v = get(); if (v != null) fm[k] = v; } catch(_) {} } };
+  ensure('title', () => { const m = block.match(/^title\s*:\s*(.+)$/mi); return m ? stripQuoteLike(m[1].trim()) : null; });
+  ensure('date', () => { const m = block.match(/^date\s*:\s*(.+)$/mi); return m ? m[1].trim() : null; });
+  ensure('tags', () => {
+    const m = block.match(/^tags\s*:\s*([\s\S]*?)(?:\n[A-Za-z0-9_.-]+\s*:|$)/mi);
+    if (!m) return null; const part = m[1] || ''; const list = [];
+    part.split(/\n/).forEach(l => { const mm = l.match(/^\s*-\s*(.+)$/); if (mm) list.push(stripQuoteLike(mm[1].trim())); });
+    return list.length ? list : null;
+  });
+
+  return { frontMatter: fm, content: contentLines.join('\n').trim() };
 }
 
 // Extract content without front matter
