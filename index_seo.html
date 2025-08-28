@@ -337,7 +337,7 @@
         .tabs .info-btn { align-self: center; margin-right: .4rem; }
         .toolbar .divider { width:1px; height:2rem; background:#e6e8eb; }
         .toolbar .toolbar-more { display:none; }
-        #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 1.4rem; margin: 0 0 .5rem 0; }
+        #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 0; margin: 0; }
         /* Inline status + action */
         .status-inline { display: inline-flex; align-items: center; gap: 6px; }
         .icon-btn { width: 1.875rem; height: 1.875rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid #d0d7de; border-radius:50%; background:#fff; color:#57606a; cursor:pointer; padding:0; line-height: 0; }
@@ -541,17 +541,6 @@
     <!-- Configuration Tab -->
     <div id="config-tab" class="tab-content active">
         <div class="container">
-            <div class="toolbar" style="border-bottom:0; padding-bottom:0; margin-bottom:.5rem;">
-                <div class="left-actions"></div>
-                <div class="right-actions">
-                    <div class="view-toggle" aria-label="View switch">
-                        <span class="vt-label">View:</span>
-                        <a href="#" class="vt-btn active" data-view-target="config" onclick="return __switchView('config','friendly', this)">Friendly</a>
-                        <span class="dim" aria-hidden="true">/</span>
-                        <a href="#" class="vt-btn" data-view-target="config" onclick="return __switchView('config','source', this)">Source</a>
-                    </div>
-                </div>
-            </div>
             
             <div class="config-preview" id="configPreview">
                 <h3>Loading configuration...</h3>
@@ -568,7 +557,6 @@
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
-                    <button class="btn-primary btn-compact" onclick="generateSitemap()" title="Refresh sitemap">Refresh</button>
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateSitemap()" title="Validate XML">Validate</button>
                     <div class="divider is-extra"></div>
@@ -604,7 +592,6 @@
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
-                    <button class="btn-primary btn-compact" onclick="generateRobots()" title="Refresh robots.txt">Refresh</button>
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateRobots()" title="Validate robots.txt">Validate</button>
                     <div class="divider is-extra"></div>
@@ -640,7 +627,6 @@
         <div class="container">
             <div class="toolbar">
                 <div class="left-actions">
-                    <button class="btn-primary btn-compact" onclick="generateMetaTags()" title="Refresh meta tags">Refresh</button>
                     <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
                     <button class="btn-tertiary btn-compact is-extra" onclick="validateMeta()" title="Validate tags">Validate</button>
                     <div class="divider is-extra"></div>

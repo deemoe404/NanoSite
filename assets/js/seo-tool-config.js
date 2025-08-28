@@ -289,7 +289,7 @@ export async function loadSiteConfig() {
       .join('');
     const html = [
       '<div class="config-header">',
-      '  <div class="config-header-left"><h3>Site Configuration</h3></div>',
+      '  <div class="config-header-left"><h3>Site Configuration</h3><div class="view-toggle" aria-label="View switch"><span class="vt-label">View:</span><a href="#" class="vt-btn active" data-view-target="config" onclick="return __switchView(\'config\',\'friendly\', this)">Friendly</a><span class="dim" aria-hidden="true">/</span><a href="#" class="vt-btn" data-view-target="config" onclick="return __switchView(\'config\',\'source\', this)">Source</a></div></div>',
       '  <div class="status-inline">',
       '    <p class="success">✓ Loaded</p>',
       '    <button class="icon-btn" type="button" onclick="loadSiteConfig()" title="Refresh configuration" aria-label="Refresh configuration">',
@@ -300,11 +300,13 @@ export async function loadSiteConfig() {
       '    </button>',
       '  </div>',
       '</div>',
-      '<div class="config-split">',
-      '  <nav class="config-cats" id="configCats">', navWithIcons, '</nav>',
-      '  <div class="config-pane" id="configPane">',
-      '    <div class="pane-title"><div class="pane-title-left"><span class="pane-icon">', iconFor(first.title), '</span><span class="pane-label">', esc(first.title || ''), '</span></div></div>',
-      '    <div class="section-body">', first.bodyHtml, '</div>',
+      '<div class="config-body">',
+      '  <div class="config-split">',
+      '    <nav class="config-cats" id="configCats">', navWithIcons, '</nav>',
+      '    <div class="config-pane" id="configPane">',
+      '      <div class="pane-title"><div class="pane-title-left"><span class="pane-icon">', iconFor(first.title), '</span><span class="pane-label">', esc(first.title || ''), '</span></div></div>',
+      '      <div class="section-body">', first.bodyHtml, '</div>',
+      '    </div>',
       '  </div>',
       '</div>'
     ].join('');

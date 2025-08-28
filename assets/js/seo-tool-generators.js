@@ -427,9 +427,17 @@ async function renderSitemapPreview(urls = []){
   const html = [
     '<div class="config-header">',
     '  <div class="config-header-left"><h3>Sitemap</h3></div>',
-    '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
+    '  <div class="status-inline">',
+    '    <p class="success">✓ Generated</p>',
+    '    <button class="icon-btn" type="button" onclick="generateSitemap()" title="Refresh sitemap" aria-label="Refresh sitemap">',
+    '      <svg class="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">',
+    '        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>',
+    '        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>',
+    '      </svg>',
+    '    </button>',
+    '  </div>',
     '</div>',
-    body
+    '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('sitemapPreview', html);
 }
@@ -459,9 +467,17 @@ function renderRobotsPreview(text = ''){
   const html = [
     '<div class="config-header">',
     '  <div class="config-header-left"><h3>Robots.txt</h3></div>',
-    '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
+    '  <div class="status-inline">',
+    '    <p class="success">✓ Generated</p>',
+    '    <button class="icon-btn" type="button" onclick="generateRobots()" title="Refresh robots.txt" aria-label="Refresh robots.txt">',
+    '      <svg class="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">',
+    '        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>',
+    '        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>',
+    '      </svg>',
+    '    </button>',
+    '  </div>',
     '</div>',
-    body
+    '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('robotsPreview', html);
 }
@@ -501,9 +517,17 @@ function renderMetaPreview(frag = '', cfg = {}){
   const html = [
     '<div class="config-header">',
     '  <div class="config-header-left"><h3>Meta Tags</h3></div>',
-    '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
+    '  <div class="status-inline">',
+    '    <p class="success">✓ Generated</p>',
+    '    <button class="icon-btn" type="button" onclick="generateMetaTags()" title="Refresh meta tags" aria-label="Refresh meta tags">',
+    '      <svg class="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">',
+    '        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>',
+    '        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>',
+    '      </svg>',
+    '    </button>',
+    '  </div>',
     '</div>',
-    body
+    '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('metaPreview', html);
 }
@@ -551,7 +575,7 @@ async function generateSitemap() {
     const xml = generateSitemapXML(urls);
     if (outputEl) outputEl.value = xml;
     try { setEditorValue('sitemapOutput', xml); } catch (_) {}
-    if (statusEl) statusEl.innerHTML = `<p class="success">✓ Sitemap generated successfully! Found ${urls.length} URLs.</p>`;
+    if (statusEl) statusEl.innerHTML = '';
     try { renderSitemapPreview(urls); } catch (_) {}
     t('ok', `Sitemap generated (${urls.length} URLs)`);
     outputEl && outputEl.select();
@@ -571,7 +595,7 @@ async function generateRobots() {
     const robotsContent = generateRobotsTxt(state.currentSiteConfig);
     if (outputEl) outputEl.value = robotsContent;
     try { setEditorValue('robotsOutput', robotsContent); } catch (_) {}
-    if (statusEl) statusEl.innerHTML = '<p class="success">✓ Robots.txt generated successfully!</p>';
+    if (statusEl) statusEl.innerHTML = '';
     try { renderRobotsPreview(robotsContent); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Robots.txt generated');
@@ -591,7 +615,7 @@ async function generateMetaTags() {
     const metaContent = generateMetaTagsHTML(state.currentSiteConfig);
     if (outputEl) outputEl.value = metaContent;
     try { setEditorValue('metaOutput', metaContent); } catch (_) {}
-    if (statusEl) statusEl.innerHTML = '<p class="success">✓ HTML meta tags generated successfully!</p>';
+    if (statusEl) statusEl.innerHTML = '';
     try { renderMetaPreview(metaContent, state.currentSiteConfig); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Meta tags generated');

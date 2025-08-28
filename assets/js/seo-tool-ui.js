@@ -37,7 +37,13 @@ export function switchView(section, view, btn) {
     const ta = document.getElementById(outputId);
     const outWrap = ta ? (ta.closest('.output-group') || ta.parentElement) : null;
     const showSource = String(view || 'friendly') === 'source';
-    if (previewEl) previewEl.style.display = showSource ? 'none' : '';
+    // Keep header visible; only toggle body area inside preview
+    if (previewEl) {
+      const bodies = previewEl.querySelectorAll('.config-body');
+      bodies.forEach(b => { b.style.display = showSource ? 'none' : ''; });
+      // Ensure the preview container itself remains visible for header
+      previewEl.style.display = '';
+    }
     if (outWrap) outWrap.style.display = showSource ? '' : 'none';
     // Ensure editor layout updates when becoming visible
     if (showSource && window.__seoEditorToggleWrap) {
