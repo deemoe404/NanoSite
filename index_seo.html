@@ -33,6 +33,12 @@
             display: flex;
             border-bottom: 0.125rem solid #e9ecef;
             margin-bottom: 1.25rem;
+            position: sticky;
+            top: 0; /* stick to top */
+            z-index: 200; /* above content cards */
+            background: #fff; /* prevent bleed-through */
+            /* iOS safe area */
+            padding-top: env(safe-area-inset-top, 0);
         }
         .tab {
             padding: 0.625rem 1.25rem;
@@ -197,23 +203,37 @@
             margin-top: 0;
             color: #495057;
         }
-        /* Pretty details/summary sections for configuration */
-        .config-preview details { border: 1px solid #e6e8eb; border-radius: 10px; background: linear-gradient(#ffffff, #fbfbfc); box-shadow: 0 1px 0 rgba(27,31,36,.04), inset 0 1px 0 rgba(255,255,255,.5); }
-        .config-preview details + details { margin-top: .75rem; }
-        .config-preview summary { list-style: none; display: flex; align-items: center; gap: .5rem; padding: .6rem .8rem; cursor: pointer; user-select: none; color: #24292f; font-weight: 600; }
-        .config-preview summary:hover { background: #f6f8fa; }
-        .config-preview summary::-webkit-details-marker { display: none; }
-        .config-preview summary:focus { outline: none; box-shadow: 0 0 0 3px rgba(9,105,218,.3) inset; border-radius: 10px; }
-        .config-preview summary::before { content: '▸'; color: #57606a; display: inline-block; width: 1rem; text-align: center; transition: transform .18s ease; }
-        .config-preview details[open] > summary::before { transform: rotate(90deg); }
+        /* Non-collapsible config groups */
+        .config-preview .config-group {
+          border: 1px solid #d0d7de;
+          border-radius: 12px;
+          background: linear-gradient(180deg, #f3f6fb 0%, #e9eef5 100%);
+          box-shadow: 0 1px 2px rgba(27,31,36,.08), inset 0 1px 0 rgba(255,255,255,.6);
+          overflow: hidden;
+        }
+        /* Alternate tint to better separate sections */
+        .config-preview .config-group:nth-of-type(2n) {
+          background: linear-gradient(180deg, #f1f5fa 0%, #e6ecf4 100%);
+        }
+        .config-preview .config-group + .config-group { margin-top: .9rem; }
+        .config-preview .config-group-title {
+          display: flex; align-items: center; gap: .5rem; padding: .65rem .9rem;
+          color: #24292f; font-weight: 700; letter-spacing: .2px;
+          background: linear-gradient(180deg, rgba(255,255,255,.75) 0%, rgba(246,248,250,.9) 100%);
+          border-bottom: 1px solid #d8dee4;
+        }
         .config-preview .section-body { padding: .3rem .9rem .9rem; }
         .config-preview .section-body .config-item { background: transparent; }
         /* Items layout */
         .config-preview .config-item { display: grid; grid-template-columns: 14rem 1fr; gap: .5rem; padding: .35rem .25rem; border-bottom: 1px solid #d0d7de; }
         /* Ensure value column contents size to content, not stretch */
-        .config-preview .config-item > :nth-child(2) { justify-self: start; align-self: center; }
+        .config-preview .config-item > :nth-child(2) { justify-self: start; align-self: start; }
+        .config-preview .config-value { display: inline-flex; gap: .35rem; flex-wrap: wrap; align-items: center; }
         .config-preview .config-item:last-child { border-bottom: 0; }
-        .config-preview .config-label { color: #57606a; font-weight: 600; min-width: 14rem; position: relative; }
+        .config-preview .config-label { color: #57606a; font-weight: 600; min-width: 14rem; position: relative; display: inline-flex; flex-direction: column; gap: .2rem; }
+        .config-preview .config-label-text { line-height: 1.2; }
+        .config-preview .config-label-hint { line-height: 1; }
+        .config-preview .mini-badge { display: inline-flex; align-items:center; height: 1rem; padding: 0 .4rem; border-radius: 999px; font-size: .68rem; background: #eef2f7; color: #57606a; border: 1px solid #d0d7de; }
         /* Nicer native-ish tooltip via title attr hint */
         .config-preview .config-label[title] { text-decoration: underline dotted rgba(87,96,106,.5); text-underline-offset: 2px; cursor: help; }
         .config-preview .config-item em { color: #8c959f; }
@@ -242,6 +262,27 @@
         /* Header row inside preview */
         .config-preview .config-header { display: flex; align-items: center; justify-content: space-between; padding: .25rem 0 .5rem; border-bottom: 1px solid #e6e8eb; margin-bottom: .75rem; }
         .config-preview .config-header h3 { margin: 0; color: #24292f; font-weight: 700; }
+        .config-preview .config-header-left { display:flex; align-items:center; gap:.5rem; }
+        .config-preview .config-src-link { margin-left: .5rem; color: #0969da; text-decoration: none; font-weight: 500; }
+        .config-preview .config-src-link:hover { text-decoration: underline; }
+        /* Two-pane layout */
+        .config-preview .config-split { display: grid; grid-template-columns: 15rem 1fr; gap: 1rem; }
+        .config-preview .config-cats { display: flex; flex-direction: column; gap: .25rem; align-self: start; padding: .25rem .75rem .25rem 0; border-right: 1px solid #d0d7de; border-radius: 0; background: transparent; }
+        .config-preview .cat-item { text-align: left; background: transparent; border: 0; color:#24292f; border-radius: 6px; padding: .45rem .6rem; cursor: pointer; font-size: .92rem; display: flex; align-items: center; gap: .45rem; }
+        .config-preview .cat-icon { width: 1.1rem; text-align: center; opacity: .9; }
+        .config-preview .cat-item:hover { background: #eaeef2; }
+        .config-preview .cat-item.active { background: #ddf4ff; color: #0969da; font-weight: 600; box-shadow: inset 2px 0 0 #0969da; }
+        .config-preview .config-pane { min-height: 10rem; border: 0; border-radius: 0; background: transparent; overflow: visible; }
+        .config-preview .pane-title { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding: .4rem 0 .6rem; font-weight: 600; color: #24292f; border-bottom: 0; background: transparent; }
+        .config-preview .pane-title-left { display:flex; align-items:center; gap:.45rem; }
+        .config-preview .pane-icon { width: 1.1rem; text-align:center; }
+        .config-preview .pane-top-link { color:#0969da; text-decoration: none; font-weight: 500; font-size: .9rem; }
+        .config-preview .pane-top-link:hover { text-decoration: underline; }
+        @media (max-width: 880px) {
+          .config-preview .config-split { grid-template-columns: 1fr; }
+          .config-preview .config-cats { flex-direction: row; overflow-x: auto; white-space: nowrap; border-radius: 8px; border-right: 0; padding: .25rem 0; }
+          .config-preview .cat-item { flex: 0 0 auto; }
+        }
         @media (max-width: 880px) {
           .config-preview .config-item { grid-template-columns: 1fr; }
           .config-preview .config-label { min-width: 0; }
@@ -345,9 +386,10 @@
         .info-btn:hover { background:#f6f8fa; }
         .info-btn:focus { outline:none; box-shadow:0 0 0 3px rgba(9,105,218,.3); border-color:#0969da; }
         /* removed small tab popover in favor of fullscreen modal */
-        html, body { height: 100%; }
+        /* Avoid forcing fixed height on html/body to not break sticky elements */
+        html, body { min-height: 100%; }
         @supports (-webkit-touch-callout: none) {
-            html, body { height: -webkit-fill-available; }
+            html, body { min-height: -webkit-fill-available; }
         }
         .gh-overlay { position: fixed; top:0; left:0; right:0; bottom:0; width:100vw; height:100vh; min-height: var(--vvh, 100vh); background: rgba(27,31,36,.38); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display:none; z-index: 1000; padding: clamp(12px, 4vw, 24px); overflow: auto; overscroll-behavior: contain; }
         @supports (height: 100dvh) { .gh-overlay { height: 100dvh; } }
@@ -466,7 +508,7 @@
     
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('config')">Configuration</button>
+        <button class="tab active" onclick="switchTab('config')">Pre-check</button>
         <button class="tab" onclick="switchTab('sitemap')">Sitemap</button>
         <button class="tab" onclick="switchTab('robots')">Robots.txt</button>
         <button class="tab" onclick="switchTab('meta')">HTML Meta Tags</button>
@@ -480,7 +522,7 @@
                 <h3>Loading configuration...</h3>
             </div>
             
-            <div class="output-group">
+            <div class="output-group" style="display:none;">
                 <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
             </div>
         </div>

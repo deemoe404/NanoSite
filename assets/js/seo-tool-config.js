@@ -152,17 +152,23 @@ export async function loadSiteConfig() {
       if (!parts.length) return `<em>Not set</em>`;
       return `<div class="chips">${parts.map(p => `<span class="chip">${esc(p)}</span>`).join('')}</div>`;
     };
-    const show = (label, has, value, defText, kindWhenDefault = 'warn', keyForTip = '') => {
-      const val = has ? value : `${esc(defText)} ${badge(kindWhenDefault, 'default')}`;
-      const tip = desc(keyForTip) || '';
-      const titleAttr = tip ? ` title="${esc(tip)}"` : '';
-      return `<div class="config-item"><span class="config-label"${titleAttr}>${esc(label)}:</span> ${has ? esc(value) : val}</div>`;
+    const makeLabel = (label, titleAttr, hint) => {
+      const hintHtml = hint ? `<span class="config-label-hint"><span class="mini-badge">${esc(hint)}</span></span>` : '';
+      return `<span class="config-label"${titleAttr}><span class="config-label-text">${esc(label)}:</span>${hintHtml}</span>`;
     };
-    const showRaw = (label, has, htmlValue, defText, kindWhenDefault = 'warn', keyForTip = '') => {
-      const val = has ? htmlValue : `${esc(defText)} ${badge(kindWhenDefault, 'default')}`;
+    const show = (label, has, value, defText, kindWhenDefault = 'warn', keyForTip = '', hint = '') => {
       const tip = desc(keyForTip) || '';
       const titleAttr = tip ? ` title="${esc(tip)}"` : '';
-      return `<div class="config-item"><span class="config-label"${titleAttr}>${esc(label)}:</span> ${val}</div>`;
+      const text = has ? esc(value) : esc(defText);
+      const tail = has ? '' : ' ' + badge(kindWhenDefault, 'default');
+      return `<div class="config-item">${makeLabel(label, titleAttr, hint)} <span class="config-value">${text}${tail}</span></div>`;
+    };
+    const showRaw = (label, has, htmlValue, defText, kindWhenDefault = 'warn', keyForTip = '', hint = '') => {
+      const tip = desc(keyForTip) || '';
+      const titleAttr = tip ? ` title="${esc(tip)}"` : '';
+      const tail = has ? '' : ' ' + badge(kindWhenDefault, 'default');
+      const inner = has ? String(htmlValue) : esc(defText);
+      return `<div class="config-item">${makeLabel(label, titleAttr, hint)} <span class="config-value">${inner}${tail}</span></div>`;
     };
     const showBool = (label, has, value, defVal, key) => {
       const tip = desc(key) || '';
@@ -172,21 +178,118 @@ export async function loadSiteConfig() {
       const valHtml = has
         ? `<span class="bool ${v ? 'bool-true' : 'bool-false'}">${v ? 'true' : 'false'}</span>`
         : `<span class="bool ${d ? 'bool-true' : 'bool-false'}">${d ? 'true' : 'false'}</span> ${badge('warn','default')}`;
-      return `<div class="config-item"><span class="config-label"${titleAttr}>${esc(label)}:</span> ${valHtml}</div>`;
+      return `<div class="config-item">${makeLabel(label, titleAttr, '')} <span class="config-value">${valHtml}</span></div>`;
     };
     const showNum = (label, has, value, defVal, key) => show(label, has, String(parseInt(value,10)), String(defVal), 'warn', key);
-    const section = (title, bodyHtml, open = false) => `
-      <details ${open ? 'open' : ''}>
-        <summary>${esc(title)}</summary>
+    const section = (title, bodyHtml) => `
+      <div class="config-group">
+        <div class="config-group-title">${esc(title)}</div>
         <div class="section-body">
           ${bodyHtml}
         </div>
-      </details>`;
+      </div>`;
+    // Two-pane helpers
+    const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'section';
+    const groups = [];
+    const addGroup = (title, bodyHtml) => groups.push({ id: slug(title), title, bodyHtml: String(bodyHtml || '') });
 
-    // Build preview HTML
+    // Build groups
+    addGroup('Identity & SEO', [
+      show('Site Title', !!cfg.siteTitle, getLocalizedValue(cfg.siteTitle), 'Not set', 'warn', 'siteTitle'),
+      show('Site Subtitle', !!cfg.siteSubtitle, getLocalizedValue(cfg.siteSubtitle), 'Not set', 'warn', 'siteSubtitle'),
+      show('Description', !!cfg.siteDescription, getLocalizedValue(cfg.siteDescription), 'Not set', 'warn', 'siteDescription'),
+      showRaw('Keywords', !!cfg.siteKeywords, formatKeywords(cfg.siteKeywords), 'Not set', 'warn', 'siteKeywords'),
+      (() => {
+        const has = !!cfg.resourceURL;
+        const tip = esc(desc('resourceURL')||'');
+        const titleAttr = tip ? ` title="${tip}"` : '';
+        const href = has ? esc(cfg.resourceURL) : esc(defaults.resourceURL);
+        const html = `<a href="${href}" target="_blank" rel="noopener">${href}</a>` + (has ? '' : ' ' + badge('warn','default'));
+        return `<div class="config-item">${makeLabel('Resource URL', titleAttr, '')} <span class="config-value">${html}</span></div>`;
+      })(),
+      (() => {
+        const has = !!cfg.avatar;
+        const src = has ? esc(cfg.avatar) : '';
+        const tip = esc(desc('avatar')||'');
+        const titleAttr = tip ? ` title="${tip}"` : '';
+        if (!has) return `<div class="config-item">${makeLabel('Avatar', titleAttr, '')} <span class="config-value">${esc('Generated fallback image')} ${badge('warn','default')}</span></div>`;
+        const block = `
+          <div class="config-avatar-block">
+            <img class="config-avatar" src="${src}" alt="Avatar preview" loading="lazy"/>
+            <div class="config-avatar-path"><code>${src}</code></div>
+          </div>`;
+        return `<div class="config-item">${makeLabel('Avatar', titleAttr, '')} <span class="config-value">${block}</span></div>`;
+      })()
+    ].join('\n'));
+
+    addGroup('Content & Navigation', [
+      (() => { const has = !!cfg.contentRoot; const tip = esc(desc('contentRoot')||''); const titleAttr = tip ? ` title="${tip}"` : ''; return `<div class="config-item"><span class="config-label"${titleAttr}>Content Root:</span> ${has ? esc(contentRoot) : (esc(defaults.contentRoot) + ' ' + badge('warn','default'))}</div>`; })(),
+      showRaw('Profile Links', Array.isArray(cfg.profileLinks) && cfg.profileLinks.length > 0, formatLinksList(cfg.profileLinks), 'Not set', 'warn', 'profileLinks'),
+      showRaw('Nav Links', (cfg.links && ((Array.isArray(cfg.links) && cfg.links.length) || (typeof cfg.links === 'object' && Object.keys(cfg.links).length))), formatLinksList(cfg.links), 'Not set', 'warn', 'links'),
+      (() => { const has = !!cfg.landingTab; const def = postsEnabled() ? 'posts' : 'first static tab or search'; const tip = esc(desc('landingTab')||''); const titleAttr = tip ? ` title="${tip}"` : ''; return `<div class="config-item">${makeLabel('Landing Tab', titleAttr, '')} <span class="config-value">${has ? esc(cfg.landingTab) : (esc(def) + ' ' + badge('warn','default'))}</span></div>`; })(),
+    ].join('\n'));
+
+    addGroup('Posts & Pagination', [
+      showBool('Show All Posts', typeof cfg.showAllPosts === 'boolean', cfg.showAllPosts, defaults.showAllPosts, 'showAllPosts'),
+      showBool('Enable All Posts', typeof cfg.enableAllPosts === 'boolean', cfg.enableAllPosts, defaults.enableAllPosts, 'enableAllPosts', 'alias'),
+      showBool('Disable All Posts', typeof cfg.disableAllPosts === 'boolean', cfg.disableAllPosts, defaults.disableAllPosts, 'disableAllPosts', 'inverse'),
+      showNum('Page Size (pageSize)', Number.isFinite(Number(cfg.pageSize)), cfg.pageSize, defaults.pageSize, 'pageSize'),
+      show('Posts Per Page', !!cfg.postsPerPage, String(parseInt(cfg.postsPerPage,10)), String(defaults.postsPerPage), 'warn', 'postsPerPage', 'alias')
+    ].join('\n'));
+
+    addGroup('Internationalization', [
+      show('Default Language', !!cfg.defaultLanguage, cfg.defaultLanguage, defaults.defaultLanguage, 'warn', 'defaultLanguage')
+    ].join('\n'));
+
+    addGroup('Theme', [
+      show('Theme Mode', !!cfg.themeMode, cfg.themeMode, defaults.themeMode, 'warn', 'themeMode'),
+      show('Theme Pack', !!cfg.themePack, cfg.themePack, defaults.themePack, 'warn', 'themePack'),
+      showBool('Theme Override', typeof cfg.themeOverride === 'boolean', cfg.themeOverride, defaults.themeOverride, 'themeOverride'),
+      showBool('Card Cover Fallback', typeof cfg.cardCoverFallback === 'boolean', cfg.cardCoverFallback, defaults.cardCoverFallback, 'cardCoverFallback')
+    ].join('\n'));
+
+    addGroup('Repository & Errors', [
+      show('Repo Owner', !!(cfg.repo && cfg.repo.owner), (cfg.repo && cfg.repo.owner) || '', 'Not set', 'warn', 'repo.owner'),
+      show('Repo Name', !!(cfg.repo && cfg.repo.name), (cfg.repo && cfg.repo.name) || '', 'Not set', 'warn', 'repo.name'),
+      show('Repo Branch', !!(cfg.repo && cfg.repo.branch), (cfg.repo && cfg.repo.branch) || '', 'Not set', 'warn', 'repo.branch'),
+      (() => {
+        let derived = '';
+        try { const r = cfg.repo || {}; if (r.owner && r.name) derived = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/issues/new`; } catch (_) {}
+        const has = !!derived;
+        const val = has ? derived : `Not set ${badge('warn','derived')}`;
+        const tip = esc(desc('derived.reportIssueURL')||'');
+        const titleAttr = tip ? ` title="${tip}"` : '';
+        return `<div class="config-item"><span class="config-label"${titleAttr}>Report Issue URL (derived):</span> ${val}</div>`;
+      })(),
+      (() => { const has = typeof cfg.reportIssueURL === 'string' && cfg.reportIssueURL.trim().length > 0; const val = has ? cfg.reportIssueURL : `Not set ${badge('warn','optional')}`; const tip = esc(desc('reportIssueURL')||''); const titleAttr = tip ? ` title="${tip}"` : ''; return `<div class="config-item"><span class="config-label"${titleAttr}>reportIssueURL (non-schema):</span> ${esc(val)}</div>`; })(),
+      showBool('Error Overlay', typeof cfg.errorOverlay === 'boolean', cfg.errorOverlay, defaults.errorOverlay, 'errorOverlay')
+    ].join('\n'));
+
+    addGroup('Asset Warnings & Freshness', [
+      showNum('Content Outdated Days', Number.isFinite(Number(cfg.contentOutdatedDays)), cfg.contentOutdatedDays, defaults.contentOutdatedDays),
+      showBool('Large Image Warning', !!(cfg.assetWarnings && cfg.assetWarnings.largeImage && typeof cfg.assetWarnings.largeImage.enabled === 'boolean'), cfg.assetWarnings && cfg.assetWarnings.largeImage && cfg.assetWarnings.largeImage.enabled, defaults.assetWarnings_largeImage_enabled),
+      showNum('Large Image Threshold (KB)', !!(cfg.assetWarnings && cfg.assetWarnings.largeImage && Number.isFinite(Number(cfg.assetWarnings.largeImage.thresholdKB))), cfg.assetWarnings && cfg.assetWarnings.largeImage && cfg.assetWarnings.largeImage.thresholdKB, defaults.assetWarnings_largeImage_thresholdKB)
+    ].join('\n'));
+
+    const nav = groups.map((g, i) => `<button class="cat-item${i===0?' active':''}" data-id="${esc(g.id)}">${esc(g.title)}</button>`).join('');
+    const first = groups[0] || { id: '', title: '', bodyHtml: '' };
+    const iconFor = (title) => {
+      const t = String(title || '').toLowerCase();
+      if (t.includes('identity')) return '🌐';
+      if (t.includes('content')) return '📁';
+      if (t.includes('post')) return '📝';
+      if (t.includes('international')) return '🌍';
+      if (t.includes('theme')) return '🎨';
+      if (t.includes('repository') || t.includes('error')) return '🛠️';
+      if (t.includes('asset')) return '🖼️';
+      return '📄';
+    };
+    const navWithIcons = groups
+      .map((g, i) => `<button class="cat-item${i===0?' active':''}" data-id="${esc(g.id)}"><span class="cat-icon">${iconFor(g.title)}</span><span class="cat-label">${esc(g.title)}</span></button>`)
+      .join('');
     const html = [
       '<div class="config-header">',
-      '  <h3>Current Configuration</h3>',
+      '  <div class="config-header-left"><h3>Site Configuration</h3><a class="config-src-link" href="#" onclick="if(window.__openConfigSourceModal){ window.__openConfigSourceModal(); } return false;" title="View raw site.yaml">Source</a></div>',
       '  <div class="status-inline">',
       '    <p class="success">✓ Loaded</p>',
       '    <button class="icon-btn" type="button" onclick="loadSiteConfig()" title="Refresh configuration" aria-label="Refresh configuration">',
@@ -197,93 +300,74 @@ export async function loadSiteConfig() {
       '    </button>',
       '  </div>',
       '</div>',
-
-      // Identity & SEO (default open)
-      section('Identity & SEO', [
-        show('Site Title', !!cfg.siteTitle, getLocalizedValue(cfg.siteTitle), 'Not set', 'warn', 'siteTitle'),
-        show('Site Subtitle', !!cfg.siteSubtitle, getLocalizedValue(cfg.siteSubtitle), 'Not set', 'warn', 'siteSubtitle'),
-        show('Description', !!cfg.siteDescription, getLocalizedValue(cfg.siteDescription), 'Not set', 'warn', 'siteDescription'),
-        showRaw('Keywords', !!cfg.siteKeywords, formatKeywords(cfg.siteKeywords), 'Not set', 'warn', 'siteKeywords'),
-        (() => {
-          const has = !!cfg.resourceURL;
-          const tip = esc(desc('resourceURL')||'');
-          const titleAttr = tip ? ` title="${tip}"` : '';
-          const href = has ? esc(cfg.resourceURL) : esc(defaults.resourceURL);
-          const html = `<a href="${href}" target="_blank" rel="noopener">${href}</a>` + (has ? '' : ' ' + badge('warn','default'));
-          return `<div class="config-item"><span class="config-label"${titleAttr}>Resource URL:</span> ${html}</div>`;
-        })(),
-        (() => {
-          const has = !!cfg.avatar;
-          const src = has ? esc(cfg.avatar) : '';
-          const tip = esc(desc('avatar')||'');
-          const titleAttr = tip ? ` title="${tip}"` : '';
-          if (!has) return `<div class="config-item"><span class="config-label"${titleAttr}>Avatar:</span> ${esc('Generated fallback image')} ${badge('warn','default')}` + `</div>`;
-          const block = `
-            <div class="config-avatar-block">
-              <img class="config-avatar" src="${src}" alt="Avatar preview" loading="lazy"/>
-              <div class="config-avatar-path"><code>${src}</code></div>
-            </div>`;
-          return `<div class="config-item"><span class="config-label"${titleAttr}>Avatar:</span> ${block}</div>`;
-        })()
-      ].join('\n'), true),
-
-      // Content & Navigation
-      section('Content & Navigation', [
-        (() => { const has = !!cfg.contentRoot; const tip = esc(desc('contentRoot')||''); const titleAttr = tip ? ` title="${tip}"` : ''; return `<div class="config-item"><span class="config-label"${titleAttr}>Content Root:</span> ${has ? esc(contentRoot) : (esc(defaults.contentRoot) + ' ' + badge('warn','default'))}</div>`; })(),
-        showRaw('Profile Links', Array.isArray(cfg.profileLinks) && cfg.profileLinks.length > 0, formatLinksList(cfg.profileLinks), 'Not set', 'warn', 'profileLinks'),
-        showRaw('Nav Links', (cfg.links && ((Array.isArray(cfg.links) && cfg.links.length) || (typeof cfg.links === 'object' && Object.keys(cfg.links).length))), formatLinksList(cfg.links), 'Not set', 'warn', 'links'),
-        (() => { const has = !!cfg.landingTab; const def = postsEnabled() ? 'posts' : 'first static tab or search'; const tip = esc(desc('landingTab')||''); const titleAttr = tip ? ` title="${tip}"` : ''; return `<div class="config-item"><span class="config-label"${titleAttr}>Landing Tab:</span> ${has ? esc(cfg.landingTab) : (esc(def) + ' ' + badge('warn','default'))}</div>`; })(),
-      ].join('\n')),
-
-      // Posts & Pagination
-      section('Posts & Pagination', [
-        showBool('Show All Posts', typeof cfg.showAllPosts === 'boolean', cfg.showAllPosts, defaults.showAllPosts, 'showAllPosts'),
-        showBool('Enable All Posts (alias)', typeof cfg.enableAllPosts === 'boolean', cfg.enableAllPosts, defaults.enableAllPosts, 'enableAllPosts'),
-        showBool('Disable All Posts (inverse)', typeof cfg.disableAllPosts === 'boolean', cfg.disableAllPosts, defaults.disableAllPosts, 'disableAllPosts'),
-        showNum('Page Size (pageSize)', Number.isFinite(Number(cfg.pageSize)), cfg.pageSize, defaults.pageSize, 'pageSize'),
-        showNum('Posts Per Page (alias)', Number.isFinite(Number(cfg.postsPerPage)), cfg.postsPerPage, defaults.postsPerPage, 'postsPerPage')
-      ].join('\n')),
-
-      // Internationalization
-      section('Internationalization', [
-        show('Default Language', !!cfg.defaultLanguage, cfg.defaultLanguage, defaults.defaultLanguage, 'warn', 'defaultLanguage')
-      ].join('\n')),
-
-      // Theme
-      section('Theme', [
-        show('Theme Mode', !!cfg.themeMode, cfg.themeMode, defaults.themeMode, 'warn', 'themeMode'),
-        show('Theme Pack', !!cfg.themePack, cfg.themePack, defaults.themePack, 'warn', 'themePack'),
-        showBool('Theme Override', typeof cfg.themeOverride === 'boolean', cfg.themeOverride, defaults.themeOverride, 'themeOverride'),
-        showBool('Card Cover Fallback', typeof cfg.cardCoverFallback === 'boolean', cfg.cardCoverFallback, defaults.cardCoverFallback, 'cardCoverFallback')
-      ].join('\n')),
-
-      // Repository & Errors
-      section('Repository & Errors', [
-        show('Repo Owner', !!(cfg.repo && cfg.repo.owner), (cfg.repo && cfg.repo.owner) || '', 'Not set', 'warn', 'repo.owner'),
-        show('Repo Name', !!(cfg.repo && cfg.repo.name), (cfg.repo && cfg.repo.name) || '', 'Not set', 'warn', 'repo.name'),
-        show('Repo Branch', !!(cfg.repo && cfg.repo.branch), (cfg.repo && cfg.repo.branch) || '', 'Not set', 'warn', 'repo.branch'),
-        (() => {
-          let derived = '';
-          try { const r = cfg.repo || {}; if (r.owner && r.name) derived = `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/issues/new`; } catch (_) {}
-          const has = !!derived;
-          const val = has ? derived : `Not set ${badge('warn','derived')}`;
-          const tip = esc(desc('derived.reportIssueURL')||'');
-          const titleAttr = tip ? ` title="${tip}"` : '';
-          return `<div class="config-item"><span class="config-label"${titleAttr}>Report Issue URL (derived):</span> ${val}</div>`;
-        })(),
-        (() => { const has = typeof cfg.reportIssueURL === 'string' && cfg.reportIssueURL.trim().length > 0; const val = has ? cfg.reportIssueURL : `Not set ${badge('warn','optional')}`; const tip = esc(desc('reportIssueURL')||''); const titleAttr = tip ? ` title="${tip}"` : ''; return `<div class="config-item"><span class="config-label"${titleAttr}>reportIssueURL (non-schema):</span> ${esc(val)}</div>`; })(),
-        showBool('Error Overlay', typeof cfg.errorOverlay === 'boolean', cfg.errorOverlay, defaults.errorOverlay, 'errorOverlay')
-      ].join('\n')),
-
-      // Asset Warnings & Freshness
-      section('Asset Warnings & Freshness', [
-        showNum('Content Outdated Days', Number.isFinite(Number(cfg.contentOutdatedDays)), cfg.contentOutdatedDays, defaults.contentOutdatedDays),
-        showBool('Large Image Warning', !!(cfg.assetWarnings && cfg.assetWarnings.largeImage && typeof cfg.assetWarnings.largeImage.enabled === 'boolean'), cfg.assetWarnings && cfg.assetWarnings.largeImage && cfg.assetWarnings.largeImage.enabled, defaults.assetWarnings_largeImage_enabled),
-        showNum('Large Image Threshold (KB)', !!(cfg.assetWarnings && cfg.assetWarnings.largeImage && Number.isFinite(Number(cfg.assetWarnings.largeImage.thresholdKB))), cfg.assetWarnings && cfg.assetWarnings.largeImage && cfg.assetWarnings.largeImage.thresholdKB, defaults.assetWarnings_largeImage_thresholdKB)
-      ].join('\n')),
-    ].join('\n');
+      '<div class="config-split">',
+      '  <nav class="config-cats" id="configCats">', navWithIcons, '</nav>',
+      '  <div class="config-pane" id="configPane">',
+      '    <div class="pane-title"><div class="pane-title-left"><span class="pane-icon">', iconFor(first.title), '</span><span class="pane-label">', esc(first.title || ''), '</span></div></div>',
+      '    <div class="section-body">', first.bodyHtml, '</div>',
+      '  </div>',
+      '</div>'
+    ].join('');
 
     if (previewEl) previewEl.innerHTML = html;
+    // Provide modal opener for raw YAML
+    try {
+      window.__openConfigSourceModal = () => {
+        const overlay = document.getElementById('tab-help-overlay');
+        const titleEl = document.getElementById('tab-help-title');
+        const bodyEl = document.getElementById('tab-help-body');
+        const closeBtn = document.getElementById('tab-help-close');
+        if (!overlay || !titleEl || !bodyEl || !closeBtn) return;
+        const raw = (outputEl && outputEl.value) || '';
+        const pre = `<div class=\"hi-editor\"><div class=\"code-scroll\"><div class=\"code-gutter\"></div><pre class=\"hi-pre\"><code>${String(raw).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;'}[c]))}</code></pre></div></div>`;
+        const html = `<p style=\"margin:.25rem 0 .5rem;color:#57606a\">Raw site.yaml</p>${pre}`;
+        // open overlay (mirror behavior in seo-tool-ui.js)
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+        titleEl.textContent = 'site.yaml';
+        bodyEl.innerHTML = html;
+        overlay.classList.add('open');
+        overlay.setAttribute('aria-hidden','false');
+        const close = () => {
+          overlay.classList.remove('open');
+          overlay.setAttribute('aria-hidden','true');
+          document.body.style.position = '';
+          document.body.style.top = '';
+          document.body.style.left = '';
+          document.body.style.right = '';
+          document.body.style.width = '';
+          window.scrollTo(0, scrollY);
+          try { closeBtn.removeEventListener('click', close); } catch(_){}
+          try { overlay.removeEventListener('click', onOverlay); } catch(_){}
+        };
+        const onOverlay = (e) => { if (e && e.target === overlay) close(); };
+        closeBtn.addEventListener('click', close);
+        overlay.addEventListener('click', onOverlay);
+        overlay.querySelector('.gh-modal')?.addEventListener('click', (e)=> e.stopPropagation());
+      };
+    } catch (_) {}
+    // Wire category switching
+    try {
+      const catsEl = document.getElementById('configCats');
+      const paneEl = document.getElementById('configPane');
+      if (catsEl && paneEl) {
+        catsEl.addEventListener('click', (e) => {
+          const btn = e.target && e.target.closest('.cat-item');
+          if (!btn) return;
+          const id = btn.getAttribute('data-id');
+          const found = groups.find(g => g.id === id);
+          if (!found) return;
+          Array.from(catsEl.querySelectorAll('.cat-item')).forEach(el => el.classList.remove('active'));
+          btn.classList.add('active');
+          const icon = iconFor(found.title);
+          paneEl.innerHTML = `<div class=\"pane-title\"><div class=\"pane-title-left\"><span class=\"pane-icon\">${icon}</span><span class=\"pane-label\">${found.title || ''}</span></div></div><div class=\"section-body\">${found.bodyHtml}</div>`;
+        });
+      }
+    } catch (_) {}
     if (statusEl) { try { statusEl.innerHTML = ''; } catch(_) {} }
   } catch (error) {
     console.error('Error loading site config:', error);
