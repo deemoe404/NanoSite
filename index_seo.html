@@ -39,7 +39,9 @@
             background: #fff; /* prevent bleed-through */
             /* iOS safe area */
             padding-top: env(safe-area-inset-top, 0);
+            gap: .1rem .25rem;
         }
+        .tabs .tab-item { position: relative; display: inline-flex; align-items: center; }
         .tab {
             padding: 0.625rem 1.25rem;
             background: none;
@@ -48,6 +50,7 @@
             font-size: 1rem;
             border-bottom: 0.125rem solid transparent;
         }
+        .tab.has-help { padding-right: 2.9rem; }
         .tab.active {
             border-bottom-color: #007acc;
             color: #007acc;
@@ -322,6 +325,10 @@
         .btn-compact { padding: 0.4rem 0.8rem; height: 2.25rem; }
         .btn-secondary.btn-compact { padding:0.4rem 0.9rem; }
         .info-btn { margin-left: .25rem; }
+        /* Composite tab help icon inside button */
+        .tabs .tab-help { position: absolute; right: .6rem; top: 50%; transform: translateY(-50%); z-index: 1; }
+        /* Tighter alignment when help buttons are in the tab bar */
+        .tabs .info-btn { align-self: center; margin-right: .4rem; }
         .toolbar .divider { width:1px; height:2rem; background:#e6e8eb; }
         .toolbar .toolbar-more { display:none; }
         #sitemap-status, #robots-status, #meta-status, #config-status { min-height: 1.4rem; margin: 0 0 .5rem 0; }
@@ -508,10 +515,21 @@
     
 
     <div class="tabs">
-        <button class="tab active" onclick="switchTab('config')">Pre-check</button>
-        <button class="tab" onclick="switchTab('sitemap')">Sitemap</button>
-        <button class="tab" onclick="switchTab('robots')">Robots.txt</button>
-        <button class="tab" onclick="switchTab('meta')">HTML Meta Tags</button>
+        <div class="tab-item">
+            <button class="tab active" onclick="switchTab('config')">Pre-check</button>
+        </div>
+        <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('sitemap')">Sitemap</button>
+            <button id="sitemap-help-btn" class="info-btn tab-help" type="button" aria-label="Sitemap help" aria-expanded="false">?</button>
+        </div>
+        <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('robots')">Robots.txt</button>
+            <button id="robots-help-btn" class="info-btn tab-help" type="button" aria-label="Robots help" aria-expanded="false">?</button>
+        </div>
+        <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('meta')">HTML Meta Tags</button>
+            <button id="meta-help-btn" class="info-btn tab-help" type="button" aria-label="Meta help" aria-expanded="false">?</button>
+        </div>
     </div>
 
     <!-- Configuration Tab -->
@@ -542,14 +560,18 @@
                 </div>
                 <div class="right-actions">
                     <button id="sitemap-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
-                    <button id="sitemap-help-btn" class="info-btn" type="button" aria-label="Sitemap help" aria-expanded="false">?</button>
                 </div>
             </div>
             <div id="sitemap-status"></div>
-            
-            <div class="output-group">
-                <h3>Generated sitemap.xml:</h3>
-                <textarea id="sitemapOutput" placeholder="Click 'Generate Sitemap' to create the XML content..."></textarea>
+
+            <!-- Human-friendly sitemap preview -->
+            <div class="config-preview" id="sitemapPreview">
+              <h3>Loading sitemap...</h3>
+            </div>
+
+            <!-- Raw source (hidden by default, shown via Source link) -->
+            <div class="output-group" style="display:none;">
+                <textarea id="sitemapOutput" placeholder="Click 'Refresh' to generate the XML..."></textarea>
             </div>
         </div>
     </div>
@@ -568,14 +590,18 @@
                 </div>
                 <div class="right-actions">
                     <button id="robots-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
-                    <button id="robots-help-btn" class="info-btn" type="button" aria-label="Robots help" aria-expanded="false">?</button>
                 </div>
             </div>
             <div id="robots-status"></div>
-            
-            <div class="output-group">
-                <h3>Generated robots.txt:</h3>
-                <textarea id="robotsOutput" placeholder="Click 'Generate Robots.txt' to create the content..."></textarea>
+
+            <!-- Human-friendly robots.txt preview -->
+            <div class="config-preview" id="robotsPreview">
+              <h3>Loading robots.txt...</h3>
+            </div>
+
+            <!-- Raw source (hidden by default, shown via Source link) -->
+            <div class="output-group" style="display:none;">
+                <textarea id="robotsOutput" placeholder="Click 'Refresh' to generate robots.txt..."></textarea>
             </div>
         </div>
     </div>
@@ -594,14 +620,18 @@
                 </div>
                 <div class="right-actions">
                     <button class="btn-gh btn-compact" onclick="openIndexHtmlEdit()">Open index.html on GitHub</button>
-                    <button id="meta-help-btn" class="info-btn" type="button" aria-label="Meta help" aria-expanded="false">?</button>
                 </div>
             </div>
             <div id="meta-status"></div>
-            
-            <div class="output-group">
-                <h3>Generated HTML Meta Tags:</h3>
-                <textarea id="metaOutput" placeholder="Click 'Generate Meta Tags' to create the HTML content..."></textarea>
+
+            <!-- Human-friendly meta tags preview -->
+            <div class="config-preview" id="metaPreview">
+              <h3>Loading meta tags...</h3>
+            </div>
+
+            <!-- Raw source (hidden by default, shown via Source link) -->
+            <div class="output-group" style="display:none;">
+                <textarea id="metaOutput" placeholder="Click 'Refresh' to generate meta tags..."></textarea>
             </div>
         </div>
     </div>

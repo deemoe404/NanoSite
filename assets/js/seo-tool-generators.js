@@ -1,9 +1,12 @@
 import { state } from './seo-tool-state.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { setEditorValue, getEditorValue } from './hieditor.js';
-import { generateSitemapData } from './seo.js';
+import { generateSitemapData } from './seo.js?v=1';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import { getContentRootFrom, loadSiteConfigFlex } from './seo-tool-config.js';
+import { getCurrentLang, DEFAULT_LANG, withLangParam } from './i18n.js';
+import { parseFrontMatter, stripFrontMatter, stripMarkdownToText } from './content.js';
+import { extractSEOFromMarkdown } from './seo.js?v=1';
 
 function t(kind, msg){ try { window.showToast && window.showToast(kind, msg); } catch (_) {} }
 
@@ -136,6 +139,375 @@ function generateMetaTagsHTML(siteConfig) {
   return html;
 }
 
+// ---- Human-friendly previews and Source overlay ----
+function __escHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;' }[c]));
+}
+
+function openSourceOverlay(title, code, language = 'plain'){
+  try {
+    const overlay = document.getElementById('tab-help-overlay');
+    const titleEl = document.getElementById('tab-help-title');
+    const bodyEl = document.getElementById('tab-help-body');
+    const closeBtn = document.getElementById('tab-help-close');
+    if (!overlay || !titleEl || !bodyEl || !closeBtn) return;
+    const raw = String(code || '');
+    const langClass = `language-${(language||'plain').toLowerCase()}`;
+    const pre = `<div class=\"hi-editor\"><div class=\"code-scroll\"><div class=\"code-gutter\"></div><pre class=\"hi-pre\"><code class=\"${langClass}\">${__escHtml(raw)}</code></pre></div></div>`;
+    const html = `<p style=\"margin:.25rem 0 .5rem;color:#57606a\">Raw source</p>${pre}`;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    titleEl.textContent = title;
+    bodyEl.innerHTML = html;
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    const close = () => {
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden','true');
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+      try { closeBtn.removeEventListener('click', close); } catch(_){}
+      try { overlay.removeEventListener('click', onOverlay); } catch(_){}
+    };
+    const onOverlay = (e) => { if (e && e.target === overlay) close(); };
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', onOverlay);
+    overlay.querySelector('.gh-modal')?.addEventListener('click', (e)=> e.stopPropagation());
+    try { initSyntaxHighlighting && initSyntaxHighlighting(); } catch(_){}
+  } catch (_) {}
+}
+
+function setHTML(id, html){ const el = document.getElementById(id); if (el) el.innerHTML = html; }
+// expose overlay + editor getter globally for inline anchors
+try { window.openSourceOverlay = openSourceOverlay; } catch (_) {}
+try { window.__getEditorVal = getEditorValue; } catch (_) {}
+try {
+  window.__openSrc = function(textareaId, lang, title){
+    try {
+      const content = (window.__getEditorVal && window.__getEditorVal(textareaId)) || (document.getElementById(textareaId) || {}).value || '';
+      openSourceOverlay(title || 'Source', content || '', lang || 'plain');
+    } catch (_) {}
+    return false;
+  };
+} catch (_) {}
+
+async function renderSitemapPreview(urls = []){
+  const baseUrl = window.location.origin + '/';
+  const total = Array.isArray(urls) ? urls.length : 0;
+  const lastmods = urls.map(u => u.lastmod).filter(Boolean).sort();
+  const latest = lastmods.length ? lastmods[lastmods.length - 1] : '—';
+  const cfg = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+  const cr = getContentRootFrom(cfg);
+
+  const posts = (window.__seoToolState && window.__seoToolState.currentPostsData) || {};
+  const tabs  = (window.__seoToolState && window.__seoToolState.currentTabsData) || {};
+
+  const langPref = (() => {
+    const cur = getCurrentLang ? getCurrentLang() : DEFAULT_LANG;
+    return [cur, DEFAULT_LANG, 'en', 'zh', 'ja', 'default'];
+  })();
+
+  const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const titleFromMd = (md) => {
+    try {
+      const { frontMatter, content } = parseFrontMatter(md || '');
+      if (frontMatter && frontMatter.title) return String(frontMatter.title).trim();
+      const m = String(content || '').match(/^#\s+(.+)/m);
+      return m ? m[1].trim() : '';
+    } catch(_) { return ''; }
+  };
+  async function fetchMdWithFallback(loc) {
+    const candidates = [];
+    const normLoc = String(loc || '').replace(/^\/+/, '');
+    const base = cr.replace(/\/+$/,'');
+    // contentRoot-based
+    candidates.push(`${base}/${normLoc}`);
+    candidates.push(`/${normLoc}`);
+    candidates.push(normLoc);
+    // Try resourceURL from site config if present
+    try {
+      const siteCfg = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+      const res = String(siteCfg.resourceURL || '').trim();
+      if (res) {
+        const u = new URL(normLoc.replace(/^\/+/, ''), res.endsWith('/') ? res : (res + '/'));
+        candidates.unshift(u.toString());
+      }
+    } catch(_) {}
+    for (const u of candidates) {
+      try { const r = await fetch(u); if (r.ok) return await r.text(); } catch(_) {}
+    }
+    return '';
+  }
+  async function readPostDetails(loc) {
+    try {
+      const md = await fetchMdWithFallback(loc);
+      const title = titleFromMd(md);
+      return { title, md };
+    } catch(_) { return { title: '', md: '' }; }
+  }
+  function langsOf(meta) {
+    const langs = [];
+    for (const [k, v] of Object.entries(meta || {})) {
+      if (typeof v === 'string') langs.push(k);
+      else if (v && typeof v === 'object' && (v.location || v.title)) langs.push(k);
+    }
+    return langs;
+  }
+  function pick(meta) {
+    for (const l of langPref) {
+      const v = meta && meta[l];
+      if (typeof v === 'string') return { lang: l, location: v, title: '' };
+      if (v && typeof v === 'object' && v.location) return { lang: l, location: v.location, title: v.title || '' };
+    }
+    // legacy flat
+    if (meta && meta.location) return { lang: langPref[0], location: meta.location, title: meta.title || '' };
+    return { lang: langPref[0], location: '', title: '' };
+  }
+
+  // Build post entries with titles
+  const postItems = await (async () => {
+    const entries = [];
+    for (const [key, meta] of Object.entries(posts)) {
+      const langs = langsOf(meta);
+      const primary = pick(meta);
+      let title = primary.title;
+      let mdCache = '';
+      if (!title && primary.location) { const det = await readPostDetails(primary.location); title = det.title; mdCache = det.md; }
+      // Pull SEO bits (date/tags) and compute word/char count
+      let dateStr = '';
+      let tags = [];
+      let wordCount = 0;
+      try {
+        const md = mdCache || (primary.location ? (await fetchMdWithFallback(primary.location)) : '');
+        if (md) {
+          // Front-matter snapshot
+          let fm = {};
+          try { fm = parseFrontMatter(md).frontMatter || {}; console.debug('[SEO-Preview] FM', primary.location, fm); } catch(_) {}
+          // 1) Try SEO extraction with a safe site avatar to avoid fallback image path
+          try {
+            const chosenMeta = (() => {
+              try {
+                const m = meta || {};
+                const perLang = m && m[primary.lang];
+                if (perLang && typeof perLang === 'object') return { ...perLang, location: primary.location };
+                if (m && typeof m === 'object') return { ...m, location: primary.location };
+              } catch(_) {}
+              return { location: primary.location };
+            })();
+            const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+            const siteCfg = { ...siteCfgBase };
+            if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+            const seo = extractSEOFromMarkdown(md, chosenMeta, siteCfg) || {};
+            if (seo.publishedTime) { try { dateStr = String(seo.publishedTime).slice(0,10); } catch(_) {} }
+            if (Array.isArray(seo.tags)) tags = seo.tags;
+          } catch (e) {
+            console.warn('[SEO-Preview] SEO extract failed', primary.location, e);
+          }
+          // 2) Fallbacks direct from front-matter if missing
+          try {
+            if (!dateStr && fm && fm.date) dateStr = String(fm.date).trim();
+            if ((!tags || !Array.isArray(tags) || tags.length === 0) && fm) {
+              if (Array.isArray(fm.tags)) tags = fm.tags;
+              else if (typeof fm.tags === 'string' && fm.tags.trim()) tags = [fm.tags.trim()];
+            }
+            console.debug('[SEO-Preview] RES', primary.location, { dateStr, tags });
+          } catch(_) {}
+          // 2) Compute words — always attempt
+          try {
+            const plain = stripMarkdownToText(stripFrontMatter(md));
+            const basic = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+            // Fallback for CJK: if few or zero words, count visible non-space chars
+            if (basic > 1) { wordCount = basic; }
+            else {
+              const chars = (plain || '').replace(/\s+/g, '').length;
+              wordCount = chars;
+            }
+          } catch(_) {}
+        }
+      } catch(_) {}
+      const perLangLinks = langs.map(l => {
+        const v = meta[l];
+        const loc = (typeof v === 'string') ? v : (v && v.location) || '';
+        const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
+        return { lang: l, href: q ? withLangParam(q) : '' };
+      }).filter(x => x.href);
+      entries.push({
+        type: 'post', key, title: title || key, langs, multi: langs.length > 1,
+        href: primary.location ? withLangParam(`/index.html?id=${encodeURIComponent(primary.location)}`) : '#',
+        location: primary.location,
+        perLangLinks,
+        dateStr,
+        tags,
+        wordCount
+      });
+    }
+    return entries.sort((a,b)=> a.key.localeCompare(b.key));
+  })();
+
+  // Build tab entries
+  const tabItems = (() => {
+    const entries = [];
+    for (const [key, meta] of Object.entries(tabs)) {
+      const langs = langsOf(meta);
+      const primary = pick(meta);
+      const slug = slugify(key);
+      const title = primary.title || key;
+      const perLangLinks = langs.map(l => ({ lang: l, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`) }));
+      entries.push({ type: 'tab', key, title, langs, multi: langs.length > 1, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}`) });
+    }
+    return entries.sort((a,b)=> a.key.localeCompare(b.key));
+  })();
+
+  const postsList = postItems.map(it => (
+    `<li>
+       <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
+       <div class="dim">${it.location ? `<code>${__escHtml(it.location)}</code>` : ''}</div>
+       <div class="config-value" style="margin-top:.25rem;">
+         <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
+         <span class="dim" style="margin-left:.5rem;">Languages:</span>
+         ${it.perLangLinks.map(x => `<span class="chip"><a href="${__escHtml(x.href)}" style="text-decoration:none;color:inherit;">${__escHtml(x.lang)}</a></span>`).join('')}
+       </div>
+       <div class="config-value" style="margin-top:.25rem;">
+         ${it.dateStr ? `<span class="mini-badge">Date: ${__escHtml(it.dateStr)}</span>` : ''}
+         <span class="mini-badge">Words: ${it.wordCount || 0}</span>
+         ${Array.isArray(it.tags) && it.tags.length ? `<span class="dim" style="margin-left:.5rem;">Tags:</span> ${it.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : ''}
+       </div>
+     </li>`
+  )).join('');
+
+  const tabsList = tabItems.map(it => (
+    `<li>
+       <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
+       <div class="config-value" style="margin-top:.25rem;">
+         <span class="badge ok">Static Page</span>
+         <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
+         <span class="dim" style="margin-left:.5rem;">Languages:</span>
+         ${it.langs.map(l => `<span class="chip"><a href="${__escHtml(withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`))}" style="text-decoration:none;color:inherit;">${__escHtml(l)}</a></span>`).join('')}
+       </div>
+     </li>`
+  )).join('');
+
+  const body = [
+    '<div class="config-group">',
+    '  <div class="config-group-title">🧭 Overview</div>',
+    '  <div class="section-body">',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Site Root</span></span><div class="config-value"><code>', __escHtml(baseUrl), '</code></div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">URL Count</span></span><div class="config-value"><span class="badge ok">', String(total), ' URLs</span></div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Last Modified</span></span><div class="config-value">', __escHtml(latest), '</div></div>',
+    '  </div>',
+    '</div>',
+    '<div class="config-group">',
+    '  <div class="config-group-title">🏠 Home</div>',
+    '  <div class="section-body">',
+    `    <ul class="config-list"><li><a href="${__escHtml(withLangParam('/index.html'))}">/index.html</a></li></ul>`,
+    '  </div>',
+    '</div>',
+    '<div class="config-group">',
+    '  <div class="config-group-title">📝 Posts</div>',
+    '  <div class="section-body">',
+    postsList ? `<ul class="config-list">${postsList}</ul>` : '<div class="dim" style="padding:.25rem 0 .5rem;">No posts</div>',
+    '  </div>',
+    '</div>',
+    '<div class="config-group">',
+    '  <div class="config-group-title">📁 Tabs</div>',
+    '  <div class="section-body">',
+    tabsList ? `<ul class="config-list">${tabsList}</ul>` : '<div class="dim" style="padding:.25rem 0 .5rem;">No tabs</div>',
+    '  </div>',
+    '</div>'
+  ].join('');
+
+  const html = [
+    '<div class="config-header">',
+    '  <div class="config-header-left"><h3>Sitemap</h3><a class="config-src-link" href="#" onclick="return window.__openSrc(\'sitemapOutput\', \'xml\', \'sitemap.xml\');" title="View raw sitemap.xml">Source</a></div>',
+    '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
+    '</div>',
+    body
+  ].join('');
+  setHTML('sitemapPreview', html);
+}
+
+function renderRobotsPreview(text = ''){
+  const lines = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const items = lines.filter(l => !l.startsWith('#'));
+  const getVals = (prefix) => items.filter(l => l.toLowerCase().startsWith(prefix + ':')).map(l => l.split(':').slice(1).join(':').trim()).filter(Boolean);
+  const userAgents = getVals('user-agent');
+  const allows = getVals('allow');
+  const disallows = getVals('disallow');
+  const sitemaps = getVals('sitemap');
+  const crawlDelay = getVals('crawl-delay')[0] || '—';
+  const list = (arr) => arr.length ? arr.map(v => `<span class=\"chip\">${__escHtml(v)}</span>`).join('') : '<em class="dim">None</em>';
+  const body = [
+    '<div class="config-group">',
+    '  <div class="config-group-title">🤖 Rules</div>',
+    '  <div class="section-body">',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">User-agents</span></span><div class="config-value"><div class="chips">', list(userAgents), '</div></div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Allow</span></span><div class="config-value"><div class="chips">', list(allows), '</div></div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Disallow</span></span><div class="config-value"><div class="chips">', list(disallows), '</div></div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Crawl-delay</span></span><div class="config-value">', __escHtml(crawlDelay), '</div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Sitemap</span></span><div class="config-value">', (sitemaps[0] ? `<code>${__escHtml(sitemaps[0])}</code>` : '<em class="dim">None</em>'), '</div></div>',
+    '  </div>',
+    '</div>'
+  ].join('');
+  const html = [
+    '<div class="config-header">',
+    '  <div class="config-header-left"><h3>Robots.txt</h3><a class="config-src-link" href="#" onclick="return window.__openSrc(\'robotsOutput\', \'plain\', \'robots.txt\');" title="View raw robots.txt">Source</a></div>',
+    '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
+    '</div>',
+    body
+  ].join('');
+  setHTML('robotsPreview', html);
+}
+
+function renderMetaPreview(frag = '', cfg = {}){
+  let doc;
+  try { const parser = new DOMParser(); doc = parser.parseFromString(`<head>${frag}</head>`, 'text/html'); } catch(_) { doc = null; }
+  const get = (sel, attr) => { try { const el = doc && doc.querySelector(sel); return el ? (attr ? el.getAttribute(attr) : (el.textContent||'')) : ''; } catch(_) { return ''; } };
+  const title = get('title') || get('meta[name="title"]','content');
+  const desc = get('meta[name="description"]','content');
+  const keys = get('meta[name="keywords"]','content');
+  const robots = get('meta[name="robots"]','content');
+  const canonical = get('link[rel="canonical"]','href');
+  const ogImage = get('meta[property="og:image"]','content');
+  const twCard = get('meta[property="twitter:card"]','content');
+  const badge = (ok) => ok ? '<span class="badge ok">OK</span>' : '<span class="badge warn">Missing</span>';
+  const chips = (v) => v ? v.split(/,\s*/).map(x => `<span class=\"chip\">${__escHtml(x)}</span>`).join('') : '<em class="dim">None</em>';
+  const body = [
+    '<div class="config-group">',
+    '  <div class="config-group-title">🏷 Basics</div>',
+    '  <div class="section-body">',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Title</span></span><div class="config-value">', __escHtml(title || ''), ' ', badge(!!title), '</div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Description</span></span><div class="config-value">', __escHtml(desc || ''), ' ', badge(!!desc), '</div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Keywords</span></span><div class="config-value"><div class="chips">', chips(keys || ''), '</div></div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Robots</span></span><div class="config-value">', __escHtml(robots || 'index, follow'), '</div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Canonical</span></span><div class="config-value">', canonical ? `<code>${__escHtml(canonical)}</code>` : '<em class="dim">None</em>', '</div></div>',
+    '  </div>',
+    '</div>',
+    '<div class="config-group">',
+    '  <div class="config-group-title">🔗 Social</div>',
+    '  <div class="section-body">',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Open Graph Image</span></span><div class="config-value">', ogImage ? `<code>${__escHtml(ogImage)}</code> <span class="badge ok">Set</span>` : '<em class="dim">None</em> <span class="badge warn">Missing</span>', '</div></div>',
+    '    <div class="config-item"><span class="config-label"><span class="config-label-text">Twitter Card</span></span><div class="config-value">', __escHtml(twCard || 'summary_large_image'), '</div></div>',
+    '  </div>',
+    '</div>'
+  ].join('');
+  const html = [
+    '<div class="config-header">',
+    '  <div class="config-header-left"><h3>Meta Tags</h3><a class="config-src-link" href="#" onclick="return window.__openSrc(\'metaOutput\', \'html\', \'meta tags\');" title="View raw meta fragment">Source</a></div>',
+    '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
+    '</div>',
+    body
+  ].join('');
+  setHTML('metaPreview', html);
+}
+
 // --- Code preview helper ---
 function updateCodePreview(previewId, content, language) {
   try {
@@ -180,6 +552,7 @@ async function generateSitemap() {
     if (outputEl) outputEl.value = xml;
     try { setEditorValue('sitemapOutput', xml); } catch (_) {}
     if (statusEl) statusEl.innerHTML = `<p class="success">✓ Sitemap generated successfully! Found ${urls.length} URLs.</p>`;
+    try { renderSitemapPreview(urls); } catch (_) {}
     t('ok', `Sitemap generated (${urls.length} URLs)`);
     outputEl && outputEl.select();
   } catch (error) {
@@ -199,6 +572,7 @@ async function generateRobots() {
     if (outputEl) outputEl.value = robotsContent;
     try { setEditorValue('robotsOutput', robotsContent); } catch (_) {}
     if (statusEl) statusEl.innerHTML = '<p class="success">✓ Robots.txt generated successfully!</p>';
+    try { renderRobotsPreview(robotsContent); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Robots.txt generated');
   } catch (error) {
@@ -218,6 +592,7 @@ async function generateMetaTags() {
     if (outputEl) outputEl.value = metaContent;
     try { setEditorValue('metaOutput', metaContent); } catch (_) {}
     if (statusEl) statusEl.innerHTML = '<p class="success">✓ HTML meta tags generated successfully!</p>';
+    try { renderMetaPreview(metaContent, state.currentSiteConfig); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Meta tags generated');
   } catch (error) {

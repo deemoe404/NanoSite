@@ -50,7 +50,21 @@ function generateFallbackImage(title) {
   `.trim();
   
   // Convert SVG to data URI
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  try {
+    // Use percent-encoding to safely embed Unicode SVG
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  } catch (_) {
+    // Fallback for rare environments
+    try {
+      const enc = new TextEncoder();
+      const bytes = enc.encode(svg);
+      let bin = '';
+      bytes.forEach(b => { bin += String.fromCharCode(b); });
+      return `data:image/svg+xml;base64,${btoa(bin)}`;
+    } catch (_) {
+      return 'data:image/svg+xml;charset=UTF-8,';
+    }
+  }
 }
 
 /**
@@ -289,6 +303,30 @@ export function updateSEO(options = {}, siteConfig = {}) {
   updateStructuredData(options, siteConfig);
 }
 
+// Parse various date shapes into ISO string safely (Safari-friendly)
+function toISODateSafe(input) {
+  try {
+    const s = String(input || '').trim();
+    if (!s) return null;
+    let d = null;
+    // YYYY-MM-DD
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+      return isNaN(d) ? null : d.toISOString();
+    }
+    // YYYY/MM/DD
+    m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+    if (m) {
+      d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+      return isNaN(d) ? null : d.toISOString();
+    }
+    // Fallback: let Date parse full string
+    d = new Date(s);
+    return isNaN(d) ? null : d.toISOString();
+  } catch (_) { return null; }
+}
+
 /**
  * Update JSON-LD structured data
  */
@@ -412,19 +450,19 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   // Get resource base from site config for building absolute resource URLs
   const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
   
-  // Determine image: front matter > metadata > article-specific fallback > site avatar > site fallback
-  let image;
-  if (frontMatter.image || metadata.image || metadata.cover) {
-    // Article has an image configured
-    image = frontMatter.image || metadata.image || metadata.cover;
-  } else {
-    // No article image - generate fallback based on article title
-    console.log('🎨 No image configured for article, generating fallback for:', title);
-    image = generateFallbackImage(title);
+  // Determine image: front matter > metadata > site avatar > generated fallback
+  let image = frontMatter.image || metadata.image || metadata.cover;
+  if (!image) {
+    if (siteConfig && siteConfig.avatar) {
+      image = siteConfig.avatar;
+    } else {
+      // No configured image - generate a fallback based on article title
+      image = generateFallbackImage(title);
+    }
   }
   
   // Try to extract date from front matter, then metadata, then content
-  const publishedTime = frontMatter.date || metadata.date || extractDateFromMarkdown(content);
+  const publishedTime = toISODateSafe(frontMatter.date || metadata.date || extractDateFromMarkdown(content));
   
   // If image is relative (e.g., 'cover.jpg'), resolve it against the markdown's folder
   const resolveRelativeImage = (img) => {
@@ -445,7 +483,7 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   image: (finalImage && (finalImage.startsWith('http') || finalImage.startsWith('data:'))) ? finalImage : `${resourceBase}${String(finalImage || '').replace(/^\/+/, '')}`,
     type: 'article',
     author: frontMatter.author || metadata.author || 'NanoSite',
-    publishedTime: publishedTime ? new Date(publishedTime).toISOString() : null,
+    publishedTime: publishedTime,
     tags,
     url: window.location.href
   };
@@ -533,11 +571,8 @@ function extractTagsFromMarkdown(content) {
 function extractDateFromMarkdown(content) {
   const dateMatch = content.match(/(?:date|published):\s*(.+)/i);
   if (dateMatch) {
-    const dateStr = dateMatch[1].trim();
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
-    }
+    const iso = toISODateSafe(dateMatch[1].trim());
+    if (iso) return iso.split('T')[0];
   }
   return null;
 }
