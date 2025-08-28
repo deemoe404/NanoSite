@@ -27,6 +27,35 @@ window.toggleToolbarMore = toggleToolbarMore;
 
 // (wrap toggle removed; editors are fixed to no-wrap)
 
+// In-page view toggle between friendly preview and source editor
+export function switchView(section, view, btn) {
+  try {
+    const sec = String(section || '').toLowerCase();
+    const previewId = `${sec}Preview`;
+    const outputId = `${sec}Output`;
+    const previewEl = document.getElementById(previewId);
+    const ta = document.getElementById(outputId);
+    const outWrap = ta ? (ta.closest('.output-group') || ta.parentElement) : null;
+    const showSource = String(view || 'friendly') === 'source';
+    if (previewEl) previewEl.style.display = showSource ? 'none' : '';
+    if (outWrap) outWrap.style.display = showSource ? '' : 'none';
+    // Ensure editor layout updates when becoming visible
+    if (showSource && window.__seoEditorToggleWrap) {
+      setTimeout(() => { try { window.__seoEditorToggleWrap(outputId); } catch (_) {} }, 0);
+    }
+    // Update active state on the toggle buttons within the same toolbar/group
+    if (btn) {
+      const root = btn.closest('.view-toggle') || btn.closest('.toolbar') || document;
+      const peers = root.querySelectorAll(`[data-view-target="${sec}"]`);
+      peers.forEach(el => {
+        if (el === btn) el.classList.add('active'); else el.classList.remove('active');
+      });
+    }
+  } catch (_) {}
+  return false;
+}
+window.__switchView = switchView;
+
 // Tab switching; auto trigger generators when switching
 export function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));

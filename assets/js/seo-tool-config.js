@@ -289,7 +289,7 @@ export async function loadSiteConfig() {
       .join('');
     const html = [
       '<div class="config-header">',
-      '  <div class="config-header-left"><h3>Site Configuration</h3><a class="config-src-link" href="#" onclick="if(window.__openConfigSourceModal){ window.__openConfigSourceModal(); } return false;" title="View raw site.yaml">Source</a></div>',
+      '  <div class="config-header-left"><h3>Site Configuration</h3></div>',
       '  <div class="status-inline">',
       '    <p class="success">✓ Loaded</p>',
       '    <button class="icon-btn" type="button" onclick="loadSiteConfig()" title="Refresh configuration" aria-label="Refresh configuration">',
@@ -310,46 +310,7 @@ export async function loadSiteConfig() {
     ].join('');
 
     if (previewEl) previewEl.innerHTML = html;
-    // Provide modal opener for raw YAML
-    try {
-      window.__openConfigSourceModal = () => {
-        const overlay = document.getElementById('tab-help-overlay');
-        const titleEl = document.getElementById('tab-help-title');
-        const bodyEl = document.getElementById('tab-help-body');
-        const closeBtn = document.getElementById('tab-help-close');
-        if (!overlay || !titleEl || !bodyEl || !closeBtn) return;
-        const raw = (outputEl && outputEl.value) || '';
-        const pre = `<div class=\"hi-editor\"><div class=\"code-scroll\"><div class=\"code-gutter\"></div><pre class=\"hi-pre\"><code>${String(raw).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;'}[c]))}</code></pre></div></div>`;
-        const html = `<p style=\"margin:.25rem 0 .5rem;color:#57606a\">Raw site.yaml</p>${pre}`;
-        // open overlay (mirror behavior in seo-tool-ui.js)
-        const scrollY = window.scrollY || window.pageYOffset || 0;
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.left = '0';
-        document.body.style.right = '0';
-        document.body.style.width = '100%';
-        titleEl.textContent = 'site.yaml';
-        bodyEl.innerHTML = html;
-        overlay.classList.add('open');
-        overlay.setAttribute('aria-hidden','false');
-        const close = () => {
-          overlay.classList.remove('open');
-          overlay.setAttribute('aria-hidden','true');
-          document.body.style.position = '';
-          document.body.style.top = '';
-          document.body.style.left = '';
-          document.body.style.right = '';
-          document.body.style.width = '';
-          window.scrollTo(0, scrollY);
-          try { closeBtn.removeEventListener('click', close); } catch(_){}
-          try { overlay.removeEventListener('click', onOverlay); } catch(_){}
-        };
-        const onOverlay = (e) => { if (e && e.target === overlay) close(); };
-        closeBtn.addEventListener('click', close);
-        overlay.addEventListener('click', onOverlay);
-        overlay.querySelector('.gh-modal')?.addEventListener('click', (e)=> e.stopPropagation());
-      };
-    } catch (_) {}
+    // Removed old modal-based source viewer; replaced by in-page toggle.
     // Wire category switching
     try {
       const catsEl = document.getElementById('configCats');

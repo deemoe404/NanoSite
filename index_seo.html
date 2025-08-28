@@ -148,7 +148,7 @@
         .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
         .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
         .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
-        .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: contain; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+        .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: none; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
         /* Active line highlight */
         .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
         .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
@@ -325,6 +325,12 @@
         .btn-compact { padding: 0.4rem 0.8rem; height: 2.25rem; }
         .btn-secondary.btn-compact { padding:0.4rem 0.9rem; }
         .info-btn { margin-left: .25rem; }
+        /* View toggle */
+        .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
+        .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
+        .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; }
+        .view-toggle .vt-btn:hover { text-decoration:underline; }
+        .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
         /* Composite tab help icon inside button */
         .tabs .tab-help { position: absolute; right: .6rem; top: 50%; transform: translateY(-50%); z-index: 1; }
         /* Tighter alignment when help buttons are in the tab bar */
@@ -535,6 +541,17 @@
     <!-- Configuration Tab -->
     <div id="config-tab" class="tab-content active">
         <div class="container">
+            <div class="toolbar" style="border-bottom:0; padding-bottom:0; margin-bottom:.5rem;">
+                <div class="left-actions"></div>
+                <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="config" onclick="return __switchView('config','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="config" onclick="return __switchView('config','source', this)">Source</a>
+                    </div>
+                </div>
+            </div>
             
             <div class="config-preview" id="configPreview">
                 <h3>Loading configuration...</h3>
@@ -559,6 +576,12 @@
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadSitemap()">Download</button>
                 </div>
                 <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="sitemap" onclick="return __switchView('sitemap','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="sitemap" onclick="return __switchView('sitemap','source', this)">Source</a>
+                    </div>
                     <button id="sitemap-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
                 </div>
             </div>
@@ -589,6 +612,12 @@
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadRobots()">Download</button>
                 </div>
                 <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="robots" onclick="return __switchView('robots','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="robots" onclick="return __switchView('robots','source', this)">Source</a>
+                    </div>
                     <button id="robots-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
                 </div>
             </div>
@@ -619,6 +648,12 @@
                     <button class="btn-secondary btn-compact is-extra" onclick="downloadMetaTags()">Download</button>
                 </div>
                 <div class="right-actions">
+                    <div class="view-toggle" aria-label="View switch">
+                        <span class="vt-label">View:</span>
+                        <a href="#" class="vt-btn active" data-view-target="meta" onclick="return __switchView('meta','friendly', this)">Friendly</a>
+                        <span class="dim" aria-hidden="true">/</span>
+                        <a href="#" class="vt-btn" data-view-target="meta" onclick="return __switchView('meta','source', this)">Source</a>
+                    </div>
                     <button class="btn-gh btn-compact" onclick="openIndexHtmlEdit()">Open index.html on GitHub</button>
                 </div>
             </div>

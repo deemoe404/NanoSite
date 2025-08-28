@@ -426,7 +426,7 @@ async function renderSitemapPreview(urls = []){
 
   const html = [
     '<div class="config-header">',
-    '  <div class="config-header-left"><h3>Sitemap</h3><a class="config-src-link" href="#" onclick="return window.__openSrc(\'sitemapOutput\', \'xml\', \'sitemap.xml\');" title="View raw sitemap.xml">Source</a></div>',
+    '  <div class="config-header-left"><h3>Sitemap</h3></div>',
     '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
     '</div>',
     body
@@ -458,7 +458,7 @@ function renderRobotsPreview(text = ''){
   ].join('');
   const html = [
     '<div class="config-header">',
-    '  <div class="config-header-left"><h3>Robots.txt</h3><a class="config-src-link" href="#" onclick="return window.__openSrc(\'robotsOutput\', \'plain\', \'robots.txt\');" title="View raw robots.txt">Source</a></div>',
+    '  <div class="config-header-left"><h3>Robots.txt</h3></div>',
     '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
     '</div>',
     body
@@ -500,7 +500,7 @@ function renderMetaPreview(frag = '', cfg = {}){
   ].join('');
   const html = [
     '<div class="config-header">',
-    '  <div class="config-header-left"><h3>Meta Tags</h3><a class="config-src-link" href="#" onclick="return window.__openSrc(\'metaOutput\', \'html\', \'meta tags\');" title="View raw meta fragment">Source</a></div>',
+    '  <div class="config-header-left"><h3>Meta Tags</h3></div>',
     '  <div class="status-inline"><p class="success">✓ Generated</p></div>',
     '</div>',
     body
