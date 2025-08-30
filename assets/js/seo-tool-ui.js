@@ -94,7 +94,8 @@ export function switchView(section, view, btn) {
 window.__switchView = switchView;
 
 // Tab switching; auto trigger generators when switching
-export function switchTab(tabName) {
+export function switchTab(tabName, opts) {
+  const silent = !!(opts && opts.silent);
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   const panel = document.getElementById(tabName + '-tab');
@@ -105,6 +106,17 @@ export function switchTab(tabName) {
     const btn = document.querySelector(`.tabs .tab[onclick*="'${tabName}'"]`);
     if (btn) btn.classList.add('active');
   }
+  // Persist selected tab in history (Back/Forward navigates between tabs)
+  try {
+    const url = new URL(window.location.href);
+    const desired = `tab=${encodeURIComponent(tabName)}`;
+    url.hash = `#${desired}`;
+    if (!silent) {
+      history.pushState(history.state, document.title, url.toString());
+    } else {
+      history.replaceState(history.state, document.title, url.toString());
+    }
+  } catch (_) { if (!silent) { try { window.location.hash = `#tab=${tabName}`; } catch (_) {} } }
   // When a tab becomes visible, refresh its editor layout so
   // hidden-at-init textareas expand to full height and accept clicks.
   try {
@@ -138,6 +150,31 @@ export function switchTab(tabName) {
   } catch (_) {}
 }
 window.switchTab = switchTab;
+
+// On load, restore tab from URL hash (e.g., #tab=sitemap)
+(function restoreTabFromHash(){
+  try {
+    const m = String(window.location.hash || '').match(/tab=([a-z]+)/i);
+    const tab = m && m[1] ? m[1].toLowerCase() : '';
+    if (tab && document.getElementById(`${tab}-tab`)) {
+      setTimeout(() => { try { window.switchTab(tab, { silent: true }); } catch (_) {} }, 0);
+    }
+  } catch (_) {}
+})();
+
+// Listen for Back/Forward navigation and restore tab accordingly
+window.addEventListener('popstate', () => {
+  try {
+    const m = String(window.location.hash || '').match(/tab=([a-z]+)/i);
+    const tab = m && m[1] ? m[1].toLowerCase() : '';
+    const active = document.querySelector('.tabs .tab.active');
+    const activeName = active && (active.getAttribute('onclick') || '').match(/switchTab\('([a-z]+)'\)/i);
+    const current = activeName && activeName[1] ? activeName[1].toLowerCase() : '';
+    if (tab && tab !== current && document.getElementById(`${tab}-tab`)) {
+      window.switchTab(tab, { silent: true });
+    }
+  } catch (_) {}
+});
 
 // GitHub destination help overlay
 (function initGhHelpOverlay(){

@@ -343,9 +343,23 @@ async function renderSitemapPreview(urls = []){
   }
   // Cache for per-file metrics to avoid repeated fetch/parsing
   const __mdInfoCache = new Map(); // loc -> { title, dateStr, tags, wordCount }
+  const __cacheKey = (loc) => `seo_md_info::${String(loc||'').replace(/^\/+/, '')}`;
+  function __getCachedInfo(loc){
+    try { if (__mdInfoCache.has(loc)) return __mdInfoCache.get(loc); } catch(_){}
+    try {
+      const raw = sessionStorage.getItem(__cacheKey(loc));
+      if (raw) { const v = JSON.parse(raw); __mdInfoCache.set(loc, v); return v; }
+    } catch(_){}
+    return null;
+  }
+  function __setCachedInfo(loc, info){
+    try { __mdInfoCache.set(loc, info); } catch(_){}
+    try { sessionStorage.setItem(__cacheKey(loc), JSON.stringify(info)); } catch(_){}
+  }
   async function computeInfoFor(loc, metaHint) {
     try {
-      if (__mdInfoCache.has(loc)) return __mdInfoCache.get(loc);
+      const cached = __getCachedInfo(loc);
+      if (cached) return cached;
       const md = await fetchMdWithFallback(loc);
       // Title per file (front-matter title > H1)
       let title = '';
@@ -381,7 +395,7 @@ async function renderSitemapPreview(urls = []){
         } catch(_) {}
       }
       const res = { title, dateStr, tags, wordCount };
-      __mdInfoCache.set(loc, res);
+      __setCachedInfo(loc, res);
       return res;
     } catch(_) { return { dateStr: '', tags: [], wordCount: 0 }; }
   }
@@ -521,7 +535,15 @@ async function renderSitemapPreview(urls = []){
       const pathCode = d.location ? `<code>${__escHtml(d.location)}</code>` : '';
       const chip = `<span class=\"chip is-lang\">${langCode}${pathCode ? sep + pathCode : ''}</span>`;
       const id = makeId(groupKey, ver, d.lang);
-      // Initially render with loading placeholder — content replaced as details load
+      const info = d.location ? __getCachedInfo(d.location) : null;
+      if (info) {
+        const titleHtml = info.title ? `<a href=\"${__escHtml(d.href||'#')}\"><strong class=\"post-title\">${__escHtml(info.title)}</strong></a>` : '';
+        const dateB = info.dateStr ? ` <span class=\"mini-badge is-date\">Date: ${__escHtml(info.dateStr)}</span>` : '';
+        const wordsB = ` <span class=\"mini-badge is-words\">Words: ${info.wordCount || 0}</span>`;
+        const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class=\"dim tags-label\" style=\"margin-left:.5rem;\">Tags:</span> ${info.tags.map(tg => `<span class=\\\"chip is-tag\\\">${__escHtml(tg)}</span>`).join('')}` : '';
+        return `<li id=\"${id}\"><div class=\"lang-row\">${titleHtml} ${chip}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
+      }
+      // No cache yet, render loading placeholder — details fill later lazily
       const placeholder = '<span class=\"dim\" style=\"margin-left:.35rem;\">Loading…</span>';
       return `<li id=\"${id}\"><div class=\"lang-row\">${chip}${placeholder}</div></li>`;
     }).join('');
@@ -643,13 +665,21 @@ async function renderSitemapPreview(urls = []){
     };
     updateProgress();
     const tasks = [];
+    // Count cached items up-front and only enqueue missing ones
     for (const g of postItems) {
       for (const ch of g.children) {
         for (const d of (ch.perLangDetails||[])) {
-          tasks.push({ id: makeId(g.key, ch.version, d.lang), lang: d.lang, href: d.href, loc: d.location });
+          const id = makeId(g.key, ch.version, d.lang);
+          const cached = d.location ? __getCachedInfo(d.location) : null;
+          if (cached) {
+            done++;
+          } else {
+            tasks.push({ id, lang: d.lang, href: d.href, loc: d.location });
+          }
         }
       }
     }
+    updateProgress();
     // Process in small concurrent batches to keep UI responsive
     const concurrency = 1;
     let idx = 0;
