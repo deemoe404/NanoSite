@@ -2,6 +2,7 @@
 // This maintains SEO benefits while keeping the "no compilation needed" philosophy
 
 import { getCurrentLang, DEFAULT_LANG } from './i18n.js';
+import { getAvailableLangs } from './i18n.js';
 import { parseFrontMatter } from './content.js';
 
 /**
@@ -585,64 +586,145 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   // Use site's base URL (remove current file path)
   const baseUrl = window.location.origin + '/';
   const urls = [];
+  const siteDefaultLang = (siteConfig && siteConfig.defaultLanguage) ? String(siteConfig.defaultLanguage).toLowerCase() : DEFAULT_LANG;
   
   // Helper function to get location from language-specific data with proper fallback
   const getLocationFromLangData = (data) => {
     if (!data || typeof data !== 'object') return null;
-    
+
+    // Helper: pick preferred entry from an array (assume last is latest)
+    const pickFromArray = (arr) => {
+      try {
+        if (!Array.isArray(arr) || arr.length === 0) return null;
+        const last = arr[arr.length - 1];
+        if (typeof last === 'string') return last;
+        if (last && typeof last === 'object' && last.location) return last.location;
+        // Fallback: scan from end for first usable
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          if (typeof it === 'string') return it;
+          if (it && typeof it === 'object' && it.location) return it.location;
+        }
+      } catch (_) {}
+      return null;
+    };
+
     // Try current language, then DEFAULT_LANG, then 'en', then 'default'
     const currentLang = getCurrentLang();
     const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'default'];
-    
+
     for (const lang of tryLangs) {
       const langData = data[lang];
-      if (langData) {
+      if (langData != null) {
         if (typeof langData === 'string') return langData;
+        if (Array.isArray(langData)) {
+          const picked = pickFromArray(langData);
+          if (picked) return picked;
+        }
         if (typeof langData === 'object' && langData.location) return langData.location;
       }
     }
-    
+
     // Fallback to legacy flat shape if not unified
     if (data.location) return data.location;
-    
+
     return null;
   };
   
-  // Add homepage
-  urls.push({
-    loc: baseUrl,
-    lastmod: new Date().toISOString().split('T')[0],
-    changefreq: 'weekly',
-    priority: '1.0'
-  });
+  // Add homepage + alternates for all languages
+  try {
+    const allLangs = (getAvailableLangs && getAvailableLangs()) || [siteDefaultLang];
+    const alternates = Array.from(new Set(allLangs.map(l => String(l).toLowerCase()))).map(l => ({
+      hreflang: l,
+      href: l === siteDefaultLang ? `${baseUrl}` : `${baseUrl}?lang=${encodeURIComponent(l)}`
+    }));
+    // x-default: use site default language
+    const xDefaultHref = `${baseUrl}`;
+    // Emit one URL entry per language (with alternates) to make inclusion explicit
+    alternates.forEach(alt => {
+      urls.push({
+        loc: alt.href,
+        lastmod: new Date().toISOString().split('T')[0],
+        changefreq: 'weekly',
+        priority: '1.0',
+        alternates,
+        xdefault: xDefaultHref
+      });
+    });
+  } catch (_) {
+    urls.push({
+      loc: baseUrl,
+      lastmod: new Date().toISOString().split('T')[0],
+      changefreq: 'weekly',
+      priority: '1.0'
+    });
+  }
   
-  // Add posts
+  // Add posts (expand each version once per post key)
   // postsData is an object where keys are post titles and values are post metadata
   Object.entries(postsData).forEach(([title, postMeta]) => {
-    const location = getLocationFromLangData(postMeta);
-    if (location) {
-      urls.push({
-        loc: `${baseUrl}?id=${encodeURIComponent(location)}`,
-        lastmod: postMeta.date || new Date().toISOString().split('T')[0],
-        changefreq: 'monthly',
-        priority: '0.8'
+    // Collect all versioned locations from all languages
+    const extractVersion = (p) => { try { const m = String(p||'').match(/\/(v\d+(?:\.\d+){1,3})\//i); return (m && m[1]) || 'v0'; } catch(_) { return 'v0'; } };
+    const versionToLangLoc = new Map(); // ver -> { lang: loc }
+    const add = (lang, loc) => { if (!loc) return; const ver = extractVersion(loc); if (!versionToLangLoc.has(ver)) versionToLangLoc.set(ver, {}); versionToLangLoc.get(ver)[lang] = loc; };
+    if (postMeta && typeof postMeta === 'object') {
+      Object.entries(postMeta).forEach(([lang, val]) => {
+        if (typeof val === 'string') add(lang, val);
+        else if (Array.isArray(val)) val.forEach(it => { if (typeof it === 'string') add(lang, it); else if (it && it.location) add(lang, it.location); });
+        else if (val && typeof val === 'object' && val.location) add(lang, val.location);
       });
     }
+    const currentLang = getCurrentLang();
+    const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'zh', 'ja', 'default'];
+    versionToLangLoc.forEach((langLocMap) => {
+      const langs = Object.keys(langLocMap || {});
+      if (!langs.length) return;
+      // Build alternates for all available languages on this version
+      const alternates = langs.map(l => ({
+        hreflang: l,
+        href: `${baseUrl}?id=${encodeURIComponent(langLocMap[l])}&lang=${encodeURIComponent(l)}`
+      }));
+      // x-default = site default when available, else first
+      const xDefaultHref = (langLocMap[siteDefaultLang]) ? `${baseUrl}?id=${encodeURIComponent(langLocMap[siteDefaultLang])}` : alternates[0].href;
+      // Emit one entry per language (explicit visibility) with full alternates
+      langs.forEach(l => {
+        const loc = langLocMap[l];
+        if (!loc) return;
+        urls.push({
+          loc: `${baseUrl}?id=${encodeURIComponent(loc)}&lang=${encodeURIComponent(l)}`,
+          lastmod: postMeta.date || new Date().toISOString().split('T')[0],
+          changefreq: 'monthly',
+          priority: '0.8',
+          alternates,
+          xdefault: xDefaultHref
+        });
+      });
+    });
   });
   
   // Add tabs
   // tabsData is an object where keys are tab titles and values are tab metadata
   Object.entries(tabsData).forEach(([title, tabMeta]) => {
-    const location = getLocationFromLangData(tabMeta);
-    if (location) {
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!tabMeta || typeof tabMeta !== 'object') return;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    // Collect languages present for this tab
+    const langs = Object.keys(tabMeta).filter(k => !!tabMeta[k]);
+    if (!langs.length) return;
+    const alternates = langs.map(l => ({
+      hreflang: l,
+      href: `${baseUrl}?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`
+    }));
+    const xDefaultHref = `${baseUrl}?tab=${encodeURIComponent(slug)}`;
+    langs.forEach(l => {
       urls.push({
-        loc: `${baseUrl}?tab=${encodeURIComponent(slug)}`,
+        loc: `${baseUrl}?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`,
         lastmod: new Date().toISOString().split('T')[0],
         changefreq: 'monthly',
-        priority: '0.6'
+        priority: '0.6',
+        alternates,
+        xdefault: xDefaultHref
       });
-    }
+    });
   });
   
   return urls;

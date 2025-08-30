@@ -27,43 +27,75 @@ window.toggleToolbarMore = toggleToolbarMore;
 
 // (wrap toggle removed; editors are fixed to no-wrap)
 
-// In-page view toggle between friendly preview and source editor
-export function switchView(section, view, btn) {
+// Persisted view state helpers (per section)
+const __viewState = (function(){
+  try { return (window.__seoViewState = window.__seoViewState || {}); } catch (_) { return {}; }
+})();
+function __viewKey(sec){ return `seo_view_${String(sec||'').toLowerCase()}`; }
+function __saveView(sec, view){
+  const v = (String(view||'friendly').toLowerCase() === 'source') ? 'source' : 'friendly';
+  try { __viewState[sec] = v; } catch (_) {}
+  try { localStorage.setItem(__viewKey(sec), v); } catch (_) {}
+}
+function __loadView(sec){
+  const s = String(sec||'').toLowerCase();
+  try { if (__viewState[s]) return __viewState[s]; } catch (_) {}
+  try { const v = localStorage.getItem(__viewKey(s)); if (v) return v; } catch (_) {}
+  return 'friendly';
+}
+
+// Apply a section's view state to DOM (id convention: `${sec}Preview` / `${sec}Output`)
+export function applyView(section){
   try {
-    const sec = String(section || '').toLowerCase();
+    const sec = String(section||'').toLowerCase();
+    if (!sec) return;
+    const mode = __loadView(sec);
     const previewId = `${sec}Preview`;
     const outputId = `${sec}Output`;
     const previewEl = document.getElementById(previewId);
     const ta = document.getElementById(outputId);
     const outWrap = ta ? (ta.closest('.output-group') || ta.parentElement) : null;
-    const showSource = String(view || 'friendly') === 'source';
+    const showSource = mode === 'source';
     // Keep header visible; only toggle body area inside preview
     if (previewEl) {
       const bodies = previewEl.querySelectorAll('.config-body');
       bodies.forEach(b => { b.style.display = showSource ? 'none' : ''; });
-      // Ensure the preview container itself remains visible for header
       previewEl.style.display = '';
     }
     if (outWrap) outWrap.style.display = showSource ? '' : 'none';
+    // Sync toggle buttons' active state
+    try {
+      const root = (previewEl && previewEl.querySelector('.view-toggle')) || document;
+      const peers = root ? root.querySelectorAll(`[data-view-target="${sec}"]`) : [];
+      peers.forEach(el => {
+        const label = (el.textContent || '').trim().toLowerCase();
+        const isActive = (mode === 'source') ? (label === 'source') : (label === 'friendly');
+        if (isActive) el.classList.add('active'); else el.classList.remove('active');
+      });
+    } catch (_) {}
     // Ensure editor layout updates when becoming visible
     if (showSource && window.__seoEditorToggleWrap) {
       setTimeout(() => { try { window.__seoEditorToggleWrap(outputId); } catch (_) {} }, 0);
     }
-    // Update active state on the toggle buttons within the same toolbar/group
-    if (btn) {
-      const root = btn.closest('.view-toggle') || btn.closest('.toolbar') || document;
-      const peers = root.querySelectorAll(`[data-view-target="${sec}"]`);
-      peers.forEach(el => {
-        if (el === btn) el.classList.add('active'); else el.classList.remove('active');
-      });
-    }
+  } catch (_) {}
+}
+try { window.__applyView = applyView; } catch (_) {}
+
+// In-page view toggle between friendly preview and source editor
+export function switchView(section, view, btn) {
+  try {
+    const sec = String(section || '').toLowerCase();
+    const v = String(view || 'friendly').toLowerCase();
+    __saveView(sec, v);
+    applyView(sec);
   } catch (_) {}
   return false;
 }
 window.__switchView = switchView;
 
 // Tab switching; auto trigger generators when switching
-export function switchTab(tabName) {
+export function switchTab(tabName, opts) {
+  const silent = !!(opts && opts.silent);
   document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
   const panel = document.getElementById(tabName + '-tab');
@@ -74,6 +106,17 @@ export function switchTab(tabName) {
     const btn = document.querySelector(`.tabs .tab[onclick*="'${tabName}'"]`);
     if (btn) btn.classList.add('active');
   }
+  // Persist selected tab in history (Back/Forward navigates between tabs)
+  try {
+    const url = new URL(window.location.href);
+    const desired = `tab=${encodeURIComponent(tabName)}`;
+    url.hash = `#${desired}`;
+    if (!silent) {
+      history.pushState(history.state, document.title, url.toString());
+    } else {
+      history.replaceState(history.state, document.title, url.toString());
+    }
+  } catch (_) { if (!silent) { try { window.location.hash = `#tab=${tabName}`; } catch (_) {} } }
   // When a tab becomes visible, refresh its editor layout so
   // hidden-at-init textareas expand to full height and accept clicks.
   try {
@@ -89,13 +132,49 @@ export function switchTab(tabName) {
       setTimeout(() => { try { window.__seoEditorToggleWrap(id); } catch (_) {} }, 0);
     }
   } catch (_) {}
+  // Re-apply view mode for this tab if supported (keeps indicator/content in sync)
+  try { if (typeof applyView === 'function') applyView(tabName); else if (window.__applyView) window.__applyView(tabName); } catch (_) {}
+  // Only generate on first visit; subsequent visits won't auto-regenerate.
+  // Users can force refresh via the toolbar "icon-refresh" buttons.
   try {
-    if (tabName === 'sitemap' && window.generateSitemap) window.generateSitemap();
-    if (tabName === 'robots' && window.generateRobots) window.generateRobots();
-    if (tabName === 'meta' && window.generateMetaTags) window.generateMetaTags();
+    const gen = (window.__seoGenerated = window.__seoGenerated || {});
+    if (tabName === 'sitemap' && window.generateSitemap && !gen.sitemap) {
+      window.generateSitemap();
+    }
+    if (tabName === 'robots' && window.generateRobots && !gen.robots) {
+      window.generateRobots();
+    }
+    if (tabName === 'meta' && window.generateMetaTags && !gen.meta) {
+      window.generateMetaTags();
+    }
   } catch (_) {}
 }
 window.switchTab = switchTab;
+
+// On load, restore tab from URL hash (e.g., #tab=sitemap)
+(function restoreTabFromHash(){
+  try {
+    const m = String(window.location.hash || '').match(/tab=([a-z]+)/i);
+    const tab = m && m[1] ? m[1].toLowerCase() : '';
+    if (tab && document.getElementById(`${tab}-tab`)) {
+      setTimeout(() => { try { window.switchTab(tab, { silent: true }); } catch (_) {} }, 0);
+    }
+  } catch (_) {}
+})();
+
+// Listen for Back/Forward navigation and restore tab accordingly
+window.addEventListener('popstate', () => {
+  try {
+    const m = String(window.location.hash || '').match(/tab=([a-z]+)/i);
+    const tab = m && m[1] ? m[1].toLowerCase() : '';
+    const active = document.querySelector('.tabs .tab.active');
+    const activeName = active && (active.getAttribute('onclick') || '').match(/switchTab\('([a-z]+)'\)/i);
+    const current = activeName && activeName[1] ? activeName[1].toLowerCase() : '';
+    if (tab && tab !== current && document.getElementById(`${tab}-tab`)) {
+      window.switchTab(tab, { silent: true });
+    }
+  } catch (_) {}
+});
 
 // GitHub destination help overlay
 (function initGhHelpOverlay(){

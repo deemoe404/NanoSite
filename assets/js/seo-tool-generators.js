@@ -1,14 +1,67 @@
 import { state } from './seo-tool-state.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { setEditorValue, getEditorValue } from './hieditor.js';
-import { generateSitemapData } from './seo.js?v=1';
+import { generateSitemapData } from './seo.js?v=2';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import { getContentRootFrom, loadSiteConfigFlex } from './seo-tool-config.js';
 import { getCurrentLang, DEFAULT_LANG, withLangParam } from './i18n.js';
 import { parseFrontMatter, stripFrontMatter, stripMarkdownToText } from './content.js';
-import { extractSEOFromMarkdown } from './seo.js?v=1';
+import { extractSEOFromMarkdown } from './seo.js?v=2';
+
+// --- Helpers shared by preview and sitemap enrichment ---
+async function __fetchMdWithFallback(loc) {
+  try {
+    const siteCfg = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+    const cr = getContentRootFrom(siteCfg);
+    const candidates = [];
+    const normLoc = String(loc || '').replace(/^\/+/, '');
+    const base = cr.replace(/\/+$/,'');
+    // Try resourceURL absolute first
+    try {
+      const res = String(siteCfg.resourceURL || '').trim();
+      if (res) {
+        const u = new URL(normLoc.replace(/^\/+/, ''), res.endsWith('/') ? res : (res + '/'));
+        candidates.push(u.toString());
+      }
+    } catch (_) {}
+    // Then local fallbacks
+    candidates.push(`${base}/${normLoc}`);
+    candidates.push(`/${normLoc}`);
+    candidates.push(normLoc);
+    for (const u of candidates) {
+      try { const r = await fetch(u); if (r.ok) return await r.text(); } catch (_) {}
+    }
+  } catch (_) {}
+  return '';
+}
+
+function __toISODateYYYYMMDD(input) {
+  try {
+    const s = String(input || '').trim();
+    if (!s) return null;
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toISOString().slice(0,10);
+  } catch (_) {}
+  return null;
+}
 
 function t(kind, msg){ try { window.showToast && window.showToast(kind, msg); } catch (_) {} }
+
+// Build a link with an explicit language code, regardless of current UI language
+function withGivenLang(urlStr, langCode) {
+  try {
+    const url = new URL(urlStr, window.location.href);
+    if (langCode) url.searchParams.set('lang', String(langCode));
+    return url.search ? `${url.pathname}${url.search}` : url.pathname;
+  } catch (_) {
+    const joiner = urlStr.includes('?') ? '&' : '?';
+    return `${urlStr}${joiner}lang=${encodeURIComponent(String(langCode||''))}`;
+  }
+}
 
 // Formatters
 function formatXML(xml) {
@@ -56,13 +109,22 @@ function escapeXML(str) {
 // Generators
 function generateSitemapXML(urls) {
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
   urls.forEach(url => {
     xml += '  <url>\n';
     xml += `    <loc>${escapeXML(url.loc)}</loc>\n`;
-    xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
-    xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
-    xml += `    <priority>${url.priority}</priority>\n`;
+    if (Array.isArray(url.alternates) && url.alternates.length) {
+      url.alternates.forEach(alt => {
+        if (!alt || !alt.href || !alt.hreflang) return;
+        xml += `    <xhtml:link rel="alternate" hreflang="${escapeXML(alt.hreflang)}" href="${escapeXML(alt.href)}"/>\n`;
+      });
+      if (url.xdefault) {
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXML(url.xdefault)}"/>\n`;
+      }
+    }
+    if (url.lastmod) xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
+    if (url.changefreq) xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
+    if (url.priority) xml += `    <priority>${url.priority}</priority>\n`;
     xml += '  </url>\n';
   });
   xml += '</urlset>';
@@ -142,6 +204,32 @@ function generateMetaTagsHTML(siteConfig) {
 // ---- Human-friendly previews and Source overlay ----
 function __escHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;' }[c]));
+}
+
+// Map language codes (en, zh-CN, ja) to human-friendly names
+function labelLang(code) {
+  try {
+    if (!code) return '';
+    const map = {
+      'en': 'English', 'en-us': 'English (US)', 'en-gb': 'English (UK)',
+      'zh': 'Chinese', 'zh-cn': 'Chinese (Simplified)', 'zh-sg': 'Chinese (Simplified)', 'zh-tw': 'Chinese (Traditional)', 'zh-hk': 'Chinese (Traditional)',
+      'ja': 'Japanese', 'ko': 'Korean', 'fr': 'French', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'pt-br': 'Portuguese (BR)', 'it': 'Italian',
+      'ru': 'Russian', 'ar': 'Arabic', 'hi': 'Hindi', 'id': 'Indonesian', 'vi': 'Vietnamese', 'th': 'Thai', 'tr': 'Turkish', 'nl': 'Dutch',
+      'sv': 'Swedish', 'pl': 'Polish', 'he': 'Hebrew', 'fa': 'Persian'
+    };
+    const key = String(code).toLowerCase();
+    if (map[key]) return map[key];
+    const base = key.split(/[-_]/)[0];
+    if (map[base]) return map[base];
+    if (typeof Intl !== 'undefined' && Intl.DisplayNames) {
+      try {
+        const dn = new Intl.DisplayNames([navigator.language || 'en'], { type: 'language' });
+        const name = dn.of(base);
+        if (name) return name.charAt(0).toUpperCase() + name.slice(1);
+      } catch (_) {}
+    }
+    return code;
+  } catch(_) { return String(code || ''); }
 }
 
 function openSourceOverlay(title, code, language = 'plain'){
@@ -253,18 +341,92 @@ async function renderSitemapPreview(urls = []){
       return { title, md };
     } catch(_) { return { title: '', md: '' }; }
   }
+  // Cache for per-file metrics to avoid repeated fetch/parsing
+  const __mdInfoCache = new Map(); // loc -> { title, dateStr, tags, wordCount }
+  const __cacheKey = (loc) => `seo_md_info::${String(loc||'').replace(/^\/+/, '')}`;
+  function __getCachedInfo(loc){
+    try { if (__mdInfoCache.has(loc)) return __mdInfoCache.get(loc); } catch(_){}
+    try {
+      const raw = sessionStorage.getItem(__cacheKey(loc));
+      if (raw) { const v = JSON.parse(raw); __mdInfoCache.set(loc, v); return v; }
+    } catch(_){}
+    return null;
+  }
+  function __setCachedInfo(loc, info){
+    try { __mdInfoCache.set(loc, info); } catch(_){}
+    try { sessionStorage.setItem(__cacheKey(loc), JSON.stringify(info)); } catch(_){}
+  }
+  async function computeInfoFor(loc, metaHint) {
+    try {
+      const cached = __getCachedInfo(loc);
+      if (cached) return cached;
+      const md = await fetchMdWithFallback(loc);
+      // Title per file (front-matter title > H1)
+      let title = '';
+      try {
+        const { frontMatter, content } = parseFrontMatter(md || '');
+        title = (frontMatter && frontMatter.title) ? String(frontMatter.title).trim() : titleFromMd(md);
+      } catch(_) { title = titleFromMd(md); }
+      let dateStr = '';
+      let tags = [];
+      let wordCount = 0;
+      if (md) {
+        let fm = {};
+        try { fm = parseFrontMatter(md).frontMatter || {}; } catch(_) {}
+        try {
+          const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+          const siteCfg = { ...siteCfgBase };
+          if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+          const seo = extractSEOFromMarkdown(md, { ...(metaHint||{}), location: loc }, siteCfg) || {};
+          if (seo.publishedTime) { try { dateStr = String(seo.publishedTime).slice(0,10); } catch(_) {} }
+          if (Array.isArray(seo.tags)) tags = seo.tags;
+        } catch(_) {}
+        try {
+          if (!dateStr && fm && fm.date) dateStr = String(fm.date).trim();
+          if ((!tags || !Array.isArray(tags) || tags.length === 0) && fm) {
+            if (Array.isArray(fm.tags)) tags = fm.tags;
+            else if (typeof fm.tags === 'string' && fm.tags.trim()) tags = [fm.tags.trim()];
+          }
+        } catch(_) {}
+        try {
+          const plain = stripMarkdownToText(stripFrontMatter(md));
+          const basic = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+          wordCount = basic > 1 ? basic : (plain || '').replace(/\s+/g, '').length;
+        } catch(_) {}
+      }
+      const res = { title, dateStr, tags, wordCount };
+      __setCachedInfo(loc, res);
+      return res;
+    } catch(_) { return { dateStr: '', tags: [], wordCount: 0 }; }
+  }
   function langsOf(meta) {
     const langs = [];
     for (const [k, v] of Object.entries(meta || {})) {
       if (typeof v === 'string') langs.push(k);
+      else if (Array.isArray(v) && v.length > 0) langs.push(k);
       else if (v && typeof v === 'object' && (v.location || v.title)) langs.push(k);
     }
     return langs;
   }
   function pick(meta) {
+    const pickFromArray = (arr) => {
+      try {
+        if (!Array.isArray(arr) || arr.length === 0) return { location: '', title: '' };
+        const last = arr[arr.length - 1];
+        if (typeof last === 'string') return { location: last, title: '' };
+        if (last && typeof last === 'object') return { location: last.location || '', title: last.title || '' };
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          if (typeof it === 'string') return { location: it, title: '' };
+          if (it && typeof it === 'object' && (it.location || it.title)) return { location: it.location || '', title: it.title || '' };
+        }
+      } catch (_) {}
+      return { location: '', title: '' };
+    };
     for (const l of langPref) {
       const v = meta && meta[l];
       if (typeof v === 'string') return { lang: l, location: v, title: '' };
+      if (Array.isArray(v)) { const picked = pickFromArray(v); return { lang: l, location: picked.location, title: picked.title || '' }; }
       if (v && typeof v === 'object' && v.location) return { lang: l, location: v.location, title: v.title || '' };
     }
     // legacy flat
@@ -272,128 +434,181 @@ async function renderSitemapPreview(urls = []){
     return { lang: langPref[0], location: '', title: '' };
   }
 
-  // Build post entries with titles
-  const postItems = await (async () => {
-    const entries = [];
+  // Build grouped post entries (parent with per-version children)
+  // Lazily load per-language details to enable incremental rendering + progress
+  const postItems = (() => {
+    const groups = [];
+    const extractVersion = (p) => {
+      try { const m = String(p||'').match(/\/(v\d+(?:\.\d+){1,3})\//i); return (m && m[1]) || 'v0'; } catch(_) { return 'v0'; }
+    };
+    const semverCmpDesc = (a,b)=>{ const A=String(a).replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0); const B=String(b).replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0); for(let i=0;i<Math.max(A.length,B.length);i++){const da=A[i]||0,db=B[i]||0;if(da!==db)return db-da;} return 0; };
     for (const [key, meta] of Object.entries(posts)) {
-      const langs = langsOf(meta);
-      const primary = pick(meta);
-      let title = primary.title;
-      let mdCache = '';
-      if (!title && primary.location) { const det = await readPostDetails(primary.location); title = det.title; mdCache = det.md; }
-      // Pull SEO bits (date/tags) and compute word/char count
-      let dateStr = '';
-      let tags = [];
-      let wordCount = 0;
-      try {
-        const md = mdCache || (primary.location ? (await fetchMdWithFallback(primary.location)) : '');
-        if (md) {
-          // Front-matter snapshot
-          let fm = {};
-          try { fm = parseFrontMatter(md).frontMatter || {}; console.debug('[SEO-Preview] FM', primary.location, fm); } catch(_) {}
-          // 1) Try SEO extraction with a safe site avatar to avoid fallback image path
-          try {
-            const chosenMeta = (() => {
-              try {
-                const m = meta || {};
-                const perLang = m && m[primary.lang];
-                if (perLang && typeof perLang === 'object') return { ...perLang, location: primary.location };
-                if (m && typeof m === 'object') return { ...m, location: primary.location };
-              } catch(_) {}
-              return { location: primary.location };
-            })();
-            const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
-            const siteCfg = { ...siteCfgBase };
-            if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
-            const seo = extractSEOFromMarkdown(md, chosenMeta, siteCfg) || {};
-            if (seo.publishedTime) { try { dateStr = String(seo.publishedTime).slice(0,10); } catch(_) {} }
-            if (Array.isArray(seo.tags)) tags = seo.tags;
-          } catch (e) {
-            console.warn('[SEO-Preview] SEO extract failed', primary.location, e);
-          }
-          // 2) Fallbacks direct from front-matter if missing
-          try {
-            if (!dateStr && fm && fm.date) dateStr = String(fm.date).trim();
-            if ((!tags || !Array.isArray(tags) || tags.length === 0) && fm) {
-              if (Array.isArray(fm.tags)) tags = fm.tags;
-              else if (typeof fm.tags === 'string' && fm.tags.trim()) tags = [fm.tags.trim()];
-            }
-            console.debug('[SEO-Preview] RES', primary.location, { dateStr, tags });
-          } catch(_) {}
-          // 2) Compute words — always attempt
-          try {
-            const plain = stripMarkdownToText(stripFrontMatter(md));
-            const basic = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
-            // Fallback for CJK: if few or zero words, count visible non-space chars
-            if (basic > 1) { wordCount = basic; }
-            else {
-              const chars = (plain || '').replace(/\s+/g, '').length;
-              wordCount = chars;
-            }
-          } catch(_) {}
-        }
-      } catch(_) {}
-      const perLangLinks = langs.map(l => {
-        const v = meta[l];
-        const loc = (typeof v === 'string') ? v : (v && v.location) || '';
-        const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
-        return { lang: l, href: q ? withLangParam(q) : '' };
-      }).filter(x => x.href);
-      entries.push({
-        type: 'post', key, title: title || key, langs, multi: langs.length > 1,
-        href: primary.location ? withLangParam(`/index.html?id=${encodeURIComponent(primary.location)}`) : '#',
-        location: primary.location,
-        perLangLinks,
-        dateStr,
-        tags,
-        wordCount
-      });
+      const versionMap = new Map();
+      const add = (lang, loc) => {
+        if (!loc) return; const ver = extractVersion(loc);
+        if (!versionMap.has(ver)) versionMap.set(ver, { perLang: {}, langs: [] });
+        const rec = versionMap.get(ver); rec.perLang[lang] = loc; if (!rec.langs.includes(lang)) rec.langs.push(lang);
+      };
+      for (const [lang, v] of Object.entries(meta || {})) {
+        if (typeof v === 'string') add(lang, v);
+        else if (Array.isArray(v)) v.forEach(it => { if (typeof it === 'string') add(lang, it); else if (it && it.location) add(lang, it.location); });
+        else if (v && typeof v === 'object' && v.location) add(lang, v.location);
+      }
+      const versions = Array.from(versionMap.keys()).sort(semverCmpDesc);
+      const allLangs = Array.from(new Set([].concat(...Array.from(versionMap.values()).map(x => x.langs))));
+      const parent = { type: 'group', key, title: key, versionCount: versions.length, langs: allLangs, children: [] };
+      for (const ver of versions) {
+        const rec = versionMap.get(ver);
+        const primaryLang = langPref.find(l => rec.langs.includes(l)) || rec.langs[0] || 'en';
+        const primaryLoc = rec.perLang[primaryLang];
+        const perLangLinks = rec.langs.map(l => {
+          const loc = rec.perLang[l] || '';
+          const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
+          return { lang: l, href: q ? withGivenLang(q, l) : '' };
+        }).filter(x => x.href);
+        // Seed without details (title/date/tags/words) — will be filled lazily
+        const perLangDetails = rec.langs.map(l => {
+          const loc = rec.perLang[l] || '';
+          const link = perLangLinks.find(x => x.lang === l);
+          const href = link ? link.href : '';
+          return { lang: l, location: loc, href, title: '', dateStr: '', tags: [], wordCount: 0 };
+        });
+        parent.children.push({ type: 'post', key: `${key}@${ver}`, version: ver, title: `${key} ${ver}`.trim(), langs: rec.langs, multi: rec.langs.length>1, href: primaryLoc ? withGivenLang(`/index.html?id=${encodeURIComponent(primaryLoc)}`, primaryLang) : '#', location: primaryLoc, perLangLinks, perLang: rec.perLang, perLangDetails });
+      }
+      parent.children.sort((a,b)=>{ const av=a.version||'v0', bv=b.version||'v0'; return semverCmpDesc(av,bv); });
+      groups.push(parent);
     }
-    return entries.sort((a,b)=> a.key.localeCompare(b.key));
+    return groups.sort((a,b)=> a.key.localeCompare(b.key));
   })();
 
   // Build tab entries
   const tabItems = (() => {
     const entries = [];
+    const pickFromArray = (arr) => {
+      try {
+        if (!Array.isArray(arr) || arr.length === 0) return { location: '', title: '' };
+        const last = arr[arr.length - 1];
+        if (typeof last === 'string') return { location: last, title: '' };
+        if (last && typeof last === 'object') return { location: last.location || '', title: last.title || '' };
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          if (typeof it === 'string') return { location: it, title: '' };
+          if (it && typeof it === 'object' && (it.location || it.title)) return { location: it.location || '', title: it.title || '' };
+        }
+      } catch (_) {}
+      return { location: '', title: '' };
+    };
     for (const [key, meta] of Object.entries(tabs)) {
       const langs = langsOf(meta);
       const primary = pick(meta);
       const slug = slugify(key);
       const title = primary.title || key;
-      const perLangLinks = langs.map(l => ({ lang: l, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`) }));
-      entries.push({ type: 'tab', key, title, langs, multi: langs.length > 1, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}`) });
+      const perLangDetails = langs.map(l => {
+        const v = meta && meta[l];
+        let loc = '';
+        if (typeof v === 'string') loc = v;
+        else if (Array.isArray(v)) loc = pickFromArray(v).location || '';
+        else if (v && typeof v === 'object' && v.location) loc = v.location;
+        return { lang: l, href: withGivenLang(`/index.html?tab=${encodeURIComponent(slug)}`, l), location: loc };
+      });
+      entries.push({ type: 'tab', key, title, langs, perLangDetails, multi: langs.length > 1, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}`) });
     }
     return entries.sort((a,b)=> a.key.localeCompare(b.key));
   })();
 
-  const postsList = postItems.map(it => (
-    `<li>
-       <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
-       <div class="dim">${it.location ? `<code>${__escHtml(it.location)}</code>` : ''}</div>
-       <div class="config-value" style="margin-top:.25rem;">
-         <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
-         <span class="dim" style="margin-left:.5rem;">Languages:</span>
-         ${it.perLangLinks.map(x => `<span class="chip"><a href="${__escHtml(x.href)}" style="text-decoration:none;color:inherit;">${__escHtml(x.lang)}</a></span>`).join('')}
-       </div>
-       <div class="config-value" style="margin-top:.25rem;">
-         ${it.dateStr ? `<span class="mini-badge">Date: ${__escHtml(it.dateStr)}</span>` : ''}
-         <span class="mini-badge">Words: ${it.wordCount || 0}</span>
-         ${Array.isArray(it.tags) && it.tags.length ? `<span class="dim" style="margin-left:.5rem;">Tags:</span> ${it.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : ''}
-       </div>
-     </li>`
-  )).join('');
+  // Helper to create a safe DOM id for later incremental updates
+  const makeId = (key, ver, lang) => {
+    const slug = slugify(String(key||''));
+    const v = String(ver||'v0').replace(/[^a-z0-9.-]/gi,'-');
+    const l = String(lang||'').replace(/[^a-z0-9.-]/gi,'-');
+    return `postd-${slug}-${v}-${l}`;
+  };
 
-  const tabsList = tabItems.map(it => (
-    `<li>
-       <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
-       <div class="config-value" style="margin-top:.25rem;">
-         <span class="badge ok">Static Page</span>
-         <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
-         <span class="dim" style="margin-left:.5rem;">Languages:</span>
-         ${it.langs.map(l => `<span class="chip"><a href="${__escHtml(withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`))}" style="text-decoration:none;color:inherit;">${__escHtml(l)}</a></span>`).join('')}
-       </div>
-     </li>`
-  )).join('');
+  const postsList = postItems.map((group, groupIdx) => {
+    const sepStyle = groupIdx > 0
+      ? ' style="border-top:1px solid #d0d7de; margin-top:.5rem; padding-top:.5rem;"'
+      : '';
+    // Helper to render a language list (used for single-version and per-version)
+    const renderLangs = (groupKey, ver, perLangDetails = []) => perLangDetails.map(d => {
+      const langCode = `<code>${__escHtml(labelLang(d.lang))}</code>`;
+      const sep = '<span class="chip-sep">:</span>';
+      const pathCode = d.location ? `<code>${__escHtml(d.location)}</code>` : '';
+      const chip = `<span class="chip is-lang">${langCode}${pathCode ? sep + pathCode : ''}</span>`;
+      const id = makeId(groupKey, ver, d.lang);
+      const info = d.location ? __getCachedInfo(d.location) : null;
+      if (info) {
+        const titleHtml = info.title ? `<a href="${__escHtml(d.href||'#')}"><strong class="post-title">${__escHtml(info.title)}</strong></a>` : '';
+        const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
+        const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
+        const tagsHtml = (Array.isArray(info.tags) && info.tags.length)
+          ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class="chip is-tag">${__escHtml(tg)}</span>`).join('')}`
+          : '';
+        return `<li id="${id}"><div class="lang-row">${titleHtml} ${chip}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div></li>`;
+      }
+      // No cache yet, render loading placeholder — details fill later lazily
+      const placeholder = '<span class="dim" style="margin-left:.35rem;">Loading…</span>';
+      return `<li id="${id}"><div class="lang-row">${chip}${placeholder}</div></li>`;
+    }).join('');
+
+    let innerHtml = '';
+    if (group.versionCount <= 1) {
+      // Single version: collapse levels; render languages directly under group
+      const only = group.children[0] || { perLangDetails: [] };
+      const langsList = renderLangs(group.key, only.version || 'v0', only.perLangDetails || []);
+      innerHtml = `<ul class="config-list" style="margin-top:.6rem;">${langsList}</ul>`;
+    } else {
+      // Multi-version: second-level shows version number; mark latest on first
+      const versionsHtml = group.children.map((it, idx) => {
+        const isLatest = idx === 0; // sorted desc
+        const verLabel = (it.version && it.version !== 'v0') ? __escHtml(it.version) : 'version';
+        const latestChip = isLatest ? ' <span class="chip">latest</span>' : '';
+        const langsList = renderLangs(group.key, it.version, it.perLangDetails || []);
+        const head = `<div class="item-head"><a href="${__escHtml(it.href)}"><strong>${verLabel}</strong></a>${latestChip}</div>`;
+        return `<li>${head}<ul class="config-list" style="margin:.6rem 0 0 .75rem">${langsList}</ul></li>`;
+      }).join('');
+      innerHtml = `<ul class="config-list" style="margin-top:.5rem;">${versionsHtml}</ul>`;
+    }
+
+    return `
+      <li${sepStyle}>
+        <div class="item-head topline">
+          <span class="l1-title">${__escHtml(group.title)}</span>
+          <span class="mini-badge">${group.versionCount} version${group.versionCount>1?'s':''}</span>
+        </div>
+        ${innerHtml}
+      </li>`;
+  }).join('');
+
+  // Tabs list rendered like Posts: per-language rows with title + meta
+  const tabsList = tabItems.map(it => {
+    const renderLangs = (tabKey, perLangDetails = []) => perLangDetails.map(d => {
+      const langCode = `<code>${__escHtml(labelLang(d.lang))}</code>`;
+      const sep = '<span class="chip-sep">:</span>';
+      const pathCode = d.location ? `<code>${__escHtml(d.location)}</code>` : '';
+      const chipInner = `${langCode}${pathCode ? sep + pathCode : ''}${d.href ? '<span class=\"go\" aria-hidden=\"true\">↗</span>' : ''}`;
+      const chip = d.href
+        ? `<span class="chip is-lang"><a href="${__escHtml(d.href)}" title="Open tab in ${__escHtml(labelLang(d.lang))}">${chipInner}</a></span>`
+        : `<span class="chip is-lang">${chipInner}</span>`;
+      const id = makeId(tabKey, 'tab', d.lang);
+      const info = d.location ? __getCachedInfo(d.location) : null;
+      if (info) {
+        const titleHtml = info.title ? `<a href="${__escHtml(d.href||'#')}"><strong class="post-title">${__escHtml(info.title)}</strong></a>` : '';
+        const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
+        const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
+        // Tabs may not have tags commonly; still show if present
+        const tagsHtml = (Array.isArray(info.tags) && info.tags.length)
+          ? ` <span class=\"dim tags-label\" style=\"margin-left:.5rem;\">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}`
+          : '';
+        return `<li id=\"${id}\"><div class=\"lang-row\">${titleHtml} ${chip}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
+      }
+      const placeholder = '<span class="dim" style="margin-left:.35rem;">Loading…</span>';
+      return `<li id=\"${id}\"><div class=\"lang-row\">${chip}${placeholder}</div></li>`;
+    }).join('');
+
+    const langsList = renderLangs(it.key, it.perLangDetails || []);
+    const head = `<div class="item-head topline"><span class="l1-title">${__escHtml(it.title)}</span></div>`;
+    return `<li>${head}<ul class="config-list" style="margin:.6rem 0 0 .75rem">${langsList}</ul></li>`;
+  }).join('');
 
   const body = [
     '<div class="config-group">',
@@ -439,7 +654,143 @@ async function renderSitemapPreview(urls = []){
     '</div>',
     '<div class="config-body">', body, '</div>'
   ].join('');
-  setHTML('sitemapPreview', html);
+  // Inject progress badge into Posts title
+  const totalTasks = (() => {
+    try {
+      let n = 0;
+      postItems.forEach(g => g.children.forEach(ch => n += (ch.perLangDetails||[]).length));
+      return n;
+    } catch(_) { return 0; }
+  })();
+  const withProgress = html.replace(
+    '<div class="config-group-title">📝 Posts</div>',
+    `<div class="config-group-title">📝 Posts <span id=\"posts-progress\" class=\"mini-badge\">0% (0/${totalTasks})</span></div>`
+  );
+  // Inject progress badge into Tabs title
+  const totalTabTasks = (() => {
+    try {
+      let n = 0;
+      tabItems.forEach(it => n += (it.perLangDetails||[]).length);
+      return n;
+    } catch(_) { return 0; }
+  })();
+  const withBothProgress = withProgress.replace(
+    '<div class="config-group-title">📁 Tabs</div>',
+    `<div class=\"config-group-title\">📁 Tabs <span id=\"tabs-progress\" class=\"mini-badge\">0% (0/${totalTabTasks})</span></div>`
+  );
+  setHTML('sitemapPreview', withBothProgress);
+  // Keep view mode consistent if a toggle exists for this section
+  try { if (window.__applyView) window.__applyView('sitemap'); } catch (_) {}
+
+  // Start lazy loading of per-language details and live update DOM + progress
+  try {
+    let done = 0;
+    const updateProgress = () => {
+      const el = document.getElementById('posts-progress');
+      if (el) {
+        const pct = totalTasks ? Math.round((done / totalTasks) * 100) : 0;
+        el.textContent = `${pct}% (${done}/${totalTasks})`;
+      }
+    };
+    updateProgress();
+    const tasks = [];
+    // Count cached items up-front and only enqueue missing ones
+    for (const g of postItems) {
+      for (const ch of g.children) {
+        for (const d of (ch.perLangDetails||[])) {
+          const id = makeId(g.key, ch.version, d.lang);
+          const cached = d.location ? __getCachedInfo(d.location) : null;
+          if (cached) {
+            done++;
+          } else {
+            tasks.push({ id, lang: d.lang, href: d.href, loc: d.location });
+          }
+        }
+      }
+    }
+    updateProgress();
+    // Process in small concurrent batches to keep UI responsive
+    const concurrency = 1;
+    let idx = 0;
+    const runOne = async () => {
+      const i = idx++;
+      if (i >= tasks.length) return;
+      const { id, lang, href, loc } = tasks[i];
+      try {
+        const info = loc ? await computeInfoFor(loc, { lang }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
+        const el = document.getElementById(id);
+        if (el) {
+          const langLabel = __escHtml(labelLang(lang));
+          const titleHtml = info.title
+            ? (href ? `<a href="${__escHtml(href)}"><strong class="post-title">${__escHtml(info.title)}</strong></a>`
+                     : `<strong class="post-title">${__escHtml(info.title)}</strong>`)
+            : '';
+          const langPathChip = ` <span class="chip is-lang"><code>${langLabel}</code>${loc?`<span class="chip-sep">:</span><code>${__escHtml(loc)}</code>`:''}</span>`;
+          const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
+          const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
+          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class="chip is-tag">${__escHtml(tg)}</span>`).join('')}` : '';
+          el.innerHTML = `<div class="lang-row">${titleHtml}${langPathChip}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
+        }
+      } catch(_) {}
+      finally { done++; updateProgress(); }
+      await runOne();
+    };
+    const runners = Array.from({ length: Math.min(concurrency, tasks.length) }, () => runOne());
+    await Promise.all(runners);
+  } catch(_) {}
+
+  // Lazy load tab language details similarly and update progress
+  try {
+    let doneTabs = 0;
+    const updateTabsProgress = () => {
+      const el = document.getElementById('tabs-progress');
+      if (el) {
+        const pct = totalTabTasks ? Math.round((doneTabs / totalTabTasks) * 100) : 0;
+        el.textContent = `${pct}% (${doneTabs}/${totalTabTasks})`;
+      }
+    };
+    updateTabsProgress();
+    const tasks = [];
+    for (const it of tabItems) {
+      for (const d of (it.perLangDetails||[])) {
+        const id = makeId(it.key, 'tab', d.lang);
+        const cached = d.location ? __getCachedInfo(d.location) : null;
+        if (cached) {
+          doneTabs++;
+        } else {
+          tasks.push({ id, lang: d.lang, href: d.href, loc: d.location });
+        }
+      }
+    }
+    updateTabsProgress();
+    const concurrency = 1;
+    let idx = 0;
+    const runOne = async () => {
+      const i = idx++;
+      if (i >= tasks.length) return;
+      const { id, lang, href, loc } = tasks[i];
+      try {
+        const info = loc ? await computeInfoFor(loc, { lang }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
+        const el = document.getElementById(id);
+        if (el) {
+          const langLabel = __escHtml(labelLang(lang));
+          const titleHtml = info.title
+            ? (href ? `<a href="${__escHtml(href)}"><strong class="post-title">${__escHtml(info.title)}</strong></a>`
+                     : `<strong class="post-title">${__escHtml(info.title)}</strong>`)
+            : '';
+          const langPathChip = ` <span class=\"chip is-lang\"><code>${langLabel}</code>${loc?`<span class=\"chip-sep\">:</span><code>${__escHtml(loc)}</code>`:''}</span>`;
+          const dateB = info.dateStr ? ` <span class=\"mini-badge is-date\">Date: ${__escHtml(info.dateStr)}</span>` : '';
+          const wordsB = ` <span class=\"mini-badge is-words\">Words: ${info.wordCount || 0}</span>`;
+          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class=\"dim tags-label\" style=\"margin-left:.5rem;\">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}` : '';
+          el.innerHTML = `<div class=\"lang-row\">${titleHtml}${langPathChip}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div>`;
+        }
+      } catch(_) {}
+      finally { doneTabs++; updateTabsProgress(); }
+      await runOne();
+    };
+    const runners = Array.from({ length: Math.min(concurrency, tasks.length) }, () => runOne());
+    await Promise.all(runners);
+  } catch(_) {}
 }
 
 function renderRobotsPreview(text = ''){
@@ -480,6 +831,7 @@ function renderRobotsPreview(text = ''){
     '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('robotsPreview', html);
+  try { if (window.__applyView) window.__applyView('robots'); } catch (_) {}
 }
 
 function renderMetaPreview(frag = '', cfg = {}){
@@ -530,6 +882,7 @@ function renderMetaPreview(frag = '', cfg = {}){
     '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('metaPreview', html);
+  try { if (window.__applyView) window.__applyView('meta'); } catch (_) {}
 }
 
 // --- Code preview helper ---
@@ -562,6 +915,7 @@ async function generateSitemap() {
   const outputEl = document.getElementById('sitemapOutput');
   try {
     if (statusEl) statusEl.innerHTML = '<p>Loading data...</p>';
+    // Load base config and indices needed to compute URL list
     state.currentSiteConfig = await loadSiteConfigFlex();
     const cr = getContentRootFrom(state.currentSiteConfig);
     const [postsObj, tabsObj] = await Promise.all([
@@ -570,15 +924,117 @@ async function generateSitemap() {
     ]);
     state.currentPostsData = postsObj || {};
     state.currentTabsData = tabsObj || {};
-    state.currentSiteConfig = await loadSiteConfigFlex();
-    const urls = generateSitemapData(state.currentPostsData, state.currentTabsData, state.currentSiteConfig);
-    const xml = generateSitemapXML(urls);
-    if (outputEl) outputEl.value = xml;
-    try { setEditorValue('sitemapOutput', xml); } catch (_) {}
+    // Compute initial URLs immediately and render preview to avoid blocking UI
+    let urls = generateSitemapData(state.currentPostsData, state.currentTabsData, state.currentSiteConfig);
+    const initialXml = generateSitemapXML(urls);
+    if (outputEl) outputEl.value = initialXml;
+    try { setEditorValue('sitemapOutput', initialXml); } catch (_) {}
     if (statusEl) statusEl.innerHTML = '';
     try { renderSitemapPreview(urls); } catch (_) {}
     t('ok', `Sitemap generated (${urls.length} URLs)`);
+    try { (window.__seoGenerated = window.__seoGenerated || {}).sitemap = true; } catch (_) {}
     outputEl && outputEl.select();
+
+    // Enrich lastmod from post front matter dates where available, in background
+    (async () => {
+      try {
+        const enriched = await Promise.all(urls.map(async (u) => {
+          try {
+            const urlObj = new URL(u.loc, window.location.origin);
+            const id = urlObj.searchParams.get('id');
+            const tab = urlObj.searchParams.get('tab');
+            const lang = urlObj.searchParams.get('lang');
+            if (id) {
+              const md = await __fetchMdWithFallback(id);
+              if (md) {
+                let dateStr = null;
+                try {
+                  const { frontMatter } = parseFrontMatter(md);
+                  if (frontMatter && frontMatter.date) {
+                    dateStr = __toISODateYYYYMMDD(frontMatter.date);
+                  }
+                } catch (_) {}
+                try {
+                  if (!dateStr) {
+                    const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+                    const siteCfg = { ...siteCfgBase };
+                    if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+                    const seo = extractSEOFromMarkdown(md, { location: id }, siteCfg) || {};
+                    if (seo.publishedTime) {
+                      dateStr = __toISODateYYYYMMDD(seo.publishedTime);
+                    }
+                  }
+                } catch (_) {}
+                if (dateStr) u.lastmod = dateStr;
+              }
+            } else if (tab) {
+              // Try to resolve tab markdown by slug and language
+              const tabsObj = (window.__seoToolState && window.__seoToolState.currentTabsData) || {};
+              // Build reverse lookup: slug -> entry value
+              const toSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              let matchedMeta = null;
+              for (const [k, v] of Object.entries(tabsObj)) {
+                if (toSlug(k) === tab) { matchedMeta = v; break; }
+              }
+              let loc = null;
+              if (matchedMeta && typeof matchedMeta === 'object') {
+                const lcode = (lang || '').toLowerCase();
+                const mv = matchedMeta[lcode];
+                if (typeof mv === 'string') loc = mv;
+                else if (mv && typeof mv === 'object' && mv.location) loc = mv.location;
+              }
+              if (loc) {
+                const md = await __fetchMdWithFallback(loc);
+                if (md) {
+                  let dateStr = null;
+                  try {
+                    const { frontMatter } = parseFrontMatter(md);
+                    if (frontMatter && frontMatter.date) {
+                      dateStr = __toISODateYYYYMMDD(frontMatter.date);
+                    }
+                  } catch (_) {}
+                  try {
+                    if (!dateStr) {
+                      const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+                      const siteCfg = { ...siteCfgBase };
+                      if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+                      const seo = extractSEOFromMarkdown(md, { location: loc }, siteCfg) || {};
+                      if (seo.publishedTime) {
+                        dateStr = __toISODateYYYYMMDD(seo.publishedTime);
+                      }
+                    }
+                  } catch (_) {}
+                  if (dateStr) u.lastmod = dateStr;
+                }
+              }
+            }
+          } catch (_) {}
+          return u;
+        }));
+        urls = enriched;
+        // Set homepage lastmod to latest post date if available
+        const latest = urls
+          .map(x => x && x.lastmod)
+          .filter(Boolean)
+          .sort()
+          .slice(-1)[0];
+        if (latest) {
+          urls.forEach(x => {
+            try {
+              const uo = new URL(x.loc, window.location.origin);
+              const isHome = (uo.pathname === '/' && (!uo.search || uo.search === '' || /^\?lang=/.test(uo.search)));
+              if (isHome) x.lastmod = latest;
+            } catch (_) {}
+          });
+        }
+      } catch (_) { /* keep defaults on failure */ }
+      // Update XML output with enriched lastmod values
+      try {
+        const xml = generateSitemapXML(urls);
+        if (outputEl) outputEl.value = xml;
+        try { setEditorValue('sitemapOutput', xml); } catch (_) {}
+      } catch (_) {}
+    })();
   } catch (error) {
     console.error('Error generating sitemap:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error generating sitemap: ${error.message}</p>`;
@@ -599,6 +1055,7 @@ async function generateRobots() {
     try { renderRobotsPreview(robotsContent); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Robots.txt generated');
+    try { (window.__seoGenerated = window.__seoGenerated || {}).robots = true; } catch (_) {}
   } catch (error) {
     console.error('Error generating robots.txt:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error generating robots.txt: ${error.message}</p>`;
@@ -619,6 +1076,7 @@ async function generateMetaTags() {
     try { renderMetaPreview(metaContent, state.currentSiteConfig); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Meta tags generated');
+    try { (window.__seoGenerated = window.__seoGenerated || {}).meta = true; } catch (_) {}
   } catch (error) {
     console.error('Error generating meta tags:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error generating meta tags: ${error.message}</p>`;
