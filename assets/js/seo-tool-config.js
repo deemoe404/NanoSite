@@ -312,6 +312,8 @@ export async function loadSiteConfig() {
     ].join('');
 
     if (previewEl) previewEl.innerHTML = html;
+    // Re-apply persisted view state to keep toggle/content consistent (friendly/source)
+    try { if (window.__applyView) window.__applyView('config'); } catch (_) {}
     // Removed old modal-based source viewer; replaced by in-page toggle.
     // Wire category switching
     try {

@@ -589,6 +589,8 @@ async function renderSitemapPreview(urls = []){
     `<div class="config-group-title">📝 Posts <span id=\"posts-progress\" class=\"mini-badge\">0% (0/${totalTasks})</span></div>`
   );
   setHTML('sitemapPreview', withProgress);
+  // Keep view mode consistent if a toggle exists for this section
+  try { if (window.__applyView) window.__applyView('sitemap'); } catch (_) {}
 
   // Start lazy loading of per-language details and live update DOM + progress
   try {
@@ -676,6 +678,7 @@ function renderRobotsPreview(text = ''){
     '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('robotsPreview', html);
+  try { if (window.__applyView) window.__applyView('robots'); } catch (_) {}
 }
 
 function renderMetaPreview(frag = '', cfg = {}){
@@ -726,6 +729,7 @@ function renderMetaPreview(frag = '', cfg = {}){
     '<div class="config-body">', body, '</div>'
   ].join('');
   setHTML('metaPreview', html);
+  try { if (window.__applyView) window.__applyView('meta'); } catch (_) {}
 }
 
 // --- Code preview helper ---

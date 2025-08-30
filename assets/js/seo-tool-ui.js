@@ -27,36 +27,67 @@ window.toggleToolbarMore = toggleToolbarMore;
 
 // (wrap toggle removed; editors are fixed to no-wrap)
 
-// In-page view toggle between friendly preview and source editor
-export function switchView(section, view, btn) {
+// Persisted view state helpers (per section)
+const __viewState = (function(){
+  try { return (window.__seoViewState = window.__seoViewState || {}); } catch (_) { return {}; }
+})();
+function __viewKey(sec){ return `seo_view_${String(sec||'').toLowerCase()}`; }
+function __saveView(sec, view){
+  const v = (String(view||'friendly').toLowerCase() === 'source') ? 'source' : 'friendly';
+  try { __viewState[sec] = v; } catch (_) {}
+  try { localStorage.setItem(__viewKey(sec), v); } catch (_) {}
+}
+function __loadView(sec){
+  const s = String(sec||'').toLowerCase();
+  try { if (__viewState[s]) return __viewState[s]; } catch (_) {}
+  try { const v = localStorage.getItem(__viewKey(s)); if (v) return v; } catch (_) {}
+  return 'friendly';
+}
+
+// Apply a section's view state to DOM (id convention: `${sec}Preview` / `${sec}Output`)
+export function applyView(section){
   try {
-    const sec = String(section || '').toLowerCase();
+    const sec = String(section||'').toLowerCase();
+    if (!sec) return;
+    const mode = __loadView(sec);
     const previewId = `${sec}Preview`;
     const outputId = `${sec}Output`;
     const previewEl = document.getElementById(previewId);
     const ta = document.getElementById(outputId);
     const outWrap = ta ? (ta.closest('.output-group') || ta.parentElement) : null;
-    const showSource = String(view || 'friendly') === 'source';
+    const showSource = mode === 'source';
     // Keep header visible; only toggle body area inside preview
     if (previewEl) {
       const bodies = previewEl.querySelectorAll('.config-body');
       bodies.forEach(b => { b.style.display = showSource ? 'none' : ''; });
-      // Ensure the preview container itself remains visible for header
       previewEl.style.display = '';
     }
     if (outWrap) outWrap.style.display = showSource ? '' : 'none';
+    // Sync toggle buttons' active state
+    try {
+      const root = (previewEl && previewEl.querySelector('.view-toggle')) || document;
+      const peers = root ? root.querySelectorAll(`[data-view-target="${sec}"]`) : [];
+      peers.forEach(el => {
+        const label = (el.textContent || '').trim().toLowerCase();
+        const isActive = (mode === 'source') ? (label === 'source') : (label === 'friendly');
+        if (isActive) el.classList.add('active'); else el.classList.remove('active');
+      });
+    } catch (_) {}
     // Ensure editor layout updates when becoming visible
     if (showSource && window.__seoEditorToggleWrap) {
       setTimeout(() => { try { window.__seoEditorToggleWrap(outputId); } catch (_) {} }, 0);
     }
-    // Update active state on the toggle buttons within the same toolbar/group
-    if (btn) {
-      const root = btn.closest('.view-toggle') || btn.closest('.toolbar') || document;
-      const peers = root.querySelectorAll(`[data-view-target="${sec}"]`);
-      peers.forEach(el => {
-        if (el === btn) el.classList.add('active'); else el.classList.remove('active');
-      });
-    }
+  } catch (_) {}
+}
+try { window.__applyView = applyView; } catch (_) {}
+
+// In-page view toggle between friendly preview and source editor
+export function switchView(section, view, btn) {
+  try {
+    const sec = String(section || '').toLowerCase();
+    const v = String(view || 'friendly').toLowerCase();
+    __saveView(sec, v);
+    applyView(sec);
   } catch (_) {}
   return false;
 }
@@ -89,6 +120,8 @@ export function switchTab(tabName) {
       setTimeout(() => { try { window.__seoEditorToggleWrap(id); } catch (_) {} }, 0);
     }
   } catch (_) {}
+  // Re-apply view mode for this tab if supported (keeps indicator/content in sync)
+  try { if (typeof applyView === 'function') applyView(tabName); else if (window.__applyView) window.__applyView(tabName); } catch (_) {}
   try {
     if (tabName === 'sitemap' && window.generateSitemap) window.generateSitemap();
     if (tabName === 'robots' && window.generateRobots) window.generateRobots();
