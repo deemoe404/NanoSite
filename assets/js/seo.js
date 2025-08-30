@@ -2,6 +2,7 @@
 // This maintains SEO benefits while keeping the "no compilation needed" philosophy
 
 import { getCurrentLang, DEFAULT_LANG } from './i18n.js';
+import { getAvailableLangs } from './i18n.js';
 import { parseFrontMatter } from './content.js';
 
 /**
@@ -585,6 +586,7 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   // Use site's base URL (remove current file path)
   const baseUrl = window.location.origin + '/';
   const urls = [];
+  const siteDefaultLang = (siteConfig && siteConfig.defaultLanguage) ? String(siteConfig.defaultLanguage).toLowerCase() : DEFAULT_LANG;
   
   // Helper function to get location from language-specific data with proper fallback
   const getLocationFromLangData = (data) => {
@@ -629,13 +631,34 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
     return null;
   };
   
-  // Add homepage
-  urls.push({
-    loc: baseUrl,
-    lastmod: new Date().toISOString().split('T')[0],
-    changefreq: 'weekly',
-    priority: '1.0'
-  });
+  // Add homepage + alternates for all languages
+  try {
+    const allLangs = (getAvailableLangs && getAvailableLangs()) || [siteDefaultLang];
+    const alternates = Array.from(new Set(allLangs.map(l => String(l).toLowerCase()))).map(l => ({
+      hreflang: l,
+      href: l === siteDefaultLang ? `${baseUrl}` : `${baseUrl}?lang=${encodeURIComponent(l)}`
+    }));
+    // x-default: use site default language
+    const xDefaultHref = `${baseUrl}`;
+    // Emit one URL entry per language (with alternates) to make inclusion explicit
+    alternates.forEach(alt => {
+      urls.push({
+        loc: alt.href,
+        lastmod: new Date().toISOString().split('T')[0],
+        changefreq: 'weekly',
+        priority: '1.0',
+        alternates,
+        xdefault: xDefaultHref
+      });
+    });
+  } catch (_) {
+    urls.push({
+      loc: baseUrl,
+      lastmod: new Date().toISOString().split('T')[0],
+      changefreq: 'weekly',
+      priority: '1.0'
+    });
+  }
   
   // Add posts (expand each version once per post key)
   // postsData is an object where keys are post titles and values are post metadata
@@ -654,33 +677,54 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
     const currentLang = getCurrentLang();
     const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'zh', 'ja', 'default'];
     versionToLangLoc.forEach((langLocMap) => {
-      let chosenLoc = null;
-      for (const l of tryLangs) { if (langLocMap[l]) { chosenLoc = langLocMap[l]; break; } }
-      if (!chosenLoc) { const any = Object.values(langLocMap)[0]; if (any) chosenLoc = any; }
-      if (chosenLoc) {
+      const langs = Object.keys(langLocMap || {});
+      if (!langs.length) return;
+      // Build alternates for all available languages on this version
+      const alternates = langs.map(l => ({
+        hreflang: l,
+        href: `${baseUrl}?id=${encodeURIComponent(langLocMap[l])}&lang=${encodeURIComponent(l)}`
+      }));
+      // x-default = site default when available, else first
+      const xDefaultHref = (langLocMap[siteDefaultLang]) ? `${baseUrl}?id=${encodeURIComponent(langLocMap[siteDefaultLang])}` : alternates[0].href;
+      // Emit one entry per language (explicit visibility) with full alternates
+      langs.forEach(l => {
+        const loc = langLocMap[l];
+        if (!loc) return;
         urls.push({
-          loc: `${baseUrl}?id=${encodeURIComponent(chosenLoc)}`,
+          loc: `${baseUrl}?id=${encodeURIComponent(loc)}&lang=${encodeURIComponent(l)}`,
           lastmod: postMeta.date || new Date().toISOString().split('T')[0],
           changefreq: 'monthly',
-          priority: '0.8'
+          priority: '0.8',
+          alternates,
+          xdefault: xDefaultHref
         });
-      }
+      });
     });
   });
   
   // Add tabs
   // tabsData is an object where keys are tab titles and values are tab metadata
   Object.entries(tabsData).forEach(([title, tabMeta]) => {
-    const location = getLocationFromLangData(tabMeta);
-    if (location) {
-      const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!tabMeta || typeof tabMeta !== 'object') return;
+    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    // Collect languages present for this tab
+    const langs = Object.keys(tabMeta).filter(k => !!tabMeta[k]);
+    if (!langs.length) return;
+    const alternates = langs.map(l => ({
+      hreflang: l,
+      href: `${baseUrl}?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`
+    }));
+    const xDefaultHref = `${baseUrl}?tab=${encodeURIComponent(slug)}`;
+    langs.forEach(l => {
       urls.push({
-        loc: `${baseUrl}?tab=${encodeURIComponent(slug)}`,
+        loc: `${baseUrl}?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`,
         lastmod: new Date().toISOString().split('T')[0],
         changefreq: 'monthly',
-        priority: '0.6'
+        priority: '0.6',
+        alternates,
+        xdefault: xDefaultHref
       });
-    }
+    });
   });
   
   return urls;

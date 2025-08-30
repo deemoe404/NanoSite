@@ -2,7 +2,7 @@
 import './seo-tool-state.js';
 import './seo-tool-ui.js';
 import './seo-tool-config.js';
-import './seo-tool-generators.js';
+import './seo-tool-generators.js?v=2';
 import './seo-tool-github.js';
 import { initSeoEditors } from './hieditor.js';
 

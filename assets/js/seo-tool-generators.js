@@ -1,12 +1,53 @@
 import { state } from './seo-tool-state.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { setEditorValue, getEditorValue } from './hieditor.js';
-import { generateSitemapData } from './seo.js?v=1';
+import { generateSitemapData } from './seo.js?v=2';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import { getContentRootFrom, loadSiteConfigFlex } from './seo-tool-config.js';
 import { getCurrentLang, DEFAULT_LANG, withLangParam } from './i18n.js';
 import { parseFrontMatter, stripFrontMatter, stripMarkdownToText } from './content.js';
-import { extractSEOFromMarkdown } from './seo.js?v=1';
+import { extractSEOFromMarkdown } from './seo.js?v=2';
+
+// --- Helpers shared by preview and sitemap enrichment ---
+async function __fetchMdWithFallback(loc) {
+  try {
+    const siteCfg = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+    const cr = getContentRootFrom(siteCfg);
+    const candidates = [];
+    const normLoc = String(loc || '').replace(/^\/+/, '');
+    const base = cr.replace(/\/+$/,'');
+    // Try resourceURL absolute first
+    try {
+      const res = String(siteCfg.resourceURL || '').trim();
+      if (res) {
+        const u = new URL(normLoc.replace(/^\/+/, ''), res.endsWith('/') ? res : (res + '/'));
+        candidates.push(u.toString());
+      }
+    } catch (_) {}
+    // Then local fallbacks
+    candidates.push(`${base}/${normLoc}`);
+    candidates.push(`/${normLoc}`);
+    candidates.push(normLoc);
+    for (const u of candidates) {
+      try { const r = await fetch(u); if (r.ok) return await r.text(); } catch (_) {}
+    }
+  } catch (_) {}
+  return '';
+}
+
+function __toISODateYYYYMMDD(input) {
+  try {
+    const s = String(input || '').trim();
+    if (!s) return null;
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+    const d = new Date(s);
+    if (!isNaN(d)) return d.toISOString().slice(0,10);
+  } catch (_) {}
+  return null;
+}
 
 function t(kind, msg){ try { window.showToast && window.showToast(kind, msg); } catch (_) {} }
 
@@ -56,13 +97,22 @@ function escapeXML(str) {
 // Generators
 function generateSitemapXML(urls) {
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
   urls.forEach(url => {
     xml += '  <url>\n';
     xml += `    <loc>${escapeXML(url.loc)}</loc>\n`;
-    xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
-    xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
-    xml += `    <priority>${url.priority}</priority>\n`;
+    if (Array.isArray(url.alternates) && url.alternates.length) {
+      url.alternates.forEach(alt => {
+        if (!alt || !alt.href || !alt.hreflang) return;
+        xml += `    <xhtml:link rel="alternate" hreflang="${escapeXML(alt.hreflang)}" href="${escapeXML(alt.href)}"/>\n`;
+      });
+      if (url.xdefault) {
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXML(url.xdefault)}"/>\n`;
+      }
+    }
+    if (url.lastmod) xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
+    if (url.changefreq) xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
+    if (url.priority) xml += `    <priority>${url.priority}</priority>\n`;
     xml += '  </url>\n';
   });
   xml += '</urlset>';
@@ -717,7 +767,99 @@ async function generateSitemap() {
     state.currentPostsData = postsObj || {};
     state.currentTabsData = tabsObj || {};
     state.currentSiteConfig = await loadSiteConfigFlex();
-    const urls = generateSitemapData(state.currentPostsData, state.currentTabsData, state.currentSiteConfig);
+    let urls = generateSitemapData(state.currentPostsData, state.currentTabsData, state.currentSiteConfig);
+    // Enrich lastmod from post front matter dates where available
+    try {
+      const enriched = await Promise.all(urls.map(async (u) => {
+        try {
+          const urlObj = new URL(u.loc, window.location.origin);
+          const id = urlObj.searchParams.get('id');
+          const tab = urlObj.searchParams.get('tab');
+          const lang = urlObj.searchParams.get('lang');
+          if (id) {
+            const md = await __fetchMdWithFallback(id);
+            if (md) {
+              let dateStr = null;
+              try {
+                const { frontMatter } = parseFrontMatter(md);
+                if (frontMatter && frontMatter.date) {
+                  dateStr = __toISODateYYYYMMDD(frontMatter.date);
+                }
+              } catch (_) {}
+              try {
+                if (!dateStr) {
+                  const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+                  const siteCfg = { ...siteCfgBase };
+                  if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+                  const seo = extractSEOFromMarkdown(md, { location: id }, siteCfg) || {};
+                  if (seo.publishedTime) {
+                    dateStr = __toISODateYYYYMMDD(seo.publishedTime);
+                  }
+                }
+              } catch (_) {}
+              if (dateStr) u.lastmod = dateStr;
+            }
+          } else if (tab) {
+            // Try to resolve tab markdown by slug and language
+            const tabsObj = (window.__seoToolState && window.__seoToolState.currentTabsData) || {};
+            // Build reverse lookup: slug -> entry value
+            const toSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            let matchedMeta = null;
+            for (const [k, v] of Object.entries(tabsObj)) {
+              if (toSlug(k) === tab) { matchedMeta = v; break; }
+            }
+            let loc = null;
+            if (matchedMeta && typeof matchedMeta === 'object') {
+              const lcode = (lang || '').toLowerCase();
+              const mv = matchedMeta[lcode];
+              if (typeof mv === 'string') loc = mv;
+              else if (mv && typeof mv === 'object' && mv.location) loc = mv.location;
+            }
+            if (loc) {
+              const md = await __fetchMdWithFallback(loc);
+              if (md) {
+                let dateStr = null;
+                try {
+                  const { frontMatter } = parseFrontMatter(md);
+                  if (frontMatter && frontMatter.date) {
+                    dateStr = __toISODateYYYYMMDD(frontMatter.date);
+                  }
+                } catch (_) {}
+                try {
+                  if (!dateStr) {
+                    const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+                    const siteCfg = { ...siteCfgBase };
+                    if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+                    const seo = extractSEOFromMarkdown(md, { location: loc }, siteCfg) || {};
+                    if (seo.publishedTime) {
+                      dateStr = __toISODateYYYYMMDD(seo.publishedTime);
+                    }
+                  }
+                } catch (_) {}
+                if (dateStr) u.lastmod = dateStr;
+              }
+            }
+          }
+        } catch (_) {}
+        return u;
+      }));
+      urls = enriched;
+      // Set homepage lastmod to latest post date if available
+      const latest = urls
+        .map(x => x && x.lastmod)
+        .filter(Boolean)
+        .sort()
+        .slice(-1)[0];
+      if (latest) {
+        urls.forEach(x => {
+          try {
+            const uo = new URL(x.loc, window.location.origin);
+            const isHome = (uo.pathname === '/' && (!uo.search || uo.search === '' || /^\?lang=/.test(uo.search)));
+            if (isHome) x.lastmod = latest;
+          } catch (_) {}
+        });
+      }
+    } catch (_) { /* keep defaults on failure */ }
     const xml = generateSitemapXML(urls);
     if (outputEl) outputEl.value = xml;
     try { setEditorValue('sitemapOutput', xml); } catch (_) {}
