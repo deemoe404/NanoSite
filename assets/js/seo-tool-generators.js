@@ -144,6 +144,32 @@ function __escHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#039;' }[c]));
 }
 
+// Map language codes (en, zh-CN, ja) to human-friendly names
+function labelLang(code) {
+  try {
+    if (!code) return '';
+    const map = {
+      'en': 'English', 'en-us': 'English (US)', 'en-gb': 'English (UK)',
+      'zh': 'Chinese', 'zh-cn': 'Chinese (Simplified)', 'zh-sg': 'Chinese (Simplified)', 'zh-tw': 'Chinese (Traditional)', 'zh-hk': 'Chinese (Traditional)',
+      'ja': 'Japanese', 'ko': 'Korean', 'fr': 'French', 'de': 'German', 'es': 'Spanish', 'pt': 'Portuguese', 'pt-br': 'Portuguese (BR)', 'it': 'Italian',
+      'ru': 'Russian', 'ar': 'Arabic', 'hi': 'Hindi', 'id': 'Indonesian', 'vi': 'Vietnamese', 'th': 'Thai', 'tr': 'Turkish', 'nl': 'Dutch',
+      'sv': 'Swedish', 'pl': 'Polish', 'he': 'Hebrew', 'fa': 'Persian'
+    };
+    const key = String(code).toLowerCase();
+    if (map[key]) return map[key];
+    const base = key.split(/[-_]/)[0];
+    if (map[base]) return map[base];
+    if (typeof Intl !== 'undefined' && Intl.DisplayNames) {
+      try {
+        const dn = new Intl.DisplayNames([navigator.language || 'en'], { type: 'language' });
+        const name = dn.of(base);
+        if (name) return name.charAt(0).toUpperCase() + name.slice(1);
+      } catch (_) {}
+    }
+    return code;
+  } catch(_) { return String(code || ''); }
+}
+
 function openSourceOverlay(title, code, language = 'plain'){
   try {
     const overlay = document.getElementById('tab-help-overlay');
@@ -407,7 +433,7 @@ async function renderSitemapPreview(urls = []){
       : '';
     // Helper to render a language list (used for single-version and per-version)
     const renderLangs = (groupKey, ver, perLangDetails = []) => perLangDetails.map(d => {
-      const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(d.lang)}</a>` : __escHtml(d.lang);
+      const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(labelLang(d.lang))}</a>` : __escHtml(labelLang(d.lang));
       const code = d.location ? ` <code style=\"margin-left:.35rem\">${__escHtml(d.location)}</code>` : '';
       const id = makeId(groupKey, ver, d.lang);
       // Initially render with loading placeholder — content replaced as details load
@@ -420,7 +446,7 @@ async function renderSitemapPreview(urls = []){
       // Single version: collapse levels; render languages directly under group
       const only = group.children[0] || { perLangDetails: [] };
       const langsList = renderLangs(group.key, only.version || 'v0', only.perLangDetails || []);
-      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.25rem;\">${langsList}</ul>`;
+      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.6rem;\">${langsList}</ul>`;
     } else {
       // Multi-version: second-level shows version number; mark latest on first
       const versionsHtml = group.children.map((it, idx) => {
@@ -429,15 +455,15 @@ async function renderSitemapPreview(urls = []){
         const latestChip = isLatest ? ' <span class=\"chip\">latest</span>' : '';
         const langsList = renderLangs(group.key, it.version, it.perLangDetails || []);
         const head = `<div class=\"item-head\"><a href=\"${__escHtml(it.href)}\"><strong>${verLabel}</strong></a>${latestChip}</div>`;
-        return `<li>${head}<ul class=\"config-list\" style=\"margin:.25rem 0 0 .75rem\">${langsList}</ul></li>`;
+        return `<li>${head}<ul class=\"config-list\" style=\"margin:.6rem 0 0 .75rem\">${langsList}</ul></li>`;
       }).join('');
-      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.25rem;\">${versionsHtml}</ul>`;
+      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.5rem;\">${versionsHtml}</ul>`;
     }
 
     return `
       <li${sepStyle}>
-        <div style=\"display:flex; align-items:center; gap:.5rem;\">
-          <strong>${__escHtml(group.title)}</strong>
+        <div class=\"item-head topline\">
+          <span class=\"l1-title\">${__escHtml(group.title)}</span>
           <span class=\"mini-badge\">${group.versionCount} version${group.versionCount>1?'s':''}</span>
         </div>
         ${innerHtml}
@@ -451,7 +477,7 @@ async function renderSitemapPreview(urls = []){
          <span class="badge ok">Static Page</span>
          <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
          <span class="dim" style="margin-left:.5rem;">Languages:</span>
-         ${it.langs.map(l => `<span class="chip"><a href="${__escHtml(withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`))}" style="text-decoration:none;color:inherit;">${__escHtml(l)}</a></span>`).join('')}
+         ${it.langs.map(l => `<span class="chip"><a href="${__escHtml(withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`))}" style="text-decoration:none;color:inherit;">${__escHtml(labelLang(l))}</a></span>`).join('')}
        </div>
      </li>`
   )).join('');
@@ -544,13 +570,14 @@ async function renderSitemapPreview(urls = []){
         const info = loc ? await computeInfoFor(loc, { lang }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
         const el = document.getElementById(id);
         if (el) {
-          const a = href ? `<a href="${__escHtml(href)}">${__escHtml(lang)}</a>` : __escHtml(lang);
-          const t = info.title ? ` <span class="dim" style="margin-left:.35rem;">“${__escHtml(info.title)}”</span>` : '';
+          const langLink = href ? `<a href="${__escHtml(href)}">${__escHtml(labelLang(lang))}</a>` : __escHtml(labelLang(lang));
+          const titleHtml = info.title ? `<strong class="post-title">${__escHtml(info.title)}</strong>` : '';
+          const langChip = ` <span class="chip is-lang">${langLink}</span>`;
           const code = loc ? ` <code style="margin-left:.35rem">${__escHtml(loc)}</code>` : '';
-          const dateB = info.dateStr ? ` <span class="mini-badge">Date: ${__escHtml(info.dateStr)}</span>` : '';
-          const wordsB = ` <span class="mini-badge">Words: ${info.wordCount || 0}</span>`;
-          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class=\"chip\">${__escHtml(tg)}</span>`).join('')}` : '';
-          el.innerHTML = `<div class="lang-row">${a}${t}${code}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
+          const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
+          const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
+          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}` : '';
+          el.innerHTML = `<div class="lang-row">${titleHtml}${langChip}${code}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
         }
       } catch(_) {}
       finally { done++; updateProgress(); }
