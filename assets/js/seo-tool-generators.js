@@ -870,6 +870,7 @@ async function generateSitemap() {
     if (statusEl) statusEl.innerHTML = '';
     try { renderSitemapPreview(urls); } catch (_) {}
     t('ok', `Sitemap generated (${urls.length} URLs)`);
+    try { (window.__seoGenerated = window.__seoGenerated || {}).sitemap = true; } catch (_) {}
     outputEl && outputEl.select();
   } catch (error) {
     console.error('Error generating sitemap:', error);
@@ -891,6 +892,7 @@ async function generateRobots() {
     try { renderRobotsPreview(robotsContent); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Robots.txt generated');
+    try { (window.__seoGenerated = window.__seoGenerated || {}).robots = true; } catch (_) {}
   } catch (error) {
     console.error('Error generating robots.txt:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error generating robots.txt: ${error.message}</p>`;
@@ -911,6 +913,7 @@ async function generateMetaTags() {
     try { renderMetaPreview(metaContent, state.currentSiteConfig); } catch (_) {}
     outputEl && outputEl.select();
     t('ok', 'Meta tags generated');
+    try { (window.__seoGenerated = window.__seoGenerated || {}).meta = true; } catch (_) {}
   } catch (error) {
     console.error('Error generating meta tags:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error generating meta tags: ${error.message}</p>`;

@@ -122,10 +122,19 @@ export function switchTab(tabName) {
   } catch (_) {}
   // Re-apply view mode for this tab if supported (keeps indicator/content in sync)
   try { if (typeof applyView === 'function') applyView(tabName); else if (window.__applyView) window.__applyView(tabName); } catch (_) {}
+  // Only generate on first visit; subsequent visits won't auto-regenerate.
+  // Users can force refresh via the toolbar "icon-refresh" buttons.
   try {
-    if (tabName === 'sitemap' && window.generateSitemap) window.generateSitemap();
-    if (tabName === 'robots' && window.generateRobots) window.generateRobots();
-    if (tabName === 'meta' && window.generateMetaTags) window.generateMetaTags();
+    const gen = (window.__seoGenerated = window.__seoGenerated || {});
+    if (tabName === 'sitemap' && window.generateSitemap && !gen.sitemap) {
+      window.generateSitemap();
+    }
+    if (tabName === 'robots' && window.generateRobots && !gen.robots) {
+      window.generateRobots();
+    }
+    if (tabName === 'meta' && window.generateMetaTags && !gen.meta) {
+      window.generateMetaTags();
+    }
   } catch (_) {}
 }
 window.switchTab = switchTab;
