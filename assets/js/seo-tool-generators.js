@@ -51,6 +51,18 @@ function __toISODateYYYYMMDD(input) {
 
 function t(kind, msg){ try { window.showToast && window.showToast(kind, msg); } catch (_) {} }
 
+// Build a link with an explicit language code, regardless of current UI language
+function withGivenLang(urlStr, langCode) {
+  try {
+    const url = new URL(urlStr, window.location.href);
+    if (langCode) url.searchParams.set('lang', String(langCode));
+    return url.search ? `${url.pathname}${url.search}` : url.pathname;
+  } catch (_) {
+    const joiner = urlStr.includes('?') ? '&' : '?';
+    return `${urlStr}${joiner}lang=${encodeURIComponent(String(langCode||''))}`;
+  }
+}
+
 // Formatters
 function formatXML(xml) {
   try {
@@ -438,7 +450,7 @@ async function renderSitemapPreview(urls = []){
         const perLangLinks = rec.langs.map(l => {
           const loc = rec.perLang[l] || '';
           const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
-          return { lang: l, href: q ? withLangParam(q) : '' };
+          return { lang: l, href: q ? withGivenLang(q, l) : '' };
         }).filter(x => x.href);
         // Seed without details (title/date/tags/words) — will be filled lazily
         const perLangDetails = rec.langs.map(l => {
@@ -447,7 +459,7 @@ async function renderSitemapPreview(urls = []){
           const href = link ? link.href : '';
           return { lang: l, location: loc, href, title: '', dateStr: '', tags: [], wordCount: 0 };
         });
-        parent.children.push({ type: 'post', key: `${key}@${ver}`, version: ver, title: `${key} ${ver}`.trim(), langs: rec.langs, multi: rec.langs.length>1, href: primaryLoc ? withLangParam(`/index.html?id=${encodeURIComponent(primaryLoc)}`) : '#', location: primaryLoc, perLangLinks, perLang: rec.perLang, perLangDetails });
+        parent.children.push({ type: 'post', key: `${key}@${ver}`, version: ver, title: `${key} ${ver}`.trim(), langs: rec.langs, multi: rec.langs.length>1, href: primaryLoc ? withGivenLang(`/index.html?id=${encodeURIComponent(primaryLoc)}`, primaryLang) : '#', location: primaryLoc, perLangLinks, perLang: rec.perLang, perLangDetails });
       }
       parent.children.sort((a,b)=>{ const av=a.version||'v0', bv=b.version||'v0'; return semverCmpDesc(av,bv); });
       groups.push(parent);
@@ -458,13 +470,34 @@ async function renderSitemapPreview(urls = []){
   // Build tab entries
   const tabItems = (() => {
     const entries = [];
+    const pickFromArray = (arr) => {
+      try {
+        if (!Array.isArray(arr) || arr.length === 0) return { location: '', title: '' };
+        const last = arr[arr.length - 1];
+        if (typeof last === 'string') return { location: last, title: '' };
+        if (last && typeof last === 'object') return { location: last.location || '', title: last.title || '' };
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          if (typeof it === 'string') return { location: it, title: '' };
+          if (it && typeof it === 'object' && (it.location || it.title)) return { location: it.location || '', title: it.title || '' };
+        }
+      } catch (_) {}
+      return { location: '', title: '' };
+    };
     for (const [key, meta] of Object.entries(tabs)) {
       const langs = langsOf(meta);
       const primary = pick(meta);
       const slug = slugify(key);
       const title = primary.title || key;
-      const perLangLinks = langs.map(l => ({ lang: l, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`) }));
-      entries.push({ type: 'tab', key, title, langs, multi: langs.length > 1, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}`) });
+      const perLangDetails = langs.map(l => {
+        const v = meta && meta[l];
+        let loc = '';
+        if (typeof v === 'string') loc = v;
+        else if (Array.isArray(v)) loc = pickFromArray(v).location || '';
+        else if (v && typeof v === 'object' && v.location) loc = v.location;
+        return { lang: l, href: withGivenLang(`/index.html?tab=${encodeURIComponent(slug)}`, l), location: loc };
+      });
+      entries.push({ type: 'tab', key, title, langs, perLangDetails, multi: langs.length > 1, href: withLangParam(`/index.html?tab=${encodeURIComponent(slug)}`) });
     }
     return entries.sort((a,b)=> a.key.localeCompare(b.key));
   })();
@@ -483,12 +516,14 @@ async function renderSitemapPreview(urls = []){
       : '';
     // Helper to render a language list (used for single-version and per-version)
     const renderLangs = (groupKey, ver, perLangDetails = []) => perLangDetails.map(d => {
-      const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(labelLang(d.lang))}</a>` : __escHtml(labelLang(d.lang));
-      const code = d.location ? ` <code style=\"margin-left:.35rem\">${__escHtml(d.location)}</code>` : '';
+      const langCode = `<code>${__escHtml(labelLang(d.lang))}</code>`;
+      const sep = '<span class=\\"chip-sep\\">:</span>';
+      const pathCode = d.location ? `<code>${__escHtml(d.location)}</code>` : '';
+      const chip = `<span class=\"chip is-lang\">${langCode}${pathCode ? sep + pathCode : ''}</span>`;
       const id = makeId(groupKey, ver, d.lang);
       // Initially render with loading placeholder — content replaced as details load
       const placeholder = '<span class=\"dim\" style=\"margin-left:.35rem;\">Loading…</span>';
-      return `<li id=\"${id}\"><div class=\"lang-row\">${a}${code}${placeholder}</div></li>`;
+      return `<li id=\"${id}\"><div class=\"lang-row\">${chip}${placeholder}</div></li>`;
     }).join('');
 
     let innerHtml = '';
@@ -527,7 +562,11 @@ async function renderSitemapPreview(urls = []){
          <span class="badge ok">Static Page</span>
          <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
          <span class="dim" style="margin-left:.5rem;">Languages:</span>
-         ${it.langs.map(l => `<span class="chip"><a href="${__escHtml(withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`))}" style="text-decoration:none;color:inherit;">${__escHtml(labelLang(l))}</a></span>`).join('')}
+         ${
+           (it.perLangDetails || it.langs.map(l => ({ lang: l, href: withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`), location: '' })))
+             .map(d => `<span class="chip is-lang"><code>${__escHtml(labelLang(d.lang))}</code>${d.location?`<span class="chip-sep">:</span><code>${__escHtml(d.location)}</code>`:''}</span>`)
+             .join('')
+         }
        </div>
      </li>`
   )).join('');
@@ -622,14 +661,16 @@ async function renderSitemapPreview(urls = []){
         const info = loc ? await computeInfoFor(loc, { lang }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
         const el = document.getElementById(id);
         if (el) {
-          const langLink = href ? `<a href="${__escHtml(href)}">${__escHtml(labelLang(lang))}</a>` : __escHtml(labelLang(lang));
-          const titleHtml = info.title ? `<strong class="post-title">${__escHtml(info.title)}</strong>` : '';
-          const langChip = ` <span class="chip is-lang">${langLink}</span>`;
-          const code = loc ? ` <code style="margin-left:.35rem">${__escHtml(loc)}</code>` : '';
+          const langLabel = __escHtml(labelLang(lang));
+          const titleHtml = info.title
+            ? (href ? `<a href="${__escHtml(href)}"><strong class="post-title">${__escHtml(info.title)}</strong></a>`
+                     : `<strong class="post-title">${__escHtml(info.title)}</strong>`)
+            : '';
+          const langPathChip = ` <span class="chip is-lang"><code>${langLabel}</code>${loc?`<span class=\"chip-sep\">:</span><code>${__escHtml(loc)}</code>`:''}</span>`;
           const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
           const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
           const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}` : '';
-          el.innerHTML = `<div class="lang-row">${titleHtml}${langChip}${code}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
+          el.innerHTML = `<div class="lang-row">${titleHtml}${langPathChip}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
         }
       } catch(_) {}
       finally { done++; updateProgress(); }
