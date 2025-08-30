@@ -400,31 +400,43 @@ async function renderSitemapPreview(urls = []){
   })();
 
   const postsList = postItems.map(group => {
-    const children = group.children.map(it => {
-      const verBadge = (it.version && it.version !== 'v0') ? ` <span class=\"mini-badge\">${__escHtml(it.version)}</span>` : '';
-      // Build per-language list as third-level menu with per-file meta
-      const langsList = (it.perLangDetails || []).map(d => {
-        const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(d.lang)}</a>` : __escHtml(d.lang);
-        const t = d.title ? ` <span class=\"dim\" style=\"margin-left:.35rem;\">“${__escHtml(d.title)}”</span>` : '';
-        const code = d.location ? ` <code style=\"margin-left:.35rem\">${__escHtml(d.location)}</code>` : '';
-        const dateB = d.dateStr ? ` <span class=\"mini-badge\">Date: ${__escHtml(d.dateStr)}</span>` : '';
-        const wordsB = ` <span class=\"mini-badge\">Words: ${d.wordCount || 0}</span>`;
-        const tagsHtml = (Array.isArray(d.tags) && d.tags.length) ? ` <span class=\"dim\" style=\"margin-left:.5rem;\">Tags:</span> ${d.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : '';
-        return `<li><div class=\"lang-row\">${a}${t}${code}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
-      }).join('');
-      return `
-        <li>
-          <div class=\"item-head\"> <a href=\"${__escHtml(it.href)}\">${__escHtml(it.title)}</a>${verBadge}</div>
-          <ul class=\"config-list\" style=\"margin:.25rem 0 0 .75rem\">${langsList}</ul>
-        </li>`;
+    // Helper to render a language list (used for single-version and per-version)
+    const renderLangs = (perLangDetails = []) => perLangDetails.map(d => {
+      const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(d.lang)}</a>` : __escHtml(d.lang);
+      const t = d.title ? ` <span class=\"dim\" style=\"margin-left:.35rem;\">“${__escHtml(d.title)}”</span>` : '';
+      const code = d.location ? ` <code style=\"margin-left:.35rem\">${__escHtml(d.location)}</code>` : '';
+      const dateB = d.dateStr ? ` <span class=\"mini-badge\">Date: ${__escHtml(d.dateStr)}</span>` : '';
+      const wordsB = ` <span class=\"mini-badge\">Words: ${d.wordCount || 0}</span>`;
+      const tagsHtml = (Array.isArray(d.tags) && d.tags.length) ? ` <span class=\"dim\" style=\"margin-left:.5rem;\">Tags:</span> ${d.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : '';
+      return `<li><div class=\"lang-row\">${a}${t}${code}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
     }).join('');
+
+    let innerHtml = '';
+    if (group.versionCount <= 1) {
+      // Single version: collapse levels; render languages directly under group
+      const only = group.children[0] || { perLangDetails: [] };
+      const langsList = renderLangs(only.perLangDetails || []);
+      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.25rem;\">${langsList}</ul>`;
+    } else {
+      // Multi-version: second-level shows version number; mark latest on first
+      const versionsHtml = group.children.map((it, idx) => {
+        const isLatest = idx === 0; // sorted desc
+        const verLabel = (it.version && it.version !== 'v0') ? __escHtml(it.version) : 'version';
+        const latestChip = isLatest ? ' <span class=\"chip\">latest</span>' : '';
+        const langsList = renderLangs(it.perLangDetails || []);
+        const head = `<div class=\"item-head\"><a href=\"${__escHtml(it.href)}\"><strong>${verLabel}</strong></a>${latestChip}</div>`;
+        return `<li>${head}<ul class=\"config-list\" style=\"margin:.25rem 0 0 .75rem\">${langsList}</ul></li>`;
+      }).join('');
+      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.25rem;\">${versionsHtml}</ul>`;
+    }
+
     return `
       <li>
         <div style=\"display:flex; align-items:center; gap:.5rem;\">
           <strong>${__escHtml(group.title)}</strong>
           <span class=\"mini-badge\">${group.versionCount} version${group.versionCount>1?'s':''}</span>
         </div>
-        <ul class=\"config-list\" style=\"margin-top:.25rem;\">${children}</ul>
+        ${innerHtml}
       </li>`;
   }).join('');
 
