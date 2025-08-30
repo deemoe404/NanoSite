@@ -333,7 +333,8 @@ async function renderSitemapPreview(urls = []){
   }
 
   // Build grouped post entries (parent with per-version children)
-  const postItems = await (async () => {
+  // Lazily load per-language details to enable incremental rendering + progress
+  const postItems = (() => {
     const groups = [];
     const extractVersion = (p) => {
       try { const m = String(p||'').match(/\/(v\d+(?:\.\d+){1,3})\//i); return (m && m[1]) || 'v0'; } catch(_) { return 'v0'; }
@@ -358,26 +359,19 @@ async function renderSitemapPreview(urls = []){
         const rec = versionMap.get(ver);
         const primaryLang = langPref.find(l => rec.langs.includes(l)) || rec.langs[0] || 'en';
         const primaryLoc = rec.perLang[primaryLang];
-        let title = '';
-        try {
-          const det = await readPostDetails(primaryLoc);
-          title = det.title || '';
-        } catch(_) {}
         const perLangLinks = rec.langs.map(l => {
           const loc = rec.perLang[l] || '';
           const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
           return { lang: l, href: q ? withLangParam(q) : '' };
         }).filter(x => x.href);
-        // Build per-language metrics list
-        const perLangDetails = [];
-        for (const l of rec.langs) {
+        // Seed without details (title/date/tags/words) — will be filled lazily
+        const perLangDetails = rec.langs.map(l => {
           const loc = rec.perLang[l] || '';
           const link = perLangLinks.find(x => x.lang === l);
           const href = link ? link.href : '';
-          const info = loc ? await computeInfoFor(loc, { lang: l }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
-          perLangDetails.push({ lang: l, location: loc, href, title: info.title, dateStr: info.dateStr, tags: info.tags, wordCount: info.wordCount });
-        }
-        parent.children.push({ type: 'post', key: `${key}@${ver}`, version: ver, title: title || `${key} ${ver}`, langs: rec.langs, multi: rec.langs.length>1, href: primaryLoc ? withLangParam(`/index.html?id=${encodeURIComponent(primaryLoc)}`) : '#', location: primaryLoc, perLangLinks, perLang: rec.perLang, perLangDetails });
+          return { lang: l, location: loc, href, title: '', dateStr: '', tags: [], wordCount: 0 };
+        });
+        parent.children.push({ type: 'post', key: `${key}@${ver}`, version: ver, title: `${key} ${ver}`.trim(), langs: rec.langs, multi: rec.langs.length>1, href: primaryLoc ? withLangParam(`/index.html?id=${encodeURIComponent(primaryLoc)}`) : '#', location: primaryLoc, perLangLinks, perLang: rec.perLang, perLangDetails });
       }
       parent.children.sort((a,b)=>{ const av=a.version||'v0', bv=b.version||'v0'; return semverCmpDesc(av,bv); });
       groups.push(parent);
@@ -399,26 +393,33 @@ async function renderSitemapPreview(urls = []){
     return entries.sort((a,b)=> a.key.localeCompare(b.key));
   })();
 
+  // Helper to create a safe DOM id for later incremental updates
+  const makeId = (key, ver, lang) => {
+    const slug = slugify(String(key||''));
+    const v = String(ver||'v0').replace(/[^a-z0-9.-]/gi,'-');
+    const l = String(lang||'').replace(/[^a-z0-9.-]/gi,'-');
+    return `postd-${slug}-${v}-${l}`;
+  };
+
   const postsList = postItems.map((group, groupIdx) => {
     const sepStyle = groupIdx > 0
       ? ' style="border-top:1px solid #d0d7de; margin-top:.5rem; padding-top:.5rem;"'
       : '';
     // Helper to render a language list (used for single-version and per-version)
-    const renderLangs = (perLangDetails = []) => perLangDetails.map(d => {
+    const renderLangs = (groupKey, ver, perLangDetails = []) => perLangDetails.map(d => {
       const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(d.lang)}</a>` : __escHtml(d.lang);
-      const t = d.title ? ` <span class=\"dim\" style=\"margin-left:.35rem;\">“${__escHtml(d.title)}”</span>` : '';
       const code = d.location ? ` <code style=\"margin-left:.35rem\">${__escHtml(d.location)}</code>` : '';
-      const dateB = d.dateStr ? ` <span class=\"mini-badge\">Date: ${__escHtml(d.dateStr)}</span>` : '';
-      const wordsB = ` <span class=\"mini-badge\">Words: ${d.wordCount || 0}</span>`;
-      const tagsHtml = (Array.isArray(d.tags) && d.tags.length) ? ` <span class=\"dim\" style=\"margin-left:.5rem;\">Tags:</span> ${d.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : '';
-      return `<li><div class=\"lang-row\">${a}${t}${code}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
+      const id = makeId(groupKey, ver, d.lang);
+      // Initially render with loading placeholder — content replaced as details load
+      const placeholder = '<span class=\"dim\" style=\"margin-left:.35rem;\">Loading…</span>';
+      return `<li id=\"${id}\"><div class=\"lang-row\">${a}${code}${placeholder}</div></li>`;
     }).join('');
 
     let innerHtml = '';
     if (group.versionCount <= 1) {
       // Single version: collapse levels; render languages directly under group
       const only = group.children[0] || { perLangDetails: [] };
-      const langsList = renderLangs(only.perLangDetails || []);
+      const langsList = renderLangs(group.key, only.version || 'v0', only.perLangDetails || []);
       innerHtml = `<ul class=\"config-list\" style=\"margin-top:.25rem;\">${langsList}</ul>`;
     } else {
       // Multi-version: second-level shows version number; mark latest on first
@@ -426,7 +427,7 @@ async function renderSitemapPreview(urls = []){
         const isLatest = idx === 0; // sorted desc
         const verLabel = (it.version && it.version !== 'v0') ? __escHtml(it.version) : 'version';
         const latestChip = isLatest ? ' <span class=\"chip\">latest</span>' : '';
-        const langsList = renderLangs(it.perLangDetails || []);
+        const langsList = renderLangs(group.key, it.version, it.perLangDetails || []);
         const head = `<div class=\"item-head\"><a href=\"${__escHtml(it.href)}\"><strong>${verLabel}</strong></a>${latestChip}</div>`;
         return `<li>${head}<ul class=\"config-list\" style=\"margin:.25rem 0 0 .75rem\">${langsList}</ul></li>`;
       }).join('');
@@ -499,7 +500,65 @@ async function renderSitemapPreview(urls = []){
     '</div>',
     '<div class="config-body">', body, '</div>'
   ].join('');
-  setHTML('sitemapPreview', html);
+  // Inject progress badge into Posts title
+  const totalTasks = (() => {
+    try {
+      let n = 0;
+      postItems.forEach(g => g.children.forEach(ch => n += (ch.perLangDetails||[]).length));
+      return n;
+    } catch(_) { return 0; }
+  })();
+  const withProgress = html.replace(
+    '<div class="config-group-title">📝 Posts</div>',
+    `<div class="config-group-title">📝 Posts <span id=\"posts-progress\" class=\"mini-badge\">0% (0/${totalTasks})</span></div>`
+  );
+  setHTML('sitemapPreview', withProgress);
+
+  // Start lazy loading of per-language details and live update DOM + progress
+  try {
+    let done = 0;
+    const updateProgress = () => {
+      const el = document.getElementById('posts-progress');
+      if (el) {
+        const pct = totalTasks ? Math.round((done / totalTasks) * 100) : 0;
+        el.textContent = `${pct}% (${done}/${totalTasks})`;
+      }
+    };
+    updateProgress();
+    const tasks = [];
+    for (const g of postItems) {
+      for (const ch of g.children) {
+        for (const d of (ch.perLangDetails||[])) {
+          tasks.push({ id: makeId(g.key, ch.version, d.lang), lang: d.lang, href: d.href, loc: d.location });
+        }
+      }
+    }
+    // Process in small concurrent batches to keep UI responsive
+    const concurrency = 1;
+    let idx = 0;
+    const runOne = async () => {
+      const i = idx++;
+      if (i >= tasks.length) return;
+      const { id, lang, href, loc } = tasks[i];
+      try {
+        const info = loc ? await computeInfoFor(loc, { lang }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
+        const el = document.getElementById(id);
+        if (el) {
+          const a = href ? `<a href="${__escHtml(href)}">${__escHtml(lang)}</a>` : __escHtml(lang);
+          const t = info.title ? ` <span class="dim" style="margin-left:.35rem;">“${__escHtml(info.title)}”</span>` : '';
+          const code = loc ? ` <code style="margin-left:.35rem">${__escHtml(loc)}</code>` : '';
+          const dateB = info.dateStr ? ` <span class="mini-badge">Date: ${__escHtml(info.dateStr)}</span>` : '';
+          const wordsB = ` <span class="mini-badge">Words: ${info.wordCount || 0}</span>`;
+          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class=\"chip\">${__escHtml(tg)}</span>`).join('')}` : '';
+          el.innerHTML = `<div class="lang-row">${a}${t}${code}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
+        }
+      } catch(_) {}
+      finally { done++; updateProgress(); }
+      await runOne();
+    };
+    const runners = Array.from({ length: Math.min(concurrency, tasks.length) }, () => runOne());
+    await Promise.all(runners);
+  } catch(_) {}
 }
 
 function renderRobotsPreview(text = ''){
