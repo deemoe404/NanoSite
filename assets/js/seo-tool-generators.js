@@ -579,21 +579,36 @@ async function renderSitemapPreview(urls = []){
       </li>`;
   }).join('');
 
-  const tabsList = tabItems.map(it => (
-    `<li>
-       <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
-       <div class="config-value" style="margin-top:.25rem;">
-         <span class="badge ok">Static Page</span>
-         <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
-         <span class="dim" style="margin-left:.5rem;">Languages:</span>
-         ${
-           (it.perLangDetails || it.langs.map(l => ({ lang: l, href: withLangParam(`/index.html?tab=${encodeURIComponent(slugify(it.key))}&lang=${encodeURIComponent(l)}`), location: '' })))
-             .map(d => `<span class="chip is-lang"><code>${__escHtml(labelLang(d.lang))}</code>${d.location?`<span class="chip-sep">:</span><code>${__escHtml(d.location)}</code>`:''}</span>`)
-             .join('')
-         }
-       </div>
-     </li>`
-  )).join('');
+  // Tabs list rendered like Posts: per-language rows with title + meta
+  const tabsList = tabItems.map(it => {
+    const renderLangs = (tabKey, perLangDetails = []) => perLangDetails.map(d => {
+      const langCode = `<code>${__escHtml(labelLang(d.lang))}</code>`;
+      const sep = '<span class="chip-sep">:</span>';
+      const pathCode = d.location ? `<code>${__escHtml(d.location)}</code>` : '';
+      const chipInner = `${langCode}${pathCode ? sep + pathCode : ''}${d.href ? '<span class=\"go\" aria-hidden=\"true\">↗</span>' : ''}`;
+      const chip = d.href
+        ? `<span class="chip is-lang"><a href="${__escHtml(d.href)}" title="Open tab in ${__escHtml(labelLang(d.lang))}">${chipInner}</a></span>`
+        : `<span class="chip is-lang">${chipInner}</span>`;
+      const id = makeId(tabKey, 'tab', d.lang);
+      const info = d.location ? __getCachedInfo(d.location) : null;
+      if (info) {
+        const titleHtml = info.title ? `<a href="${__escHtml(d.href||'#')}"><strong class="post-title">${__escHtml(info.title)}</strong></a>` : '';
+        const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
+        const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
+        // Tabs may not have tags commonly; still show if present
+        const tagsHtml = (Array.isArray(info.tags) && info.tags.length)
+          ? ` <span class=\"dim tags-label\" style=\"margin-left:.5rem;\">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}`
+          : '';
+        return `<li id=\"${id}\"><div class=\"lang-row\">${titleHtml} ${chip}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
+      }
+      const placeholder = '<span class="dim" style="margin-left:.35rem;">Loading…</span>';
+      return `<li id=\"${id}\"><div class=\"lang-row\">${chip}${placeholder}</div></li>`;
+    }).join('');
+
+    const langsList = renderLangs(it.key, it.perLangDetails || []);
+    const head = `<div class="item-head topline"><span class="l1-title">${__escHtml(it.title)}</span></div>`;
+    return `<li>${head}<ul class="config-list" style="margin:.6rem 0 0 .75rem">${langsList}</ul></li>`;
+  }).join('');
 
   const body = [
     '<div class="config-group">',
@@ -651,7 +666,19 @@ async function renderSitemapPreview(urls = []){
     '<div class="config-group-title">📝 Posts</div>',
     `<div class="config-group-title">📝 Posts <span id=\"posts-progress\" class=\"mini-badge\">0% (0/${totalTasks})</span></div>`
   );
-  setHTML('sitemapPreview', withProgress);
+  // Inject progress badge into Tabs title
+  const totalTabTasks = (() => {
+    try {
+      let n = 0;
+      tabItems.forEach(it => n += (it.perLangDetails||[]).length);
+      return n;
+    } catch(_) { return 0; }
+  })();
+  const withBothProgress = withProgress.replace(
+    '<div class="config-group-title">📁 Tabs</div>',
+    `<div class=\"config-group-title\">📁 Tabs <span id=\"tabs-progress\" class=\"mini-badge\">0% (0/${totalTabTasks})</span></div>`
+  );
+  setHTML('sitemapPreview', withBothProgress);
   // Keep view mode consistent if a toggle exists for this section
   try { if (window.__applyView) window.__applyView('sitemap'); } catch (_) {}
 
@@ -706,6 +733,59 @@ async function renderSitemapPreview(urls = []){
         }
       } catch(_) {}
       finally { done++; updateProgress(); }
+      await runOne();
+    };
+    const runners = Array.from({ length: Math.min(concurrency, tasks.length) }, () => runOne());
+    await Promise.all(runners);
+  } catch(_) {}
+
+  // Lazy load tab language details similarly and update progress
+  try {
+    let doneTabs = 0;
+    const updateTabsProgress = () => {
+      const el = document.getElementById('tabs-progress');
+      if (el) {
+        const pct = totalTabTasks ? Math.round((doneTabs / totalTabTasks) * 100) : 0;
+        el.textContent = `${pct}% (${doneTabs}/${totalTabTasks})`;
+      }
+    };
+    updateTabsProgress();
+    const tasks = [];
+    for (const it of tabItems) {
+      for (const d of (it.perLangDetails||[])) {
+        const id = makeId(it.key, 'tab', d.lang);
+        const cached = d.location ? __getCachedInfo(d.location) : null;
+        if (cached) {
+          doneTabs++;
+        } else {
+          tasks.push({ id, lang: d.lang, href: d.href, loc: d.location });
+        }
+      }
+    }
+    updateTabsProgress();
+    const concurrency = 1;
+    let idx = 0;
+    const runOne = async () => {
+      const i = idx++;
+      if (i >= tasks.length) return;
+      const { id, lang, href, loc } = tasks[i];
+      try {
+        const info = loc ? await computeInfoFor(loc, { lang }) : { title: '', dateStr: '', tags: [], wordCount: 0 };
+        const el = document.getElementById(id);
+        if (el) {
+          const langLabel = __escHtml(labelLang(lang));
+          const titleHtml = info.title
+            ? (href ? `<a href="${__escHtml(href)}"><strong class="post-title">${__escHtml(info.title)}</strong></a>`
+                     : `<strong class="post-title">${__escHtml(info.title)}</strong>`)
+            : '';
+          const langPathChip = ` <span class=\"chip is-lang\"><code>${langLabel}</code>${loc?`<span class=\"chip-sep\">:</span><code>${__escHtml(loc)}</code>`:''}</span>`;
+          const dateB = info.dateStr ? ` <span class=\"mini-badge is-date\">Date: ${__escHtml(info.dateStr)}</span>` : '';
+          const wordsB = ` <span class=\"mini-badge is-words\">Words: ${info.wordCount || 0}</span>`;
+          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class=\"dim tags-label\" style=\"margin-left:.5rem;\">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}` : '';
+          el.innerHTML = `<div class=\"lang-row\">${titleHtml}${langPathChip}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div>`;
+        }
+      } catch(_) {}
+      finally { doneTabs++; updateTabsProgress(); }
       await runOne();
     };
     const runners = Array.from({ length: Math.min(concurrency, tasks.length) }, () => runOne());

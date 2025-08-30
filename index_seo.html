@@ -302,6 +302,7 @@
         .config-preview .chip a { color: inherit; text-decoration: none; }
         .config-preview .chip:hover { background: var(--chip-bg-hover); }
         .config-preview .chip a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 999px; }
+        .config-preview .chip.is-lang a { display:inline-flex; align-items:center; gap:.25rem; }
         .config-preview .chip.is-lang a:focus-visible { border-radius: 6px; }
         /* Contextual: the "latest" status chip in post version headers */
         .config-preview .item-head .chip { background: var(--chip-ac-2); color: #1f883d; border-color: #1f883d; }
@@ -316,7 +317,8 @@
         .config-preview .config-value .dim + .chip a { display: inline-flex; align-items: center; }
         /* Better alignment for version heads + language rows */
         .config-preview .config-list .item-head { display:flex; align-items:center; gap:.5rem; }
-        .config-preview .lang-row { display:flex; align-items: baseline; gap:.35rem; }
+        /* Align title + language chip vertically for better balance */
+        .config-preview .lang-row { display:flex; align-items: center; gap:.35rem; }
         /* Inline code inside preview (locations, URLs) */
         .config-preview code { background: #f6f8fa; border: 1px solid #e6e8eb; border-radius: 6px; padding: .05rem .35rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: .78em; }
         /* De-emphasize date and tags in Posts */
@@ -326,7 +328,24 @@
         .config-preview .chip.is-tag { color: #6b7280; }
         /* Emphasize post title and place language as a chip */
         .config-preview .post-title { color: #111827; font-weight: 700; }
-        .config-preview .chip.is-lang { background: transparent; border: 0; padding: 0; border-radius: 0; font-weight: 500; }
+        /* Language chip: compact, clickable, with hover arrow */
+        .config-preview .chip.is-lang { 
+          background: var(--chip-bg);
+          color: var(--chip-text);
+          border: 1px solid var(--chip-border);
+          padding: 0 .5rem;
+          border-radius: 999px;
+          font-weight: 600;
+          font-size: .78rem;
+          height: 1.45rem;
+        }
+        .config-preview .chip.is-lang:hover { background: var(--chip-bg-hover); }
+        .config-preview .chip.is-lang a { display:inline-flex; align-items:center; gap:.25rem; color: inherit; text-decoration: none; }
+        /* Keep language code text not overly shrunken inside chip */
+        .config-preview .chip.is-lang code { font-size: 1em; background: transparent; border: 0; padding: 0; }
+        /* Subtle arrow, stronger on hover/focus */
+        .config-preview .chip.is-lang .go { opacity: .55; transition: opacity .12s ease; line-height: 1; transform: translateY(-0.5px); }
+        .config-preview .chip.is-lang:hover .go, .config-preview .chip.is-lang a:focus-visible .go { opacity: 1; }
         .config-preview .chip-sep { display:inline-block; margin: 0 .25rem; color: #6b7280; }
         /* Avatar preview */
         .config-preview .config-avatar { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; vertical-align: middle; margin-right: .5rem; border: 1px solid #e6e8eb; background: #f6f8fa; }
