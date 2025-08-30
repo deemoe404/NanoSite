@@ -399,7 +399,10 @@ async function renderSitemapPreview(urls = []){
     return entries.sort((a,b)=> a.key.localeCompare(b.key));
   })();
 
-  const postsList = postItems.map(group => {
+  const postsList = postItems.map((group, groupIdx) => {
+    const sepStyle = groupIdx > 0
+      ? ' style="border-top:1px solid #d0d7de; margin-top:.5rem; padding-top:.5rem;"'
+      : '';
     // Helper to render a language list (used for single-version and per-version)
     const renderLangs = (perLangDetails = []) => perLangDetails.map(d => {
       const a = d.href ? `<a href=\"${__escHtml(d.href)}\">${__escHtml(d.lang)}</a>` : __escHtml(d.lang);
@@ -431,7 +434,7 @@ async function renderSitemapPreview(urls = []){
     }
 
     return `
-      <li>
+      <li${sepStyle}>
         <div style=\"display:flex; align-items:center; gap:.5rem;\">
           <strong>${__escHtml(group.title)}</strong>
           <span class=\"mini-badge\">${group.versionCount} version${group.versionCount>1?'s':''}</span>
