@@ -531,21 +531,23 @@ async function renderSitemapPreview(urls = []){
     // Helper to render a language list (used for single-version and per-version)
     const renderLangs = (groupKey, ver, perLangDetails = []) => perLangDetails.map(d => {
       const langCode = `<code>${__escHtml(labelLang(d.lang))}</code>`;
-      const sep = '<span class=\\"chip-sep\\">:</span>';
+      const sep = '<span class="chip-sep">:</span>';
       const pathCode = d.location ? `<code>${__escHtml(d.location)}</code>` : '';
-      const chip = `<span class=\"chip is-lang\">${langCode}${pathCode ? sep + pathCode : ''}</span>`;
+      const chip = `<span class="chip is-lang">${langCode}${pathCode ? sep + pathCode : ''}</span>`;
       const id = makeId(groupKey, ver, d.lang);
       const info = d.location ? __getCachedInfo(d.location) : null;
       if (info) {
-        const titleHtml = info.title ? `<a href=\"${__escHtml(d.href||'#')}\"><strong class=\"post-title\">${__escHtml(info.title)}</strong></a>` : '';
-        const dateB = info.dateStr ? ` <span class=\"mini-badge is-date\">Date: ${__escHtml(info.dateStr)}</span>` : '';
-        const wordsB = ` <span class=\"mini-badge is-words\">Words: ${info.wordCount || 0}</span>`;
-        const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class=\"dim tags-label\" style=\"margin-left:.5rem;\">Tags:</span> ${info.tags.map(tg => `<span class=\\\"chip is-tag\\\">${__escHtml(tg)}</span>`).join('')}` : '';
-        return `<li id=\"${id}\"><div class=\"lang-row\">${titleHtml} ${chip}</div><div class=\"config-value\" style=\"margin-top:.25rem;\">${dateB}${wordsB}${tagsHtml}</div></li>`;
+        const titleHtml = info.title ? `<a href="${__escHtml(d.href||'#')}"><strong class="post-title">${__escHtml(info.title)}</strong></a>` : '';
+        const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
+        const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
+        const tagsHtml = (Array.isArray(info.tags) && info.tags.length)
+          ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class="chip is-tag">${__escHtml(tg)}</span>`).join('')}`
+          : '';
+        return `<li id="${id}"><div class="lang-row">${titleHtml} ${chip}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div></li>`;
       }
       // No cache yet, render loading placeholder — details fill later lazily
-      const placeholder = '<span class=\"dim\" style=\"margin-left:.35rem;\">Loading…</span>';
-      return `<li id=\"${id}\"><div class=\"lang-row\">${chip}${placeholder}</div></li>`;
+      const placeholder = '<span class="dim" style="margin-left:.35rem;">Loading…</span>';
+      return `<li id="${id}"><div class="lang-row">${chip}${placeholder}</div></li>`;
     }).join('');
 
     let innerHtml = '';
@@ -553,25 +555,25 @@ async function renderSitemapPreview(urls = []){
       // Single version: collapse levels; render languages directly under group
       const only = group.children[0] || { perLangDetails: [] };
       const langsList = renderLangs(group.key, only.version || 'v0', only.perLangDetails || []);
-      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.6rem;\">${langsList}</ul>`;
+      innerHtml = `<ul class="config-list" style="margin-top:.6rem;">${langsList}</ul>`;
     } else {
       // Multi-version: second-level shows version number; mark latest on first
       const versionsHtml = group.children.map((it, idx) => {
         const isLatest = idx === 0; // sorted desc
         const verLabel = (it.version && it.version !== 'v0') ? __escHtml(it.version) : 'version';
-        const latestChip = isLatest ? ' <span class=\"chip\">latest</span>' : '';
+        const latestChip = isLatest ? ' <span class="chip">latest</span>' : '';
         const langsList = renderLangs(group.key, it.version, it.perLangDetails || []);
-        const head = `<div class=\"item-head\"><a href=\"${__escHtml(it.href)}\"><strong>${verLabel}</strong></a>${latestChip}</div>`;
-        return `<li>${head}<ul class=\"config-list\" style=\"margin:.6rem 0 0 .75rem\">${langsList}</ul></li>`;
+        const head = `<div class="item-head"><a href="${__escHtml(it.href)}"><strong>${verLabel}</strong></a>${latestChip}</div>`;
+        return `<li>${head}<ul class="config-list" style="margin:.6rem 0 0 .75rem">${langsList}</ul></li>`;
       }).join('');
-      innerHtml = `<ul class=\"config-list\" style=\"margin-top:.5rem;\">${versionsHtml}</ul>`;
+      innerHtml = `<ul class="config-list" style="margin-top:.5rem;">${versionsHtml}</ul>`;
     }
 
     return `
       <li${sepStyle}>
-        <div class=\"item-head topline\">
-          <span class=\"l1-title\">${__escHtml(group.title)}</span>
-          <span class=\"mini-badge\">${group.versionCount} version${group.versionCount>1?'s':''}</span>
+        <div class="item-head topline">
+          <span class="l1-title">${__escHtml(group.title)}</span>
+          <span class="mini-badge">${group.versionCount} version${group.versionCount>1?'s':''}</span>
         </div>
         ${innerHtml}
       </li>`;
@@ -696,10 +698,10 @@ async function renderSitemapPreview(urls = []){
             ? (href ? `<a href="${__escHtml(href)}"><strong class="post-title">${__escHtml(info.title)}</strong></a>`
                      : `<strong class="post-title">${__escHtml(info.title)}</strong>`)
             : '';
-          const langPathChip = ` <span class="chip is-lang"><code>${langLabel}</code>${loc?`<span class=\"chip-sep\">:</span><code>${__escHtml(loc)}</code>`:''}</span>`;
+          const langPathChip = ` <span class="chip is-lang"><code>${langLabel}</code>${loc?`<span class="chip-sep">:</span><code>${__escHtml(loc)}</code>`:''}</span>`;
           const dateB = info.dateStr ? ` <span class="mini-badge is-date">Date: ${__escHtml(info.dateStr)}</span>` : '';
           const wordsB = ` <span class="mini-badge is-words">Words: ${info.wordCount || 0}</span>`;
-          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class=\"chip is-tag\">${__escHtml(tg)}</span>`).join('')}` : '';
+          const tagsHtml = (Array.isArray(info.tags) && info.tags.length) ? ` <span class="dim tags-label" style="margin-left:.5rem;">Tags:</span> ${info.tags.map(tg => `<span class="chip is-tag">${__escHtml(tg)}</span>`).join('')}` : '';
           el.innerHTML = `<div class="lang-row">${titleHtml}${langPathChip}</div><div class="config-value" style="margin-top:.25rem;">${dateB}${wordsB}${tagsHtml}</div>`;
         }
       } catch(_) {}
@@ -833,6 +835,7 @@ async function generateSitemap() {
   const outputEl = document.getElementById('sitemapOutput');
   try {
     if (statusEl) statusEl.innerHTML = '<p>Loading data...</p>';
+    // Load base config and indices needed to compute URL list
     state.currentSiteConfig = await loadSiteConfigFlex();
     const cr = getContentRootFrom(state.currentSiteConfig);
     const [postsObj, tabsObj] = await Promise.all([
@@ -841,57 +844,28 @@ async function generateSitemap() {
     ]);
     state.currentPostsData = postsObj || {};
     state.currentTabsData = tabsObj || {};
-    state.currentSiteConfig = await loadSiteConfigFlex();
+    // Compute initial URLs immediately and render preview to avoid blocking UI
     let urls = generateSitemapData(state.currentPostsData, state.currentTabsData, state.currentSiteConfig);
-    // Enrich lastmod from post front matter dates where available
-    try {
-      const enriched = await Promise.all(urls.map(async (u) => {
-        try {
-          const urlObj = new URL(u.loc, window.location.origin);
-          const id = urlObj.searchParams.get('id');
-          const tab = urlObj.searchParams.get('tab');
-          const lang = urlObj.searchParams.get('lang');
-          if (id) {
-            const md = await __fetchMdWithFallback(id);
-            if (md) {
-              let dateStr = null;
-              try {
-                const { frontMatter } = parseFrontMatter(md);
-                if (frontMatter && frontMatter.date) {
-                  dateStr = __toISODateYYYYMMDD(frontMatter.date);
-                }
-              } catch (_) {}
-              try {
-                if (!dateStr) {
-                  const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
-                  const siteCfg = { ...siteCfgBase };
-                  if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
-                  const seo = extractSEOFromMarkdown(md, { location: id }, siteCfg) || {};
-                  if (seo.publishedTime) {
-                    dateStr = __toISODateYYYYMMDD(seo.publishedTime);
-                  }
-                }
-              } catch (_) {}
-              if (dateStr) u.lastmod = dateStr;
-            }
-          } else if (tab) {
-            // Try to resolve tab markdown by slug and language
-            const tabsObj = (window.__seoToolState && window.__seoToolState.currentTabsData) || {};
-            // Build reverse lookup: slug -> entry value
-            const toSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-            let matchedMeta = null;
-            for (const [k, v] of Object.entries(tabsObj)) {
-              if (toSlug(k) === tab) { matchedMeta = v; break; }
-            }
-            let loc = null;
-            if (matchedMeta && typeof matchedMeta === 'object') {
-              const lcode = (lang || '').toLowerCase();
-              const mv = matchedMeta[lcode];
-              if (typeof mv === 'string') loc = mv;
-              else if (mv && typeof mv === 'object' && mv.location) loc = mv.location;
-            }
-            if (loc) {
-              const md = await __fetchMdWithFallback(loc);
+    const initialXml = generateSitemapXML(urls);
+    if (outputEl) outputEl.value = initialXml;
+    try { setEditorValue('sitemapOutput', initialXml); } catch (_) {}
+    if (statusEl) statusEl.innerHTML = '';
+    try { renderSitemapPreview(urls); } catch (_) {}
+    t('ok', `Sitemap generated (${urls.length} URLs)`);
+    try { (window.__seoGenerated = window.__seoGenerated || {}).sitemap = true; } catch (_) {}
+    outputEl && outputEl.select();
+
+    // Enrich lastmod from post front matter dates where available, in background
+    (async () => {
+      try {
+        const enriched = await Promise.all(urls.map(async (u) => {
+          try {
+            const urlObj = new URL(u.loc, window.location.origin);
+            const id = urlObj.searchParams.get('id');
+            const tab = urlObj.searchParams.get('tab');
+            const lang = urlObj.searchParams.get('lang');
+            if (id) {
+              const md = await __fetchMdWithFallback(id);
               if (md) {
                 let dateStr = null;
                 try {
@@ -905,7 +879,7 @@ async function generateSitemap() {
                     const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
                     const siteCfg = { ...siteCfgBase };
                     if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
-                    const seo = extractSEOFromMarkdown(md, { location: loc }, siteCfg) || {};
+                    const seo = extractSEOFromMarkdown(md, { location: id }, siteCfg) || {};
                     if (seo.publishedTime) {
                       dateStr = __toISODateYYYYMMDD(seo.publishedTime);
                     }
@@ -913,36 +887,74 @@ async function generateSitemap() {
                 } catch (_) {}
                 if (dateStr) u.lastmod = dateStr;
               }
+            } else if (tab) {
+              // Try to resolve tab markdown by slug and language
+              const tabsObj = (window.__seoToolState && window.__seoToolState.currentTabsData) || {};
+              // Build reverse lookup: slug -> entry value
+              const toSlug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              let matchedMeta = null;
+              for (const [k, v] of Object.entries(tabsObj)) {
+                if (toSlug(k) === tab) { matchedMeta = v; break; }
+              }
+              let loc = null;
+              if (matchedMeta && typeof matchedMeta === 'object') {
+                const lcode = (lang || '').toLowerCase();
+                const mv = matchedMeta[lcode];
+                if (typeof mv === 'string') loc = mv;
+                else if (mv && typeof mv === 'object' && mv.location) loc = mv.location;
+              }
+              if (loc) {
+                const md = await __fetchMdWithFallback(loc);
+                if (md) {
+                  let dateStr = null;
+                  try {
+                    const { frontMatter } = parseFrontMatter(md);
+                    if (frontMatter && frontMatter.date) {
+                      dateStr = __toISODateYYYYMMDD(frontMatter.date);
+                    }
+                  } catch (_) {}
+                  try {
+                    if (!dateStr) {
+                      const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+                      const siteCfg = { ...siteCfgBase };
+                      if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+                      const seo = extractSEOFromMarkdown(md, { location: loc }, siteCfg) || {};
+                      if (seo.publishedTime) {
+                        dateStr = __toISODateYYYYMMDD(seo.publishedTime);
+                      }
+                    }
+                  } catch (_) {}
+                  if (dateStr) u.lastmod = dateStr;
+                }
+              }
             }
-          }
-        } catch (_) {}
-        return u;
-      }));
-      urls = enriched;
-      // Set homepage lastmod to latest post date if available
-      const latest = urls
-        .map(x => x && x.lastmod)
-        .filter(Boolean)
-        .sort()
-        .slice(-1)[0];
-      if (latest) {
-        urls.forEach(x => {
-          try {
-            const uo = new URL(x.loc, window.location.origin);
-            const isHome = (uo.pathname === '/' && (!uo.search || uo.search === '' || /^\?lang=/.test(uo.search)));
-            if (isHome) x.lastmod = latest;
           } catch (_) {}
-        });
-      }
-    } catch (_) { /* keep defaults on failure */ }
-    const xml = generateSitemapXML(urls);
-    if (outputEl) outputEl.value = xml;
-    try { setEditorValue('sitemapOutput', xml); } catch (_) {}
-    if (statusEl) statusEl.innerHTML = '';
-    try { renderSitemapPreview(urls); } catch (_) {}
-    t('ok', `Sitemap generated (${urls.length} URLs)`);
-    try { (window.__seoGenerated = window.__seoGenerated || {}).sitemap = true; } catch (_) {}
-    outputEl && outputEl.select();
+          return u;
+        }));
+        urls = enriched;
+        // Set homepage lastmod to latest post date if available
+        const latest = urls
+          .map(x => x && x.lastmod)
+          .filter(Boolean)
+          .sort()
+          .slice(-1)[0];
+        if (latest) {
+          urls.forEach(x => {
+            try {
+              const uo = new URL(x.loc, window.location.origin);
+              const isHome = (uo.pathname === '/' && (!uo.search || uo.search === '' || /^\?lang=/.test(uo.search)));
+              if (isHome) x.lastmod = latest;
+            } catch (_) {}
+          });
+        }
+      } catch (_) { /* keep defaults on failure */ }
+      // Update XML output with enriched lastmod values
+      try {
+        const xml = generateSitemapXML(urls);
+        if (outputEl) outputEl.value = xml;
+        try { setEditorValue('sitemapOutput', xml); } catch (_) {}
+      } catch (_) {}
+    })();
   } catch (error) {
     console.error('Error generating sitemap:', error);
     if (statusEl) statusEl.innerHTML = `<p class="error">✗ Error generating sitemap: ${error.message}</p>`;
