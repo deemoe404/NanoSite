@@ -589,22 +589,43 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   // Helper function to get location from language-specific data with proper fallback
   const getLocationFromLangData = (data) => {
     if (!data || typeof data !== 'object') return null;
-    
+
+    // Helper: pick preferred entry from an array (assume last is latest)
+    const pickFromArray = (arr) => {
+      try {
+        if (!Array.isArray(arr) || arr.length === 0) return null;
+        const last = arr[arr.length - 1];
+        if (typeof last === 'string') return last;
+        if (last && typeof last === 'object' && last.location) return last.location;
+        // Fallback: scan from end for first usable
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          if (typeof it === 'string') return it;
+          if (it && typeof it === 'object' && it.location) return it.location;
+        }
+      } catch (_) {}
+      return null;
+    };
+
     // Try current language, then DEFAULT_LANG, then 'en', then 'default'
     const currentLang = getCurrentLang();
     const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'default'];
-    
+
     for (const lang of tryLangs) {
       const langData = data[lang];
-      if (langData) {
+      if (langData != null) {
         if (typeof langData === 'string') return langData;
+        if (Array.isArray(langData)) {
+          const picked = pickFromArray(langData);
+          if (picked) return picked;
+        }
         if (typeof langData === 'object' && langData.location) return langData.location;
       }
     }
-    
+
     // Fallback to legacy flat shape if not unified
     if (data.location) return data.location;
-    
+
     return null;
   };
   
@@ -616,18 +637,35 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
     priority: '1.0'
   });
   
-  // Add posts
+  // Add posts (expand each version once per post key)
   // postsData is an object where keys are post titles and values are post metadata
   Object.entries(postsData).forEach(([title, postMeta]) => {
-    const location = getLocationFromLangData(postMeta);
-    if (location) {
-      urls.push({
-        loc: `${baseUrl}?id=${encodeURIComponent(location)}`,
-        lastmod: postMeta.date || new Date().toISOString().split('T')[0],
-        changefreq: 'monthly',
-        priority: '0.8'
+    // Collect all versioned locations from all languages
+    const extractVersion = (p) => { try { const m = String(p||'').match(/\/(v\d+(?:\.\d+){1,3})\//i); return (m && m[1]) || 'v0'; } catch(_) { return 'v0'; } };
+    const versionToLangLoc = new Map(); // ver -> { lang: loc }
+    const add = (lang, loc) => { if (!loc) return; const ver = extractVersion(loc); if (!versionToLangLoc.has(ver)) versionToLangLoc.set(ver, {}); versionToLangLoc.get(ver)[lang] = loc; };
+    if (postMeta && typeof postMeta === 'object') {
+      Object.entries(postMeta).forEach(([lang, val]) => {
+        if (typeof val === 'string') add(lang, val);
+        else if (Array.isArray(val)) val.forEach(it => { if (typeof it === 'string') add(lang, it); else if (it && it.location) add(lang, it.location); });
+        else if (val && typeof val === 'object' && val.location) add(lang, val.location);
       });
     }
+    const currentLang = getCurrentLang();
+    const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'zh', 'ja', 'default'];
+    versionToLangLoc.forEach((langLocMap) => {
+      let chosenLoc = null;
+      for (const l of tryLangs) { if (langLocMap[l]) { chosenLoc = langLocMap[l]; break; } }
+      if (!chosenLoc) { const any = Object.values(langLocMap)[0]; if (any) chosenLoc = any; }
+      if (chosenLoc) {
+        urls.push({
+          loc: `${baseUrl}?id=${encodeURIComponent(chosenLoc)}`,
+          lastmod: postMeta.date || new Date().toISOString().split('T')[0],
+          changefreq: 'monthly',
+          priority: '0.8'
+        });
+      }
+    });
   });
   
   // Add tabs

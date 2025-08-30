@@ -257,14 +257,30 @@ async function renderSitemapPreview(urls = []){
     const langs = [];
     for (const [k, v] of Object.entries(meta || {})) {
       if (typeof v === 'string') langs.push(k);
+      else if (Array.isArray(v) && v.length > 0) langs.push(k);
       else if (v && typeof v === 'object' && (v.location || v.title)) langs.push(k);
     }
     return langs;
   }
   function pick(meta) {
+    const pickFromArray = (arr) => {
+      try {
+        if (!Array.isArray(arr) || arr.length === 0) return { location: '', title: '' };
+        const last = arr[arr.length - 1];
+        if (typeof last === 'string') return { location: last, title: '' };
+        if (last && typeof last === 'object') return { location: last.location || '', title: last.title || '' };
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const it = arr[i];
+          if (typeof it === 'string') return { location: it, title: '' };
+          if (it && typeof it === 'object' && (it.location || it.title)) return { location: it.location || '', title: it.title || '' };
+        }
+      } catch (_) {}
+      return { location: '', title: '' };
+    };
     for (const l of langPref) {
       const v = meta && meta[l];
       if (typeof v === 'string') return { lang: l, location: v, title: '' };
+      if (Array.isArray(v)) { const picked = pickFromArray(v); return { lang: l, location: picked.location, title: picked.title || '' }; }
       if (v && typeof v === 'object' && v.location) return { lang: l, location: v.location, title: v.title || '' };
     }
     // legacy flat
@@ -272,84 +288,76 @@ async function renderSitemapPreview(urls = []){
     return { lang: langPref[0], location: '', title: '' };
   }
 
-  // Build post entries with titles
+  // Build grouped post entries (parent with per-version children)
   const postItems = await (async () => {
-    const entries = [];
+    const groups = [];
+    const extractVersion = (p) => {
+      try { const m = String(p||'').match(/\/(v\d+(?:\.\d+){1,3})\//i); return (m && m[1]) || 'v0'; } catch(_) { return 'v0'; }
+    };
+    const semverCmpDesc = (a,b)=>{ const A=String(a).replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0); const B=String(b).replace(/^v/i,'').split('.').map(n=>parseInt(n,10)||0); for(let i=0;i<Math.max(A.length,B.length);i++){const da=A[i]||0,db=B[i]||0;if(da!==db)return db-da;} return 0; };
     for (const [key, meta] of Object.entries(posts)) {
-      const langs = langsOf(meta);
-      const primary = pick(meta);
-      let title = primary.title;
-      let mdCache = '';
-      if (!title && primary.location) { const det = await readPostDetails(primary.location); title = det.title; mdCache = det.md; }
-      // Pull SEO bits (date/tags) and compute word/char count
-      let dateStr = '';
-      let tags = [];
-      let wordCount = 0;
-      try {
-        const md = mdCache || (primary.location ? (await fetchMdWithFallback(primary.location)) : '');
-        if (md) {
-          // Front-matter snapshot
-          let fm = {};
-          try { fm = parseFrontMatter(md).frontMatter || {}; console.debug('[SEO-Preview] FM', primary.location, fm); } catch(_) {}
-          // 1) Try SEO extraction with a safe site avatar to avoid fallback image path
-          try {
-            const chosenMeta = (() => {
-              try {
-                const m = meta || {};
-                const perLang = m && m[primary.lang];
-                if (perLang && typeof perLang === 'object') return { ...perLang, location: primary.location };
-                if (m && typeof m === 'object') return { ...m, location: primary.location };
-              } catch(_) {}
-              return { location: primary.location };
-            })();
-            const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
-            const siteCfg = { ...siteCfgBase };
-            if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
-            const seo = extractSEOFromMarkdown(md, chosenMeta, siteCfg) || {};
-            if (seo.publishedTime) { try { dateStr = String(seo.publishedTime).slice(0,10); } catch(_) {} }
-            if (Array.isArray(seo.tags)) tags = seo.tags;
-          } catch (e) {
-            console.warn('[SEO-Preview] SEO extract failed', primary.location, e);
+      const versionMap = new Map();
+      const add = (lang, loc) => {
+        if (!loc) return; const ver = extractVersion(loc);
+        if (!versionMap.has(ver)) versionMap.set(ver, { perLang: {}, langs: [] });
+        const rec = versionMap.get(ver); rec.perLang[lang] = loc; if (!rec.langs.includes(lang)) rec.langs.push(lang);
+      };
+      for (const [lang, v] of Object.entries(meta || {})) {
+        if (typeof v === 'string') add(lang, v);
+        else if (Array.isArray(v)) v.forEach(it => { if (typeof it === 'string') add(lang, it); else if (it && it.location) add(lang, it.location); });
+        else if (v && typeof v === 'object' && v.location) add(lang, v.location);
+      }
+      const versions = Array.from(versionMap.keys()).sort(semverCmpDesc);
+      const allLangs = Array.from(new Set([].concat(...Array.from(versionMap.values()).map(x => x.langs))));
+      const parent = { type: 'group', key, title: key, versionCount: versions.length, langs: allLangs, children: [] };
+      for (const ver of versions) {
+        const rec = versionMap.get(ver);
+        const primaryLang = langPref.find(l => rec.langs.includes(l)) || rec.langs[0] || 'en';
+        const primaryLoc = rec.perLang[primaryLang];
+        let title = '';
+        let dateStr = '';
+        let tags = [];
+        let wordCount = 0;
+        try {
+          const det = await readPostDetails(primaryLoc);
+          title = det.title || '';
+          const md = det.md || '';
+          if (md) {
+            let fm = {};
+            try { fm = parseFrontMatter(md).frontMatter || {}; } catch(_) {}
+            try {
+              const chosenMeta = { location: primaryLoc };
+              const siteCfgBase = (window.__seoToolState && window.__seoToolState.currentSiteConfig) || {};
+              const siteCfg = { ...siteCfgBase };
+              if (!siteCfg.avatar) siteCfg.avatar = 'assets/avatar.jpeg';
+              const seo = extractSEOFromMarkdown(md, chosenMeta, siteCfg) || {};
+              if (seo.publishedTime) { try { dateStr = String(seo.publishedTime).slice(0,10); } catch(_) {} }
+              if (Array.isArray(seo.tags)) tags = seo.tags;
+            } catch(_) {}
+            try {
+              if (!dateStr && fm && fm.date) dateStr = String(fm.date).trim();
+              if ((!tags || !Array.isArray(tags) || tags.length === 0) && fm) {
+                if (Array.isArray(fm.tags)) tags = fm.tags; else if (typeof fm.tags === 'string' && fm.tags.trim()) tags = [fm.tags.trim()];
+              }
+            } catch(_) {}
+            try {
+              const plain = stripMarkdownToText(stripFrontMatter(md));
+              const basic = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+              wordCount = basic > 1 ? basic : (plain || '').replace(/\s+/g, '').length;
+            } catch(_) {}
           }
-          // 2) Fallbacks direct from front-matter if missing
-          try {
-            if (!dateStr && fm && fm.date) dateStr = String(fm.date).trim();
-            if ((!tags || !Array.isArray(tags) || tags.length === 0) && fm) {
-              if (Array.isArray(fm.tags)) tags = fm.tags;
-              else if (typeof fm.tags === 'string' && fm.tags.trim()) tags = [fm.tags.trim()];
-            }
-            console.debug('[SEO-Preview] RES', primary.location, { dateStr, tags });
-          } catch(_) {}
-          // 2) Compute words — always attempt
-          try {
-            const plain = stripMarkdownToText(stripFrontMatter(md));
-            const basic = plain ? plain.split(/\s+/).filter(Boolean).length : 0;
-            // Fallback for CJK: if few or zero words, count visible non-space chars
-            if (basic > 1) { wordCount = basic; }
-            else {
-              const chars = (plain || '').replace(/\s+/g, '').length;
-              wordCount = chars;
-            }
-          } catch(_) {}
-        }
-      } catch(_) {}
-      const perLangLinks = langs.map(l => {
-        const v = meta[l];
-        const loc = (typeof v === 'string') ? v : (v && v.location) || '';
-        const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
-        return { lang: l, href: q ? withLangParam(q) : '' };
-      }).filter(x => x.href);
-      entries.push({
-        type: 'post', key, title: title || key, langs, multi: langs.length > 1,
-        href: primary.location ? withLangParam(`/index.html?id=${encodeURIComponent(primary.location)}`) : '#',
-        location: primary.location,
-        perLangLinks,
-        dateStr,
-        tags,
-        wordCount
-      });
+        } catch(_) {}
+        const perLangLinks = rec.langs.map(l => {
+          const loc = rec.perLang[l] || '';
+          const q = loc ? `/index.html?id=${encodeURIComponent(loc)}` : '';
+          return { lang: l, href: q ? withLangParam(q) : '' };
+        }).filter(x => x.href);
+        parent.children.push({ type: 'post', key: `${key}@${ver}`, version: ver, title: title || `${key} ${ver}`, langs: rec.langs, multi: rec.langs.length>1, href: primaryLoc ? withLangParam(`/index.html?id=${encodeURIComponent(primaryLoc)}`) : '#', location: primaryLoc, perLangLinks, dateStr, tags, wordCount });
+      }
+      parent.children.sort((a,b)=>{ const av=a.version||'v0', bv=b.version||'v0'; return semverCmpDesc(av,bv); });
+      groups.push(parent);
     }
-    return entries.sort((a,b)=> a.key.localeCompare(b.key));
+    return groups.sort((a,b)=> a.key.localeCompare(b.key));
   })();
 
   // Build tab entries
@@ -366,22 +374,33 @@ async function renderSitemapPreview(urls = []){
     return entries.sort((a,b)=> a.key.localeCompare(b.key));
   })();
 
-  const postsList = postItems.map(it => (
-    `<li>
-       <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
-       <div class="dim">${it.location ? `<code>${__escHtml(it.location)}</code>` : ''}</div>
-       <div class="config-value" style="margin-top:.25rem;">
-         <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
-         <span class="dim" style="margin-left:.5rem;">Languages:</span>
-         ${it.perLangLinks.map(x => `<span class="chip"><a href="${__escHtml(x.href)}" style="text-decoration:none;color:inherit;">${__escHtml(x.lang)}</a></span>`).join('')}
-       </div>
-       <div class="config-value" style="margin-top:.25rem;">
-         ${it.dateStr ? `<span class="mini-badge">Date: ${__escHtml(it.dateStr)}</span>` : ''}
-         <span class="mini-badge">Words: ${it.wordCount || 0}</span>
-         ${Array.isArray(it.tags) && it.tags.length ? `<span class="dim" style="margin-left:.5rem;">Tags:</span> ${it.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : ''}
-       </div>
-     </li>`
-  )).join('');
+  const postsList = postItems.map(group => {
+    const children = group.children.map(it => (
+      `<li>
+         <a href="${__escHtml(it.href)}">${__escHtml(it.title)}</a>
+         <div class="dim">${it.version ? `<span class=\"mini-badge\">${__escHtml(it.version)}</span>` : ''} ${it.location ? `<code style=\"margin-left:.35rem\">${__escHtml(it.location)}</code>` : ''}</div>
+         <div class="config-value" style="margin-top:.25rem;">
+           <span class="badge ${it.langs.length>1?'ok':'warn'}">${it.langs.length>1 ? 'Multilingual' : 'Single language'}</span>
+           <span class="dim" style="margin-left:.5rem;">Languages:</span>
+           ${it.perLangLinks.map(x => `<span class="chip"><a href="${__escHtml(x.href)}" style="text-decoration:none;color:inherit;">${__escHtml(x.lang)}</a></span>`).join('')}
+         </div>
+         <div class="config-value" style="margin-top:.25rem;">
+           ${it.dateStr ? `<span class="mini-badge">Date: ${__escHtml(it.dateStr)}</span>` : ''}
+           <span class="mini-badge">Words: ${it.wordCount || 0}</span>
+           ${Array.isArray(it.tags) && it.tags.length ? `<span class="dim" style="margin-left:.5rem;">Tags:</span> ${it.tags.map(t => `<span class=\"chip\">${__escHtml(t)}</span>`).join('')}` : ''}
+         </div>
+       </li>`
+    )).join('');
+    return (
+      `<li>
+         <div style="display:flex; align-items:center; gap:.5rem;">
+           <strong>${__escHtml(group.title)}</strong>
+           <span class="mini-badge">${group.versionCount} version${group.versionCount>1?'s':''}</span>
+         </div>
+         <ul class="config-list" style="margin-top:.25rem;">${children}</ul>
+       </li>`
+    );
+  }).join('');
 
   const tabsList = tabItems.map(it => (
     `<li>
