@@ -57,6 +57,13 @@ Create your own site using **GitHub Template**:
 
 > You can also fork the project, but keep in mind that syncing updates may require resolving conflicts, especially with data files.
 
+## 📝 Roadmap
+
+- [ ] Add HTML tags support  
+- [ ] Add LaTeX support  
+- [ ] Implement comments system backed by GitHub Discussions  
+- [ ] Provide an online editor  
+
 ## 📜 License
 
 MIT License © 2025 [deemoe404](https://github.com/deemoe404)  
