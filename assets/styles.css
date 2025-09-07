@@ -365,6 +365,17 @@ table tr:nth-child(even) { background-color: color-mix(in srgb, var(--text) 0%, 
 table td { padding: 0.625rem; border-bottom: 0.0625rem solid var(--border); }
 table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transparent); }
 
+/* Reduce excessive gap before tables when preceded by a plain paragraph */
+#mainview p:has(+ table),
+#mainview p:has(+ .table-wrap) {
+  margin-bottom: 0.5rem;
+}
+/* Fallback for browsers without :has — pull table slightly upward */
+#mainview p + table,
+#mainview p + .table-wrap {
+  margin-top: -0.35rem;
+}
+
 /* Index card grid optimizations */
 .index { 
   display: grid; 
@@ -482,7 +493,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 [data-theme="dark"] #ns-lightbox .ns-lb-img { background: #0f172a; }
 
 /* Post videos: wrapper ensures rounded clipping across browsers */
-.post-video-wrap { position: relative; width: 100%; margin: 1rem auto; border-radius: 0.5rem; overflow: hidden; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); }
+.post-video-wrap { position: relative; width: 100%; margin: 1rem auto; border-radius: 0.5rem; overflow: hidden; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); -webkit-mask-image: -webkit-radial-gradient(white, black); clip-path: inset(0 round 0.5rem); }
 .post-video-wrap .post-video { display: block; width: 100%; height: auto; background: transparent; border-radius: inherit; }
 /* Try to enforce clipping on WebKit controls */
 .post-video::-webkit-media-controls-enclosure { border-radius: inherit; overflow: hidden; }
@@ -1562,3 +1573,10 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .error-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 .error-actions button { padding: .35rem .6rem; border-radius: 0.5rem; border: 0.0625rem solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
 .error-actions button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+#mainview figure { margin: 1rem 0; }
+#mainview figure > img { display: block; width: 100%; height: auto; border-radius: 0.5rem; box-shadow: var(--shadow); }
+#mainview figcaption { margin-top: 0.4rem; color: var(--muted); text-align: center; }
+
+/* Raw HTML media defaults (when not using auto-wrapped styles) */
+#mainview video:not(.post-video) { display: block; width: 100%; height: auto; border-radius: 0.5rem; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); margin: 0.75rem 0; }
+#mainview iframe { display: block; width: 100%; max-width: 100%; border: 0; border-radius: 0.5rem; box-shadow: var(--shadow); background: var(--card); margin: 0.75rem 0; }

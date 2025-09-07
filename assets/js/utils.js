@@ -69,6 +69,125 @@ export function resolveImageSrc(src, baseDir) {
   }
 }
 
+// Allow a safe subset of HTML tags within Markdown content.
+// - Escapes all text outside tags
+// - Keeps only allowlisted tags/attributes
+// - Rewrites relative href/src/srcset relative to the markdown file's folder (baseDir)
+const __NS_ALLOWED_TAGS = new Set([
+  'b','strong','i','em','u','mark','small','sub','sup','kbd','abbr','ins','del',
+  'span','div','section','article','p','br','hr',
+  'blockquote','pre','code','figure','figcaption',
+  'a','img','video','source','picture',
+  'ul','ol','li','table','thead','tbody','tfoot','tr','td','th','colgroup','col',
+  'details','summary',
+  'h1','h2','h3','h4','h5','h6',
+  'iframe'
+]);
+const __NS_VOID_TAGS = new Set(['br','hr','img','source','col','input','meta','link']);
+const __NS_GLOBAL_ATTRS = new Set(['id','class','title','style','role','lang','dir']);
+const __NS_TAG_ATTRS = {
+  a: new Set(['href','target','rel','download']),
+  img: new Set(['src','alt','width','height','loading','decoding','srcset','sizes','referrerpolicy']),
+  video: new Set(['src','controls','autoplay','loop','muted','poster','preload','playsinline','width','height']),
+  source: new Set(['src','type','media','sizes','srcset']),
+  table: new Set(['border','summary']),
+  td: new Set(['colspan','rowspan','headers','scope','align','valign']),
+  th: new Set(['colspan','rowspan','headers','scope','align','valign']),
+  iframe: new Set(['src','width','height','allow','allowfullscreen','loading','referrerpolicy','title'])
+};
+function __ns_isAllowedAttr(tag, attr) {
+  if (!attr) return false;
+  const a = String(attr).toLowerCase();
+  if (a.startsWith('on')) return false; // no inline handlers
+  if (a.startsWith('data-') || a.startsWith('aria-')) return true;
+  if (__NS_GLOBAL_ATTRS.has(a)) return true;
+  const spec = __NS_TAG_ATTRS[tag];
+  return !!(spec && spec.has(a));
+}
+function __ns_rewriteHref(val, baseDir) {
+  const s = String(val || '').trim();
+  if (!s) return s;
+  if (s.startsWith('#') || s.startsWith('?')) return s;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return sanitizeUrl(s);
+  if (s.startsWith('/')) return s;
+  return resolveImageSrc(s, baseDir);
+}
+function __ns_rewriteSrc(val, baseDir) {
+  const s = String(val || '').trim();
+  if (!s) return s;
+  if (/^(data:|blob:)/i.test(s)) return s;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(s)) return sanitizeUrl(s);
+  if (s.startsWith('/')) return s;
+  return resolveImageSrc(s, baseDir);
+}
+function __ns_rewriteSrcset(val, baseDir) {
+  const s = String(val || '');
+  if (!s.trim()) return s;
+  try {
+    return s.split(',').map(part => {
+      const seg = part.trim();
+      if (!seg) return '';
+      const bits = seg.split(/\s+/);
+      const url = bits.shift();
+      const rewritten = __ns_rewriteSrc(url, baseDir);
+      return [rewritten, ...bits].join(' ');
+    }).filter(Boolean).join(', ');
+  } catch (_) { return s; }
+}
+function __ns_sanitizeAttrs(tag, rawAttrs, baseDir) {
+  const s = String(rawAttrs || '');
+  let out = '';
+  const re = /([a-zA-Z_:][\w:.-]*)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'<>`]+)))?/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const name = m[1];
+    const hasVal = m[2] != null;
+    let val = m[3] ?? m[4] ?? m[5] ?? '';
+    if (!__ns_isAllowedAttr(tag, name)) continue;
+    const low = String(name).toLowerCase();
+    if (hasVal) {
+      if (low === 'href') val = __ns_rewriteHref(val, baseDir);
+      else if (low === 'src') val = __ns_rewriteSrc(val, baseDir);
+      else if (low === 'srcset') val = __ns_rewriteSrcset(val, baseDir);
+      out += ` ${low}="${escapeHtml(val)}"`;
+    } else {
+      out += ` ${low}`;
+    }
+  }
+  return out;
+}
+export function allowUserHtml(input, baseDir) {
+  const str = String(input || '');
+  if (!str) return '';
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9:-]*)\b([^>]*)>/g;
+  let out = '';
+  let last = 0;
+  let m;
+  while ((m = tagRe.exec(str))) {
+    // Text before the tag
+    out += escapeHtml(str.slice(last, m.index));
+    last = tagRe.lastIndex;
+    const full = m[0];
+    const name = (m[1] || '').toLowerCase();
+    const attrs = m[2] || '';
+    const isClosing = /^<\//.test(full);
+    const isSelfClosing = /\/>$/.test(full) || __NS_VOID_TAGS.has(name);
+    if (!__NS_ALLOWED_TAGS.has(name)) {
+      out += escapeHtml(full);
+      continue;
+    }
+    if (isClosing) {
+      out += `</${name}>`;
+    } else {
+      const safeAttrs = __ns_sanitizeAttrs(name, attrs, baseDir);
+      out += `<${name}${safeAttrs}${isSelfClosing ? ' />' : '>'}`;
+    }
+  }
+  // Remainder after last tag
+  out += escapeHtml(str.slice(last));
+  return out;
+}
+
 export function getQueryVariable(variable) {
   const params = new URLSearchParams(window.location.search);
   const value = params.get(variable);
