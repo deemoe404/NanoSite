@@ -20,10 +20,17 @@ const highlightRules = {
   ],
   
   python: [
+    // Strings first to avoid treating '#' inside strings as comments
+    // Support: triple quotes, normal quotes, and backslash-quoted strings (e.g., \"...\") sometimes present in exported markdown
+    { type: 'string', pattern: /(\"\"\"[\s\S]*?\"\"\"|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\\"(?:[^"\\]|\\.)*\\"|\\'(?:[^'\\]|\\.)*\\')/g },
+    // Line comments
     { type: 'comment', pattern: /#.*$/gm },
-    { type: 'string', pattern: /("""[\s\S]*?"""|'''[\s\S]*?'''|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g },
-    { type: 'keyword', pattern: /\b(def|class|if|elif|else|for|while|import|from|return|try|except|with|as|True|False|None)\b/g },
-    { type: 'number', pattern: /\b\d+(\.\d+)?\b/g }
+    // Expanded Python keywords
+    { type: 'keyword', pattern: /\b(def|class|if|elif|else|for|while|import|from|return|try|except|finally|with|as|in|and|or|not|is|pass|break|continue|lambda|yield|True|False|None|global|nonlocal|assert|raise|del)\b/g },
+    // Numbers
+    { type: 'number', pattern: /\b\d+(?:\.\d+)?\b/g },
+    // Operators and punctuation
+    { type: 'operator', pattern: /[+\-*/%=:<>!&|^~]+|[()\[\]{}.,:]/g }
   ],
   
   html: [
@@ -269,7 +276,8 @@ function simpleHighlight(code, language) {
   result = escapeHtml(result);
   
   // 将临时标记替换为实际的HTML标签（允许匹配跨行内容）
-  result = result.replace(/__HIGHLIGHTED__(\w+)__([\s\S]*?)__END__/g, (match, type, content) => {
+  // 注意：类型仅允许字母/连字符，避免 \w 贪婪吞并后续占位导致内容缺失
+  result = result.replace(/__HIGHLIGHTED__([A-Za-z-]+)__([\s\S]*?)__END__/g, (match, type, content) => {
     return `<span class="syntax-${type}">${content}</span>`;
   });
 
