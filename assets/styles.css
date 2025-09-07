@@ -14,6 +14,16 @@
   --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.06), 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04);
   /* Serif stack for article-like body text (theme packs may override) */
   --article-serif-stack: Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif", "STSong", serif;
+  /* Callout palette */
+  --callout-note: #2563eb;      /* blue */
+  --callout-info: #0ea5e9;      /* sky */
+  --callout-tip: #10b981;       /* emerald */
+  --callout-success: #16a34a;   /* green */
+  --callout-warning: #f59e0b;   /* amber */
+  --callout-caution: #f97316;   /* orange */
+  --callout-danger: #ef4444;    /* red */
+  --callout-error: #ef4444;     /* red */
+  --callout-important: #7c3aed; /* violet */
 }
 
 [data-theme="dark"] {
@@ -28,6 +38,16 @@
   --code-text: #e5e7eb;
   --hr: #1f2937;
   --shadow: 0 0.0625rem 0.125rem rgba(0,0,0,.3);
+  /* Dark theme callout tones (slightly brighter) */
+  --callout-note: #60a5fa;
+  --callout-info: #38bdf8;
+  --callout-tip: #34d399;
+  --callout-success: #22c55e;
+  --callout-warning: #fbbf24;
+  --callout-caution: #fb923c;
+  --callout-danger: #f87171;
+  --callout-error: #f87171;
+  --callout-important: #a78bfa;
 }
 
 /* Overall document style */
@@ -165,6 +185,26 @@ li {
 
 /* Blockquote style */
 blockquote { border-left: 0.1875rem solid var(--primary); margin: 1rem 0; padding: .6rem 1rem; background: color-mix(in srgb, var(--primary) 7%, transparent); font-style: italic; }
+
+/* Callouts (Obsidian-style) */
+.callout { 
+  margin: 1rem 0; 
+  padding: .75rem 1rem; 
+  border: 1px solid var(--border); 
+  border-left-width: 0.375rem; 
+  border-radius: 0.5rem; 
+  box-shadow: var(--shadow);
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+.callout-title { display: flex; align-items: center; gap: .5rem; font-weight: 700; margin-bottom: .35rem; }
+.callout-icon { display: inline-flex; width: 1.1rem; height: 1.1rem; align-items: center; justify-content: center; font-size: 1.05rem; line-height: 1; }
+.callout-body p { margin: .5rem 0; }
+/* Type colors */
+.callout-note, .callout-info { border-left-color: var(--callout-note); background: color-mix(in srgb, var(--callout-note) 9%, transparent); }
+.callout-tip, .callout-success { border-left-color: var(--callout-success); background: color-mix(in srgb, var(--callout-success) 9%, transparent); }
+.callout-warning, .callout-caution { border-left-color: var(--callout-warning); background: color-mix(in srgb, var(--callout-warning) 11%, transparent); }
+.callout-danger, .callout-error { border-left-color: var(--callout-danger); background: color-mix(in srgb, var(--callout-danger) 11%, transparent); }
+.callout-important { border-left-color: var(--callout-important); background: color-mix(in srgb, var(--callout-important) 9%, transparent); }
 
 /* Code style */
 code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; background-color: color-mix(in srgb, var(--text) 8%, transparent); padding: .08rem .35rem; border-radius: 0.25rem; font-size: .94em; }
@@ -325,6 +365,17 @@ table tr:nth-child(even) { background-color: color-mix(in srgb, var(--text) 0%, 
 table td { padding: 0.625rem; border-bottom: 0.0625rem solid var(--border); }
 table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transparent); }
 
+/* Reduce excessive gap before tables when preceded by a plain paragraph */
+#mainview p:has(+ table),
+#mainview p:has(+ .table-wrap) {
+  margin-bottom: 0.5rem;
+}
+/* Fallback for browsers without :has — pull table slightly upward */
+#mainview p + table,
+#mainview p + .table-wrap {
+  margin-top: -0.35rem;
+}
+
 /* Index card grid optimizations */
 .index { 
   display: grid; 
@@ -442,7 +493,7 @@ table tr:hover { background-color: color-mix(in srgb, var(--primary) 8%, transpa
 [data-theme="dark"] #ns-lightbox .ns-lb-img { background: #0f172a; }
 
 /* Post videos: wrapper ensures rounded clipping across browsers */
-.post-video-wrap { position: relative; width: 100%; margin: 1rem auto; border-radius: 0.5rem; overflow: hidden; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); }
+.post-video-wrap { position: relative; width: 100%; margin: 1rem auto; border-radius: 0.5rem; overflow: hidden; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); -webkit-mask-image: -webkit-radial-gradient(white, black); clip-path: inset(0 round 0.5rem); }
 .post-video-wrap .post-video { display: block; width: 100%; height: auto; background: transparent; border-radius: inherit; }
 /* Try to enforce clipping on WebKit controls */
 .post-video::-webkit-media-controls-enclosure { border-radius: inherit; overflow: hidden; }
@@ -1522,3 +1573,10 @@ ul.collapsed, li > ul.collapsed { display: none; }
 .error-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
 .error-actions button { padding: .35rem .6rem; border-radius: 0.5rem; border: 0.0625rem solid var(--border); background: var(--card); color: var(--text); cursor: pointer; }
 .error-actions button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+#mainview figure { margin: 1rem 0; }
+#mainview figure > img { display: block; width: 100%; height: auto; border-radius: 0.5rem; box-shadow: var(--shadow); }
+#mainview figcaption { margin-top: 0.4rem; color: var(--muted); text-align: center; }
+
+/* Raw HTML media defaults (when not using auto-wrapped styles) */
+#mainview video:not(.post-video) { display: block; width: 100%; height: auto; border-radius: 0.5rem; box-shadow: var(--shadow); background: color-mix(in srgb, var(--text) 4%, transparent); margin: 0.75rem 0; }
+#mainview iframe { display: block; width: 100%; max-width: 100%; border: 0; border-radius: 0.5rem; box-shadow: var(--shadow); background: var(--card); margin: 0.75rem 0; }

@@ -1,4 +1,4 @@
-import { escapeHtml, escapeMarkdown, sanitizeUrl, resolveImageSrc } from './utils.js';
+import { escapeHtml, escapeMarkdown, sanitizeUrl, resolveImageSrc, allowUserHtml } from './utils.js';
 import { stripFrontMatter } from './content.js';
 
 function isPipeTableSeparator(line) {
@@ -22,6 +22,31 @@ function replaceInline(text, baseDir) {
       result += parts[i]
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Obsidian-style embeds: ![[path|optional alt or options]]
+        .replace(/!\[\[(.+?)\]\]/g, (m, inner) => {
+          const raw = String(inner || '').trim();
+          if (!raw) return m;
+          // Split at first '|': left=src, right=alias/alt or options
+          let src = raw;
+          let alias = '';
+          const pipeIdx = raw.indexOf('|');
+          if (pipeIdx >= 0) {
+            src = raw.slice(0, pipeIdx).trim();
+            alias = raw.slice(pipeIdx + 1).trim();
+          }
+          if (!src) return m;
+          const url = resolveImageSrc(src, baseDir);
+          const isVideo = /\.(mp4|mov|webm|ogg)(\?.*)?$/i.test(src || '');
+          if (isVideo) {
+            const ext = String(src || '').split('?')[0].split('.').pop().toLowerCase();
+            const type = ({ mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', ogg: 'video/ogg' }[ext]) || 'video/mp4';
+            const aria = alias ? ` aria-label="${alias}"` : '';
+            return `<div class="post-video-wrap"><video class="post-video" controls playsinline preload="metadata"${aria}><source src="${url}" type="${type}">Sorry, your browser doesn't support embedded videos.</video></div>`;
+          }
+          // Fallback alt from alias or filename
+          const fallbackAlt = alias || (String(src).split('/').pop() || 'image');
+          return `<img src="${url}" alt="${fallbackAlt}">`;
+        })
         // Images or Videos via image syntax: optional title
         .replace(/!\[(.*?)\]\(([^\s\)]*?)(?:\s*&quot;(.*?)&quot;)?\)/g, (m, alt, src, title) => {
           const url = resolveImageSrc(src, baseDir);
@@ -207,7 +232,7 @@ export function mdParse(markdown, baseDir) {
     // If currently inside a list but the next line starts a fenced code/table/blockquote/header,
     // we'll close lists right before handling those blocks (see below after matches).
 
-    // Blockquote
+    // Blockquote (with Obsidian-style Callouts support: > [!type] Title) 
     if (rawLine.startsWith('>')) {
       closeAllLists();
       closePara();
@@ -217,7 +242,41 @@ export function mdParse(markdown, baseDir) {
         if (lines[j].startsWith('>')) quote += `\n${lines[j].slice(1).trim()}`;
         else break;
       }
-      html += `<blockquote>${mdParse(quote, baseDir).post}</blockquote>`;
+
+      // Detect Obsidian callout syntax in the first line: [!type] optional title
+      try {
+        const qLines = String(quote).split('\n');
+        const first = (qLines[0] || '').trim();
+        const m = first.match(/^\[!(\w+)\]\s*(.*)$/i);
+        if (m) {
+          const typeRaw = (m[1] || '').toLowerCase();
+          const known = ['note','info','tip','hint','important','warning','caution','danger','error','success','example','quote','question'];
+          const type = known.includes(typeRaw) ? typeRaw : 'note';
+          const titleRaw = (m[2] || '').trim();
+          // Default localized-ish labels when title is omitted
+          const defaultLabel = (t) => ({
+            note: 'Note', info: 'Info', tip: 'Tip', hint: 'Hint', important: 'Important',
+            warning: 'Warning', caution: 'Caution', danger: 'Danger', error: 'Error',
+            success: 'Success', example: 'Example', quote: 'Quote', question: 'Question'
+          })[t] || 'Note';
+          const label = titleRaw || defaultLabel(type);
+          const iconFor = (t) => ({
+            note: '📝', info: 'ℹ️', tip: '💡', hint: '💡', important: '📌',
+            warning: '⚠️', caution: '⚠️', danger: '⛔', error: '⛔',
+            success: '✅', example: '🧪', quote: '❝', question: '❓'
+          })[t] || '📝';
+          const role = (type === 'warning' || type === 'caution' || type === 'danger' || type === 'error') ? 'alert' : 'note';
+          const body = qLines.slice(1).join('\n');
+          const bodyHtml = mdParse(body, baseDir).post;
+          const titleHtml = replaceInline(escapeHtml(label), baseDir);
+          html += `<div class="callout callout-${type}" data-callout="${type}" role="${role}"><div class="callout-title"><span class="callout-icon" aria-hidden="true">${escapeHtml(iconFor(type))}</span><span class="callout-label">${titleHtml}</span></div><div class="callout-body">${bodyHtml}</div></div>`;
+        } else {
+          html += `<blockquote>${mdParse(quote, baseDir).post}</blockquote>`;
+        }
+      } catch (_) {
+        // Fallback to plain blockquote rendering on any parsing error
+        try { html += `<blockquote>${mdParse(quote, baseDir).post}</blockquote>`; } catch (_) { html += `<blockquote>${allowUserHtml(quote, baseDir)}</blockquote>`; }
+      }
       i = j - 1;
       continue;
     }
@@ -238,7 +297,7 @@ export function mdParse(markdown, baseDir) {
         } else {
           // Not a valid table header, treat as regular paragraph text
           if (!isInPara) { html += '<p>'; isInPara = true; }
-          html += `${replaceInline(escapeHtml(rawLine), baseDir)}`;
+          html += `${replaceInline(allowUserHtml(rawLine, baseDir), baseDir)}`;
           if (i + 1 < lines.length && escapeMarkdown(lines[i + 1]).trim() !== '') html += '<br>';
         }
       } else {
@@ -265,7 +324,7 @@ export function mdParse(markdown, baseDir) {
       closeAllLists();
       closePara();
       if (!isInTodo) { isInTodo = true; html += '<ul class="todo">'; }
-      const taskText = replaceInline(escapeHtml(rawLine.slice(5).trim()), baseDir);
+      const taskText = replaceInline(allowUserHtml(rawLine.slice(5).trim(), baseDir), baseDir);
       html += match[1] === 'x'
         ? `<li><input type="checkbox" id="todo${i}" disabled checked><label for="todo${i}">${taskText}</label></li>`
         : `<li><input type="checkbox" id="todo${i}" disabled><label for="todo${i}">${taskText}</label></li>`;
@@ -314,7 +373,7 @@ export function mdParse(markdown, baseDir) {
         }
       }
       // List item content
-      html += `<li>${replaceInline(escapeHtml(String(content).trim()), baseDir)}</li>`;
+      html += `<li>${replaceInline(allowUserHtml(String(content).trim(), baseDir), baseDir)}</li>`;
       // Continue to next line; we'll close lists when pattern breaks
       const next = (i + 1 < lines.length) ? escapeMarkdown(lines[i + 1]) : '';
       if (!next || (!next.match(/^(\s*)[-*+]\s+(.+)$/) && !next.match(/^(\s*)\d{1,9}[\.)]\s+(.+)$/))) {
@@ -332,7 +391,7 @@ export function mdParse(markdown, baseDir) {
       closeAllLists();
       closePara();
       const level = rawLine.match(/^#+/)[0].length;
-      const text = replaceInline(escapeHtml(rawLine.slice(level).trim()), baseDir);
+      const text = replaceInline(allowUserHtml(rawLine.slice(level).trim(), baseDir), baseDir);
       html += `<h${level} id="${i}"><a class="anchor" href="#${i}" aria-label="Permalink">#</a>${text}</h${level}>`;
       if (level >= 2 && level <= 3) {
         tochtml.push(`<a href="#${i}">${text}</a>`);
@@ -341,13 +400,72 @@ export function mdParse(markdown, baseDir) {
       continue;
     }
 
+    // Treat raw HTML block elements as standalone blocks (and capture their full content until closing tag)
+    {
+      const raw = escapeMarkdown(line);
+      const t = raw.trim();
+      const m = t.match(/^<\/?([a-zA-Z][\w:-]*)\b(.*)>?$/);
+      if (m) {
+        const tag = (m[1] || '').toLowerCase();
+        const isClosing = /^<\//.test(t);
+        const singletons = new Set(['hr','br','img','source','col','meta','link','input']);
+        const blockOpenTags = new Set(['div','section','article','p','blockquote','pre','code','figure','details','table','ul','ol','video','picture','iframe']);
+        const blockAnyTags = new Set(['div','section','article','p','blockquote','pre','code','figure','figcaption','details','summary','table','thead','tbody','tfoot','tr','td','th','ul','ol','li','video','picture','iframe','hr','br','h1','h2','h3','h4','h5','h6']);
+
+        if (blockAnyTags.has(tag)) {
+          // If it's a closing tag or a known singleton, treat as a single line element
+          if (isClosing || singletons.has(tag) || /\/>\s*$/.test(t)) {
+            closeAllLists();
+            closePara();
+            html += allowUserHtml(t, baseDir);
+            continue;
+          }
+          // For open block tags like <table>, <figure>, <details>, <video>, <iframe> — capture until the corresponding closing tag
+          if (blockOpenTags.has(tag)) {
+            let chunk = raw;
+            let j = i + 1;
+            // Search for matching closing tag on subsequent lines (allow nesting of other tags inside)
+            const endRe = new RegExp(`^\\s*<\\/${tag}\\s*>\\s*$`, 'i');
+            for (; j < lines.length; j++) {
+              const nxt = escapeMarkdown(lines[j]);
+              chunk += '\n' + nxt;
+              if (endRe.test(nxt.trim())) { break; }
+            }
+            i = j;
+            closeAllLists();
+            closePara();
+            html += allowUserHtml(chunk, baseDir);
+            continue;
+          } else {
+            // Other block-level tags (thead/tbody/tr/td/etc.) — treat line-by-line without wrapping
+            closeAllLists();
+            closePara();
+            html += allowUserHtml(t, baseDir);
+            continue;
+          }
+        }
+      }
+    }
+
     // Blank line => close paragraph
     if (rawLine.trim() === '') { closeAllLists(); closePara(); continue; }
 
     // Regular paragraph text
-    if (!isInPara) { html += '<p>'; isInPara = true; }
-    html += `${replaceInline(escapeHtml(rawLine), baseDir)}`;
-    if (i + 1 < lines.length && escapeMarkdown(lines[i + 1]).trim() !== '') html += '<br>';
+    {
+      const lineHtmlRaw = replaceInline(allowUserHtml(rawLine, baseDir), baseDir);
+      const lineHtml = String(lineHtmlRaw || '').trim();
+      // Skip lines that render to empty or a single <br>
+      if (lineHtml && lineHtml !== '<br>') {
+        if (!isInPara) { html += '<p>'; isInPara = true; }
+        html += lineHtml;
+        // Add soft line break only when the next line is true text (not blank, not an HTML block start)
+        if (i + 1 < lines.length) {
+          const nextTrim = escapeMarkdown(lines[i + 1]).trim();
+          const isNextHtml = /^<([a-zA-Z][\w:-]*)\b/.test(nextTrim);
+          if (nextTrim !== '' && !isNextHtml) html += '<br>';
+        }
+      }
+    }
   }
 
   if (isInPara) html += '</p>';

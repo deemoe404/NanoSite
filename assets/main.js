@@ -369,7 +369,8 @@ function hydratePostImages(container) {
     if (!root) return;
     const candidates = Array.from(root.querySelectorAll('img'))
       .filter(img => !img.classList.contains('card-cover'))
-      .filter(img => !img.closest('table'));
+      .filter(img => !img.closest('table'))
+      .filter(img => !img.closest('figure'));
   candidates.forEach(img => {
       // Skip if already in a wrapper
       if (img.closest('.post-image-wrap')) return;
@@ -519,8 +520,57 @@ function hydratePostVideos(container) {
   try {
     const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
     if (!root) return;
+    // Normalize raw HTML <video> markup to match NanoSite's generated structure
     const videos = Array.from(root.querySelectorAll('video'));
-  const queue = videos.filter(video => video && !video.hasAttribute('poster') && video.dataset.autoposterDone !== '1');
+    videos.forEach(video => {
+      try {
+        if (!video.classList.contains('post-video')) video.classList.add('post-video');
+        if (!video.hasAttribute('controls')) video.setAttribute('controls', '');
+        if (!video.hasAttribute('preload')) video.setAttribute('preload', 'metadata');
+        if (!video.hasAttribute('playsinline')) video.setAttribute('playsinline', '');
+        if (!video.closest('.post-video-wrap')) {
+          const wrap = document.createElement('div');
+          wrap.className = 'post-video-wrap';
+          const parent = video.parentElement;
+          if (parent) {
+            parent.insertBefore(wrap, video);
+            wrap.appendChild(video);
+          }
+        }
+        // Ensure browser re-evaluates sources after moving/normalizing
+        try { video.load(); } catch (_) {}
+
+        // Install a lightweight fallback overlay on error
+        try {
+          if (video.dataset.vfInstalled !== '1') {
+            const wrap = video.closest('.post-video-wrap') || video.parentElement;
+            const overlay = document.createElement('div');
+            overlay.className = 'video-fallback';
+            overlay.style.display = 'none';
+            const toAbs = (s) => { try { return new URL(s, window.location.href).toString(); } catch(_) { return s; } };
+            const sources = [video.getAttribute('src'), ...Array.from(video.querySelectorAll('source')).map(s => s.getAttribute('src'))].filter(Boolean);
+            const first = sources.length ? toAbs(sources[0]) : '#';
+            overlay.innerHTML = '<div class="vf-content">'
+              + '<div class="vf-title">Video not available</div>'
+              + '<div class="vf-actions">'
+              + `<a class="vf-link primary" href="${first}" target="_blank" rel="noopener">Open file</a>`
+              + '</div></div>';
+            if (wrap && !wrap.querySelector('.video-fallback')) wrap.appendChild(overlay);
+            const show = () => { overlay.style.display = 'flex'; };
+            const hide = () => { overlay.style.display = 'none'; };
+            video.addEventListener('error', show);
+            video.addEventListener('loadeddata', hide);
+            video.addEventListener('canplay', hide);
+            video.addEventListener('play', hide);
+            // If all sources error, show overlay soon
+            Array.from(video.querySelectorAll('source')).forEach(s => { s.addEventListener('error', show); });
+            video.dataset.vfInstalled = '1';
+          }
+        } catch(_) {}
+      } catch (_) {}
+    });
+    const queue = Array.from(root.querySelectorAll('video'))
+      .filter(video => video && !video.hasAttribute('poster') && video.dataset.autoposterDone !== '1');
 
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -542,6 +592,7 @@ function hydratePostVideos(container) {
       setTimeout(() => { cleanup(); resolve(); }, 1200);
     });
 
+    const LITE_POSTER = true; // Avoid seeks/play to improve stability
     const processVideo = async (video) => {
       try {
         // Skip if already set
@@ -684,6 +735,7 @@ function hydratePostVideos(container) {
 
         if (drawPoster()) return;
         if (await captureWithRVFC()) return;
+        if (LITE_POSTER) return; // Skip aggressive strategies in lite mode
         // Avoid aggressive seeks on iOS Safari or QuickTime MOV sources
         const ua = navigator.userAgent || '';
         const isIOS = /iP(hone|ad|od)/.test(ua) || (/Mac/.test(ua) && 'ontouchend' in document);
