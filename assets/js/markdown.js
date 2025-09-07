@@ -22,6 +22,31 @@ function replaceInline(text, baseDir) {
       result += parts[i]
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Obsidian-style embeds: ![[path|optional alt or options]]
+        .replace(/!\[\[(.+?)\]\]/g, (m, inner) => {
+          const raw = String(inner || '').trim();
+          if (!raw) return m;
+          // Split at first '|': left=src, right=alias/alt or options
+          let src = raw;
+          let alias = '';
+          const pipeIdx = raw.indexOf('|');
+          if (pipeIdx >= 0) {
+            src = raw.slice(0, pipeIdx).trim();
+            alias = raw.slice(pipeIdx + 1).trim();
+          }
+          if (!src) return m;
+          const url = resolveImageSrc(src, baseDir);
+          const isVideo = /\.(mp4|mov|webm|ogg)(\?.*)?$/i.test(src || '');
+          if (isVideo) {
+            const ext = String(src || '').split('?')[0].split('.').pop().toLowerCase();
+            const type = ({ mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', ogg: 'video/ogg' }[ext]) || 'video/mp4';
+            const aria = alias ? ` aria-label="${alias}"` : '';
+            return `<div class="post-video-wrap"><video class="post-video" controls playsinline preload="metadata"${aria}><source src="${url}" type="${type}">Sorry, your browser doesn't support embedded videos.</video></div>`;
+          }
+          // Fallback alt from alias or filename
+          const fallbackAlt = alias || (String(src).split('/').pop() || 'image');
+          return `<img src="${url}" alt="${fallbackAlt}">`;
+        })
         // Images or Videos via image syntax: optional title
         .replace(/!\[(.*?)\]\(([^\s\)]*?)(?:\s*&quot;(.*?)&quot;)?\)/g, (m, alt, src, title) => {
           const url = resolveImageSrc(src, baseDir);
