@@ -232,7 +232,7 @@ export function mdParse(markdown, baseDir) {
     // If currently inside a list but the next line starts a fenced code/table/blockquote/header,
     // we'll close lists right before handling those blocks (see below after matches).
 
-    // Blockquote
+    // Blockquote (with Obsidian-style Callouts support: > [!type] Title) 
     if (rawLine.startsWith('>')) {
       closeAllLists();
       closePara();
@@ -242,7 +242,41 @@ export function mdParse(markdown, baseDir) {
         if (lines[j].startsWith('>')) quote += `\n${lines[j].slice(1).trim()}`;
         else break;
       }
-      html += `<blockquote>${mdParse(quote, baseDir).post}</blockquote>`;
+
+      // Detect Obsidian callout syntax in the first line: [!type] optional title
+      try {
+        const qLines = String(quote).split('\n');
+        const first = (qLines[0] || '').trim();
+        const m = first.match(/^\[!(\w+)\]\s*(.*)$/i);
+        if (m) {
+          const typeRaw = (m[1] || '').toLowerCase();
+          const known = ['note','info','tip','hint','important','warning','caution','danger','error','success','example','quote','question'];
+          const type = known.includes(typeRaw) ? typeRaw : 'note';
+          const titleRaw = (m[2] || '').trim();
+          // Default localized-ish labels when title is omitted
+          const defaultLabel = (t) => ({
+            note: 'Note', info: 'Info', tip: 'Tip', hint: 'Hint', important: 'Important',
+            warning: 'Warning', caution: 'Caution', danger: 'Danger', error: 'Error',
+            success: 'Success', example: 'Example', quote: 'Quote', question: 'Question'
+          })[t] || 'Note';
+          const label = titleRaw || defaultLabel(type);
+          const iconFor = (t) => ({
+            note: '📝', info: 'ℹ️', tip: '💡', hint: '💡', important: '📌',
+            warning: '⚠️', caution: '⚠️', danger: '⛔', error: '⛔',
+            success: '✅', example: '🧪', quote: '❝', question: '❓'
+          })[t] || '📝';
+          const role = (type === 'warning' || type === 'caution' || type === 'danger' || type === 'error') ? 'alert' : 'note';
+          const body = qLines.slice(1).join('\n');
+          const bodyHtml = mdParse(body, baseDir).post;
+          const titleHtml = replaceInline(escapeHtml(label), baseDir);
+          html += `<div class="callout callout-${type}" data-callout="${type}" role="${role}"><div class="callout-title"><span class="callout-icon" aria-hidden="true">${escapeHtml(iconFor(type))}</span><span class="callout-label">${titleHtml}</span></div><div class="callout-body">${bodyHtml}</div></div>`;
+        } else {
+          html += `<blockquote>${mdParse(quote, baseDir).post}</blockquote>`;
+        }
+      } catch (_) {
+        // Fallback to plain blockquote rendering on any parsing error
+        try { html += `<blockquote>${mdParse(quote, baseDir).post}</blockquote>`; } catch (_) { html += `<blockquote>${escapeHtml(quote)}</blockquote>`; }
+      }
       i = j - 1;
       continue;
     }
