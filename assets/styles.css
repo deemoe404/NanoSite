@@ -221,7 +221,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation M
   border-radius: 0.3125rem;
 }
 
-pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1.1rem; overflow: auto; border: 0.0625rem solid var(--border); border-radius: 0.5rem; box-shadow: var(--shadow); line-height: 1.55; font-size: .95rem; tab-size: 2; position: relative; }
+pre { background-color: var(--code-bg); color: var(--code-text); padding: 1rem 1.1rem; overflow: auto; border: 0.0625rem solid var(--border); border-radius: 0.5rem; box-shadow: var(--shadow); line-height: 1.55; font-size: .95rem; tab-size: 2; position: relative; margin: 0.75rem 0; }
 
 /* Indented code blocks (for nested content like lists) */
 .code-block.code-indent-1 { margin-left: 1.25rem; }
@@ -1466,6 +1466,7 @@ ul.collapsed, li > ul.collapsed { display: none; }
     max-width: 100%;
     padding: 0.8rem; /* Reduce padding */
     font-size: 0.85rem; /* Smaller font for code */
+    margin: 0.75rem 0; /* Keep consistent spacing between blocks */
   }
   
   /* Ensure the nav bar renders correctly on mobile */
