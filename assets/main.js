@@ -401,57 +401,82 @@ function hydratePostImages(container) {
       if (img.closest('.post-image-wrap')) return;
       // If the image lives inside a paragraph with other text, avoid restructuring
       const p = img.parentElement && img.parentElement.tagName === 'P' ? img.parentElement : null;
-      if (p) {
-        const onlyThisImg = (p.childElementCount === 1) && (p.textContent.trim() === '');
-        if (!onlyThisImg) return;
-      }
+      const onlyThisImg = p ? (p.childElementCount === 1 && p.textContent.trim() === '') : false;
 
-      const wrap = document.createElement('div');
-      wrap.className = 'post-image-wrap';
-      // Prefer explicit attributes for ratio if present
-      const wAttr = parseInt(img.getAttribute('width') || '', 10);
-      const hAttr = parseInt(img.getAttribute('height') || '', 10);
-      if (!isNaN(wAttr) && !isNaN(hAttr) && wAttr > 0 && hAttr > 0) {
-        wrap.style.aspectRatio = `${wAttr} / ${hAttr}`;
-      }
-      const ph = document.createElement('div');
-      ph.className = 'ph-skeleton';
-      ph.setAttribute('aria-hidden', 'true');
-
-      // Move image inside wrapper
-      const targetParent = p || img.parentElement;
-      if (!targetParent) return;
-      targetParent.insertBefore(wrap, img);
-      wrap.appendChild(ph);
-      wrap.appendChild(img);
-
-      img.classList.add('post-img');
-      if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
-      if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
-
-      const src = img.getAttribute('src');
-      if (src) {
-        img.setAttribute('data-src', src);
-        img.removeAttribute('src');
-      }
-
-      const done = () => {
-        // Set exact ratio once we know it
-        if (img.naturalWidth && img.naturalHeight) {
-          wrap.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+      // Helper to create wrapper + skeleton and wire lazy fade-in
+      const setupWrap = (hostEl, nodeToMove) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'post-image-wrap';
+        // Prefer explicit attributes for ratio if present
+        const wAttr = parseInt(img.getAttribute('width') || '', 10);
+        const hAttr = parseInt(img.getAttribute('height') || '', 10);
+        if (!isNaN(wAttr) && !isNaN(hAttr) && wAttr > 0 && hAttr > 0) {
+          wrap.style.aspectRatio = `${wAttr} / ${hAttr}`;
         }
-        img.classList.add('is-loaded');
-        if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
-      };
-      if (img.complete && img.naturalWidth > 0) { done(); }
-      else {
-        img.addEventListener('load', done, { once: true });
-        img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
-      }
+        const ph = document.createElement('div');
+        ph.className = 'ph-skeleton';
+        ph.setAttribute('aria-hidden', 'true');
 
-      // Kick off load after wiring handlers
-      const ds = img.getAttribute('data-src');
-      if (ds) img.src = ds;
+        // Insert wrapper next to the image/link when in same parent; otherwise append
+        try {
+          if (nodeToMove && nodeToMove.parentElement === hostEl) hostEl.insertBefore(wrap, nodeToMove);
+          else hostEl.appendChild(wrap);
+        } catch (_) { hostEl.appendChild(wrap); }
+        wrap.appendChild(ph);
+        wrap.appendChild(nodeToMove || img);
+
+        img.classList.add('post-img');
+        if (!img.hasAttribute('loading')) img.setAttribute('loading', 'lazy');
+        if (!img.hasAttribute('decoding')) img.setAttribute('decoding', 'async');
+
+        const src = img.getAttribute('src');
+        if (src) { img.setAttribute('data-src', src); img.removeAttribute('src'); }
+
+        const done = () => {
+          if (img.naturalWidth && img.naturalHeight) {
+            wrap.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+          }
+          img.classList.add('is-loaded');
+          if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
+        };
+        if (img.complete && img.naturalWidth > 0) { done(); }
+        else {
+          img.addEventListener('load', done, { once: true });
+          img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
+        }
+
+        const ds = img.getAttribute('data-src');
+        if (ds) img.src = ds;
+      };
+
+      if (onlyThisImg) {
+        // Upgrade to a semantic figure with figcaption using alt text
+        const alt = (img.getAttribute('alt') || '').trim();
+        const figure = document.createElement('figure');
+        // Insert figure before the paragraph, then move image inside
+        p.parentElement && p.parentElement.insertBefore(figure, p);
+        // If image is wrapped in an anchor directly under <p>, move the anchor as a unit
+        const link = (img.parentElement && img.parentElement.tagName === 'A' && img.parentElement.parentElement === p) ? img.parentElement : null;
+        const nodeToMove = link || img;
+        // Put skeleton wrapper inside figure and move node (img or link)
+        setupWrap(figure, nodeToMove);
+        // Remove empty paragraph shell
+        try { if (p.parentElement) p.parentElement.removeChild(p); } catch (_) {}
+        // Add caption only if we have non-empty alt
+        if (alt) {
+          const cap = document.createElement('figcaption');
+          cap.textContent = alt;
+          figure.appendChild(cap);
+        }
+      } else {
+        // Regular inline/embedded image: wrap in a reserved-ratio container only
+        const targetParent = img.parentElement;
+        if (!targetParent) return;
+        // Move any wrapping anchor along with the image if present
+        const link = (img.parentElement && img.parentElement.tagName === 'A') ? img.parentElement : null;
+        const nodeToMove = link || img;
+        setupWrap(targetParent, nodeToMove);
+      }
     });
   } catch (_) {}
 }
