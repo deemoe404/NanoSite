@@ -17,7 +17,7 @@ export async function loadSiteYamlRaw() {
   const attempts = ['site.yaml', 'site.yml'];
   for (const p of attempts) {
     try {
-      const r = await fetch(p);
+      const r = await fetch(p, { cache: 'no-store' });
       if (r.ok) return await r.text();
     } catch (_) {}
   }

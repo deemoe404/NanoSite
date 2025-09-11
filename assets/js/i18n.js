@@ -12,6 +12,8 @@ import { parseFrontMatter } from './content.js';
 import { getContentRoot } from './utils.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 
+// Fetch of content files uses { cache: 'no-store' } to avoid stale data
+
 // Default language fallback when no user/browser preference is available.
 const DEFAULT_LANG = 'en';
 // Site base default language (can be overridden by initI18n via <html lang>)
@@ -435,7 +437,8 @@ async function loadContentFromFrontMatter(obj, lang) {
     const variants = [];
     for (const p of paths) {
       try {
-        const response = await fetch(`${getContentRoot()}/${p}`);
+        const url = `${getContentRoot()}/${p}`;
+        const response = await fetch(url, { cache: 'no-store' });
         if (!response || !response.ok) { continue; }
         const content = await response.text();
         const { frontMatter } = parseFrontMatter(content);

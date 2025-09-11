@@ -183,7 +183,7 @@ export async function fetchConfigWithYamlFallback(names) {
   // Try JSON first if present in candidates
   for (const name of candidates) {
     try {
-      const r = await fetch(name);
+      const r = await fetch(name, { cache: 'no-store' });
       if (!r.ok) continue;
       const lc = name.toLowerCase();
       if (lc.endsWith('.json')) {

@@ -17,8 +17,9 @@ import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
 import { applyLangHints } from './js/typography.js';
 
-// Lightweight fetch helper
-const getFile = (filename) => fetch(filename).then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
+// Lightweight fetch helper (bypass caches without version params)
+const getFile = (filename) => fetch(String(filename || ''), { cache: 'no-store' })
+  .then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
 
 let postsByLocationTitle = {};
 let tabsBySlug = {};
@@ -269,6 +270,30 @@ async function loadSiteConfig() {
   } catch (_) { return {}; }
 }
 
+// For critical UI images (like avatar), fetch with no-store and set a blob URL
+function setImageSrcNoStore(img, src) {
+  try {
+    if (!img) return;
+    const val = String(src || '').trim();
+    if (!val) return;
+    // data:/blob:/absolute URLs — leave as-is
+    if (/^(data:|blob:)/i.test(val)) { img.setAttribute('src', val); return; }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(val)) { img.setAttribute('src', val); return; }
+    // Relative or same-origin absolute: fetch fresh and use an object URL
+    let abs = val;
+    try { abs = new URL(val, window.location.href).toString(); } catch (_) {}
+    fetch(abs, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(b => {
+        const url = URL.createObjectURL(b);
+        try { const prev = img.dataset.blobUrl; if (prev) URL.revokeObjectURL(prev); } catch (_) {}
+        img.dataset.blobUrl = url;
+        img.setAttribute('src', url);
+      })
+      .catch(() => { img.setAttribute('src', val); });
+  } catch (_) { try { img.setAttribute('src', src); } catch(__) {} }
+}
+
 function renderSiteLinks(cfg) {
   try {
     const root = document.querySelector('.site-card .social-links');
@@ -317,7 +342,7 @@ function renderSiteIdentity(cfg) {
     }
     if (avatar) {
       const img = document.querySelector('.site-card .avatar');
-      if (img) img.setAttribute('src', avatar);
+      if (img) setImageSrcNoStore(img, avatar);
     }
   } catch (_) { /* noop */ }
 }
