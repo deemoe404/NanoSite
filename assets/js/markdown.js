@@ -119,31 +119,35 @@ function replaceInline(text, baseDir) {
 }
 
 function tocParser(titleLevels, liTags) {
-  const root = document.createElement('ul');
-  const listStack = [root];
-  const liStack = [];
-
+  // Build nested UL/LI markup as a string without reading from DOM
+  let html = '';
+  let prevLevel = 0;
   for (let i = 0; i < titleLevels.length; i++) {
-    const level = Math.max(1, Number(titleLevels[i]) || 1);
+    const raw = Number(titleLevels[i]) || 1;
+    const level = Math.max(1, raw);
     const liTag = liTags[i];
-
-    while (listStack.length - 1 > level - 1) { listStack.pop(); liStack.pop(); }
-    while (listStack.length - 1 < level - 1) {
-      const parentLi = liStack[liStack.length - 1] || null;
-      const newList = document.createElement('ul');
-      (parentLi || root).appendChild(newList);
-      listStack.push(newList);
+    if (i === 0) {
+      // Open lists up to first level
+      for (let d = 0; d < level; d++) html += '<ul>';
+    } else if (level > prevLevel) {
+      // Deepen nesting; open one list per level increase
+      for (let d = prevLevel; d < level; d++) html += '<ul>';
+    } else if (level < prevLevel) {
+      // Climb up: close current item, then for each level up close sublist and its parent item
+      html += '</li>';
+      for (let d = prevLevel; d > level; d--) html += '</ul></li>';
+    } else {
+      // Same level: close current item before starting next
+      if (i > 0) html += '</li>';
     }
-
-    const currentList = listStack[listStack.length - 1];
-    const li = document.createElement('li');
-    li.innerHTML = liTag;
-    const link = li.querySelector('a');
-    currentList.appendChild(li);
-
-    if (liStack.length < listStack.length) { liStack.push(li); } else { liStack[liStack.length - 1] = li; }
+    // Start item for this heading
+    html += `<li>${liTag}`;
+    prevLevel = level;
   }
-  return root.outerHTML;
+  // Close last item and all remaining lists
+  html += '</li>';
+  for (let d = prevLevel; d > 0; d--) html += '</ul>';
+  return html;
 }
 
 export function mdParse(markdown, baseDir) {
