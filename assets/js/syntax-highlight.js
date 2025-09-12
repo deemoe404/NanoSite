@@ -320,6 +320,104 @@ function cleanupMarkerArtifacts(html) {
   return out;
 }
 
+// 将受控的高亮 HTML 字符串转换为安全的文档片段，仅允许 <span class="syntax-*"> 与纯文本
+function toSafeFragment(html) {
+  const allowedTag = 'SPAN';
+  const allowedAttr = 'class';
+  const classPrefix = 'syntax-';
+
+  // 如果浏览器支持原生 Sanitizer API，优先使用白名单策略
+  try {
+    if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
+      const s = new window.Sanitizer({
+        allowElements: ['span'],
+        allowAttributes: {'class': ['span']},
+      });
+      const tmp = document.createElement('div');
+      // 使用 Sanitizer 将内容注入到临时容器
+      tmp.setHTML(String(html || ''), { sanitizer: s });
+      // 进一步约束 class 仅保留以 syntax- 开头
+      tmp.querySelectorAll('*').forEach((el) => {
+        if (el.tagName !== allowedTag) {
+          el.replaceWith(document.createTextNode(el.textContent || ''));
+          return;
+        }
+        const classes = (el.getAttribute('class') || '').split(/\s+/).filter(c => c && c.startsWith(classPrefix));
+        if (classes.length) el.setAttribute('class', classes.join(' ')); else el.removeAttribute('class');
+        // 移除其他所有属性
+        for (const attr of Array.from(el.attributes)) {
+          if (attr.name !== allowedAttr) el.removeAttribute(attr.name);
+        }
+      });
+      const frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      return frag;
+    }
+  } catch (_) { /* 忽略，回退到手动净化 */ }
+
+  // 回退：不再重新解释为 HTML，而是手工解析仅允许的 <span class="syntax-*"> 标记
+  // 这样可避免“DOM 文本被重新作为 HTML 解释”的 CodeQL 告警
+  const decodeEntities = (t) => String(t || '').replace(/&(amp|lt|gt|quot|#039);/g, (m, g1) => (
+    g1 === 'amp' ? '&' : g1 === 'lt' ? '<' : g1 === 'gt' ? '>' : g1 === 'quot' ? '"' : "'"
+  ));
+  const frag = document.createDocumentFragment();
+  const stack = [frag];
+  let i = 0;
+  const len = (html || '').length;
+  const src = String(html || '');
+
+  const appendText = (text) => {
+    if (!text) return;
+    stack[stack.length - 1].appendChild(document.createTextNode(decodeEntities(text)));
+  };
+
+  // 仅识别 <span ...> 与 </span>，其它一律按文本处理
+  while (i < len) {
+    if (src.charCodeAt(i) !== 60 /* '<' */) {
+      const nextLt = src.indexOf('<', i);
+      const chunk = nextLt === -1 ? src.slice(i) : src.slice(i, nextLt);
+      appendText(chunk);
+      i = nextLt === -1 ? len : nextLt;
+      continue;
+    }
+
+    // 尝试匹配关闭标签 </span>
+    if (/^<\s*\/\s*span\s*>/i.test(src.slice(i))) {
+      const m = src.slice(i).match(/^<\s*\/\s*span\s*>/i);
+      if (m) {
+        if (stack.length > 1) stack.pop(); else appendText(m[0]);
+        i += m[0].length;
+        continue;
+      }
+    }
+
+    // 尝试匹配开启标签 <span ...>
+    const open = src.slice(i).match(/^<\s*span\b([^>]*)>/i);
+    if (open) {
+      const attrText = open[1] || '';
+      // 提取 class 属性并仅保留以 syntax- 开头的类名
+      const clsMatch = attrText.match(/\bclass\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      let classes = [];
+      if (clsMatch) {
+        const raw = (clsMatch[2] || clsMatch[3] || clsMatch[4] || '').trim();
+        classes = raw.split(/\s+/).filter(c => c && c.startsWith(classPrefix));
+      }
+      const el = document.createElement('span');
+      if (classes.length) el.setAttribute('class', classes.join(' '));
+      stack[stack.length - 1].appendChild(el);
+      stack.push(el);
+      i += open[0].length;
+      continue;
+    }
+
+    // 不是允许的标签，按普通文本处理一个字符以推进
+    appendText(src[i]);
+    i += 1;
+  }
+
+  return frag;
+}
+
 // 检测代码语言
 function detectLanguage(code) {
   if (!code) return null;
@@ -420,7 +518,9 @@ export function initSyntaxHighlighting() {
     // 应用语法高亮（若识别到语言且支持，且未禁用）
     if (!disableEnhance && language && highlightRules[language.toLowerCase()]) {
       const highlightedCode = simpleHighlight(originalCode, language);
-      codeElement.innerHTML = highlightedCode;
+      // 使用受控白名单将高亮结果插入 DOM，避免直接 innerHTML 带来的 XSS 风险
+      codeElement.textContent = '';
+      codeElement.appendChild(toSafeFragment(highlightedCode));
 
       // 确保代码滚动容器与浮动标签分离，避免水平滚动时标签跟随移动
       // 结构：<pre class="with-code-scroll"><div class="code-scroll"><code>...</code></div><div class="syntax-language-label"/></pre>
