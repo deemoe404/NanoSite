@@ -40,6 +40,12 @@
     @media (max-width: 640px) {
       body { padding: .75rem; }
     }
+
+    /* Back-to-top button */
+    .back-to-top { position: fixed; right: 1rem; bottom: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease, transform .18s ease, background-color .18s ease; z-index: 999; }
+    .back-to-top:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
+    .back-to-top svg { width: 1.15rem; height: 1.15rem; }
+    .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
   </style>
 </head>
 <body>
@@ -75,5 +81,11 @@
   </div>
 
   <script type="module" src="assets/js/editor-main.js"></script>
+  <!-- Back to top button -->
+  <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  </button>
 </body>
 </html>

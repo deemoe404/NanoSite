@@ -96,4 +96,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Default to editor view
   switchView('edit');
+
+  // Back-to-top button behavior
+  (function initBackToTop() {
+    const btn = document.getElementById('backToTop');
+    if (!btn) return;
+    try { btn.hidden = false; } catch (_) {}
+    const threshold = 260;
+    const toggle = () => {
+      const y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      if (y > threshold) btn.classList.add('show');
+      else btn.classList.remove('show');
+    };
+    window.addEventListener('scroll', toggle, { passive: true });
+    btn.addEventListener('click', () => {
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      catch (_) { window.scrollTo(0, 0); }
+    });
+    toggle();
+  })();
 });
