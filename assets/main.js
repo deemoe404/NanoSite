@@ -3,7 +3,7 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -276,12 +276,15 @@ function setImageSrcNoStore(img, src) {
     if (!img) return;
     const val = String(src || '').trim();
     if (!val) return;
+    // Sanitize before applying
+    const safeVal = sanitizeImageUrl(val);
+    if (!safeVal) return;
     // data:/blob:/absolute URLs — leave as-is
-    if (/^(data:|blob:)/i.test(val)) { img.setAttribute('src', val); return; }
-    if (/^[a-z][a-z0-9+.-]*:/i.test(val)) { img.setAttribute('src', val); return; }
+    if (/^(data:|blob:)/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
     // Relative or same-origin absolute: fetch fresh and use an object URL
-    let abs = val;
-    try { abs = new URL(val, window.location.href).toString(); } catch (_) {}
+    let abs = safeVal;
+    try { abs = new URL(safeVal, window.location.href).toString(); } catch (_) {}
     fetch(abs, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
       .then(b => {
@@ -290,8 +293,8 @@ function setImageSrcNoStore(img, src) {
         img.dataset.blobUrl = url;
         img.setAttribute('src', url);
       })
-      .catch(() => { img.setAttribute('src', val); });
-  } catch (_) { try { img.setAttribute('src', src); } catch(__) {} }
+      .catch(() => { img.setAttribute('src', safeVal); });
+  } catch (_) { try { img.setAttribute('src', sanitizeImageUrl(src)); } catch(__) {} }
 }
 
 function renderSiteLinks(cfg) {
@@ -381,7 +384,8 @@ function hydrateCardCovers(container) {
       const inIndex = !!wrap.closest('.index');
       const ds = img.getAttribute('data-src');
       if (!inIndex && ds && !img.getAttribute('src')) {
-        img.src = ds;
+        const safe = sanitizeImageUrl(ds);
+        if (safe) img.src = safe;
       }
     });
   } catch (_) {}
@@ -446,7 +450,10 @@ function hydratePostImages(container) {
         }
 
         const ds = img.getAttribute('data-src');
-        if (ds) img.src = ds;
+        if (ds) {
+          const safe = sanitizeImageUrl(ds);
+          if (safe) img.src = safe;
+        }
       };
 
       if (onlyThisImg) {
@@ -985,7 +992,8 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
         img.addEventListener('load', done, { once: true });
         img.addEventListener('error', done, { once: true });
         // Kick off the actual request
-        img.src = src;
+        const safe = sanitizeImageUrl(src);
+        if (safe) img.src = safe;
       }
     };
     startNext();
