@@ -35,7 +35,8 @@ const highlightRules = {
   
   html: [
     { type: 'comment', pattern: /<!--[\s\S]*?-->/g },
-    { type: 'tag', pattern: /<\/?[\w\-]+(?:\s+[\w\-]+(=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
+    // Safer HTML tag matcher (avoids ReDoS from nested optional groups and disallows hyphen-start tag names)
+    { type: 'tag', pattern: /<\/?[A-Za-z][\w:.-]*(?:\s+(?:"[^"]*"|'[^']*'|[^"'\s<>=]+))*\s*\/?>/g }
   ],
   
   // XML — add PI, CDATA, strings, numbers, and tags
@@ -50,7 +51,8 @@ const highlightRules = {
     { type: 'string', pattern: /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g },
     // (Temporarily disable XML number highlighting to avoid content corruption)
     // Tags (names + attributes)
-    { type: 'tag', pattern: /<\/?[\w\-:.]+(?:\s+[\w\-:.]+(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g }
+    // Safer XML tag matcher (no nested optional equals within repetition; requires letter-start names)
+    { type: 'tag', pattern: /<\/?[A-Za-z][\w:.-]*(?:\s+(?:"[^"]*"|'[^']*'|[^"'\s<>=]+))*\s*\/?>/g }
   ],
   
   css: [
