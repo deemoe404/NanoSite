@@ -835,16 +835,35 @@ function renderRobotsPreview(text = ''){
 }
 
 function renderMetaPreview(frag = '', cfg = {}){
-  let doc;
-  try { const parser = new DOMParser(); doc = parser.parseFromString(`<head>${frag}</head>`, 'text/html'); } catch(_) { doc = null; }
-  const get = (sel, attr) => { try { const el = doc && doc.querySelector(sel); return el ? (attr ? el.getAttribute(attr) : (el.textContent||'')) : ''; } catch(_) { return ''; } };
-  const title = get('title') || get('meta[name="title"]','content');
-  const desc = get('meta[name="description"]','content');
-  const keys = get('meta[name="keywords"]','content');
-  const robots = get('meta[name="robots"]','content');
-  const canonical = get('link[rel="canonical"]','href');
-  const ogImage = get('meta[property="og:image"]','content');
-  const twCard = get('meta[property="twitter:card"]','content');
+  // Safe, regex-based extraction (no HTML interpretation)
+  const raw = String(frag || '');
+  const findTag = (tag, attrKey, attrVal) => {
+    try {
+      const re = new RegExp(`<${tag}\\b[^>]*${attrKey}\\s*=\\s*(?:\"${attrVal}\"|'${attrVal}')` , 'i');
+      const m = raw.match(re);
+      return m ? m[0] : '';
+    } catch (_) { return ''; }
+  };
+  const getAttr = (tagStr, name) => {
+    try {
+      const re = new RegExp(`${name}\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))`, 'i');
+      const m = String(tagStr||'').match(re);
+      return m ? (m[1] || m[2] || m[3] || '') : '';
+    } catch (_) { return ''; }
+  };
+  const findTitle = () => {
+    try {
+      const m = raw.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+      return m ? m[1] : '';
+    } catch (_) { return ''; }
+  };
+  const title = findTitle() || getAttr(findTag('meta', 'name', 'title'), 'content');
+  const desc = getAttr(findTag('meta', 'name', 'description'), 'content');
+  const keys = getAttr(findTag('meta', 'name', 'keywords'), 'content');
+  const robots = getAttr(findTag('meta', 'name', 'robots'), 'content');
+  const canonical = getAttr(findTag('link', 'rel', 'canonical'), 'href');
+  const ogImage = getAttr(findTag('meta', 'property', 'og:image'), 'content');
+  const twCard = getAttr(findTag('meta', 'property', 'twitter:card'), 'content');
   const badge = (ok) => ok ? '<span class="badge ok">OK</span>' : '<span class="badge warn">Missing</span>';
   const chips = (v) => v ? v.split(/,\s*/).map(x => `<span class=\"chip\">${__escHtml(x)}</span>`).join('') : '<em class="dim">None</em>';
   const body = [
@@ -1110,13 +1129,15 @@ function downloadFile(filename, content, mimeType) {
 function validateSitemap(){
   const val = getEditorValue('sitemapOutput') || (document.getElementById('sitemapOutput') || {}).value || '';
   try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(val, 'application/xml');
-    const err = doc.getElementsByTagName('parsererror')[0];
-    if (err) { t('err', 'Invalid XML'); return false; }
-    const ok = doc.documentElement && (doc.documentElement.localName === 'urlset');
-    t(ok ? 'ok' : 'warn', ok ? 'XML is valid (urlset root)' : 'XML valid but unexpected root');
-    return ok;
+    const s = String(val || '').trim();
+    if (!s) { t('err', 'Empty XML'); return false; }
+    // Minimal structural check for <urlset> root without interpreting HTML/XML
+    const hasRoot = /<\s*urlset\b[\s\S]*<\/\s*urlset\s*>/i.test(s);
+    if (!hasRoot) { t('err', 'Missing <urlset> root'); return false; }
+    // Spot very obvious malformations like stray script tags
+    if (/<\s*script\b/i.test(s)) { t('warn', 'Unexpected <script> tag in XML'); }
+    t('ok', 'Looks like a sitemap (urlset root)');
+    return true;
   } catch (e) { t('err', 'Validation failed'); return false; }
 }
 function validateRobots(){
@@ -1131,11 +1152,10 @@ function validateRobots(){
 function validateMeta(){
   const frag = getEditorValue('metaOutput') || (document.getElementById('metaOutput') || {}).value || '';
   try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(`<head>${frag}</head>`, 'text/html');
-    const hasDesc = !!doc.querySelector('meta[name="description"]');
-    const hasTitle = !!doc.querySelector('title');
-    const ok = hasDesc && hasTitle;
+    const s = String(frag || '');
+    const hasTitle = /<title\b[^>]*>[\s\S]*?<\/title>/i.test(s) || /<meta\b[^>]*name\s*=\s*(?:"title"|'title')[^>]*>/i.test(s);
+    const hasDesc = /<meta\b[^>]*name\s*=\s*(?:"description"|'description')[^>]*>/i.test(s);
+    const ok = !!(hasTitle && hasDesc);
     t(ok ? 'ok' : 'warn', ok ? 'Meta looks OK' : 'Missing <title> or description');
     return ok;
   } catch (_) { t('err', 'Validation failed'); return false; }
