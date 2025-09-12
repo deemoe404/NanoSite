@@ -78,43 +78,66 @@ function robotsFallbackHighlight(raw) {
 function yamlFallbackHighlight(raw) {
   try {
     const lines = String(raw || '').split('\n');
-    const span = (cls, txt) => `<span class="syntax-${cls}">${txt}</span>`;
-    const esc = (t) => String(t || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
-    const protectedReplaceHTML = (input, regex, wrapFn) => {
-      // Avoid re-wrapping inside existing spans
+    const MARK = (t, s) => `__H__${t}__${s}__E__`;
+
+    // Replace only in regions not already wrapped by markers
+    const protectedReplaceRaw = (input, regex, wrapFn) => {
       let out = '';
-      let i = 0; const spanRe = /<span[^>]*>[\s\S]*?<\/span>/gi; let m;
-      while ((m = spanRe.exec(input)) !== null) {
-        const start = m.index; const end = spanRe.lastIndex;
-        const before = input.slice(i, start);
-        out += before.replace(regex, wrapFn);
-        out += m[0]; i = end;
+      let i = 0;
+      while (i < input.length) {
+        const start = input.indexOf('__H__', i);
+        if (start === -1) {
+          out += input.slice(i).replace(regex, wrapFn);
+          break;
+        }
+        // Replace in the chunk before the marker
+        out += input.slice(i, start).replace(regex, wrapFn);
+        // Copy the marked chunk untouched
+        const end = input.indexOf('__E__', start + 5);
+        if (end === -1) { // malformed marker; append rest
+          out += input.slice(start);
+          break;
+        }
+        out += input.slice(start, end + 5);
+        i = end + 5;
       }
-      out += input.slice(i).replace(regex, wrapFn);
       return out;
     };
+
     const out = lines.map((line) => {
-      let s = esc(line);
-      // Comments (# ...), but ignore hashes inside quotes by doing it after quotes are wrapped
-      // First, quoted strings
-      s = protectedReplaceHTML(s, /"(?:[^"\\]|\\.)*"|'[^']*'/g, (m) => span('string', m));
-      // Anchors & aliases
-      s = protectedReplaceHTML(s, /(^|\s)[&*][A-Za-z0-9_\-]+/g, (m) => span('variables', m));
-      // Tags (e.g., !Ref, !!str)
-      s = protectedReplaceHTML(s, /(^|\s)!{1,2}[A-Za-z0-9_:\-]+/g, (m) => span('preprocessor', m));
-      // Key at line start or after list dash: key:
-      s = s.replace(/^(\s*-\s*)?([A-Za-z_][\w\-\.]*|&[A-Za-z0-9_\-]+|\*[A-Za-z0-9_\-]+|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/, (m, g1 = '', g2 = '') => `${g1 || ''}${span('property', g2 + ':')}`);
-      // Wrap comments early so later rules don't affect them
-      s = s.replace(/(^|\s)#.*$/, (m) => span('comment', m));
-      // Dates and times (treat as single tokens)
-      s = protectedReplaceHTML(s, /\b\d{4}-\d{2}-\d{2}\b/g, (m) => span('number', m));
-      s = protectedReplaceHTML(s, /\b\d{2}:\d{2}(?::\d{2})?\b/g, (m) => span('number', m));
-      // Booleans/null
-      s = protectedReplaceHTML(s, /\b(true|false|on|off|yes|no|null)\b/gi, (m) => span('keyword', m));
-      // Numbers
-      s = protectedReplaceHTML(s, /\b-?\d+(?:\.\d+)?\b/g, (m) => span('number', m));
-      // Punctuation (include block scalar indicators | and >)
-      s = protectedReplaceHTML(s, /[:{},\[\]\-|>]/g, (m) => span('punctuation', m));
+      let s = String(line || '');
+
+      // 1) Strings first, on raw text (so quotes are intact)
+      s = s.replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, (m) => MARK('string', m));
+
+      // 2) Anchors & aliases (outside strings)
+      s = protectedReplaceRaw(s, /(^|\s)[&*][A-Za-z0-9_\-]+/g, (m) => MARK('variables', m));
+
+      // 3) Tags (e.g., !Ref, !!str)
+      s = protectedReplaceRaw(s, /(^|\s)!{1,2}[A-Za-z0-9_:\-]+/g, (m) => MARK('preprocessor', m));
+
+      // 4) Key at line start (or after list dash): key:
+      s = s.replace(/^(\s*-\s*)?([A-Za-z_][\w\-\.]*|&[A-Za-z0-9_\-]+|\*[A-Za-z0-9_\-]+|"(?:[^"\\]|\\.)*"|'[^']*')\s*:/, (m, g1 = '', g2 = '') => `${g1 || ''}${MARK('property', g2 + ':')}`);
+
+      // 5) Comments from # to EOL (outside strings)
+      s = protectedReplaceRaw(s, /(^|\s)#.*$/, (m) => MARK('comment', m));
+
+      // 6) Dates and times (outside strings/comments)
+      s = protectedReplaceRaw(s, /\b\d{4}-\d{2}-\d{2}\b/g, (m) => MARK('number', m));
+      s = protectedReplaceRaw(s, /\b\d{2}:\d{2}(?::\d{2})?\b/g, (m) => MARK('number', m));
+
+      // 7) Booleans/null
+      s = protectedReplaceRaw(s, /\b(true|false|on|off|yes|no|null)\b/gi, (m) => MARK('keyword', m));
+
+      // 8) Numbers
+      s = protectedReplaceRaw(s, /\b-?\d+(?:\.\d+)?\b/g, (m) => MARK('number', m));
+
+      // 9) Punctuation (include block scalar indicators | and >)
+      s = protectedReplaceRaw(s, /[:{},\[\]\-|>]/g, (m) => MARK('punctuation', m));
+
+      // Escape and unwrap markers into spans
+      s = escapeHtmlInline(s);
+      s = s.replace(/__H__(\w+)__([\s\S]*?)__E__/g, (m, type, content) => `<span class="syntax-${type}">${content}</span>`);
       return s;
     }).join('\n');
     return out;
