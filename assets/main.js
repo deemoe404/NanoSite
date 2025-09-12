@@ -1022,7 +1022,8 @@ function renderTabs(activeSlug, searchQuery) {
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
+      .replace(/&#0?39;/g, "'")
+      // Unescape ampersand last to avoid double-unescaping
       .replace(/&amp;/g, '&');
     // Minimal protocol whitelist for href attributes
     const sanitizeHref = (value) => {
