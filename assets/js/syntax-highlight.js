@@ -320,6 +320,69 @@ function cleanupMarkerArtifacts(html) {
   return out;
 }
 
+// 将受控的高亮 HTML 字符串转换为安全的文档片段，仅允许 <span class="syntax-*"> 与纯文本
+function toSafeFragment(html) {
+  const allowedTag = 'SPAN';
+  const allowedAttr = 'class';
+  const classPrefix = 'syntax-';
+
+  // 如果浏览器支持原生 Sanitizer API，优先使用白名单策略
+  try {
+    if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
+      const s = new window.Sanitizer({
+        allowElements: ['span'],
+        allowAttributes: {'class': ['span']},
+      });
+      const tmp = document.createElement('div');
+      // 使用 Sanitizer 将内容注入到临时容器
+      tmp.setHTML(String(html || ''), { sanitizer: s });
+      // 进一步约束 class 仅保留以 syntax- 开头
+      tmp.querySelectorAll('*').forEach((el) => {
+        if (el.tagName !== allowedTag) {
+          el.replaceWith(document.createTextNode(el.textContent || ''));
+          return;
+        }
+        const classes = (el.getAttribute('class') || '').split(/\s+/).filter(c => c && c.startsWith(classPrefix));
+        if (classes.length) el.setAttribute('class', classes.join(' ')); else el.removeAttribute('class');
+        // 移除其他所有属性
+        for (const attr of Array.from(el.attributes)) {
+          if (attr.name !== allowedAttr) el.removeAttribute(attr.name);
+        }
+      });
+      const frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      return frag;
+    }
+  } catch (_) { /* 忽略，回退到手动净化 */ }
+
+  // 回退：使用 DOMParser + 手动白名单净化
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(String(html || ''), 'text/html');
+  const container = doc.body || doc.documentElement;
+
+  // 移除不允许的标签与属性，仅保留 <span class="syntax-*">
+  container.querySelectorAll('*').forEach((node) => {
+    if (node.tagName !== allowedTag) {
+      node.replaceWith(doc.createTextNode(node.textContent || ''));
+      return;
+    }
+    // 仅允许 class 且以 syntax- 开头
+    const classes = (node.getAttribute('class') || '').split(/\s+/).filter(c => c && c.startsWith(classPrefix));
+    if (classes.length) node.setAttribute('class', classes.join(' ')); else node.removeAttribute('class');
+    // 删除其它属性
+    for (const attr of Array.from(node.attributes)) {
+      if (attr.name !== allowedAttr) node.removeAttribute(attr.name);
+    }
+  });
+
+  const frag = document.createDocumentFragment();
+  // 将净化后的节点导入到当前文档片段
+  while (container.firstChild) {
+    frag.appendChild(document.importNode(container.firstChild, true));
+  }
+  return frag;
+}
+
 // 检测代码语言
 function detectLanguage(code) {
   if (!code) return null;
@@ -420,7 +483,9 @@ export function initSyntaxHighlighting() {
     // 应用语法高亮（若识别到语言且支持，且未禁用）
     if (!disableEnhance && language && highlightRules[language.toLowerCase()]) {
       const highlightedCode = simpleHighlight(originalCode, language);
-      codeElement.innerHTML = highlightedCode;
+      // 使用受控白名单将高亮结果插入 DOM，避免直接 innerHTML 带来的 XSS 风险
+      codeElement.textContent = '';
+      codeElement.appendChild(toSafeFragment(highlightedCode));
 
       // 确保代码滚动容器与浮动标签分离，避免水平滚动时标签跟随移动
       // 结构：<pre class="with-code-scroll"><div class="code-scroll"><code>...</code></div><div class="syntax-language-label"/></pre>
