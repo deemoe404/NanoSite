@@ -24,7 +24,7 @@ export function escapeMarkdown(text) {
   let result = '';
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      result += parts[i]
+      let seg = parts[i]
         .replace(/\\\\/g, '&#092;')
         .replace(/\\\*/g, '&#042;')
         .replace(/\\_/g, '&#095;')
@@ -36,8 +36,17 @@ export function escapeMarkdown(text) {
         .replace(/\\-/g, '&#045;')
         .replace(/\\\./g, '&#046;')
         .replace(/\\!/g, '&#033;')
-        .replace(/\\\|/g, '&#124;')
-        .replace(/<!--[\s\S]*?-->/g, '');
+        .replace(/\\\|/g, '&#124;');
+      // Robustly strip HTML comments by repeating until stable
+      seg = (function removeHtmlComments(input) {
+        let prev, out = String(input || '');
+        do {
+          prev = out;
+          out = out.replace(/<!--[\s\S]*?-->/g, '');
+        } while (out !== prev);
+        return out;
+      })(seg);
+      result += seg;
     } else {
       result += parts[i];
     }
