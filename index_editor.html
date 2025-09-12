@@ -41,7 +41,12 @@
     /* Grouped list styles */
     .editor-sidebar .file-group { border-bottom: 1px solid var(--border); }
     .editor-sidebar .file-group:last-child { border-bottom: 0; }
-    .editor-sidebar .file-group-header { font-size: .95rem; font-weight: 700; color: var(--text); padding: .5rem .6rem; cursor: pointer; list-style: none; }
+    .editor-sidebar .file-group-header { font-size: .95rem; font-weight: 700; color: var(--text); padding: .5rem .6rem; cursor: pointer; list-style: none; display:flex; align-items:center; gap:.5rem; }
+    .editor-sidebar .file-group-title { flex: 1; min-width: 0; }
+    .editor-sidebar .summary-badges { display:inline-flex; gap:.35rem; align-items:center; }
+    .editor-sidebar .badge { display:inline-flex; align-items:center; gap:.25rem; border:1px solid var(--border); background: var(--card); color: var(--muted); font-size:.72rem; padding:.05rem .4rem; border-radius:999px; }
+    .editor-sidebar .badge-ver { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+    .editor-sidebar .badge-lang { }
     .editor-sidebar details.file-group > summary::-webkit-details-marker { display: none; }
     .editor-sidebar details.file-group[open] > summary::after { content: '▾'; float: right; color: var(--muted); }
     .editor-sidebar details.file-group:not([open]) > summary::after { content: '▸'; float: right; color: var(--muted); }

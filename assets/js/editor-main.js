@@ -218,13 +218,35 @@ document.addEventListener('DOMContentLoaded', () => {
       return 0;
     };
 
-    const makeGroupHeader = (title, open = true) => {
+    const makeGroupHeader = (title, open = false, meta = null) => {
       const details = document.createElement('details');
       details.className = 'file-group';
       if (open) details.setAttribute('open', '');
       const summary = document.createElement('summary');
       summary.className = 'file-group-header';
-      summary.textContent = title;
+      // Title section
+      const sTitle = document.createElement('span');
+      sTitle.className = 'file-group-title';
+      sTitle.textContent = title;
+      summary.appendChild(sTitle);
+      // Badges/meta
+      if (meta) {
+        const wrap = document.createElement('span');
+        wrap.className = 'summary-badges';
+        if (typeof meta.versionsCount === 'number' && meta.versionsCount > 0) {
+          const b = document.createElement('span');
+          b.className = 'badge badge-ver';
+          b.textContent = `v${meta.versionsCount}`;
+          wrap.appendChild(b);
+        }
+        if (Array.isArray(meta.langs) && meta.langs.length) {
+          const b = document.createElement('span');
+          b.className = 'badge badge-lang';
+          b.textContent = meta.langs.map(x => String(x).toUpperCase()).join(' ');
+          wrap.appendChild(b);
+        }
+        summary.appendChild(wrap);
+      }
       const ul = document.createElement('ul');
       ul.className = 'file-sublist';
       details.appendChild(summary);
@@ -253,7 +275,25 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const groups = Object.entries(data || {});
         for (const [postKey, val] of groups) {
-          const { container, sublist } = makeGroupHeader(postKey, true);
+          // Compute meta: languages + version count
+          const langsSet = new Set();
+          const verSet = new Set();
+          if (typeof val === 'string') {
+            const v = extractVersion(val); if (v) verSet.add(v);
+          } else if (Array.isArray(val)) {
+            val.forEach(p => { const v = extractVersion(p); if (v) verSet.add(v); });
+          } else if (val && typeof val === 'object') {
+            for (const [lang, paths] of Object.entries(val)) {
+              langsSet.add(lang);
+              if (typeof paths === 'string') {
+                const v = extractVersion(paths); if (v) verSet.add(v);
+              } else if (Array.isArray(paths)) {
+                paths.forEach(p => { const v = extractVersion(p); if (v) verSet.add(v); });
+              }
+            }
+          }
+          const meta = { langs: Array.from(langsSet), versionsCount: verSet.size };
+          const { container, sublist } = makeGroupHeader(postKey, false, meta);
           if (typeof val === 'string') {
             sublist.appendChild(makeLi(`${postKey} - ${basename(val)}`, val));
           } else if (Array.isArray(val)) {
@@ -299,7 +339,24 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const groups = Object.entries(data || {});
         for (const [tabKey, variants] of groups) {
-          const { container, sublist } = makeGroupHeader(tabKey, true);
+          // Compute meta for tabs: languages + versions (if any detected)
+          const langsSet = new Set();
+          const verSet = new Set();
+          if (typeof variants === 'string') {
+            const v = extractVersion(variants); if (v) verSet.add(v);
+          } else if (variants && typeof variants === 'object') {
+            for (const [lang, detail] of Object.entries(variants)) {
+              langsSet.add(lang);
+              if (typeof detail === 'string') {
+                const v = extractVersion(detail); if (v) verSet.add(v);
+              } else if (detail && typeof detail === 'object') {
+                const loc = detail.location || '';
+                const v = extractVersion(loc); if (v) verSet.add(v);
+              }
+            }
+          }
+          const meta = { langs: Array.from(langsSet), versionsCount: verSet.size };
+          const { container, sublist } = makeGroupHeader(tabKey, false, meta);
           if (typeof variants === 'string') {
             sublist.appendChild(makeLi(`${tabKey} - ${basename(variants)}`, variants));
           } else if (variants && typeof variants === 'object') {
@@ -344,6 +401,10 @@ document.addEventListener('DOMContentLoaded', () => {
       groups.forEach(g => {
         const anyVisible = !!g.querySelector('.file-item:not([style*="display: none"])');
         g.parentElement.style.display = anyVisible || !q ? '' : 'none';
+        // Auto-expand matched groups when searching
+        if (q && anyVisible) {
+          try { g.setAttribute('open', ''); } catch (_) {}
+        }
       });
     };
     if (searchInput) {
