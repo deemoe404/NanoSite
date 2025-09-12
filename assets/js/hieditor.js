@@ -284,7 +284,56 @@ function renderHighlight(codeEl, gutterEl, value, language) {
     // Fallback to plain escaped if markers still leak
     safeHtml = escapeHtmlInline(raw);
   }
-  codeEl.innerHTML = safeHtml;
+  // Render using a safe DOM builder that only allows <span class="syntax-*> wrappers
+  // and decodes entities for text nodes. This avoids interpreting arbitrary HTML.
+  (function safeRender(target, markup) {
+    // Minimal entity decoder matching escapeHtmlInline
+    const decode = (s) => String(s || '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;/g, "'");
+    const root = document.createDocumentFragment();
+    const stack = [root];
+    let i = 0;
+    const openStart = '<span class="syntax-';
+    const openEnd = '">';
+    const closeTag = '</span>';
+    const isTypeOk = (t) => /^[a-z-]+$/.test(t);
+    while (i < markup.length) {
+      if (markup.startsWith(openStart, i)) {
+        const j = markup.indexOf(openEnd, i + openStart.length);
+        if (j !== -1) {
+          const cls = markup.slice(i + openStart.length, j);
+          if (isTypeOk(cls)) {
+            const el = document.createElement('span');
+            el.className = 'syntax-' + cls;
+            stack[stack.length - 1].appendChild(el);
+            stack.push(el);
+            i = j + openEnd.length;
+            continue;
+          }
+        }
+        // Not a valid allowed opener; treat '<' as text
+        stack[stack.length - 1].appendChild(document.createTextNode('<'));
+        i += 1;
+        continue;
+      }
+      if (markup.startsWith(closeTag, i)) {
+        if (stack.length > 1) stack.pop();
+        i += closeTag.length;
+        continue;
+      }
+      const nextLt = markup.indexOf('<', i);
+      const end = nextLt === -1 ? markup.length : nextLt;
+      const chunk = markup.slice(i, end);
+      if (chunk) stack[stack.length - 1].appendChild(document.createTextNode(decode(chunk)));
+      i = end;
+    }
+    // Replace children atomically
+    target.replaceChildren(root);
+  })(codeEl, safeHtml);
   // Update line numbers (include trailing blank line)
   // Count all lines by counting newlines + 1; if empty, still show 1
   const lineCount = raw === '' ? 1 : ((raw.match(/\n/g) || []).length + 1);
