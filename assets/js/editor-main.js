@@ -195,69 +195,155 @@ document.addEventListener('DOMContentLoaded', () => {
       return li;
     };
 
-    const flattenIndex = (obj) => {
-      const items = [];
+    // ---- Grouped rendering helpers ----
+    const extractVersion = (p) => {
       try {
-        const langKey = /^(default|en|zh|ja|[a-z]{2})(?:-[a-z0-9]+)?$/i;
-        for (const [group, val] of Object.entries(obj || {})) {
+        const m = String(p || '').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i);
+        return m ? m[0].split('/').pop() : '';
+      } catch (_) { return ''; }
+    };
+    const versionParts = (v) => {
+      try {
+        const s = String(v || '').replace(/^v/i, '');
+        return s.split('.').map(x => parseInt(x, 10)).map(n => (Number.isFinite(n) ? n : 0));
+      } catch (_) { return [0]; }
+    };
+    const compareVersionDesc = (a, b) => {
+      const aa = versionParts(a); const bb = versionParts(b);
+      const len = Math.max(aa.length, bb.length);
+      for (let i = 0; i < len; i++) {
+        const x = aa[i] || 0; const y = bb[i] || 0;
+        if (x !== y) return y - x; // desc
+      }
+      return 0;
+    };
+
+    const makeGroupHeader = (title, open = true) => {
+      const details = document.createElement('details');
+      details.className = 'file-group';
+      if (open) details.setAttribute('open', '');
+      const summary = document.createElement('summary');
+      summary.className = 'file-group-header';
+      summary.textContent = title;
+      const ul = document.createElement('ul');
+      ul.className = 'file-sublist';
+      details.appendChild(summary);
+      details.appendChild(ul);
+      const li = document.createElement('li');
+      li.appendChild(details);
+      return { container: li, sublist: ul, details };
+    };
+
+    const makeSubHeader = (title) => {
+      const li = document.createElement('li');
+      li.className = 'file-subgroup';
+      const div = document.createElement('div');
+      div.className = 'file-subheader';
+      div.textContent = title;
+      const ul = document.createElement('ul');
+      ul.className = 'file-sublist';
+      li.appendChild(div);
+      li.appendChild(ul);
+      return { container: li, sublist: ul };
+    };
+
+    const renderGroupedIndex = (ul, data) => {
+      ul.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      try {
+        const groups = Object.entries(data || {});
+        for (const [postKey, val] of groups) {
+          const { container, sublist } = makeGroupHeader(postKey, true);
           if (typeof val === 'string') {
-            items.push({ label: `${group} - ${basename(val)}`, path: String(val) });
+            sublist.appendChild(makeLi(`${postKey} - ${basename(val)}`, val));
           } else if (Array.isArray(val)) {
-            val.forEach(p => { if (typeof p === 'string') items.push({ label: `${group} - ${basename(p)}`, path: p }); });
+            // No language info; list as is
+            val.forEach(p => { if (typeof p === 'string') sublist.appendChild(makeLi(`${basename(p)}`, p)); });
           } else if (val && typeof val === 'object') {
-            for (const [lang, paths] of Object.entries(val)) {
-              const langTag = langKey.test(lang) ? lang : lang;
+            const langs = Object.entries(val);
+            // Deterministic language order: en, zh, ja, then others
+            const langOrder = { en: 1, zh: 2, ja: 3 };
+            langs.sort(([a], [b]) => (langOrder[a] || 9) - (langOrder[b] || 9) || a.localeCompare(b));
+            for (const [lang, paths] of langs) {
+              const { container: sub, sublist: vs } = makeSubHeader(String(lang).toUpperCase());
+              const items = [];
               if (typeof paths === 'string') {
-                items.push({ label: `${group} (${langTag}) - ${basename(paths)}`, path: paths });
+                items.push({ v: extractVersion(paths) || '', path: paths, name: basename(paths) });
               } else if (Array.isArray(paths)) {
-                paths.forEach(p => { if (typeof p === 'string') items.push({ label: `${group} (${langTag}) - ${basename(p)}`, path: p }); });
+                for (const p of paths) {
+                  if (typeof p === 'string') items.push({ v: extractVersion(p) || '', path: p, name: basename(p) });
+                }
+              }
+              // Sort by version desc, then by name
+              items.sort((a, b) => {
+                const c = compareVersionDesc(a.v, b.v);
+                if (c !== 0) return c;
+                return a.name.localeCompare(b.name);
+              });
+              for (const it of items) {
+                const label = it.v ? `${it.v} - ${it.name}` : it.name;
+                vs.appendChild(makeLi(label, it.path));
+              }
+              sublist.appendChild(sub);
+            }
+          }
+          frag.appendChild(container);
+        }
+      } catch (_) { /* noop */ }
+      ul.appendChild(frag);
+    };
+
+    const renderGroupedTabs = (ul, data) => {
+      ul.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      try {
+        const groups = Object.entries(data || {});
+        for (const [tabKey, variants] of groups) {
+          const { container, sublist } = makeGroupHeader(tabKey, true);
+          if (typeof variants === 'string') {
+            sublist.appendChild(makeLi(`${tabKey} - ${basename(variants)}`, variants));
+          } else if (variants && typeof variants === 'object') {
+            const langs = Object.entries(variants);
+            const langOrder = { en: 1, zh: 2, ja: 3 };
+            langs.sort(([a], [b]) => (langOrder[a] || 9) - (langOrder[b] || 9) || a.localeCompare(b));
+            for (const [lang, detail] of langs) {
+              if (typeof detail === 'string') {
+                sublist.appendChild(makeLi(`${String(lang).toUpperCase()} - ${basename(detail)}`, detail));
+              } else if (detail && typeof detail === 'object') {
+                const title = detail.title || tabKey;
+                const loc = detail.location || '';
+                if (loc) sublist.appendChild(makeLi(`${String(lang).toUpperCase()} - ${title}`, loc));
               }
             }
           }
+          frag.appendChild(container);
         }
       } catch (_) { /* noop */ }
-      return items;
-    };
-
-    const flattenTabs = (obj) => {
-      const items = [];
-      try {
-        for (const [tab, variants] of Object.entries(obj || {})) {
-          if (typeof variants === 'string') {
-            items.push({ label: `${tab} - ${basename(variants)}`, path: variants });
-            continue;
-          }
-          if (!variants || typeof variants !== 'object') continue;
-          for (const [lang, detail] of Object.entries(variants)) {
-            if (typeof detail === 'string') {
-              items.push({ label: `${tab} (${lang}) - ${basename(detail)}`, path: detail });
-            } else if (detail && typeof detail === 'object') {
-              const title = detail.title || tab;
-              const loc = detail.location || '';
-              if (loc) items.push({ label: `${title} (${lang}) - ${basename(loc)}`, path: loc });
-            }
-          }
-        }
-      } catch (_) { /* noop */ }
-      return items;
-    };
-
-    const renderList = (ul, items) => {
-      ul.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      for (const it of items) frag.appendChild(makeLi(it.label, it.path));
       ul.appendChild(frag);
     };
 
     const applyFilter = (term) => {
       const q = String(term || '').trim().toLowerCase();
-      const scope = activeGroup === 'tabs' ? '#groupTabs .file-item' : '#groupIndex .file-item';
-      const all = document.querySelectorAll(scope);
-      all.forEach(li => {
+      const groupRoot = activeGroup === 'tabs' ? document.getElementById('groupTabs') : document.getElementById('groupIndex');
+      if (!groupRoot) return;
+      const items = groupRoot.querySelectorAll('.file-item');
+      items.forEach(li => {
         if (!q) { li.style.display = ''; return; }
         const a = li.dataset.label || '';
         const b = li.dataset.file || '';
         li.style.display = (a.includes(q) || b.includes(q)) ? '' : 'none';
+      });
+      // Hide language subgroups with no visible items
+      const subgroups = groupRoot.querySelectorAll('.file-subgroup');
+      subgroups.forEach(sg => {
+        const anyVisible = !!sg.querySelector('.file-item:not([style*="display: none"])');
+        sg.style.display = anyVisible || !q ? '' : 'none';
+      });
+      // Hide whole groups with no visible items
+      const groups = groupRoot.querySelectorAll('details.file-group');
+      groups.forEach(g => {
+        const anyVisible = !!g.querySelector('.file-item:not([style*="display: none"])');
+        g.parentElement.style.display = anyVisible || !q ? '' : 'none';
       });
     };
     if (searchInput) {
@@ -297,15 +383,13 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         setStatus('Loading index…');
         const idx = await fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]);
-        const items = flattenIndex(idx);
-        renderList(listIndex, items);
+        renderGroupedIndex(listIndex, idx);
       } catch (e) { console.warn('Failed to load index.yaml', e); }
 
       try {
         setStatus('Loading tabs…');
         const tjson = await fetchConfigWithYamlFallback([`${contentRoot}/tabs.yaml`, `${contentRoot}/tabs.yml`]);
-        const titems = flattenTabs(tjson);
-        renderList(listTabs, titems);
+        renderGroupedTabs(listTabs, tjson);
       } catch (e) { console.warn('Failed to load tabs.yaml', e); }
 
       setStatus('');
