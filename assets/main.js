@@ -3,7 +3,7 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -276,12 +276,15 @@ function setImageSrcNoStore(img, src) {
     if (!img) return;
     const val = String(src || '').trim();
     if (!val) return;
+    // Sanitize before applying
+    const safeVal = sanitizeImageUrl(val);
+    if (!safeVal) return;
     // data:/blob:/absolute URLs — leave as-is
-    if (/^(data:|blob:)/i.test(val)) { img.setAttribute('src', val); return; }
-    if (/^[a-z][a-z0-9+.-]*:/i.test(val)) { img.setAttribute('src', val); return; }
+    if (/^(data:|blob:)/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
     // Relative or same-origin absolute: fetch fresh and use an object URL
-    let abs = val;
-    try { abs = new URL(val, window.location.href).toString(); } catch (_) {}
+    let abs = safeVal;
+    try { abs = new URL(safeVal, window.location.href).toString(); } catch (_) {}
     fetch(abs, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
       .then(b => {
@@ -290,8 +293,8 @@ function setImageSrcNoStore(img, src) {
         img.dataset.blobUrl = url;
         img.setAttribute('src', url);
       })
-      .catch(() => { img.setAttribute('src', val); });
-  } catch (_) { try { img.setAttribute('src', src); } catch(__) {} }
+      .catch(() => { img.setAttribute('src', safeVal); });
+  } catch (_) { try { img.setAttribute('src', sanitizeImageUrl(src)); } catch(__) {} }
 }
 
 function renderSiteLinks(cfg) {
@@ -377,11 +380,12 @@ function hydrateCardCovers(container) {
       if (img.complete && img.naturalWidth > 0) { done(); return; }
       img.addEventListener('load', done, { once: true });
       img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
-      // Kick off loading immediately for link-card covers (index covers are loaded sequentially elsewhere)
+      // Kick off loading only for link-card covers (index covers load sequentially elsewhere)
       const inIndex = !!wrap.closest('.index');
-      const ds = img.getAttribute('data-src');
-      if (!inIndex && ds && !img.getAttribute('src')) {
-        img.src = ds;
+      if (!inIndex) {
+        // For link-card covers, src is set at creation time; no need to read from DOM attributes here.
+      } else {
+        // Index covers are handled by sequentialLoadCovers
       }
     });
   } catch (_) {}
@@ -445,8 +449,10 @@ function hydratePostImages(container) {
           img.addEventListener('error', () => { if (ph && ph.parentNode) ph.parentNode.removeChild(ph); img.style.opacity = '1'; }, { once: true });
         }
 
-        const ds = img.getAttribute('data-src');
-        if (ds) img.src = ds;
+        if (src) {
+          const safe = sanitizeImageUrl(src);
+          if (safe) img.src = safe;
+        }
       };
 
       if (onlyThisImg) {
@@ -600,11 +606,25 @@ function hydratePostVideos(container) {
             const toAbs = (s) => { try { return new URL(s, window.location.href).toString(); } catch(_) { return s; } };
             const sources = [video.getAttribute('src'), ...Array.from(video.querySelectorAll('source')).map(s => s.getAttribute('src'))].filter(Boolean);
             const first = sources.length ? toAbs(sources[0]) : '#';
-            overlay.innerHTML = '<div class="vf-content">'
-              + '<div class="vf-title">Video not available</div>'
-              + '<div class="vf-actions">'
-              + `<a class="vf-link primary" href="${first}" target="_blank" rel="noopener">Open file</a>`
-              + '</div></div>';
+            // Build fallback overlay using DOM APIs to avoid HTML injection
+            const content = document.createElement('div');
+            content.className = 'vf-content';
+            const title = document.createElement('div');
+            title.className = 'vf-title';
+            title.textContent = 'Video not available';
+            const actions = document.createElement('div');
+            actions.className = 'vf-actions';
+            const link = document.createElement('a');
+            link.className = 'vf-link primary';
+            try { link.setAttribute('rel', 'noopener'); } catch(_) {}
+            link.setAttribute('target', '_blank');
+            const sanitized = sanitizeUrl(first);
+            link.setAttribute('href', sanitized || '#');
+            link.textContent = 'Open file';
+            actions.appendChild(link);
+            content.appendChild(title);
+            content.appendChild(actions);
+            overlay.appendChild(content);
             if (wrap && !wrap.querySelector('.video-fallback')) wrap.appendChild(overlay);
             const show = () => { overlay.style.display = 'flex'; };
             const hide = () => { overlay.style.display = 'none'; };
@@ -876,7 +896,7 @@ function hydrateInternalLinkCards(container) {
       }
       const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
       const cover = (coverSrc)
-        ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(title)}" data-src="${cardImageSrc(coverSrc)}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
+        ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(title)}" src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
         : (useFallbackCover ? fallbackCover(title) : '');
 
       const wrapper = document.createElement('div');
@@ -985,7 +1005,8 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
         img.addEventListener('load', done, { once: true });
         img.addEventListener('error', done, { once: true });
         // Kick off the actual request
-        img.src = src;
+        const safe = sanitizeImageUrl(src);
+        if (safe) img.src = safe;
       }
     };
     startNext();
@@ -1671,7 +1692,7 @@ function displayIndex(parsed) {
     }
     const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
     const cover = (value && coverSrc)
-      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
+      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${escapeHtml(cardImageSrc(coverSrc))}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
       : (useFallbackCover ? fallbackCover(key) : '');
     // pre-render meta line with date if available; read time appended after fetch
     const hasDate = value && value.date;
@@ -1826,7 +1847,7 @@ function displaySearch(query) {
     }
     const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
     const cover = (value && coverSrc)
-      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${cardImageSrc(coverSrc)}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
+      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${escapeHtml(cardImageSrc(coverSrc))}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
       : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';

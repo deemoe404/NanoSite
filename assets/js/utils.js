@@ -64,6 +64,35 @@ export function sanitizeUrl(url) {
   return ['http', 'https', 'mailto', 'tel'].includes(p) ? s : '#';
 }
 
+// Stricter URL sanitizer for image sources.
+// Allows only: relative URLs, http(s), blob:, and data:image/* (excluding SVG).
+export function sanitizeImageUrl(url) {
+  try {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    // Protocol-relative -> resolve with current protocol
+    const normalized = raw.startsWith('//') ? (window.location.protocol + raw) : raw;
+    const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(normalized);
+    if (!hasScheme) return normalized; // relative
+    const u = new URL(normalized, document.baseURI);
+    const p = (u.protocol || '').toLowerCase();
+    if (p === 'http:' || p === 'https:' || p === 'blob:') return u.href;
+    if (p === 'data:') {
+      // Permit only raster image data URIs; explicitly disallow SVG-based payloads
+      const body = normalized.slice(5); // after 'data:'
+      const m = body.match(/^image\/([A-Za-z0-9.+-]+)[;,]/);
+      if (!m) return '';
+      const type = (m[1] || '').toLowerCase();
+      const allowed = new Set(['png', 'jpeg', 'jpg', 'gif', 'webp', 'avif', 'bmp', 'x-icon']);
+      return allowed.has(type) ? normalized : '';
+    }
+    // Block all other schemes (javascript:, file:, ftp:, etc.)
+    return '';
+  } catch (_) {
+    return '';
+  }
+}
+
 export function resolveImageSrc(src, baseDir) {
   const s = String(src || '').trim();
   if (/^[a-z][a-z0-9+.-]*:/.test(s) || s.startsWith('/') || s.startsWith('#')) {
