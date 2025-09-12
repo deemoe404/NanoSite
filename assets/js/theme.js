@@ -2,16 +2,23 @@ import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage 
 
 const PACK_LINK_ID = 'theme-pack';
 
+// Restrict theme pack names to safe slug format and default to 'native'.
+function sanitizePack(input) {
+  const s = String(input || '').toLowerCase().trim();
+  const clean = s.replace(/[^a-z0-9_-]/g, '');
+  return clean || 'native';
+}
+
 export function loadThemePack(name) {
-  const pack = (name || '').trim() || 'native';
+  const pack = sanitizePack(name);
   try { localStorage.setItem('themePack', pack); } catch (_) {}
   const link = document.getElementById(PACK_LINK_ID);
-  const href = `assets/themes/${pack}/theme.css`;
+  const href = `assets/themes/${encodeURIComponent(pack)}/theme.css`;
   if (link) link.setAttribute('href', href);
 }
 
 export function getSavedThemePack() {
-  try { return localStorage.getItem('themePack') || 'native'; } catch (_) { return 'native'; }
+  try { return sanitizePack(localStorage.getItem('themePack')) || 'native'; } catch (_) { return 'native'; }
 }
 
 export function applySavedTheme() {
@@ -33,7 +40,7 @@ export function applyThemeConfig(siteConfig) {
   const cfg = siteConfig || {};
   const override = cfg.themeOverride !== false; // default true
   const mode = (cfg.themeMode || '').toLowerCase(); // 'dark' | 'light' | 'auto' | 'user'
-  const pack = (cfg.themePack || '').trim();
+  const pack = sanitizePack(cfg.themePack);
 
   const setMode = (m) => {
     if (m === 'dark') {
@@ -106,7 +113,7 @@ export function bindThemePackPicker() {
   const saved = getSavedThemePack();
   sel.value = saved;
   sel.addEventListener('change', () => {
-    const val = sel.value || 'native';
+    const val = sanitizePack(sel.value) || 'native';
     loadThemePack(val);
   });
 }
@@ -164,7 +171,7 @@ export function mountThemeControls() {
       sel.innerHTML = '';
       (Array.isArray(list) ? list : []).forEach(p => {
         const opt = document.createElement('option');
-        opt.value = String(p.value || '').trim() || 'native';
+        opt.value = sanitizePack(p.value);
         opt.textContent = String(p.label || p.value || 'Theme');
         sel.appendChild(opt);
       });
