@@ -1017,15 +1017,36 @@ function renderTabs(activeSlug, searchQuery) {
     };
     const hasActive = (attrs) => /class="[^"]*\bactive\b[^"]*"/i.test(attrs);
     // Decode the small set of entities we produce via escapeHtml
+    // Important: unescape ampersand last to avoid double-unescaping
     const decodeEntities = (text) => String(text || '')
-      .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
+    // Minimal protocol whitelist for href attributes
+    const sanitizeHref = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      // Disallow control chars and whitespace
+      if (/[\u0000-\u001F\u007F\s]/.test(raw)) return '';
+      // Allow anchor-only, query-only, and root-relative links
+      if (raw.startsWith('#') || raw.startsWith('?') || raw.startsWith('/')) return raw;
+      try {
+        const u = new URL(raw, window.location.href);
+        const p = String(u.protocol || '').toLowerCase();
+        if (p === 'http:' || p === 'https:' || p === 'mailto:' || p === 'tel:') return u.toString();
+        return '';
+      } catch (_) {
+        // If it looks like a relative path without a scheme, allow it
+        return /^(?![a-z][a-z0-9+.-]*:)[^\s]*$/i.test(raw) ? raw : '';
+      }
+    };
     let m;
     while ((m = tagRe.exec(src)) !== null) {
-      const tag = (m[1] || '').toLowerCase();
+      // Only allow a minimal, safe tag set
+      const tagRaw = (m[1] || '').toLowerCase();
+      const tag = (tagRaw === 'a') ? 'a' : 'span';
       const attrs = m[2] || '';
       const inner = m[3] || '';
       const slug = getAttr(attrs, 'data-slug');
@@ -1033,9 +1054,12 @@ function renderTabs(activeSlug, searchQuery) {
       const el = document.createElement(tag);
       el.className = `tab${hasActive(attrs) ? ' active' : ''}`;
       if (slug) el.setAttribute('data-slug', slug);
-      if (href && tag === 'a') el.setAttribute('href', href);
-      // Strip any tags just in case (shouldn't be present) then decode basic entities
-      const label = decodeEntities(inner.replace(/<[^>]*>/g, ''));
+      if (href && tag === 'a') {
+        const safeHref = sanitizeHref(href);
+        if (safeHref) el.setAttribute('href', safeHref);
+      }
+      // Decode basic entities and assign as textContent (no HTML parsing)
+      const label = decodeEntities(inner);
       el.textContent = label;
       safeTrack.appendChild(el);
     }
