@@ -1003,10 +1003,105 @@ let hasInitiallyRendered = false;
 function renderTabs(activeSlug, searchQuery) {
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
+
+  // Safer helpers for building and injecting tabs without using innerHTML/DOMParser
+  const buildSafeTrackFromHtml = (markup) => {
+    const safeTrack = document.createElement('div');
+    safeTrack.className = 'tabs-track';
+    const src = String(markup || '');
+    // Very small, purpose-built tokenizer for our generated <a/span class="tab ..." data-slug="...">label</...>
+    const tagRe = /<(a|span)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+    const getAttr = (attrs, name) => {
+      const m = attrs.match(new RegExp(name + '="([^"]*)"', 'i'));
+      return m ? m[1] : '';
+    };
+    const hasActive = (attrs) => /class="[^"]*\bactive\b[^"]*"/i.test(attrs);
+    // Decode the small set of entities we produce via escapeHtml
+    // Important: unescape ampersand last to avoid double-unescaping
+    const decodeEntities = (text) => String(text || '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&');
+    // Minimal protocol whitelist for href attributes
+    const sanitizeHref = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      // Disallow control chars and whitespace
+      if (/[\u0000-\u001F\u007F\s]/.test(raw)) return '';
+      // Allow anchor-only, query-only, and root-relative links
+      if (raw.startsWith('#') || raw.startsWith('?') || raw.startsWith('/')) return raw;
+      try {
+        const u = new URL(raw, window.location.href);
+        const p = String(u.protocol || '').toLowerCase();
+        if (p === 'http:' || p === 'https:' || p === 'mailto:' || p === 'tel:') return u.toString();
+        return '';
+      } catch (_) {
+        // If it looks like a relative path without a scheme, allow it
+        return /^(?![a-z][a-z0-9+.-]*:)[^\s]*$/i.test(raw) ? raw : '';
+      }
+    };
+    let m;
+    while ((m = tagRe.exec(src)) !== null) {
+      // Only allow a minimal, safe tag set
+      const tagRaw = (m[1] || '').toLowerCase();
+      const tag = (tagRaw === 'a') ? 'a' : 'span';
+      const attrs = m[2] || '';
+      const inner = m[3] || '';
+      const slug = getAttr(attrs, 'data-slug');
+      // Intentionally ignore incoming href; rebuild from slug/current state to avoid tainted flow
+      let href = '';
+      if (tag === 'a') {
+        try {
+          const s = (slug ? slugifyTab(slug) : '');
+          if (s === 'search') {
+            const sp = new URLSearchParams(window.location.search);
+            const tagParam = (sp.get('tag') || '').trim();
+            const qParam = (sp.get('q') || String(searchQuery || '')).trim();
+            href = withLangParam(`?tab=search${tagParam ? `&tag=${encodeURIComponent(tagParam)}` : (qParam ? `&q=${encodeURIComponent(qParam)}` : '')}`);
+          } else if (s) {
+            href = withLangParam(`?tab=${encodeURIComponent(s)}`);
+          }
+        } catch (_) { /* ignore */ }
+      }
+      const el = document.createElement(tag);
+      el.className = `tab${hasActive(attrs) ? ' active' : ''}`;
+      if (slug) {
+        try {
+          const safeSlug = slugifyTab(slug);
+          if (safeSlug) el.setAttribute('data-slug', safeSlug);
+        } catch (_) {
+          const fallback = String(slug || '').toLowerCase().replace(/[^a-z0-9\-]/g, '').slice(0, 64);
+          if (fallback) el.setAttribute('data-slug', fallback);
+        }
+      }
+      if (href && tag === 'a') {
+        el.setAttribute('href', href);
+      }
+      // Decode basic entities and assign as textContent (no HTML parsing)
+      const label = decodeEntities(inner);
+      el.textContent = label;
+      safeTrack.appendChild(el);
+    }
+    return safeTrack;
+  };
+
+  const setTrackHtml = (targetNav, markup) => {
+    const safeTrack = buildSafeTrackFromHtml(markup);
+    const existing = targetNav.querySelector('.tabs-track');
+    if (!existing) {
+      while (targetNav.firstChild) targetNav.removeChild(targetNav.firstChild);
+      targetNav.appendChild(safeTrack);
+    } else {
+      while (existing.firstChild) existing.removeChild(existing.firstChild);
+      Array.from(safeTrack.children).forEach(ch => existing.appendChild(ch));
+    }
+  };
   
   const make = (slug, label) => {
     const href = withLangParam(`?tab=${encodeURIComponent(slug)}`);
-  return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${label}</a>`;
+  return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
   };
   
   // Build full tab list first (home first, optionally include All Posts if enabled), then other tabs
@@ -1026,7 +1121,7 @@ function renderTabs(activeSlug, searchQuery) {
     const q = (sp.get('q') || String(searchQuery || '')).trim();
     const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
     const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-  html += `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+  html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
   } else if (activeSlug === 'post') {
     const raw = String(searchQuery || t('ui.postTab')).trim();
     const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
@@ -1037,7 +1132,7 @@ function renderTabs(activeSlug, searchQuery) {
   const measureWidth = (markup) => {
     try {
       const tempNav = nav.cloneNode(false);
-      tempNav.innerHTML = `<div class="tabs-track">${markup}</div>`;
+      setTrackHtml(tempNav, markup);
       tempNav.style.position = 'absolute';
       tempNav.style.visibility = 'hidden';
       tempNav.style.pointerEvents = 'none';
@@ -1065,7 +1160,7 @@ function renderTabs(activeSlug, searchQuery) {
       const q = (sp.get('q') || String(searchQuery || '')).trim();
       const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
       const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-      compact += `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+      compact += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
     } else if (activeSlug === 'post') {
       const raw = String(searchQuery || t('ui.postTab')).trim();
       const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
@@ -1114,7 +1209,7 @@ function renderTabs(activeSlug, searchQuery) {
   // No transition on first load - just set content
   if (!hasInitiallyRendered) {
     // Create a persistent track so overlay (and ::before/::after) aren't recreated
-    nav.innerHTML = `<div class="tabs-track">${html}</div>`;
+    setTrackHtml(nav, html);
     // Create the highlight overlay element
     ensureHighlightOverlay(nav);
     hasInitiallyRendered = true;
@@ -1152,11 +1247,7 @@ function renderTabs(activeSlug, searchQuery) {
   // Wait a bit longer so the deactivating animation can play smoothly
   setTimeout(() => {
       // Only replace inner track content, keep wrapper/overlay
-      if (!nav.querySelector('.tabs-track')) {
-        nav.innerHTML = `<div class="tabs-track">${html}</div>`;
-      } else {
-        nav.querySelector('.tabs-track').innerHTML = html;
-      }
+      setTrackHtml(nav, html);
   // Ensure highlight overlay exists after content change
   ensureHighlightOverlay(nav);
   nav.style.width = `${newWidth}px`;
