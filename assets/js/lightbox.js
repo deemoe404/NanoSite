@@ -195,14 +195,20 @@ export function installLightbox(opts = {}) {
     try {
       const s = (raw || '').trim();
       if (!s) return '';
-      // Permit only http, https, blob, and data:image/* URLs
+      // Permit only http, https, blob, and data:image/* (raster only) URLs
       const u = new URL(s, document.baseURI);
       const p = u.protocol;
       if (p === 'http:' || p === 'https:' || p === 'blob:') return u.href;
       if (p === 'data:') {
-        // Basic allowlist: data:image/<type>[;base64],...
+        // Strict allowlist for data:image/* URIs; explicitly disallow SVG
+        // Format: data:image/<type>[;base64],...
         const body = s.slice(5); // after 'data:'
-        if (/^image\/[A-Za-z0-9.+-]+[;,]/.test(body)) return s;
+        const m = body.match(/^image\/([A-Za-z0-9.+-]+)[;,]/);
+        if (!m) return '';
+        const type = (m[1] || '').toLowerCase();
+        // Allow only common raster formats
+        const allowed = new Set(['png', 'jpeg', 'jpg', 'gif', 'webp', 'avif', 'bmp', 'x-icon']);
+        if (allowed.has(type)) return s;
         return '';
       }
       return '';
@@ -213,7 +219,8 @@ export function installLightbox(opts = {}) {
 
   function resolveSrc(el) {
     if (!el) return '';
-    const raw = el.getAttribute('src') || el.getAttribute('data-src') || '';
+    // Prefer resolved URL properties over raw attributes to avoid reinterpreting DOM text
+    const raw = el.currentSrc || el.src || el.getAttribute('src') || el.getAttribute('data-src') || '';
     return sanitizeImageSrc(raw);
   }
 
@@ -221,7 +228,7 @@ export function installLightbox(opts = {}) {
     if (!currentList.length) return;
     currentIndex = Math.max(0, Math.min(index, currentList.length - 1));
     const src = resolveSrc(currentList[currentIndex]);
-    const alt = currentList[currentIndex].getAttribute('alt') || '';
+    const alt = currentList[currentIndex].alt || '';
     if (src) {
       const ensureFit = () => { computeBaseFit(); applyTransform(); };
       if (imgEl.complete && imgEl.naturalWidth > 0) { imgEl.src = src; ensureFit(); }
