@@ -1004,26 +1004,40 @@ function renderTabs(activeSlug, searchQuery) {
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
 
-  // Safer helpers for building and injecting tabs without using innerHTML on nav
+  // Safer helpers for building and injecting tabs without using innerHTML/DOMParser
   const buildSafeTrackFromHtml = (markup) => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(`<div class="tabs-track">${String(markup || '')}</div>`, 'text/html');
-    const parsedTrack = doc && doc.body && doc.body.firstElementChild;
     const safeTrack = document.createElement('div');
     safeTrack.className = 'tabs-track';
-    if (parsedTrack) {
-      Array.from(parsedTrack.children || []).forEach(child => {
-        const isLink = String(child.tagName || '').toLowerCase() === 'a';
-        const slug = String(child.getAttribute && child.getAttribute('data-slug') || '');
-        const href = isLink ? String(child.getAttribute && child.getAttribute('href') || '') : '';
-        const active = (child.classList && child.classList.contains('active')) ? ' active' : '';
-        const el = document.createElement(isLink ? 'a' : 'span');
-        el.className = `tab${active}`;
-        el.setAttribute('data-slug', slug);
-        if (isLink && href) el.setAttribute('href', href);
-        el.textContent = String(child.textContent || '');
-        safeTrack.appendChild(el);
-      });
+    const src = String(markup || '');
+    // Very small, purpose-built tokenizer for our generated <a/span class="tab ..." data-slug="...">label</...>
+    const tagRe = /<(a|span)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
+    const getAttr = (attrs, name) => {
+      const m = attrs.match(new RegExp(name + '="([^"]*)"', 'i'));
+      return m ? m[1] : '';
+    };
+    const hasActive = (attrs) => /class="[^"]*\bactive\b[^"]*"/i.test(attrs);
+    // Decode the small set of entities we produce via escapeHtml
+    const decodeEntities = (text) => String(text || '')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+    let m;
+    while ((m = tagRe.exec(src)) !== null) {
+      const tag = (m[1] || '').toLowerCase();
+      const attrs = m[2] || '';
+      const inner = m[3] || '';
+      const slug = getAttr(attrs, 'data-slug');
+      const href = tag === 'a' ? getAttr(attrs, 'href') : '';
+      const el = document.createElement(tag);
+      el.className = `tab${hasActive(attrs) ? ' active' : ''}`;
+      if (slug) el.setAttribute('data-slug', slug);
+      if (href && tag === 'a') el.setAttribute('href', href);
+      // Strip any tags just in case (shouldn't be present) then decode basic entities
+      const label = decodeEntities(inner.replace(/<[^>]*>/g, ''));
+      el.textContent = label;
+      safeTrack.appendChild(el);
     }
     return safeTrack;
   };
