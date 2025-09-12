@@ -7,6 +7,62 @@ function escapeHtmlInline(text) {
   })[m]);
 }
 
+// Deterministic, regex-free tag wrapper to avoid ReDoS.
+// Walks the string, skips over our highlight markers (__H__...__E__),
+// and wraps syntactic tags like <tag ...>...</tag> as a single token.
+function wrapTagsNoRegex(input, markFn) {
+  const s = String(input || '');
+  const out = [];
+  let i = 0;
+  const len = s.length;
+  const MARK_OPEN = '__H__';
+  const MARK_CLOSE = '__E__';
+  const isNameStart = (ch) => /[A-Za-z_:]/.test(ch);
+  while (i < len) {
+    // Skip over existing highlight markers entirely so their inner content
+    // (which might include < or >) does not interfere with tag detection.
+    if (s.startsWith(MARK_OPEN, i)) {
+      const end = s.indexOf(MARK_CLOSE, i + MARK_OPEN.length);
+      if (end === -1) { out.push(s.slice(i)); break; }
+      out.push(s.slice(i, end + MARK_CLOSE.length));
+      i = end + MARK_CLOSE.length;
+      continue;
+    }
+    const ch = s[i];
+    if (ch !== '<') { out.push(ch); i++; continue; }
+    // Potential tag start
+    let j = i + 1;
+    if (j < len && s[j] === '/') j++;
+    if (j >= len || !isNameStart(s[j])) {
+      // Not a valid tag name start; treat '<' literally
+      out.push('<'); i++; continue;
+    }
+    // Scan forward to find matching '>' while skipping markers
+    let k = j + 1;
+    let found = false;
+    while (k < len) {
+      if (s.startsWith(MARK_OPEN, k)) {
+        const end2 = s.indexOf(MARK_CLOSE, k + MARK_OPEN.length);
+        if (end2 === -1) { k = len; break; }
+        k = end2 + MARK_CLOSE.length;
+        continue;
+      }
+      const c = s[k];
+      if (c === '>') { found = true; break; }
+      k++;
+    }
+    if (found) {
+      const tag = s.slice(i, k + 1);
+      out.push(markFn('tag', tag));
+      i = k + 1;
+    } else {
+      // No closing '>' — not a valid tag; emit '<' and continue
+      out.push('<'); i++;
+    }
+  }
+  return out.join('');
+}
+
 function xmlFallbackHighlight(raw) {
   const MARK = (t, s) => `__H__${t}__${s}__E__`;
   let tmp = String(raw || '');
@@ -24,13 +80,9 @@ function xmlFallbackHighlight(raw) {
     tmp = tmp.replace(/\b\d{2}:\d{2}(?::\d{2})?\b/g, (m) => MARK('number', m));
     // General numbers (integers/decimals)
     tmp = tmp.replace(/\b\d+(?:\.\d+)?\b/g, (m) => MARK('number', m));
-    // Tags (keep last so it wraps the "<...>" blocks)
-    // Safer pattern: avoid ambiguous nested groups and hyphen-start names to prevent ReDoS.
-    // Also allow our string-marker form after '=' so quoted values already replaced won't cause backtracking.
-    tmp = tmp.replace(
-      /<\/?[A-Za-z_:][\w:.-]*(?:\s+(?:[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:__H__string__[\s\S]*?__E__|"[^"]*"|'[^']*'|[^\s"'=<>`]+))?))*\s*\/?>/g,
-      (m) => MARK('tag', m)
-    );
+    // Tags (keep last so it wraps the "<...>" blocks). Use a linear-time
+    // scanner instead of a complex regex to avoid ReDoS.
+    tmp = wrapTagsNoRegex(tmp, MARK);
     // Escape and unwrap
     tmp = escapeHtmlInline(tmp);
     // Restrict the type token to letters/dashes so underscores in the
