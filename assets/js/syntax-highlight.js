@@ -355,31 +355,66 @@ function toSafeFragment(html) {
     }
   } catch (_) { /* 忽略，回退到手动净化 */ }
 
-  // 回退：使用 DOMParser + 手动白名单净化
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(String(html || ''), 'text/html');
-  const container = doc.body || doc.documentElement;
-
-  // 移除不允许的标签与属性，仅保留 <span class="syntax-*">
-  container.querySelectorAll('*').forEach((node) => {
-    if (node.tagName !== allowedTag) {
-      node.replaceWith(doc.createTextNode(node.textContent || ''));
-      return;
-    }
-    // 仅允许 class 且以 syntax- 开头
-    const classes = (node.getAttribute('class') || '').split(/\s+/).filter(c => c && c.startsWith(classPrefix));
-    if (classes.length) node.setAttribute('class', classes.join(' ')); else node.removeAttribute('class');
-    // 删除其它属性
-    for (const attr of Array.from(node.attributes)) {
-      if (attr.name !== allowedAttr) node.removeAttribute(attr.name);
-    }
-  });
-
+  // 回退：不再重新解释为 HTML，而是手工解析仅允许的 <span class="syntax-*"> 标记
+  // 这样可避免“DOM 文本被重新作为 HTML 解释”的 CodeQL 告警
+  const decodeEntities = (t) => String(t || '').replace(/&(amp|lt|gt|quot|#039);/g, (m, g1) => (
+    g1 === 'amp' ? '&' : g1 === 'lt' ? '<' : g1 === 'gt' ? '>' : g1 === 'quot' ? '"' : "'"
+  ));
   const frag = document.createDocumentFragment();
-  // 将净化后的节点导入到当前文档片段
-  while (container.firstChild) {
-    frag.appendChild(document.importNode(container.firstChild, true));
+  const stack = [frag];
+  let i = 0;
+  const len = (html || '').length;
+  const src = String(html || '');
+
+  const appendText = (text) => {
+    if (!text) return;
+    stack[stack.length - 1].appendChild(document.createTextNode(decodeEntities(text)));
+  };
+
+  // 仅识别 <span ...> 与 </span>，其它一律按文本处理
+  while (i < len) {
+    if (src.charCodeAt(i) !== 60 /* '<' */) {
+      const nextLt = src.indexOf('<', i);
+      const chunk = nextLt === -1 ? src.slice(i) : src.slice(i, nextLt);
+      appendText(chunk);
+      i = nextLt === -1 ? len : nextLt;
+      continue;
+    }
+
+    // 尝试匹配关闭标签 </span>
+    if (/^<\s*\/\s*span\s*>/i.test(src.slice(i))) {
+      const m = src.slice(i).match(/^<\s*\/\s*span\s*>/i);
+      if (m) {
+        if (stack.length > 1) stack.pop(); else appendText(m[0]);
+        i += m[0].length;
+        continue;
+      }
+    }
+
+    // 尝试匹配开启标签 <span ...>
+    const open = src.slice(i).match(/^<\s*span\b([^>]*)>/i);
+    if (open) {
+      const attrText = open[1] || '';
+      // 提取 class 属性并仅保留以 syntax- 开头的类名
+      const clsMatch = attrText.match(/\bclass\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+      let classes = [];
+      if (clsMatch) {
+        const raw = (clsMatch[2] || clsMatch[3] || clsMatch[4] || '').trim();
+        classes = raw.split(/\s+/).filter(c => c && c.startsWith(classPrefix));
+      }
+      const el = document.createElement('span');
+      if (classes.length) el.setAttribute('class', classes.join(' '));
+      stack[stack.length - 1].appendChild(el);
+      stack.push(el);
+      i += open[0].length;
+      continue;
+    }
+
+    // 不是允许的标签，按普通文本处理一个字符以推进
+    appendText(src[i]);
+    i += 1;
   }
+
   return frag;
 }
 
