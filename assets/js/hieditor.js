@@ -291,9 +291,10 @@ function renderHighlight(codeEl, gutterEl, value, language) {
     const decode = (s) => String(s || '')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
-      .replace(/&#0?39;/g, "'");
+      .replace(/&#0?39;/g, "'")
+      // Unescape ampersand last to avoid double-unescaping
+      .replace(/&amp;/g, '&');
     const root = document.createDocumentFragment();
     const stack = [root];
     let i = 0;
