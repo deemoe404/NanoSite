@@ -9,8 +9,37 @@
   <link rel="stylesheet" id="theme-pack">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    body { padding: 1.25rem; max-width: 62.5rem; margin: 0 auto; }
+    /* Widen the editor page and reduce side padding */
+    body { padding: 0.75rem 1rem; max-width: min(95vw, 1200px); margin: 0 auto; }
     .editor-page { display: block; }
+    /* Two-column layout: sidebar + editor */
+    .editor-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1rem; align-items: start; }
+    @media (max-width: 900px) {
+      .editor-layout { grid-template-columns: 1fr; }
+    }
+    .editor-sidebar { position: relative; }
+    .editor-sidebar .sidebar-title { font-size: 1rem; font-weight: 700; margin: 0 0 .5rem; }
+    /* Sidebar tabs for switching between Posts and Tabs */
+    .sidebar-tabs { display: inline-flex; gap: .4rem; margin: .35rem 0 .6rem; }
+    .sidebar-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
+    .sidebar-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+    .editor-sidebar .group-title { display:none; }
+    .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
+    .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .editor-sidebar .file-item:last-child { border-bottom: 0; }
+    .editor-sidebar .file-item:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+    .editor-sidebar .file-item.is-active { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .editor-sidebar .file-main { display: inline-flex; flex-direction: column; gap: .125rem; min-width: 0; }
+    .editor-sidebar .file-label { font-size: .92rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .editor-sidebar .file-path { font-size: .78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .editor-sidebar .search { margin: 0 0 .5rem; }
+    .editor-sidebar .search input { width: 100%; height: 2.25rem; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); }
+    .editor-sidebar .search input:focus { outline: none; box-shadow: 0 0 0 .12rem color-mix(in srgb, var(--primary) 35%, transparent); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+    .editor-sidebar .status { margin-top: .4rem; font-size: .78rem; color: var(--muted); }
+    .editor-sidebar .lists { display: block; }
+    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; }
+    /* Ensure main editor can use full width */
+    .editor-main { min-width: 0; overflow: visible; }
     .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
@@ -54,29 +83,52 @@
       <h1>Markdown Editor</h1>
     </div>
 
-    <div class="box">
-      <div class="toolbar">
-        <div class="left-actions">
-          <button id="btnClearDraft" class="btn-secondary" title="Remove locally saved draft">Clear Draft</button>
+    <div class="editor-layout">
+      <aside class="editor-sidebar box" aria-label="Articles sidebar">
+        <div class="sidebar-title">Articles</div>
+        <div class="sidebar-tabs" role="tablist">
+          <button class="sidebar-tab is-active" data-target="index" role="tab" aria-selected="true">Posts</button>
+          <button class="sidebar-tab" data-target="tabs" role="tab" aria-selected="false">Tabs</button>
         </div>
-        <div class="right-actions">
-          <div class="view-toggle" aria-label="View switch">
-            <span class="vt-label">View:</span>
-            <a href="#" class="vt-btn active" data-view="edit">Editor</a>
-            <span class="dim" aria-hidden="true">/</span>
-            <a href="#" class="vt-btn" data-view="preview">Preview</a>
+        <div class="search"><input id="fileSearch" type="search" placeholder="Search by title or path"></div>
+        <div class="lists">
+          <div class="list-group" id="groupIndex" data-group="index">
+            <div class="group-title">Index</div>
+            <ul class="file-list" id="listIndex"></ul>
+          </div>
+          <div class="list-group" id="groupTabs" data-group="tabs" hidden>
+            <div class="group-title">Tabs</div>
+            <ul class="file-list" id="listTabs"></ul>
           </div>
         </div>
-      </div>
+        <div class="status" id="sidebarStatus"></div>
+      </aside>
 
-      <div id="editor-wrap">
-        <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source"></textarea>
-      </div>
+      <section class="box editor-main">
+        <div class="toolbar">
+          <div class="left-actions">
+            <button id="btnClearDraft" class="btn-secondary" title="Remove locally saved draft">Clear Draft</button>
+            <span class="current-file" id="currentFile" aria-live="polite"></span>
+          </div>
+          <div class="right-actions">
+            <div class="view-toggle" aria-label="View switch">
+              <span class="vt-label">View:</span>
+              <a href="#" class="vt-btn active" data-view="edit">Editor</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn" data-view="preview">Preview</a>
+            </div>
+          </div>
+        </div>
 
-      <div id="preview-wrap" style="display:none;">
-        <!-- Reuse site post styles by using #mainview as container -->
-        <div id="mainview"></div>
-      </div>
+        <div id="editor-wrap">
+          <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source"></textarea>
+        </div>
+
+        <div id="preview-wrap" style="display:none;">
+          <!-- Reuse site post styles by using #mainview as container -->
+          <div id="mainview"></div>
+        </div>
+      </section>
     </div>
   </div>
 

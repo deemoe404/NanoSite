@@ -1,6 +1,7 @@
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
+import { fetchConfigWithYamlFallback } from './yaml.js';
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -114,5 +115,183 @@ document.addEventListener('DOMContentLoaded', () => {
       catch (_) { window.scrollTo(0, 0); }
     });
     toggle();
+  })();
+
+  // ----- Article browser (sidebar) -----
+  (function initArticleBrowser() {
+    const listIndex = document.getElementById('listIndex');
+    const listTabs = document.getElementById('listTabs');
+    const statusEl = document.getElementById('sidebarStatus');
+    const currentFileEl = document.getElementById('currentFile');
+    const searchInput = document.getElementById('fileSearch');
+    if (!listIndex || !listTabs) return;
+
+    let currentActive = null;
+    let contentRoot = 'wwwroot';
+    let activeGroup = 'index';
+
+    const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
+    const setCurrentFile = (p) => { if (currentFileEl) currentFileEl.textContent = p ? `Loaded: ${p}` : ''; };
+
+    const basename = (p) => {
+      try { const s = String(p || ''); const i = s.lastIndexOf('/'); return i >= 0 ? s.slice(i + 1) : s; } catch (_) { return String(p || ''); }
+    };
+    const toUrl = (p) => {
+      const s = String(p || '').trim();
+      if (!s) return '';
+      if (/^(https?:)?\//i.test(s)) return s; // absolute or protocol-relative
+      return `${contentRoot}/${s}`.replace(/\\+/g, '/');
+    };
+
+    const makeLi = (label, relPath) => {
+      const li = document.createElement('li');
+      li.className = 'file-item';
+      li.dataset.rel = relPath;
+      li.dataset.label = label.toLowerCase();
+      li.dataset.file = relPath.toLowerCase();
+      li.innerHTML = `
+        <div class="file-main">
+          <span class="file-label">${label}</span>
+          <span class="file-path">${relPath}</span>
+        </div>`;
+      li.addEventListener('click', async () => {
+        const url = toUrl(relPath);
+        if (!url) return;
+        try {
+          setStatus('Loading…');
+          const r = await fetch(url, { cache: 'no-store' });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const text = await r.text();
+          if (editor) editor.setValue(text);
+          // Persist to local draft so reload keeps latest
+          try { lsSet(DRAFT_KEY, text); } catch (_) {}
+          renderPreview(text);
+          setCurrentFile(`${relPath}`);
+          if (currentActive) currentActive.classList.remove('is-active');
+          currentActive = li; currentActive.classList.add('is-active');
+          switchView('edit');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          setStatus('');
+        } catch (err) {
+          console.error('Failed to load markdown:', err);
+          setStatus(`Failed to load: ${relPath}`);
+          alert(`Failed to load file\n${relPath}\n${err}`);
+        }
+      });
+      return li;
+    };
+
+    const flattenIndex = (obj) => {
+      const items = [];
+      try {
+        const langKey = /^(default|en|zh|ja|[a-z]{2})(?:-[a-z0-9]+)?$/i;
+        for (const [group, val] of Object.entries(obj || {})) {
+          if (typeof val === 'string') {
+            items.push({ label: `${group} - ${basename(val)}`, path: String(val) });
+          } else if (Array.isArray(val)) {
+            val.forEach(p => { if (typeof p === 'string') items.push({ label: `${group} - ${basename(p)}`, path: p }); });
+          } else if (val && typeof val === 'object') {
+            for (const [lang, paths] of Object.entries(val)) {
+              const langTag = langKey.test(lang) ? lang : lang;
+              if (typeof paths === 'string') {
+                items.push({ label: `${group} (${langTag}) - ${basename(paths)}`, path: paths });
+              } else if (Array.isArray(paths)) {
+                paths.forEach(p => { if (typeof p === 'string') items.push({ label: `${group} (${langTag}) - ${basename(p)}`, path: p }); });
+              }
+            }
+          }
+        }
+      } catch (_) { /* noop */ }
+      return items;
+    };
+
+    const flattenTabs = (obj) => {
+      const items = [];
+      try {
+        for (const [tab, variants] of Object.entries(obj || {})) {
+          if (typeof variants === 'string') {
+            items.push({ label: `${tab} - ${basename(variants)}`, path: variants });
+            continue;
+          }
+          if (!variants || typeof variants !== 'object') continue;
+          for (const [lang, detail] of Object.entries(variants)) {
+            if (typeof detail === 'string') {
+              items.push({ label: `${tab} (${lang}) - ${basename(detail)}`, path: detail });
+            } else if (detail && typeof detail === 'object') {
+              const title = detail.title || tab;
+              const loc = detail.location || '';
+              if (loc) items.push({ label: `${title} (${lang}) - ${basename(loc)}`, path: loc });
+            }
+          }
+        }
+      } catch (_) { /* noop */ }
+      return items;
+    };
+
+    const renderList = (ul, items) => {
+      ul.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for (const it of items) frag.appendChild(makeLi(it.label, it.path));
+      ul.appendChild(frag);
+    };
+
+    const applyFilter = (term) => {
+      const q = String(term || '').trim().toLowerCase();
+      const scope = activeGroup === 'tabs' ? '#groupTabs .file-item' : '#groupIndex .file-item';
+      const all = document.querySelectorAll(scope);
+      all.forEach(li => {
+        if (!q) { li.style.display = ''; return; }
+        const a = li.dataset.label || '';
+        const b = li.dataset.file || '';
+        li.style.display = (a.includes(q) || b.includes(q)) ? '' : 'none';
+      });
+    };
+    if (searchInput) {
+      searchInput.addEventListener('input', () => applyFilter(searchInput.value));
+    }
+
+    // Tabs switching (Posts <-> Tabs)
+    const sideTabs = document.querySelectorAll('.sidebar-tab');
+    const groupIndex = document.getElementById('groupIndex');
+    const groupTabs = document.getElementById('groupTabs');
+    const switchGroup = (name) => {
+      activeGroup = name === 'tabs' ? 'tabs' : 'index';
+      if (groupIndex) groupIndex.hidden = activeGroup !== 'index';
+      if (groupTabs) groupTabs.hidden = activeGroup !== 'tabs';
+      sideTabs.forEach(btn => {
+        const tgt = btn.getAttribute('data-target');
+        const on = tgt === activeGroup;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      // Re-apply current filter for visible list only
+      applyFilter(searchInput ? searchInput.value : '');
+    };
+    sideTabs.forEach(btn => btn.addEventListener('click', () => switchGroup(btn.dataset.target)));
+    switchGroup('index');
+
+    (async () => {
+      try {
+        setStatus('Loading site config…');
+        const site = await fetchConfigWithYamlFallback(['site.yaml','site.yml']);
+        contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
+      } catch (_) { contentRoot = 'wwwroot'; }
+
+      try {
+        setStatus('Loading index…');
+        const idx = await fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]);
+        const items = flattenIndex(idx);
+        renderList(listIndex, items);
+      } catch (e) { console.warn('Failed to load index.yaml', e); }
+
+      try {
+        setStatus('Loading tabs…');
+        const tjson = await fetchConfigWithYamlFallback([`${contentRoot}/tabs.yaml`, `${contentRoot}/tabs.yml`]);
+        const titems = flattenTabs(tjson);
+        renderList(listTabs, titems);
+      } catch (e) { console.warn('Failed to load tabs.yaml', e); }
+
+      setStatus('');
+    })();
   })();
 });
