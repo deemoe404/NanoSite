@@ -219,8 +219,9 @@ export function installLightbox(opts = {}) {
 
   function resolveSrc(el) {
     if (!el) return '';
-    // Prefer resolved URL properties over raw attributes to avoid reinterpreting DOM text
-    const raw = el.currentSrc || el.src || el.getAttribute('src') || el.getAttribute('data-src') || '';
+    // Use resolved URL properties only (avoid raw attribute text)
+    // This prevents DOM text from being reinterpreted as markup/HTML.
+    const raw = el.currentSrc || el.src || '';
     return sanitizeImageSrc(raw);
   }
 
