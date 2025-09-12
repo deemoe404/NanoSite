@@ -1,7 +1,18 @@
 import { loadSiteConfigFlex } from './seo-tool-config.js';
 
 // ---- GitHub Repo config helpers ----
-function setGlobalStatus(mode, html, opts = {}) {
+function __buildStatusTextFragment(text) {
+  const frag = document.createDocumentFragment();
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  frag.appendChild(dot);
+  const label = document.createElement('span');
+  label.textContent = String(text || '');
+  frag.appendChild(label);
+  return frag;
+}
+
+function setGlobalStatus(mode, content, opts = {}) {
   try {
     const box = document.getElementById('global-status');
     if (!box) return;
@@ -12,7 +23,14 @@ function setGlobalStatus(mode, html, opts = {}) {
     if (!opts.force && !mode && (curMode === 'ok' || curMode === 'warn' || curMode === 'err')) return;
     box.className = `global-status ${mode || ''}`;
     box.dataset.mode = mode || '';
-    box.innerHTML = html || '';
+    // Clear existing content and append safely
+    while (box.firstChild) box.removeChild(box.firstChild);
+    if (content == null || content === '') return;
+    if (typeof content === 'string') {
+      box.appendChild(__buildStatusTextFragment(content));
+    } else if (content instanceof Node) {
+      box.appendChild(content);
+    }
   } catch (_) {}
 }
 
@@ -20,12 +38,29 @@ function renderRepoLink(owner, repo, branch, extraText) {
   const o = String(owner || '');
   const r = String(repo || '');
   const b = String(branch || '');
-  const slug = (o && r) ? `${o}/${r}` : '';
-  const href = slug ? `https://github.com/${o}/${r}` : '';
+  const slugOk = (o && r);
+  const frag = document.createDocumentFragment();
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  frag.appendChild(dot);
+  if (!slugOk) {
+    const label = document.createElement('span');
+    label.textContent = 'No repository';
+    frag.appendChild(label);
+    return frag;
+  }
+  const a = document.createElement('a');
+  a.href = `https://github.com/${encodeURIComponent(o)}/${encodeURIComponent(r)}`;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.textContent = `@${o}/${r}`;
+  frag.appendChild(a);
+  const tail = document.createElement('span');
   const branchText = b ? ` (${b})` : '';
-  const extra = extraText ? ` · ${extraText}` : '';
-  if (!slug) return `<span><span class="dot"></span><span>No repository</span></span>`;
-  return `<span class="dot"></span><a href="${href}" target="_blank" rel="noopener">@${slug}</a><span>${branchText}${extra}</span>`;
+  const extra = extraText ? ` · ${String(extraText)}` : '';
+  tail.textContent = `${branchText}${extra}`;
+  frag.appendChild(tail);
+  return frag;
 }
 
 // Compute global status from current UI (single source of truth binding)
@@ -45,21 +80,21 @@ function syncGlobalFromUI(force = true) {
     const branchText = (branchStatus && branchStatus.textContent) ? branchStatus.textContent.trim() : '';
 
     if (!owner || !repo) {
-      setGlobalStatus('', '<span class="dot"></span><span>Ready</span>', { force });
+      setGlobalStatus('', __buildStatusTextFragment('Ready'), { force });
       return;
     }
     // Error has highest priority
     if (slugCls === 'err') {
-      setGlobalStatus('err', `<span class="dot"></span><span>${slugText || 'Invalid repository'}</span>`, { force });
+      setGlobalStatus('err', __buildStatusTextFragment(slugText || 'Invalid repository'), { force });
       return;
     }
     if (branchCls === 'err') {
-      setGlobalStatus('err', `<span class="dot"></span><span>${branchText || 'Branch error'}</span>`, { force });
+      setGlobalStatus('err', __buildStatusTextFragment(branchText || 'Branch error'), { force });
       return;
     }
     // Loading states
     if (slugCls === 'warn' && /checking/i.test(slugText)) {
-      setGlobalStatus('warn', `<span class="dot"></span><span>Checking @${owner}/${repo}…</span>`, { force });
+      setGlobalStatus('warn', __buildStatusTextFragment(`Checking @${owner}/${repo}…`), { force });
       return;
     }
     if (branchCls === 'warn' && /loading/i.test(branchText)) {
@@ -199,7 +234,14 @@ function setFieldStatus(id, type, text, withSpinner = false) {
   el.classList.remove('ok','warn','err');
   if (type) el.classList.add(type);
   if (withSpinner) {
-    el.innerHTML = `<span class="spinner"></span><span>${text || ''}</span>`;
+    // Build spinner safely without interpreting text as HTML
+    while (el.firstChild) el.removeChild(el.firstChild);
+    const sp = document.createElement('span');
+    sp.className = 'spinner';
+    el.appendChild(sp);
+    const label = document.createElement('span');
+    label.textContent = String(text || '');
+    el.appendChild(label);
   } else {
     el.textContent = text || '';
   }
@@ -359,19 +401,19 @@ window.validateSlugAndLoadBranches = validateSlugAndLoadBranches;
       const inferred = getGhConfigFromSiteYaml(cfg);
       if (!inferred || !inferred.owner || !inferred.repo) {
         setFieldStatus('gh-slug-status', 'err', 'No GitHub repository found in site.yaml');
-        setGlobalStatus('err', '<span class="dot"></span><span>No repository in site.yaml</span>');
+        setGlobalStatus('err', __buildStatusTextFragment('No repository in site.yaml'));
         return;
       }
       if (slugEl) slugEl.value = `${inferred.owner}/${inferred.repo}`;
       if (branchEl) { branchEl.value = (inferred.branch || 'main'); branchEl.disabled = true; branchEl.innerHTML = '<option value="" selected>Loading branches…</option>'; }
       // Immediately reflect checking status in the global indicator
-      try { setGlobalStatus('warn', `<span class=\"dot\"></span><span>Checking @${inferred.owner}/${inferred.repo}…</span>`); } catch (_) {}
+      try { setGlobalStatus('warn', __buildStatusTextFragment(`Checking @${inferred.owner}/${inferred.repo}…`)); } catch (_) {}
       await validateSlugAndLoadBranches();
       // Save without downgrading status
       if (slugEl && slugEl.value && branchEl && branchEl.value) saveGhRepoCfg();
     } catch (err) {
       setFieldStatus('gh-slug-status', 'err', 'Failed to read site.yaml');
-      setGlobalStatus('err', '<span class="dot"></span><span>Failed to read site.yaml</span>');
+      setGlobalStatus('err', __buildStatusTextFragment('Failed to read site.yaml'));
     }
   });
 })();
