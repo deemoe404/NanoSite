@@ -548,3 +548,13 @@ try {
   window.__seoEditorGet = getEditorValue;
   window.__seoEditorToggleWrap = toggleEditorWrap;
 } catch (_) {}
+
+// Generic creator for external pages (e.g., Markdown editor)
+// Accepts a textarea element or its id; returns the editor API
+export function createHiEditor(target, lang = 'plain', readOnly = false) {
+  try {
+    const el = (typeof target === 'string') ? document.getElementById(target) : target;
+    if (!el) return null;
+    return makeEditor(el, lang, readOnly);
+  } catch (_) { return null; }
+}

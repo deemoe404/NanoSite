@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindSeoGenerator, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
@@ -2278,6 +2278,7 @@ mountThemeControls();
 applySavedTheme();
 bindThemeToggle();
 bindSeoGenerator();
+bindPostEditor();
 bindThemePackPicker();
 // Install lightweight image viewer (delegated; safe to call once)
 try { installLightbox({ root: '#mainview' }); } catch (_) {}

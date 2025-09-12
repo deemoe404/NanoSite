@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Editor - NanoSite</title>
+  <script src="assets/js/theme-boot.js"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" id="theme-pack">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { padding: 1.25rem; max-width: 62.5rem; margin: 0 auto; }
+    .editor-page { display: block; }
+    .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
+    .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
+    .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .btn-secondary { background:#fff; color:#24292f; border:1px solid #d0d7de; padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; }
+    .btn-secondary:hover { background:#f6f8fa; }
+    .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
+    .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
+    .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; }
+    .view-toggle .vt-btn:hover { text-decoration:underline; }
+    .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    /* Editor: reuse SEO hi-editor rules for perfect alignment */
+    .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
+    .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
+    .hi-editor .code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding: 1rem 0.5rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0; background: var(--code-bg); position: sticky; left: 0; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor .code-scroll .code-gutter span { display: block; line-height: inherit; font-variant-numeric: tabular-nums; }
+    .hi-editor { position: relative; }
+    .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
+    .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
+    .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: none; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
+    .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
+    .hi-editor .code-scroll .code-gutter span.is-active { background: transparent; color: #0f172a; font-weight: 600; }
+    .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
+
+    @media (max-width: 640px) {
+      body { padding: .75rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="editor-page">
+    <div class="page-titlebar">
+      <h1>Markdown Editor</h1>
+    </div>
+
+    <div class="box">
+      <div class="toolbar">
+        <div class="left-actions">
+          <!-- reserved for future actions -->
+        </div>
+        <div class="right-actions">
+          <div class="view-toggle" aria-label="View switch">
+            <span class="vt-label">View:</span>
+            <a href="#" class="vt-btn active" data-view="edit">Editor</a>
+            <span class="dim" aria-hidden="true">/</span>
+            <a href="#" class="vt-btn" data-view="preview">Preview</a>
+          </div>
+        </div>
+      </div>
+
+      <div id="editor-wrap">
+        <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source"></textarea>
+      </div>
+
+      <div id="preview-wrap" style="display:none;">
+        <!-- Reuse site post styles by using #mainview as container -->
+        <div id="mainview"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="assets/js/editor-main.js"></script>
+</body>
+</html>

@@ -88,6 +88,7 @@ const translations = {
     tools: {
       sectionTitle: 'Function Area',
       toggleTheme: 'Toggle Theme',
+      postEditor: 'Markdown Editor',
       themePack: 'Theme pack',
       language: 'Language',
       resetLanguage: 'Reset language',
@@ -164,6 +165,7 @@ const translations = {
     tools: {
       sectionTitle: '功能区',
       toggleTheme: '切换主题',
+      postEditor: '文章编辑器',
       themePack: '主题包',
       language: '语言',
       resetLanguage: '重置语言',
@@ -240,6 +242,7 @@ const translations = {
     tools: {
       sectionTitle: 'ツール',
       toggleTheme: 'テーマ切替',
+      postEditor: '記事エディター',
       themePack: 'テーマパック',
       language: '言語',
       resetLanguage: '言語をリセット',
