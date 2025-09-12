@@ -4,7 +4,7 @@ import './seo-tool-ui.js';
 import './seo-tool-config.js';
 import './seo-tool-generators.js?v=2';
 import './seo-tool-github.js';
-import { initSeoEditors } from './hieditor.js?v=2';
+import { initSeoEditors } from './hieditor.js?v=3';
 
 // Initialize code editors first to avoid any race with value injection
 try { initSeoEditors(); } catch (_) {}

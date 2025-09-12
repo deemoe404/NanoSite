@@ -28,7 +28,10 @@ function xmlFallbackHighlight(raw) {
     tmp = tmp.replace(/<\/?[\w\-:.]+(?:\s+[\w\-:.]+(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g, (m) => MARK('tag', m));
     // Escape and unwrap
     tmp = escapeHtmlInline(tmp);
-    tmp = tmp.replace(/__H__(\w+)__([\s\S]*?)__E__/g, (m, type, content) => `<span class="syntax-${type}">${content}</span>`);
+    // Restrict the type token to letters/dashes so underscores in the
+    // content (e.g., markers for other tokens) are not swallowed into the
+    // type. This prevents artifacts like "__H" leaking into the output.
+    tmp = tmp.replace(/__H__([A-Za-z-]+)__([\s\S]*?)__E__/g, (m, type, content) => `<span class="syntax-${type}">${content}</span>`);
     return tmp;
   } catch (_) { return escapeHtmlInline(raw || ''); }
 }
@@ -137,7 +140,10 @@ function yamlFallbackHighlight(raw) {
 
       // Escape and unwrap markers into spans
       s = escapeHtmlInline(s);
-      s = s.replace(/__H__(\w+)__([\s\S]*?)__E__/g, (m, type, content) => `<span class="syntax-${type}">${content}</span>`);
+      // Important: avoid using \w for the type capture; it would greedily
+      // consume underscores and break on sequences like __H__number__180__E__
+      // by turning the type into "number__180__E". Limit to letters/dashes.
+      s = s.replace(/__H__([A-Za-z-]+)__([\s\S]*?)__E__/g, (m, type, content) => `<span class="syntax-${type}">${content}</span>`);
       return s;
     }).join('\n');
     return out;
