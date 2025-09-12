@@ -1050,13 +1050,34 @@ function renderTabs(activeSlug, searchQuery) {
       const attrs = m[2] || '';
       const inner = m[3] || '';
       const slug = getAttr(attrs, 'data-slug');
-      const href = tag === 'a' ? getAttr(attrs, 'href') : '';
+      // Intentionally ignore incoming href; rebuild from slug/current state to avoid tainted flow
+      let href = '';
+      if (tag === 'a') {
+        try {
+          const s = (slug ? slugifyTab(slug) : '');
+          if (s === 'search') {
+            const sp = new URLSearchParams(window.location.search);
+            const tagParam = (sp.get('tag') || '').trim();
+            const qParam = (sp.get('q') || String(searchQuery || '')).trim();
+            href = withLangParam(`?tab=search${tagParam ? `&tag=${encodeURIComponent(tagParam)}` : (qParam ? `&q=${encodeURIComponent(qParam)}` : '')}`);
+          } else if (s) {
+            href = withLangParam(`?tab=${encodeURIComponent(s)}`);
+          }
+        } catch (_) { /* ignore */ }
+      }
       const el = document.createElement(tag);
       el.className = `tab${hasActive(attrs) ? ' active' : ''}`;
-      if (slug) el.setAttribute('data-slug', slug);
+      if (slug) {
+        try {
+          const safeSlug = slugifyTab(slug);
+          if (safeSlug) el.setAttribute('data-slug', safeSlug);
+        } catch (_) {
+          const fallback = String(slug || '').toLowerCase().replace(/[^a-z0-9\-]/g, '').slice(0, 64);
+          if (fallback) el.setAttribute('data-slug', fallback);
+        }
+      }
       if (href && tag === 'a') {
-        const safeHref = sanitizeHref(href);
-        if (safeHref) el.setAttribute('href', safeHref);
+        el.setAttribute('href', href);
       }
       // Decode basic entities and assign as textContent (no HTML parsing)
       const label = decodeEntities(inner);
