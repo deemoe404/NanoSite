@@ -25,7 +25,12 @@ function xmlFallbackHighlight(raw) {
     // General numbers (integers/decimals)
     tmp = tmp.replace(/\b\d+(?:\.\d+)?\b/g, (m) => MARK('number', m));
     // Tags (keep last so it wraps the "<...>" blocks)
-    tmp = tmp.replace(/<\/?[\w\-:.]+(?:\s+[\w\-:.]+(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?)*\s*\/?>/g, (m) => MARK('tag', m));
+    // Safer pattern: avoid ambiguous nested groups and hyphen-start names to prevent ReDoS.
+    // Also allow our string-marker form after '=' so quoted values already replaced won't cause backtracking.
+    tmp = tmp.replace(
+      /<\/?[A-Za-z_:][\w:.-]*(?:\s+(?:[A-Za-z_:][\w:.-]*(?:\s*=\s*(?:__H__string__[\s\S]*?__E__|"[^"]*"|'[^']*'|[^\s"'=<>`]+))?))*\s*\/?>/g,
+      (m) => MARK('tag', m)
+    );
     // Escape and unwrap
     tmp = escapeHtmlInline(tmp);
     // Restrict the type token to letters/dashes so underscores in the
