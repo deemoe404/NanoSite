@@ -1,5 +1,6 @@
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
+import { getContentRoot } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 
@@ -28,7 +29,11 @@ function renderPreview(mdText) {
   try {
     const target = document.getElementById('mainview');
     if (!target) return;
-    const { post } = mdParse(mdText || '', '');
+    // Use the current markdown file directory (if known) as baseDir
+    // so relative image/link paths resolve correctly in preview.
+    const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
+      || (`${getContentRoot()}/`);
+    const { post } = mdParse(mdText || '', baseDir);
     target.innerHTML = post || '';
     // Apply syntax highlighting and gutters to code blocks
     try { initSyntaxHighlighting(); } catch (_) {}
@@ -128,6 +133,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentActive = null;
     let contentRoot = 'wwwroot';
+    // Track current markdown base directory for resolving relative assets
+    // Expose to window so renderPreview can access outside this closure
+    try { if (!window.__ns_editor_base_dir) window.__ns_editor_base_dir = `${contentRoot}/`; } catch (_) {}
     let activeGroup = 'index';
 
     const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
@@ -165,6 +173,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (editor) editor.setValue(text);
           // Persist to local draft so reload keeps latest
           try { lsSet(DRAFT_KEY, text); } catch (_) {}
+          // Set preview base dir to the directory of the loaded markdown file
+          try {
+            const lastSlash = relPath.lastIndexOf('/');
+            const dir = lastSlash >= 0 ? relPath.slice(0, lastSlash + 1) : '';
+            window.__ns_editor_base_dir = `${contentRoot}/${dir}`.replace(/\\+/g, '/');
+          } catch (_) { window.__ns_editor_base_dir = `${contentRoot}/`; }
           renderPreview(text);
           setCurrentFile(`${relPath}`);
           if (currentActive) currentActive.classList.remove('is-active');
@@ -276,6 +290,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const site = await fetchConfigWithYamlFallback(['site.yaml','site.yml']);
         contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
       } catch (_) { contentRoot = 'wwwroot'; }
+      // Keep a global hint for content root, and default editor base dir
+      try { window.__ns_content_root = contentRoot; } catch (_) {}
+      try { window.__ns_editor_base_dir = `${contentRoot}/`; } catch (_) {}
 
       try {
         setStatus('Loading index…');
