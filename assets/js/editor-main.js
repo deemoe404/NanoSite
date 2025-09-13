@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
   update();
 
   // View toggle
-  document.querySelectorAll('.vt-btn').forEach(a => {
+  document.querySelectorAll('.vt-btn[data-view]').forEach(a => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
       const mode = a.dataset.view;

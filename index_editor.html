@@ -23,6 +23,9 @@
     .sidebar-tabs { display: inline-flex; gap: .4rem; margin: .35rem 0 .6rem; }
     .sidebar-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
     .sidebar-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+    /* Top mode tabs (Editor/Composer) share the same style */
+    .mode-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
+    .mode-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
     .editor-sidebar .group-title { display:none; }
     .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
     .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -95,10 +98,15 @@
 <body>
   <div class="editor-page">
     <div class="page-titlebar">
-      <h1>Markdown Editor</h1>
+      <h1>Editor & Composer</h1>
+      <div class="sidebar-tabs" role="tablist" aria-label="Mode switch">
+        <button class="mode-tab is-active" data-mode="editor" role="tab" aria-selected="true">Editor</button>
+        <button class="mode-tab" data-mode="composer" role="tab" aria-selected="false">Composer</button>
+      </div>
     </div>
 
-    <div class="editor-layout">
+    <!-- Editor Mode -->
+    <div class="editor-layout" id="mode-editor">
       <aside class="editor-sidebar box" aria-label="Articles sidebar">
         <div class="sidebar-title">Articles</div>
         <div class="sidebar-tabs" role="tablist">
@@ -144,9 +152,41 @@
         </div>
       </section>
     </div>
+
+    <!-- Composer Mode -->
+    <div class="editor-layout" id="mode-composer" style="display:none;">
+      <section class="box editor-main" style="grid-column: 1 / -1;">
+        <div class="toolbar">
+          <div class="left-actions">
+            <div class="view-toggle" aria-label="File switch">
+              <span class="vt-label">File:</span>
+              <a href="#" class="vt-btn active" data-cfile="index">index.yaml</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn" data-cfile="tabs">tabs.yaml</a>
+            </div>
+          </div>
+          <div class="right-actions">
+            <button class="btn-secondary" id="btnAddItem">+ Add Item</button>
+            <button class="btn-secondary" id="btnExport">Export YAML</button>
+            <button class="btn-secondary" id="btnDownload">Download</button>
+          </div>
+        </div>
+        <div id="composerStatus" class="status" style="margin: .25rem 0 .5rem;"></div>
+
+        <!-- Composer Lists -->
+        <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
+        <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+
+        <!-- YAML preview/export area -->
+        <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
+          <textarea id="yamlExport" style="width:100%; height: 280px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); padding:.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 18px;"></textarea>
+        </div>
+      </section>
+    </div>
   </div>
 
   <script type="module" src="assets/js/editor-main.js"></script>
+  <script type="module" src="assets/js/composer.js"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
