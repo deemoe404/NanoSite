@@ -226,17 +226,91 @@ document.addEventListener('DOMContentLoaded', () => {
       const li = document.createElement('li');
       li.appendChild(details);
 
-      // Accordion behavior: within the same .file-list, only one group stays open
-      // We only enforce on user-initiated toggles to avoid fighting programmatic
-      // expansion (e.g. when filtering/searching auto-expands matches).
+      // ----- Smooth expand/collapse helpers -----
+      const ANIM_MS = 480; // slower, consistent open/close duration (ms)
+      const ease = 'cubic-bezier(0.45, 0, 0.25, 1)'; // gentle ease-in-out
+      const animateExpand = (panel) => {
+        if (!panel) return;
+        try {
+          panel.style.overflow = 'hidden';
+          panel.style.height = '0px';
+          panel.style.opacity = '0';
+          // Force style flush to ensure transition kicks in cleanly
+          void panel.getBoundingClientRect();
+          panel.style.transition = `height ${ANIM_MS}ms ${ease}, opacity ${ANIM_MS}ms ${ease}`;
+          const target = panel.scrollHeight;
+          // next frame
+          requestAnimationFrame(() => {
+            panel.style.height = `${target}px`;
+            panel.style.opacity = '1';
+          });
+          const cleanup = (ev) => {
+            if (ev && ev.propertyName && ev.propertyName !== 'height') return; // wait for height
+            panel.style.transition = '';
+            panel.style.height = '';
+            panel.style.overflow = '';
+            panel.style.opacity = '';
+            panel.removeEventListener('transitionend', cleanup);
+          };
+          panel.addEventListener('transitionend', cleanup);
+        } catch (_) {}
+      };
+      const animateCollapse = (panel, after) => {
+        if (!panel) { if (after) after(); return; }
+        try {
+          const start = panel.scrollHeight;
+          panel.style.overflow = 'hidden';
+          panel.style.height = `${start}px`;
+          panel.style.opacity = '1';
+          panel.style.transition = `height ${ANIM_MS}ms ${ease}, opacity ${ANIM_MS}ms ${ease}`;
+          // next frame
+          requestAnimationFrame(() => {
+            panel.style.height = '0px';
+            panel.style.opacity = '0';
+          });
+          const done = (ev) => {
+            if (ev && ev.propertyName && ev.propertyName !== 'height') return; // wait for height
+            panel.style.transition = '';
+            panel.style.height = '';
+            panel.style.overflow = '';
+            panel.style.opacity = '';
+            panel.removeEventListener('transitionend', done);
+            if (after) after();
+          };
+          panel.addEventListener('transitionend', done);
+        } catch (_) { if (after) after(); }
+      };
+
+      // Intercept close to animate before collapsing the <details>
+      summary.addEventListener('click', (evt) => {
+        try {
+          if (!details.open) return; // it will open; let default handle
+          // It is currently open and will close: prevent default and animate
+          evt.preventDefault();
+          animateCollapse(ul, () => { try { details.removeAttribute('open'); } catch (_) {} });
+        } catch (_) {}
+      });
+
+      // Accordion + animate on open
       details.addEventListener('toggle', (e) => {
         try {
-          if (!details.open) return; // only act when opening
-          if (e && e.isTrusted === false) return; // ignore scripted toggles
-          const list = details.closest('.file-list');
-          if (!list) return;
-          const openGroups = list.querySelectorAll('details.file-group[open]');
-          openGroups.forEach(d => { if (d !== details) d.removeAttribute('open'); });
+          if (details.open) {
+            // Animate this group's expansion
+            animateExpand(ul);
+            // Only enforce accordion for user-initiated toggles
+            if (!e || e.isTrusted !== false) {
+              const list = details.closest('.file-list');
+              if (list) {
+                const openGroups = list.querySelectorAll('details.file-group[open]');
+                openGroups.forEach(d => {
+                  if (d !== details) {
+                    const p = d.querySelector('.file-sublist');
+                    animateCollapse(p, () => { try { d.removeAttribute('open'); } catch (_) {} });
+                  }
+                });
+              }
+            }
+          }
         } catch (_) { /* noop */ }
       });
       return { container: li, sublist: ul, details };
