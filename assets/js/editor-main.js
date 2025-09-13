@@ -225,6 +225,20 @@ document.addEventListener('DOMContentLoaded', () => {
       details.appendChild(ul);
       const li = document.createElement('li');
       li.appendChild(details);
+
+      // Accordion behavior: within the same .file-list, only one group stays open
+      // We only enforce on user-initiated toggles to avoid fighting programmatic
+      // expansion (e.g. when filtering/searching auto-expands matches).
+      details.addEventListener('toggle', (e) => {
+        try {
+          if (!details.open) return; // only act when opening
+          if (e && e.isTrusted === false) return; // ignore scripted toggles
+          const list = details.closest('.file-list');
+          if (!list) return;
+          const openGroups = list.querySelectorAll('details.file-group[open]');
+          openGroups.forEach(d => { if (d !== details) d.removeAttribute('open'); });
+        } catch (_) { /* noop */ }
+      });
       return { container: li, sublist: ul, details };
     };
 
