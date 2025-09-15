@@ -1097,7 +1097,12 @@ function bindComposerUI(state) {
         p.textContent = 'Instructions: Click “Create File on GitHub” to open a new file with a pre-filled filename, paste your content, and commit the change.';
         const fnameLang = withLangSuffix(fname, lang);
         const actions = document.createElement('div'); actions.className = 'actions';
-        const a1 = document.createElement('a'); a1.className = 'btn-secondary'; a1.target = '_blank'; a1.rel = 'noopener'; a1.href = hasGh ? buildGhNewLink(ghOwner, ghName, ghBranch, fullFolder, fnameLang) : '#'; a1.textContent = hasGh ? 'Create File on GitHub' : 'No repo configured (site.yaml -> repo)';
+        const a1 = document.createElement('a'); a1.className = hasGh ? 'btn-secondary btn-github' : 'btn-secondary'; a1.target = '_blank'; a1.rel = 'noopener'; a1.href = hasGh ? buildGhNewLink(ghOwner, ghName, ghBranch, fullFolder, fnameLang) : '#';
+        if (hasGh) {
+          a1.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Create File</span>';
+        } else {
+          a1.textContent = 'No repo configured (site.yaml -> repo)';
+        }
         actions.appendChild(a1);
         s.appendChild(p); s.appendChild(actions);
         const { name, emoji } = langMeta(lang);
@@ -1111,9 +1116,13 @@ function bindComposerUI(state) {
         p.textContent = 'We will copy the YAML for you, then open index.yaml on GitHub. In the editor, select all and paste to replace, then commit.';
         const actions = document.createElement('div'); actions.className = 'actions';
         const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/index.yaml`;
-        const aEdit = document.createElement('a'); aEdit.className = 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
+        const aEdit = document.createElement('a'); aEdit.className = hasGh ? 'btn-secondary btn-github' : 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
         aEdit.href = hasGh ? buildGhEditFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
-        aEdit.textContent = hasGh ? 'Edit index.yaml (GitHub)' : '—';
+        if (hasGh) {
+          aEdit.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Edit index.yaml</span>';
+        } else {
+          aEdit.textContent = '—';
+        }
         aEdit.title = 'We will copy YAML to your clipboard. On GitHub, select all and paste to replace, then commit.';
         // On click, auto-copy YAML draft to clipboard, then open GitHub edit page
         aEdit.addEventListener('click', async (e) => {
@@ -1526,8 +1535,15 @@ function bindComposerUI(state) {
               const p = document.createElement('code'); p.textContent = it.path; p.style.flex='1 1 auto'; row.appendChild(p);
               const actions = document.createElement('div'); actions.className='ci-ver-actions'; actions.style.display='inline-flex'; actions.style.gap='.35rem';
               const siteRepo = window.__ns_site_repo || {}; const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-              const aNew = document.createElement('a'); aNew.className='btn-secondary'; aNew.target='_blank'; aNew.rel='noopener'; aNew.textContent = 'Create on GitHub';
-              aNew.href = (siteRepo.owner && siteRepo.name) ? buildGhNewLink(siteRepo.owner, siteRepo.name, siteRepo.branch||'main', `${root}/${it.folder}`, it.filename) : '#';
+              const aNew = document.createElement('a');
+              const canGh = !!(siteRepo.owner && siteRepo.name);
+              aNew.className = canGh ? 'btn-secondary btn-github' : 'btn-secondary'; aNew.target='_blank'; aNew.rel='noopener';
+              if (canGh) {
+                aNew.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Create File</span>';
+              } else {
+                aNew.textContent = 'Create File';
+              }
+              aNew.href = canGh ? buildGhNewLink(siteRepo.owner, siteRepo.name, siteRepo.branch||'main', `${root}/${it.folder}`, it.filename) : '#';
               aNew.title = 'Open GitHub new file page with prefilled filename';
               actions.appendChild(aNew);
               row.appendChild(actions);
@@ -1610,7 +1626,7 @@ function bindComposerUI(state) {
         try {
           btn.disabled = false;
           // Restore original label
-          if (btnLabel) btnLabel.textContent = 'Sync with GitHub'; else btn.textContent = 'Sync with GitHub';
+          if (btnLabel) btnLabel.textContent = 'Synchronize'; else btn.textContent = 'Synchronize';
         } catch(_) {}
       }
     });
@@ -1761,6 +1777,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   .ns-modal-dialog a.btn-secondary:visited { color: var(--text); }
   .ns-modal-dialog .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
+  /* GitHub green button variant (overrides theme packs) */
+  .ns-modal-dialog .btn-github,
+  .ns-modal-dialog a.btn-github,
+  .ns-modal-dialog button.btn-github {
+    background:#2da44e !important; color:#ffffff !important; border:1px solid #2c974b !important; border-radius:8px !important;
+  }
+  .ns-modal-dialog a.btn-github:visited { color:#ffffff !important; }
+  .ns-modal-dialog .btn-github:hover { background:#2c974b !important; }
+  .ns-modal-dialog .btn-github:active { background:#298e46 !important; }
   .ns-modal-dialog .btn-secondary[disabled],
   .ns-modal-dialog button.btn-secondary[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
   .ns-modal-dialog .btn-primary,
