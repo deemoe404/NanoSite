@@ -298,11 +298,55 @@ function buildIndexUI(root, state) {
           <div class="ci-ver-list"></div>
         `;
         const verList = $('.ci-ver-list', block);
-        const renderVers = () => {
+        // Stable IDs for FLIP animations across re-renders
+        let verIds = arr.map(() => Math.random().toString(36).slice(2));
+
+        const snapRects = () => {
+          const map = new Map();
+          verList.querySelectorAll('.ci-ver-item').forEach(el => {
+            const id = el.getAttribute('data-id');
+            if (!id) return;
+            map.set(id, el.getBoundingClientRect());
+          });
+          return map;
+        };
+
+        const animateFrom = (prev) => {
+          if (!prev) return;
+          verList.querySelectorAll('.ci-ver-item').forEach(el => {
+            const id = el.getAttribute('data-id');
+            const r0 = id && prev.get(id);
+            if (!r0) return;
+            const r1 = el.getBoundingClientRect();
+            const dx = r0.left - r1.left;
+            const dy = r0.top - r1.top;
+            if (dx || dy) {
+              try {
+                el.animate([
+                  { transform: `translate(${dx}px, ${dy}px)` },
+                  { transform: 'translate(0, 0)' }
+                ], { duration: 240, easing: 'ease', composite: 'replace' });
+              } catch (_) {
+                el.style.transition = 'none';
+                el.style.transform = `translate(${dx}px, ${dy}px)`;
+                requestAnimationFrame(() => {
+                  el.style.transition = 'transform 240ms ease';
+                  el.style.transform = '';
+                  const clear = () => { el.style.transition = ''; el.removeEventListener('transitionend', clear); };
+                  el.addEventListener('transitionend', clear);
+                });
+              }
+            }
+          });
+        };
+
+        const renderVers = (prevRects = null) => {
           verList.innerHTML = '';
           arr.forEach((p, i) => {
+            const id = verIds[i] || (verIds[i] = Math.random().toString(36).slice(2));
             const row = document.createElement('div');
             row.className = 'ci-ver-item';
+            row.setAttribute('data-id', id);
             row.innerHTML = `
               <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
               <span class="ci-ver-actions">
@@ -311,25 +355,50 @@ function buildIndexUI(root, state) {
                 <button class="btn-secondary ci-remove" title="Remove">✕</button>
               </span>
             `;
+            const up = $('.ci-up', row);
+            const down = $('.ci-down', row);
+            // Disable ↑ for first, ↓ for last
+            if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
+            if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+
             $('.ci-path', row).addEventListener('input', (e) => {
               arr[i] = e.target.value;
               entry[lang] = arr.slice();
             });
-            $('.ci-up', row).addEventListener('click', () => {
-              if (i <= 0) return; const tmp = arr[i-1]; arr[i-1] = arr[i]; arr[i] = tmp; renderVers(); entry[lang] = arr.slice();
+            up.addEventListener('click', () => {
+              if (i <= 0) return;
+              const prev = snapRects();
+              [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+              [verIds[i - 1], verIds[i]] = [verIds[i], verIds[i - 1]];
+              entry[lang] = arr.slice();
+              renderVers(prev);
             });
-            $('.ci-down', row).addEventListener('click', () => {
-              if (i >= arr.length - 1) return; const tmp = arr[i+1]; arr[i+1] = arr[i]; arr[i] = tmp; renderVers(); entry[lang] = arr.slice();
+            down.addEventListener('click', () => {
+              if (i >= arr.length - 1) return;
+              const prev = snapRects();
+              [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+              [verIds[i + 1], verIds[i]] = [verIds[i], verIds[i + 1]];
+              entry[lang] = arr.slice();
+              renderVers(prev);
             });
             $('.ci-remove', row).addEventListener('click', () => {
-              arr.splice(i, 1); renderVers(); entry[lang] = arr.slice();
+              const prev = snapRects();
+              arr.splice(i, 1);
+              verIds.splice(i, 1);
+              entry[lang] = arr.slice();
+              renderVers(prev);
             });
             verList.appendChild(row);
           });
+          animateFrom(prevRects);
         };
         renderVers();
         $('.ci-lang-addver', block).addEventListener('click', () => {
-          arr.push(''); renderVers(); entry[lang] = arr.slice();
+          const prev = snapRects();
+          arr.push('');
+          verIds.push(Math.random().toString(36).slice(2));
+          entry[lang] = arr.slice();
+          renderVers(prev);
         });
         $('.ci-lang-del', block).addEventListener('click', () => {
           delete entry[lang]; row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`; renderBody();
@@ -570,6 +639,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-lang-actions,.ct-lang-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ci-ver-item{display:flex;align-items:center;gap:.4rem;margin:.3rem 0}
   .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
+  .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   .ct-fields{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
   .ct-fields input{width:100%;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-add-lang,.ct-add-lang{display:flex;align-items:center;gap:.5rem;margin-top:.5rem}
