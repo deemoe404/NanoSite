@@ -6,6 +6,120 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 
+// Smooth expand/collapse for details panels
+const __activeAnims = new WeakMap();
+const SLIDE_OPEN_DUR = 320;   // slower, smoother
+const SLIDE_CLOSE_DUR = 280;  // slightly faster than open
+function slideToggle(el, toOpen) {
+  if (!el) return;
+  const isReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isOpen = el.style.display !== 'none';
+  const open = (typeof toOpen === 'boolean') ? toOpen : !isOpen;
+  if (open === isOpen) return;
+
+  // Cancel any running animation
+  const running = __activeAnims.get(el);
+  if (running) { try { running.cancel(); } catch (_) {} __activeAnims.delete(el); }
+
+  if (isReduced) {
+    // No animation; just toggle
+    el.style.display = open ? 'block' : 'none';
+    el.dataset.open = open ? '1' : '0';
+    return;
+  }
+
+  if (open) {
+    // EXPAND
+    el.style.display = 'block';
+    const endH = el.scrollHeight;
+    try {
+      el.style.overflow = 'hidden';
+      const anim = el.animate([
+        { height: '0px', opacity: 0 },
+        { height: endH + 'px', opacity: 1 }
+      ], { duration: SLIDE_OPEN_DUR, easing: 'ease', fill: 'forwards' });
+      __activeAnims.set(el, anim);
+      anim.onfinish = () => {
+        el.style.overflow = '';
+        el.style.height = '';
+        el.style.opacity = '';
+        el.dataset.open = '1';
+        __activeAnims.delete(el);
+      };
+      anim.oncancel = () => {
+        el.style.overflow = '';
+        el.style.height = '';
+        el.style.opacity = '';
+        __activeAnims.delete(el);
+      };
+    } catch (_) {
+      // Fallback: CSS transition
+      el.style.overflow = 'hidden';
+      el.style.height = '0px';
+      el.style.opacity = '0';
+      // force reflow
+      void el.offsetHeight;
+      el.style.transition = `height ${SLIDE_OPEN_DUR}ms ease, opacity ${SLIDE_OPEN_DUR}ms ease`;
+      el.style.height = endH + 'px';
+      el.style.opacity = '1';
+      const clear = () => {
+        el.style.transition = '';
+        el.style.height = '';
+        el.style.opacity = '';
+        el.style.overflow = '';
+        el.dataset.open = '1';
+        el.removeEventListener('transitionend', clear);
+      };
+      el.addEventListener('transitionend', clear);
+    }
+  } else {
+    // COLLAPSE
+    const startH = el.getBoundingClientRect().height;
+    try {
+      el.style.overflow = 'hidden';
+      const anim = el.animate([
+        { height: startH + 'px', opacity: 1 },
+        { height: '0px', opacity: 0 }
+      ], { duration: SLIDE_CLOSE_DUR, easing: 'ease', fill: 'forwards' });
+      __activeAnims.set(el, anim);
+      anim.onfinish = () => {
+        el.style.display = 'none';
+        el.style.overflow = '';
+        el.style.height = '';
+        el.style.opacity = '';
+        el.dataset.open = '0';
+        __activeAnims.delete(el);
+      };
+      anim.oncancel = () => {
+        el.style.overflow = '';
+        el.style.height = '';
+        el.style.opacity = '';
+        __activeAnims.delete(el);
+      };
+    } catch (_) {
+      // Fallback: CSS transition
+      el.style.overflow = 'hidden';
+      el.style.height = startH + 'px';
+      el.style.opacity = '1';
+      // force reflow
+      void el.offsetHeight;
+      el.style.transition = `height ${SLIDE_CLOSE_DUR}ms ease, opacity ${SLIDE_CLOSE_DUR}ms ease`;
+      el.style.height = '0px';
+      el.style.opacity = '0';
+      const clear = () => {
+        el.style.display = 'none';
+        el.style.transition = '';
+        el.style.height = '';
+        el.style.opacity = '';
+        el.style.overflow = '';
+        el.dataset.open = '0';
+        el.removeEventListener('transitionend', clear);
+      };
+      el.addEventListener('transitionend', clear);
+    }
+  }
+}
+
 function sortLangKeys(obj) {
   const keys = Object.keys(obj || {});
   return keys.sort((a, b) => {
@@ -266,7 +380,7 @@ function buildIndexUI(root, state) {
         <strong class="ci-key">${key}</strong>
         <span class="ci-meta">${Object.keys(entry).length} lang</span>
         <span class="ci-actions">
-          <button class="btn-secondary ci-expand" aria-expanded="false">Details</button>
+          <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
           <button class="btn-secondary ci-del">Delete</button>
         </span>
       </div>
@@ -425,7 +539,7 @@ function buildIndexUI(root, state) {
 
     btnExpand.addEventListener('click', () => {
       const open = body.style.display !== 'none';
-      body.style.display = open ? 'none' : 'block';
+      slideToggle(body, !open);
       btnExpand.setAttribute('aria-expanded', String(!open));
     });
     btnDel.addEventListener('click', () => {
@@ -458,7 +572,7 @@ function buildTabsUI(root, state) {
         <strong class="ct-key">${tab}</strong>
         <span class="ct-meta">${Object.keys(entry).length} lang</span>
         <span class="ct-actions">
-          <button class="btn-secondary ct-expand" aria-expanded="false">Details</button>
+          <button class="btn-secondary ct-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
           <button class="btn-secondary ct-del">Delete</button>
         </span>
       </div>
@@ -514,7 +628,7 @@ function buildTabsUI(root, state) {
 
     btnExpand.addEventListener('click', () => {
       const open = body.style.display !== 'none';
-      body.style.display = open ? 'none' : 'block';
+      slideToggle(body, !open);
       btnExpand.setAttribute('aria-expanded', String(!open));
     });
     btnDel.addEventListener('click', () => {
@@ -648,6 +762,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   .drag-placeholder{border:1px dashed var(--border);border-radius:8px;background:transparent}
   .is-dragging-list{touch-action:none}
   body.ns-noselect{user-select:none;cursor:grabbing}
+  /* Caret arrow for Details buttons */
+  .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 320ms ease}
+  .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
