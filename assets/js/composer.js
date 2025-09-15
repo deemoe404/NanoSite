@@ -686,7 +686,7 @@ function bindComposerUI(state) {
 
     const wrap = document.createElement('div');
     wrap.id = 'composerGuide';
-    wrap.className = 'comp-guide box-lite';
+    wrap.className = 'comp-guide';
     wrap.innerHTML = `
       <div class="comp-guide-head">
         <strong>New Post (Composer Wizard)</strong>
@@ -709,10 +709,73 @@ function bindComposerUI(state) {
       </div>
       <div class="comp-steps" id="compSteps" hidden></div>
     `;
-    if (toolbar && toolbar.parentNode) toolbar.parentNode.insertBefore(wrap, toolbar.nextSibling);
-    else section.insertBefore(wrap, section.firstChild);
-    // hidden by default; toggled by + Add Item on index
-    try { wrap.style.display = 'none'; } catch (_) {}
+    // Create a modal container and mount the wizard inside
+    const modal = document.createElement('div');
+    modal.id = 'compModal';
+    modal.className = 'ns-modal';
+    modal.setAttribute('aria-hidden', 'true');
+
+    const dialog = document.createElement('div');
+    dialog.className = 'ns-modal-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'compGuideTitle');
+
+    // Add close button
+    const btnClose = document.createElement('button');
+    btnClose.className = 'ns-modal-close';
+    btnClose.type = 'button';
+    btnClose.setAttribute('aria-label', 'Close');
+    btnClose.innerHTML = '&times;';
+
+    // Label the title for a11y
+    const headStrong = document.createElement('strong');
+    headStrong.id = 'compGuideTitle';
+    headStrong.textContent = 'New Post (Composer Wizard)';
+    const head = wrap.querySelector('.comp-guide-head');
+    if (head) {
+      const firstStrong = head.querySelector('strong');
+      if (firstStrong) firstStrong.replaceWith(headStrong); else head.prepend(headStrong);
+    }
+
+    dialog.appendChild(btnClose);
+    dialog.appendChild(wrap);
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+
+    // Modal behaviors
+    const focusableSelector = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    let lastActive = null;
+
+    function openModal() {
+      lastActive = document.activeElement;
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('ns-modal-open');
+      setTimeout(() => { try { wrap.querySelector('#compKey')?.focus(); } catch(_){} }, 0);
+    }
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('ns-modal-open');
+      try { lastActive && lastActive.focus(); } catch(_){}
+    }
+
+    modal.__open = openModal;
+    modal.__close = closeModal;
+    btnClose.addEventListener('click', closeModal);
+    modal.addEventListener('mousedown', (e) => { if (e.target === modal) closeModal(); });
+    modal.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+      if (e.key === 'Tab') {
+        const focusables = Array.from(dialog.querySelectorAll(focusableSelector)).filter(el => el.offsetParent !== null || el === document.activeElement);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
 
     const compKey = $('#compKey', wrap);
     const compFilename = $('#compFilename', wrap);
@@ -944,16 +1007,9 @@ function bindComposerUI(state) {
   $('#btnAddItem').addEventListener('click', () => {
     const isIndex = $('#composerIndex').style.display !== 'none';
     if (isIndex) {
-      // Toggle the New Post wizard panel
-      const guide = document.getElementById('composerGuide');
-      if (guide) {
-        const on = guide.style.display !== 'none';
-        guide.style.display = on ? 'none' : 'block';
-        if (!on) {
-          const keyEl = document.getElementById('compKey');
-          if (keyEl) try { keyEl.focus(); } catch(_){}
-        }
-      }
+      // Open the New Post wizard modal
+      const modal = document.getElementById('compModal');
+      if (modal && typeof modal.__open === 'function') modal.__open();
     } else {
       const key = prompt('New tab name (e.g., About)');
       if (!key) return;
@@ -1068,6 +1124,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   .comp-step .actions{display:flex;gap:.4rem;margin-top:.25rem}
   .comp-step code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; background: color-mix(in srgb, var(--text) 10%, transparent); padding: .08rem .35rem; border-radius: 6px; font-size: .9em;}
   .link-btn{display:inline-block;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.15rem .4rem;cursor:pointer}
+
+  /* Simple modal for the Composer wizard */
+  .ns-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);z-index:9999;padding:1rem}
+  .ns-modal.is-open{display:flex}
+  .ns-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:.75rem .85rem}
+  .ns-modal-close{position:absolute;top:.5rem;right:.6rem;width:2rem;height:2rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:1.25rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .ns-modal-close:hover{background:color-mix(in srgb, var(--primary) 10%, var(--card));border-color:color-mix(in srgb, var(--primary) 35%, var(--border))}
+  body.ns-modal-open{overflow:hidden}
+  .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
