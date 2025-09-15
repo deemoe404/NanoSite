@@ -1390,7 +1390,7 @@ function bindComposerUI(state) {
     }
   });
 
-  // Verify Setup: check all referenced files exist; if ok, check index.yaml drift
+  // Verify Setup: check all referenced files exist; if ok, check YAML drift
   (function bindVerifySetup(){
     const btn = document.getElementById('btnVerify');
     if (!btn) return;
@@ -1444,20 +1444,30 @@ function bindComposerUI(state) {
       return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
     }
 
+    function getActiveCFile(){
+      try {
+        const a = document.querySelector('a.vt-btn[data-cfile].active');
+        const t = a && a.dataset && a.dataset.cfile;
+        return t === 'tabs' ? 'tabs' : 'index';
+      } catch (_) { return 'index'; }
+    }
+
     async function computeMissingFiles(){
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const out = [];
-      const idx = state.index || {};
-      const keys = Object.keys(idx).filter(k => k !== '__order');
+      const target = getActiveCFile();
       // Fetch existence in parallel batches
       const tasks = [];
-      for (const key of keys){
-        const langsObj = idx[key] || {};
-        const langs = sortLangKeys(langsObj);
-        for (const lang of langs){
-          const val = langsObj[lang];
-          const paths = Array.isArray(val) ? val.slice() : (typeof val === 'string' ? [val] : []);
-          for (const rel of paths){
+      if (target === 'tabs') {
+        const tbs = state.tabs || {};
+        const keys = Object.keys(tbs).filter(k => k !== '__order');
+        for (const key of keys){
+          const langsObj = tbs[key] || {};
+          const langs = sortLangKeys(langsObj);
+          for (const lang of langs){
+            const obj = langsObj[lang];
+            const rel = obj && typeof obj === 'object' ? obj.location : '';
+            if (!rel) continue; // skip empty
             const url = `${contentRoot}/${String(rel||'')}`;
             tasks.push((async () => {
               try {
@@ -1467,6 +1477,28 @@ function bindComposerUI(state) {
                 }
               } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
             })());
+          }
+        }
+      } else {
+        const idx = state.index || {};
+        const keys = Object.keys(idx).filter(k => k !== '__order');
+        for (const key of keys){
+          const langsObj = idx[key] || {};
+          const langs = sortLangKeys(langsObj);
+          for (const lang of langs){
+            const val = langsObj[lang];
+            const paths = Array.isArray(val) ? val.slice() : (typeof val === 'string' ? [val] : []);
+            for (const rel of paths){
+              const url = `${contentRoot}/${String(rel||'')}`;
+              tasks.push((async () => {
+                try {
+                  const r = await fetch(url, { cache: 'no-store' });
+                  if (!r || !r.ok) {
+                    out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                  }
+                } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+              })());
+            }
           }
         }
       }
@@ -1590,7 +1622,11 @@ function bindComposerUI(state) {
         btnVerify.disabled = true; btnVerify.textContent = 'Verifying…';
         try {
           // Also copy YAML snapshot here to leverage the user gesture
-          try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
+          try {
+            const target = (function(){ try { const a=document.querySelector('a.vt-btn[data-cfile].active'); return (a&&a.dataset&&a.dataset.cfile)==='tabs'?'tabs':'index'; } catch(_){ return 'index'; } })();
+            const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+            nsCopyToClipboard(text);
+          } catch(_) {}
           const now = await computeMissingFiles();
           if (!now.length){ close(); await afterAllGood(); }
           else { renderList(now); /* no toast: inline red banner shows status */ }
@@ -1603,21 +1639,23 @@ function bindComposerUI(state) {
     }
 
     async function afterAllGood(){
-      // Compare current in-memory YAML vs remote index.yaml; open GitHub edit if differs
+      // Compare current in-memory YAML vs remote file; open GitHub edit if differs
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-      const desired = toIndexYaml(state.index || {});
+      const target = getActiveCFile();
+      const desired = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
       async function fetchText(url){ try { const r = await fetch(url, { cache: 'no-store' }); if (r && r.ok) return await r.text(); } catch(_){} return ''; }
-      const url1 = `${contentRoot}/index.yaml`; const url2 = `${contentRoot}/index.yml`;
+      const baseName = target === 'tabs' ? 'tabs' : 'index';
+      const url1 = `${contentRoot}/${baseName}.yaml`; const url2 = `${contentRoot}/${baseName}.yml`;
       const cur = (await fetchText(url1)) || (await fetchText(url2));
       const norm = (s)=>String(s||'').replace(/\r\n/g,'\n').trim();
-      if (norm(cur) === norm(desired)) { showToast('success', 'index.yaml is up to date'); return; }
+      if (norm(cur) === norm(desired)) { showToast('success', `${baseName}.yaml is up to date`); return; }
       // Need update -> copy and open GitHub edit/new page
       try { nsCopyToClipboard(desired); } catch(_) {}
       const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
       if (owner && name){
         let href = '';
-        if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/index.yaml`);
-        else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `index.yaml`);
+        if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/${baseName}.yaml`);
+        else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `${baseName}.yaml`);
         try { window.open(href, '_blank', 'noopener'); } catch(_) { location.href = href; }
       } else {
         showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
@@ -1632,7 +1670,11 @@ function bindComposerUI(state) {
       } catch(_) {}
       try {
         // Copy YAML snapshot up-front to retain user-activation for clipboard
-        try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
+        try {
+          const target = getActiveCFile();
+          const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+          nsCopyToClipboard(text);
+        } catch(_) {}
         const missing = await computeMissingFiles();
         if (missing.length) openVerifyModal(missing);
         else await afterAllGood();
