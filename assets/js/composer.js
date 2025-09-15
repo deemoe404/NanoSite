@@ -6,6 +6,37 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 
+// Robust clipboard helper available to all composer flows
+async function nsCopyToClipboard(text) {
+  const val = String(text || '');
+  // Prefer async Clipboard API when in a secure context
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      // Intentionally do not await in callers to better preserve user-activation
+      await navigator.clipboard.writeText(val);
+      return true;
+    }
+  } catch (_) { /* fall through to legacy */ }
+  // Legacy fallback: temporary textarea + execCommand('copy')
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = val;
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.width = '1px';
+    ta.style.height = '1px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+    try { document.body.removeChild(ta); } catch (_) {}
+    return ok;
+  } catch (_) { return false; }
+}
+
 // Smooth expand/collapse for details panels
 const __activeAnims = new WeakMap();
 const SLIDE_OPEN_DUR = 320;   // slower, smoother
@@ -951,10 +982,7 @@ function bindComposerUI(state) {
       return s + '_' + String(lang || '').toLowerCase() + '.md';
     }
 
-    function copyToClipboard(text){
-      try { navigator.clipboard?.writeText(String(text || '')); }
-      catch(_){}
-    }
+    // use global helper
 
     function showKeyBubble(msg) {
       try {
@@ -1113,7 +1141,7 @@ function bindComposerUI(state) {
             }
             draft.__order = order;
             const text = toIndexYaml(draft);
-            try { await navigator.clipboard?.writeText(text); } catch(_) { /* ignore */ }
+            try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
           } catch(_) { /* ignore */ }
           try { window.open(aEdit.href, '_blank', 'noopener'); } catch(_) { location.href = aEdit.href; }
         });
@@ -1129,7 +1157,7 @@ function bindComposerUI(state) {
 
       // Bind copy buttons
       steps.querySelectorAll('button[data-copy]')?.forEach(btn => {
-        btn.addEventListener('click', () => copyToClipboard(btn.getAttribute('data-copy')));
+        btn.addEventListener('click', () => nsCopyToClipboard(btn.getAttribute('data-copy')));
       });
     }
 
@@ -1353,27 +1381,240 @@ function bindComposerUI(state) {
     }
   });
 
-  // Export YAML
-  const exportArea = $('#yamlExportWrap');
-  const exportTa = $('#yamlExport');
-  $('#btnExport').addEventListener('click', () => {
-    const isIndex = $('#composerIndex').style.display !== 'none';
-    const text = isIndex ? toIndexYaml(state.index) : toTabsYaml(state.tabs);
-    exportTa.value = text;
-    exportArea.style.display = 'block';
-  });
+  // Verify Setup: check all referenced files exist; if ok, check index.yaml drift
+  (function bindVerifySetup(){
+    const btn = document.getElementById('btnVerify');
+    if (!btn) return;
+    const btnLabel = btn.querySelector('.btn-label');
 
-  // Download YAML
-  $('#btnDownload').addEventListener('click', () => {
-    const isIndex = $('#composerIndex').style.display !== 'none';
-    const text = isIndex ? toIndexYaml(state.index) : toTabsYaml(state.tabs);
-    const name = isIndex ? 'index.yaml' : 'tabs.yaml';
-    const blob = new Blob([text], { type: 'text/yaml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
+    // Minimal toast utility for this page
+    function ensureToastRoot(){
+      let r = document.getElementById('toast-root');
+      if (!r) { r = document.createElement('div'); r.id = 'toast-root'; r.style.position='fixed'; r.style.top='14px'; r.style.right='14px'; r.style.zIndex='10000'; document.body.appendChild(r); }
+      return r;
+    }
+    function showToast(kind, text){
+      try {
+        const root = ensureToastRoot();
+        const el = document.createElement('div');
+        el.className = `toast ${kind||''}`;
+        el.textContent = text || '';
+        // light styles if global theme lacks toast
+        el.style.background = 'color-mix(in srgb, var(--text) 8%, var(--card))';
+        el.style.color = 'var(--text)';
+        el.style.border = '1px solid var(--border)';
+        el.style.borderRadius = '8px';
+        el.style.padding = '.45rem .7rem';
+        el.style.boxShadow = 'var(--shadow)';
+        el.style.marginTop = '.35rem';
+        el.style.transition = 'opacity .3s ease';
+        root.appendChild(el);
+        setTimeout(()=>{ el.style.opacity='0'; }, 2000);
+        setTimeout(()=>{ try { el.remove(); } catch(_) {} }, 2400);
+      } catch(_) { try { alert(text); } catch(_) {} }
+    }
+
+    // Helper: extract version segment like v1.2.3 from a path
+    function extractVersion(p){
+      try { const m = String(p||'').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i); return m ? m[0].split('/').pop() : ''; } catch(_) { return ''; }
+    }
+    function dirname(p){ try { const s=String(p||''); const i=s.lastIndexOf('/'); return i>=0? s.slice(0,i) : ''; } catch(_) { return ''; } }
+    function basename(p){ try { const s=String(p||''); const i=s.lastIndexOf('/'); return i>=0? s.slice(i+1) : s; } catch(_) { return String(p||''); } }
+    function uniq(arr){ return Array.from(new Set(arr||[])); }
+
+    function buildGhNewLink(owner, repo, branch, folderPath, filename) {
+      const enc = (s) => encodeURIComponent(String(s || ''));
+      const clean = String(folderPath || '').replace(/^\/+/, '');
+      const base = `https://github.com/${enc(owner)}/${enc(repo)}/new/${enc(branch)}/${clean}`;
+      if (filename) return `${base}?filename=${enc(filename)}`;
+      return base;
+    }
+    function buildGhEditFileLink(owner, repo, branch, filePath) {
+      const enc = (s) => encodeURIComponent(String(s || ''));
+      const clean = String(filePath || '').replace(/^\/+/, '');
+      return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
+    }
+
+    async function computeMissingFiles(){
+      const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+      const out = [];
+      const idx = state.index || {};
+      const keys = Object.keys(idx).filter(k => k !== '__order');
+      // Fetch existence in parallel batches
+      const tasks = [];
+      for (const key of keys){
+        const langsObj = idx[key] || {};
+        const langs = sortLangKeys(langsObj);
+        for (const lang of langs){
+          const val = langsObj[lang];
+          const paths = Array.isArray(val) ? val.slice() : (typeof val === 'string' ? [val] : []);
+          for (const rel of paths){
+            const url = `${contentRoot}/${String(rel||'')}`;
+            tasks.push((async () => {
+              try {
+                const r = await fetch(url, { cache: 'no-store' });
+                if (!r || !r.ok) {
+                  out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                }
+              } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+            })());
+          }
+        }
+      }
+      await Promise.all(tasks);
+      return out;
+    }
+
+    function openVerifyModal(missing){
+      // Build modal
+      const modal = document.createElement('div');
+      modal.className = 'ns-modal'; modal.setAttribute('aria-hidden', 'true');
+      const dialog = document.createElement('div'); dialog.className = 'ns-modal-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true');
+      const head = document.createElement('div'); head.className = 'comp-guide-head';
+      const left = document.createElement('div'); left.className='comp-head-left';
+      const title = document.createElement('strong'); title.textContent = 'Verify Setup – Missing Files'; title.id='verifyTitle';
+      const sub = document.createElement('span'); sub.className='muted'; sub.textContent = 'Create missing files on GitHub, then Verify again';
+      left.appendChild(title); left.appendChild(sub);
+      const btnClose = document.createElement('button'); btnClose.className = 'ns-modal-close btn-secondary'; btnClose.type = 'button'; btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label','Cancel');
+      head.appendChild(left); head.appendChild(btnClose);
+      dialog.appendChild(head);
+
+      const body = document.createElement('div'); body.className = 'comp-guide';
+      const listWrap = document.createElement('div'); listWrap.style.margin = '.4rem 0';
+
+      function renderList(items){
+        listWrap.innerHTML = '';
+        if (!items || !items.length){
+          const p = document.createElement('p'); p.textContent = 'All files are present.'; listWrap.appendChild(p); return;
+        }
+        // Group: key -> lang -> entries
+        const byKey = new Map();
+        for (const it of items){
+          if (!byKey.has(it.key)) byKey.set(it.key, new Map());
+          const g = byKey.get(it.key);
+          if (!g.has(it.lang)) g.set(it.lang, []);
+          g.get(it.lang).push(it);
+        }
+        // Render groups
+        for (const [key, g] of byKey.entries()){
+          const sec = document.createElement('section'); sec.style.border='1px solid var(--border)'; sec.style.borderRadius='8px'; sec.style.padding='.5rem'; sec.style.margin='.5rem 0'; sec.style.background='var(--card)';
+          const h = document.createElement('div'); h.style.display='flex'; h.style.alignItems='center'; h.style.gap='.5rem';
+          const title = document.createElement('strong'); title.textContent = key; h.appendChild(title);
+          // Badges
+          const meta = document.createElement('span'); meta.className='summary-badges';
+          const langs = Array.from(g.keys()); if (langs.length){ const b=document.createElement('span'); b.className='badge badge-lang'; b.textContent = langs.map(x=>String(x).toUpperCase()).join(' '); meta.appendChild(b); }
+          h.appendChild(meta);
+          sec.appendChild(h);
+          for (const [lang, arr] of g.entries()){
+            const langBox = document.createElement('div'); langBox.className='ci-lang';
+            const lh = document.createElement('div'); lh.className='ci-lang-head';
+            const lab = document.createElement('span'); lab.textContent = `Language: ${String(lang).toUpperCase()}`; lh.appendChild(lab);
+            langBox.appendChild(lh);
+            arr.sort((a,b)=>{
+              const av = a.version || ''; const bv = b.version || '';
+              if (av && bv && av!==bv){
+                // compare version desc
+                const vp = (v)=>String(v||'').replace(/^v/i,'').split('.').map(x=>parseInt(x,10)||0);
+                const aa=vp(av), bb=vp(bv); const L=Math.max(aa.length, bb.length);
+                for (let i=0;i<L;i++){ const x=aa[i]||0, y=bb[i]||0; if (x!==y) return y-x; }
+              }
+              return String(a.path).localeCompare(String(b.path));
+            });
+            for (const it of arr){
+              const row = document.createElement('div'); row.className='ci-ver-item';
+              const badge = document.createElement('span'); badge.className='badge badge-ver'; badge.textContent = it.version ? it.version : '—'; row.appendChild(badge);
+              const p = document.createElement('code'); p.textContent = it.path; p.style.flex='1 1 auto'; row.appendChild(p);
+              const actions = document.createElement('div'); actions.className='ci-ver-actions'; actions.style.display='inline-flex'; actions.style.gap='.35rem';
+              const siteRepo = window.__ns_site_repo || {}; const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+              const aNew = document.createElement('a'); aNew.className='btn-secondary'; aNew.target='_blank'; aNew.rel='noopener'; aNew.textContent = 'Create on GitHub';
+              aNew.href = (siteRepo.owner && siteRepo.name) ? buildGhNewLink(siteRepo.owner, siteRepo.name, siteRepo.branch||'main', `${root}/${it.folder}`, it.filename) : '#';
+              aNew.title = 'Open GitHub new file page with prefilled filename';
+              actions.appendChild(aNew);
+              row.appendChild(actions);
+              langBox.appendChild(row);
+            }
+            sec.appendChild(langBox);
+          }
+          listWrap.appendChild(sec);
+        }
+      }
+
+      renderList(missing);
+
+      body.appendChild(listWrap);
+      dialog.appendChild(body);
+      const foot = document.createElement('div'); foot.style.display='flex'; foot.style.justifyContent='flex-end'; foot.style.gap='.5rem'; foot.style.marginTop='.5rem';
+      const btnVerify = document.createElement('button'); btnVerify.className='btn-primary'; btnVerify.textContent='Verify';
+      foot.appendChild(btnVerify);
+      dialog.appendChild(foot);
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+
+      function open(){ modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); document.body.classList.add('ns-modal-open'); }
+      function close(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('ns-modal-open'); try { modal.remove(); } catch(_) {} }
+
+      btnClose.addEventListener('click', close);
+      modal.addEventListener('mousedown', (e)=>{ if (e.target === modal) close(); });
+      modal.addEventListener('keydown', (e)=>{ if ((e.key||'').toLowerCase()==='escape') close(); });
+      btnVerify.addEventListener('click', async ()=>{
+        btnVerify.disabled = true; btnVerify.textContent = 'Verifying…';
+        try {
+          // Also copy YAML snapshot here to leverage the user gesture
+          try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
+          const now = await computeMissingFiles();
+          if (!now.length){ close(); await afterAllGood(); }
+          else { renderList(now); showToast('warn', `${now.length} missing item(s) remain`); }
+        } finally {
+          try { btnVerify.disabled = false; btnVerify.textContent = 'Verify'; } catch(_) {}
+        }
+      });
+
+      open();
+    }
+
+    async function afterAllGood(){
+      // Compare current in-memory YAML vs remote index.yaml; open GitHub edit if differs
+      const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+      const desired = toIndexYaml(state.index || {});
+      async function fetchText(url){ try { const r = await fetch(url, { cache: 'no-store' }); if (r && r.ok) return await r.text(); } catch(_){} return ''; }
+      const url1 = `${contentRoot}/index.yaml`; const url2 = `${contentRoot}/index.yml`;
+      const cur = (await fetchText(url1)) || (await fetchText(url2));
+      const norm = (s)=>String(s||'').replace(/\r\n/g,'\n').trim();
+      if (norm(cur) === norm(desired)) { showToast('success', 'index.yaml is up to date'); return; }
+      // Need update -> copy and open GitHub edit/new page
+      try { nsCopyToClipboard(desired); } catch(_) {}
+      const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
+      if (owner && name){
+        let href = '';
+        if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/index.yaml`);
+        else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `index.yaml`);
+        try { window.open(href, '_blank', 'noopener'); } catch(_) { location.href = href; }
+      } else {
+        showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
+      }
+    }
+
+    btn.addEventListener('click', async () => {
+      // Perform first pass; if any missing, show modal list; otherwise go to YAML check
+      try {
+        btn.disabled = true;
+        if (btnLabel) btnLabel.textContent = 'Verifying…'; else btn.textContent = 'Verifying…';
+      } catch(_) {}
+      try {
+        // Copy YAML snapshot up-front to retain user-activation for clipboard
+        try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
+        const missing = await computeMissingFiles();
+        if (missing.length) openVerifyModal(missing);
+        else await afterAllGood();
+      } finally {
+        try {
+          btn.disabled = false;
+          // Restore original label
+          if (btnLabel) btnLabel.textContent = 'Sync with GitHub'; else btn.textContent = 'Sync with GitHub';
+        } catch(_) {}
+      }
+    });
+  })();
 }
 
 function showStatus(msg) { const el = $('#composerStatus'); if (el) el.textContent = msg || ''; }
@@ -1432,6 +1673,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   .drag-placeholder{border:1px dashed var(--border);border-radius:8px;background:transparent}
   .is-dragging-list{touch-action:none}
   body.ns-noselect{user-select:none;cursor:grabbing}
+  /* Simple badges for verify modal */
+  .badge{display:inline-flex;align-items:center;gap:.25rem;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.72rem;padding:.05rem .4rem;border-radius:999px}
+  .badge-ver{ color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+  .badge-lang{}
   /* Caret arrow for Details buttons */
   .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 380ms ease}
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
