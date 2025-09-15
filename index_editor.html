@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Editor - NanoSite</title>
+  <script src="assets/js/theme-boot.js"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" id="theme-pack">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    /* Widen the editor page and reduce side padding */
+    body { padding: 0.75rem 1rem; max-width: min(95vw, 1200px); margin: 0 auto; }
+    .editor-page { display: block; }
+    /* Two-column layout: sidebar + editor */
+    .editor-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1rem; align-items: start; }
+    @media (max-width: 900px) {
+      .editor-layout { grid-template-columns: 1fr; }
+    }
+    .editor-sidebar { position: relative; }
+    .editor-sidebar .sidebar-title { font-size: 1rem; font-weight: 700; margin: 0 0 .5rem; }
+    /* Sidebar tabs for switching between Posts and Tabs */
+    .sidebar-tabs { display: inline-flex; gap: .4rem; margin: .35rem 0 .6rem; }
+    .sidebar-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
+    .sidebar-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+    /* Top mode switch (Editor / Composer): bigger, nav-like */
+    .mode-switch { 
+      display: inline-flex; 
+      gap: .25rem; 
+      align-items: center; 
+      background: var(--card); 
+      border: 1px solid var(--border); 
+      border-radius: 12px; 
+      padding: .25rem; 
+      box-shadow: var(--shadow);
+    }
+    .mode-tab {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 10px;
+      padding: .5rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+    .mode-tab:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
+    .mode-tab.is-active {
+      background: color-mix(in srgb, var(--primary) 14%, var(--card));
+      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+      color: var(--primary);
+      cursor: default;
+    }
+    .mode-tab:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
+    .editor-sidebar .group-title { display:none; }
+    .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
+    .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .editor-sidebar .file-item:last-child { border-bottom: 0; }
+    .editor-sidebar .file-item:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
+    .editor-sidebar .file-item.is-active { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+    .editor-sidebar .file-main { display: inline-flex; flex-direction: column; gap: .125rem; min-width: 0; }
+    .editor-sidebar .file-label { font-size: .92rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .editor-sidebar .file-path { font-size: .78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .editor-sidebar .search { margin: 0 0 .5rem; }
+    .editor-sidebar .search input { width: 100%; height: 2.25rem; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); }
+    .editor-sidebar .search input:focus { outline: none; box-shadow: 0 0 0 .12rem color-mix(in srgb, var(--primary) 35%, transparent); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
+    .editor-sidebar .status { margin-top: .4rem; font-size: .78rem; color: var(--muted); }
+    .editor-sidebar .lists { display: block; }
+    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; }
+    /* Grouped list styles */
+    .editor-sidebar .file-group { border-bottom: 1px solid var(--border); }
+    .editor-sidebar .file-group:last-child { border-bottom: 0; }
+    .editor-sidebar .file-group-header { font-size: .95rem; font-weight: 700; color: var(--text); padding: .5rem .6rem; cursor: pointer; list-style: none; display:flex; align-items:center; gap:.5rem; }
+    .editor-sidebar .file-group-title { flex: 1; min-width: 0; }
+    .editor-sidebar .summary-badges { display:inline-flex; gap:.35rem; align-items:center; }
+    .editor-sidebar .badge { display:inline-flex; align-items:center; gap:.25rem; border:1px solid var(--border); background: var(--card); color: var(--muted); font-size:.72rem; padding:.05rem .4rem; border-radius:999px; }
+    .editor-sidebar .badge-ver { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
+    .editor-sidebar .badge-lang { }
+    .editor-sidebar details.file-group > summary::-webkit-details-marker { display: none; }
+    .editor-sidebar details.file-group[open] > summary::after { content: '▾'; float: right; color: var(--muted); }
+    .editor-sidebar details.file-group:not([open]) > summary::after { content: '▸'; float: right; color: var(--muted); }
+    .editor-sidebar .file-sublist { list-style: none; margin: 0; padding: 0 0 .25rem 0; }
+    .editor-sidebar .file-subgroup { padding-top: .25rem; }
+    .editor-sidebar .file-subheader { font-size: .8rem; font-weight: 600; color: var(--muted); padding: .25rem .6rem; text-transform: uppercase; }
+    /* Ensure main editor can use full width */
+    .editor-main { min-width: 0; overflow: visible; }
+    .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
+    .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
+    /* GitHub connection status */
+    .global-status { display:flex; align-items:center; gap:.45rem; color: var(--muted); font-size:.95rem; }
+    .global-status .dot { width:8px; height:8px; border-radius:50%; background:#8c959f; display:inline-block; }
+    .global-status.ok .dot { background:#1f883d; }
+    .global-status.warn .dot { background:#f59e0b; }
+    .global-status.err .dot { background:#dc2626; }
+    .global-status a { color: var(--primary); text-decoration: none; }
+    .global-status a:hover { text-decoration: underline; }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
+    .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
+    .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
+    a.btn-secondary:visited { color: var(--text); }
+    /* Make the GitHub sync button GitHub-green with icon (override theme packs with !important) */
+    button#btnVerify.btn-secondary { 
+      background:#2da44e !important; 
+      color:#ffffff !important; 
+      border:1px solid #2c974b !important; 
+      border-radius:8px !important;
+    }
+    button#btnVerify.btn-secondary:hover { background:#2c974b !important; }
+    button#btnVerify.btn-secondary:active { background:#298e46 !important; }
+    button#btnVerify.btn-secondary:focus-visible { outline:2px solid #2ea44f66; outline-offset:2px; }
+    .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
+    .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
+    .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; }
+    .view-toggle .vt-btn:hover { text-decoration:underline; }
+    .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    /* Editor: reuse SEO hi-editor rules for perfect alignment */
+    .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
+    .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
+    .hi-editor .code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding: 1rem 0.5rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0; background: var(--code-bg); position: sticky; left: 0; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor .code-scroll .code-gutter span { display: block; line-height: inherit; font-variant-numeric: tabular-nums; }
+    .hi-editor { position: relative; }
+    .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
+    .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
+    .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: none; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
+    .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
+    .hi-editor .code-scroll .code-gutter span.is-active { background: transparent; color: #0f172a; font-weight: 600; }
+    .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
+
+    @media (max-width: 640px) {
+      body { padding: .75rem; }
+    }
+
+    /* Back-to-top button */
+    .back-to-top { position: fixed; right: 1rem; bottom: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease, transform .18s ease, background-color .18s ease; z-index: 999; }
+    .back-to-top:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
+    .back-to-top svg { width: 1.15rem; height: 1.15rem; }
+    .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
+  </style>
+</head>
+<body>
+  <div class="editor-page">
+    <div class="page-titlebar">
+      <nav class="mode-switch" role="tablist" aria-label="Mode switch">
+        <button class="mode-tab is-active" data-mode="editor" role="tab" aria-controls="mode-editor" aria-selected="true">Editor</button>
+        <button class="mode-tab" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="false">Composer</button>
+      </nav>
+      <div id="global-status" class="global-status" aria-live="polite"></div>
+    </div>
+
+    <!-- Editor Mode -->
+    <div class="editor-layout" id="mode-editor">
+      <aside class="editor-sidebar box" aria-label="Articles sidebar">
+        <div class="sidebar-title">Articles</div>
+        <div class="sidebar-tabs" role="tablist">
+          <button class="sidebar-tab is-active" data-target="index" role="tab" aria-selected="true">Posts</button>
+          <button class="sidebar-tab" data-target="tabs" role="tab" aria-selected="false">Tabs</button>
+        </div>
+        <div class="search"><input id="fileSearch" type="search" placeholder="Search by title or path"></div>
+        <div class="lists">
+          <div class="list-group" id="groupIndex" data-group="index">
+            <div class="group-title">Index</div>
+            <ul class="file-list" id="listIndex"></ul>
+          </div>
+          <div class="list-group" id="groupTabs" data-group="tabs" hidden>
+            <div class="group-title">Tabs</div>
+            <ul class="file-list" id="listTabs"></ul>
+          </div>
+        </div>
+        <div class="status" id="sidebarStatus"></div>
+      </aside>
+
+      <section class="box editor-main">
+        <div class="toolbar">
+          <div class="left-actions">
+            <span class="current-file" id="currentFile" aria-live="polite"></span>
+          </div>
+          <div class="right-actions">
+            <div class="view-toggle" aria-label="View switch">
+              <span class="vt-label">View:</span>
+              <a href="#" class="vt-btn active" data-view="edit">Editor</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn" data-view="preview">Preview</a>
+            </div>
+          </div>
+        </div>
+
+        <div id="editor-wrap">
+          <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source"></textarea>
+        </div>
+
+        <div id="preview-wrap" style="display:none;">
+          <!-- Reuse site post styles by using #mainview as container -->
+          <div id="mainview"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Composer Mode -->
+    <div class="editor-layout" id="mode-composer" style="display:none;">
+      <section class="box editor-main" style="grid-column: 1 / -1;">
+        <div class="toolbar">
+          <div class="left-actions">
+            <div class="view-toggle" aria-label="File switch">
+              <span class="vt-label">File:</span>
+              <a href="#" class="vt-btn active" data-cfile="index">index.yaml</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn" data-cfile="tabs">tabs.yaml</a>
+            </div>
+          </div>
+          <div class="right-actions">
+            <button class="btn-secondary" id="btnAddItem">+ Add Item</button>
+            <button class="btn-secondary" id="btnVerify">
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
+              </svg>
+              <span class="btn-label">Synchronize</span>
+            </button>
+          </div>
+        </div>
+        <div id="composerStatus" class="status" style="margin: .25rem 0 .5rem;"></div>
+
+        <!-- Composer Lists -->
+        <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
+        <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+
+        <!-- YAML preview/export area -->
+        <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
+          <textarea id="yamlExport" style="width:100%; height: 280px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); padding:.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 18px;"></textarea>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="assets/js/editor-main.js"></script>
+  <script type="module" src="assets/js/composer.js"></script>
+  <script type="module" src="assets/js/editor-github.js"></script>
+  <!-- Back to top button -->
+  <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  </button>
+</body>
+</html>

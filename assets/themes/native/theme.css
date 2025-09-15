@@ -81,8 +81,8 @@ body {
     border-radius: 99px !important;
 }
 
-/* 完全移除导航栏的所有装饰！！！ */
-#tabsNav, .tabs, nav {
+/* 完全移除导航栏的所有装饰！！！（排除编辑器模式开关） */
+#tabsNav, .tabs, nav:not(.mode-switch) {
   background: none !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -173,8 +173,8 @@ body {
   border: 1px solid var(--border) !important;
 }
 
-/* 极简按钮样式 */
-.btn, button {
+/* 极简按钮样式（不影响编辑器顶部的模式切换按钮与侧边栏 tabs） */
+.btn:not(.mode-tab):not(.sidebar-tab), button:not(.mode-tab):not(.sidebar-tab) {
   border: 1px solid var(--primary) !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -183,7 +183,7 @@ body {
   transition: all 0.2s ease !important;
 }
 
-.btn:hover, button:hover {
+.btn:hover:not(.mode-tab):not(.sidebar-tab), button:hover:not(.mode-tab):not(.sidebar-tab) {
   background: var(--primary) !important;
   color: var(--bg) !important;
 }

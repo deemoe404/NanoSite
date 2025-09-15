@@ -275,6 +275,107 @@ export function renderTags(tagVal) {
   return `<div class=\"tags\">${tags.map(t => `<span class=\"tag\">${escapeHtml(t)}</span>`).join('')}</div>`;
 }
 
+// Safely set sanitized HTML into a target element without using innerHTML.
+// - Prefers the native Sanitizer API when available
+// - Falls back to parsing into a safe DocumentFragment with our allowlist
+export function setSafeHtml(target, html, baseDir) {
+  if (!target) return;
+  const input = String(html || '');
+  try {
+    // Prefer native Sanitizer API when available
+    if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
+      const s = new window.Sanitizer();
+      target.setHTML(input, { sanitizer: s });
+      return;
+    }
+  } catch (_) { /* fall through to manual sanitizer */ }
+
+  // Manual sanitizer (no HTML re-interpretation via innerHTML/DOMParser):
+  // 1) First, reduce to an allowlisted HTML string using our string-level sanitizer.
+  // 2) Then, build a DOM fragment by tokenizing tags and creating elements/attributes programmatically.
+  try {
+    const safeHtml = allowUserHtml(input, baseDir);
+
+    // Minimal HTML entity unescape for attribute values we set via setAttribute.
+    const unescapeHtml = (s) => String(s || '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, '&');
+
+    const frag = document.createDocumentFragment();
+    const stack = [];
+
+    const appendNode = (node) => {
+      const parent = stack.length ? stack[stack.length - 1] : frag;
+      parent.appendChild(node);
+    };
+
+    // Tokenize tags. All disallowed tags should already be escaped by allowUserHtml.
+    const tagRe = /<\/?([a-zA-Z][\w:-]*)\b([^>]*)>/g;
+    let last = 0;
+    let m;
+    while ((m = tagRe.exec(safeHtml))) {
+      // Text before the tag
+      const text = safeHtml.slice(last, m.index);
+      if (text) appendNode(document.createTextNode(text));
+      last = tagRe.lastIndex;
+
+      const raw = m[0];
+      const tag = (m[1] || '').toLowerCase();
+      const attrs = m[2] || '';
+      const isClose = /^<\//.test(raw);
+      const isVoid = __NS_VOID_TAGS.has(tag);
+
+      if (isClose) {
+        // Pop to the nearest matching tag if present
+        for (let i = stack.length - 1; i >= 0; i--) {
+          if (stack[i].tagName && stack[i].tagName.toLowerCase() === tag) {
+            stack.length = i; // pop everything after i
+            break;
+          }
+        }
+        continue;
+      }
+
+      if (!__NS_ALLOWED_TAGS.has(tag)) {
+        // Shouldn't happen (already escaped), but keep as text just in case
+        appendNode(document.createTextNode(raw));
+        continue;
+      }
+
+      const el = document.createElement(tag);
+
+      // Apply allowed attributes with URL rewriting
+      const attrRe = /([a-zA-Z_:][\w:.-]*)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'<>`]+)))?/g;
+      let a;
+      while ((a = attrRe.exec(attrs))) {
+        const name = (a[1] || '').toLowerCase();
+        if (!name || name.startsWith('on')) continue;
+        if (!__ns_isAllowedAttr(tag, name)) continue;
+        const rawVal = a[3] ?? a[4] ?? a[5] ?? '';
+        let val = unescapeHtml(rawVal);
+        if (name === 'href') val = __ns_rewriteHref(val, baseDir);
+        else if (name === 'src') val = __ns_rewriteSrc(val, baseDir);
+        else if (name === 'srcset') val = __ns_rewriteSrcset(val, baseDir);
+        try { el.setAttribute(name, val); } catch (_) {}
+      }
+
+      appendNode(el);
+      if (!isVoid) stack.push(el);
+    }
+    // Remainder after the last tag
+    const tail = safeHtml.slice(last);
+    if (tail) appendNode(document.createTextNode(tail));
+
+    target.replaceChildren(frag);
+  } catch (_) {
+    // Last resort: never inject as HTML; show as text
+    try { target.textContent = input; } catch (__) {}
+  }
+}
+
 // Generate a slug for tab titles. Works for non-Latin scripts by
 // hashing when ASCII slug would be empty.
 export const slugifyTab = (s) => {
