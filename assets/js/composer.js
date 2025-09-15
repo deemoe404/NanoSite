@@ -384,16 +384,17 @@ function buildIndexUI(root, state) {
           <button class="btn-secondary ci-del">Delete</button>
         </span>
       </div>
-      <div class="ci-body" style="display:none;"></div>
+      <div class="ci-body"><div class="ci-body-inner"></div></div>
     `;
     list.appendChild(row);
 
     const body = $('.ci-body', row);
+    const bodyInner = $('.ci-body-inner', row);
     const btnExpand = $('.ci-expand', row);
     const btnDel = $('.ci-del', row);
 
     const renderBody = () => {
-      body.innerHTML = '';
+      bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
       langs.forEach(lang => {
         const block = document.createElement('div');
@@ -517,7 +518,7 @@ function buildIndexUI(root, state) {
         $('.ci-lang-del', block).addEventListener('click', () => {
           delete entry[lang]; row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`; renderBody();
         });
-        body.appendChild(block);
+        bodyInner.appendChild(block);
       });
 
       const addLangWrap = document.createElement('div');
@@ -533,14 +534,14 @@ function buildIndexUI(root, state) {
         row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
         renderBody();
       });
-      body.appendChild(addLangWrap);
+      bodyInner.appendChild(addLangWrap);
     };
     renderBody();
 
     btnExpand.addEventListener('click', () => {
-      const open = body.style.display !== 'none';
-      slideToggle(body, !open);
-      btnExpand.setAttribute('aria-expanded', String(!open));
+      const isOpen = body.classList.contains('is-open');
+      body.classList.toggle('is-open', !isOpen);
+      btnExpand.setAttribute('aria-expanded', String(!isOpen));
     });
     btnDel.addEventListener('click', () => {
       const i = state.index.__order.indexOf(key);
@@ -576,16 +577,17 @@ function buildTabsUI(root, state) {
           <button class="btn-secondary ct-del">Delete</button>
         </span>
       </div>
-      <div class="ct-body" style="display:none;"></div>
+      <div class="ct-body"><div class="ct-body-inner"></div></div>
     `;
     list.appendChild(row);
 
     const body = $('.ct-body', row);
+    const bodyInner = $('.ct-body-inner', row);
     const btnExpand = $('.ct-expand', row);
     const btnDel = $('.ct-del', row);
 
     const renderBody = () => {
-      body.innerHTML = '';
+      bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
       langs.forEach(lang => {
         const v = entry[lang] || { title: '', location: '' };
@@ -606,7 +608,7 @@ function buildTabsUI(root, state) {
         $('.ct-title', block).addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].title = e.target.value; });
         $('.ct-loc', block).addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].location = e.target.value; });
         $('.ct-lang-del', block).addEventListener('click', () => { delete entry[lang]; row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`; renderBody(); });
-        body.appendChild(block);
+        bodyInner.appendChild(block);
       });
 
       const addLangWrap = document.createElement('div');
@@ -622,14 +624,14 @@ function buildTabsUI(root, state) {
         row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
         renderBody();
       });
-      body.appendChild(addLangWrap);
+      bodyInner.appendChild(addLangWrap);
     };
     renderBody();
 
     btnExpand.addEventListener('click', () => {
-      const open = body.style.display !== 'none';
-      slideToggle(body, !open);
-      btnExpand.setAttribute('aria-expanded', String(!open));
+      const isOpen = body.classList.contains('is-open');
+      body.classList.toggle('is-open', !isOpen);
+      btnExpand.setAttribute('aria-expanded', String(!isOpen));
     });
     btnDel.addEventListener('click', () => {
       const i = state.tabs.__order.indexOf(tab);
@@ -744,7 +746,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const css = `
   .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;}
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
-  .ci-body,.ct-body{padding:.5rem .6rem;}
+  .ci-body,.ct-body{padding:0 .6rem;}
+  .ci-body.is-open,.ct-body.is-open{padding:.5rem .6rem;}
+  .ci-body-inner,.ct-body-inner{overflow:hidden;max-height:0;opacity:0;transition:max-height 380ms ease,opacity 380ms ease}
+  .ci-body.is-open .ci-body-inner,.ct-body.is-open .ct-body-inner{max-height:2000px;opacity:1}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ci-meta,.ct-meta{color:var(--muted);font-size:.85rem}
@@ -763,8 +768,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   .is-dragging-list{touch-action:none}
   body.ns-noselect{user-select:none;cursor:grabbing}
   /* Caret arrow for Details buttons */
-  .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 320ms ease}
+  .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 380ms ease}
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
+  @media (prefers-reduced-motion: reduce){
+    .ci-body-inner,.ct-body-inner{transition:none}
+    .ci-expand .caret,.ct-expand .caret{transition:none}
+  }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
