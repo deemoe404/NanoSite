@@ -1506,7 +1506,14 @@ function bindComposerUI(state) {
         }
         // Render groups
         for (const [key, g] of byKey.entries()){
-          const sec = document.createElement('section'); sec.style.border='1px solid var(--border)'; sec.style.borderRadius='8px'; sec.style.padding='.5rem'; sec.style.margin='.5rem 0'; sec.style.background='var(--card)';
+          const sec = document.createElement('section');
+          sec.style.border='1px solid var(--border)';
+          sec.style.borderRadius='8px';
+          sec.style.padding='.5rem';
+          sec.style.margin='.5rem 0';
+          sec.style.background='var(--card)';
+          // Emphasize error groups with a subtle red border
+          sec.style.borderColor = '#fecaca';
           const h = document.createElement('div'); h.style.display='flex'; h.style.alignItems='center'; h.style.gap='.5rem';
           const title = document.createElement('strong'); title.textContent = key; h.appendChild(title);
           // Badges
@@ -1551,6 +1558,13 @@ function bindComposerUI(state) {
             }
             sec.appendChild(langBox);
           }
+          // Card-bottom red banner like the new post wizard
+          const groupCount = Array.from(g.values()).reduce((acc,arr)=>acc + (Array.isArray(arr)?arr.length:0), 0);
+          const warn = document.createElement('div'); warn.className='comp-warn';
+          const wt = document.createElement('div'); wt.className='comp-warn-text';
+          wt.textContent = `${groupCount} missing item(s) remain for this key. Create the files above on GitHub, then Verify again.`;
+          warn.appendChild(wt);
+          sec.appendChild(warn);
           listWrap.appendChild(sec);
         }
       }
@@ -1579,7 +1593,7 @@ function bindComposerUI(state) {
           try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
           const now = await computeMissingFiles();
           if (!now.length){ close(); await afterAllGood(); }
-          else { renderList(now); showToast('warn', `${now.length} missing item(s) remain`); }
+          else { renderList(now); /* no toast: inline red banner shows status */ }
         } finally {
           try { btnVerify.disabled = false; btnVerify.textContent = 'Verify'; } catch(_) {}
         }
