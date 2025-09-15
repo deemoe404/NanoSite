@@ -697,17 +697,18 @@ function bindComposerUI(state) {
         <label>Filename <input id="compFilename" type="text" value="main.md" /></label>
         <div class="comp-langs">
           <span class="lab">Languages</span>
-          <label><input type="checkbox" value="en" id="compLangEN" checked> EN</label>
-          <label><input type="checkbox" value="zh" id="compLangZH"> ZH</label>
-          <label><input type="checkbox" value="ja" id="compLangJA"> JA</label>
-          <input id="compLangCustom" type="text" placeholder="Custom language code (optional)" />
+          <label><input type="checkbox" value="en" id="compLangEN" checked><span>EN</span></label>
+          <label><input type="checkbox" value="zh" id="compLangZH"><span>ZH</span></label>
+          <label><input type="checkbox" value="ja" id="compLangJA"><span>JA</span></label>
         </div>
         <div class="comp-actions">
           <button class="btn-secondary" id="compGen">Generate Steps</button>
-          <button class="btn-secondary" id="compAddIndex" disabled>Add to index.yaml</button>
         </div>
       </div>
       <div class="comp-steps" id="compSteps" hidden></div>
+      <div class="comp-footer" style="display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem;">
+        <button class="btn-primary" id="compFinish">Finish</button>
+      </div>
     `;
     // Create a modal container and mount the wizard inside
     const modal = document.createElement('div');
@@ -723,10 +724,10 @@ function bindComposerUI(state) {
 
     // Add close button
     const btnClose = document.createElement('button');
-    btnClose.className = 'ns-modal-close';
+    btnClose.className = 'ns-modal-close btn-secondary';
     btnClose.type = 'button';
-    btnClose.setAttribute('aria-label', 'Close');
-    btnClose.innerHTML = '&times;';
+    btnClose.setAttribute('aria-label', 'Cancel');
+    btnClose.textContent = 'Cancel';
 
     // Label the title for a11y
     const headStrong = document.createElement('strong');
@@ -782,20 +783,21 @@ function bindComposerUI(state) {
     const compLangEN = $('#compLangEN', wrap);
     const compLangZH = $('#compLangZH', wrap);
     const compLangJA = $('#compLangJA', wrap);
-    const compLangCustom = $('#compLangCustom', wrap);
     const compGen = $('#compGen', wrap);
-    const compAdd = $('#compAddIndex', wrap);
     const steps = $('#compSteps', wrap);
+    const compFinish = $('#compFinish', wrap);
 
     // Read repo/contentRoot from previously loaded context
     const siteRepo = (window.__ns_site_repo) || {};
     const contentRoot = (window.__ns_content_root) || 'wwwroot';
 
-    function buildGhNewLink(owner, repo, branch, folderPath) {
+    function buildGhNewLink(owner, repo, branch, folderPath, filename) {
       const enc = (s) => encodeURIComponent(String(s || ''));
       // GitHub new file page for a folder; user can type filename there
       const clean = String(folderPath || '').replace(/^\/+/, '');
-      return `https://github.com/${enc(owner)}/${enc(repo)}/new/${enc(branch)}/${clean}`;
+      const base = `https://github.com/${enc(owner)}/${enc(repo)}/new/${enc(branch)}/${clean}`;
+      if (filename) return `${base}?filename=${enc(filename)}`;
+      return base;
     }
     function buildGhEditFileLink(owner, repo, branch, filePath) {
       const enc = (s) => encodeURIComponent(String(s || ''));
@@ -818,8 +820,6 @@ function bindComposerUI(state) {
       if (compLangEN.checked) langs.push('en');
       if (compLangZH.checked) langs.push('zh');
       if (compLangJA.checked) langs.push('ja');
-      const custom = String(compLangCustom.value || '').trim();
-      if (custom) langs.push(custom);
       // Unique and in preferred order if possible
       const set = Array.from(new Set(langs));
       return set.sort((a,b)=>{
@@ -864,7 +864,6 @@ function bindComposerUI(state) {
       if (!key) {
         steps.hidden = false;
         steps.textContent = 'Please enter a valid key (letters/numbers/-/_).';
-        compAdd.setAttribute('disabled','');
         return;
       }
       const relFolder = `post/${key}`;
@@ -874,10 +873,15 @@ function bindComposerUI(state) {
       const ghName = siteRepo.name || '';
       const ghBranch = siteRepo.branch || 'main';
       const hasGh = !!(ghOwner && ghName);
-      const newUrl = hasGh ? buildGhNewLink(ghOwner, ghName, ghBranch, fullFolder) : '';
-      const treeUrl = hasGh ? buildGhTreeLink(ghOwner, ghName, ghBranch, fullFolder) : '';
 
       const frag = document.createDocumentFragment();
+      const langMeta = (l) => {
+        const code = String(l || '').toLowerCase();
+        if (code === 'en') return { name: 'English', emoji: '🇺🇸' };
+        if (code === 'zh') return { name: 'Chinese', emoji: '🇨🇳' };
+        if (code === 'ja') return { name: 'Japanese', emoji: '🇯🇵' };
+        return { name: code.toUpperCase(), emoji: '📝' };
+      };
       const makeStep = (n, title, body) => {
         const div = document.createElement('div');
         div.className = 'comp-step';
@@ -893,29 +897,23 @@ function bindComposerUI(state) {
       (langs.length ? langs : ['en']).forEach(lang => {
         const s = document.createElement('div'); s.className = 'kv';
         const p = document.createElement('p'); p.className = 'desc';
-        p.textContent = `Create ${String(lang).toUpperCase()} file: copy the filename, then paste it in GitHub New File and commit.`;
+        p.textContent = 'Instructions: Click “Create File on GitHub” to open a new file with a pre-filled filename, paste your content, and commit the change.';
         const fnameLang = withLangSuffix(fname, lang);
-        const code1 = document.createElement('div');
-        code1.innerHTML = `<b>Filename</b><code>${fnameLang}</code> <button class="link-btn" data-copy="${fnameLang}">Copy filename</button>`;
-        const code2 = document.createElement('div');
-        code2.innerHTML = `<b>Path</b><code>${fullFolder}</code>`;
         const actions = document.createElement('div'); actions.className = 'actions';
-        const a1 = document.createElement('a'); a1.className = 'btn-secondary'; a1.target = '_blank'; a1.rel = 'noopener'; a1.href = newUrl || '#'; a1.textContent = hasGh ? 'Open GitHub New File' : 'No repo configured (site.yaml -> repo)';
-        const a2 = document.createElement('a'); a2.className = 'btn-secondary'; a2.target = '_blank'; a2.rel = 'noopener'; a2.href = treeUrl || '#'; a2.textContent = hasGh ? 'View target folder' : '—';
-        actions.appendChild(a1); actions.appendChild(a2);
-        s.appendChild(p); s.appendChild(code1); s.appendChild(code2); s.appendChild(actions);
-        makeStep(stepNum++, `Create ${String(lang).toUpperCase()} file`, s);
+        const a1 = document.createElement('a'); a1.className = 'btn-secondary'; a1.target = '_blank'; a1.rel = 'noopener'; a1.href = hasGh ? buildGhNewLink(ghOwner, ghName, ghBranch, fullFolder, fnameLang) : '#'; a1.textContent = hasGh ? 'Create File on GitHub' : 'No repo configured (site.yaml -> repo)';
+        actions.appendChild(a1);
+        s.appendChild(p); s.appendChild(actions);
+        const { name, emoji } = langMeta(lang);
+        makeStep(stepNum, `Step ${stepNum} – Create ${name} File ${emoji}`, s);
+        stepNum++;
       });
-      // Final: Add to index.yaml and open/copy GitHub config file
+      // Final: Update index.yaml and commit on GitHub
       {
         const s = document.createElement('div'); s.className = 'kv';
         const p = document.createElement('p'); p.className = 'desc';
-        p.textContent = 'After clicking "Add to index.yaml", export or copy YAML, then open the config file on GitHub to update/commit.';
+        p.textContent = 'Copy or export the YAML, then open index.yaml on GitHub to update and commit.';
         const actions = document.createElement('div'); actions.className = 'actions';
         const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/index.yaml`;
-        const aView = document.createElement('a'); aView.className = 'btn-secondary'; aView.target = '_blank'; aView.rel = 'noopener';
-        aView.href = hasGh ? buildGhBlobFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
-        aView.textContent = hasGh ? 'Open index.yaml (view)' : 'No repo configured';
         const aEdit = document.createElement('a'); aEdit.className = 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
         aEdit.href = hasGh ? buildGhEditFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
         aEdit.textContent = hasGh ? 'Edit index.yaml (GitHub)' : '—';
@@ -950,19 +948,18 @@ function bindComposerUI(state) {
             setTimeout(()=>{ btnCopyYaml.textContent = 'Copy index.yaml'; }, 1500);
           } catch(_) { alert('Copy failed'); }
         });
-        actions.appendChild(aView);
-        actions.appendChild(aEdit);
         actions.appendChild(btnCopyYaml);
+        actions.appendChild(aEdit);
         s.appendChild(p);
         s.appendChild(actions);
-        makeStep(stepNum, 'Update index.yaml / Export', s);
+        makeStep(stepNum, `Step ${stepNum} – Update Post Index 📑`, s);
       }
       steps.appendChild(frag);
       steps.hidden = false;
-      compAdd.removeAttribute('disabled');
+      // steps generated
 
       // Bind copy buttons
-      steps.querySelectorAll('button.link-btn[data-copy]')?.forEach(btn => {
+      steps.querySelectorAll('button[data-copy]')?.forEach(btn => {
         btn.addEventListener('click', () => copyToClipboard(btn.getAttribute('data-copy')));
       });
     }
@@ -970,36 +967,8 @@ function bindComposerUI(state) {
     compGen.addEventListener('click', () => {
       renderSteps();
     });
-    compAdd.addEventListener('click', () => {
-      const key = safeKey(compKey.value);
-      if (!key) return alert('Please enter a valid key');
-      if (state.index[key]) {
-        if (!confirm('Key already exists. Overwrite?')) return;
-      }
-      const fname = safeFilename(compFilename.value);
-      const langs = getLangs();
-      const entry = {};
-      (langs.length ? langs : ['en']).forEach(l => {
-        const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fname, l) : fname;
-        const rel = `post/${key}/${fLang}`;
-        entry[l] = rel;
-      });
-      state.index[key] = entry;
-      if (!Array.isArray(state.index.__order)) state.index.__order = [];
-      const pos = state.index.__order.indexOf(key);
-      if (pos >= 0) state.index.__order.splice(pos, 1);
-      state.index.__order.unshift(key);
-      buildIndexUI($('#composerIndex'), state);
-      setFile('index');
-      // Show export text area with freshly generated YAML
-      try {
-        const text = toIndexYaml(state.index);
-        const exportArea = $('#yamlExportWrap');
-        const exportTa = $('#yamlExport');
-        if (exportTa) exportTa.value = text;
-        if (exportArea) exportArea.style.display = 'block';
-      } catch(_){}
-      alert('Added to index.yaml draft (top). Export/Download and commit on GitHub.');
+    compFinish.addEventListener('click', () => {
+      if (typeof modal.__close === 'function') modal.__close();
     });
   })();
 
@@ -1113,8 +1082,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   .comp-form{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;margin-bottom:.5rem}
   .comp-form label{display:flex;flex-direction:column;gap:.25rem;font-weight:600}
   .comp-form input[type=text]{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
-  .comp-langs{display:flex;align-items:center;gap:.5rem}
-  .comp-langs .lab{font-weight:600}
+  .comp-langs{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  .comp-langs .lab{font-weight:600; margin-right:.25rem}
+  .comp-langs label{display:inline-flex;align-items:center;gap:.35rem;border:1px solid var(--border);border-radius:999px;padding:.18rem .5rem;background:var(--card);color:var(--text);cursor:pointer;user-select:none}
+  .comp-langs label:hover{background:color-mix(in srgb, var(--text) 5%, transparent)}
+  .comp-langs label input{display:none}
+  .comp-langs label:has(input:checked){background:color-mix(in srgb, var(--primary) 16%, var(--card));border-color:color-mix(in srgb, var(--primary) 45%, var(--border))}
+  .comp-langs label span{font-weight:400;font-size:.85rem}
   .comp-actions{display:flex;gap:.5rem;}
   .comp-steps{margin-top:.25rem}
   .comp-step{display:flex;gap:.6rem;align-items:flex-start;margin:.4rem 0;padding:.4rem;border:1px solid var(--border);border-radius:8px;background:var(--card)}
@@ -1123,14 +1097,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   .comp-step .desc{color:var(--muted);font-size:.92rem;margin:.1rem 0}
   .comp-step .actions{display:flex;gap:.4rem;margin-top:.25rem}
   .comp-step code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; background: color-mix(in srgb, var(--text) 10%, transparent); padding: .08rem .35rem; border-radius: 6px; font-size: .9em;}
-  .link-btn{display:inline-block;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.15rem .4rem;cursor:pointer}
+  .btn-compact{height:1.9rem;padding:.2rem .55rem;font-size:.9rem}
+  /* Unify button styles inside modal (anchors and buttons) */
+  .ns-modal-dialog .btn-secondary,
+  .ns-modal-dialog a.btn-secondary,
+  .ns-modal-dialog button.btn-secondary {
+    display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
+    height:2.25rem; padding:.45rem .8rem; border-radius:8px; font-size:.93rem; line-height:1;
+    text-decoration:none; border:1px solid var(--border); background:var(--card); color:var(--text);
+  }
+  .ns-modal-dialog a.btn-secondary:visited { color: var(--text); }
+  .ns-modal-dialog .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
+  .ns-modal-dialog .btn-primary,
+  .ns-modal-dialog a.btn-primary,
+  .ns-modal-dialog button.btn-primary {
+    display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
+    height:2.25rem; padding:.45rem .8rem; border-radius:8px; font-size:.93rem; line-height:1;
+    text-decoration:none;
+  }
+  .ns-modal-dialog a.btn-primary:visited { color: white; }
 
   /* Simple modal for the Composer wizard */
   .ns-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);z-index:9999;padding:1rem}
   .ns-modal.is-open{display:flex}
   .ns-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:.75rem .85rem}
-  .ns-modal-close{position:absolute;top:.5rem;right:.6rem;width:2rem;height:2rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:1.25rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-  .ns-modal-close:hover{background:color-mix(in srgb, var(--primary) 10%, var(--card));border-color:color-mix(in srgb, var(--primary) 35%, var(--border))}
+  .ns-modal-close{position:absolute;top:.5rem;right:.6rem}
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
   `;

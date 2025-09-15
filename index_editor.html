@@ -70,8 +70,9 @@
     .global-status a:hover { text-decoration: underline; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-    .btn-secondary { background:#fff; color:#24292f; border:1px solid #d0d7de; padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; }
-    .btn-secondary:hover { background:#f6f8fa; }
+    .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
+    .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
+    a.btn-secondary:visited { color: var(--text); }
     .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
     .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
     .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; }
