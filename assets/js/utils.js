@@ -275,6 +275,95 @@ export function renderTags(tagVal) {
   return `<div class=\"tags\">${tags.map(t => `<span class=\"tag\">${escapeHtml(t)}</span>`).join('')}</div>`;
 }
 
+// Safely set sanitized HTML into a target element without using innerHTML.
+// - Prefers the native Sanitizer API when available
+// - Falls back to parsing into a safe DocumentFragment with our allowlist
+export function setSafeHtml(target, html, baseDir) {
+  if (!target) return;
+  const input = String(html || '');
+  try {
+    // Prefer native Sanitizer API when available
+    if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
+      const s = new window.Sanitizer();
+      target.setHTML(input, { sanitizer: s });
+      return;
+    }
+  } catch (_) { /* fall through to manual sanitizer */ }
+
+  // Manual sanitizer: convert to a safe fragment using our allowlist
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div>${input}</div>`, 'text/html');
+    const tempRoot = doc.body.firstElementChild || doc.body;
+
+    const toFrag = (root) => {
+      const frag = document.createDocumentFragment();
+
+      const sanitizeElem = (el) => {
+        const tag = el.tagName ? String(el.tagName).toLowerCase() : '';
+        const isAllowed = __NS_ALLOWED_TAGS.has(tag);
+
+        // If the element is not allowed, unwrap it by returning a fragment of its children
+        if (!isAllowed) {
+          const childFrag = document.createDocumentFragment();
+          el.childNodes.forEach((ch) => {
+            const node = sanitizeNode(ch);
+            if (node) childFrag.appendChild(node);
+          });
+          return childFrag;
+        }
+
+        const out = document.createElement(tag);
+        // Copy allowed attributes with rewriting
+        for (const attr of Array.from(el.attributes || [])) {
+          const name = attr.name;
+          const low = String(name || '').toLowerCase();
+          // Block inline event handlers explicitly
+          if (low.startsWith('on')) continue;
+          if (!__ns_isAllowedAttr(tag, low)) continue;
+          let val = attr.value ?? '';
+          if (low === 'href') val = __ns_rewriteHref(val, baseDir);
+          else if (low === 'src') val = __ns_rewriteSrc(val, baseDir);
+          else if (low === 'srcset') val = __ns_rewriteSrcset(val, baseDir);
+          try { out.setAttribute(low, val); } catch (_) {}
+        }
+
+        // Recurse children
+        el.childNodes.forEach((ch) => {
+          const node = sanitizeNode(ch);
+          if (node) out.appendChild(node);
+        });
+        return out;
+      };
+
+      const sanitizeNode = (node) => {
+        if (!node) return null;
+        const t = node.nodeType;
+        if (t === Node.TEXT_NODE) {
+          return document.createTextNode(node.nodeValue || '');
+        }
+        if (t === Node.ELEMENT_NODE) {
+          return sanitizeElem(node);
+        }
+        // Drop comments, processing instructions, etc.
+        return null;
+      };
+
+      root.childNodes.forEach((n) => {
+        const safe = sanitizeNode(n);
+        if (safe) frag.appendChild(safe);
+      });
+      return frag;
+    };
+
+    const safeFrag = toFrag(tempRoot);
+    target.replaceChildren(safeFrag);
+  } catch (_) {
+    // Last resort: never inject as HTML; show as text
+    try { target.textContent = input; } catch (__) {}
+  }
+}
+
 // Generate a slug for tab titles. Works for non-Latin scripts by
 // hashing when ASCII slug would be empty.
 export const slugifyTab = (s) => {

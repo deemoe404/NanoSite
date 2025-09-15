@@ -1,6 +1,6 @@
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
-import { getContentRoot } from './utils.js';
+import { getContentRoot, setSafeHtml } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 
@@ -34,7 +34,8 @@ function renderPreview(mdText) {
     const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
       || (`${getContentRoot()}/`);
     const { post } = mdParse(mdText || '', baseDir);
-    target.innerHTML = post || '';
+    // Safely render the sanitized Markdown HTML without using innerHTML
+    setSafeHtml(target, post || '', baseDir);
     // Apply syntax highlighting and gutters to code blocks
     try { initSyntaxHighlighting(); } catch (_) {}
   } catch (_) {}
