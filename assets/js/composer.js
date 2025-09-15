@@ -672,22 +672,294 @@ function bindComposerUI(state) {
   links.forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setFile(a.dataset.cfile); }));
   setFile('index');
 
+  // ----- Composer: New Post Wizard -----
+  // Build a small guided flow to:
+  // 1) Set metadata (key, languages, filename)
+  // 2) Guide creating folder + file on GitHub
+  // 3) Add entry to index.yaml via Composer, then export YAML
+  (function buildComposerGuide(){
+    const host = document.getElementById('mode-composer');
+    if (!host) return;
+    const section = host.querySelector('section.editor-main');
+    if (!section) return;
+    const toolbar = section.querySelector('.toolbar');
+
+    const wrap = document.createElement('div');
+    wrap.id = 'composerGuide';
+    wrap.className = 'comp-guide box-lite';
+    wrap.innerHTML = `
+      <div class="comp-guide-head">
+        <strong>New Post (Composer Wizard)</strong>
+        <span class="muted">Create files on GitHub and update YAML</span>
+      </div>
+      <div class="comp-form">
+        <label>Key <input id="compKey" type="text" placeholder="e.g., myPost" /></label>
+        <label>Filename <input id="compFilename" type="text" value="main.md" /></label>
+        <div class="comp-langs">
+          <span class="lab">Languages</span>
+          <label><input type="checkbox" value="en" id="compLangEN" checked> EN</label>
+          <label><input type="checkbox" value="zh" id="compLangZH"> ZH</label>
+          <label><input type="checkbox" value="ja" id="compLangJA"> JA</label>
+          <input id="compLangCustom" type="text" placeholder="Custom language code (optional)" />
+        </div>
+        <div class="comp-actions">
+          <button class="btn-secondary" id="compGen">Generate Steps</button>
+          <button class="btn-secondary" id="compAddIndex" disabled>Add to index.yaml</button>
+        </div>
+      </div>
+      <div class="comp-steps" id="compSteps" hidden></div>
+    `;
+    if (toolbar && toolbar.parentNode) toolbar.parentNode.insertBefore(wrap, toolbar.nextSibling);
+    else section.insertBefore(wrap, section.firstChild);
+    // hidden by default; toggled by + Add Item on index
+    try { wrap.style.display = 'none'; } catch (_) {}
+
+    const compKey = $('#compKey', wrap);
+    const compFilename = $('#compFilename', wrap);
+    const compLangEN = $('#compLangEN', wrap);
+    const compLangZH = $('#compLangZH', wrap);
+    const compLangJA = $('#compLangJA', wrap);
+    const compLangCustom = $('#compLangCustom', wrap);
+    const compGen = $('#compGen', wrap);
+    const compAdd = $('#compAddIndex', wrap);
+    const steps = $('#compSteps', wrap);
+
+    // Read repo/contentRoot from previously loaded context
+    const siteRepo = (window.__ns_site_repo) || {};
+    const contentRoot = (window.__ns_content_root) || 'wwwroot';
+
+    function buildGhNewLink(owner, repo, branch, folderPath) {
+      const enc = (s) => encodeURIComponent(String(s || ''));
+      // GitHub new file page for a folder; user can type filename there
+      const clean = String(folderPath || '').replace(/^\/+/, '');
+      return `https://github.com/${enc(owner)}/${enc(repo)}/new/${enc(branch)}/${clean}`;
+    }
+    function buildGhEditFileLink(owner, repo, branch, filePath) {
+      const enc = (s) => encodeURIComponent(String(s || ''));
+      const clean = String(filePath || '').replace(/^\/+/, '');
+      return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
+    }
+    function buildGhBlobFileLink(owner, repo, branch, filePath) {
+      const enc = (s) => encodeURIComponent(String(s || ''));
+      const clean = String(filePath || '').replace(/^\/+/, '');
+      return `https://github.com/${enc(owner)}/${enc(repo)}/blob/${enc(branch)}/${clean}`;
+    }
+    function buildGhTreeLink(owner, repo, branch, folderPath) {
+      const enc = (s) => encodeURIComponent(String(s || ''));
+      const clean = String(folderPath || '').replace(/^\/+/, '');
+      return `https://github.com/${enc(owner)}/${enc(repo)}/tree/${enc(branch)}/${clean}`;
+    }
+
+    function getLangs() {
+      const langs = [];
+      if (compLangEN.checked) langs.push('en');
+      if (compLangZH.checked) langs.push('zh');
+      if (compLangJA.checked) langs.push('ja');
+      const custom = String(compLangCustom.value || '').trim();
+      if (custom) langs.push(custom);
+      // Unique and in preferred order if possible
+      const set = Array.from(new Set(langs));
+      return set.sort((a,b)=>{
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        return a.localeCompare(b);
+      });
+    }
+
+    function safeKey(v){
+      const s = String(v || '').trim();
+      // allow letters, numbers, dash, underscore; must start with letter/number
+      const ok = /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(s);
+      return ok ? s : '';
+    }
+    function safeFilename(v){
+      let s = String(v || '').trim();
+      if (!s) s = 'main.md';
+      if (!/\.md$/i.test(s)) s = s + '.md';
+      // collapse slashes, avoid leading slash
+      s = s.replace(/\\+/g,'/').replace(/^\/+/, '');
+      return s;
+    }
+    function withLangSuffix(fname, lang) {
+      const s = safeFilename(fname);
+      const i = s.lastIndexOf('.');
+      if (i > 0) return s.slice(0, i) + '_' + String(lang || '').toLowerCase() + s.slice(i);
+      return s + '_' + String(lang || '').toLowerCase() + '.md';
+    }
+
+    function copyToClipboard(text){
+      try { navigator.clipboard?.writeText(String(text || '')); }
+      catch(_){}
+    }
+
+    function renderSteps(){
+      const key = safeKey(compKey.value);
+      const fname = safeFilename(compFilename.value);
+      const langs = getLangs();
+      steps.innerHTML = '';
+      if (!key) {
+        steps.hidden = false;
+        steps.textContent = 'Please enter a valid key (letters/numbers/-/_).';
+        compAdd.setAttribute('disabled','');
+        return;
+      }
+      const relFolder = `post/${key}`;
+      const relFile = `${relFolder}/${fname}`;
+      const fullFolder = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/${relFolder}`;
+      const ghOwner = siteRepo.owner || '';
+      const ghName = siteRepo.name || '';
+      const ghBranch = siteRepo.branch || 'main';
+      const hasGh = !!(ghOwner && ghName);
+      const newUrl = hasGh ? buildGhNewLink(ghOwner, ghName, ghBranch, fullFolder) : '';
+      const treeUrl = hasGh ? buildGhTreeLink(ghOwner, ghName, ghBranch, fullFolder) : '';
+
+      const frag = document.createDocumentFragment();
+      const makeStep = (n, title, body) => {
+        const div = document.createElement('div');
+        div.className = 'comp-step';
+        div.innerHTML = `<div class="num">${n}</div><div class="body"><div class="title">${title}</div></div>`;
+        const bodyHost = div.querySelector('.body');
+        if (body instanceof Node) bodyHost.appendChild(body);
+        else if (typeof body === 'string') { const p = document.createElement('div'); p.className = 'desc'; p.textContent = body; bodyHost.appendChild(p); }
+        frag.appendChild(div);
+      };
+
+      // Steps 1..N: per language, copy filename and open GitHub to create file
+      let stepNum = 1;
+      (langs.length ? langs : ['en']).forEach(lang => {
+        const s = document.createElement('div'); s.className = 'kv';
+        const p = document.createElement('p'); p.className = 'desc';
+        p.textContent = `Create ${String(lang).toUpperCase()} file: copy the filename, then paste it in GitHub New File and commit.`;
+        const fnameLang = withLangSuffix(fname, lang);
+        const code1 = document.createElement('div');
+        code1.innerHTML = `<b>Filename</b><code>${fnameLang}</code> <button class="link-btn" data-copy="${fnameLang}">Copy filename</button>`;
+        const code2 = document.createElement('div');
+        code2.innerHTML = `<b>Path</b><code>${fullFolder}</code>`;
+        const actions = document.createElement('div'); actions.className = 'actions';
+        const a1 = document.createElement('a'); a1.className = 'btn-secondary'; a1.target = '_blank'; a1.rel = 'noopener'; a1.href = newUrl || '#'; a1.textContent = hasGh ? 'Open GitHub New File' : 'No repo configured (site.yaml -> repo)';
+        const a2 = document.createElement('a'); a2.className = 'btn-secondary'; a2.target = '_blank'; a2.rel = 'noopener'; a2.href = treeUrl || '#'; a2.textContent = hasGh ? 'View target folder' : '—';
+        actions.appendChild(a1); actions.appendChild(a2);
+        s.appendChild(p); s.appendChild(code1); s.appendChild(code2); s.appendChild(actions);
+        makeStep(stepNum++, `Create ${String(lang).toUpperCase()} file`, s);
+      });
+      // Final: Add to index.yaml and open/copy GitHub config file
+      {
+        const s = document.createElement('div'); s.className = 'kv';
+        const p = document.createElement('p'); p.className = 'desc';
+        p.textContent = 'After clicking "Add to index.yaml", export or copy YAML, then open the config file on GitHub to update/commit.';
+        const actions = document.createElement('div'); actions.className = 'actions';
+        const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/index.yaml`;
+        const aView = document.createElement('a'); aView.className = 'btn-secondary'; aView.target = '_blank'; aView.rel = 'noopener';
+        aView.href = hasGh ? buildGhBlobFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
+        aView.textContent = hasGh ? 'Open index.yaml (view)' : 'No repo configured';
+        const aEdit = document.createElement('a'); aEdit.className = 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
+        aEdit.href = hasGh ? buildGhEditFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
+        aEdit.textContent = hasGh ? 'Edit index.yaml (GitHub)' : '—';
+        const btnCopyYaml = document.createElement('button');
+        btnCopyYaml.className = 'btn-secondary';
+        btnCopyYaml.textContent = 'Copy index.yaml';
+        btnCopyYaml.addEventListener('click', () => {
+          try {
+            // Build a merged draft that includes current form entry even if not clicked "Add to index.yaml"
+            const keyDraft = safeKey(compKey.value);
+            const fnameDraft = safeFilename(compFilename.value);
+            const langsDraft = getLangs();
+            const draft = {};
+            // shallow copy entries
+            Object.keys(state.index || {}).forEach(k => { if (k !== '__order') draft[k] = state.index[k]; });
+            let order = Array.isArray(state.index.__order) ? state.index.__order.slice() : Object.keys(draft);
+            if (keyDraft) {
+              const entry = {};
+              (langsDraft.length ? langsDraft : ['en']).forEach(l => {
+                const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fnameDraft, l) : fnameDraft;
+                entry[l] = `post/${keyDraft}/${fLang}`;
+              });
+              draft[keyDraft] = entry;
+              const pos = order.indexOf(keyDraft);
+              if (pos >= 0) order.splice(pos, 1);
+              order.unshift(keyDraft);
+            }
+            draft.__order = order;
+            const text = toIndexYaml(draft);
+            navigator.clipboard?.writeText(text);
+            btnCopyYaml.textContent = 'Copied index.yaml';
+            setTimeout(()=>{ btnCopyYaml.textContent = 'Copy index.yaml'; }, 1500);
+          } catch(_) { alert('Copy failed'); }
+        });
+        actions.appendChild(aView);
+        actions.appendChild(aEdit);
+        actions.appendChild(btnCopyYaml);
+        s.appendChild(p);
+        s.appendChild(actions);
+        makeStep(stepNum, 'Update index.yaml / Export', s);
+      }
+      steps.appendChild(frag);
+      steps.hidden = false;
+      compAdd.removeAttribute('disabled');
+
+      // Bind copy buttons
+      steps.querySelectorAll('button.link-btn[data-copy]')?.forEach(btn => {
+        btn.addEventListener('click', () => copyToClipboard(btn.getAttribute('data-copy')));
+      });
+    }
+
+    compGen.addEventListener('click', () => {
+      renderSteps();
+    });
+    compAdd.addEventListener('click', () => {
+      const key = safeKey(compKey.value);
+      if (!key) return alert('Please enter a valid key');
+      if (state.index[key]) {
+        if (!confirm('Key already exists. Overwrite?')) return;
+      }
+      const fname = safeFilename(compFilename.value);
+      const langs = getLangs();
+      const entry = {};
+      (langs.length ? langs : ['en']).forEach(l => {
+        const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fname, l) : fname;
+        const rel = `post/${key}/${fLang}`;
+        entry[l] = rel;
+      });
+      state.index[key] = entry;
+      if (!Array.isArray(state.index.__order)) state.index.__order = [];
+      const pos = state.index.__order.indexOf(key);
+      if (pos >= 0) state.index.__order.splice(pos, 1);
+      state.index.__order.unshift(key);
+      buildIndexUI($('#composerIndex'), state);
+      setFile('index');
+      // Show export text area with freshly generated YAML
+      try {
+        const text = toIndexYaml(state.index);
+        const exportArea = $('#yamlExportWrap');
+        const exportTa = $('#yamlExport');
+        if (exportTa) exportTa.value = text;
+        if (exportArea) exportArea.style.display = 'block';
+      } catch(_){}
+      alert('Added to index.yaml draft (top). Export/Download and commit on GitHub.');
+    });
+  })();
+
   // Add item
   $('#btnAddItem').addEventListener('click', () => {
     const isIndex = $('#composerIndex').style.display !== 'none';
     if (isIndex) {
-      const key = prompt('New post key (e.g., myPost)');
-      if (!key) return;
-      if (state.index[key]) { alert('Key exists.'); return; }
-      state.index[key] = {};
-      state.index.__order.push(key);
-      buildIndexUI($('#composerIndex'), state);
+      // Toggle the New Post wizard panel
+      const guide = document.getElementById('composerGuide');
+      if (guide) {
+        const on = guide.style.display !== 'none';
+        guide.style.display = on ? 'none' : 'block';
+        if (!on) {
+          const keyEl = document.getElementById('compKey');
+          if (keyEl) try { keyEl.focus(); } catch(_){}
+        }
+      }
     } else {
       const key = prompt('New tab name (e.g., About)');
       if (!key) return;
       if (state.tabs[key]) { alert('Tab exists.'); return; }
       state.tabs[key] = {};
-      state.tabs.__order.push(key);
+      state.tabs.__order.unshift(key);
       buildTabsUI($('#composerTabs'), state);
     }
   });
@@ -724,6 +996,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
     const root = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
     window.__ns_content_root = root; // hint for other utils
+    try {
+      const repo = (site && site.repo) || {};
+      window.__ns_site_repo = { owner: String(repo.owner || ''), name: String(repo.name || ''), branch: String(repo.branch || 'main') };
+    } catch(_) { window.__ns_site_repo = { owner: '', name: '', branch: 'main' }; }
     const [idx, tbs] = await Promise.all([
       fetchConfigWithYamlFallback([`${root}/index.yaml`, `${root}/index.yml`]),
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
@@ -774,6 +1050,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     .ci-body-inner,.ct-body-inner{transition:none}
     .ci-expand .caret,.ct-expand .caret{transition:none}
   }
+  /* Composer Guide */
+  .comp-guide{border:1px dashed var(--border);border-radius:8px;background:color-mix(in srgb, var(--text) 3%, transparent);padding:.6rem .6rem .2rem;margin:.6rem 0 .8rem}
+  .comp-guide-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .comp-guide-head .muted{color:var(--muted);font-size:.88rem}
+  .comp-form{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;margin-bottom:.5rem}
+  .comp-form label{display:flex;flex-direction:column;gap:.25rem;font-weight:600}
+  .comp-form input[type=text]{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
+  .comp-langs{display:flex;align-items:center;gap:.5rem}
+  .comp-langs .lab{font-weight:600}
+  .comp-actions{display:flex;gap:.5rem;}
+  .comp-steps{margin-top:.25rem}
+  .comp-step{display:flex;gap:.6rem;align-items:flex-start;margin:.4rem 0;padding:.4rem;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+  .comp-step .num{flex:0 0 auto;width:1.6rem;height:1.6rem;border-radius:999px;background:color-mix(in srgb, var(--primary) 14%, var(--card));border:1px solid color-mix(in srgb, var(--primary) 36%, var(--border));display:grid;place-items:center;font-weight:700;color:var(--text)}
+  .comp-step .title{font-weight:700;margin-bottom:.15rem}
+  .comp-step .desc{color:var(--muted);font-size:.92rem;margin:.1rem 0}
+  .comp-step .actions{display:flex;gap:.4rem;margin-top:.25rem}
+  .comp-step code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; background: color-mix(in srgb, var(--text) 10%, transparent); padding: .08rem .35rem; border-radius: 6px; font-size: .9em;}
+  .link-btn{display:inline-block;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.15rem .4rem;cursor:pointer}
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();

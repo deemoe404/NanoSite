@@ -35,7 +35,7 @@ cardCoverFallback: false  # Use a generated fallback cover image if none provide
 errorOverlay: true        # Show error overlay on the page if an error occurs
 pageSize: 8               # Number of posts per page on the index list
 defaultLanguage: en       # Default UI/content language (e.g., en, zh, ja)
-contentRoot: .vscode/wwwroot2      # Root directory for content files
+contentRoot: wwwroot      # Root directory for content files
 
 # Theme override configurations
 themeMode: user
