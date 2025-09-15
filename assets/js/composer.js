@@ -725,6 +725,7 @@ function bindComposerUI(state) {
       </div>
       <div class="comp-form">
         <label>Key <input id="compKey" type="text" placeholder="e.g., myPost" /></label>
+        <div id="compTitlesWrap" class="comp-titles" style="display:none;"></div>
         <label>Filename <input id="compFilename" type="text" value="main.md" /></label>
         <div class="comp-langs">
           <span class="lab">Languages</span>
@@ -785,6 +786,8 @@ function bindComposerUI(state) {
     // Modal behaviors
     const focusableSelector = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
     let lastActive = null;
+    let compMode = 'index'; // 'index' | 'tabs'
+    function getActiveTarget(){ try { return ($('#composerIndex').style.display !== 'none') ? 'index' : 'tabs'; } catch(_) { return 'index'; } }
 
     function openModal() {
       lastActive = document.activeElement;
@@ -799,6 +802,19 @@ function bindComposerUI(state) {
       try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_){}
       // Hide Verify until steps are generated again
       try { if (typeof setVerifyVisible === 'function') setVerifyVisible(false); } catch(_){}
+      // Clear any title bubble
+      try { if (typeof hideTitleBubble === 'function') hideTitleBubble(); } catch(_){}
+      // Adapt header and fields by active file type
+      try {
+        compMode = getActiveTarget();
+        if (compMode === 'tabs') {
+          headStrong.textContent = 'Composer Wizard - Tab';
+          updateTitlesUI();
+        } else {
+          headStrong.textContent = 'Composer Wizard - Post';
+          updateTitlesUI();
+        }
+      } catch(_) {}
       setTimeout(() => { try { wrap.querySelector('#compKey')?.focus(); } catch(_){} }, 0);
     }
     function closeModal() {
@@ -825,6 +841,67 @@ function bindComposerUI(state) {
 
     const compKey = $('#compKey', wrap);
     const compFilename = $('#compFilename', wrap);
+    const compTitlesWrap = $('#compTitlesWrap', wrap);
+    const titlesStore = Object.create(null); // { lang: title }
+
+    function langNameFor(code){
+      const c = String(code||'').toLowerCase();
+      if (c==='en') return 'EN';
+      if (c==='zh') return 'ZH';
+      if (c==='ja') return 'JA';
+      return c.toUpperCase();
+    }
+
+    function getSelectedLangs(){
+      const arr = [];
+      try { const el = wrap.querySelector('#compLangEN'); if (el && el.checked) arr.push('en'); } catch(_){}
+      try { const el = wrap.querySelector('#compLangZH'); if (el && el.checked) arr.push('zh'); } catch(_){}
+      try { const el = wrap.querySelector('#compLangJA'); if (el && el.checked) arr.push('ja'); } catch(_){}
+      // keep preferred order
+      const set = Array.from(new Set(arr));
+      return set.sort((a,b)=>{
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+        return a.localeCompare(b);
+      });
+    }
+
+    function updateTitlesUI(){
+      if (!compTitlesWrap) return;
+      const isTabs = compMode === 'tabs';
+      compTitlesWrap.style.display = isTabs ? '' : 'none';
+      if (!isTabs) { compTitlesWrap.innerHTML = ''; return; }
+      const langs = getSelectedLangs();
+      // preserve existing input values
+      try {
+        Array.from(compTitlesWrap.querySelectorAll('input[data-lang]')).forEach(inp=>{
+          const l = inp.getAttribute('data-lang');
+          if (l) titlesStore[l] = inp.value;
+        });
+      } catch(_){}
+      compTitlesWrap.innerHTML = '';
+      langs.forEach(l => {
+        const label = document.createElement('label');
+        label.setAttribute('data-title-item', l);
+        label.innerHTML = `Title (${langNameFor(l)}) <input type="text" data-lang="${l}" placeholder="Title for ${l.toUpperCase()}" />`;
+        const inp = label.querySelector('input');
+        inp.value = titlesStore[l] || '';
+        inp.addEventListener('input', () => { titlesStore[l] = inp.value; });
+        compTitlesWrap.appendChild(label);
+      });
+    }
+
+    function getTitlesMap(){
+      const out = Object.create(null);
+      try {
+        (compTitlesWrap?.querySelectorAll('input[data-lang]') || []).forEach(inp => {
+          const l = inp.getAttribute('data-lang');
+          if (l) out[l] = String(inp.value || '').trim();
+        });
+      } catch(_) {}
+      return out;
+    }
     const compLangEN = $('#compLangEN', wrap);
     const compLangZH = $('#compLangZH', wrap);
     const compLangJA = $('#compLangJA', wrap);
@@ -845,13 +922,14 @@ function bindComposerUI(state) {
         }
       } catch (_) {}
     }
-    langCheckboxes.forEach(cb => { try { cb.addEventListener('change', enforceMinOneLang); } catch(_){} });
+    langCheckboxes.forEach(cb => { try { cb.addEventListener('change', enforceMinOneLang); cb.addEventListener('change', updateTitlesUI); } catch(_){} });
 
     // Lock/unlock the top form after generating steps
     function setFormLocked(locked) {
       try {
         compKey.disabled = !!locked;
         compFilename.disabled = !!locked;
+        if (compTitlesWrap) compTitlesWrap.querySelectorAll('input').forEach(inp => { try { inp.disabled = !!locked; } catch(_){} });
         compLangEN.disabled = !!locked;
         compLangZH.disabled = !!locked;
         compLangJA.disabled = !!locked;
@@ -896,6 +974,9 @@ function bindComposerUI(state) {
       try {
         compKey.value = '';
         compFilename.value = 'main.md';
+        // Clear stored titles and UI
+        for (const k in titlesStore) { if (Object.prototype.hasOwnProperty.call(titlesStore, k)) delete titlesStore[k]; }
+        if (compTitlesWrap) compTitlesWrap.innerHTML = '';
         compLangEN.checked = true;
         compLangZH.checked = false;
         compLangJA.checked = false;
@@ -906,6 +987,7 @@ function bindComposerUI(state) {
         setVerifyVisible(false);
         // Clear any bubble
         try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_) {}
+        try { if (typeof hideTitleBubble === 'function') hideTitleBubble(); } catch(_) {}
       } catch (_) {}
     }
 
@@ -1049,7 +1131,64 @@ function bindComposerUI(state) {
       } catch(_) {}
     }
 
+    // Floating bubble for missing tab titles, anchored to a specific input
+    function showTitleBubble(targetInput, msg) {
+      try {
+        const existing = document.getElementById('compTitleBubble');
+        if (existing && existing.parentElement) {
+          try {
+            dialog?.removeEventListener('scroll', existing.__reposition);
+            window?.removeEventListener('resize', existing.__reposition);
+          } catch(_) {}
+          existing.remove();
+        }
+        if (!targetInput) return;
+        const tip = document.createElement('div');
+        tip.id = 'compTitleBubble';
+        tip.className = 'comp-bubble is-floating';
+        tip.role = 'alert';
+        tip.textContent = msg || 'Please enter a title for this language';
+        (modal || document.body).appendChild(tip);
+
+        function position() {
+          try {
+            const rect = targetInput.getBoundingClientRect();
+            const bw = tip.offsetWidth;
+            const bh = tip.offsetHeight;
+            const vw = window.innerWidth || document.documentElement.clientWidth || 1280;
+            const margin = 8;
+            let left = rect.left;
+            let top = rect.top - bh - 10;
+            if (left + bw > vw - margin) left = vw - margin - bw;
+            if (left < margin) left = margin;
+            if (top < margin) top = rect.bottom + 10;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+          } catch(_) {}
+        }
+        tip.style.position = 'fixed';
+        tip.style.visibility = 'hidden';
+        requestAnimationFrame(() => { position(); tip.style.visibility = 'visible'; });
+        tip.__reposition = position;
+        try { dialog?.addEventListener('scroll', position, { passive: true }); } catch(_) {}
+        try { window?.addEventListener('resize', position, { passive: true }); } catch(_) {}
+      } catch(_) {}
+    }
+    function hideTitleBubble() {
+      try {
+        const tip = document.getElementById('compTitleBubble');
+        if (tip) {
+          try {
+            dialog?.removeEventListener('scroll', tip.__reposition);
+            window?.removeEventListener('resize', tip.__reposition);
+          } catch(_) {}
+          tip.remove();
+        }
+      } catch(_) {}
+    }
+
   compKey.addEventListener('input', hideKeyBubble);
+  try { compTitlesWrap?.addEventListener('input', hideTitleBubble); } catch(_) {}
 
     function renderSteps(){
       const key = safeKey(compKey.value);
@@ -1063,7 +1202,8 @@ function bindComposerUI(state) {
         setVerifyVisible(false);
         return;
       }
-      const relFolder = `post/${key}`;
+      const baseFolder = (compMode === 'tabs') ? 'tab' : 'post';
+      const relFolder = `${baseFolder}/${key}`;
       const relFile = `${relFolder}/${fname}`;
       const fullFolder = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/${relFolder}`;
       const ghOwner = siteRepo.owner || '';
@@ -1113,13 +1253,15 @@ function bindComposerUI(state) {
       {
         const s = document.createElement('div'); s.className = 'kv';
         const p = document.createElement('p'); p.className = 'desc';
-        p.textContent = 'We will copy the YAML for you, then open index.yaml on GitHub. In the editor, select all and paste to replace, then commit.';
+        const yamlName = (compMode === 'tabs') ? 'tabs.yaml' : 'index.yaml';
+        p.textContent = `We will copy the YAML for you, then open ${yamlName} on GitHub. In the editor, select all and paste to replace, then commit.`;
         const actions = document.createElement('div'); actions.className = 'actions';
-        const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/index.yaml`;
+        const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/${yamlName}`;
         const aEdit = document.createElement('a'); aEdit.className = hasGh ? 'btn-secondary btn-github' : 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
         aEdit.href = hasGh ? buildGhEditFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
         if (hasGh) {
-          aEdit.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Edit index.yaml</span>';
+          const label = (compMode === 'tabs') ? 'Edit tabs.yaml' : 'Edit index.yaml';
+          aEdit.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">' + label + '</span>';
         } else {
           aEdit.textContent = '—';
         }
@@ -1129,35 +1271,56 @@ function bindComposerUI(state) {
           if (!hasGh) return;
           try { e.preventDefault(); } catch(_) {}
           try {
-            // Build a merged draft that includes current form entry even if not clicked "Add to index.yaml"
+            // Build a merged draft that includes current form entry even if not clicked "Add" button
             const keyDraft = safeKey(compKey.value);
             const fnameDraft = safeFilename(compFilename.value);
             const langsDraft = getLangs();
-            const draft = {};
-            // shallow copy entries
-            Object.keys(state.index || {}).forEach(k => { if (k !== '__order') draft[k] = state.index[k]; });
-            let order = Array.isArray(state.index.__order) ? state.index.__order.slice() : Object.keys(draft);
-            if (keyDraft) {
-              const entry = {};
-              (langsDraft.length ? langsDraft : ['en']).forEach(l => {
-                const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fnameDraft, l) : fnameDraft;
-                entry[l] = `post/${keyDraft}/${fLang}`;
-              });
-              draft[keyDraft] = entry;
-              const pos = order.indexOf(keyDraft);
-              if (pos >= 0) order.splice(pos, 1);
-              order.unshift(keyDraft);
+            const titlesMap = getTitlesMap();
+            if (compMode === 'tabs') {
+              const draft = {};
+              Object.keys(state.tabs || {}).forEach(k => { if (k !== '__order') draft[k] = state.tabs[k]; });
+              let order = Array.isArray(state.tabs.__order) ? state.tabs.__order.slice() : Object.keys(draft);
+              if (keyDraft) {
+                const entry = {};
+                (langsDraft.length ? langsDraft : ['en']).forEach(l => {
+                  const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fnameDraft, l) : fnameDraft;
+                  const t = String(titlesMap[l] || '').trim() || keyDraft;
+                  entry[l] = { title: t, location: `tab/${keyDraft}/${fLang}` };
+                });
+                draft[keyDraft] = entry;
+                const pos = order.indexOf(keyDraft);
+                if (pos >= 0) order.splice(pos, 1);
+                order.unshift(keyDraft);
+              }
+              draft.__order = order;
+              const text = toTabsYaml(draft);
+              try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
+            } else {
+              const draft = {};
+              Object.keys(state.index || {}).forEach(k => { if (k !== '__order') draft[k] = state.index[k]; });
+              let order = Array.isArray(state.index.__order) ? state.index.__order.slice() : Object.keys(draft);
+              if (keyDraft) {
+                const entry = {};
+                (langsDraft.length ? langsDraft : ['en']).forEach(l => {
+                  const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fnameDraft, l) : fnameDraft;
+                  entry[l] = `post/${keyDraft}/${fLang}`;
+                });
+                draft[keyDraft] = entry;
+                const pos = order.indexOf(keyDraft);
+                if (pos >= 0) order.splice(pos, 1);
+                order.unshift(keyDraft);
+              }
+              draft.__order = order;
+              const text = toIndexYaml(draft);
+              try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
             }
-            draft.__order = order;
-            const text = toIndexYaml(draft);
-            try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
           } catch(_) { /* ignore */ }
           try { window.open(aEdit.href, '_blank', 'noopener'); } catch(_) { location.href = aEdit.href; }
         });
         actions.appendChild(aEdit);
         s.appendChild(p);
         s.appendChild(actions);
-        makeStep(stepNum, `Step ${stepNum} – Update Post Index 📑`, s);
+        makeStep(stepNum, (compMode === 'tabs') ? `Step ${stepNum} – Update Tabs Index 📑` : `Step ${stepNum} – Update Post Index 📑`, s);
       }
       steps.appendChild(frag);
       setStepsVisible(true);
@@ -1177,6 +1340,7 @@ function bindComposerUI(state) {
       const key = safeKey(compKey.value);
       const fname = safeFilename(compFilename.value);
       const langs = getLangs();
+      const mode = (function(){ try { return ($('#composerIndex').style.display !== 'none') ? 'index' : 'tabs'; } catch(_) { return 'index'; } })();
       const rootNorm = (contentRoot || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
 
       // Invalid or empty key -> show bubble and do not proceed
@@ -1190,21 +1354,46 @@ function bindComposerUI(state) {
         return;
       }
 
-      // Duplicate key in existing index.yaml -> show bubble and block
+      // Duplicate key in existing YAML -> show bubble and block
       try {
-        if (state && state.index && Object.prototype.hasOwnProperty.call(state.index, key)) {
+        const coll = (mode === 'tabs') ? state.tabs : state.index;
+        if (coll && Object.prototype.hasOwnProperty.call(coll, key)) {
           steps.innerHTML = '';
           setStepsVisible(false);
           setVerifyVisible(false);
           setFormLocked(false);
-          showKeyBubble('This key already exists in index.yaml. Please choose a new key.');
+          showKeyBubble(mode === 'tabs' ? 'This key already exists in tabs.yaml. Please choose a new key.' : 'This key already exists in index.yaml. Please choose a new key.');
           try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
           return;
         }
       } catch(_) {}
 
+      // In tabs mode, require non-empty titles for all selected languages
+      if (mode === 'tabs') {
+        try {
+          const langsList = (langs.length ? langs : ['en']);
+          let missing = '';
+          let target = null;
+          for (const l of langsList) {
+            const inp = compTitlesWrap?.querySelector(`input[data-lang="${l}"]`);
+            const val = String((inp && inp.value) || '').trim();
+            if (!val) { missing = l; target = inp; break; }
+          }
+          if (missing) {
+            steps.innerHTML = '';
+            setStepsVisible(false);
+            setVerifyVisible(false);
+            setFormLocked(false);
+            showTitleBubble(target, `Please enter the title for ${missing.toUpperCase()}.`);
+            try { target?.focus(); } catch(_) {}
+            return;
+          }
+        } catch(_) {}
+      }
+
       // Check if any target file already exists -> show bubble and block
-      const relFolder = `post/${key}`;
+      const baseFolder = (mode === 'tabs') ? 'tab' : 'post';
+      const relFolder = `${baseFolder}/${key}`;
       let existingPath = '';
       try {
         const langList = (langs.length ? langs : ['en']);
@@ -1248,7 +1437,8 @@ function bindComposerUI(state) {
       const key = safeKey(compKey.value);
       const fname = safeFilename(compFilename.value);
       const langs = getLangs();
-      const relFolder = key ? `post/${key}` : '';
+      const mode = (function(){ try { return ($('#composerIndex').style.display !== 'none') ? 'index' : 'tabs'; } catch(_) { return 'index'; } })();
+      const relFolder = key ? `${mode === 'tabs' ? 'tab' : 'post'}/${key}` : '';
       const rootNorm = (contentRoot || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
 
       const stepEls = Array.from(steps.querySelectorAll('.comp-step'));
@@ -1321,36 +1511,49 @@ function bindComposerUI(state) {
         }
       }));
 
-      // Check index.yaml content
+      // Check index.yaml/tabs.yaml content
       const yamlStepEl = stepEls[langList.length];
       try {
+        const baseName = (mode === 'tabs') ? 'tabs' : 'index';
         const idxObj = await fetchConfigWithYamlFallback([
-          `${rootNorm}/index.yaml`, `${rootNorm}/index.yml`
+          `${rootNorm}/${baseName}.yaml`, `${rootNorm}/${baseName}.yml`
         ]);
         let yamlOk = true;
         let msg = '';
         if (!key) {
           yamlOk = false; msg = 'Invalid key';
         } else if (!idxObj || typeof idxObj !== 'object' || !idxObj[key]) {
-          yamlOk = false; msg = `index.yaml missing key: ${key}`;
+          yamlOk = false; msg = `${baseName}.yaml missing key: ${key}`;
         } else {
-          for (const lang of langList) {
-            const expected = `${relFolder}/${withLangSuffix(fname, lang)}`;
-            const val = idxObj[key][lang];
-            if (Array.isArray(val)) {
-              if (!val.includes(expected)) { yamlOk = false; msg = `Language ${lang} missing path: ${expected}`; break; }
-            } else if (typeof val === 'string') {
-              if (val !== expected) { yamlOk = false; msg = `Language ${lang} path mismatch. Expected: ${expected}`; break; }
-            } else {
-              yamlOk = false; msg = `Language ${lang} path not set`; break;
+          if (mode === 'tabs') {
+            for (const lang of langList) {
+              const expected = `${relFolder}/${withLangSuffix(fname, lang)}`;
+              const val = idxObj[key][lang];
+              if (!val || typeof val !== 'object') { yamlOk = false; msg = `Language ${lang} entry missing`; break; }
+              if (String(val.location || '') !== expected) { yamlOk = false; msg = `Language ${lang} location mismatch. Expected: ${expected}`; break; }
+              const titleStr = String(val.title ?? '').trim();
+              if (!titleStr) { yamlOk = false; msg = `Language ${lang} title missing`; break; }
+            }
+          } else {
+            for (const lang of langList) {
+              const expected = `${relFolder}/${withLangSuffix(fname, lang)}`;
+              const val = idxObj[key][lang];
+              if (Array.isArray(val)) {
+                if (!val.includes(expected)) { yamlOk = false; msg = `Language ${lang} missing path: ${expected}`; break; }
+              } else if (typeof val === 'string') {
+                if (val !== expected) { yamlOk = false; msg = `Language ${lang} path mismatch. Expected: ${expected}`; break; }
+              } else {
+                yamlOk = false; msg = `Language ${lang} path not set`; break;
+              }
             }
           }
         }
-        if (!yamlOk) { hadError = true; setStepStatus(yamlStepEl, false, msg || 'index.yaml validation failed'); }
-        else { setStepStatus(yamlStepEl, true, 'index.yaml validated'); }
+        if (!yamlOk) { hadError = true; setStepStatus(yamlStepEl, false, msg || `${baseName}.yaml validation failed`); }
+        else { setStepStatus(yamlStepEl, true, `${baseName}.yaml validated`); }
       } catch (e) {
         hadError = true;
-        setStepStatus(yamlStepEl, false, 'index.yaml read failed');
+        const baseName = (mode === 'tabs') ? 'tabs' : 'index';
+        setStepStatus(yamlStepEl, false, `${baseName}.yaml read failed`);
       }
 
       if (!hadError) {
@@ -1373,24 +1576,13 @@ function bindComposerUI(state) {
     });
   })();
 
-  // Add item
+  // Add item (Post or Tab) -> open unified composer wizard
   $('#btnAddItem').addEventListener('click', () => {
-    const isIndex = $('#composerIndex').style.display !== 'none';
-    if (isIndex) {
-      // Open the New Post wizard modal
-      const modal = document.getElementById('compModal');
-      if (modal && typeof modal.__open === 'function') modal.__open();
-    } else {
-      const key = prompt('New tab name (e.g., About)');
-      if (!key) return;
-      if (state.tabs[key]) { alert('Tab exists.'); return; }
-      state.tabs[key] = {};
-      state.tabs.__order.unshift(key);
-      buildTabsUI($('#composerTabs'), state);
-    }
+    const modal = document.getElementById('compModal');
+    if (modal && typeof modal.__open === 'function') modal.__open();
   });
 
-  // Verify Setup: check all referenced files exist; if ok, check index.yaml drift
+  // Verify Setup: check all referenced files exist; if ok, check YAML drift
   (function bindVerifySetup(){
     const btn = document.getElementById('btnVerify');
     if (!btn) return;
@@ -1444,20 +1636,30 @@ function bindComposerUI(state) {
       return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
     }
 
+    function getActiveCFile(){
+      try {
+        const a = document.querySelector('a.vt-btn[data-cfile].active');
+        const t = a && a.dataset && a.dataset.cfile;
+        return t === 'tabs' ? 'tabs' : 'index';
+      } catch (_) { return 'index'; }
+    }
+
     async function computeMissingFiles(){
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const out = [];
-      const idx = state.index || {};
-      const keys = Object.keys(idx).filter(k => k !== '__order');
+      const target = getActiveCFile();
       // Fetch existence in parallel batches
       const tasks = [];
-      for (const key of keys){
-        const langsObj = idx[key] || {};
-        const langs = sortLangKeys(langsObj);
-        for (const lang of langs){
-          const val = langsObj[lang];
-          const paths = Array.isArray(val) ? val.slice() : (typeof val === 'string' ? [val] : []);
-          for (const rel of paths){
+      if (target === 'tabs') {
+        const tbs = state.tabs || {};
+        const keys = Object.keys(tbs).filter(k => k !== '__order');
+        for (const key of keys){
+          const langsObj = tbs[key] || {};
+          const langs = sortLangKeys(langsObj);
+          for (const lang of langs){
+            const obj = langsObj[lang];
+            const rel = obj && typeof obj === 'object' ? obj.location : '';
+            if (!rel) continue; // skip empty
             const url = `${contentRoot}/${String(rel||'')}`;
             tasks.push((async () => {
               try {
@@ -1467,6 +1669,28 @@ function bindComposerUI(state) {
                 }
               } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
             })());
+          }
+        }
+      } else {
+        const idx = state.index || {};
+        const keys = Object.keys(idx).filter(k => k !== '__order');
+        for (const key of keys){
+          const langsObj = idx[key] || {};
+          const langs = sortLangKeys(langsObj);
+          for (const lang of langs){
+            const val = langsObj[lang];
+            const paths = Array.isArray(val) ? val.slice() : (typeof val === 'string' ? [val] : []);
+            for (const rel of paths){
+              const url = `${contentRoot}/${String(rel||'')}`;
+              tasks.push((async () => {
+                try {
+                  const r = await fetch(url, { cache: 'no-store' });
+                  if (!r || !r.ok) {
+                    out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                  }
+                } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+              })());
+            }
           }
         }
       }
@@ -1590,7 +1814,11 @@ function bindComposerUI(state) {
         btnVerify.disabled = true; btnVerify.textContent = 'Verifying…';
         try {
           // Also copy YAML snapshot here to leverage the user gesture
-          try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
+          try {
+            const target = (function(){ try { const a=document.querySelector('a.vt-btn[data-cfile].active'); return (a&&a.dataset&&a.dataset.cfile)==='tabs'?'tabs':'index'; } catch(_){ return 'index'; } })();
+            const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+            nsCopyToClipboard(text);
+          } catch(_) {}
           const now = await computeMissingFiles();
           if (!now.length){ close(); await afterAllGood(); }
           else { renderList(now); /* no toast: inline red banner shows status */ }
@@ -1603,21 +1831,23 @@ function bindComposerUI(state) {
     }
 
     async function afterAllGood(){
-      // Compare current in-memory YAML vs remote index.yaml; open GitHub edit if differs
+      // Compare current in-memory YAML vs remote file; open GitHub edit if differs
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-      const desired = toIndexYaml(state.index || {});
+      const target = getActiveCFile();
+      const desired = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
       async function fetchText(url){ try { const r = await fetch(url, { cache: 'no-store' }); if (r && r.ok) return await r.text(); } catch(_){} return ''; }
-      const url1 = `${contentRoot}/index.yaml`; const url2 = `${contentRoot}/index.yml`;
+      const baseName = target === 'tabs' ? 'tabs' : 'index';
+      const url1 = `${contentRoot}/${baseName}.yaml`; const url2 = `${contentRoot}/${baseName}.yml`;
       const cur = (await fetchText(url1)) || (await fetchText(url2));
       const norm = (s)=>String(s||'').replace(/\r\n/g,'\n').trim();
-      if (norm(cur) === norm(desired)) { showToast('success', 'index.yaml is up to date'); return; }
+      if (norm(cur) === norm(desired)) { showToast('success', `${baseName}.yaml is up to date`); return; }
       // Need update -> copy and open GitHub edit/new page
       try { nsCopyToClipboard(desired); } catch(_) {}
       const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
       if (owner && name){
         let href = '';
-        if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/index.yaml`);
-        else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `index.yaml`);
+        if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/${baseName}.yaml`);
+        else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `${baseName}.yaml`);
         try { window.open(href, '_blank', 'noopener'); } catch(_) { location.href = href; }
       } else {
         showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
@@ -1632,7 +1862,11 @@ function bindComposerUI(state) {
       } catch(_) {}
       try {
         // Copy YAML snapshot up-front to retain user-activation for clipboard
-        try { nsCopyToClipboard(toIndexYaml(state.index || {})); } catch(_) {}
+        try {
+          const target = getActiveCFile();
+          const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+          nsCopyToClipboard(text);
+        } catch(_) {}
         const missing = await computeMissingFiles();
         if (missing.length) openVerifyModal(missing);
         else await afterAllGood();
