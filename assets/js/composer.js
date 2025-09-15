@@ -689,7 +689,7 @@ function bindComposerUI(state) {
     wrap.className = 'comp-guide';
     wrap.innerHTML = `
       <div class="comp-guide-head">
-        <strong>New Post (Composer Wizard)</strong>
+        <strong>Composer Wizard - Post</strong>
         <span class="muted">Create files on GitHub and update YAML</span>
       </div>
       <div class="comp-form">
@@ -705,9 +705,11 @@ function bindComposerUI(state) {
           <button class="btn-secondary" id="compGen">Generate Steps</button>
         </div>
       </div>
+      <div class="comp-divider" id="compDivider" hidden></div>
       <div class="comp-steps" id="compSteps" hidden></div>
       <div class="comp-footer" style="display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem;">
-        <button class="btn-primary" id="compFinish">Finish</button>
+        <span id="compHint" class="comp-hint" hidden>Wait for GitHub Pages to finish deploying (may take a few minutes) before verifying.</span>
+        <button class="btn-primary" id="compFinish" hidden>Verify Setup</button>
       </div>
     `;
     // Create a modal container and mount the wizard inside
@@ -729,17 +731,22 @@ function bindComposerUI(state) {
     btnClose.setAttribute('aria-label', 'Cancel');
     btnClose.textContent = 'Cancel';
 
-    // Label the title for a11y
+    // Label the title for a11y and restructure header to include the close button
     const headStrong = document.createElement('strong');
     headStrong.id = 'compGuideTitle';
-    headStrong.textContent = 'New Post (Composer Wizard)';
+    headStrong.textContent = 'Composer Wizard - Post';
     const head = wrap.querySelector('.comp-guide-head');
     if (head) {
-      const firstStrong = head.querySelector('strong');
-      if (firstStrong) firstStrong.replaceWith(headStrong); else head.prepend(headStrong);
+      const muted = head.querySelector('.muted');
+      const left = document.createElement('div');
+      left.className = 'comp-head-left';
+      left.appendChild(headStrong);
+      if (muted) left.appendChild(muted);
+      head.innerHTML = '';
+      head.appendChild(left);
+      head.appendChild(btnClose);
     }
 
-    dialog.appendChild(btnClose);
     dialog.appendChild(wrap);
     modal.appendChild(dialog);
     document.body.appendChild(modal);
@@ -753,6 +760,14 @@ function bindComposerUI(state) {
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('ns-modal-open');
+      // Default to Cancel until verification passes
+      try { btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label', 'Cancel'); } catch(_){}
+      // Unlock form controls for a new session
+      try { if (typeof setFormLocked === 'function') setFormLocked(false); } catch(_){}
+      // Clear any floating bubble
+      try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_){}
+      // Hide Verify until steps are generated again
+      try { if (typeof setVerifyVisible === 'function') setVerifyVisible(false); } catch(_){}
       setTimeout(() => { try { wrap.querySelector('#compKey')?.focus(); } catch(_){} }, 0);
     }
     function closeModal() {
@@ -764,7 +779,6 @@ function bindComposerUI(state) {
 
     modal.__open = openModal;
     modal.__close = closeModal;
-    btnClose.addEventListener('click', closeModal);
     modal.addEventListener('mousedown', (e) => { if (e.target === modal) closeModal(); });
     modal.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
@@ -785,7 +799,93 @@ function bindComposerUI(state) {
     const compLangJA = $('#compLangJA', wrap);
     const compGen = $('#compGen', wrap);
     const steps = $('#compSteps', wrap);
+    const compDivider = $('#compDivider', wrap);
     const compFinish = $('#compFinish', wrap);
+    const compHint = $('#compHint', wrap);
+
+    // Enforce at least one language selected
+    const langCheckboxes = [compLangEN, compLangZH, compLangJA];
+    function enforceMinOneLang(e) {
+      try {
+        if (!langCheckboxes.some(cb => cb && cb.checked)) {
+          // Re-check the toggled one back on
+          const cb = e && e.target && e.target instanceof HTMLElement ? e.target : langCheckboxes[0];
+          if (cb) cb.checked = true;
+        }
+      } catch (_) {}
+    }
+    langCheckboxes.forEach(cb => { try { cb.addEventListener('change', enforceMinOneLang); } catch(_){} });
+
+    // Lock/unlock the top form after generating steps
+    function setFormLocked(locked) {
+      try {
+        compKey.disabled = !!locked;
+        compFilename.disabled = !!locked;
+        compLangEN.disabled = !!locked;
+        compLangZH.disabled = !!locked;
+        compLangJA.disabled = !!locked;
+        compGen.disabled = !!locked;
+      } catch (_) {}
+    }
+
+    // Helper to flip top-right button label based on validation state
+    function setCloseBtnReady(ready) {
+      if (!btnClose) return;
+      if (ready) { btnClose.textContent = 'Finish'; btnClose.setAttribute('aria-label', 'Finish'); }
+      else { btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label', 'Cancel'); }
+    }
+
+    // Show/hide Verify Setup button
+    function setVerifyVisible(visible) {
+      try {
+        if (compFinish) {
+          // Toggle both [hidden] and inline display to avoid being overridden by CSS
+          compFinish.hidden = !visible;
+          compFinish.style.display = visible ? '' : 'none';
+        }
+        if (compHint) {
+          compHint.hidden = !visible;
+          compHint.style.display = visible ? '' : 'none';
+        }
+      } catch (_) {}
+    }
+    // Hide Verify initially until steps are generated
+    setVerifyVisible(false);
+
+    // Show/hide steps and divider together
+    function setStepsVisible(visible) {
+      try {
+        if (steps) steps.hidden = !visible;
+        if (compDivider) compDivider.hidden = !visible;
+      } catch(_) {}
+    }
+
+    // Reset wizard inputs and generated steps
+    function resetWizard() {
+      try {
+        compKey.value = '';
+        compFilename.value = 'main.md';
+        compLangEN.checked = true;
+        compLangZH.checked = false;
+        compLangJA.checked = false;
+        steps.innerHTML = '';
+        steps.hidden = true;
+        setFormLocked(false);
+        setCloseBtnReady(false);
+        setVerifyVisible(false);
+        // Clear any bubble
+        try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_) {}
+      } catch (_) {}
+    }
+
+    // Close button: on Cancel -> reset, on Finish -> just close
+    btnClose.addEventListener('click', () => {
+      const label = (btnClose.textContent || '').trim().toLowerCase();
+      if (label === 'cancel' || label === 'finish') {
+        resetWizard();
+      }
+      closeModal();
+    });
 
     // Read repo/contentRoot from previously loaded context
     const siteRepo = (window.__ns_site_repo) || {};
@@ -856,14 +956,83 @@ function bindComposerUI(state) {
       catch(_){}
     }
 
+    function showKeyBubble(msg) {
+      try {
+        // Remove any existing bubble
+        const existing = document.getElementById('compKeyBubble');
+        if (existing && existing.parentElement) {
+          try {
+            dialog?.removeEventListener('scroll', existing.__reposition);
+            window?.removeEventListener('resize', existing.__reposition);
+          } catch(_) {}
+          existing.remove();
+        }
+        const target = compKey;
+        if (!target) return;
+        const tip = document.createElement('div');
+        tip.id = 'compKeyBubble';
+        tip.className = 'comp-bubble is-floating';
+        tip.role = 'alert';
+        tip.textContent = msg || 'Please enter a valid key';
+        // Attach to the modal overlay to avoid clipping by dialog overflow
+        (modal || document.body).appendChild(tip);
+
+        function position() {
+          try {
+            const rect = target.getBoundingClientRect();
+            const bw = tip.offsetWidth;
+            const bh = tip.offsetHeight;
+            const vw = window.innerWidth || document.documentElement.clientWidth || 1280;
+            const margin = 8;
+            let left = rect.left;
+            let top = rect.top - bh - 10;
+            // Clamp within viewport horizontally
+            if (left + bw > vw - margin) left = vw - margin - bw;
+            if (left < margin) left = margin;
+            // If not enough space above, place below input
+            if (top < margin) top = rect.bottom + 10;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+          } catch(_) {}
+        }
+        tip.style.position = 'fixed';
+        tip.style.visibility = 'hidden';
+        // Initial paint then position
+        requestAnimationFrame(() => {
+          position();
+          tip.style.visibility = 'visible';
+        });
+        // Reposition on dialog scroll and window resize
+        tip.__reposition = position;
+        try { dialog?.addEventListener('scroll', position, { passive: true }); } catch(_) {}
+        try { window?.addEventListener('resize', position, { passive: true }); } catch(_) {}
+      } catch (_) {}
+    }
+    function hideKeyBubble() {
+      try {
+        const tip = document.getElementById('compKeyBubble');
+        if (tip) {
+          try {
+            dialog?.removeEventListener('scroll', tip.__reposition);
+            window?.removeEventListener('resize', tip.__reposition);
+          } catch(_) {}
+          tip.remove();
+        }
+      } catch(_) {}
+    }
+
+  compKey.addEventListener('input', hideKeyBubble);
+
     function renderSteps(){
       const key = safeKey(compKey.value);
       const fname = safeFilename(compFilename.value);
       const langs = getLangs();
       steps.innerHTML = '';
       if (!key) {
-        steps.hidden = false;
-        steps.textContent = 'Please enter a valid key (letters/numbers/-/_).';
+        // keep form interactive, do not lock; show floating bubble over the key input
+        setStepsVisible(false);
+        showKeyBubble('Please enter a valid key (letters/numbers/-/_).');
+        setVerifyVisible(false);
         return;
       }
       const relFolder = `post/${key}`;
@@ -911,16 +1080,17 @@ function bindComposerUI(state) {
       {
         const s = document.createElement('div'); s.className = 'kv';
         const p = document.createElement('p'); p.className = 'desc';
-        p.textContent = 'Copy or export the YAML, then open index.yaml on GitHub to update and commit.';
+        p.textContent = 'We will copy the YAML for you, then open index.yaml on GitHub. In the editor, select all and paste to replace, then commit.';
         const actions = document.createElement('div'); actions.className = 'actions';
         const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/index.yaml`;
         const aEdit = document.createElement('a'); aEdit.className = 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
         aEdit.href = hasGh ? buildGhEditFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
         aEdit.textContent = hasGh ? 'Edit index.yaml (GitHub)' : '—';
-        const btnCopyYaml = document.createElement('button');
-        btnCopyYaml.className = 'btn-secondary';
-        btnCopyYaml.textContent = 'Copy index.yaml';
-        btnCopyYaml.addEventListener('click', () => {
+        aEdit.title = 'We will copy YAML to your clipboard. On GitHub, select all and paste to replace, then commit.';
+        // On click, auto-copy YAML draft to clipboard, then open GitHub edit page
+        aEdit.addEventListener('click', async (e) => {
+          if (!hasGh) return;
+          try { e.preventDefault(); } catch(_) {}
           try {
             // Build a merged draft that includes current form entry even if not clicked "Add to index.yaml"
             const keyDraft = safeKey(compKey.value);
@@ -943,19 +1113,18 @@ function bindComposerUI(state) {
             }
             draft.__order = order;
             const text = toIndexYaml(draft);
-            navigator.clipboard?.writeText(text);
-            btnCopyYaml.textContent = 'Copied index.yaml';
-            setTimeout(()=>{ btnCopyYaml.textContent = 'Copy index.yaml'; }, 1500);
-          } catch(_) { alert('Copy failed'); }
+            try { await navigator.clipboard?.writeText(text); } catch(_) { /* ignore */ }
+          } catch(_) { /* ignore */ }
+          try { window.open(aEdit.href, '_blank', 'noopener'); } catch(_) { location.href = aEdit.href; }
         });
-        actions.appendChild(btnCopyYaml);
         actions.appendChild(aEdit);
         s.appendChild(p);
         s.appendChild(actions);
         makeStep(stepNum, `Step ${stepNum} – Update Post Index 📑`, s);
       }
       steps.appendChild(frag);
-      steps.hidden = false;
+      setStepsVisible(true);
+      setVerifyVisible(true);
       // steps generated
 
       // Bind copy buttons
@@ -964,11 +1133,206 @@ function bindComposerUI(state) {
       });
     }
 
-    compGen.addEventListener('click', () => {
+    compGen.addEventListener('click', async () => {
+      // Clear any previous bubble
+      try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_) {}
+
+      const key = safeKey(compKey.value);
+      const fname = safeFilename(compFilename.value);
+      const langs = getLangs();
+      const rootNorm = (contentRoot || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+
+      // Invalid or empty key -> show bubble and do not proceed
+      if (!key) {
+        steps.innerHTML = '';
+        setStepsVisible(false);
+        setVerifyVisible(false);
+        setFormLocked(false);
+        showKeyBubble('Please enter a valid key (letters/numbers/-/_).');
+        try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
+        return;
+      }
+
+      // Duplicate key in existing index.yaml -> show bubble and block
+      try {
+        if (state && state.index && Object.prototype.hasOwnProperty.call(state.index, key)) {
+          steps.innerHTML = '';
+          setStepsVisible(false);
+          setVerifyVisible(false);
+          setFormLocked(false);
+          showKeyBubble('This key already exists in index.yaml. Please choose a new key.');
+          try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
+          return;
+        }
+      } catch(_) {}
+
+      // Check if any target file already exists -> show bubble and block
+      const relFolder = `post/${key}`;
+      let existingPath = '';
+      try {
+        const langList = (langs.length ? langs : ['en']);
+        for (const lang of langList) {
+          const fLang = withLangSuffix(fname, lang);
+          const url = `${rootNorm}/${relFolder}/${fLang}`;
+          try {
+            const r = await fetch(url, { cache: 'no-store' });
+            if (r && r.ok) { existingPath = `${relFolder}/${fLang}`; break; }
+          } catch(_) { /* ignore fetch errors here */ }
+        }
+      } catch(_) {}
+      if (existingPath) {
+        steps.innerHTML = '';
+        setStepsVisible(false);
+        setVerifyVisible(false);
+        setFormLocked(false);
+        showKeyBubble(`File already exists: ${existingPath}. Choose a different key or filename.`);
+        try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
+        return;
+      }
+
+      // All good -> render steps and lock form
       renderSteps();
+      if (safeKey(compKey.value)) setFormLocked(true); else setFormLocked(false);
     });
-    compFinish.addEventListener('click', () => {
-      if (typeof modal.__close === 'function') modal.__close();
+    // Validate created files and index.yaml before closing
+    compFinish.addEventListener('click', async () => {
+      if (compFinish.disabled) return;
+      const prevText = compFinish.textContent;
+      try {
+        compFinish.disabled = true;
+        compFinish.textContent = 'Verifying…';
+        compFinish.setAttribute('aria-busy', 'true');
+      } catch (_) {}
+      // Ensure steps are rendered so we can annotate results
+      if (!steps || steps.children.length === 0 || steps.hidden) {
+        renderSteps();
+      }
+
+      const key = safeKey(compKey.value);
+      const fname = safeFilename(compFilename.value);
+      const langs = getLangs();
+      const relFolder = key ? `post/${key}` : '';
+      const rootNorm = (contentRoot || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+
+      const stepEls = Array.from(steps.querySelectorAll('.comp-step'));
+
+      function setStepStatus(el, ok, msg) {
+        if (!el) return;
+        el.classList.remove('ok', 'err');
+        const host = el.querySelector('.body') || el;
+        // remove any existing status areas inside this card
+        const oldWarn = el.querySelector('.comp-warn'); if (oldWarn) oldWarn.remove();
+        const oldOk = el.querySelector('.comp-ok'); if (oldOk) oldOk.remove();
+        const s = el.querySelector('.comp-status'); if (s) s.remove();
+
+        if (ok) {
+          // create success note section inside the card at bottom
+          const okBox = document.createElement('div');
+          okBox.className = 'comp-ok';
+          const p = document.createElement('div');
+          p.className = 'comp-ok-text';
+          p.textContent = msg || 'OK';
+          okBox.appendChild(p);
+          el.appendChild(okBox);
+          el.classList.add('ok');
+        } else {
+          // create warning section inside the card at bottom
+          const warn = document.createElement('div');
+          warn.className = 'comp-warn';
+          const p = document.createElement('div');
+          p.className = 'comp-warn-text';
+          p.textContent = msg || 'Validation failed';
+          warn.appendChild(p);
+          el.appendChild(warn);
+          el.classList.add('err');
+        }
+      }
+
+      // Clear previous statuses
+      stepEls.forEach(el => {
+        el.classList.remove('ok', 'err');
+        const s = el.querySelector('.comp-status'); if (s) s.remove();
+        const w = el.querySelector('.comp-warn'); if (w) w.remove();
+        const o = el.querySelector('.comp-ok'); if (o) o.remove();
+      });
+
+      let hadError = false;
+
+      // Check each language file existence
+      const langList = (langs.length ? langs : ['en']);
+      await Promise.all(langList.map(async (lang, idx) => {
+        const fLang = withLangSuffix(fname, lang);
+        const fileRel = `${relFolder}/${fLang}`;
+        const url = `${rootNorm}/${fileRel}`;
+        const stepEl = stepEls[idx];
+        if (!key) {
+          hadError = true;
+          setStepStatus(stepEl, false, 'Invalid key. Please enter a valid key.');
+          return;
+        }
+        try {
+          const r = await fetch(url, { cache: 'no-store' });
+          if (!r.ok) {
+            hadError = true;
+            setStepStatus(stepEl, false, `File not found: ${url}`);
+          } else {
+            setStepStatus(stepEl, true, `Found: ${fileRel}`);
+          }
+        } catch (e) {
+          hadError = true;
+          setStepStatus(stepEl, false, `Cannot access: ${url}`);
+        }
+      }));
+
+      // Check index.yaml content
+      const yamlStepEl = stepEls[langList.length];
+      try {
+        const idxObj = await fetchConfigWithYamlFallback([
+          `${rootNorm}/index.yaml`, `${rootNorm}/index.yml`
+        ]);
+        let yamlOk = true;
+        let msg = '';
+        if (!key) {
+          yamlOk = false; msg = 'Invalid key';
+        } else if (!idxObj || typeof idxObj !== 'object' || !idxObj[key]) {
+          yamlOk = false; msg = `index.yaml missing key: ${key}`;
+        } else {
+          for (const lang of langList) {
+            const expected = `${relFolder}/${withLangSuffix(fname, lang)}`;
+            const val = idxObj[key][lang];
+            if (Array.isArray(val)) {
+              if (!val.includes(expected)) { yamlOk = false; msg = `Language ${lang} missing path: ${expected}`; break; }
+            } else if (typeof val === 'string') {
+              if (val !== expected) { yamlOk = false; msg = `Language ${lang} path mismatch. Expected: ${expected}`; break; }
+            } else {
+              yamlOk = false; msg = `Language ${lang} path not set`; break;
+            }
+          }
+        }
+        if (!yamlOk) { hadError = true; setStepStatus(yamlStepEl, false, msg || 'index.yaml validation failed'); }
+        else { setStepStatus(yamlStepEl, true, 'index.yaml validated'); }
+      } catch (e) {
+        hadError = true;
+        setStepStatus(yamlStepEl, false, 'index.yaml read failed');
+      }
+
+      if (!hadError) {
+        // Verification passed: flip close button to Finish
+        setCloseBtnReady(true);
+      } else {
+        // Verification failed: keep close button as Cancel
+        setCloseBtnReady(false);
+        // Focus first error section for convenience
+        const firstErr = steps.querySelector('.comp-warn');
+        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      try {} finally {
+        try {
+          compFinish.disabled = false;
+          compFinish.textContent = prevText || 'Verify Setup';
+          compFinish.removeAttribute('aria-busy');
+        } catch (_) {}
+      }
     });
   })();
 
@@ -1079,8 +1443,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   .comp-guide{border:1px dashed var(--border);border-radius:8px;background:color-mix(in srgb, var(--text) 3%, transparent);padding:.6rem .6rem .2rem;margin:.6rem 0 .8rem}
   .comp-guide-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
   .comp-guide-head .muted{color:var(--muted);font-size:.88rem}
+  /* Titlebar-like header inside modal */
+  .ns-modal-dialog .comp-guide-head{
+    display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+    background: color-mix(in srgb, var(--text) 6%, var(--card));
+    border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, var(--border));
+    /* Pull to dialog edges to resemble an app title bar */
+    /* Remove top gap by not offsetting beyond dialog top */
+    margin: 0 -.85rem .9rem;
+    padding: .65rem .85rem;
+    border-top-left-radius: 12px; border-top-right-radius: 12px;
+    position: sticky; top: 0; z-index: 2;
+  }
+  .ns-modal-dialog .comp-head-left{display:flex;align-items:baseline;gap:.6rem;min-width:0}
+  .ns-modal-dialog .comp-guide-head strong{font-weight:700}
+  .ns-modal-dialog .comp-guide-head .muted{opacity:.9}
   .comp-form{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;margin-bottom:.5rem}
   .comp-form label{display:flex;flex-direction:column;gap:.25rem;font-weight:600}
+  .comp-form label{position:relative}
   .comp-form input[type=text]{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .comp-langs{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
   .comp-langs .lab{font-weight:600; margin-right:.25rem}
@@ -1089,14 +1469,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   .comp-langs label input{display:none}
   .comp-langs label:has(input:checked){background:color-mix(in srgb, var(--primary) 16%, var(--card));border-color:color-mix(in srgb, var(--primary) 45%, var(--border))}
   .comp-langs label span{font-weight:400;font-size:.85rem}
+  /* Disabled states for form + language chips */
+  .comp-form input[disabled]{opacity:.6;cursor:not-allowed;background:color-mix(in srgb, var(--text) 4%, var(--card))}
+  .comp-langs label:has(input[disabled]){opacity:.5;cursor:not-allowed;pointer-events:none}
+  .comp-langs label:has(input[disabled]):hover{background:var(--card)}
+  /* Floating bubble over inputs */
+  .comp-bubble{position:absolute;bottom:calc(100% + 6px);left:0;z-index:3;padding:.28rem .5rem;border-radius:6px;border:1px solid #fecaca;background:#fee2e2;color:#7f1d1d;font-size:.88rem;line-height:1.2;box-shadow:0 1px 2px rgba(0,0,0,.05);max-width:min(72vw,560px);pointer-events:none}
+  .comp-bubble::after{content:'';position:absolute;top:100%;left:14px;border-width:6px;border-style:solid;border-color:#fee2e2 transparent transparent transparent}
+  /* Floating variant appended to modal to avoid clipping */
+  .comp-bubble.is-floating{position:fixed;z-index:100000;bottom:auto;left:auto}
   .comp-actions{display:flex;gap:.5rem;}
   .comp-steps{margin-top:.25rem}
-  .comp-step{display:flex;gap:.6rem;align-items:flex-start;margin:.4rem 0;padding:.4rem;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+  /* Divider between form and steps */
+  .comp-divider{height:1px;background:var(--border);opacity:.8;margin:1.5rem 0}
+  .comp-step{display:grid;grid-template-columns:1.6rem 1fr;column-gap:.6rem;align-items:start;margin:.4rem 0;padding:.4rem;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+  .comp-step > .num{grid-column:1}
+  .comp-step > .body{grid-column:2}
+  .comp-step > .comp-warn{grid-column:1 / -1}
+  .comp-step > .comp-ok{grid-column:1 / -1}
   .comp-step .num{flex:0 0 auto;width:1.6rem;height:1.6rem;border-radius:999px;background:color-mix(in srgb, var(--primary) 14%, var(--card));border:1px solid color-mix(in srgb, var(--primary) 36%, var(--border));display:grid;place-items:center;font-weight:700;color:var(--text)}
   .comp-step .title{font-weight:700;margin-bottom:.15rem}
   .comp-step .desc{color:var(--muted);font-size:.92rem;margin:.1rem 0}
   .comp-step .actions{display:flex;gap:.4rem;margin-top:.25rem}
   .comp-step code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; background: color-mix(in srgb, var(--text) 10%, transparent); padding: .08rem .35rem; border-radius: 6px; font-size: .9em;}
+  /* Footer hint next to Verify */
+  .comp-footer .comp-hint{color:var(--muted);font-size:.9rem;align-self:center}
+  /* Validation status */
+  .comp-step.ok{border-color: color-mix(in srgb, #16a34a 60%, var(--border));}
+  .comp-step.err{border-color: color-mix(in srgb, #dc2626 60%, var(--border));}
+  .comp-status{margin-top:.2rem;font-size:.9rem;color:var(--muted)}
+  .comp-status[data-state="ok"]{color:#16a34a}
+  /* Warning area at card bottom */
+  .comp-warn{margin:.5rem -.4rem -.4rem -.4rem; padding:.45rem .6rem; border-top:1px solid #fecaca; background:#fee2e2; border-bottom-left-radius:8px; border-bottom-right-radius:8px; color:#7f1d1d}
+  .comp-warn .comp-warn-text{font-size:.92rem; line-height:1.35}
+  /* Success note at card bottom */
+  .comp-ok{margin:.5rem -.4rem -.4rem -.4rem; padding:.45rem .6rem; border-top:1px solid #bbf7d0; background:#dcfce7; border-bottom-left-radius:8px; border-bottom-right-radius:8px; color:#065f46}
+  .comp-ok .comp-ok-text{font-size:.92rem; line-height:1.35}
   .btn-compact{height:1.9rem;padding:.2rem .55rem;font-size:.9rem}
   /* Unify button styles inside modal (anchors and buttons) */
   .ns-modal-dialog .btn-secondary,
@@ -1108,6 +1516,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   .ns-modal-dialog a.btn-secondary:visited { color: var(--text); }
   .ns-modal-dialog .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
+  .ns-modal-dialog .btn-secondary[disabled],
+  .ns-modal-dialog button.btn-secondary[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
   .ns-modal-dialog .btn-primary,
   .ns-modal-dialog a.btn-primary,
   .ns-modal-dialog button.btn-primary {
@@ -1115,13 +1525,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     height:2.25rem; padding:.45rem .8rem; border-radius:8px; font-size:.93rem; line-height:1;
     text-decoration:none;
   }
+  .ns-modal-dialog .btn-primary[disabled],
+  .ns-modal-dialog button.btn-primary[disabled]{opacity:.6;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
   .ns-modal-dialog a.btn-primary:visited { color: white; }
 
   /* Simple modal for the Composer wizard */
   .ns-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);z-index:9999;padding:1rem}
   .ns-modal.is-open{display:flex}
-  .ns-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:.75rem .85rem}
-  .ns-modal-close{position:absolute;top:.5rem;right:.6rem}
+  /* Remove top padding so sticky header can sit flush */
+  .ns-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:0 .85rem .85rem}
+  .ns-modal-close{position:absolute;top:.5rem;right:.6rem;z-index:3}
+  /* When close button is inside the header, make it part of the flow */
+  .ns-modal-dialog .comp-guide-head .ns-modal-close{position:static;top:auto;right:auto;margin-left:auto}
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
   `;
