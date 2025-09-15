@@ -60,6 +60,14 @@
     .editor-main { min-width: 0; overflow: visible; }
     .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
+    /* GitHub connection status */
+    .global-status { display:flex; align-items:center; gap:.45rem; color: var(--muted); font-size:.95rem; }
+    .global-status .dot { width:8px; height:8px; border-radius:50%; background:#8c959f; display:inline-block; }
+    .global-status.ok .dot { background:#1f883d; }
+    .global-status.warn .dot { background:#f59e0b; }
+    .global-status.err .dot { background:#dc2626; }
+    .global-status a { color: var(--primary); text-decoration: none; }
+    .global-status a:hover { text-decoration: underline; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { background:#fff; color:#24292f; border:1px solid #d0d7de; padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; }
@@ -98,7 +106,7 @@
 <body>
   <div class="editor-page">
     <div class="page-titlebar">
-      <h1>Editor & Composer</h1>
+      <div id="global-status" class="global-status" aria-live="polite"></div>
       <div class="sidebar-tabs" role="tablist" aria-label="Mode switch">
         <button class="mode-tab is-active" data-mode="editor" role="tab" aria-selected="true">Editor</button>
         <button class="mode-tab" data-mode="composer" role="tab" aria-selected="false">Composer</button>
@@ -187,6 +195,7 @@
 
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
+  <script type="module" src="assets/js/editor-github.js"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
