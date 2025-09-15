@@ -85,42 +85,166 @@ function toTabsYaml(data) {
 }
 
 function makeDragList(container, onReorder) {
-  // Basic HTML5 drag for immediate children of container
-  let dragEl = null;
-  container.addEventListener('dragstart', (e) => {
-    const li = e.target.closest('[data-key]');
-    if (!li) return;
-    dragEl = li;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', li.dataset.key);
-    li.classList.add('dragging');
-  });
-  container.addEventListener('dragend', () => {
-    if (dragEl) dragEl.classList.remove('dragging');
-    dragEl = null;
-  });
-  container.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    const after = getDragAfterElement(container, e.clientY);
-    const li = dragEl;
-    if (!li) return;
-    if (after == null) container.appendChild(li);
-    else container.insertBefore(li, after);
-  });
-  container.addEventListener('drop', () => {
-    if (!onReorder) return;
-    const order = Array.from(container.querySelectorAll('[data-key]')).map(el => el.dataset.key);
-    onReorder(order);
-  });
-  function getDragAfterElement(c, y) {
-    const els = [...c.querySelectorAll('[data-key]:not(.dragging)')];
+  // Pointer-driven drag that moves the original element; siblings animate via FLIP
+  const keySelector = '[data-key]';
+  const getKey = (el) => el && el.getAttribute && el.getAttribute('data-key');
+  const childItems = () => Array.from(container.querySelectorAll(keySelector));
+
+  let dragging = null;
+  let placeholder = null;
+  let offsetX = 0, offsetY = 0;
+
+  // Utility: snapshot and animate siblings (ignore the dragged element)
+  const snapshotRects = () => {
+    const m = new Map();
+    childItems().forEach(el => { m.set(getKey(el), el.getBoundingClientRect()); });
+    return m;
+  };
+  const animateFrom = (prevRects) => {
+    childItems().forEach(el => {
+      if (el === dragging) return;
+      const key = getKey(el);
+      const prev = prevRects.get(key);
+      if (!prev) return;
+      const now = el.getBoundingClientRect();
+      const dx = prev.left - now.left;
+      const dy = prev.top - now.top;
+      if (dx || dy) {
+        try {
+          el.animate([
+            { transform: `translate(${dx}px, ${dy}px)` },
+            { transform: 'translate(0, 0)' }
+          ], { duration: 240, easing: 'ease', composite: 'replace' });
+        } catch (_) {
+          el.style.transition = 'none';
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = 'transform 240ms ease';
+            el.style.transform = '';
+            const clear = () => { el.style.transition = ''; el.removeEventListener('transitionend', clear); };
+            el.addEventListener('transitionend', clear);
+          });
+        }
+      }
+    });
+  };
+
+  const getAfterByY = (c, y) => {
+    const els = [...c.querySelectorAll(`${keySelector}:not(.dragging)`)];
     return els.reduce((closest, child) => {
       const box = child.getBoundingClientRect();
       const offset = y - box.top - box.height / 2;
       if (offset < 0 && offset > closest.offset) return { offset, element: child };
       else return closest;
     }, { offset: Number.NEGATIVE_INFINITY }).element;
-  }
+  };
+
+  const onPointerDown = (e) => {
+    if (e.button !== 0 && e.pointerType !== 'touch') return; // left click or touch only
+    const target = e.target;
+    if (target.closest('button, input, textarea, select, a')) return; // don't start drag from controls
+    const li = target.closest(keySelector);
+    if (!li || !container.contains(li)) return;
+
+    e.preventDefault();
+
+    dragging = li;
+    const r = li.getBoundingClientRect();
+    offsetX = e.clientX - r.left;
+    offsetY = e.clientY - r.top;
+
+    // placeholder keeps layout
+    placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    placeholder.style.height = r.height + 'px';
+    placeholder.style.margin = getComputedStyle(li).margin;
+    li.parentNode.insertBefore(placeholder, li.nextSibling);
+
+    // elevate original element and follow pointer
+    li.style.width = r.width + 'px';
+    li.style.height = r.height + 'px';
+    li.style.position = 'fixed';
+    li.style.left = (e.clientX - offsetX) + 'px';
+    li.style.top = (e.clientY - offsetY) + 'px';
+    li.style.zIndex = '2147483646';
+    li.style.pointerEvents = 'none';
+    li.style.willChange = 'transform, top, left';
+    li.classList.add('dragging');
+    container.classList.add('is-dragging-list');
+    document.body.classList.add('ns-noselect');
+
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp, { once: true });
+  };
+
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    dragging.style.left = (e.clientX - offsetX) + 'px';
+    dragging.style.top = (e.clientY - offsetY) + 'px';
+
+    const prev = snapshotRects();
+    const after = getAfterByY(container, e.clientY);
+    if (after == null) container.appendChild(placeholder);
+    else container.insertBefore(placeholder, after);
+    animateFrom(prev);
+  };
+
+  const onPointerUp = () => {
+    if (!dragging) return;
+    // current visual position of the fixed element (origin)
+    const origin = dragging.getBoundingClientRect();
+    // target position equals the placeholder's rect
+    const target = placeholder.getBoundingClientRect();
+    const dx = origin.left - target.left;
+    const dy = origin.top - target.top;
+
+    // place the element where the placeholder sits in DOM order
+    placeholder.parentNode.insertBefore(dragging, placeholder);
+    placeholder.remove();
+    placeholder = null;
+
+    // reset positioning to re-enter normal flow
+    dragging.style.position = '';
+    dragging.style.left = '';
+    dragging.style.top = '';
+    dragging.style.width = '';
+    dragging.style.height = '';
+    dragging.style.zIndex = '';
+    dragging.style.pointerEvents = '';
+    dragging.style.willChange = '';
+    dragging.classList.remove('dragging');
+
+    // animate the snap from origin -> target (FLIP on the dragged element)
+    try {
+      dragging.animate([
+        { transform: `translate(${dx}px, ${dy}px)` },
+        { transform: 'translate(0, 0)' }
+      ], { duration: 240, easing: 'ease' });
+    } catch (_) {
+      // Fallback: CSS transition
+      dragging.style.transition = 'none';
+      dragging.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(() => {
+        dragging.style.transition = 'transform 240ms ease';
+        dragging.style.transform = '';
+        const clear = () => { dragging.style.transition = ''; dragging.removeEventListener('transitionend', clear); };
+        dragging.addEventListener('transitionend', clear);
+      });
+    }
+
+    container.classList.remove('is-dragging-list');
+    document.body.classList.remove('ns-noselect');
+    window.removeEventListener('pointermove', onPointerMove);
+
+    const order = childItems().map(el => el.dataset.key);
+    if (onReorder) onReorder(order);
+    dragging = null;
+  };
+
+  // Disable native HTML5 DnD on this container
+  container.addEventListener('dragstart', (e) => e.preventDefault());
+  container.addEventListener('pointerdown', onPointerDown);
 }
 
 function buildIndexUI(root, state) {
@@ -450,7 +574,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ct-fields input{width:100%;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-add-lang,.ct-add-lang{display:flex;align-items:center;gap:.5rem;margin-top:.5rem}
   .ci-add-lang input,.ct-add-lang input{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
-  .dragging{opacity:.6}
+  .dragging{opacity:.96}
+  .drag-placeholder{border:1px dashed var(--border);border-radius:8px;background:transparent}
+  .is-dragging-list{touch-action:none}
+  body.ns-noselect{user-select:none;cursor:grabbing}
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
