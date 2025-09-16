@@ -890,9 +890,20 @@ function bindComposerUI(state) {
 
     function openModal() {
       lastActive = document.activeElement;
+      const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
+      // Ensure we start clean
+      try { modal.classList.remove('ns-anim-out'); } catch(_) {}
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.classList.add('ns-modal-open');
+      if (!reduce) {
+        try {
+          // Trigger enter animation
+          modal.classList.add('ns-anim-in');
+          const onEnd = () => { try { modal.classList.remove('ns-anim-in'); } catch(_) {}; dialog.removeEventListener('animationend', onEnd); };
+          dialog.addEventListener('animationend', onEnd, { once: true });
+        } catch(_) {}
+      }
       // Default to Cancel until verification passes
       try { btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label', 'Cancel'); } catch(_){}
       // Unlock form controls for a new session
@@ -917,10 +928,29 @@ function bindComposerUI(state) {
       setTimeout(() => { try { wrap.querySelector('#compKey')?.focus(); } catch(_){} }, 0);
     }
     function closeModal() {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('ns-modal-open');
-      try { lastActive && lastActive.focus(); } catch(_){}
+      const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
+      if (reduce) {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('ns-modal-open');
+        try { lastActive && lastActive.focus(); } catch(_){}
+        return;
+      }
+      try { modal.classList.remove('ns-anim-in'); } catch(_) {}
+      try { modal.classList.add('ns-anim-out'); } catch(_) {}
+      const finish = () => {
+        try { modal.classList.remove('ns-anim-out'); } catch(_) {}
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('ns-modal-open');
+        try { lastActive && lastActive.focus(); } catch(_){}
+      };
+      try {
+        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); finish(); };
+        dialog.addEventListener('animationend', onEnd, { once: true });
+        // Safety net in case animationend doesn't fire
+        setTimeout(finish, 220);
+      } catch(_) { finish(); }
     }
 
     modal.__open = openModal;
@@ -1903,8 +1933,32 @@ function bindComposerUI(state) {
       modal.appendChild(dialog);
       document.body.appendChild(modal);
 
-      function open(){ modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false'); document.body.classList.add('ns-modal-open'); }
-      function close(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('ns-modal-open'); try { modal.remove(); } catch(_) {} }
+      function open(){
+        const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
+        try { modal.classList.remove('ns-anim-out'); } catch(_) {}
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden','false');
+        document.body.classList.add('ns-modal-open');
+        if (!reduce) {
+          try {
+            modal.classList.add('ns-anim-in');
+            const onEnd = () => { try { modal.classList.remove('ns-anim-in'); } catch(_) {}; dialog.removeEventListener('animationend', onEnd); };
+            dialog.addEventListener('animationend', onEnd, { once: true });
+          } catch(_) {}
+        }
+      }
+      function close(){
+        const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
+        const done = () => { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('ns-modal-open'); try { modal.remove(); } catch(_) {} };
+        if (reduce) { done(); return; }
+        try { modal.classList.remove('ns-anim-in'); } catch(_) {}
+        try { modal.classList.add('ns-anim-out'); } catch(_) {}
+        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); try { modal.classList.remove('ns-anim-out'); } catch(_) {}; done(); };
+        try {
+          dialog.addEventListener('animationend', onEnd, { once: true });
+          setTimeout(onEnd, 200);
+        } catch(_) { onEnd(); }
+      }
 
       btnClose.addEventListener('click', close);
       modal.addEventListener('mousedown', (e)=>{ if (e.target === modal) close(); });
@@ -2177,6 +2231,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ns-modal-dialog .comp-guide-head .ns-modal-close{position:static;top:auto;right:auto;margin-left:auto}
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
+
+  /* Modal animations */
+  @keyframes nsModalFadeIn { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes nsModalFadeOut { from { opacity: 1 } to { opacity: 0 } }
+  @keyframes nsModalSlideIn { from { transform: translateY(10px) scale(.98); opacity: 0 } to { transform: translateY(0) scale(1); opacity: 1 } }
+  @keyframes nsModalSlideOut { from { transform: translateY(0) scale(1); opacity: 1 } to { transform: translateY(8px) scale(.98); opacity: 0 } }
+  .ns-modal.ns-anim-in { animation: nsModalFadeIn 160ms ease both; }
+  .ns-modal.ns-anim-out { animation: nsModalFadeOut 160ms ease both; }
+  .ns-modal.ns-anim-in .ns-modal-dialog { animation: nsModalSlideIn 200ms cubic-bezier(.2,.95,.4,1) both; }
+  .ns-modal.ns-anim-out .ns-modal-dialog { animation: nsModalSlideOut 160ms ease both; }
+  @media (prefers-reduced-motion: reduce){
+    .ns-modal.ns-anim-in,
+    .ns-modal.ns-anim-out,
+    .ns-modal.ns-anim-in .ns-modal-dialog,
+    .ns-modal.ns-anim-out .ns-modal-dialog { animation: none !important; }
+  }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
 })();
