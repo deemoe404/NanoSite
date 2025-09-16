@@ -2029,10 +2029,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ns-modal-dialog .btn-github,
   .ns-modal-dialog a.btn-github,
   .ns-modal-dialog button.btn-github {
-    background:#2da44e !important; color:#ffffff !important; border:1px solid #2c974b !important; border-radius:8px !important;
+    background:#428646 !important; color:#ffffff !important; border:1px solid #3d7741 !important; border-radius:8px !important;
   }
   .ns-modal-dialog a.btn-github:visited { color:#ffffff !important; }
-  .ns-modal-dialog .btn-github:hover { background:#2c974b !important; }
+  .ns-modal-dialog .btn-github:hover { background:#3d7741 !important; }
   .ns-modal-dialog .btn-github:active { background:#298e46 !important; }
   .ns-modal-dialog .btn-secondary[disabled],
   .ns-modal-dialog button.btn-secondary[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
