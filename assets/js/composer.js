@@ -2150,7 +2150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-body,.ct-body{padding:0 .6rem;}
   .ci-body.is-open,.ct-body.is-open{padding:.5rem .6rem;}
-  .ci-body-inner,.ct-body-inner{overflow:hidden;max-height:0;opacity:0;transition:max-height 380ms ease,opacity 380ms ease}
+  .ci-body-inner,.ct-body-inner{overflow:hidden;max-height:0;opacity:0;transition:max-height 480ms cubic-bezier(.45,0,.25,1),opacity 480ms cubic-bezier(.45,0,.25,1)}
   .ci-body.is-open .ci-body-inner,.ct-body.is-open .ct-body-inner{max-height:2000px;opacity:1;overflow:visible}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
@@ -2195,7 +2195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .badge-ver{ color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
   .badge-lang{}
   /* Caret arrow for Details buttons */
-  .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 380ms ease}
+  .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 480ms cubic-bezier(.45,0,.25,1)}
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
   @media (prefers-reduced-motion: reduce){
     .ci-body-inner,.ct-body-inner{transition:none}
