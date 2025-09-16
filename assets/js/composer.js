@@ -6,6 +6,93 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 
+// --- Persisted UI state keys ---
+const LS_KEYS = {
+  mode: 'ns_editor_mode',       // 'editor' | 'composer'
+  cfile: 'ns_composer_file'     // 'index' | 'tabs'
+};
+
+// Read desired mode from URL hash/query or localStorage (fallback to 'editor')
+function getInitialMode() {
+  try {
+    const h = String(location.hash || '').toLowerCase();
+    if (h.includes('composer')) return 'composer';
+    if (h.includes('editor')) return 'editor';
+  } catch (_) {}
+  try {
+    const url = new URL(location.href);
+    const p = (url.searchParams.get('mode') || '').toLowerCase();
+    if (p === 'composer' || p === 'editor') return p;
+  } catch (_) {}
+  try {
+    const v = (localStorage.getItem(LS_KEYS.mode) || '').toLowerCase();
+    if (v === 'composer' || v === 'editor') return v;
+  } catch (_) {}
+  return 'editor';
+}
+
+function setPersistedMode(mode) {
+  // Persist and reflect in URL hash (non-destructive)
+  try { localStorage.setItem(LS_KEYS.mode, mode); } catch (_) {}
+  try {
+    const url = new URL(location.href);
+    url.hash = mode === 'composer' ? '#composer' : '#editor';
+    history.replaceState(null, '', url);
+  } catch (_) {}
+}
+
+function applyMode(mode) {
+  const onEditor = mode !== 'composer';
+  try { $('#mode-editor').style.display = onEditor ? '' : 'none'; } catch (_) {}
+  try { $('#mode-composer').style.display = onEditor ? 'none' : ''; } catch (_) {}
+  try {
+    $$('.mode-tab').forEach(b => {
+      const isOn = (b.dataset.mode === mode);
+      b.classList.toggle('is-active', isOn);
+      b.setAttribute('aria-selected', isOn ? 'true' : 'false');
+    });
+  } catch (_) {}
+  // Sync preload attribute so CSS with !important stops forcing previous mode
+  try {
+    if (mode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
+    else document.documentElement.removeAttribute('data-init-mode');
+  } catch (_) {}
+}
+
+function getInitialComposerFile() {
+  try {
+    const v = (localStorage.getItem(LS_KEYS.cfile) || '').toLowerCase();
+    if (v === 'tabs' || v === 'index') return v;
+  } catch (_) {}
+  return 'index';
+}
+
+function applyComposerFile(name) {
+  const isIndex = name !== 'tabs';
+  try { $('#composerIndex').style.display = isIndex ? 'block' : 'none'; } catch (_) {}
+  try { $('#composerTabs').style.display = isIndex ? 'none' : 'block'; } catch (_) {}
+  try {
+    $$('a.vt-btn[data-cfile]').forEach(a => {
+      a.classList.toggle('active', a.dataset.cfile === (isIndex ? 'index' : 'tabs'));
+    });
+  } catch (_) {}
+  try {
+    const btn = $('#btnAddItem');
+    if (btn) btn.textContent = isIndex ? '+ Add Item' : '+ Add Tab';
+  } catch (_) {}
+  // Sync preload attribute to avoid CSS forcing the wrong sub-file
+  try {
+    if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
+    else document.documentElement.removeAttribute('data-init-cfile');
+  } catch (_) {}
+}
+
+// Apply initial state as early as possible to avoid flash on reload
+(() => {
+  try { applyMode(getInitialMode()); } catch (_) {}
+  try { applyComposerFile(getInitialComposerFile()); } catch (_) {}
+})();
+
 // Robust clipboard helper available to all composer flows
 async function nsCopyToClipboard(text) {
   const val = String(text || '');
@@ -779,28 +866,20 @@ function bindComposerUI(state) {
   $$('.mode-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
-      const onEditor = mode !== 'composer';
-      $('#mode-editor').style.display = onEditor ? '' : 'none';
-      $('#mode-composer').style.display = onEditor ? 'none' : '';
-      $$('.mode-tab').forEach(b => {
-        const isOn = b.dataset.mode === mode;
-        b.classList.toggle('is-active', isOn);
-        b.setAttribute('aria-selected', isOn ? 'true' : 'false');
-      });
+      applyMode(mode);
+      setPersistedMode(mode);
     });
   });
 
   // File switch (index.yaml <-> tabs.yaml)
   const links = $$('a.vt-btn[data-cfile]');
   const setFile = (name) => {
-    const isIndex = name !== 'tabs';
-    $('#composerIndex').style.display = isIndex ? 'block' : 'none';
-    $('#composerTabs').style.display = isIndex ? 'none' : 'block';
-    links.forEach(a => a.classList.toggle('active', a.dataset.cfile === (isIndex ? 'index' : 'tabs')));
-    $('#btnAddItem').textContent = isIndex ? '+ Add Item' : '+ Add Tab';
+    applyComposerFile(name);
+    try { localStorage.setItem(LS_KEYS.cfile, (name === 'tabs') ? 'tabs' : 'index'); } catch (_) {}
   };
   links.forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setFile(a.dataset.cfile); }));
-  setFile('index');
+  // Respect persisted selection on load
+  setFile(getInitialComposerFile());
 
   // ----- Composer: New Post Wizard -----
   // Build a small guided flow to:
