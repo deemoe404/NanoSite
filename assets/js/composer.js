@@ -161,6 +161,15 @@ function sortLangKeys(obj) {
   });
 }
 
+// Localized display names for languages in UI menus
+function displayLangName(code) {
+  const c = String(code || '').toLowerCase();
+  if (c === 'en') return 'English';
+  if (c === 'zh') return '中文';
+  if (c === 'ja') return '日本語';
+  return c.toUpperCase();
+}
+
 function q(s) {
   // Double-quoted YAML scalar with basic escapes
   const str = String(s ?? '');
@@ -552,20 +561,66 @@ function buildIndexUI(root, state) {
         bodyInner.appendChild(block);
       });
 
-      const addLangWrap = document.createElement('div');
-      addLangWrap.className = 'ci-add-lang';
-      addLangWrap.innerHTML = `
-        <input class="ci-lang-code" type="text" placeholder="lang code, e.g., en" />
-        <button class="btn-secondary ci-add-lang-btn">+ Add Language</button>
-      `;
-      $('.ci-add-lang-btn', addLangWrap).addEventListener('click', () => {
-        const code = String($('.ci-lang-code', addLangWrap).value || '').trim();
-        if (!code) return; if (entry[code]) return;
-        entry[code] = [''];
-        row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
-        renderBody();
-      });
-      bodyInner.appendChild(addLangWrap);
+      // Add-language via custom dropdown showing only missing languages
+      const supportedLangs = PREFERRED_LANG_ORDER.slice();
+      const available = supportedLangs.filter(l => !entry[l]);
+      if (available.length > 0) {
+        const addLangWrap = document.createElement('div');
+        addLangWrap.className = 'ci-add-lang has-menu';
+        addLangWrap.innerHTML = `
+          <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">+ Add Language</button>
+          <div class="ci-lang-menu ns-menu" role="listbox" hidden>
+            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${displayLangName(l)}</button>`).join('')}
+          </div>
+        `;
+        const btn = $('.ci-add-lang-btn', addLangWrap);
+        const menu = $('.ci-lang-menu', addLangWrap);
+        function closeMenu(){
+          if (menu.hidden) return;
+          // animate out, then hide
+          const finish = () => {
+            menu.hidden = true;
+            btn.classList.remove('is-open');
+            addLangWrap.classList.remove('is-open');
+            btn.setAttribute('aria-expanded','false');
+            document.removeEventListener('mousedown', onDocDown, true);
+            document.removeEventListener('keydown', onKeyDown, true);
+            menu.classList.remove('is-closing');
+          };
+          try {
+            menu.classList.add('is-closing');
+            const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+            menu.addEventListener('animationend', onEnd, { once: true });
+            // safety timeout
+            setTimeout(finish, 180);
+          } catch(_) { finish(); }
+        }
+        function openMenu(){
+          if (!menu.hidden) return;
+          menu.hidden = false;
+          try { menu.classList.remove('is-closing'); } catch(_){}
+          btn.classList.add('is-open');
+          addLangWrap.classList.add('is-open');
+          btn.setAttribute('aria-expanded','true');
+          try { menu.querySelector('.ns-menu-item')?.focus(); } catch(_){}
+          document.addEventListener('mousedown', onDocDown, true);
+          document.addEventListener('keydown', onKeyDown, true);
+        }
+        function onDocDown(e){ if (!addLangWrap.contains(e.target)) closeMenu(); }
+        function onKeyDown(e){ if (e.key === 'Escape') { e.preventDefault(); closeMenu(); } }
+        btn.addEventListener('click', () => { btn.classList.contains('is-open') ? closeMenu() : openMenu(); });
+        menu.querySelectorAll('.ns-menu-item').forEach(it => {
+          it.addEventListener('click', () => {
+            const code = String(it.getAttribute('data-lang')||'').trim();
+            if (!code || entry[code]) return;
+            entry[code] = [''];
+            row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
+            closeMenu();
+            renderBody();
+          });
+        });
+        bodyInner.appendChild(addLangWrap);
+      }
     };
     renderBody();
 
@@ -642,20 +697,64 @@ function buildTabsUI(root, state) {
         bodyInner.appendChild(block);
       });
 
-      const addLangWrap = document.createElement('div');
-      addLangWrap.className = 'ct-add-lang';
-      addLangWrap.innerHTML = `
-        <input class="ct-lang-code" type="text" placeholder="lang code, e.g., en" />
-        <button class="btn-secondary ct-add-lang-btn">+ Add Language</button>
-      `;
-      $('.ct-add-lang-btn', addLangWrap).addEventListener('click', () => {
-        const code = String($('.ct-lang-code', addLangWrap).value || '').trim();
-        if (!code) return; if (entry[code]) return;
-        entry[code] = { title: '', location: '' };
-        row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
-        renderBody();
-      });
-      bodyInner.appendChild(addLangWrap);
+      // Add-language via custom dropdown showing only missing languages
+      const supportedLangs = PREFERRED_LANG_ORDER.slice();
+      const available = supportedLangs.filter(l => !entry[l]);
+      if (available.length > 0) {
+        const addLangWrap = document.createElement('div');
+        addLangWrap.className = 'ct-add-lang has-menu';
+        addLangWrap.innerHTML = `
+          <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">+ Add Language</button>
+          <div class="ct-lang-menu ns-menu" role="listbox" hidden>
+            ${available.map(l => `<button type=\"button\" role=\"option\" class=\"ns-menu-item\" data-lang=\"${l}\">${displayLangName(l)}</button>`).join('')}
+          </div>
+        `;
+        const btn = $('.ct-add-lang-btn', addLangWrap);
+        const menu = $('.ct-lang-menu', addLangWrap);
+        function closeMenu(){
+          if (menu.hidden) return;
+          const finish = () => {
+            menu.hidden = true;
+            btn.classList.remove('is-open');
+            addLangWrap.classList.remove('is-open');
+            btn.setAttribute('aria-expanded','false');
+            document.removeEventListener('mousedown', onDocDown, true);
+            document.removeEventListener('keydown', onKeyDown, true);
+            menu.classList.remove('is-closing');
+          };
+          try {
+            menu.classList.add('is-closing');
+            const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+            menu.addEventListener('animationend', onEnd, { once: true });
+            setTimeout(finish, 180);
+          } catch(_) { finish(); }
+        }
+        function openMenu(){
+          if (!menu.hidden) return;
+          menu.hidden = false;
+          try { menu.classList.remove('is-closing'); } catch(_){}
+          btn.classList.add('is-open');
+          addLangWrap.classList.add('is-open');
+          btn.setAttribute('aria-expanded','true');
+          try { menu.querySelector('.ns-menu-item')?.focus(); } catch(_){}
+          document.addEventListener('mousedown', onDocDown, true);
+          document.addEventListener('keydown', onKeyDown, true);
+        }
+        function onDocDown(e){ if (!addLangWrap.contains(e.target)) closeMenu(); }
+        function onKeyDown(e){ if (e.key === 'Escape') { e.preventDefault(); closeMenu(); } }
+        btn.addEventListener('click', () => { btn.classList.contains('is-open') ? closeMenu() : openMenu(); });
+        menu.querySelectorAll('.ns-menu-item').forEach(it => {
+          it.addEventListener('click', () => {
+            const code = String(it.getAttribute('data-lang')||'').trim();
+            if (!code || entry[code]) return;
+            entry[code] = { title: '', location: '' };
+            row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
+            closeMenu();
+            renderBody();
+          });
+        });
+        bodyInner.appendChild(addLangWrap);
+      }
     };
     renderBody();
 
@@ -1919,7 +2018,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-body,.ct-body{padding:0 .6rem;}
   .ci-body.is-open,.ct-body.is-open{padding:.5rem .6rem;}
   .ci-body-inner,.ct-body-inner{overflow:hidden;max-height:0;opacity:0;transition:max-height 380ms ease,opacity 380ms ease}
-  .ci-body.is-open .ci-body-inner,.ct-body.is-open .ct-body-inner{max-height:2000px;opacity:1}
+  .ci-body.is-open .ci-body-inner,.ct-body.is-open .ct-body-inner{max-height:2000px;opacity:1;overflow:visible}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ci-meta,.ct-meta{color:var(--muted);font-size:.85rem}
@@ -1931,8 +2030,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   .ct-fields{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
   .ct-fields input{width:100%;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
-  .ci-add-lang,.ct-add-lang{display:flex;align-items:center;gap:.5rem;margin-top:.5rem}
+  /* Add Language row: compact button, keep menu aligned to trigger width */
+  .ci-add-lang,.ct-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative}
+  .ci-add-lang .btn-secondary,.ct-add-lang .btn-secondary{justify-content:center;border-bottom:0 !important}
   .ci-add-lang input,.ct-add-lang input{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
+  .ci-add-lang select,.ct-add-lang select{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
+  .has-menu{overflow:visible}
+  .has-menu.is-open{z-index:100}
+  /* Button when open looks attached to menu */
+  .ci-add-lang .btn-secondary.is-open,.ct-add-lang .btn-secondary.is-open{border-bottom-left-radius:0;border-bottom-right-radius:0;background:color-mix(in srgb, var(--text) 5%, var(--card));border-color:color-mix(in srgb, var(--primary) 45%, var(--border));border-bottom:0 !important}
+  /* Custom menu popup */
+  .ns-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:100%;min-width:0;border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
+  .has-menu.is-open > .ns-menu{animation: ns-menu-in 160ms ease-out both}
+  @keyframes ns-menu-in{from{opacity:0; transform: translateY(-4px) scale(0.98);} to{opacity:1; transform: translateY(0) scale(1);} }
+  /* Closing animation */
+  .ns-menu.is-closing{animation: ns-menu-out 130ms ease-in both !important}
+  @keyframes ns-menu-out{from{opacity:1; transform: translateY(0) scale(1);} to{opacity:0; transform: translateY(-4px) scale(0.98);} }
+  .ns-menu .ns-menu-item{display:block;width:100%;text-align:left;background:transparent;color:var(--text);border:0 !important;border-bottom:0 !important;padding:.4rem .6rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* Only draw a single divider: use top border on following items */
+  .ns-menu .ns-menu-item + .ns-menu-item{border-top:1px solid color-mix(in srgb, var(--text) 16%, var(--border))}
+  .ns-menu .ns-menu-item:hover{background:color-mix(in srgb, var(--text) 6%, var(--card))}
+  /* Make selects look like secondary buttons */
+  .btn-like-select{appearance:none;-webkit-appearance:none;cursor:pointer;padding:.45rem .8rem;height:2.25rem;line-height:1}
+  .btn-like-select:focus-visible{outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px}
   .dragging{opacity:.96}
   .drag-placeholder{border:1px dashed var(--border);border-radius:8px;background:transparent}
   .is-dragging-list{touch-action:none}
