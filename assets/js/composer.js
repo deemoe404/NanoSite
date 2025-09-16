@@ -102,7 +102,7 @@ function applyComposerFile(name) {
   } catch (_) {}
   try {
     const btn = $('#btnAddItem');
-    if (btn) btn.textContent = isIndex ? '+ Add Item' : '+ Add Tab';
+    if (btn) btn.textContent = isIndex ? 'New Post Wizard' : 'New Tab Wizard';
   } catch (_) {}
   // Sync preload attribute to avoid CSS forcing the wrong sub-file
   try {
@@ -2349,6 +2349,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* Simple modal for the Composer wizard */
   .ns-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);z-index:9999;padding:1rem}
   .ns-modal.is-open{display:flex}
+  /* Nudge modal upward on short viewports */
+  @media (max-height: 820px){
+    .ns-modal{align-items:flex-start;padding-top:calc(max(12px, env(safe-area-inset-top)) + 24px)}
+  }
   /* Remove top padding so sticky header can sit flush */
   .ns-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:0 .85rem .85rem}
   .ns-modal-close{position:absolute;top:.5rem;right:.6rem;z-index:3}
