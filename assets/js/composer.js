@@ -21,6 +21,854 @@ let activeDynamicMode = null;
 let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
 
+const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
+
+let activeComposerState = null;
+let remoteBaseline = { index: null, tabs: null };
+let composerDiffCache = { index: null, tabs: null };
+let composerDraftMeta = { index: null, tabs: null };
+let composerAutoSaveTimers = { index: null, tabs: null };
+
+function getActiveComposerFile() {
+  try {
+    const a = document.querySelector('a.vt-btn[data-cfile].active');
+    const name = a && a.dataset && a.dataset.cfile;
+    return name === 'tabs' ? 'tabs' : 'index';
+  } catch (_) {
+    return 'index';
+  }
+}
+
+function deepClone(value) {
+  try {
+    if (typeof structuredClone === 'function') return structuredClone(value);
+  } catch (_) {}
+  try { return JSON.parse(JSON.stringify(value)); }
+  catch (_) { return value; }
+}
+
+function safeString(value) {
+  return value == null ? '' : String(value);
+}
+
+function escapeHtml(value) {
+  return safeString(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function prepareIndexState(raw) {
+  const output = { __order: [] };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return output;
+  const seen = new Set();
+  const order = Array.isArray(raw.__order) ? raw.__order.filter(k => typeof k === 'string' && k) : [];
+  order.forEach(key => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.__order.push(key);
+    output[key] = normalizeIndexEntry(raw[key]);
+  });
+  Object.keys(raw).forEach(key => {
+    if (key === '__order') return;
+    if (seen.has(key)) {
+      if (!Object.prototype.hasOwnProperty.call(output, key)) output[key] = normalizeIndexEntry(raw[key]);
+      return;
+    }
+    seen.add(key);
+    output.__order.push(key);
+    output[key] = normalizeIndexEntry(raw[key]);
+  });
+  return output;
+}
+
+function normalizeIndexEntry(entry) {
+  const out = {};
+  if (!entry || typeof entry !== 'object') return out;
+  Object.keys(entry).forEach(lang => {
+    if (lang === '__order') return;
+    const value = entry[lang];
+    if (Array.isArray(value)) {
+      out[lang] = value.map(item => safeString(item));
+    } else if (value != null && typeof value === 'object') {
+      // Unexpected object -> stringify to keep placeholder
+      out[lang] = safeString(value.location || value.path || '');
+    } else {
+      out[lang] = safeString(value);
+    }
+  });
+  return out;
+}
+
+function prepareTabsState(raw) {
+  const output = { __order: [] };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return output;
+  const seen = new Set();
+  const order = Array.isArray(raw.__order) ? raw.__order.filter(k => typeof k === 'string' && k) : [];
+  order.forEach(key => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    output.__order.push(key);
+    output[key] = normalizeTabsEntry(raw[key]);
+  });
+  Object.keys(raw).forEach(key => {
+    if (key === '__order') return;
+    if (seen.has(key)) {
+      if (!Object.prototype.hasOwnProperty.call(output, key)) output[key] = normalizeTabsEntry(raw[key]);
+      return;
+    }
+    seen.add(key);
+    output.__order.push(key);
+    output[key] = normalizeTabsEntry(raw[key]);
+  });
+  return output;
+}
+
+function normalizeTabsEntry(entry) {
+  const out = {};
+  if (!entry || typeof entry !== 'object') return out;
+  Object.keys(entry).forEach(lang => {
+    if (lang === '__order') return;
+    const value = entry[lang];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      out[lang] = {
+        title: safeString(value.title),
+        location: safeString(value.location)
+      };
+    } else {
+      out[lang] = { title: '', location: safeString(value) };
+    }
+  });
+  return out;
+}
+
+function arraysEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function computeIndexSignature(state) {
+  if (!state) return '';
+  const parts = [];
+  const order = Array.isArray(state.__order) ? state.__order.slice() : [];
+  parts.push(JSON.stringify(['order', order]));
+  const keys = Object.keys(state).filter(k => k !== '__order').sort();
+  keys.forEach(key => {
+    const entry = state[key] || {};
+    const langs = Object.keys(entry).sort();
+    const langParts = langs.map(lang => {
+      const value = entry[lang];
+      if (Array.isArray(value)) return [lang, 'list', value.map(item => safeString(item))];
+      return [lang, 'single', safeString(value)];
+    });
+    parts.push(JSON.stringify([key, langParts]));
+  });
+  return parts.join('|');
+}
+
+function computeTabsSignature(state) {
+  if (!state) return '';
+  const parts = [];
+  const order = Array.isArray(state.__order) ? state.__order.slice() : [];
+  parts.push(JSON.stringify(['order', order]));
+  const keys = Object.keys(state).filter(k => k !== '__order').sort();
+  keys.forEach(key => {
+    const entry = state[key] || {};
+    const langs = Object.keys(entry).sort();
+    const langParts = langs.map(lang => {
+      const value = entry[lang] || { title: '', location: '' };
+      return [lang, safeString(value.title), safeString(value.location)];
+    });
+    parts.push(JSON.stringify([key, langParts]));
+  });
+  return parts.join('|');
+}
+
+function diffVersionLists(currentValue, baselineValue) {
+  const normalize = (value) => {
+    if (Array.isArray(value)) {
+      return { kind: 'list', items: value.map(item => safeString(item)) };
+    }
+    return { kind: 'single', items: [safeString(value)] };
+  };
+  const cur = normalize(currentValue);
+  const base = normalize(baselineValue);
+  const curItems = cur.items;
+  const baseItems = base.items;
+  const baseMatched = new Array(baseItems.length).fill(false);
+  const entries = [];
+  for (let i = 0; i < curItems.length; i += 1) {
+    const value = curItems[i];
+    let status = 'added';
+    let prevIndex = -1;
+    if (i < baseItems.length && baseItems[i] === value && !baseMatched[i]) {
+      status = 'unchanged';
+      prevIndex = i;
+      baseMatched[i] = true;
+    } else {
+      let foundIndex = -1;
+      for (let j = 0; j < baseItems.length; j += 1) {
+        if (!baseMatched[j] && baseItems[j] === value) {
+          foundIndex = j;
+          break;
+        }
+      }
+      if (foundIndex !== -1) {
+        status = 'moved';
+        prevIndex = foundIndex;
+        baseMatched[foundIndex] = true;
+      } else if (i < baseItems.length) {
+        status = 'changed';
+        prevIndex = i;
+        baseMatched[i] = true;
+      }
+    }
+    entries.push({ value, status, prevIndex });
+  }
+  const removed = [];
+  for (let i = 0; i < baseItems.length; i += 1) {
+    if (!baseMatched[i]) removed.push({ value: baseItems[i], index: i });
+  }
+  const changed = cur.kind !== base.kind
+    || curItems.length !== baseItems.length
+    || entries.some(item => item.status !== 'unchanged')
+    || removed.length > 0;
+  const orderChanged = entries.some(item => item.status === 'moved')
+    || (curItems.length === baseItems.length && !arraysEqual(curItems, baseItems));
+  return {
+    entries,
+    removed,
+    changed,
+    orderChanged,
+    kindChanged: cur.kind !== base.kind,
+    kind: cur.kind
+  };
+}
+
+function computeIndexDiff(current, baseline) {
+  const cur = current || { __order: [] };
+  const base = baseline || { __order: [] };
+  const diff = {
+    hasChanges: false,
+    keys: {},
+    orderChanged: false,
+    addedKeys: [],
+    removedKeys: []
+  };
+  const curOrder = Array.isArray(cur.__order) ? cur.__order : [];
+  const baseOrder = Array.isArray(base.__order) ? base.__order : [];
+  diff.orderChanged = !arraysEqual(curOrder, baseOrder);
+
+  const keySet = new Set();
+  Object.keys(cur).forEach(key => { if (key !== '__order') keySet.add(key); });
+  Object.keys(base).forEach(key => { if (key !== '__order') keySet.add(key); });
+
+  keySet.forEach(key => {
+    const curEntry = cur[key];
+    const baseEntry = base[key];
+    const info = { state: '', langs: {}, addedLangs: [], removedLangs: [] };
+    if (!baseEntry && curEntry) {
+      info.state = 'added';
+      diff.addedKeys.push(key);
+      diff.hasChanges = true;
+    } else if (baseEntry && !curEntry) {
+      info.state = 'removed';
+      diff.removedKeys.push(key);
+      diff.hasChanges = true;
+    } else if (curEntry && baseEntry) {
+      const langSet = new Set();
+      Object.keys(curEntry).forEach(lang => langSet.add(lang));
+      Object.keys(baseEntry).forEach(lang => langSet.add(lang));
+      langSet.forEach(lang => {
+        const curVal = curEntry[lang];
+        const baseVal = baseEntry[lang];
+        if (curVal == null && baseVal == null) return;
+        if (curVal == null && baseVal != null) {
+          info.langs[lang] = { state: 'removed' };
+          info.removedLangs.push(lang);
+          diff.hasChanges = true;
+          return;
+        }
+        if (curVal != null && baseVal == null) {
+          info.langs[lang] = { state: 'added' };
+          info.addedLangs.push(lang);
+          diff.hasChanges = true;
+          return;
+        }
+        const versionDiff = diffVersionLists(curVal, baseVal);
+        if (versionDiff.changed) {
+          info.langs[lang] = { state: 'modified', versions: versionDiff };
+          diff.hasChanges = true;
+        }
+      });
+      if (!info.state) {
+        if (Object.keys(info.langs).length || info.addedLangs.length || info.removedLangs.length) {
+          info.state = 'modified';
+        }
+      }
+    }
+    if (info.state || Object.keys(info.langs).length || info.addedLangs.length || info.removedLangs.length) {
+      diff.keys[key] = info;
+    }
+  });
+  diff.hasChanges = diff.hasChanges || diff.orderChanged || diff.addedKeys.length > 0 || diff.removedKeys.length > 0;
+  return diff;
+}
+
+function computeTabsDiff(current, baseline) {
+  const cur = current || { __order: [] };
+  const base = baseline || { __order: [] };
+  const diff = {
+    hasChanges: false,
+    keys: {},
+    orderChanged: false,
+    addedKeys: [],
+    removedKeys: []
+  };
+  const curOrder = Array.isArray(cur.__order) ? cur.__order : [];
+  const baseOrder = Array.isArray(base.__order) ? base.__order : [];
+  diff.orderChanged = !arraysEqual(curOrder, baseOrder);
+
+  const keySet = new Set();
+  Object.keys(cur).forEach(key => { if (key !== '__order') keySet.add(key); });
+  Object.keys(base).forEach(key => { if (key !== '__order') keySet.add(key); });
+
+  keySet.forEach(key => {
+    const curEntry = cur[key];
+    const baseEntry = base[key];
+    const info = { state: '', langs: {}, addedLangs: [], removedLangs: [] };
+    if (!baseEntry && curEntry) {
+      info.state = 'added';
+      diff.addedKeys.push(key);
+      diff.hasChanges = true;
+    } else if (baseEntry && !curEntry) {
+      info.state = 'removed';
+      diff.removedKeys.push(key);
+      diff.hasChanges = true;
+    } else if (curEntry && baseEntry) {
+      const langSet = new Set();
+      Object.keys(curEntry).forEach(lang => langSet.add(lang));
+      Object.keys(baseEntry).forEach(lang => langSet.add(lang));
+      langSet.forEach(lang => {
+        const curVal = curEntry[lang];
+        const baseVal = baseEntry[lang];
+        if (!curVal && !baseVal) return;
+        if (!curVal && baseVal) {
+          info.langs[lang] = { state: 'removed' };
+          info.removedLangs.push(lang);
+          diff.hasChanges = true;
+          return;
+        }
+        if (curVal && !baseVal) {
+          info.langs[lang] = { state: 'added' };
+          info.addedLangs.push(lang);
+          diff.hasChanges = true;
+          return;
+        }
+        const curTitle = safeString(curVal.title);
+        const curLoc = safeString(curVal.location);
+        const baseTitle = safeString(baseVal.title);
+        const baseLoc = safeString(baseVal.location);
+        const titleChanged = curTitle !== baseTitle;
+        const locationChanged = curLoc !== baseLoc;
+        if (titleChanged || locationChanged) {
+          info.langs[lang] = { state: 'modified', titleChanged, locationChanged };
+          diff.hasChanges = true;
+        }
+      });
+      if (!info.state) {
+        if (Object.keys(info.langs).length || info.addedLangs.length || info.removedLangs.length) info.state = 'modified';
+      }
+    }
+    if (info.state || Object.keys(info.langs).length || info.addedLangs.length || info.removedLangs.length) {
+      diff.keys[key] = info;
+    }
+  });
+  diff.hasChanges = diff.hasChanges || diff.orderChanged || diff.addedKeys.length > 0 || diff.removedKeys.length > 0;
+  return diff;
+}
+
+function readDraftStore() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeDraftStore(store) {
+  try {
+    if (!store || !Object.keys(store).length) {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(store));
+  } catch (_) {
+    /* ignore storage errors */
+  }
+}
+
+function cssEscape(value) {
+  try {
+    if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value);
+  } catch (_) {}
+  return safeString(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+function getStateSlice(kind) {
+  if (!activeComposerState) return null;
+  return kind === 'tabs' ? activeComposerState.tabs : activeComposerState.index;
+}
+
+function setStateSlice(kind, value) {
+  if (!activeComposerState) return;
+  if (kind === 'tabs') activeComposerState.tabs = value;
+  else activeComposerState.index = value;
+}
+
+function computeBaselineSignature(kind) {
+  if (kind === 'tabs') return computeTabsSignature(remoteBaseline.tabs);
+  return computeIndexSignature(remoteBaseline.index);
+}
+
+function recomputeDiff(kind) {
+  const slice = getStateSlice(kind) || { __order: [] };
+  const baselineSlice = kind === 'tabs' ? remoteBaseline.tabs : remoteBaseline.index;
+  const diff = kind === 'tabs'
+    ? computeTabsDiff(slice, baselineSlice)
+    : computeIndexDiff(slice, baselineSlice);
+  composerDiffCache[kind] = diff;
+  return diff;
+}
+
+function makeDiffBadge(label, type, scope) {
+  const cls = scope ? `${scope}-diff-badge` : 'diff-badge';
+  return `<span class="${cls} ${cls}-${type}">${escapeHtml(label)}</span>`;
+}
+
+function buildIndexDiffBadges(info) {
+  if (!info) return '';
+  const badges = [];
+  if (info.state === 'added') badges.push(makeDiffBadge('New', 'added', 'ci'));
+  if (info.state === 'removed') badges.push(makeDiffBadge('Removed', 'removed', 'ci'));
+  const handledLang = new Set();
+  Object.keys(info.langs || {}).forEach(lang => {
+    const detail = info.langs[lang];
+    const label = lang.toUpperCase();
+    handledLang.add(lang);
+    if (!detail) return;
+    if (detail.state === 'added') badges.push(makeDiffBadge(`+${label}`, 'added', 'ci'));
+    else if (detail.state === 'removed') badges.push(makeDiffBadge(`-${label}`, 'removed', 'ci'));
+    else if (detail.state === 'modified') badges.push(makeDiffBadge(`~${label}`, 'changed', 'ci'));
+  });
+  (info.addedLangs || []).forEach(lang => {
+    if (handledLang.has(lang)) return;
+    badges.push(makeDiffBadge(`+${lang.toUpperCase()}`, 'added', 'ci'));
+  });
+  (info.removedLangs || []).forEach(lang => {
+    if (handledLang.has(lang)) return;
+    badges.push(makeDiffBadge(`-${lang.toUpperCase()}`, 'removed', 'ci'));
+  });
+  if (!badges.length && info.state === 'modified') badges.push(makeDiffBadge('Changed', 'changed', 'ci'));
+  return badges.join(' ');
+}
+
+function buildTabsDiffBadges(info) {
+  if (!info) return '';
+  const badges = [];
+  if (info.state === 'added') badges.push(makeDiffBadge('New', 'added', 'ct'));
+  if (info.state === 'removed') badges.push(makeDiffBadge('Removed', 'removed', 'ct'));
+  Object.keys(info.langs || {}).forEach(lang => {
+    const detail = info.langs[lang];
+    if (!detail) return;
+    const label = lang.toUpperCase();
+    if (detail.state === 'added') badges.push(makeDiffBadge(`+${label}`, 'added', 'ct'));
+    else if (detail.state === 'removed') badges.push(makeDiffBadge(`-${label}`, 'removed', 'ct'));
+    else if (detail.state === 'modified') {
+      const parts = [];
+      if (detail.titleChanged) parts.push('title');
+      if (detail.locationChanged) parts.push('location');
+      const text = parts.length ? `${label} (${parts.join('&')})` : `${label}`;
+      badges.push(makeDiffBadge(text, 'changed', 'ct'));
+    }
+  });
+  if (!badges.length && info.state === 'modified') badges.push(makeDiffBadge('Changed', 'changed', 'ct'));
+  return badges.join(' ');
+}
+
+function applyIndexDiffMarkers(diff) {
+  const list = document.getElementById('ciList');
+  if (!list) return;
+  const keyDiff = (diff && diff.keys) || {};
+  list.querySelectorAll('.ci-item').forEach(row => {
+    const key = row.getAttribute('data-key');
+    const info = keyDiff[key];
+    if (info) {
+      row.classList.add('is-dirty');
+      row.setAttribute('data-diff', info.state || 'modified');
+    } else {
+      row.classList.remove('is-dirty');
+      row.removeAttribute('data-diff');
+    }
+    const diffHost = row.querySelector('.ci-diff');
+    if (diffHost) diffHost.innerHTML = buildIndexDiffBadges(info);
+    const body = row.querySelector('.ci-body-inner');
+    if (!body) return;
+    body.querySelectorAll('.ci-lang').forEach(block => {
+      const lang = block.dataset.lang;
+      const langInfo = info && info.langs ? info.langs[lang] : null;
+      if (langInfo) {
+        block.setAttribute('data-diff', langInfo.state || 'modified');
+      } else {
+        block.removeAttribute('data-diff');
+      }
+      const removedBox = block.querySelector('[data-role="removed"]');
+      if (removedBox) {
+        const removed = langInfo && langInfo.versions && Array.isArray(langInfo.versions.removed)
+          ? langInfo.versions.removed.map(item => item.value).filter(Boolean)
+          : [];
+        if (removed.length) {
+          removedBox.hidden = false;
+          removedBox.textContent = `Removed: ${removed.join(', ')}`;
+        } else {
+          removedBox.hidden = true;
+          removedBox.textContent = '';
+        }
+      }
+      const entries = langInfo && langInfo.versions && Array.isArray(langInfo.versions.entries)
+        ? langInfo.versions.entries
+        : null;
+      block.querySelectorAll('.ci-ver-item').forEach(item => {
+        if (!entries) {
+          item.removeAttribute('data-diff');
+          return;
+        }
+        const idx = Number(item.dataset.index);
+        const entryInfo = entries[idx];
+        if (entryInfo && entryInfo.status && entryInfo.status !== 'unchanged') {
+          item.setAttribute('data-diff', entryInfo.status);
+        } else {
+          item.removeAttribute('data-diff');
+        }
+      });
+    });
+  });
+}
+
+function applyTabsDiffMarkers(diff) {
+  const list = document.getElementById('ctList');
+  if (!list) return;
+  const keyDiff = (diff && diff.keys) || {};
+  list.querySelectorAll('.ct-item').forEach(row => {
+    const key = row.getAttribute('data-key');
+    const info = keyDiff[key];
+    if (info) {
+      row.classList.add('is-dirty');
+      row.setAttribute('data-diff', info.state || 'modified');
+    } else {
+      row.classList.remove('is-dirty');
+      row.removeAttribute('data-diff');
+    }
+    const diffHost = row.querySelector('.ct-diff');
+    if (diffHost) diffHost.innerHTML = buildTabsDiffBadges(info);
+    const body = row.querySelector('.ct-body-inner');
+    if (!body) return;
+    body.querySelectorAll('.ct-lang').forEach(block => {
+      const lang = block.dataset.lang;
+      const langInfo = info && info.langs ? info.langs[lang] : null;
+      if (langInfo) block.setAttribute('data-diff', langInfo.state || 'modified');
+      else block.removeAttribute('data-diff');
+      const titleInput = block.querySelector('.ct-title');
+      const locInput = block.querySelector('.ct-loc');
+      if (titleInput) {
+        if (langInfo && langInfo.titleChanged) titleInput.setAttribute('data-diff', 'changed');
+        else titleInput.removeAttribute('data-diff');
+      }
+      if (locInput) {
+        if (langInfo && langInfo.locationChanged) locInput.setAttribute('data-diff', 'changed');
+        else locInput.removeAttribute('data-diff');
+      }
+    });
+  });
+}
+
+function updateFileDirtyBadge(kind) {
+  const name = kind === 'tabs' ? 'tabs' : 'index';
+  const el = document.querySelector(`a.vt-btn[data-cfile="${name}"]`);
+  if (!el) return;
+  const diff = composerDiffCache[kind];
+  const hasChanges = !!(diff && diff.hasChanges);
+  el.classList.toggle('has-draft', hasChanges);
+  if (hasChanges) el.setAttribute('data-dirty', '1');
+  else el.removeAttribute('data-dirty');
+}
+
+function computeUnsyncedSummary() {
+  const summaries = [];
+  const indexDiff = composerDiffCache.index;
+  const tabsDiff = composerDiffCache.tabs;
+  if (indexDiff && indexDiff.hasChanges) {
+    const pieces = [];
+    const changed = Object.keys(indexDiff.keys || {}).length;
+    if (changed) pieces.push(`${changed} item${changed === 1 ? '' : 's'}`);
+    if (indexDiff.orderChanged) pieces.push('order');
+    if (indexDiff.addedKeys.length) pieces.push(`+${indexDiff.addedKeys.length}`);
+    if (indexDiff.removedKeys.length) pieces.push(`-${indexDiff.removedKeys.length}`);
+    const text = pieces.length ? pieces.join(', ') : 'changes';
+    summaries.push(`index.yaml: ${text}`);
+  }
+  if (tabsDiff && tabsDiff.hasChanges) {
+    const pieces = [];
+    const changed = Object.keys(tabsDiff.keys || {}).length;
+    if (changed) pieces.push(`${changed} item${changed === 1 ? '' : 's'}`);
+    if (tabsDiff.orderChanged) pieces.push('order');
+    if (tabsDiff.addedKeys.length) pieces.push(`+${tabsDiff.addedKeys.length}`);
+    if (tabsDiff.removedKeys.length) pieces.push(`-${tabsDiff.removedKeys.length}`);
+    const text = pieces.length ? pieces.join(', ') : 'changes';
+    summaries.push(`tabs.yaml: ${text}`);
+  }
+  if (!summaries.length) return '';
+  return `Unsynced changes → ${summaries.join(' · ')}`;
+}
+
+function updateUnsyncedSummary() {
+  const el = document.getElementById('composerStatus');
+  if (!el) return;
+  if (el.dataset.lock === '1') return;
+  const summary = computeUnsyncedSummary();
+  el.textContent = summary;
+  el.dataset.summary = summary ? '1' : '0';
+}
+
+function updateDraftButtonState(forceTarget) {
+  const btn = document.getElementById('btnDraft');
+  if (!btn) return;
+  const target = forceTarget || getActiveComposerFile();
+  const diff = composerDiffCache[target] || { hasChanges: false };
+  const meta = composerDraftMeta[target] || null;
+  const baseSignature = computeBaselineSignature(target);
+  const stale = meta && meta.baseSignature && baseSignature && meta.baseSignature !== baseSignature;
+  btn.dataset.target = target;
+  const hasChanges = !!(diff && diff.hasChanges);
+  const isClean = !hasChanges && !stale;
+  btn.classList.toggle('is-dirty', hasChanges);
+  btn.classList.toggle('is-clean', isClean);
+  btn.classList.toggle('is-stale', !!stale);
+  btn.textContent = '暂存 Draft';
+  if (meta && meta.savedAt) {
+    try {
+      const fmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      btn.title = `Last saved ${fmt.format(new Date(meta.savedAt))}`;
+    } catch (_) {
+      btn.title = `Last saved ${new Date(meta.savedAt).toLocaleString()}`;
+    }
+  } else {
+    btn.title = 'Save a local draft of current changes';
+  }
+  if (stale) {
+    btn.title = btn.title ? `${btn.title} -- Remote snapshot changed` : 'Remote snapshot changed';
+  }
+}
+
+function scheduleAutoDraft(kind) {
+  if (composerAutoSaveTimers[kind]) {
+    clearTimeout(composerAutoSaveTimers[kind]);
+    composerAutoSaveTimers[kind] = null;
+  }
+  const diff = composerDiffCache[kind];
+  if (!diff || !diff.hasChanges) {
+    clearDraftStorage(kind);
+    updateUnsyncedSummary();
+    return;
+  }
+  composerAutoSaveTimers[kind] = setTimeout(() => {
+    composerAutoSaveTimers[kind] = null;
+    saveDraftToStorage(kind, { manual: false });
+  }, 800);
+}
+
+function saveDraftToStorage(kind, opts = {}) {
+  const slice = getStateSlice(kind);
+  if (!slice) return null;
+  const snapshot = kind === 'tabs' ? prepareTabsState(slice) : prepareIndexState(slice);
+  const store = readDraftStore();
+  const savedAt = Date.now();
+  const baseSignature = computeBaselineSignature(kind);
+  store[kind] = { savedAt, data: snapshot, baseSignature };
+  writeDraftStore(store);
+  composerDraftMeta[kind] = { savedAt, baseSignature, lastManual: !!opts.manual };
+  updateUnsyncedSummary();
+  if (opts.manual) updateDraftButtonState();
+  return composerDraftMeta[kind];
+}
+
+function clearDraftStorage(kind) {
+  const store = readDraftStore();
+  if (store && Object.prototype.hasOwnProperty.call(store, kind)) {
+    delete store[kind];
+    writeDraftStore(store);
+  }
+  composerDraftMeta[kind] = null;
+  updateDraftButtonState();
+}
+
+function notifyComposerChange(kind, options = {}) {
+  const diff = recomputeDiff(kind);
+  if (kind === 'tabs') applyTabsDiffMarkers(diff);
+  else applyIndexDiffMarkers(diff);
+  updateFileDirtyBadge(kind);
+  if (!options.skipAutoSave) scheduleAutoDraft(kind);
+  updateDraftButtonState();
+  updateUnsyncedSummary();
+}
+
+function rebuildIndexUI(preserveOpen = true) {
+  const root = document.getElementById('composerIndex');
+  if (!root) return;
+  const openKeys = preserveOpen
+    ? Array.from(root.querySelectorAll('.ci-item.is-open')).map(el => el.getAttribute('data-key')).filter(Boolean)
+    : [];
+  buildIndexUI(root, activeComposerState);
+  openKeys.forEach(key => {
+    if (!key) return;
+    const row = root.querySelector(`.ci-item[data-key="${cssEscape(key)}"]`);
+    if (!row) return;
+    const body = row.querySelector('.ci-body');
+    const btn = row.querySelector('.ci-expand');
+    row.classList.add('is-open');
+    if (body) {
+      body.style.display = '';
+      body.dataset.open = '1';
+    }
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  });
+  notifyComposerChange('index', { skipAutoSave: true });
+}
+
+function rebuildTabsUI(preserveOpen = true) {
+  const root = document.getElementById('composerTabs');
+  if (!root) return;
+  const openKeys = preserveOpen
+    ? Array.from(root.querySelectorAll('.ct-item.is-open')).map(el => el.getAttribute('data-key')).filter(Boolean)
+    : [];
+  buildTabsUI(root, activeComposerState);
+  openKeys.forEach(key => {
+    if (!key) return;
+    const row = root.querySelector(`.ct-item[data-key="${cssEscape(key)}"]`);
+    if (!row) return;
+    const body = row.querySelector('.ct-body');
+    const btn = row.querySelector('.ct-expand');
+    row.classList.add('is-open');
+    if (body) {
+      body.style.display = '';
+      body.dataset.open = '1';
+    }
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  });
+  notifyComposerChange('tabs', { skipAutoSave: true });
+}
+
+function loadDraftSnapshotsIntoState(state) {
+  const restored = [];
+  const store = readDraftStore();
+  if (!store) return restored;
+  ['index', 'tabs'].forEach(kind => {
+    const entry = store[kind];
+    if (!entry || !entry.data) return;
+    const snapshot = kind === 'tabs'
+      ? prepareTabsState(entry.data)
+      : prepareIndexState(entry.data);
+    if (kind === 'tabs') state.tabs = snapshot;
+    else state.index = snapshot;
+    setStateSlice(kind, snapshot);
+    composerDraftMeta[kind] = {
+      savedAt: Number(entry.savedAt) || Date.now(),
+      baseSignature: entry.baseSignature ? String(entry.baseSignature) : '',
+      lastManual: false
+    };
+    restored.push(kind);
+  });
+  return restored;
+}
+
+function handleManualDraftSave() {
+  const target = getActiveComposerFile();
+  const diff = composerDiffCache[target];
+  if (!diff || !diff.hasChanges) {
+    showStatus('No unsynced changes to save');
+    setTimeout(() => { showStatus(''); }, 1200);
+    return;
+  }
+  saveDraftToStorage(target, { manual: true });
+  if (composerAutoSaveTimers[target]) {
+    clearTimeout(composerAutoSaveTimers[target]);
+    composerAutoSaveTimers[target] = null;
+  }
+  updateDraftButtonState(target);
+  updateUnsyncedSummary();
+  showStatus('Draft saved locally');
+  setTimeout(() => { showStatus(''); }, 1200);
+}
+
+async function handleComposerRefresh(btn) {
+  const target = getActiveComposerFile();
+  const button = btn;
+  const resetButton = () => {
+    if (!button) return;
+    button.disabled = false;
+    button.classList.remove('is-busy');
+    button.removeAttribute('aria-busy');
+    button.textContent = 'Refresh';
+  };
+  try {
+    if (button) {
+      button.disabled = true;
+      button.classList.add('is-busy');
+      button.setAttribute('aria-busy', 'true');
+      button.textContent = 'Refreshing…';
+    }
+    const contentRoot = getContentRootSafe();
+    const remote = await fetchConfigWithYamlFallback([
+      `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yaml`,
+      `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yml`
+    ]);
+    const prepared = target === 'tabs' ? prepareTabsState(remote || {}) : prepareIndexState(remote || {});
+    const baselineSignatureBefore = computeBaselineSignature(target);
+    remoteBaseline[target] = prepared;
+    const diffBefore = composerDiffCache[target];
+    const hadLocalChanges = diffBefore && diffBefore.hasChanges;
+    if (!hadLocalChanges) {
+      setStateSlice(target, deepClone(prepared));
+      if (target === 'tabs') rebuildTabsUI();
+      else rebuildIndexUI();
+      showStatus(`${target === 'tabs' ? 'tabs' : 'index'}.yaml refreshed from remote`);
+    } else {
+      notifyComposerChange(target, { skipAutoSave: true });
+      const baselineSignatureAfter = computeBaselineSignature(target);
+      if (baselineSignatureAfter !== baselineSignatureBefore) {
+        showStatus('Remote snapshot updated. Highlights now include remote differences.');
+      } else {
+        showStatus('Remote snapshot unchanged.');
+      }
+    }
+  } catch (err) {
+    console.error('Refresh failed', err);
+    showStatus('Failed to refresh remote snapshot');
+  } finally {
+    resetButton();
+    setTimeout(() => { showStatus(''); }, 2000);
+  }
+}
+
 function getPrimaryEditorApi() {
   try {
     const api = window.__ns_primary_editor;
@@ -539,6 +1387,7 @@ function applyComposerFile(name) {
     if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
     else document.documentElement.removeAttribute('data-init-cfile');
   } catch (_) {}
+  try { updateDraftButtonState(isIndex ? 'index' : 'tabs'); } catch (_) {}
 }
 
 // Apply initial state as early as possible to avoid flash on reload
@@ -976,6 +1825,8 @@ function buildIndexUI(root, state) {
   list.id = 'ciList';
   root.appendChild(list);
 
+  const markDirty = () => { try { notifyComposerChange('index'); } catch (_) {}; };
+
   const order = state.index.__order;
   order.forEach(key => {
     const entry = state.index[key] || {};
@@ -988,6 +1839,7 @@ function buildIndexUI(root, state) {
         <span class="ci-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <strong class="ci-key">${key}</strong>
         <span class="ci-meta">${Object.keys(entry).length} lang</span>
+        <span class="ci-diff" aria-live="polite"></span>
         <span class="ci-actions">
           <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
           <button class="btn-secondary ci-del">Delete</button>
@@ -1011,6 +1863,7 @@ function buildIndexUI(root, state) {
       langs.forEach(lang => {
         const block = document.createElement('div');
         block.className = 'ci-lang';
+        block.dataset.lang = lang;
         const val = entry[lang];
         // Normalize to array for UI
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
@@ -1023,8 +1876,10 @@ function buildIndexUI(root, state) {
             </span>
           </div>
           <div class="ci-ver-list"></div>
+          <div class="ci-ver-removed" data-role="removed" hidden></div>
         `;
         const verList = $('.ci-ver-list', block);
+        const removedBox = block.querySelector('[data-role="removed"]');
         // Stable IDs for FLIP animations across re-renders
         let verIds = arr.map(() => Math.random().toString(36).slice(2));
 
@@ -1071,14 +1926,17 @@ function buildIndexUI(root, state) {
           verList.innerHTML = '';
           arr.forEach((p, i) => {
             const id = verIds[i] || (verIds[i] = Math.random().toString(36).slice(2));
-            const row = document.createElement('div');
-            row.className = 'ci-ver-item';
-            row.setAttribute('data-id', id);
-            row.innerHTML = `
-              <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
-              <span class="ci-ver-actions">
-                <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
-                <button class="btn-secondary ci-up" title="Move up">↑</button>
+          const row = document.createElement('div');
+          row.className = 'ci-ver-item';
+          row.setAttribute('data-id', id);
+          row.dataset.lang = lang;
+          row.dataset.index = String(i);
+          row.dataset.value = p || '';
+          row.innerHTML = `
+            <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
+            <span class="ci-ver-actions">
+              <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
+              <button class="btn-secondary ci-up" title="Move up">↑</button>
                 <button class="btn-secondary ci-down" title="Move down">↓</button>
                 <button class="btn-secondary ci-remove" title="Remove">✕</button>
               </span>
@@ -1092,6 +1950,8 @@ function buildIndexUI(root, state) {
             $('.ci-path', row).addEventListener('input', (e) => {
               arr[i] = e.target.value;
               entry[lang] = arr.slice();
+              row.dataset.value = arr[i] || '';
+              markDirty();
             });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
@@ -1108,6 +1968,7 @@ function buildIndexUI(root, state) {
               [verIds[i - 1], verIds[i]] = [verIds[i], verIds[i - 1]];
               entry[lang] = arr.slice();
               renderVers(prev);
+              markDirty();
             });
             down.addEventListener('click', () => {
               if (i >= arr.length - 1) return;
@@ -1116,6 +1977,7 @@ function buildIndexUI(root, state) {
               [verIds[i + 1], verIds[i]] = [verIds[i], verIds[i + 1]];
               entry[lang] = arr.slice();
               renderVers(prev);
+              markDirty();
             });
             $('.ci-remove', row).addEventListener('click', () => {
               const prev = snapRects();
@@ -1123,6 +1985,7 @@ function buildIndexUI(root, state) {
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
               renderVers(prev);
+              markDirty();
             });
             verList.appendChild(row);
           });
@@ -1135,9 +1998,13 @@ function buildIndexUI(root, state) {
           verIds.push(Math.random().toString(36).slice(2));
           entry[lang] = arr.slice();
           renderVers(prev);
+          markDirty();
         });
         $('.ci-lang-del', block).addEventListener('click', () => {
-          delete entry[lang]; row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`; renderBody();
+          delete entry[lang];
+          row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
+          renderBody();
+          markDirty();
         });
         bodyInner.appendChild(block);
       });
@@ -1198,6 +2065,7 @@ function buildIndexUI(root, state) {
             row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
             closeMenu();
             renderBody();
+            markDirty();
           });
         });
         bodyInner.appendChild(addLangWrap);
@@ -1229,6 +2097,8 @@ function buildTabsUI(root, state) {
   list.id = 'ctList';
   root.appendChild(list);
 
+  const markDirty = () => { try { notifyComposerChange('tabs'); } catch (_) {}; };
+
   const order = state.tabs.__order;
   order.forEach(tab => {
     const entry = state.tabs[tab] || {};
@@ -1241,6 +2111,7 @@ function buildTabsUI(root, state) {
         <span class="ct-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
         <strong class="ct-key">${tab}</strong>
         <span class="ct-meta">${Object.keys(entry).length} lang</span>
+        <span class="ct-diff" aria-live="polite"></span>
         <span class="ct-actions">
           <button class="btn-secondary ct-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
           <button class="btn-secondary ct-del">Delete</button>
@@ -1269,6 +2140,7 @@ function buildTabsUI(root, state) {
         const flagSpan = flag ? `<span class="ct-lang-flag" aria-hidden="true">${flag}</span>` : '';
         const block = document.createElement('div');
         block.className = 'ct-lang';
+        block.dataset.lang = lang;
         block.innerHTML = `
           <div class="ct-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
             ${flagSpan}
@@ -1285,8 +2157,24 @@ function buildTabsUI(root, state) {
         `;
         const titleInput = $('.ct-title', block);
         const locInput = $('.ct-loc', block);
-        titleInput.addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].title = e.target.value; });
-        locInput.addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].location = e.target.value; });
+        if (titleInput) {
+          titleInput.dataset.lang = lang;
+          titleInput.dataset.field = 'title';
+        }
+        if (locInput) {
+          locInput.dataset.lang = lang;
+          locInput.dataset.field = 'location';
+        }
+        titleInput.addEventListener('input', (e) => {
+          entry[lang] = entry[lang] || {};
+          entry[lang].title = e.target.value;
+          markDirty();
+        });
+        locInput.addEventListener('input', (e) => {
+          entry[lang] = entry[lang] || {};
+          entry[lang].location = e.target.value;
+          markDirty();
+        });
         $('.ct-edit', block).addEventListener('click', () => {
           const rel = normalizeRelPath(locInput.value);
           if (!rel) {
@@ -1295,7 +2183,12 @@ function buildTabsUI(root, state) {
           }
           openMarkdownInEditor(rel);
         });
-        $('.ct-lang-del', block).addEventListener('click', () => { delete entry[lang]; row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`; renderBody(); });
+        $('.ct-lang-del', block).addEventListener('click', () => {
+          delete entry[lang];
+          row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
+          renderBody();
+          markDirty();
+        });
         bodyInner.appendChild(block);
       });
 
@@ -1353,6 +2246,7 @@ function buildTabsUI(root, state) {
             row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
             closeMenu();
             renderBody();
+            markDirty();
           });
         });
         bodyInner.appendChild(addLangWrap);
@@ -1372,10 +2266,14 @@ function buildTabsUI(root, state) {
       if (i >= 0) state.tabs.__order.splice(i, 1);
       delete state.tabs[tab];
       row.remove();
+      markDirty();
     });
   });
 
-  makeDragList(list, (newOrder) => { state.tabs.__order = newOrder; });
+  makeDragList(list, (newOrder) => {
+    state.tabs.__order = newOrder;
+    markDirty();
+  });
 }
 
 function bindComposerUI(state) {
@@ -2316,6 +3214,12 @@ function bindComposerUI(state) {
     if (modal && typeof modal.__open === 'function') modal.__open();
   });
 
+  const btnDraft = document.getElementById('btnDraft');
+  if (btnDraft) btnDraft.addEventListener('click', () => handleManualDraftSave());
+
+  const btnRefresh = document.getElementById('btnRefresh');
+  if (btnRefresh) btnRefresh.addEventListener('click', () => handleComposerRefresh(btnRefresh));
+
   // Verify Setup: check all referenced files exist; if ok, check YAML drift
   (function bindVerifySetup(){
     const btn = document.getElementById('btnVerify');
@@ -2370,18 +3274,10 @@ function bindComposerUI(state) {
       return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
     }
 
-    function getActiveCFile(){
-      try {
-        const a = document.querySelector('a.vt-btn[data-cfile].active');
-        const t = a && a.dataset && a.dataset.cfile;
-        return t === 'tabs' ? 'tabs' : 'index';
-      } catch (_) { return 'index'; }
-    }
-
     async function computeMissingFiles(){
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const out = [];
-      const target = getActiveCFile();
+      const target = getActiveComposerFile();
       // Fetch existence in parallel batches
       const tasks = [];
       if (target === 'tabs') {
@@ -2603,7 +3499,7 @@ function bindComposerUI(state) {
     async function afterAllGood(){
       // Compare current in-memory YAML vs remote file; open GitHub edit if differs
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-      const target = getActiveCFile();
+        const target = getActiveComposerFile();
       const desired = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
       async function fetchText(url){ try { const r = await fetch(url, { cache: 'no-store' }); if (r && r.ok) return await r.text(); } catch(_){} return ''; }
       const baseName = target === 'tabs' ? 'tabs' : 'index';
@@ -2633,7 +3529,7 @@ function bindComposerUI(state) {
       try {
         // Copy YAML snapshot up-front to retain user-activation for clipboard
         try {
-          const target = getActiveCFile();
+      const target = getActiveComposerFile();
           const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
           nsCopyToClipboard(text);
         } catch(_) {}
@@ -2651,7 +3547,18 @@ function bindComposerUI(state) {
   })();
 }
 
-function showStatus(msg) { const el = $('#composerStatus'); if (el) el.textContent = msg || ''; }
+function showStatus(msg) {
+  const el = $('#composerStatus');
+  if (!el) return;
+  if (msg) {
+    el.dataset.lock = '1';
+    el.textContent = msg;
+  } else {
+    el.dataset.lock = '0';
+    el.textContent = '';
+    updateUnsyncedSummary();
+  }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const state = { index: {}, tabs: {} };
@@ -2668,17 +3575,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       fetchConfigWithYamlFallback([`${root}/index.yaml`, `${root}/index.yml`]),
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
     ]);
-    // Copy and attach order arrays
-    state.index = Object.assign({ __order: Object.keys(idx || {}) }, idx || {});
-    state.tabs = Object.assign({ __order: Object.keys(tbs || {}) }, tbs || {});
+    const remoteIndex = prepareIndexState(idx || {});
+    const remoteTabs = prepareTabsState(tbs || {});
+    remoteBaseline.index = deepClone(remoteIndex);
+    remoteBaseline.tabs = deepClone(remoteTabs);
+    state.index = deepClone(remoteIndex);
+    state.tabs = deepClone(remoteTabs);
   } catch (e) {
     console.warn('Composer: failed to load configs', e);
+    remoteBaseline.index = { __order: [] };
+    remoteBaseline.tabs = { __order: [] };
+    state.index = { __order: [] };
+    state.tabs = { __order: [] };
   }
-  showStatus('');
+
+  activeComposerState = state;
+  const restoredDrafts = loadDraftSnapshotsIntoState(state);
+
+  if (restoredDrafts.length) {
+    const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : 'index.yaml')).join(' & ');
+    showStatus(`Restored local draft for ${label}`);
+    setTimeout(() => { showStatus(''); }, 1800);
+  } else {
+    showStatus('');
+  }
 
   bindComposerUI(state);
   buildIndexUI($('#composerIndex'), state);
   buildTabsUI($('#composerTabs'), state);
+
+  notifyComposerChange('index', { skipAutoSave: true });
+  notifyComposerChange('tabs', { skipAutoSave: true });
+  updateDraftButtonState();
+
   restoreDynamicEditorState();
   allowEditorStatePersist = true;
   persistDynamicEditorState();
@@ -2718,7 +3647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     .ct-lang-actions{justify-content:flex-start;}
   }
   .ci-ver-item{display:flex;align-items:center;gap:.4rem;margin:.3rem 0}
-  .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
+  .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;transition:border-color .18s ease, background-color .18s ease}
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   /* Add Language row: compact button, keep menu aligned to trigger width */
   .ci-add-lang,.ct-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative}
@@ -2751,6 +3680,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   .badge{display:inline-flex;align-items:center;gap:.25rem;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.72rem;padding:.05rem .4rem;border-radius:999px}
   .badge-ver{ color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
   .badge-lang{}
+  .ci-item.is-dirty{border-color:color-mix(in srgb,#f97316 42%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,#f97316 18%, transparent);}
+  .ci-item[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 60%, var(--border));}
+  .ci-item[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 60%, var(--border));}
+  .ci-diff{display:inline-flex;gap:.25rem;align-items:center;font-size:.78rem;color:color-mix(in srgb,var(--text) 68%, transparent);}
+  .ci-diff-badge{display:inline-flex;align-items:center;gap:.2rem;border:1px solid color-mix(in srgb,var(--border) 70%, transparent);border-radius:999px;padding:.05rem .35rem;line-height:1;background:color-mix(in srgb,var(--text) 4%, transparent);font-size:.72rem;font-weight:600;text-transform:uppercase;color:color-mix(in srgb,var(--text) 80%, transparent);}
+  .ci-diff-badge.ci-diff-badge-added{border-color:color-mix(in srgb,#16a34a 45%, var(--border));color:#166534;background:color-mix(in srgb,#16a34a 12%, transparent);}
+  .ci-diff-badge.ci-diff-badge-removed{border-color:color-mix(in srgb,#dc2626 45%, var(--border));color:#b91c1c;background:color-mix(in srgb,#dc2626 12%, transparent);}
+  .ci-diff-badge.ci-diff-badge-changed{border-color:color-mix(in srgb,#f59e0b 45%, var(--border));color:#b45309;background:color-mix(in srgb,#f59e0b 12%, transparent);}
+  .ci-lang[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));background:color-mix(in srgb,#16a34a 10%, var(--card));}
+  .ci-lang[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 55%, var(--border));background:color-mix(in srgb,#dc2626 8%, var(--card));opacity:.9;}
+  .ci-lang[data-diff="modified"]{border-color:color-mix(in srgb,#f59e0b 45%, var(--border));}
+  .ci-ver-item[data-diff="added"] input{border-color:color-mix(in srgb,#16a34a 60%, var(--border));background:color-mix(in srgb,#16a34a 8%, transparent);}
+  .ci-ver-item[data-diff="changed"] input{border-color:color-mix(in srgb,#f59e0b 60%, var(--border));background:color-mix(in srgb,#f59e0b 6%, transparent);}
+  .ci-ver-item[data-diff="moved"] input{border-color:color-mix(in srgb,#2563eb 55%, var(--border));border-style:dashed;}
+  .ci-ver-removed{margin-top:.2rem;font-size:.78rem;color:#b91c1c;}
+  .ct-item.is-dirty{border-color:color-mix(in srgb,#2563eb 42%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,#2563eb 16%, transparent);}
+  .ct-item[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));}
+  .ct-item[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 55%, var(--border));}
+  .ct-diff{display:inline-flex;gap:.25rem;align-items:center;font-size:.78rem;color:color-mix(in srgb,var(--text) 68%, transparent);}
+  .ct-diff-badge{display:inline-flex;align-items:center;gap:.2rem;border:1px solid color-mix(in srgb,var(--border) 70%, transparent);border-radius:999px;padding:.05rem .35rem;line-height:1;background:color-mix(in srgb,var(--text) 4%, transparent);font-size:.72rem;font-weight:600;text-transform:uppercase;color:color-mix(in srgb,var(--text) 80%, transparent);}
+  .ct-diff-badge.ct-diff-badge-added{border-color:color-mix(in srgb,#16a34a 45%, var(--border));color:#166534;background:color-mix(in srgb,#16a34a 12%, transparent);}
+  .ct-diff-badge.ct-diff-badge-removed{border-color:color-mix(in srgb,#dc2626 45%, var(--border));color:#b91c1c;background:color-mix(in srgb,#dc2626 12%, transparent);}
+  .ct-diff-badge.ct-diff-badge-changed{border-color:color-mix(in srgb,#2563eb 45%, var(--border));color:#1d4ed8;background:color-mix(in srgb,#2563eb 10%, transparent);}
+  .ct-lang[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));background:color-mix(in srgb,#16a34a 8%, var(--card));}
+  .ct-lang[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 55%, var(--border));background:color-mix(in srgb,#dc2626 6%, var(--card));opacity:.9;}
+  .ct-lang[data-diff="modified"]{border-color:color-mix(in srgb,#2563eb 45%, var(--border));}
+  .ct-field input[data-diff="changed"]{border-color:color-mix(in srgb,#2563eb 60%, var(--border));background:color-mix(in srgb,#2563eb 6%, transparent);}
   /* Caret arrow for Details buttons */
   .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 480ms cubic-bezier(.45,0,.25,1)}
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
