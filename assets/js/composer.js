@@ -8,7 +8,6 @@ const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
-  mode: 'ns_editor_mode',       // 'editor' | 'composer'
   cfile: 'ns_composer_file'     // 'index' | 'tabs'
 };
 
@@ -118,10 +117,8 @@ function closeDynamicTab(modeId) {
 
   if (wasActive) {
     const remainingModes = Array.from(dynamicEditorTabs.keys());
-    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'editor';
+    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'composer';
     applyMode(fallbackMode);
-    const persisted = isDynamicMode(fallbackMode) ? 'editor' : fallbackMode;
-    setPersistedMode(persisted);
   }
 }
 
@@ -178,7 +175,6 @@ function getOrCreateDynamicMode(path) {
       return;
     }
     applyMode(modeId);
-    setPersistedMode('editor');
   });
 
   btn.addEventListener('keydown', (event) => {
@@ -227,7 +223,6 @@ function openMarkdownInEditor(path) {
     return;
   }
   applyMode(modeId);
-  setPersistedMode('editor');
 }
 
 // Default Markdown template for new post files (index.yaml related flows)
@@ -254,41 +249,11 @@ function makeDefaultMdTemplate(opts) {
   return lines.join('\n');
 }
 
-// Read desired mode from URL hash/query or localStorage (fallback to 'editor')
-function getInitialMode() {
-  try {
-    const h = String(location.hash || '').toLowerCase();
-    if (h.includes('composer')) return 'composer';
-    if (h.includes('editor')) return 'editor';
-  } catch (_) {}
-  try {
-    const url = new URL(location.href);
-    const p = (url.searchParams.get('mode') || '').toLowerCase();
-    if (p === 'composer' || p === 'editor') return p;
-  } catch (_) {}
-  try {
-    const v = (localStorage.getItem(LS_KEYS.mode) || '').toLowerCase();
-    if (v === 'composer' || v === 'editor') return v;
-  } catch (_) {}
-  return 'editor';
-}
-
-function setPersistedMode(mode) {
-  const normalized = mode === 'composer' ? 'composer' : 'editor';
-  // Persist and reflect in URL hash (non-destructive)
-  try { localStorage.setItem(LS_KEYS.mode, normalized); } catch (_) {}
-  try {
-    const url = new URL(location.href);
-    url.hash = normalized === 'composer' ? '#composer' : '#editor';
-    history.replaceState(null, '', url);
-  } catch (_) {}
-}
-
 function applyMode(mode) {
-  const candidate = mode || 'editor';
+  const candidate = mode || 'composer';
   const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
     ? candidate
-    : 'editor';
+    : 'composer';
 
   const previousMode = currentMode;
   if (previousMode === nextMode) return;
@@ -407,7 +372,7 @@ function applyComposerFile(name) {
 
 // Apply initial state as early as possible to avoid flash on reload
 (() => {
-  try { applyMode(getInitialMode()); } catch (_) {}
+  try { applyMode('composer'); } catch (_) {}
   try { applyComposerFile(getInitialComposerFile()); } catch (_) {}
 })();
 
@@ -1248,7 +1213,6 @@ function bindComposerUI(state) {
     btn.addEventListener('click', () => {
       const mode = btn.dataset.mode;
       applyMode(mode);
-      setPersistedMode(mode);
     });
   });
 

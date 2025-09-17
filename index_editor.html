@@ -6,19 +6,11 @@
   <title>Markdown Editor - NanoSite</title>
   <script src="assets/js/theme-boot.js"></script>
   <script>
-    // Early mode boot to avoid initial flash of wrong tab
+    // Early boot to avoid initial flash
     (function () {
       try {
-        var mode = 'editor';
-        var h = String(location.hash || '').toLowerCase();
-        if (h.indexOf('composer') !== -1) mode = 'composer';
-        else if (h.indexOf('editor') !== -1) mode = 'editor';
-        else {
-          var m = (localStorage.getItem('ns_editor_mode') || '').toLowerCase();
-          if (m === 'composer' || m === 'editor') mode = m;
-        }
-        if (mode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
-        // Also preselect composer file (index/tabs)
+        document.documentElement.setAttribute('data-init-mode', 'composer');
+        // Preselect composer file (index/tabs) when persisted
         var cf = (localStorage.getItem('ns_composer_file') || 'index').toLowerCase();
         if (cf === 'tabs') document.documentElement.setAttribute('data-init-cfile', 'tabs');
       } catch (_) { /* ignore */ }
@@ -239,7 +231,6 @@
     /* Preload-state CSS to avoid flash when initial mode is Composer */
     [data-init-mode="composer"] #mode-editor { display: none !important; }
     [data-init-mode="composer"] #mode-composer { display: block !important; }
-    [data-init-mode="composer"] .mode-tab[data-mode="editor"] { background: transparent; border-color: transparent; color: var(--muted); }
     [data-init-mode="composer"] .mode-tab[data-mode="composer"] {
       background: color-mix(in srgb, var(--primary) 14%, var(--card));
       border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
@@ -255,8 +246,7 @@
   <div class="editor-page">
     <div class="page-titlebar">
       <nav class="mode-switch" role="tablist" aria-label="Mode switch">
-        <button class="mode-tab is-active" data-mode="editor" role="tab" aria-controls="mode-editor" aria-selected="true">Editor</button>
-        <button class="mode-tab" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="false">Composer</button>
+        <button class="mode-tab is-active" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="true">Composer</button>
       </nav>
       <div id="global-status" class="global-status" aria-live="polite"></div>
     </div>
