@@ -1,8 +1,112 @@
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
-import { getContentRoot, setSafeHtml } from './utils.js';
+import { getContentRoot } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
+import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
+import { hydrateInternalLinkCards } from './link-cards.js';
+import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
+import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } from './i18n.js';
+
+const fetchMarkdownForLinkCard = (loc) => {
+  try {
+    const url = `${getContentRoot()}/${loc}`;
+    return fetch(url, { cache: 'no-store' }).then(resp => (resp && resp.ok) ? resp.text() : '');
+  } catch (_) {
+    return Promise.resolve('');
+  }
+};
+
+let editorSiteConfig = {};
+let editorPostsIndexCache = {};
+let editorAllowedLocations = null;
+let editorLocationAliasMap = new Map();
+let editorPostsByLocationTitle = {};
+let linkCardReady = false;
+
+function rebuildLinkCardContext(posts, rawIndex) {
+  try {
+    const allowed = new Set();
+    if (posts && typeof posts === 'object') {
+      Object.values(posts).forEach(meta => {
+        if (!meta) return;
+        if (meta.location) allowed.add(String(meta.location));
+        if (Array.isArray(meta.versions)) {
+          meta.versions.forEach(ver => { if (ver && ver.location) allowed.add(String(ver.location)); });
+        }
+      });
+    }
+    if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+      for (const entry of Object.values(rawIndex)) {
+        if (!entry || typeof entry !== 'object') continue;
+        for (const [key, val] of Object.entries(entry)) {
+          if (['tag','tags','image','date','excerpt','thumb','cover'].includes(key)) continue;
+          if (key === 'location' && typeof val === 'string') { allowed.add(String(val)); continue; }
+          if (Array.isArray(val)) { val.forEach(item => { if (typeof item === 'string') allowed.add(String(item)); }); continue; }
+          if (val && typeof val === 'object' && typeof val.location === 'string') { allowed.add(String(val.location)); continue; }
+          if (typeof val === 'string') { allowed.add(String(val)); }
+        }
+      }
+    }
+
+    const byLocation = {};
+    for (const [title, meta] of Object.entries(posts || {})) {
+      if (!meta) continue;
+      if (meta.location) byLocation[String(meta.location)] = title;
+      if (Array.isArray(meta.versions)) {
+        meta.versions.forEach(ver => { if (ver && ver.location) byLocation[String(ver.location)] = title; });
+      }
+    }
+
+    const alias = new Map();
+    const reserved = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
+    const currentLang = normalizeLangKey((getCurrentLang && getCurrentLang()) || 'en');
+    if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+      for (const entry of Object.values(rawIndex)) {
+        if (!entry || typeof entry !== 'object') continue;
+        const variants = [];
+        for (const [key, val] of Object.entries(entry)) {
+          if (reserved.has(key)) continue;
+          if (key === 'location' && typeof val === 'string') {
+            variants.push({ lang: 'default', location: String(val) });
+            continue;
+          }
+          const nk = normalizeLangKey(key);
+          if (typeof val === 'string') {
+            variants.push({ lang: nk, location: String(val) });
+          } else if (Array.isArray(val)) {
+            val.forEach(item => { if (typeof item === 'string') variants.push({ lang: nk, location: String(item) }); });
+          } else if (val && typeof val === 'object' && typeof val.location === 'string') {
+            variants.push({ lang: nk, location: String(val.location) });
+          }
+        }
+        if (!variants.length) continue;
+        const findBy = (langs) => variants.find(v => langs.includes(v.lang));
+        let canonical = null;
+        const preferred = findBy([currentLang]) || findBy(['en']) || findBy(['default']) || variants[0];
+        if (preferred) {
+          const refTitle = byLocation[preferred.location];
+          const refMeta = refTitle ? posts[refTitle] : null;
+          if (refMeta && refMeta.location) canonical = String(refMeta.location);
+        }
+        if (!canonical && preferred) canonical = preferred.location;
+        if (!canonical && variants[0]) canonical = variants[0].location;
+        if (!canonical) continue;
+        variants.forEach(v => {
+          if (v.location && v.location !== canonical) alias.set(v.location, canonical);
+        });
+      }
+    }
+
+    editorAllowedLocations = allowed;
+    editorPostsByLocationTitle = byLocation;
+    editorLocationAliasMap = alias;
+    editorPostsIndexCache = posts || {};
+    linkCardReady = true;
+  } catch (_) {
+    editorAllowedLocations = editorAllowedLocations || new Set();
+  }
+}
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -34,9 +138,21 @@ function renderPreview(mdText) {
     const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
       || (`${getContentRoot()}/`);
     const { post } = mdParse(mdText || '', baseDir);
-    // Safely render the sanitized Markdown HTML without using innerHTML
-    setSafeHtml(target, post || '', baseDir);
-    // Apply syntax highlighting and gutters to code blocks
+    target.innerHTML = post || '';
+    try { hydratePostImages(target); } catch (_) {}
+    try { applyLazyLoadingIn(target); } catch (_) {}
+    try { applyLangHints(target); } catch (_) {}
+    try { hydrateInternalLinkCards(target, {
+      allowedLocations: linkCardReady ? editorAllowedLocations : null,
+      locationAliasMap: linkCardReady ? editorLocationAliasMap : new Map(),
+      postsByLocationTitle: linkCardReady ? editorPostsByLocationTitle : {},
+      postsIndexCache: linkCardReady ? editorPostsIndexCache : {},
+      siteConfig: editorSiteConfig,
+      translate: t,
+      makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
+      fetchMarkdown: fetchMarkdownForLinkCard
+    }); } catch (_) {}
+    try { hydratePostVideos(target); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
   } catch (_) {}
 }
@@ -73,6 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editor) return editor.getValue() || '';
     if (ta) return ta.value || '';
     return '';
+  };
+
+  const refreshPreview = () => {
+    try { renderPreview(getValue()); } catch (_) {}
   };
 
   const setValue = (value, opts = {}) => {
@@ -727,17 +847,32 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         setStatus('Loading site config…');
         const site = await fetchConfigWithYamlFallback(['site.yaml','site.yml']);
+        editorSiteConfig = site || {};
         contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
-      } catch (_) { contentRoot = 'wwwroot'; }
+      } catch (_) {
+        editorSiteConfig = {};
+        contentRoot = 'wwwroot';
+      }
       // Keep a global hint for content root, and default editor base dir
       try { window.__ns_content_root = contentRoot; } catch (_) {}
       try { window.__ns_editor_base_dir = `${contentRoot}/`; } catch (_) {}
 
       try {
         setStatus('Loading index…');
-        const idx = await fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]);
-        renderGroupedIndex(listIndex, idx);
-      } catch (e) { console.warn('Failed to load index.yaml', e); }
+        const [idxResult, postsResult] = await Promise.allSettled([
+          fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]),
+          loadContentJson(contentRoot, 'index')
+        ]);
+        const rawIndex = idxResult.status === 'fulfilled' ? (idxResult.value || {}) : {};
+        const posts = postsResult.status === 'fulfilled' ? (postsResult.value || {}) : {};
+        renderGroupedIndex(listIndex, rawIndex);
+        rebuildLinkCardContext(posts, rawIndex);
+        if (linkCardReady) refreshPreview();
+        if (idxResult.status === 'rejected') console.warn('Failed to load index.yaml', idxResult.reason);
+        if (postsResult.status === 'rejected') console.warn('Failed to load index metadata', postsResult.reason);
+      } catch (err) {
+        console.warn('Failed to load index data', err);
+      }
 
       try {
         setStatus('Loading tabs…');
