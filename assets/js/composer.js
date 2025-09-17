@@ -746,6 +746,7 @@ function buildIndexUI(root, state) {
     btnExpand.addEventListener('click', () => {
       const isOpen = body.classList.contains('is-open');
       body.classList.toggle('is-open', !isOpen);
+      row.classList.toggle('is-open', !isOpen);
       btnExpand.setAttribute('aria-expanded', String(!isOpen));
     });
     btnDel.addEventListener('click', () => {
@@ -885,6 +886,7 @@ function buildTabsUI(root, state) {
     btnExpand.addEventListener('click', () => {
       const isOpen = body.classList.contains('is-open');
       body.classList.toggle('is-open', !isOpen);
+      row.classList.toggle('is-open', !isOpen);
       btnExpand.setAttribute('aria-expanded', String(!isOpen));
     });
     btnDel.addEventListener('click', () => {
@@ -2207,6 +2209,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const css = `
   .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;}
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
+  .ci-head,.ct-head{border-bottom:none;}
+  .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
   .ci-body,.ct-body{padding:0 .6rem;}
   .ci-body.is-open,.ct-body.is-open{padding:.5rem .6rem;}
   .ci-body-inner,.ct-body-inner{overflow:hidden;max-height:0;opacity:0;transition:max-height 480ms cubic-bezier(.45,0,.25,1),opacity 480ms cubic-bezier(.45,0,.25,1)}
