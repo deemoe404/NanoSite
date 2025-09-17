@@ -211,7 +211,7 @@ function getOrCreateDynamicMode(path) {
   btn.setAttribute('aria-label', `Open editor for ${normalized}`);
   btn.innerHTML = `
     <span class="mode-tab-chip">
-      <span class="mode-tab-label">editor: ${label}</span>
+      <span class="mode-tab-label">${label}</span>
       <span class="mode-tab-close" aria-hidden="true">×</span>
     </span>
   `;
