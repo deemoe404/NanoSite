@@ -152,112 +152,132 @@ async function nsCopyToClipboard(text) {
 const __activeAnims = new WeakMap();
 const SLIDE_OPEN_DUR = 320;   // slower, smoother
 const SLIDE_CLOSE_DUR = 280;  // slightly faster than open
+
+function parsePx(value) {
+  const n = parseFloat(value);
+  return isNaN(n) ? 0 : n;
+}
+
+function getSlidePadding(el) {
+  const cs = window.getComputedStyle(el);
+  return {
+    top: parsePx(cs.paddingTop),
+    bottom: parsePx(cs.paddingBottom)
+  };
+}
+
+function clearInlineSlideStyles(el) {
+  el.style.overflow = '';
+  el.style.height = '';
+  el.style.opacity = '';
+  el.style.paddingTop = '';
+  el.style.paddingBottom = '';
+}
+
+function forgetActiveAnim(el, anim) {
+  const stored = __activeAnims.get(el);
+  if (stored && stored.anim === anim) __activeAnims.delete(el);
+}
+
+function finalizeAnimation(el, anim) {
+  if (!anim) return;
+  try { anim.onfinish = null; } catch (_) {}
+  try { anim.oncancel = null; } catch (_) {}
+  try { anim.commitStyles(); } catch (_) {}
+  try { anim.cancel(); } catch (_) {}
+  forgetActiveAnim(el, anim);
+}
+
 function slideToggle(el, toOpen) {
   if (!el) return;
   const isReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const isOpen = el.style.display !== 'none';
-  const open = (typeof toOpen === 'boolean') ? toOpen : !isOpen;
-  if (open === isOpen) return;
-
-  // Cancel any running animation
+  let computedDisplay = '';
+  try { computedDisplay = window.getComputedStyle(el).display; } catch (_) { computedDisplay = el.style.display; }
   const running = __activeAnims.get(el);
-  if (running) { try { running.cancel(); } catch (_) {} __activeAnims.delete(el); }
+  const runningTarget = running && typeof running.target === 'boolean' ? running.target : null;
+  const currentState = (runningTarget !== null)
+    ? runningTarget
+    : (el.dataset.open === '1' ? true : el.dataset.open === '0' ? false : (computedDisplay !== 'none'));
+  const open = (typeof toOpen === 'boolean') ? toOpen : !currentState;
+
+  if (runningTarget !== null) {
+    if (open === runningTarget) return;
+    try { running.anim?.cancel(); } catch (_) {}
+    __activeAnims.delete(el);
+  } else if (open === currentState) {
+    return;
+  }
 
   if (isReduced) {
-    // No animation; just toggle
     el.style.display = open ? 'block' : 'none';
     el.dataset.open = open ? '1' : '0';
+    clearInlineSlideStyles(el);
     return;
   }
 
   if (open) {
-    // EXPAND
+    el.dataset.open = '1';
     el.style.display = 'block';
-    const endH = el.scrollHeight;
+    const pad = getSlidePadding(el);
+    const totalEnd = el.scrollHeight;
+    const contentTarget = Math.max(0, totalEnd - pad.top - pad.bottom);
     try {
       el.style.overflow = 'hidden';
-      const anim = el.animate([
-        { height: '0px', opacity: 0 },
-        { height: endH + 'px', opacity: 1 }
-      ], { duration: SLIDE_OPEN_DUR, easing: 'ease', fill: 'forwards' });
-      __activeAnims.set(el, anim);
-      anim.onfinish = () => {
-        el.style.overflow = '';
-        el.style.height = '';
-        el.style.opacity = '';
-        el.dataset.open = '1';
-        __activeAnims.delete(el);
-      };
-      anim.oncancel = () => {
-        el.style.overflow = '';
-        el.style.height = '';
-        el.style.opacity = '';
-        __activeAnims.delete(el);
-      };
-    } catch (_) {
-      // Fallback: CSS transition
-      el.style.overflow = 'hidden';
+      el.style.paddingTop = '0px';
+      el.style.paddingBottom = '0px';
       el.style.height = '0px';
       el.style.opacity = '0';
-      // force reflow
-      void el.offsetHeight;
-      el.style.transition = `height ${SLIDE_OPEN_DUR}ms ease, opacity ${SLIDE_OPEN_DUR}ms ease`;
-      el.style.height = endH + 'px';
-      el.style.opacity = '1';
-      const clear = () => {
-        el.style.transition = '';
-        el.style.height = '';
-        el.style.opacity = '';
-        el.style.overflow = '';
+      void el.offsetWidth;
+      const anim = el.animate([
+        { height: '0px', opacity: 0, paddingTop: '0px', paddingBottom: '0px' },
+        { height: contentTarget + 'px', opacity: 1, paddingTop: pad.top + 'px', paddingBottom: pad.bottom + 'px' }
+      ], { duration: SLIDE_OPEN_DUR, easing: 'ease', fill: 'forwards' });
+      __activeAnims.set(el, { target: true, anim });
+      anim.onfinish = () => {
+        finalizeAnimation(el, anim);
         el.dataset.open = '1';
-        el.removeEventListener('transitionend', clear);
+        clearInlineSlideStyles(el);
       };
-      el.addEventListener('transitionend', clear);
+      anim.oncancel = () => {
+        clearInlineSlideStyles(el);
+        forgetActiveAnim(el, anim);
+      };
+    } catch (_) {
+      clearInlineSlideStyles(el);
+      el.dataset.open = '1';
     }
   } else {
-    // COLLAPSE
-    const startH = el.getBoundingClientRect().height;
+    el.dataset.open = '0';
+    const pad = getSlidePadding(el);
+    const totalStart = el.scrollHeight;
+    const contentStart = Math.max(0, totalStart - pad.top - pad.bottom);
     try {
       el.style.overflow = 'hidden';
+      el.style.display = 'block';
+      el.style.paddingTop = pad.top + 'px';
+      el.style.paddingBottom = pad.bottom + 'px';
+      el.style.height = contentStart + 'px';
+      el.style.opacity = '1';
+      void el.offsetHeight;
       const anim = el.animate([
-        { height: startH + 'px', opacity: 1 },
-        { height: '0px', opacity: 0 }
+        { height: contentStart + 'px', opacity: 1, paddingTop: pad.top + 'px', paddingBottom: pad.bottom + 'px' },
+        { height: '0px', opacity: 0, paddingTop: '0px', paddingBottom: '0px' }
       ], { duration: SLIDE_CLOSE_DUR, easing: 'ease', fill: 'forwards' });
-      __activeAnims.set(el, anim);
+      __activeAnims.set(el, { target: false, anim });
       anim.onfinish = () => {
+        finalizeAnimation(el, anim);
         el.style.display = 'none';
-        el.style.overflow = '';
-        el.style.height = '';
-        el.style.opacity = '';
         el.dataset.open = '0';
-        __activeAnims.delete(el);
+        clearInlineSlideStyles(el);
       };
       anim.oncancel = () => {
-        el.style.overflow = '';
-        el.style.height = '';
-        el.style.opacity = '';
-        __activeAnims.delete(el);
+        clearInlineSlideStyles(el);
+        forgetActiveAnim(el, anim);
       };
     } catch (_) {
-      // Fallback: CSS transition
-      el.style.overflow = 'hidden';
-      el.style.height = startH + 'px';
-      el.style.opacity = '1';
-      // force reflow
-      void el.offsetHeight;
-      el.style.transition = `height ${SLIDE_CLOSE_DUR}ms ease, opacity ${SLIDE_CLOSE_DUR}ms ease`;
-      el.style.height = '0px';
-      el.style.opacity = '0';
-      const clear = () => {
-        el.style.display = 'none';
-        el.style.transition = '';
-        el.style.height = '';
-        el.style.opacity = '';
-        el.style.overflow = '';
-        el.dataset.open = '0';
-        el.removeEventListener('transitionend', clear);
-      };
-      el.addEventListener('transitionend', clear);
+      el.style.display = 'none';
+      clearInlineSlideStyles(el);
+      el.dataset.open = '0';
     }
   }
 }
@@ -552,6 +572,9 @@ function buildIndexUI(root, state) {
     const btnExpand = $('.ci-expand', row);
     const btnDel = $('.ci-del', row);
 
+    body.dataset.open = '0';
+    body.style.display = 'none';
+
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
@@ -744,10 +767,11 @@ function buildIndexUI(root, state) {
     renderBody();
 
     btnExpand.addEventListener('click', () => {
-      const isOpen = body.classList.contains('is-open');
-      body.classList.toggle('is-open', !isOpen);
-      row.classList.toggle('is-open', !isOpen);
-      btnExpand.setAttribute('aria-expanded', String(!isOpen));
+      const isOpen = body.dataset.open === '1';
+      const next = !isOpen;
+      row.classList.toggle('is-open', next);
+      btnExpand.setAttribute('aria-expanded', String(next));
+      slideToggle(body, next);
     });
     btnDel.addEventListener('click', () => {
       const i = state.index.__order.indexOf(key);
@@ -791,6 +815,9 @@ function buildTabsUI(root, state) {
     const bodyInner = $('.ct-body-inner', row);
     const btnExpand = $('.ct-expand', row);
     const btnDel = $('.ct-del', row);
+
+    body.dataset.open = '0';
+    body.style.display = 'none';
 
     const renderBody = () => {
       bodyInner.innerHTML = '';
@@ -884,10 +911,11 @@ function buildTabsUI(root, state) {
     renderBody();
 
     btnExpand.addEventListener('click', () => {
-      const isOpen = body.classList.contains('is-open');
-      body.classList.toggle('is-open', !isOpen);
-      row.classList.toggle('is-open', !isOpen);
-      btnExpand.setAttribute('aria-expanded', String(!isOpen));
+      const isOpen = body.dataset.open === '1';
+      const next = !isOpen;
+      row.classList.toggle('is-open', next);
+      btnExpand.setAttribute('aria-expanded', String(next));
+      slideToggle(body, next);
     });
     btnDel.addEventListener('click', () => {
       const i = state.tabs.__order.indexOf(tab);
@@ -2211,10 +2239,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-head,.ct-head{border-bottom:none;}
   .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
-  .ci-body,.ct-body{padding:0 .6rem;}
-  .ci-body.is-open,.ct-body.is-open{padding:.5rem .6rem;}
-  .ci-body-inner,.ct-body-inner{overflow:hidden;max-height:0;opacity:0;transition:max-height 480ms cubic-bezier(.45,0,.25,1),opacity 480ms cubic-bezier(.45,0,.25,1)}
-  .ci-body.is-open .ci-body-inner,.ct-body.is-open .ct-body-inner{max-height:2000px;opacity:1;overflow:visible}
+  .ci-body,.ct-body{display:none;padding:.5rem .6rem;}
+  .ci-body-inner,.ct-body-inner{overflow:visible;}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ci-meta,.ct-meta{color:var(--muted);font-size:.85rem}
@@ -2277,7 +2303,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-expand .caret,.ct-expand .caret{display:inline-block;width:0;height:0;border-style:solid;border-width:5px 0 5px 7px;border-color:transparent transparent transparent currentColor;margin-right:.35rem;transform:rotate(0deg);transform-origin:50% 50%;transition:transform 480ms cubic-bezier(.45,0,.25,1)}
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
   @media (prefers-reduced-motion: reduce){
-    .ci-body-inner,.ct-body-inner{transition:none}
     .ci-expand .caret,.ct-expand .caret{transition:none}
   }
   /* Composer Guide */
