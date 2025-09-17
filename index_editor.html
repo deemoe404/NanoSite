@@ -71,7 +71,7 @@
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
-      line-height: 1;
+      line-height: 1.2;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease;
     }
     .mode-tab:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
@@ -95,7 +95,8 @@
       transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
       max-width: 240px;
       white-space: nowrap;
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: visible;
       text-overflow: ellipsis;
       font-weight: 600;
       cursor: pointer;
