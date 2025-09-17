@@ -8,7 +8,8 @@ const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
-  cfile: 'ns_composer_file'     // 'index' | 'tabs'
+  cfile: 'ns_composer_file',           // 'index' | 'tabs'
+  editorState: 'ns_composer_editor_state' // persisted dynamic editor info
 };
 
 // Track additional markdown editor tabs spawned from Composer
@@ -18,6 +19,7 @@ let dynamicTabCounter = 0;
 let currentMode = null;
 let activeDynamicMode = null;
 let detachPrimaryEditorListener = null;
+let allowEditorStatePersist = false;
 
 function getPrimaryEditorApi() {
   try {
@@ -90,6 +92,66 @@ function isDynamicMode(mode) {
   return !!(mode && dynamicEditorTabs.has(mode));
 }
 
+function persistDynamicEditorState() {
+  if (!allowEditorStatePersist) return;
+  try {
+    const store = window.localStorage;
+    if (!store) return;
+    const open = Array.from(dynamicEditorTabs.values())
+      .map((tab) => (tab && tab.path) ? tab.path : '')
+      .filter(Boolean);
+    const state = { v: 1, open };
+    if (currentMode === 'editor') state.mode = 'editor';
+    else if (currentMode && isDynamicMode(currentMode)) {
+      const active = dynamicEditorTabs.get(currentMode);
+      state.mode = 'dynamic';
+      state.activePath = active && active.path ? active.path : null;
+    } else {
+      state.mode = 'composer';
+    }
+    if (!open.length && state.mode === 'composer') store.removeItem(LS_KEYS.editorState);
+    else store.setItem(LS_KEYS.editorState, JSON.stringify(state));
+  } catch (_) {}
+}
+
+function restoreDynamicEditorState() {
+  let raw = null;
+  try {
+    const store = window.localStorage;
+    if (!store) return;
+    raw = store.getItem(LS_KEYS.editorState);
+  } catch (_) {
+    return;
+  }
+  if (!raw) return;
+  let data;
+  try { data = JSON.parse(raw); }
+  catch (_) { return; }
+  if (!data || typeof data !== 'object') return;
+
+  const open = Array.isArray(data.open) ? data.open : [];
+  const seen = new Set();
+  open.forEach((item) => {
+    const norm = normalizeRelPath(item);
+    if (!norm || seen.has(norm)) return;
+    seen.add(norm);
+    getOrCreateDynamicMode(norm);
+  });
+
+  const mode = (data.mode === 'editor' || data.mode === 'dynamic') ? data.mode : 'composer';
+  const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
+
+  if (mode === 'dynamic' && activePath) {
+    const modeId = dynamicEditorTabsByPath.get(activePath);
+    if (modeId) {
+      applyMode(modeId);
+      return;
+    }
+  }
+
+  if (mode === 'editor') applyMode('editor');
+}
+
 function setTabLoadingState(tab, isLoading) {
   if (!tab || !tab.button) return;
   try {
@@ -119,6 +181,8 @@ function closeDynamicTab(modeId) {
     const remainingModes = Array.from(dynamicEditorTabs.keys());
     const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'composer';
     applyMode(fallbackMode);
+  } else {
+    persistDynamicEditorState();
   }
 }
 
@@ -184,6 +248,7 @@ function getOrCreateDynamicMode(path) {
     }
   });
 
+  persistDynamicEditorState();
   return modeId;
 }
 
@@ -354,6 +419,8 @@ function applyMode(mode) {
     if (nextMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
     else document.documentElement.removeAttribute('data-init-mode');
   } catch (_) {}
+
+  persistDynamicEditorState();
 }
 
 function getInitialComposerFile() {
@@ -2522,6 +2589,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindComposerUI(state);
   buildIndexUI($('#composerIndex'), state);
   buildTabsUI($('#composerTabs'), state);
+  restoreDynamicEditorState();
+  allowEditorStatePersist = true;
+  persistDynamicEditorState();
 });
 
 // Minimal styles injected for composer behaviors

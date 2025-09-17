@@ -9,10 +9,22 @@
     // Early boot to avoid initial flash
     (function () {
       try {
-        document.documentElement.setAttribute('data-init-mode', 'composer');
+        var initMode = 'composer';
+        var rawState = localStorage.getItem('ns_composer_editor_state');
+        if (rawState) {
+          try {
+            var parsed = JSON.parse(rawState);
+            if (parsed && typeof parsed === 'object') {
+              if (parsed.mode === 'editor' || parsed.mode === 'dynamic') initMode = 'editor';
+            }
+          } catch (_) {}
+        }
+        if (initMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
+        else document.documentElement.removeAttribute('data-init-mode');
         // Preselect composer file (index/tabs) when persisted
         var cf = (localStorage.getItem('ns_composer_file') || 'index').toLowerCase();
         if (cf === 'tabs') document.documentElement.setAttribute('data-init-cfile', 'tabs');
+        else document.documentElement.removeAttribute('data-init-cfile');
       } catch (_) { /* ignore */ }
     })();
   </script>
