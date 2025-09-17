@@ -407,6 +407,9 @@ function makeEditor(targetTextarea, language, readOnly) {
     code.style.whiteSpace = 'pre';
   } catch (_) {}
 
+  const DEFAULT_LINE_HEIGHT = 20;
+  const lineMetricCache = { lineH: DEFAULT_LINE_HEIGHT, padTop: 0 };
+
   // Auto-resize to fit content height (no inner scrollbar)
   const applyHeights = () => {
     // Robust auto-resize (also shrinks after large deletions)
@@ -416,7 +419,14 @@ function makeEditor(targetTextarea, language, readOnly) {
     // eslint-disable-next-line no-unused-expressions
     ta.offsetHeight;
     const minH = 0; // grow exactly with content height
-    const h = Math.max(minH, ta.scrollHeight);
+    let h = Math.max(minH, ta.scrollHeight);
+    if (h <= 32) {
+      // Hidden containers report 0 scrollHeight; estimate from line count instead
+      const metrics = getLineMetrics();
+      const lines = (ta.value.match(/\n/g) || []).length + 1;
+      const fallback = (metrics.padTop * 2) + metrics.lineH * Math.max(1, lines);
+      h = Math.max(h, fallback);
+    }
     ta.style.height = h + 'px';
     body.style.height = h + 'px';
     pre.style.height = h + 'px';
@@ -425,17 +435,32 @@ function makeEditor(targetTextarea, language, readOnly) {
     gutter.style.transform = 'none';
   };
 
+  const refreshLayout = () => {
+    applyHeights();
+    updateActiveLines();
+  };
+
   function getLineMetrics() {
-    // Prefer code element metrics for exact alignment with rendered lines
-    const cs = window.getComputedStyle(code);
-    let lineH = parseFloat(cs.lineHeight);
-    if (isNaN(lineH) || !isFinite(lineH)) {
-      const fs = parseFloat(cs.fontSize) || 16;
-      lineH = fs * 1.55;
+    try {
+      // Prefer code element metrics for exact alignment with rendered lines
+      const cs = window.getComputedStyle(code);
+      let lineH = parseFloat(cs.lineHeight);
+      if (!lineH || !isFinite(lineH) || lineH <= 0) {
+        const fs = parseFloat(cs.fontSize);
+        if (fs && isFinite(fs) && fs > 0) lineH = fs * 1.55;
+      }
+      if (!lineH || !isFinite(lineH) || lineH <= 0) {
+        lineH = lineMetricCache.lineH || DEFAULT_LINE_HEIGHT;
+      }
+      const csPre = window.getComputedStyle(pre);
+      let padTop = parseFloat(csPre.paddingTop);
+      if (!isFinite(padTop) || padTop < 0) padTop = lineMetricCache.padTop || 0;
+      lineMetricCache.lineH = lineH;
+      lineMetricCache.padTop = padTop;
+      return { lineH, padTop };
+    } catch (_) {
+      return { lineH: lineMetricCache.lineH || DEFAULT_LINE_HEIGHT, padTop: lineMetricCache.padTop || 0 };
     }
-    const csPre = window.getComputedStyle(pre);
-    const padTop = parseFloat(csPre.paddingTop) || 0;
-    return { lineH, padTop };
   }
 
   function updateActiveLines() {
@@ -477,14 +502,12 @@ function makeEditor(targetTextarea, language, readOnly) {
   const onInput = () => {
     hiddenTa.value = ta.value;
     renderHighlight(code, gutter, ta.value, language);
-    applyHeights();
-    updateActiveLines();
+    refreshLayout();
   };
   ta.addEventListener('input', onInput);
   // No internal scrollbars; height grows with content
   ta.style.overflow = 'hidden';
-  applyHeights();
-  updateActiveLines();
+  refreshLayout();
 
   // Caret/selection changes
   const onSelChange = () => { updateActiveLines(); };
@@ -498,16 +521,16 @@ function makeEditor(targetTextarea, language, readOnly) {
 
   // Public API
   const api = {
-    setValue(text) { ta.value = String(text || ''); hiddenTa.value = ta.value; renderHighlight(code, gutter, ta.value, language); applyHeights(); },
+    setValue(text) { ta.value = String(text || ''); hiddenTa.value = ta.value; renderHighlight(code, gutter, ta.value, language); refreshLayout(); },
     getValue() { return ta.value || ''; },
     setWrap(_) {
       // ignore external requests; enforce no-wrap
       ta.setAttribute('wrap', 'off');
       ta.style.whiteSpace = 'pre';
       code.style.whiteSpace = 'pre';
-      applyHeights();
-      updateActiveLines();
+      refreshLayout();
     },
+    refreshLayout,
     el: container,
     textarea: ta
   };

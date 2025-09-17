@@ -286,6 +286,18 @@ function applyMode(mode) {
     });
   } catch (_) {}
 
+  const scheduleEditorLayoutRefresh = () => {
+    if (!editorApi || typeof editorApi.requestLayout !== 'function') return;
+    const run = () => {
+      if (currentMode !== nextMode) return;
+      try { editorApi.requestLayout(); } catch (_) {}
+    };
+    try { requestAnimationFrame(run); }
+    catch (_) { setTimeout(run, 0); }
+  };
+
+  if (onEditor) scheduleEditorLayoutRefresh();
+
   if (nextMode === 'composer') {
     activeDynamicMode = null;
   } else if (isDynamicMode(nextMode)) {
@@ -306,6 +318,7 @@ function applyMode(mode) {
         tab.loaded = true;
         if (currentMode === nextMode) {
           editorApi.setValue(tab.content, { notify: false });
+          scheduleEditorLayoutRefresh();
           try { editorApi.focus(); } catch (_) {}
           try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
           catch (_) { window.scrollTo(0, 0); }
@@ -332,6 +345,7 @@ function applyMode(mode) {
     activeDynamicMode = null;
     if (editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
+      scheduleEditorLayoutRefresh();
     }
   }
 

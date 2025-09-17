@@ -55,6 +55,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const requestLayout = () => {
+    try {
+      if (editor && typeof editor.refreshLayout === 'function') {
+        editor.refreshLayout();
+        return;
+      }
+      if (!ta) return;
+      ta.style.height = '0px';
+      // eslint-disable-next-line no-unused-expressions
+      ta.offsetHeight;
+      ta.style.height = `${ta.scrollHeight}px`;
+    } catch (_) {}
+  };
+
   const getValue = () => {
     if (editor) return editor.getValue() || '';
     if (ta) return ta.value || '';
@@ -66,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const { preview = true, notify = true } = opts;
     if (editor) editor.setValue(text);
     else if (ta) ta.value = text;
+    requestLayout();
     if (preview) renderPreview(text);
     if (notify) notifyChange(text);
   };
@@ -129,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setView: (mode) => {
       switchView(mode === 'preview' ? 'preview' : 'edit');
       if (mode === 'preview') renderPreview(getValue());
+      else requestLayout();
     },
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
@@ -137,7 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
       changeListeners.add(fn);
       return () => { changeListeners.delete(fn); };
     },
-    refreshPreview: () => { renderPreview(getValue()); }
+    refreshPreview: () => { renderPreview(getValue()); },
+    requestLayout: () => { requestLayout(); }
   };
 
   try { window.__ns_primary_editor = primaryEditorApi; } catch (_) {}
