@@ -95,15 +95,25 @@ export function sanitizeImageUrl(url) {
 
 export function resolveImageSrc(src, baseDir) {
   const s = String(src || '').trim();
+  if (!s) return '';
   if (/^[a-z][a-z0-9+.-]*:/.test(s) || s.startsWith('/') || s.startsWith('#')) {
     return sanitizeUrl(s);
   }
-  const base = String(baseDir || '').replace(/^\/+|\/+$/g, '') + '/';
+  const stripSlashes = (val) => String(val || '').replace(/^\/+|\/+$/g, '');
+  const normalizedBase = stripSlashes(baseDir);
+  const normalizedRoot = stripSlashes(getContentRoot());
+  const candidate = s.replace(/^\/+/, '');
+
+  // Already normalized relative to either the active base directory or content root
+  if (normalizedBase && candidate.startsWith(`${normalizedBase}/`)) return candidate;
+  if (normalizedRoot && candidate.startsWith(`${normalizedRoot}/`)) return candidate;
+
+  const base = (normalizedBase ? `${normalizedBase}/` : '');
   try {
-    const u = new URL(s, `${location.origin}/${base}`);
+    const u = new URL(candidate, `${location.origin}/${base}`);
     return u.pathname.replace(/^\/+/, '');
   } catch (_) {
-    return `${base}${s}`.replace(/\/+/, '/');
+    return `${base}${candidate}`.replace(/\/+/, '/');
   }
 }
 
