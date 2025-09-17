@@ -98,10 +98,152 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  let assignCurrentFileLabel = (label) => {
-    const current = document.getElementById('currentFile');
-    if (current) current.textContent = label ? `Loaded: ${label}` : '';
+  const STATUS_LABELS = {
+    checking: 'Checking file…',
+    existing: 'Existing file',
+    missing: 'New file',
+    error: 'Failed to load file'
   };
+
+  const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
+  let currentFileInfo = { path: '', status: null };
+  let currentFileElRef = null;
+
+  const ensureCurrentFileElement = () => {
+    if (currentFileElRef && document.body.contains(currentFileElRef)) return currentFileElRef;
+    currentFileElRef = document.getElementById('currentFile');
+    return currentFileElRef;
+  };
+
+  const formatStatusTimestamp = (ms) => {
+    if (!Number.isFinite(ms)) return '';
+    try {
+      const fmt = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      return fmt.format(new Date(ms));
+    } catch (_) {
+      try { return new Date(ms).toLocaleString(); }
+      catch (__) { return ''; }
+    }
+  };
+
+  const normalizeStatusPayload = (value) => {
+    if (!value || typeof value !== 'object') return null;
+    const rawState = String(value.state || '').trim().toLowerCase();
+    const state = STATUS_STATES.has(rawState) ? rawState : '';
+    const normalized = {};
+    if (state) normalized.state = state;
+
+    let checkedAt = value.checkedAt;
+    if (checkedAt instanceof Date) checkedAt = checkedAt.getTime();
+    else if (typeof checkedAt === 'string') {
+      const trimmed = checkedAt.trim();
+      if (trimmed) {
+        const asNumber = Number(trimmed);
+        if (Number.isFinite(asNumber)) checkedAt = asNumber;
+        else {
+          const parsed = Date.parse(trimmed);
+          checkedAt = Number.isFinite(parsed) ? parsed : null;
+        }
+      } else {
+        checkedAt = null;
+      }
+    }
+    if (Number.isFinite(checkedAt)) normalized.checkedAt = Math.floor(checkedAt);
+
+    if (value.message) normalized.message = String(value.message);
+    if (value.code != null && value.code !== '') {
+      const codeNum = Number(value.code);
+      if (Number.isFinite(codeNum)) normalized.code = codeNum;
+    }
+
+    return Object.keys(normalized).length ? normalized : (state ? { state } : null);
+  };
+
+  const normalizeCurrentFilePayload = (input) => {
+    if (typeof input === 'string') {
+      return { path: String(input || '').trim(), status: null };
+    }
+    if (input && typeof input === 'object') {
+      const path = input.path != null ? String(input.path || '').trim() : '';
+      const status = normalizeStatusPayload(input.status);
+      return { path, status };
+    }
+    return { path: '', status: null };
+  };
+
+  const describeStatusLabel = (status) => {
+    if (!status || !status.state) return '';
+    const base = STATUS_LABELS[status.state] || status.state;
+    if (status.state === 'error') {
+      const detail = [];
+      if (status.message) detail.push(String(status.message));
+      if (Number.isFinite(status.code)) detail.push(`HTTP ${status.code}`);
+      return detail.length ? `${base} (${detail.join(' · ')})` : base;
+    }
+    return base;
+  };
+
+  const formatStatusMeta = (status) => {
+    if (!status || !status.state) return '';
+    if (status.state === 'checking') {
+      if (Number.isFinite(status.checkedAt)) {
+        const ts = formatStatusTimestamp(status.checkedAt);
+        return ts ? `Checking… started ${ts}` : 'Checking…';
+      }
+      return 'Checking…';
+    }
+    if (Number.isFinite(status.checkedAt)) {
+      const ts = formatStatusTimestamp(status.checkedAt);
+      return ts ? `Last checked: ${ts}` : '';
+    }
+    return '';
+  };
+
+  const renderCurrentFileIndicator = () => {
+    const el = ensureCurrentFileElement();
+    if (!el) return;
+    const path = currentFileInfo.path ? String(currentFileInfo.path) : '';
+    if (!path) {
+      el.textContent = '';
+      el.removeAttribute('data-file-state');
+      el.removeAttribute('data-last-checked');
+      el.removeAttribute('title');
+      return;
+    }
+
+    const status = currentFileInfo.status || null;
+    const segments = [`${path}`];
+    const statusLabel = describeStatusLabel(status);
+    const meta = formatStatusMeta(status);
+    if (statusLabel) segments.push(`— ${statusLabel}`);
+    if (meta) segments.push(statusLabel ? `· ${meta}` : `— ${meta}`);
+    const text = segments.join(' ');
+    el.textContent = text;
+    el.setAttribute('title', text);
+    if (status && status.state) el.setAttribute('data-file-state', status.state);
+    else el.removeAttribute('data-file-state');
+    if (status && Number.isFinite(status.checkedAt)) el.setAttribute('data-last-checked', String(status.checkedAt));
+    else el.removeAttribute('data-last-checked');
+  };
+
+  const bindCurrentFileElement = (el) => {
+    currentFileElRef = el || null;
+    renderCurrentFileIndicator();
+  };
+
+  const assignCurrentFileLabel = (input) => {
+    currentFileInfo = normalizeCurrentFilePayload(input);
+    renderCurrentFileIndicator();
+  };
+
+  renderCurrentFileIndicator();
 
   const handleInput = () => {
     const val = getValue();
@@ -202,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeGroup = 'index';
 
     const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
-    assignCurrentFileLabel = (p) => { if (currentFileEl) currentFileEl.textContent = p ? `Loaded: ${p}` : ''; };
+    bindCurrentFileElement(currentFileEl);
 
     const basename = (p) => {
       try { const s = String(p || ''); const i = s.lastIndexOf('/'); return i >= 0 ? s.slice(i + 1) : s; } catch (_) { return String(p || ''); }

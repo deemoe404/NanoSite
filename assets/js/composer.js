@@ -162,6 +162,49 @@ function setTabLoadingState(tab, isLoading) {
   } catch (_) {}
 }
 
+const TAB_STATE_VALUES = new Set(['checking', 'existing', 'missing', 'error']);
+
+function pushEditorCurrentFileInfo(tab) {
+  const editorApi = getPrimaryEditorApi();
+  if (!editorApi || typeof editorApi.setCurrentFileLabel !== 'function') return;
+  const payload = tab
+    ? { path: tab.path || '', status: tab.fileStatus || null }
+    : { path: '', status: null };
+  try { editorApi.setCurrentFileLabel(payload); }
+  catch (_) {}
+}
+
+function setDynamicTabStatus(tab, status) {
+  if (!tab) return;
+  const next = status && typeof status === 'object' ? { ...status } : {};
+  const rawState = String(next.state || '').trim().toLowerCase();
+  const state = TAB_STATE_VALUES.has(rawState) ? rawState : '';
+  let checkedAt = next.checkedAt;
+  if (checkedAt instanceof Date) checkedAt = checkedAt.getTime();
+  if (checkedAt != null && !Number.isFinite(checkedAt)) checkedAt = Number(checkedAt);
+  if (Number.isFinite(checkedAt)) checkedAt = Math.max(0, Math.floor(checkedAt));
+  else checkedAt = null;
+
+  const normalized = {
+    state,
+    checkedAt,
+  };
+  if (next.message) normalized.message = String(next.message || '');
+  if (next.code != null) normalized.code = Number(next.code);
+
+  tab.fileStatus = normalized;
+
+  const btn = tab.button;
+  if (btn) {
+    if (state) btn.setAttribute('data-file-state', state);
+    else btn.removeAttribute('data-file-state');
+    if (checkedAt != null) btn.setAttribute('data-checked-at', String(checkedAt));
+    else btn.removeAttribute('data-checked-at');
+  }
+
+  if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
+}
+
 function closeDynamicTab(modeId) {
   const tab = dynamicEditorTabs.get(modeId);
   if (!tab) return;
@@ -207,7 +250,6 @@ function getOrCreateDynamicMode(path) {
   btn.setAttribute('role', 'tab');
   btn.setAttribute('aria-controls', 'mode-editor');
   btn.setAttribute('aria-selected', 'false');
-  btn.setAttribute('title', `editor: ${normalized}`);
   btn.setAttribute('aria-label', `Open editor for ${normalized}`);
   btn.innerHTML = `
     <span class="mode-tab-chip">
@@ -225,7 +267,8 @@ function getOrCreateDynamicMode(path) {
     baseDir: computeBaseDirForPath(normalized),
     content: '',
     loaded: false,
-    pending: null
+    pending: null,
+    fileStatus: null
   };
   dynamicEditorTabs.set(modeId, data);
   dynamicEditorTabsByPath.set(normalized, modeId);
@@ -248,6 +291,8 @@ function getOrCreateDynamicMode(path) {
     }
   });
 
+  loadDynamicTabContent(data).catch(() => {});
+
   persistDynamicEditorState();
   return modeId;
 }
@@ -262,21 +307,61 @@ async function loadDynamicTabContent(tab) {
   if (!rel) throw new Error('Invalid markdown path');
   const url = `${root}/${rel}`.replace(/[\\]/g, '/');
 
-  tab.pending = fetch(url, { cache: 'no-store' })
-    .then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.text();
-    })
-    .then((text) => {
-      tab.content = String(text || '');
-      tab.loaded = true;
-      tab.pending = null;
-      return tab.content;
-    })
-    .catch((err) => {
-      tab.pending = null;
+  const runner = async () => {
+    setDynamicTabStatus(tab, { state: 'checking', checkedAt: Date.now(), message: 'Checking file…' });
+
+    let res;
+    try {
+      res = await fetch(url, { cache: 'no-store' });
+    } catch (err) {
+      setDynamicTabStatus(tab, {
+        state: 'error',
+        checkedAt: Date.now(),
+        message: err && err.message ? err.message : 'Network error'
+      });
       throw err;
+    }
+
+    const checkedAt = Date.now();
+
+    if (res.status === 404) {
+      tab.content = '';
+      tab.loaded = true;
+      setDynamicTabStatus(tab, {
+        state: 'missing',
+        checkedAt,
+        message: 'File not found on server',
+        code: 404
+      });
+      return tab.content;
+    }
+
+    if (!res.ok) {
+      const err = new Error(`HTTP ${res.status}`);
+      err.status = res.status;
+      setDynamicTabStatus(tab, {
+        state: 'error',
+        checkedAt,
+        message: err.message || `HTTP ${res.status}`,
+        code: res.status
+      });
+      throw err;
+    }
+
+    const text = await res.text();
+    tab.content = String(text || '');
+    tab.loaded = true;
+    setDynamicTabStatus(tab, {
+      state: 'existing',
+      checkedAt,
+      code: res.status
     });
+    return tab.content;
+  };
+
+  tab.pending = runner().finally(() => {
+    tab.pending = null;
+  });
 
   return tab.pending;
 }
@@ -365,6 +450,7 @@ function applyMode(mode) {
 
   if (nextMode === 'composer') {
     activeDynamicMode = null;
+    pushEditorCurrentFileInfo(null);
   } else if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
@@ -376,7 +462,7 @@ function applyMode(mode) {
         tab.baseDir = baseDir;
         editorApi.setBaseDir(baseDir);
       } catch (_) {}
-      try { editorApi.setCurrentFileLabel(tab.path); } catch (_) {}
+      pushEditorCurrentFileInfo(tab);
 
       const applyContent = (text) => {
         tab.content = String(text || '');
@@ -401,7 +487,10 @@ function applyMode(mode) {
           setTabLoadingState(tab, false);
           if (currentMode === nextMode) {
             console.error('Composer editor: failed to load markdown', err);
-            alert(`Failed to load file\n${tab.path}\n${err}`);
+            const message = (tab.fileStatus && tab.fileStatus.message)
+              ? tab.fileStatus.message
+              : (err && err.message) ? err.message : 'Unknown error';
+            alert(`Failed to load file\n${tab.path}\n${message}`);
           }
         });
       }
@@ -412,6 +501,7 @@ function applyMode(mode) {
       try { editorApi.setView('edit'); } catch (_) {}
       scheduleEditorLayoutRefresh();
     }
+    pushEditorCurrentFileInfo(null);
   }
 
   // Sync preload attribute so CSS with !important stops forcing previous mode
