@@ -33,9 +33,11 @@
     .editor-page { display: block; }
     /* Two-column layout: sidebar + editor */
     .editor-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1rem; align-items: start; }
+    .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
+    .editor-layout.is-dynamic .editor-sidebar { display: none !important; }
     .editor-sidebar { position: relative; }
     .editor-sidebar .sidebar-title { font-size: 1rem; font-weight: 700; margin: 0 0 .5rem; }
     /* Sidebar tabs for switching between Posts and Tabs */
@@ -47,6 +49,8 @@
       display: inline-flex; 
       gap: .25rem; 
       align-items: center; 
+      flex-wrap: wrap;
+      row-gap: .25rem;
       background: var(--card); 
       border: 1px solid var(--border); 
       border-radius: 12px; 
@@ -72,6 +76,77 @@
       border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
       color: var(--primary);
       cursor: default;
+    }
+    .mode-tab.dynamic-mode {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+      padding: .35rem .65rem .35rem .85rem;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--card) 88%, var(--primary) 12%), color-mix(in srgb, var(--card) 96%, transparent));
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+      color: color-mix(in srgb, var(--text) 65%, transparent);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+      max-width: 240px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mode-tab.is-busy {
+      opacity: .6;
+      cursor: progress;
+    }
+    .mode-tab.dynamic-mode:hover:not(.is-busy) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+      color: color-mix(in srgb, var(--text) 85%, transparent);
+    }
+    .mode-tab.dynamic-mode.is-active {
+      border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 24%, var(--card)), color-mix(in srgb, var(--card) 94%, transparent));
+      color: var(--primary);
+      box-shadow: 0 14px 32px rgba(9, 105, 218, 0.2);
+    }
+    .mode-tab.dynamic-mode.is-busy {
+      pointer-events: none;
+    }
+    .mode-tab-chip { display: inline-flex; align-items: center; gap: .45rem; }
+    .mode-tab-label { overflow: hidden; text-overflow: ellipsis; }
+    .mode-tab-close {
+      appearance: none;
+      border: 0;
+      background: color-mix(in srgb, var(--card) 70%, transparent);
+      color: color-mix(in srgb, var(--text) 50%, transparent);
+      border-radius: 999px;
+      width: 1.45rem;
+      height: 1.45rem;
+      font-size: 1rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color .18s ease, color .18s ease, opacity .18s ease, transform .18s ease;
+      opacity: .5;
+    }
+    .mode-tab-close:hover {
+      background: color-mix(in srgb, var(--text) 14%, transparent);
+      color: var(--text);
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    .mode-tab-close:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+      outline-offset: 2px;
+      opacity: 1;
+    }
+    .mode-tab.dynamic-mode:hover .mode-tab-close,
+    .mode-tab.dynamic-mode:focus-within .mode-tab-close {
+      opacity: 1;
     }
     .mode-tab:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
     .editor-sidebar .group-title { display:none; }

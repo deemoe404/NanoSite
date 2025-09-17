@@ -12,6 +12,224 @@ const LS_KEYS = {
   cfile: 'ns_composer_file'     // 'index' | 'tabs'
 };
 
+// Track additional markdown editor tabs spawned from Composer
+const dynamicEditorTabs = new Map();       // modeId -> { path, button, content, loaded, baseDir }
+const dynamicEditorTabsByPath = new Map(); // normalizedPath -> modeId
+let dynamicTabCounter = 0;
+let currentMode = null;
+let activeDynamicMode = null;
+let detachPrimaryEditorListener = null;
+
+function getPrimaryEditorApi() {
+  try {
+    const api = window.__ns_primary_editor;
+    return api && typeof api === 'object' ? api : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function ensurePrimaryEditorListener() {
+  if (detachPrimaryEditorListener) return;
+  const api = getPrimaryEditorApi();
+  if (!api || typeof api.onChange !== 'function') return;
+  detachPrimaryEditorListener = api.onChange((value) => {
+    if (!activeDynamicMode) return;
+    const tab = dynamicEditorTabs.get(activeDynamicMode);
+    if (tab) tab.content = value;
+  });
+}
+
+function normalizeRelPath(path) {
+  const raw = String(path || '').trim();
+  if (!raw) return '';
+  const cleaned = raw
+    .replace(/[\\]/g, '/')
+    .replace(/^\//, '')
+    .replace(/^\.\//, '')
+    .replace(/\/+/g, '/');
+  const parts = cleaned.split('/');
+  const stack = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (stack.length) stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+  return stack.join('/');
+}
+
+function basenameFromPath(relPath) {
+  const norm = normalizeRelPath(relPath);
+  if (!norm) return '';
+  const idx = norm.lastIndexOf('/');
+  return idx >= 0 ? norm.slice(idx + 1) : norm;
+}
+
+function getContentRootSafe() {
+  try {
+    const root = window.__ns_content_root;
+    if (root && typeof root === 'string' && root.trim()) {
+      return root.trim().replace(/[\\]/g, '/').replace(/\/?$/, '');
+    }
+  } catch (_) {}
+  return 'wwwroot';
+}
+
+function computeBaseDirForPath(relPath) {
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(relPath);
+  const idx = rel.lastIndexOf('/');
+  const dir = idx >= 0 ? rel.slice(0, idx + 1) : '';
+  const base = `${root}/${dir}`.replace(/[\\]/g, '/');
+  return base.endsWith('/') ? base : `${base}/`;
+}
+
+function isDynamicMode(mode) {
+  return !!(mode && dynamicEditorTabs.has(mode));
+}
+
+function setTabLoadingState(tab, isLoading) {
+  if (!tab || !tab.button) return;
+  try {
+    tab.button.classList.toggle('is-busy', !!isLoading);
+    if (isLoading) tab.button.setAttribute('data-loading', '1');
+    else tab.button.removeAttribute('data-loading');
+    tab.button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+  } catch (_) {}
+}
+
+function closeDynamicTab(modeId) {
+  const tab = dynamicEditorTabs.get(modeId);
+  if (!tab) return;
+  dynamicEditorTabs.delete(modeId);
+  dynamicEditorTabsByPath.delete(tab.path);
+  try { tab.button?.remove(); } catch (_) {}
+
+  const wasActive = (currentMode === modeId);
+  if (activeDynamicMode === modeId) activeDynamicMode = null;
+
+  if (!dynamicEditorTabs.size && detachPrimaryEditorListener) {
+    try { detachPrimaryEditorListener(); } catch (_) {}
+    detachPrimaryEditorListener = null;
+  }
+
+  if (wasActive) {
+    const remainingModes = Array.from(dynamicEditorTabs.keys());
+    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'editor';
+    applyMode(fallbackMode);
+    const persisted = isDynamicMode(fallbackMode) ? 'editor' : fallbackMode;
+    setPersistedMode(persisted);
+  }
+}
+
+function getOrCreateDynamicMode(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  const existing = dynamicEditorTabsByPath.get(normalized);
+  if (existing) return existing;
+
+  const nav = $('.mode-switch');
+  if (!nav) return null;
+
+  dynamicTabCounter += 1;
+  const modeId = `editor-tab-${dynamicTabCounter}`;
+  const label = basenameFromPath(normalized) || normalized;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mode-tab dynamic-mode';
+  btn.dataset.mode = modeId;
+  btn.dataset.path = normalized;
+  btn.setAttribute('role', 'tab');
+  btn.setAttribute('aria-controls', 'mode-editor');
+  btn.setAttribute('aria-selected', 'false');
+  btn.setAttribute('title', `editor: ${normalized}`);
+  btn.setAttribute('aria-label', `Open editor for ${normalized}`);
+  btn.innerHTML = `
+    <span class="mode-tab-chip">
+      <span class="mode-tab-label">editor: ${label}</span>
+      <span class="mode-tab-close" aria-hidden="true">×</span>
+    </span>
+  `;
+  nav.appendChild(btn);
+
+  const data = {
+    mode: modeId,
+    path: normalized,
+    button: btn,
+    label,
+    baseDir: computeBaseDirForPath(normalized),
+    content: '',
+    loaded: false,
+    pending: null
+  };
+  dynamicEditorTabs.set(modeId, data);
+  dynamicEditorTabsByPath.set(normalized, modeId);
+
+  btn.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target && target.closest && target.closest('.mode-tab-close')) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeDynamicTab(modeId);
+      return;
+    }
+    applyMode(modeId);
+    setPersistedMode('editor');
+  });
+
+  btn.addEventListener('keydown', (event) => {
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      closeDynamicTab(modeId);
+    }
+  });
+
+  return modeId;
+}
+
+async function loadDynamicTabContent(tab) {
+  if (!tab) return '';
+  if (tab.loaded && typeof tab.content === 'string') return tab.content;
+  if (tab.pending) return tab.pending;
+
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) throw new Error('Invalid markdown path');
+  const url = `${root}/${rel}`.replace(/[\\]/g, '/');
+
+  tab.pending = fetch(url, { cache: 'no-store' })
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    })
+    .then((text) => {
+      tab.content = String(text || '');
+      tab.loaded = true;
+      tab.pending = null;
+      return tab.content;
+    })
+    .catch((err) => {
+      tab.pending = null;
+      throw err;
+    });
+
+  return tab.pending;
+}
+
+function openMarkdownInEditor(path) {
+  const modeId = getOrCreateDynamicMode(path);
+  if (!modeId) {
+    alert('Unable to open editor tab.');
+    return;
+  }
+  applyMode(modeId);
+  setPersistedMode('editor');
+}
+
 // Default Markdown template for new post files (index.yaml related flows)
 function makeDefaultMdTemplate(opts) {
   const options = opts && typeof opts === 'object' ? opts : {};
@@ -56,29 +274,105 @@ function getInitialMode() {
 }
 
 function setPersistedMode(mode) {
+  const normalized = mode === 'composer' ? 'composer' : 'editor';
   // Persist and reflect in URL hash (non-destructive)
-  try { localStorage.setItem(LS_KEYS.mode, mode); } catch (_) {}
+  try { localStorage.setItem(LS_KEYS.mode, normalized); } catch (_) {}
   try {
     const url = new URL(location.href);
-    url.hash = mode === 'composer' ? '#composer' : '#editor';
+    url.hash = normalized === 'composer' ? '#composer' : '#editor';
     history.replaceState(null, '', url);
   } catch (_) {}
 }
 
 function applyMode(mode) {
-  const onEditor = mode !== 'composer';
+  const candidate = mode || 'editor';
+  const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
+    ? candidate
+    : 'editor';
+
+  const previousMode = currentMode;
+  if (previousMode === nextMode) return;
+
+  const editorApi = getPrimaryEditorApi();
+  if (previousMode && isDynamicMode(previousMode) && editorApi && typeof editorApi.getValue === 'function') {
+    const prevTab = dynamicEditorTabs.get(previousMode);
+    if (prevTab) {
+      try {
+        prevTab.content = String(editorApi.getValue() || '');
+      } catch (_) {}
+    }
+  }
+
+  currentMode = nextMode;
+
+  const onEditor = nextMode !== 'composer';
   try { $('#mode-editor').style.display = onEditor ? '' : 'none'; } catch (_) {}
   try { $('#mode-composer').style.display = onEditor ? 'none' : ''; } catch (_) {}
   try {
+    const layout = $('#mode-editor');
+    if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
+  } catch (_) {}
+
+  try {
     $$('.mode-tab').forEach(b => {
-      const isOn = (b.dataset.mode === mode);
+      const isOn = (b.dataset.mode === nextMode);
       b.classList.toggle('is-active', isOn);
       b.setAttribute('aria-selected', isOn ? 'true' : 'false');
     });
   } catch (_) {}
+
+  if (nextMode === 'composer') {
+    activeDynamicMode = null;
+  } else if (isDynamicMode(nextMode)) {
+    activeDynamicMode = nextMode;
+    ensurePrimaryEditorListener();
+    const tab = dynamicEditorTabs.get(nextMode);
+    if (tab && editorApi) {
+      try { editorApi.setView('edit'); } catch (_) {}
+      try {
+        const baseDir = computeBaseDirForPath(tab.path);
+        tab.baseDir = baseDir;
+        editorApi.setBaseDir(baseDir);
+      } catch (_) {}
+      try { editorApi.setCurrentFileLabel(tab.path); } catch (_) {}
+
+      const applyContent = (text) => {
+        tab.content = String(text || '');
+        tab.loaded = true;
+        if (currentMode === nextMode) {
+          editorApi.setValue(tab.content, { notify: false });
+          try { editorApi.focus(); } catch (_) {}
+          try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+          catch (_) { window.scrollTo(0, 0); }
+        }
+      };
+
+      if (tab.loaded) {
+        applyContent(tab.content);
+      } else {
+        setTabLoadingState(tab, true);
+        loadDynamicTabContent(tab).then((text) => {
+          setTabLoadingState(tab, false);
+          applyContent(text);
+        }).catch((err) => {
+          setTabLoadingState(tab, false);
+          if (currentMode === nextMode) {
+            console.error('Composer editor: failed to load markdown', err);
+            alert(`Failed to load file\n${tab.path}\n${err}`);
+          }
+        });
+      }
+    }
+  } else {
+    activeDynamicMode = null;
+    if (editorApi) {
+      try { editorApi.setView('edit'); } catch (_) {}
+    }
+  }
+
   // Sync preload attribute so CSS with !important stops forcing previous mode
   try {
-    if (mode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
+    if (nextMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
     else document.documentElement.removeAttribute('data-init-mode');
   } catch (_) {}
 }
@@ -647,6 +941,7 @@ function buildIndexUI(root, state) {
             row.innerHTML = `
               <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
               <span class="ci-ver-actions">
+                <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
                 <button class="btn-secondary ci-up" title="Move up">↑</button>
                 <button class="btn-secondary ci-down" title="Move down">↓</button>
                 <button class="btn-secondary ci-remove" title="Remove">✕</button>
@@ -661,6 +956,14 @@ function buildIndexUI(root, state) {
             $('.ci-path', row).addEventListener('input', (e) => {
               arr[i] = e.target.value;
               entry[lang] = arr.slice();
+            });
+            $('.ci-edit', row).addEventListener('click', () => {
+              const rel = normalizeRelPath(arr[i]);
+              if (!rel) {
+                alert('Enter a markdown path before opening the editor.');
+                return;
+              }
+              openMarkdownInEditor(rel);
             });
             up.addEventListener('click', () => {
               if (i <= 0) return;
@@ -839,12 +1142,23 @@ function buildTabsUI(root, state) {
             <label class="ct-field ct-field-title">Title <input class="ct-title" type="text" value="${v.title || ''}" /></label>
             <label class="ct-field ct-field-location">Location <input class="ct-loc" type="text" placeholder="tab/.../file.md" value="${v.location || ''}" /></label>
             <div class="ct-lang-actions">
-              <button class="btn-secondary ct-lang-del">Remove Lang</button>
+              <button type="button" class="btn-secondary ct-edit">Edit</button>
+              <button type="button" class="btn-secondary ct-lang-del">Remove Lang</button>
             </div>
           </div>
         `;
-        $('.ct-title', block).addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].title = e.target.value; });
-        $('.ct-loc', block).addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].location = e.target.value; });
+        const titleInput = $('.ct-title', block);
+        const locInput = $('.ct-loc', block);
+        titleInput.addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].title = e.target.value; });
+        locInput.addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].location = e.target.value; });
+        $('.ct-edit', block).addEventListener('click', () => {
+          const rel = normalizeRelPath(locInput.value);
+          if (!rel) {
+            alert('Enter a markdown location before opening the editor.');
+            return;
+          }
+          openMarkdownInEditor(rel);
+        });
         $('.ct-lang-del', block).addEventListener('click', () => { delete entry[lang]; row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`; renderBody(); });
         bodyInner.appendChild(block);
       });

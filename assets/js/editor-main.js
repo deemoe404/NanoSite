@@ -46,20 +46,66 @@ function renderPreview(mdText) {
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('mdInput');
   const editor = createHiEditor(ta, 'markdown', false);
-  // Seed with a minimal template
   const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, NanoSite!');\n\`\`\`\n`;
-  // Restore draft if exists; otherwise apply seed if empty
-  if (editor) {
-    const existing = (editor.getValue() || '').trim();
-    if (!existing) {
-      editor.setValue(seed);
+
+  const changeListeners = new Set();
+  const notifyChange = (value) => {
+    changeListeners.forEach((fn) => {
+      try { fn(value); } catch (_) {}
+    });
+  };
+
+  const getValue = () => {
+    if (editor) return editor.getValue() || '';
+    if (ta) return ta.value || '';
+    return '';
+  };
+
+  const setValue = (value, opts = {}) => {
+    const text = value == null ? '' : String(value);
+    const { preview = true, notify = true } = opts;
+    if (editor) editor.setValue(text);
+    else if (ta) ta.value = text;
+    if (preview) renderPreview(text);
+    if (notify) notifyChange(text);
+  };
+
+  const setBaseDir = (dir) => {
+    const fallback = `${getContentRoot()}/`;
+    try {
+      const raw = (dir == null ? '' : String(dir)).trim();
+      const normalized = raw
+        ? raw.replace(/\\+/g, '/').replace(/\/?$/, '/')
+        : fallback;
+      window.__ns_editor_base_dir = normalized;
+    } catch (_) {
+      try { window.__ns_editor_base_dir = fallback; } catch (__) {}
     }
+  };
+
+  let assignCurrentFileLabel = (label) => {
+    const current = document.getElementById('currentFile');
+    if (current) current.textContent = label ? `Loaded: ${label}` : '';
+  };
+
+  const handleInput = () => {
+    const val = getValue();
+    renderPreview(val);
+    notifyChange(val);
+  };
+
+  if (editor && editor.textarea) editor.textarea.addEventListener('input', handleInput);
+  else if (ta) ta.addEventListener('input', handleInput);
+
+  // If empty, seed default text; otherwise render current content once.
+  const initial = (getValue() || '').trim();
+  if (!initial) {
+    setValue(seed, { notify: false });
+  } else {
+    renderPreview(initial);
   }
-  const update = () => renderPreview(editor ? editor.getValue() : (ta.value || ''));
-  if (editor && editor.textarea) editor.textarea.addEventListener('input', () => {
-    update();
-  });
-  update();
+
+  setBaseDir('');
 
   // View toggle
   document.querySelectorAll('.vt-btn[data-view]').forEach(a => {
@@ -67,9 +113,34 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const mode = a.dataset.view;
       switchView(mode);
-      if (mode === 'preview') update();
+      if (mode === 'preview') renderPreview(getValue());
     });
   });
+
+  const primaryEditorApi = {
+    getValue,
+    setValue: (value, opts = {}) => setValue(value, opts),
+    focus: () => {
+      try {
+        if (editor && typeof editor.focus === 'function') editor.focus();
+        else if (ta && typeof ta.focus === 'function') ta.focus();
+      } catch (_) {}
+    },
+    setView: (mode) => {
+      switchView(mode === 'preview' ? 'preview' : 'edit');
+      if (mode === 'preview') renderPreview(getValue());
+    },
+    setBaseDir: (dir) => setBaseDir(dir),
+    setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
+    onChange: (fn) => {
+      if (typeof fn !== 'function') return () => {};
+      changeListeners.add(fn);
+      return () => { changeListeners.delete(fn); };
+    },
+    refreshPreview: () => { renderPreview(getValue()); }
+  };
+
+  try { window.__ns_primary_editor = primaryEditorApi; } catch (_) {}
 
   // Clear draft action removed (no local storage drafts)
 
@@ -114,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeGroup = 'index';
 
     const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
-    const setCurrentFile = (p) => { if (currentFileEl) currentFileEl.textContent = p ? `Loaded: ${p}` : ''; };
+    assignCurrentFileLabel = (p) => { if (currentFileEl) currentFileEl.textContent = p ? `Loaded: ${p}` : ''; };
 
     const basename = (p) => {
       try { const s = String(p || ''); const i = s.lastIndexOf('/'); return i >= 0 ? s.slice(i + 1) : s; } catch (_) { return String(p || ''); }
@@ -145,15 +216,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const r = await fetch(url, { cache: 'no-store' });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const text = await r.text();
-          if (editor) editor.setValue(text);
-          // Set preview base dir to the directory of the loaded markdown file
           try {
             const lastSlash = relPath.lastIndexOf('/');
             const dir = lastSlash >= 0 ? relPath.slice(0, lastSlash + 1) : '';
-            window.__ns_editor_base_dir = `${contentRoot}/${dir}`.replace(/\\+/g, '/');
-          } catch (_) { window.__ns_editor_base_dir = `${contentRoot}/`; }
-          renderPreview(text);
-          setCurrentFile(`${relPath}`);
+            const base = `${contentRoot}/${dir}`.replace(/\\+/g, '/');
+            setBaseDir(base);
+          } catch (_) {
+            setBaseDir(`${contentRoot}/`);
+          }
+          setValue(text);
+          assignCurrentFileLabel(`${relPath}`);
           if (currentActive) currentActive.classList.remove('is-active');
           currentActive = li; currentActive.classList.add('is-active');
           switchView('edit');
