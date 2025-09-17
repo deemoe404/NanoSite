@@ -281,6 +281,14 @@ function displayLangName(code) {
   return c.toUpperCase();
 }
 
+function langFlag(code) {
+  const c = String(code || '').toLowerCase();
+  if (c === 'en') return '🇺🇸';
+  if (c === 'zh') return '🇨🇳';
+  if (c === 'ja') return '🇯🇵';
+  return '';
+}
+
 function q(s) {
   // Double-quoted YAML scalar with basic escapes
   const str = String(s ?? '');
@@ -788,18 +796,23 @@ function buildTabsUI(root, state) {
       const langs = sortLangKeys(entry);
       langs.forEach(lang => {
         const v = entry[lang] || { title: '', location: '' };
+        const flag = langFlag(lang);
+        const langLabel = displayLangName(lang);
+        const safeLabel = String(langLabel || '').replace(/"/g, '&quot;');
+        const flagSpan = flag ? `<span class="ct-lang-flag" aria-hidden="true">${flag}</span>` : '';
         const block = document.createElement('div');
         block.className = 'ct-lang';
         block.innerHTML = `
-          <div class="ct-lang-head">
-            <strong>${lang.toUpperCase()}</strong>
-            <span class="ct-lang-actions">
-              <button class="btn-secondary ct-lang-del">Remove Lang</button>
-            </span>
+          <div class="ct-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
+            ${flagSpan}
+            <span class="ct-lang-code" aria-hidden="true">${lang.toUpperCase()}</span>
           </div>
-          <div class="ct-fields">
-            <label>Title <input class="ct-title" type="text" value="${v.title || ''}" /></label>
-            <label>Location <input class="ct-loc" type="text" placeholder="tab/.../file.md" value="${v.location || ''}" /></label>
+          <div class="ct-lang-main">
+            <label class="ct-field ct-field-title">Title <input class="ct-title" type="text" value="${v.title || ''}" /></label>
+            <label class="ct-field ct-field-location">Location <input class="ct-loc" type="text" placeholder="tab/.../file.md" value="${v.location || ''}" /></label>
+            <div class="ct-lang-actions">
+              <button class="btn-secondary ct-lang-del">Remove Lang</button>
+            </div>
           </div>
         `;
         $('.ct-title', block).addEventListener('input', (e) => { entry[lang] = entry[lang] || {}; entry[lang].title = e.target.value; });
@@ -2201,14 +2214,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ci-meta,.ct-meta{color:var(--muted);font-size:.85rem}
-  .ci-lang,.ct-lang{border:1px dashed var(--border);border-radius:8px;padding:.5rem;margin:.4rem 0;background:color-mix(in srgb, var(--text) 3%, transparent);}
-  .ci-lang-head,.ct-lang-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
-  .ci-lang-actions,.ct-lang-actions{margin-left:auto;display:inline-flex;gap:.35rem}
+  .ci-lang,.ct-lang{border:1px dashed var(--border);border-radius:8px;margin:.4rem 0;background:color-mix(in srgb, var(--text) 3%, transparent);}
+  .ci-lang{padding:.5rem;}
+  .ct-lang{padding:.0625rem;}
+  .ci-lang-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .ci-lang-actions{margin-left:auto;display:inline-flex;gap:.35rem}
+  .ct-lang{display:flex;align-items:stretch;gap:0;overflow:hidden;}
+  .ct-lang-label{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .6rem;background:color-mix(in srgb, var(--text) 14%, var(--card));color:var(--text);min-width:78px;white-space:nowrap;font-weight:700;border-radius:6px 0 0 6px;}
+  .ct-lang-label .ct-lang-flag{font-size:1.25rem;line-height:1;transform:translateY(-1px);}
+  .ct-lang-label .ct-lang-code{font-size:.9rem;font-weight:700;letter-spacing:.045em;}
+  .ct-lang-main{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:.5rem;align-items:center;padding:.35rem .6rem .35rem .75rem;}
+  .ct-field{display:flex;align-items:center;gap:.4rem;font-weight:600;color:color-mix(in srgb, var(--text) 65%, transparent);white-space:nowrap;}
+  .ct-field input{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;}
+  .ct-lang-actions{display:flex;gap:.35rem;justify-content:flex-end;}
+  .ct-lang-actions .btn-secondary{white-space:nowrap;}
+  @media (max-width:720px){
+    .ct-lang{flex-direction:column;gap:.4rem;}
+    .ct-lang-label{justify-content:flex-start;border-radius:6px;}
+    .ct-lang-main{grid-template-columns:1fr;padding:.25rem 0 0;}
+    .ct-field{white-space:normal;}
+    .ct-lang-actions{justify-content:flex-start;}
+  }
   .ci-ver-item{display:flex;align-items:center;gap:.4rem;margin:.3rem 0}
   .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
-  .ct-fields{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
-  .ct-fields input{width:100%;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   /* Add Language row: compact button, keep menu aligned to trigger width */
   .ci-add-lang,.ct-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative}
   .ci-add-lang .btn-secondary,.ct-add-lang .btn-secondary{justify-content:center;border-bottom:0 !important}
