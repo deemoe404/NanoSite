@@ -260,7 +260,7 @@ function createLangLabel(text, onCopy) {
   return el;
 }
 
-function renderHighlight(codeEl, gutterEl, value, language) {
+function renderHighlight(codeEl, gutterEl, value, language, options = {}) {
   const raw = String(value || '');
   let html;
   if ((language || '').toLowerCase() === 'robots') {
@@ -335,17 +335,92 @@ function renderHighlight(codeEl, gutterEl, value, language) {
     // Replace children atomically
     target.replaceChildren(root);
   })(codeEl, safeHtml);
-  // Update line numbers (include trailing blank line)
-  // Count all lines by counting newlines + 1; if empty, still show 1
-  const lineCount = raw === '' ? 1 : ((raw.match(/\n/g) || []).length + 1);
-  if (!gutterEl) return;
-  if (gutterEl.childElementCount !== lineCount) {
-    const frag = document.createDocumentFragment();
-    for (let i = 1; i <= lineCount; i++) { const s = document.createElement('span'); s.textContent = String(i); frag.appendChild(s); }
-    gutterEl.innerHTML = ''; gutterEl.appendChild(frag);
+  const lines = raw === '' ? [''] : raw.split('\n');
+  const digits = String(lines.length).length;
+  const wrapMode = !!(options && options.wrap);
+  const entries = [];
+  if (!gutterEl) {
+    if (wrapMode && typeof options.computeWrapSegments === 'function') {
+      let wrapCounts = [];
+      try {
+        wrapCounts = options.computeWrapSegments(lines, codeEl) || [];
+      } catch (_) {
+        wrapCounts = [];
+      }
+      let lineNumber = 1;
+      for (let i = 0; i < lines.length; i++) {
+        const parsed = parseInt(wrapCounts[i], 10);
+        const wrapCount = (Number.isFinite(parsed) && parsed > 0) ? parsed : 1;
+        for (let j = 0; j < wrapCount; j++) {
+          const isContinuation = j > 0;
+          entries.push({
+            text: isContinuation ? '-' : String(lineNumber),
+            continuation: isContinuation,
+            line: lineNumber
+          });
+        }
+        lineNumber += 1;
+      }
+    } else {
+      for (let i = 0; i < lines.length; i++) {
+        entries.push({ text: String(i + 1), continuation: false, line: i + 1 });
+      }
+    }
+    return { entries, wrapMode };
   }
-  const digits = String(lineCount).length;
+  const placeholder = (options.wrapPlaceholder != null) ? String(options.wrapPlaceholder) : '-';
+  if (wrapMode && typeof options.computeWrapSegments === 'function') {
+    let wrapCounts = [];
+    try {
+      wrapCounts = options.computeWrapSegments(lines, codeEl) || [];
+    } catch (_) {
+      wrapCounts = [];
+    }
+    let lineNumber = 1;
+    for (let i = 0; i < lines.length; i++) {
+      const parsed = parseInt(wrapCounts[i], 10);
+      const wrapCount = (Number.isFinite(parsed) && parsed > 0) ? parsed : 1;
+      for (let j = 0; j < wrapCount; j++) {
+        const isContinuation = j > 0;
+        entries.push({
+          text: isContinuation ? placeholder : String(lineNumber),
+          continuation: isContinuation,
+          line: lineNumber
+        });
+      }
+      lineNumber += 1;
+    }
+  } else {
+    for (let i = 0; i < lines.length; i++) {
+      entries.push({ text: String(i + 1), continuation: false, line: i + 1 });
+    }
+  }
+
+  const existing = gutterEl.children;
+  if (existing.length !== entries.length) {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const span = document.createElement('span');
+      span.textContent = entry.text;
+      span.dataset.line = String(entry.line);
+      if (entry.continuation) span.classList.add('is-wrap-continued');
+      frag.appendChild(span);
+    }
+    gutterEl.innerHTML = '';
+    gutterEl.appendChild(frag);
+  } else {
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      const span = existing[i];
+      if (span.textContent !== entry.text) span.textContent = entry.text;
+      span.dataset.line = String(entry.line);
+      span.classList.toggle('is-wrap-continued', !!entry.continuation);
+    }
+  }
+  gutterEl.dataset.wrapMode = wrapMode ? '1' : '0';
   gutterEl.style.width = `${Math.max(3, digits + 2)}ch`;
+  return { entries, wrapMode };
 }
 
 function makeEditor(targetTextarea, language, readOnly) {
@@ -382,10 +457,103 @@ function makeEditor(targetTextarea, language, readOnly) {
   ta.spellcheck = false;
   ta.autocapitalize = 'off';
   ta.autocorrect = 'off';
-  // force wrap off to avoid line wrapping
-  ta.setAttribute('wrap', 'off');
-  ta.style.whiteSpace = 'pre';
   if (readOnly) ta.setAttribute('readonly', 'readonly');
+
+  let softWrap = false;
+  let wrapMeasureEl = null;
+  let lastWrapWidth = 0;
+  let lastRenderMeta = { entries: [], wrapMode: false };
+
+  // Lazily create a hidden measuring block so we can count wrapped segments per line.
+  const ensureWrapMeasure = () => {
+    if (wrapMeasureEl) return wrapMeasureEl;
+    const el = document.createElement('div');
+    el.className = 'hi-wrap-measure';
+    el.style.position = 'absolute';
+    el.style.visibility = 'hidden';
+    el.style.pointerEvents = 'none';
+    el.style.whiteSpace = 'pre-wrap';
+    el.style.wordBreak = 'break-word';
+    el.style.overflowWrap = 'break-word';
+    el.style.top = '0';
+    el.style.left = '0';
+    el.style.padding = '0';
+    el.style.margin = '0';
+    el.style.border = '0';
+    el.style.maxWidth = 'none';
+    el.style.minWidth = '0';
+    el.style.zIndex = '-1';
+    body.appendChild(el);
+    wrapMeasureEl = el;
+    return wrapMeasureEl;
+  };
+
+  const computeWrapSegments = (lines) => {
+    if (!lines || !lines.length) return [1];
+    const measure = ensureWrapMeasure();
+    const codeStyles = window.getComputedStyle(code);
+    const targetWidth = code.getBoundingClientRect().width || body.getBoundingClientRect().width || 0;
+    if (!targetWidth || !isFinite(targetWidth)) {
+      return lines.map(() => 1);
+    }
+    lastWrapWidth = targetWidth;
+    measure.style.width = `${targetWidth}px`;
+    measure.style.fontFamily = codeStyles.fontFamily;
+    measure.style.fontSize = codeStyles.fontSize;
+    measure.style.fontWeight = codeStyles.fontWeight;
+    measure.style.fontStyle = codeStyles.fontStyle;
+    measure.style.letterSpacing = codeStyles.letterSpacing;
+    measure.style.lineHeight = codeStyles.lineHeight;
+    measure.style.tabSize = codeStyles.getPropertyValue('tab-size') || codeStyles.tabSize || '4';
+    measure.style.MozTabSize = measure.style.tabSize;
+    measure.style.whiteSpace = 'pre-wrap';
+    measure.style.wordBreak = 'break-word';
+    measure.style.overflowWrap = codeStyles.overflowWrap || 'break-word';
+    const tabSizeVal = parseInt(measure.style.tabSize, 10);
+    const tabReplacement = ' '.repeat((Number.isFinite(tabSizeVal) && tabSizeVal > 0) ? Math.min(tabSizeVal, 16) : 4);
+    const range = document.createRange();
+    const counts = [];
+    for (let i = 0; i < lines.length; i++) {
+      const rawLine = String(lines[i] || '');
+      // Replace tabs with spaces to mirror tab-size in measurement context.
+      const sample = rawLine.indexOf('\t') === -1 ? rawLine : rawLine.replace(/\t/g, tabReplacement);
+      measure.textContent = sample.length ? sample : ' ';
+      range.selectNodeContents(measure);
+      const rects = range.getClientRects();
+      counts.push(rects.length || 1);
+    }
+    measure.textContent = '';
+    if (typeof range.detach === 'function') range.detach();
+    return counts;
+  };
+
+  const renderEditor = () => {
+    const meta = renderHighlight(code, gutter, ta.value, language, {
+      wrap: softWrap,
+      wrapPlaceholder: '-',
+      computeWrapSegments: softWrap ? computeWrapSegments : null
+    });
+    if (meta && Array.isArray(meta.entries)) {
+      lastRenderMeta = meta;
+    } else {
+      lastRenderMeta = { entries: [], wrapMode: !!(meta && meta.wrapMode) };
+    }
+  };
+
+  const applyWrapMode = () => {
+    const on = softWrap;
+    try { ta.setAttribute('wrap', on ? 'soft' : 'off'); }
+    catch (_) {}
+    ta.style.whiteSpace = on ? 'pre-wrap' : 'pre';
+    ta.style.wordBreak = on ? 'break-word' : 'normal';
+    ta.style.overflowX = 'hidden';
+    code.style.whiteSpace = on ? 'pre-wrap' : 'pre';
+    code.style.wordBreak = on ? 'break-word' : 'normal';
+    code.style.minWidth = on ? '0' : '100%';
+    code.style.width = on ? '100%' : '';
+    container.classList.toggle('is-wrap', on);
+    scroll.style.overflowX = on ? 'hidden' : 'auto';
+  };
 
   body.appendChild(pre);
   body.appendChild(ta);
@@ -395,17 +563,14 @@ function makeEditor(targetTextarea, language, readOnly) {
   const label = createLangLabel(language || 'plain', () => ta.value || '');
   container.appendChild(label);
 
+  applyWrapMode();
+
   // Insert after hidden textarea
   hiddenTa.parentNode.insertBefore(container, hiddenTa.nextSibling);
 
   // Initialize with current value
   ta.value = hiddenTa.value || '';
-  renderHighlight(code, gutter, ta.value, language);
-  // Sync wrap to code element initially
-  try {
-    // always keep white-space as pre (no wrap)
-    code.style.whiteSpace = 'pre';
-  } catch (_) {}
+  renderEditor();
 
   const DEFAULT_LINE_HEIGHT = 20;
   const lineMetricCache = { lineH: DEFAULT_LINE_HEIGHT, padTop: 0 };
@@ -439,6 +604,36 @@ function makeEditor(targetTextarea, language, readOnly) {
     applyHeights();
     updateActiveLines();
   };
+
+  // Keep gutter continuation markers in sync when the editor width changes.
+  const handleWrapResize = (width) => {
+    if (!width || !isFinite(width)) return;
+    if (!softWrap) {
+      lastWrapWidth = width;
+      return;
+    }
+    if (Math.abs(width - lastWrapWidth) < 0.5) return;
+    lastWrapWidth = width;
+    renderEditor();
+    refreshLayout();
+  };
+
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry || entry.target !== body) continue;
+        const width = entry.contentRect ? entry.contentRect.width : body.getBoundingClientRect().width;
+        handleWrapResize(width);
+      }
+    });
+    try { ro.observe(body); }
+    catch (_) {}
+  } else {
+    window.addEventListener('resize', () => {
+      const width = body.getBoundingClientRect().width;
+      handleWrapResize(width);
+    });
+  }
 
   function getLineMetrics() {
     try {
@@ -479,21 +674,39 @@ function makeEditor(targetTextarea, language, readOnly) {
       const spans = gutter.querySelectorAll('span');
       const metrics = getLineMetrics();
       const lh = metrics.lineH;
+      const padTop = metrics.padTop;
+      let entries = (lastRenderMeta && Array.isArray(lastRenderMeta.entries)) ? lastRenderMeta.entries : [];
+      if (!entries.length || entries.length !== spans.length) {
+        entries = Array.from(spans, (span, idx) => {
+          const parsed = parseInt(span.dataset.line || '', 10);
+          return { line: Number.isFinite(parsed) ? parsed : (idx + 1) };
+        });
+      }
+      let startRow = -1;
+      let endRow = -1;
+      for (let i = 0; i < entries.length; i++) {
+        const lineNo = Number.isFinite(entries[i]?.line) ? entries[i].line : (i + 1);
+        if (lineNo >= from && startRow === -1) startRow = i;
+        if (lineNo >= from && lineNo <= to) endRow = i;
+        if (lineNo > to) break;
+      }
+      if (startRow === -1) startRow = Math.max(0, from - 1);
+      if (endRow === -1) endRow = Math.max(startRow, Math.min(spans.length - 1, to - 1));
       spans.forEach((s, idx) => {
-        const lineNo = idx + 1;
-        if (lineNo >= from && lineNo <= to) s.classList.add('is-active');
+        const lineNo = Number.isFinite(entries[idx]?.line) ? entries[idx].line : (idx + 1);
+        const isActive = lineNo >= from && lineNo <= to;
+        if (isActive) s.classList.add('is-active');
         else s.classList.remove('is-active');
-        // Force pixel-precise line height
         s.style.lineHeight = `${lh}px`;
       });
-      // Draw highlight block(s)
-      const top = metrics.padTop + (from - 1) * lh;
-      const height = Math.max(1, (to - from + 1)) * lh;
       hlLayer.innerHTML = '';
+      if (!spans.length) return;
+      const clampedStart = Math.max(0, Math.min(startRow, spans.length - 1));
+      const clampedEnd = Math.max(clampedStart, Math.min(endRow, spans.length - 1));
       const block = document.createElement('div');
       block.className = 'hi-hl-line';
-      block.style.top = `${top}px`;
-      block.style.height = `${height}px`;
+      block.style.top = `${padTop + clampedStart * lh}px`;
+      block.style.height = `${Math.max(1, (clampedEnd - clampedStart + 1)) * lh}px`;
       hlLayer.appendChild(block);
     } catch (_) { /* noop */ }
   }
@@ -501,7 +714,7 @@ function makeEditor(targetTextarea, language, readOnly) {
   // Sync: editor -> hidden textarea
   const onInput = () => {
     hiddenTa.value = ta.value;
-    renderHighlight(code, gutter, ta.value, language);
+    renderEditor();
     refreshLayout();
   };
   ta.addEventListener('input', onInput);
@@ -521,15 +734,24 @@ function makeEditor(targetTextarea, language, readOnly) {
 
   // Public API
   const api = {
-    setValue(text) { ta.value = String(text || ''); hiddenTa.value = ta.value; renderHighlight(code, gutter, ta.value, language); refreshLayout(); },
+    setValue(text) { ta.value = String(text || ''); hiddenTa.value = ta.value; renderEditor(); refreshLayout(); },
     getValue() { return ta.value || ''; },
-    setWrap(_) {
-      // ignore external requests; enforce no-wrap
-      ta.setAttribute('wrap', 'off');
-      ta.style.whiteSpace = 'pre';
-      code.style.whiteSpace = 'pre';
+    setWrap(value) {
+      const next = !!value;
+      if (next === softWrap) {
+        applyWrapMode();
+        renderEditor();
+        refreshLayout();
+        updateActiveLines();
+        return;
+      }
+      softWrap = next;
+      applyWrapMode();
+      renderEditor();
       refreshLayout();
+      updateActiveLines();
     },
+    isWrapEnabled() { return softWrap; },
     refreshLayout,
     el: container,
     textarea: ta
@@ -557,10 +779,13 @@ export function setEditorValue(id, text) {
 export function getEditorValue(id) {
   const ed = editors.get(id); if (ed) return ed.getValue(); const ta = document.getElementById(id); return ta ? (ta.value || '') : '';
 }
-export function toggleEditorWrap(id) {
+export function toggleEditorWrap(id, value) {
   const ed = editors.get(id);
   if (!ed) return;
-  // always force off
+  if (typeof value === 'boolean') {
+    ed.setWrap(value);
+    return;
+  }
   ed.setWrap(false);
 }
 

@@ -279,16 +279,30 @@
     .view-toggle .vt-btn:hover { text-decoration:underline; }
     .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
     .view-toggle .vt-btn.has-draft::after { content:'●'; display:inline-block; font-size:.65rem; color:#f97316; margin-left:.3rem; line-height:1; }
+    .wrap-toggle { position:relative; display:inline-flex; align-items:center; gap:.4rem; font-size:.92rem; color:#57606a; cursor:pointer; user-select:none; }
+    .wrap-toggle input { position:absolute; opacity:0; pointer-events:none; }
+    .wrap-toggle .wrap-track { width:36px; height:20px; border-radius:999px; background:color-mix(in srgb, var(--muted) 28%, var(--card)); border:1px solid color-mix(in srgb, var(--muted) 30%, var(--border)); position:relative; transition:background-color .18s ease, border-color .18s ease; }
+    .wrap-toggle .wrap-thumb { position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:#ffffff; box-shadow:0 2px 6px rgba(15,23,42,0.25); transition:transform .18s ease; }
+    .wrap-toggle input:checked + .wrap-track { background:color-mix(in srgb, var(--primary) 55%, var(--card)); border-color:color-mix(in srgb, var(--primary) 55%, var(--border)); }
+    .wrap-toggle input:checked + .wrap-track .wrap-thumb { transform:translateX(16px); }
+    .wrap-toggle input:focus-visible + .wrap-track { outline:2px solid color-mix(in srgb, var(--primary) 40%, transparent); outline-offset:2px; }
+    .wrap-toggle .wrap-label { font-weight:500; }
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
     .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
     .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
     .hi-editor .code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding: 1rem 0.5rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0; background: var(--code-bg); position: sticky; left: 0; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
     .hi-editor .code-scroll .code-gutter span { display: block; line-height: inherit; font-variant-numeric: tabular-nums; }
+    .hi-editor .code-scroll .code-gutter span.is-wrap-continued { color: color-mix(in srgb, var(--code-text) 38%, transparent); }
     .hi-editor { position: relative; }
     .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
     .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
     .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
     .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: none; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor.is-wrap .code-scroll { overflow-x: hidden; }
+    .hi-editor.is-wrap .hi-pre,
+    .hi-editor.is-wrap .hi-pre code,
+    .hi-editor.is-wrap .hi-ta { white-space: pre-wrap; word-break: break-word; }
+    .hi-editor.is-wrap .hi-pre code { min-width: 0; width: 100%; }
     .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
     .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
     .hi-editor .code-scroll .code-gutter span.is-active { background: transparent; color: #0f172a; font-weight: 600; }
@@ -364,6 +378,11 @@
               <span class="dim" aria-hidden="true">/</span>
               <a href="#" class="vt-btn" data-view="preview">Preview</a>
             </div>
+            <label class="wrap-toggle" for="editorWrapToggle">
+              <input type="checkbox" id="editorWrapToggle" role="switch" aria-checked="false">
+              <span class="wrap-track" aria-hidden="true"><span class="wrap-thumb"></span></span>
+              <span class="wrap-label">Wrap</span>
+            </label>
           </div>
         </div>
 

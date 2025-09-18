@@ -8,6 +8,8 @@ import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } from './i18n.js';
 
+const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
+
 const fetchMarkdownForLinkCard = (loc) => {
   try {
     const url = `${getContentRoot()}/${loc}`;
@@ -162,6 +164,65 @@ function renderPreview(mdText) {
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('mdInput');
   const editor = createHiEditor(ta, 'markdown', false);
+  const wrapToggle = document.getElementById('editorWrapToggle');
+  let wrapEnabled = false;
+
+  const readWrapState = () => {
+    try {
+      const raw = localStorage.getItem(LS_WRAP_KEY);
+      if (!raw) return false;
+      if (raw === '1' || raw === 'true') return true;
+      if (raw === '0' || raw === 'false') return false;
+      return Boolean(JSON.parse(raw));
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const persistWrapState = (on) => {
+    try { localStorage.setItem(LS_WRAP_KEY, on ? '1' : '0'); }
+    catch (_) {}
+  };
+
+  const syncWrapToggle = (on) => {
+    if (!wrapToggle) return;
+    const checked = !!on;
+    wrapToggle.checked = checked;
+    wrapToggle.setAttribute('aria-checked', checked ? 'true' : 'false');
+  };
+
+  const applyWrapState = (value, opts = {}) => {
+    const on = !!value;
+    wrapEnabled = on;
+    if (editor && typeof editor.setWrap === 'function') {
+      editor.setWrap(on);
+    } else if (ta) {
+      try {
+        ta.setAttribute('wrap', on ? 'soft' : 'off');
+        ta.style.whiteSpace = on ? 'pre-wrap' : 'pre';
+      } catch (_) {}
+    }
+    syncWrapToggle(on);
+    if (opts.persist !== false) persistWrapState(on);
+  };
+
+  const handleWrapToggle = () => {
+    const next = wrapToggle ? wrapToggle.checked : !wrapEnabled;
+    applyWrapState(next);
+  };
+
+  if (wrapToggle) {
+    wrapToggle.addEventListener('change', handleWrapToggle);
+    wrapToggle.addEventListener('input', handleWrapToggle);
+    wrapToggle.addEventListener('click', () => {
+      if (!wrapToggle.matches(':focus-visible')) {
+        try { wrapToggle.blur(); } catch (_) {}
+      }
+    });
+  }
+
+  applyWrapState(readWrapState(), { persist: false });
+
   const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, NanoSite!');\n\`\`\`\n`;
 
   const changeListeners = new Set();
@@ -416,7 +477,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return () => { changeListeners.delete(fn); };
     },
     refreshPreview: () => { renderPreview(getValue()); },
-    requestLayout: () => { requestLayout(); }
+    requestLayout: () => { requestLayout(); },
+    setWrap: (value, opts = {}) => { applyWrapState(value, opts); },
+    isWrapEnabled: () => wrapEnabled
   };
 
   try { window.__ns_primary_editor = primaryEditorApi; } catch (_) {}
