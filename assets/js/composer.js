@@ -6,6 +6,7 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 const CLEAN_STATUS_MESSAGE = 'Synced with remote';
+const DIRTY_STATUS_MESSAGE = 'Local changes pending';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
@@ -30,9 +31,9 @@ let remoteBaseline = { index: null, tabs: null };
 let composerDiffCache = { index: null, tabs: null };
 let composerDraftMeta = { index: null, tabs: null };
 let composerAutoSaveTimers = { index: null, tabs: null };
-let orderDiffModal = null;
-let orderDiffState = null;
-let orderDiffResizeHandler = null;
+let composerDiffModal = null;
+let composerOrderState = null;
+let composerDiffResizeHandler = null;
 
 function getActiveComposerFile() {
   try {
@@ -63,6 +64,83 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function ensureToastRoot() {
+  let root = document.getElementById('toast-root');
+  if (!root) {
+    root = document.createElement('div');
+    root.id = 'toast-root';
+    root.setAttribute('role', 'status');
+    root.setAttribute('aria-live', 'polite');
+    root.setAttribute('aria-atomic', 'true');
+    root.style.position = 'fixed';
+    root.style.left = '50%';
+    root.style.bottom = '28px';
+    root.style.transform = 'translateX(-50%)';
+    root.style.display = 'flex';
+    root.style.flexDirection = 'column';
+    root.style.alignItems = 'center';
+    root.style.gap = '.55rem';
+    root.style.zIndex = '10000';
+    root.style.pointerEvents = 'none';
+    document.body.appendChild(root);
+  }
+  return root;
+}
+
+function showToast(kind, text, options = {}) {
+  try {
+    const message = safeString(text);
+    if (!message) return;
+    const root = ensureToastRoot();
+    const el = document.createElement('div');
+    el.className = `toast ${kind || ''}`;
+    el.textContent = message;
+    el.style.pointerEvents = 'auto';
+    el.style.background = 'color-mix(in srgb, var(--card) 70%, #000 5%)';
+    el.style.color = 'var(--text)';
+    el.style.borderRadius = '999px';
+    el.style.padding = '.55rem 1.1rem';
+    el.style.boxShadow = '0 10px 30px rgba(15,23,42,0.18)';
+    el.style.border = '1px solid color-mix(in srgb, var(--border) 70%, transparent)';
+    el.style.fontSize = '.94rem';
+    el.style.display = 'inline-flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.minWidth = 'min(320px, 90vw)';
+    el.style.maxWidth = '90vw';
+    el.style.textAlign = 'center';
+    el.style.transition = 'opacity .28s ease, transform .28s ease';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(12px)';
+    if (kind === 'error') {
+      el.style.borderColor = 'color-mix(in srgb, #dc2626 45%, transparent)';
+    } else if (kind === 'success') {
+      el.style.borderColor = 'color-mix(in srgb, #16a34a 45%, transparent)';
+    }
+    root.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
+    const ttl = typeof options.duration === 'number' ? Math.max(1200, options.duration) : 2300;
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(12px)';
+    }, ttl);
+    setTimeout(() => {
+      try { el.remove(); } catch (_) {}
+    }, ttl + 320);
+  } catch (_) {
+    try { alert(text); } catch (__) {}
+  }
+}
+
+function truncateText(value, max = 60) {
+  const str = safeString(value);
+  if (str.length <= max) return str;
+  return `${str.slice(0, Math.max(0, max - 1))}…`;
 }
 
 function prepareIndexState(raw) {
@@ -622,24 +700,24 @@ function computeUnsyncedSummary() {
   const indexDiff = composerDiffCache.index;
   const tabsDiff = composerDiffCache.tabs;
   if (indexDiff && indexDiff.hasChanges) {
-    const pieces = [];
-    const changed = Object.keys(indexDiff.keys || {}).length;
-    if (changed) pieces.push({ type: 'text', value: `${changed} item${changed === 1 ? '' : 's'}` });
-    if (indexDiff.orderChanged) pieces.push({ type: 'order', value: 'order' });
-    if (indexDiff.addedKeys.length) pieces.push({ type: 'text', value: `+${indexDiff.addedKeys.length}` });
-    if (indexDiff.removedKeys.length) pieces.push({ type: 'text', value: `-${indexDiff.removedKeys.length}` });
-    if (!pieces.length) pieces.push({ type: 'text', value: 'changes' });
-    entries.push({ kind: 'index', label: 'index.yaml', parts: pieces });
+    entries.push({
+      kind: 'index',
+      label: 'index.yaml',
+      hasOrderChange: !!indexDiff.orderChanged,
+      hasContentChange: Object.keys(indexDiff.keys || {}).length > 0
+        || indexDiff.addedKeys.length > 0
+        || indexDiff.removedKeys.length > 0
+    });
   }
   if (tabsDiff && tabsDiff.hasChanges) {
-    const pieces = [];
-    const changed = Object.keys(tabsDiff.keys || {}).length;
-    if (changed) pieces.push({ type: 'text', value: `${changed} item${changed === 1 ? '' : 's'}` });
-    if (tabsDiff.orderChanged) pieces.push({ type: 'order', value: 'order' });
-    if (tabsDiff.addedKeys.length) pieces.push({ type: 'text', value: `+${tabsDiff.addedKeys.length}` });
-    if (tabsDiff.removedKeys.length) pieces.push({ type: 'text', value: `-${tabsDiff.removedKeys.length}` });
-    if (!pieces.length) pieces.push({ type: 'text', value: 'changes' });
-    entries.push({ kind: 'tabs', label: 'tabs.yaml', parts: pieces });
+    entries.push({
+      kind: 'tabs',
+      label: 'tabs.yaml',
+      hasOrderChange: !!tabsDiff.orderChanged,
+      hasContentChange: Object.keys(tabsDiff.keys || {}).length > 0
+        || tabsDiff.addedKeys.length > 0
+        || tabsDiff.removedKeys.length > 0
+    });
   }
   return entries;
 }
@@ -647,34 +725,24 @@ function computeUnsyncedSummary() {
 function updateUnsyncedSummary() {
   const el = document.getElementById('composerStatus');
   if (!el) return;
-  if (el.dataset.lock === '1') return;
   const summaryEntries = computeUnsyncedSummary();
   if (summaryEntries.length) {
     el.innerHTML = '';
-    el.append('Unsynced changes → ');
+    const prefix = document.createElement('span');
+    prefix.className = 'composer-summary-prefix';
+    prefix.textContent = `${DIRTY_STATUS_MESSAGE} → `;
+    el.appendChild(prefix);
     summaryEntries.forEach((entry, idx) => {
       if (idx > 0) el.append(' · ');
-      const span = document.createElement('span');
-      span.className = 'composer-summary-entry';
-      const prefix = document.createElement('span');
-      prefix.className = 'composer-summary-label';
-      prefix.textContent = `${entry.label}: `;
-      span.appendChild(prefix);
-      entry.parts.forEach((part, pIdx) => {
-        if (pIdx > 0) span.append(', ');
-        if (part.type === 'order') {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'composer-summary-order';
-          btn.textContent = part.value || 'order';
-          btn.setAttribute('data-order-kind', entry.kind);
-          btn.addEventListener('click', () => openOrderDiffModal(entry.kind));
-          span.appendChild(btn);
-        } else {
-          span.append(part.value);
-        }
-      });
-      el.appendChild(span);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'composer-summary-link';
+      btn.textContent = entry.label;
+      btn.dataset.kind = entry.kind;
+      if (entry.hasOrderChange) btn.dataset.order = '1';
+      if (entry.hasContentChange) btn.dataset.content = '1';
+      btn.addEventListener('click', () => openComposerDiffModal(entry.kind));
+      el.appendChild(btn);
     });
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
@@ -739,13 +807,17 @@ function computeOrderDiffDetails(kind) {
   return { beforeEntries, afterEntries, connectors, stats };
 }
 
-function openOrderDiffModal(kind) {
+function openComposerDiffModal(kind, initialTab = 'overview') {
   try {
-    const modal = ensureOrderDiffModal();
-    modal.open(kind);
+    const modal = ensureComposerDiffModal();
+    modal.open(kind, initialTab);
   } catch (err) {
-    console.warn('Composer: failed to open order diff modal', err);
+    console.warn('Composer: failed to open composer diff modal', err);
   }
+}
+
+function openOrderDiffModal(kind) {
+  openComposerDiffModal(kind, 'order');
 }
 
 function buildOrderDiffItem(entry, side) {
@@ -785,16 +857,16 @@ function buildOrderDiffItem(entry, side) {
   return item;
 }
 
-function ensureOrderDiffModal() {
-  if (orderDiffModal) return orderDiffModal;
+
+function ensureComposerDiffModal() {
+  if (composerDiffModal) return composerDiffModal;
 
   const modal = document.createElement('div');
   modal.id = 'composerOrderModal';
-  modal.className = 'ns-modal composer-order-modal';
-  modal.setAttribute('aria-hidden', 'true');
+  modal.className = 'ns-modal composer-order-modal composer-diff-modal';
 
   const dialog = document.createElement('div');
-  dialog.className = 'ns-modal-dialog composer-order-dialog';
+  dialog.className = 'ns-modal-dialog composer-order-dialog composer-diff-dialog';
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
 
@@ -802,10 +874,10 @@ function ensureOrderDiffModal() {
   head.className = 'composer-order-head';
   const title = document.createElement('h2');
   title.id = 'composerOrderTitle';
-  title.textContent = 'Order changes';
+  title.textContent = 'Changes';
   const subtitle = document.createElement('p');
   subtitle.className = 'composer-order-subtitle';
-  subtitle.textContent = 'Remote baseline (left) · 当前顺序 (right)';
+  subtitle.textContent = 'Review differences compared to the remote baseline.';
   const closeBtn = document.createElement('button');
   closeBtn.className = 'ns-modal-close btn-secondary composer-order-close';
   closeBtn.type = 'button';
@@ -814,6 +886,82 @@ function ensureOrderDiffModal() {
   head.appendChild(title);
   head.appendChild(subtitle);
   head.appendChild(closeBtn);
+
+  const tabsWrap = document.createElement('div');
+  tabsWrap.className = 'composer-diff-tabs';
+  tabsWrap.setAttribute('role', 'tablist');
+
+  const tabDefs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'entries', label: 'Entries' },
+    { id: 'order', label: 'Order' }
+  ];
+  const tabButtons = new Map();
+  const tabPanels = new Map();
+
+  function handleTabKeydown(ev, currentId) {
+    if (!tabDefs.length) return;
+    let nextIndex = -1;
+    const currentIndex = tabDefs.findIndex(def => def.id === currentId);
+    if (ev.key === 'ArrowLeft') {
+      nextIndex = (currentIndex <= 0 ? tabDefs.length - 1 : currentIndex - 1);
+    } else if (ev.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % tabDefs.length;
+    } else if (ev.key === 'Home') {
+      nextIndex = 0;
+    } else if (ev.key === 'End') {
+      nextIndex = tabDefs.length - 1;
+    } else {
+      return;
+    }
+    ev.preventDefault();
+    const nextId = tabDefs[nextIndex] && tabDefs[nextIndex].id;
+    if (!nextId) return;
+    setActiveTab(nextId);
+    const btn = tabButtons.get(nextId);
+    if (btn) btn.focus();
+  }
+
+  tabDefs.forEach((tab, index) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'composer-diff-tab';
+    btn.textContent = tab.label;
+    btn.dataset.tab = tab.id;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+    btn.setAttribute('tabindex', index === 0 ? '0' : '-1');
+    btn.addEventListener('click', () => setActiveTab(tab.id));
+    btn.addEventListener('keydown', (ev) => handleTabKeydown(ev, tab.id));
+    tabButtons.set(tab.id, btn);
+    tabsWrap.appendChild(btn);
+  });
+
+  const viewsWrap = document.createElement('div');
+  viewsWrap.className = 'composer-diff-views';
+
+  function createView(id, extraClass) {
+    const view = document.createElement('section');
+    view.className = `composer-diff-view ${extraClass}`;
+    view.dataset.view = id;
+    view.setAttribute('role', 'tabpanel');
+    view.setAttribute('tabindex', '0');
+    if (id !== 'overview') {
+      view.hidden = true;
+      view.style.display = 'none';
+      view.setAttribute('aria-hidden', 'true');
+    } else {
+      view.style.display = '';
+      view.setAttribute('aria-hidden', 'false');
+    }
+    tabPanels.set(id, view);
+    viewsWrap.appendChild(view);
+    return view;
+  }
+
+  const viewOverview = createView('overview', 'composer-diff-view-overview');
+  const viewEntries = createView('entries', 'composer-diff-view-entries');
+  const viewOrder = createView('order', 'composer-diff-view-order');
 
   const statsWrap = document.createElement('div');
   statsWrap.className = 'composer-order-stats';
@@ -861,16 +1009,27 @@ function ensureOrderDiffModal() {
   viz.appendChild(columns);
   viz.appendChild(emptyNotice);
   body.appendChild(viz);
+  viewOrder.appendChild(statsWrap);
+  viewOrder.appendChild(body);
 
   dialog.setAttribute('aria-labelledby', title.id);
   dialog.appendChild(head);
-  dialog.appendChild(statsWrap);
-  dialog.appendChild(body);
+  dialog.appendChild(tabsWrap);
+  dialog.appendChild(viewsWrap);
   modal.appendChild(dialog);
   document.body.appendChild(modal);
 
   const focusableSelector = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
   let lastActive = null;
+  let activeTab = 'overview';
+  let activeKind = 'index';
+  let activeDiff = null;
+
+  const subtitleText = {
+    overview: 'Review a quick summary of the unsynced changes.',
+    entries: 'Inspect added, removed, and modified entries.',
+    order: 'Remote baseline (left) · 当前顺序 (right)'
+  };
 
   function prefersReducedMotion() {
     try {
@@ -881,12 +1040,13 @@ function ensureOrderDiffModal() {
   }
 
   function closeModal() {
-    const reduce = prefersReducedMotion();
-    if (orderDiffResizeHandler) {
-      window.removeEventListener('resize', orderDiffResizeHandler);
-      orderDiffResizeHandler = null;
+    if (composerDiffResizeHandler) {
+      window.removeEventListener('resize', composerDiffResizeHandler);
+      composerDiffResizeHandler = null;
     }
-    orderDiffState = null;
+    composerOrderState = null;
+    activeDiff = null;
+    const reduce = prefersReducedMotion();
     if (reduce) {
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
@@ -912,7 +1072,293 @@ function ensureOrderDiffModal() {
     }
   }
 
-  function updateStats(stats) {
+  function updateSubtitle(tabId) {
+    subtitle.textContent = subtitleText[tabId] || subtitleText.overview;
+  }
+
+  function setActiveTab(tabId) {
+    if (!tabButtons.has(tabId)) tabId = 'overview';
+    activeTab = tabId;
+    tabButtons.forEach((btn, id) => {
+      const selected = id === tabId;
+      btn.classList.toggle('is-active', selected);
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+      btn.setAttribute('tabindex', selected ? '0' : '-1');
+    });
+    tabPanels.forEach((panel, id) => {
+      const visible = id === tabId;
+      panel.hidden = !visible;
+      panel.style.display = visible ? '' : 'none';
+      panel.classList.toggle('is-active', visible);
+      panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    });
+    updateSubtitle(tabId);
+    if (tabId === 'order') {
+      renderOrder(activeKind);
+      if (!composerDiffResizeHandler) {
+        composerDiffResizeHandler = () => drawOrderDiffLines();
+        window.addEventListener('resize', composerDiffResizeHandler);
+      }
+      requestAnimationFrame(() => drawOrderDiffLines());
+      setTimeout(drawOrderDiffLines, 140);
+    } else if (composerDiffResizeHandler) {
+      window.removeEventListener('resize', composerDiffResizeHandler);
+      composerDiffResizeHandler = null;
+      composerOrderState = null;
+    }
+  }
+
+  function renderOverview(kind, diff) {
+    viewOverview.innerHTML = '';
+    if (!diff) {
+      const empty = document.createElement('p');
+      empty.className = 'composer-diff-empty';
+      empty.textContent = 'No changes detected for this file.';
+      viewOverview.appendChild(empty);
+      return;
+    }
+    const statWrap = document.createElement('div');
+    statWrap.className = 'composer-diff-overview-stats';
+    const diffKeys = diff.keys || {};
+    const modifiedKeys = Object.keys(diffKeys).filter(key => {
+      const info = diffKeys[key];
+      if (!info) return false;
+      return info.state === 'modified' || (info.addedLangs && info.addedLangs.length) || (info.removedLangs && info.removedLangs.length);
+    });
+    const statDefs = [
+      { id: 'added', label: 'Added', value: diff.addedKeys.length },
+      { id: 'removed', label: 'Removed', value: diff.removedKeys.length },
+      { id: 'modified', label: 'Modified', value: modifiedKeys.length },
+      { id: 'order', label: 'Order', value: diff.orderChanged ? 'Changed' : 'Unchanged', state: diff.orderChanged ? 'changed' : 'clean' }
+    ];
+    statDefs.forEach(def => {
+      const card = document.createElement('div');
+      card.className = 'composer-diff-stat';
+      card.dataset.id = def.id;
+      if (typeof def.value === 'number') card.dataset.value = String(def.value);
+      if (def.state) card.dataset.state = def.state;
+      const valueEl = document.createElement('div');
+      valueEl.className = 'composer-diff-stat-value';
+      valueEl.textContent = String(def.value);
+      const labelEl = document.createElement('div');
+      labelEl.className = 'composer-diff-stat-label';
+      labelEl.textContent = def.label;
+      card.appendChild(valueEl);
+      card.appendChild(labelEl);
+      statWrap.appendChild(card);
+    });
+    viewOverview.appendChild(statWrap);
+
+    const blocks = document.createElement('div');
+    blocks.className = 'composer-diff-overview-blocks';
+    function appendKeyBlock(title, keys) {
+      if (!keys || !keys.length) return;
+      const block = document.createElement('section');
+      block.className = 'composer-diff-overview-block';
+      const h3 = document.createElement('h3');
+      h3.textContent = title;
+      const list = document.createElement('ul');
+      list.className = 'composer-diff-key-list';
+      const max = 10;
+      keys.slice(0, max).forEach(key => {
+        const li = document.createElement('li');
+        const code = document.createElement('code');
+        code.textContent = key;
+        li.appendChild(code);
+        list.appendChild(li);
+      });
+      if (keys.length > max) {
+        const more = document.createElement('li');
+        more.className = 'composer-diff-key-more';
+        more.textContent = `+${keys.length - max} more`;
+        list.appendChild(more);
+      }
+      block.appendChild(h3);
+      block.appendChild(list);
+      blocks.appendChild(block);
+    }
+    appendKeyBlock('Added entries', diff.addedKeys);
+    appendKeyBlock('Removed entries', diff.removedKeys);
+    appendKeyBlock('Modified entries', modifiedKeys);
+    if (blocks.children.length) viewOverview.appendChild(blocks);
+
+    const langSet = new Set();
+    Object.values(diffKeys).forEach(info => {
+      if (!info) return;
+      Object.keys(info.langs || {}).forEach(lang => langSet.add(lang.toUpperCase()));
+      (info.addedLangs || []).forEach(lang => langSet.add(lang.toUpperCase()));
+      (info.removedLangs || []).forEach(lang => langSet.add(lang.toUpperCase()));
+    });
+    if (langSet.size) {
+      const p = document.createElement('p');
+      p.className = 'composer-diff-overview-langs';
+      p.textContent = `Languages impacted: ${Array.from(langSet).sort().join(', ')}`;
+      viewOverview.appendChild(p);
+    }
+  }
+
+  function describeEntrySnapshot(kind, key, source) {
+    const state = source === 'baseline'
+      ? (kind === 'tabs' ? remoteBaseline.tabs : remoteBaseline.index)
+      : getStateSlice(kind);
+    if (!state) return null;
+    return state[key] || null;
+  }
+
+  function buildEntryDetails(kind, key, info, sectionType) {
+    const list = document.createElement('ul');
+    list.className = 'composer-diff-field-list';
+    let hasContent = false;
+    const push = (text) => {
+      if (!text) return;
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+      hasContent = true;
+    };
+    if (sectionType === 'added' || sectionType === 'removed') {
+      const snapshot = describeEntrySnapshot(kind, key, sectionType === 'added' ? 'current' : 'baseline');
+      const langs = snapshot ? Object.keys(snapshot || {}).filter(lang => lang !== '__order') : [];
+      if (!langs.length) {
+        push('No language content recorded.');
+      } else {
+        langs.forEach(lang => {
+          const label = lang.toUpperCase();
+          if (kind === 'index') {
+            const value = snapshot[lang];
+            let count = 0;
+            if (Array.isArray(value)) count = value.length;
+            else if (value != null && value !== '') count = 1;
+            push(`${label}: ${count ? `${count} value${count === 1 ? '' : 's'}` : 'empty entry'}`);
+          } else {
+            const value = snapshot[lang] || { title: '', location: '' };
+            const parts = [];
+            if (value.title) parts.push(`title “${truncateText(value.title, 32)}”`);
+            if (value.location) parts.push(`location ${truncateText(value.location, 40)}`);
+            if (!parts.length) parts.push('empty entry');
+            push(`${label}: ${parts.join(', ')}`);
+          }
+        });
+      }
+    } else {
+      const langSet = new Set([
+        ...Object.keys(info.langs || {}),
+        ...((info.addedLangs || [])),
+        ...((info.removedLangs || []))
+      ]);
+      if (!langSet.size) return null;
+      const addedLangs = new Set(info.addedLangs || []);
+      const removedLangs = new Set(info.removedLangs || []);
+      langSet.forEach(lang => {
+        const detail = (info.langs || {})[lang];
+        const label = lang.toUpperCase();
+        if (!detail) {
+          if (addedLangs.has(lang)) push(`${label}: added`);
+          else if (removedLangs.has(lang)) push(`${label}: removed`);
+          return;
+        }
+        if (detail.state === 'added') {
+          push(`${label}: added`);
+          return;
+        }
+        if (detail.state === 'removed') {
+          push(`${label}: removed`);
+          return;
+        }
+        if (detail.state === 'modified') {
+          if (kind === 'index') {
+            const versions = detail.versions || { entries: [], removed: [] };
+            let addedCount = 0;
+            let movedCount = 0;
+            let changedCount = 0;
+            (versions.entries || []).forEach(entry => {
+              if (entry.status === 'added') addedCount += 1;
+              else if (entry.status === 'moved') movedCount += 1;
+              else if (entry.status === 'changed') changedCount += 1;
+            });
+            const removedCount = (versions.removed || []).length;
+            const parts = [];
+            if (versions.kindChanged) parts.push('type changed');
+            if (addedCount) parts.push(`+${addedCount} new`);
+            if (removedCount) parts.push(`-${removedCount} removed`);
+            if (changedCount) parts.push(`${changedCount} updated`);
+            if (versions.orderChanged || movedCount) parts.push('reordered');
+            if (!parts.length) parts.push('content updated');
+            push(`${label}: ${parts.join(', ')}`);
+          } else {
+            const changeFields = [];
+            if (detail.titleChanged) changeFields.push('title');
+            if (detail.locationChanged) changeFields.push('location');
+            push(`${label}: updated ${changeFields.length ? changeFields.join(' & ') : 'content'}`);
+          }
+        }
+      });
+    }
+    return hasContent ? list : null;
+  }
+
+  function renderEntries(kind, diff) {
+    viewEntries.innerHTML = '';
+    if (!diff) {
+      const empty = document.createElement('p');
+      empty.className = 'composer-diff-empty';
+      empty.textContent = 'No content differences detected.';
+      viewEntries.appendChild(empty);
+      return;
+    }
+    const diffKeys = diff.keys || {};
+    const sections = [
+      { type: 'added', title: 'Added entries', keys: diff.addedKeys || [] },
+      { type: 'removed', title: 'Removed entries', keys: diff.removedKeys || [] },
+      { type: 'modified', title: 'Modified entries', keys: Object.keys(diffKeys).filter(key => {
+        const info = diffKeys[key];
+        if (!info) return false;
+        return info.state === 'modified' || (info.addedLangs && info.addedLangs.length) || (info.removedLangs && info.removedLangs.length);
+      }) }
+    ];
+    const hasData = sections.some(section => section.keys && section.keys.length);
+    if (!hasData) {
+      const empty = document.createElement('p');
+      empty.className = 'composer-diff-empty';
+      empty.textContent = 'Only ordering changed for this file.';
+      viewEntries.appendChild(empty);
+      return;
+    }
+    sections.forEach(section => {
+      if (!section.keys || !section.keys.length) return;
+      const block = document.createElement('section');
+      block.className = 'composer-diff-section';
+      block.dataset.section = section.type;
+      const heading = document.createElement('h3');
+      heading.textContent = section.title;
+      block.appendChild(heading);
+      const list = document.createElement('ul');
+      list.className = 'composer-diff-entry-list';
+      section.keys.forEach(key => {
+        const info = diffKeys[key] || { state: section.type };
+        const item = document.createElement('li');
+        item.className = 'composer-diff-entry';
+        const name = document.createElement('span');
+        name.className = 'composer-diff-entry-key';
+        name.textContent = key;
+        item.appendChild(name);
+        const badgeWrap = document.createElement('span');
+        badgeWrap.className = 'composer-diff-entry-badges';
+        const badgesHtml = kind === 'tabs' ? buildTabsDiffBadges(info) : buildIndexDiffBadges(info);
+        if (badgesHtml) {
+          badgeWrap.innerHTML = badgesHtml;
+          item.appendChild(badgeWrap);
+        }
+        const details = buildEntryDetails(kind, key, info, section.type);
+        if (details) item.appendChild(details);
+        list.appendChild(item);
+      });
+      block.appendChild(list);
+      viewEntries.appendChild(block);
+    });
+  }
+
+  function updateOrderStats(stats) {
     statsWrap.innerHTML = '';
     const pieces = [];
     if (stats.moved) pieces.push({ label: `Moved ${stats.moved}`, status: 'moved' });
@@ -928,9 +1374,9 @@ function ensureOrderDiffModal() {
     });
   }
 
-  function renderContent(kind) {
+  function renderOrder(kind) {
     const label = kind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
-    title.textContent = `Order changes — ${label}`;
+    title.textContent = `Changes — ${label}`;
     const details = computeOrderDiffDetails(kind);
     const { beforeEntries, afterEntries, connectors, stats } = details;
 
@@ -964,17 +1410,19 @@ function ensureOrderDiffModal() {
     }
     viz.classList.toggle('is-empty', !hasItems);
 
-    updateStats(stats);
+    updateOrderStats(stats);
 
-    orderDiffState = hasItems
+    composerOrderState = hasItems
       ? { container: viz, svg, connectors, leftMap, rightMap }
       : null;
-    drawOrderDiffLines();
-    requestAnimationFrame(drawOrderDiffLines);
-    setTimeout(drawOrderDiffLines, 120);
+    if (activeTab === 'order') {
+      drawOrderDiffLines();
+      requestAnimationFrame(drawOrderDiffLines);
+      setTimeout(drawOrderDiffLines, 120);
+    }
   }
 
-  function openModal(kind) {
+  function openModal(kind, initialTab = 'overview') {
     lastActive = document.activeElement;
     const reduce = prefersReducedMotion();
     try { modal.classList.remove('ns-anim-out'); } catch (_) {}
@@ -988,9 +1436,16 @@ function ensureOrderDiffModal() {
         dialog.addEventListener('animationend', onEnd, { once: true });
       } catch (_) {}
     }
-    renderContent(kind);
-    orderDiffResizeHandler = () => drawOrderDiffLines();
-    window.addEventListener('resize', orderDiffResizeHandler);
+    const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+    activeKind = safeKind;
+    const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+    title.textContent = `Changes — ${label}`;
+    activeDiff = composerDiffCache[safeKind] || recomputeDiff(safeKind);
+    renderOverview(safeKind, activeDiff);
+    renderEntries(safeKind, activeDiff);
+    renderOrder(safeKind);
+    const targetTab = tabButtons.has(initialTab) ? initialTab : 'overview';
+    setActiveTab(targetTab);
     setTimeout(() => {
       try { closeBtn.focus(); } catch (_) {}
     }, 0);
@@ -1002,7 +1457,7 @@ function ensureOrderDiffModal() {
     if (ev.key === 'Escape') { ev.preventDefault(); closeModal(); return; }
     if (ev.key === 'Tab') {
       const focusables = Array.from(dialog.querySelectorAll(focusableSelector))
-        .filter(el => el.offsetParent !== null || el === document.activeElement);
+        .filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
       if (!focusables.length) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
@@ -1011,23 +1466,28 @@ function ensureOrderDiffModal() {
     }
   });
 
-  orderDiffModal = { open: openModal, close: closeModal };
-  orderDiffModal.modal = modal;
-  orderDiffModal.dialog = dialog;
-  orderDiffModal.viz = viz;
-  orderDiffModal.svg = svg;
-  orderDiffModal.beforeList = beforeList;
-  orderDiffModal.afterList = afterList;
-  orderDiffModal.emptyNotice = emptyNotice;
-  orderDiffModal.statsWrap = statsWrap;
-  orderDiffModal.title = title;
-  orderDiffModal.subtitle = subtitle;
-  return orderDiffModal;
+  composerDiffModal = {
+    open: openModal,
+    close: closeModal,
+    activate: setActiveTab,
+    modal,
+    dialog,
+    title,
+    subtitle,
+    views: { overview: viewOverview, entries: viewEntries, order: viewOrder },
+    statsWrap,
+    beforeList,
+    afterList,
+    svg,
+    emptyNotice,
+    tabsWrap
+  };
+  return composerDiffModal;
 }
 
 function drawOrderDiffLines() {
-  if (!orderDiffState) return;
-  const { container, svg, connectors, leftMap, rightMap } = orderDiffState;
+  if (!composerOrderState) return;
+  const { container, svg, connectors, leftMap, rightMap } = composerOrderState;
   if (!container || !svg) return;
   const rect = container.getBoundingClientRect();
   const width = container.clientWidth;
@@ -3747,33 +4207,6 @@ function bindComposerUI(state) {
     if (!btn) return;
     const btnLabel = btn.querySelector('.btn-label');
 
-    // Minimal toast utility for this page
-    function ensureToastRoot(){
-      let r = document.getElementById('toast-root');
-      if (!r) { r = document.createElement('div'); r.id = 'toast-root'; r.style.position='fixed'; r.style.top='14px'; r.style.right='14px'; r.style.zIndex='10000'; document.body.appendChild(r); }
-      return r;
-    }
-    function showToast(kind, text){
-      try {
-        const root = ensureToastRoot();
-        const el = document.createElement('div');
-        el.className = `toast ${kind||''}`;
-        el.textContent = text || '';
-        // light styles if global theme lacks toast
-        el.style.background = 'color-mix(in srgb, var(--text) 8%, var(--card))';
-        el.style.color = 'var(--text)';
-        el.style.border = '1px solid var(--border)';
-        el.style.borderRadius = '8px';
-        el.style.padding = '.45rem .7rem';
-        el.style.boxShadow = 'var(--shadow)';
-        el.style.marginTop = '.35rem';
-        el.style.transition = 'opacity .3s ease';
-        root.appendChild(el);
-        setTimeout(()=>{ el.style.opacity='0'; }, 2000);
-        setTimeout(()=>{ try { el.remove(); } catch(_) {} }, 2400);
-      } catch(_) { try { alert(text); } catch(_) {} }
-    }
-
     // Helper: extract version segment like v1.2.3 from a path
     function extractVersion(p){
       try { const m = String(p||'').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i); return m ? m[0].split('/').pop() : ''; } catch(_) { return ''; }
@@ -4068,21 +4501,14 @@ function bindComposerUI(state) {
   })();
 }
 
-function showStatus(msg) {
+function showStatus(msg, kind = 'info') {
   const el = $('#composerStatus');
   if (!el) return;
   if (msg) {
-    el.dataset.lock = '1';
-    el.dataset.summary = '1';
-    el.dataset.state = 'info';
-    el.textContent = msg;
-  } else {
-    el.dataset.lock = '0';
-    el.dataset.summary = '0';
-    delete el.dataset.state;
-    el.textContent = '';
-    updateUnsyncedSummary();
+    const type = typeof kind === 'string' ? kind : 'info';
+    showToast(type, msg);
   }
+  updateUnsyncedSummary();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -4352,12 +4778,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  #composerStatus .composer-summary-entry{display:inline-flex;align-items:center;gap:.25rem;font-size:.92rem;color:inherit}
-  #composerStatus .composer-summary-label{font-weight:600;color:color-mix(in srgb,var(--text) 78%, transparent)}
-  #composerStatus .composer-summary-order{border:0;background:none;padding:0 .1rem;color:color-mix(in srgb,var(--primary) 85%, var(--text));font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb,var(--primary) 65%, transparent);border-radius:4px;transition:color 160ms ease, background-color 160ms ease}
-  #composerStatus .composer-summary-order:hover{color:color-mix(in srgb,var(--primary) 85%, var(--text));background:color-mix(in srgb,var(--primary) 12%, transparent)}
-  #composerStatus .composer-summary-order:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  #composerStatus .composer-summary-prefix{font-weight:600;color:color-mix(in srgb,var(--text) 74%, transparent)}
+  #composerStatus .composer-summary-link{border:0;background:none;padding:.1rem .4rem;font-weight:600;font-size:.92rem;color:color-mix(in srgb,var(--primary) 82%, var(--text));cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;transition:color 150ms ease, background-color 150ms ease}
+  #composerStatus .composer-summary-link:hover{color:color-mix(in srgb,var(--primary) 88%, var(--text));background:color-mix(in srgb,var(--primary) 14%, transparent)}
+  #composerStatus .composer-summary-link:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  #composerStatus .composer-summary-link[data-order="1"]::after{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,var(--primary) 70%, var(--text));box-shadow:0 0 0 1px color-mix(in srgb,var(--card) 80%, transparent)}
 
+  .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
+  .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
+  .composer-diff-tab.is-active{background:color-mix(in srgb,var(--primary) 18%, transparent);color:color-mix(in srgb,var(--primary) 92%, var(--text));box-shadow:0 6px 16px rgba(37,99,235,0.18)}
+  .composer-diff-tab.is-active::after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);width:36%;min-width:24px;height:3px;border-radius:999px;background:color-mix(in srgb,var(--primary) 80%, var(--text));}
+  .composer-diff-tab:hover{color:color-mix(in srgb,var(--primary) 94%, var(--text));background:color-mix(in srgb,var(--primary) 12%, transparent)}
+  .composer-diff-tab:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  .composer-diff-views{padding:.85rem .15rem .35rem}
+  .composer-diff-view{display:block}
+  .composer-diff-empty{margin:.65rem 0;font-size:.95rem;color:var(--muted)}
+  .composer-diff-overview-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.65rem;margin-bottom:1rem}
+  .composer-diff-stat{border:1px solid color-mix(in srgb,var(--text) 14%, var(--border));border-radius:12px;padding:.65rem .75rem;background:color-mix(in srgb,var(--text) 4%, var(--card));display:flex;flex-direction:column;gap:.12rem;min-height:74px}
+  .composer-diff-stat-value{font-size:1.6rem;font-weight:700;color:color-mix(in srgb,var(--text) 88%, transparent)}
+  .composer-diff-stat[data-id="order"] .composer-diff-stat-value{font-size:1.08rem}
+  .composer-diff-stat-label{font-size:.85rem;color:color-mix(in srgb,var(--text) 60%, transparent)}
+  .composer-diff-overview-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.85rem;margin:.6rem 0 1rem}
+  .composer-diff-overview-block{border:1px solid var(--border);border-radius:10px;padding:.65rem .75rem;background:color-mix(in srgb,var(--text) 3%, var(--card))}
+  .composer-diff-overview-block h3{margin:0 0 .45rem;font-size:.92rem;color:color-mix(in srgb,var(--text) 80%, transparent)}
+  .composer-diff-key-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.28rem}
+  .composer-diff-key-list code{font-family:var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace);font-size:.86rem;color:color-mix(in srgb,var(--text) 82%, transparent)}
+  .composer-diff-key-more{font-size:.86rem;color:var(--muted)}
+  .composer-diff-overview-langs{margin:.4rem 0 0;font-size:.9rem;color:color-mix(in srgb,var(--text) 62%, transparent)}
+  .composer-diff-section{margin-bottom:1.05rem}
+  .composer-diff-section h3{margin:0 0 .5rem;font-size:.98rem}
+  .composer-diff-entry-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.55rem}
+  .composer-diff-entry{border:1px solid color-mix(in srgb,var(--text) 14%, var(--border));border-radius:10px;padding:.55rem .75rem;background:color-mix(in srgb,var(--text) 3%, var(--card));display:flex;flex-direction:column;gap:.35rem}
+  .composer-diff-entry-key{font-family:var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace);font-weight:600;font-size:.95rem;color:var(--text)}
+  .composer-diff-entry-badges{display:flex;flex-wrap:wrap;gap:.3rem;font-size:.8rem}
+  .composer-diff-field-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.2rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 70%, transparent)}
+  .composer-diff-field-list li{display:flex;align-items:flex-start;gap:.35rem}
+  .composer-diff-field-list li::before{content:'•';color:color-mix(in srgb,var(--primary) 62%, var(--text));line-height:1.1}
+  @media (max-width:640px){
+    .composer-diff-tabs{margin:0 0 .6rem;padding:0 0 .6rem}
+    .composer-diff-overview-stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+    .composer-diff-overview-blocks{grid-template-columns:1fr}
+  }
   .composer-order-dialog{width:min(96vw, 880px);max-height:min(90vh, 720px);padding-bottom:1rem}
   .composer-order-head{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:0 -.85rem .85rem;background:color-mix(in srgb,var(--text) 5%, var(--card));border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));padding:.75rem .85rem;position:sticky;top:0;z-index:3}
   .composer-order-head h2{margin:0;font-size:1.15rem;font-weight:700;flex:1 1 auto}
