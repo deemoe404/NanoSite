@@ -6,6 +6,7 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 const CLEAN_STATUS_MESSAGE = 'Synced with remote';
+const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
@@ -29,6 +30,9 @@ let remoteBaseline = { index: null, tabs: null };
 let composerDiffCache = { index: null, tabs: null };
 let composerDraftMeta = { index: null, tabs: null };
 let composerAutoSaveTimers = { index: null, tabs: null };
+let orderDiffModal = null;
+let orderDiffState = null;
+let orderDiffResizeHandler = null;
 
 function getActiveComposerFile() {
   try {
@@ -614,40 +618,64 @@ function updateFileDirtyBadge(kind) {
 }
 
 function computeUnsyncedSummary() {
-  const summaries = [];
+  const entries = [];
   const indexDiff = composerDiffCache.index;
   const tabsDiff = composerDiffCache.tabs;
   if (indexDiff && indexDiff.hasChanges) {
     const pieces = [];
     const changed = Object.keys(indexDiff.keys || {}).length;
-    if (changed) pieces.push(`${changed} item${changed === 1 ? '' : 's'}`);
-    if (indexDiff.orderChanged) pieces.push('order');
-    if (indexDiff.addedKeys.length) pieces.push(`+${indexDiff.addedKeys.length}`);
-    if (indexDiff.removedKeys.length) pieces.push(`-${indexDiff.removedKeys.length}`);
-    const text = pieces.length ? pieces.join(', ') : 'changes';
-    summaries.push(`index.yaml: ${text}`);
+    if (changed) pieces.push({ type: 'text', value: `${changed} item${changed === 1 ? '' : 's'}` });
+    if (indexDiff.orderChanged) pieces.push({ type: 'order', value: 'order' });
+    if (indexDiff.addedKeys.length) pieces.push({ type: 'text', value: `+${indexDiff.addedKeys.length}` });
+    if (indexDiff.removedKeys.length) pieces.push({ type: 'text', value: `-${indexDiff.removedKeys.length}` });
+    if (!pieces.length) pieces.push({ type: 'text', value: 'changes' });
+    entries.push({ kind: 'index', label: 'index.yaml', parts: pieces });
   }
   if (tabsDiff && tabsDiff.hasChanges) {
     const pieces = [];
     const changed = Object.keys(tabsDiff.keys || {}).length;
-    if (changed) pieces.push(`${changed} item${changed === 1 ? '' : 's'}`);
-    if (tabsDiff.orderChanged) pieces.push('order');
-    if (tabsDiff.addedKeys.length) pieces.push(`+${tabsDiff.addedKeys.length}`);
-    if (tabsDiff.removedKeys.length) pieces.push(`-${tabsDiff.removedKeys.length}`);
-    const text = pieces.length ? pieces.join(', ') : 'changes';
-    summaries.push(`tabs.yaml: ${text}`);
+    if (changed) pieces.push({ type: 'text', value: `${changed} item${changed === 1 ? '' : 's'}` });
+    if (tabsDiff.orderChanged) pieces.push({ type: 'order', value: 'order' });
+    if (tabsDiff.addedKeys.length) pieces.push({ type: 'text', value: `+${tabsDiff.addedKeys.length}` });
+    if (tabsDiff.removedKeys.length) pieces.push({ type: 'text', value: `-${tabsDiff.removedKeys.length}` });
+    if (!pieces.length) pieces.push({ type: 'text', value: 'changes' });
+    entries.push({ kind: 'tabs', label: 'tabs.yaml', parts: pieces });
   }
-  if (!summaries.length) return '';
-  return `Unsynced changes → ${summaries.join(' · ')}`;
+  return entries;
 }
 
 function updateUnsyncedSummary() {
   const el = document.getElementById('composerStatus');
   if (!el) return;
   if (el.dataset.lock === '1') return;
-  const summary = computeUnsyncedSummary();
-  if (summary) {
-    el.textContent = summary;
+  const summaryEntries = computeUnsyncedSummary();
+  if (summaryEntries.length) {
+    el.innerHTML = '';
+    el.append('Unsynced changes → ');
+    summaryEntries.forEach((entry, idx) => {
+      if (idx > 0) el.append(' · ');
+      const span = document.createElement('span');
+      span.className = 'composer-summary-entry';
+      const prefix = document.createElement('span');
+      prefix.className = 'composer-summary-label';
+      prefix.textContent = `${entry.label}: `;
+      span.appendChild(prefix);
+      entry.parts.forEach((part, pIdx) => {
+        if (pIdx > 0) span.append(', ');
+        if (part.type === 'order') {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'composer-summary-order';
+          btn.textContent = part.value || 'order';
+          btn.setAttribute('data-order-kind', entry.kind);
+          btn.addEventListener('click', () => openOrderDiffModal(entry.kind));
+          span.appendChild(btn);
+        } else {
+          span.append(part.value);
+        }
+      });
+      el.appendChild(span);
+    });
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
   } else {
@@ -656,6 +684,395 @@ function updateUnsyncedSummary() {
     el.dataset.state = 'clean';
   }
 }
+
+function computeOrderDiffDetails(kind) {
+  const baseline = kind === 'tabs' ? remoteBaseline.tabs : remoteBaseline.index;
+  const current = getStateSlice(kind) || { __order: [] };
+  const baseOrder = Array.isArray(baseline && baseline.__order)
+    ? baseline.__order.filter(key => typeof key === 'string')
+    : [];
+  const curOrder = Array.isArray(current && current.__order)
+    ? current.__order.filter(key => typeof key === 'string')
+    : [];
+  const beforeMap = new Map();
+  const afterMap = new Map();
+  baseOrder.forEach((key, idx) => { if (!beforeMap.has(key)) beforeMap.set(key, idx); });
+  curOrder.forEach((key, idx) => { if (!afterMap.has(key)) afterMap.set(key, idx); });
+
+  const beforeEntries = baseOrder.map((key, index) => {
+    if (!afterMap.has(key)) return { key, index, status: 'removed' };
+    const toIndex = afterMap.get(key);
+    return {
+      key,
+      index,
+      status: toIndex === index ? 'same' : 'moved',
+      toIndex
+    };
+  });
+
+  const afterEntries = curOrder.map((key, index) => {
+    if (!beforeMap.has(key)) return { key, index, status: 'added' };
+    const fromIndex = beforeMap.get(key);
+    return {
+      key,
+      index,
+      status: fromIndex === index ? 'same' : 'moved',
+      fromIndex
+    };
+  });
+
+  const connectors = beforeEntries
+    .filter(entry => entry.status !== 'removed')
+    .map(entry => ({
+      key: entry.key,
+      status: entry.status === 'moved' ? 'moved' : 'same',
+      fromIndex: entry.index,
+      toIndex: entry.toIndex
+    }));
+
+  const stats = {
+    moved: connectors.filter(c => c.status === 'moved').length,
+    added: afterEntries.filter(entry => entry.status === 'added').length,
+    removed: beforeEntries.filter(entry => entry.status === 'removed').length
+  };
+
+  return { beforeEntries, afterEntries, connectors, stats };
+}
+
+function openOrderDiffModal(kind) {
+  try {
+    const modal = ensureOrderDiffModal();
+    modal.open(kind);
+  } catch (err) {
+    console.warn('Composer: failed to open order diff modal', err);
+  }
+}
+
+function buildOrderDiffItem(entry, side) {
+  const item = document.createElement('div');
+  item.className = 'composer-order-item';
+  item.dataset.status = entry.status || 'same';
+  item.dataset.side = side;
+  item.setAttribute('data-key', entry.key || '');
+
+  const idxEl = document.createElement('span');
+  idxEl.className = 'composer-order-index';
+  idxEl.textContent = `#${entry.index + 1}`;
+  item.appendChild(idxEl);
+
+  const keyEl = document.createElement('span');
+  keyEl.className = 'composer-order-key';
+  keyEl.textContent = entry.key || '(empty)';
+  item.appendChild(keyEl);
+
+  const badgeEl = document.createElement('span');
+  badgeEl.className = 'composer-order-badge';
+  let badgeText = '';
+  if (entry.status === 'moved') {
+    if (side === 'before') badgeText = `→ #${(entry.toIndex == null ? entry.index : entry.toIndex) + 1}`;
+    else badgeText = `from #${(entry.fromIndex == null ? entry.index : entry.fromIndex) + 1}`;
+  } else if (entry.status === 'removed') {
+    badgeText = 'Removed';
+  } else if (entry.status === 'added') {
+    badgeText = 'New';
+  }
+  if (badgeText) {
+    badgeEl.textContent = badgeText;
+  } else {
+    badgeEl.classList.add('is-hidden');
+  }
+  item.appendChild(badgeEl);
+  return item;
+}
+
+function ensureOrderDiffModal() {
+  if (orderDiffModal) return orderDiffModal;
+
+  const modal = document.createElement('div');
+  modal.id = 'composerOrderModal';
+  modal.className = 'ns-modal composer-order-modal';
+  modal.setAttribute('aria-hidden', 'true');
+
+  const dialog = document.createElement('div');
+  dialog.className = 'ns-modal-dialog composer-order-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+
+  const head = document.createElement('div');
+  head.className = 'composer-order-head';
+  const title = document.createElement('h2');
+  title.id = 'composerOrderTitle';
+  title.textContent = 'Order changes';
+  const subtitle = document.createElement('p');
+  subtitle.className = 'composer-order-subtitle';
+  subtitle.textContent = 'Remote baseline (left) · 当前顺序 (right)';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'ns-modal-close btn-secondary composer-order-close';
+  closeBtn.type = 'button';
+  closeBtn.setAttribute('aria-label', 'Close');
+  closeBtn.textContent = 'Close';
+  head.appendChild(title);
+  head.appendChild(subtitle);
+  head.appendChild(closeBtn);
+
+  const statsWrap = document.createElement('div');
+  statsWrap.className = 'composer-order-stats';
+
+  const body = document.createElement('div');
+  body.className = 'composer-order-body';
+
+  const viz = document.createElement('div');
+  viz.className = 'composer-order-visual';
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('composer-order-lines');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const columns = document.createElement('div');
+  columns.className = 'composer-order-columns';
+
+  const beforeCol = document.createElement('div');
+  beforeCol.className = 'composer-order-column composer-order-before';
+  const beforeTitle = document.createElement('div');
+  beforeTitle.className = 'composer-order-column-title';
+  beforeTitle.textContent = 'Remote';
+  const beforeList = document.createElement('div');
+  beforeList.className = 'composer-order-list';
+  beforeCol.appendChild(beforeTitle);
+  beforeCol.appendChild(beforeList);
+
+  const afterCol = document.createElement('div');
+  afterCol.className = 'composer-order-column composer-order-after';
+  const afterTitle = document.createElement('div');
+  afterTitle.className = 'composer-order-column-title';
+  afterTitle.textContent = 'Current';
+  const afterList = document.createElement('div');
+  afterList.className = 'composer-order-list';
+  afterCol.appendChild(afterTitle);
+  afterCol.appendChild(afterList);
+
+  const emptyNotice = document.createElement('div');
+  emptyNotice.className = 'composer-order-empty';
+  emptyNotice.textContent = 'No items to compare yet.';
+
+  columns.appendChild(beforeCol);
+  columns.appendChild(afterCol);
+  viz.appendChild(svg);
+  viz.appendChild(columns);
+  viz.appendChild(emptyNotice);
+  body.appendChild(viz);
+
+  dialog.setAttribute('aria-labelledby', title.id);
+  dialog.appendChild(head);
+  dialog.appendChild(statsWrap);
+  dialog.appendChild(body);
+  modal.appendChild(dialog);
+  document.body.appendChild(modal);
+
+  const focusableSelector = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  let lastActive = null;
+
+  function prefersReducedMotion() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function closeModal() {
+    const reduce = prefersReducedMotion();
+    if (orderDiffResizeHandler) {
+      window.removeEventListener('resize', orderDiffResizeHandler);
+      orderDiffResizeHandler = null;
+    }
+    orderDiffState = null;
+    if (reduce) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('ns-modal-open');
+      try { lastActive && lastActive.focus(); } catch (_) {}
+      return;
+    }
+    try { modal.classList.remove('ns-anim-in'); } catch (_) {}
+    try { modal.classList.add('ns-anim-out'); } catch (_) {}
+    const finish = () => {
+      try { modal.classList.remove('ns-anim-out'); } catch (_) {}
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('ns-modal-open');
+      try { lastActive && lastActive.focus(); } catch (_) {}
+    };
+    try {
+      const onEnd = () => { dialog.removeEventListener('animationend', onEnd); finish(); };
+      dialog.addEventListener('animationend', onEnd, { once: true });
+      setTimeout(finish, 220);
+    } catch (_) {
+      finish();
+    }
+  }
+
+  function updateStats(stats) {
+    statsWrap.innerHTML = '';
+    const pieces = [];
+    if (stats.moved) pieces.push({ label: `Moved ${stats.moved}`, status: 'moved' });
+    if (stats.added) pieces.push({ label: `+${stats.added} new`, status: 'added' });
+    if (stats.removed) pieces.push({ label: `-${stats.removed} removed`, status: 'removed' });
+    if (!pieces.length) pieces.push({ label: 'No direct moves; changes come from additions/removals', status: 'neutral' });
+    pieces.forEach(info => {
+      const chip = document.createElement('span');
+      chip.className = 'composer-order-chip';
+      chip.dataset.status = info.status;
+      chip.textContent = info.label;
+      statsWrap.appendChild(chip);
+    });
+  }
+
+  function renderContent(kind) {
+    const label = kind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+    title.textContent = `Order changes — ${label}`;
+    const details = computeOrderDiffDetails(kind);
+    const { beforeEntries, afterEntries, connectors, stats } = details;
+
+    beforeList.innerHTML = '';
+    afterList.innerHTML = '';
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const leftMap = new Map();
+    beforeEntries.forEach(entry => {
+      const item = buildOrderDiffItem(entry, 'before');
+      leftMap.set(entry.key, item);
+      beforeList.appendChild(item);
+    });
+
+    const rightMap = new Map();
+    afterEntries.forEach(entry => {
+      const item = buildOrderDiffItem(entry, 'after');
+      rightMap.set(entry.key, item);
+      afterList.appendChild(item);
+    });
+
+    const hasItems = beforeEntries.length || afterEntries.length;
+    if (hasItems) {
+      emptyNotice.hidden = true;
+      emptyNotice.style.display = 'none';
+      emptyNotice.setAttribute('aria-hidden', 'true');
+    } else {
+      emptyNotice.hidden = false;
+      emptyNotice.style.display = 'flex';
+      emptyNotice.setAttribute('aria-hidden', 'false');
+    }
+    viz.classList.toggle('is-empty', !hasItems);
+
+    updateStats(stats);
+
+    orderDiffState = hasItems
+      ? { container: viz, svg, connectors, leftMap, rightMap }
+      : null;
+    drawOrderDiffLines();
+    requestAnimationFrame(drawOrderDiffLines);
+    setTimeout(drawOrderDiffLines, 120);
+  }
+
+  function openModal(kind) {
+    lastActive = document.activeElement;
+    const reduce = prefersReducedMotion();
+    try { modal.classList.remove('ns-anim-out'); } catch (_) {}
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('ns-modal-open');
+    if (!reduce) {
+      try {
+        modal.classList.add('ns-anim-in');
+        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); try { modal.classList.remove('ns-anim-in'); } catch (_) {}; };
+        dialog.addEventListener('animationend', onEnd, { once: true });
+      } catch (_) {}
+    }
+    renderContent(kind);
+    orderDiffResizeHandler = () => drawOrderDiffLines();
+    window.addEventListener('resize', orderDiffResizeHandler);
+    setTimeout(() => {
+      try { closeBtn.focus(); } catch (_) {}
+    }, 0);
+  }
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('mousedown', (ev) => { if (ev.target === modal) closeModal(); });
+  modal.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { ev.preventDefault(); closeModal(); return; }
+    if (ev.key === 'Tab') {
+      const focusables = Array.from(dialog.querySelectorAll(focusableSelector))
+        .filter(el => el.offsetParent !== null || el === document.activeElement);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+      else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+    }
+  });
+
+  orderDiffModal = { open: openModal, close: closeModal };
+  orderDiffModal.modal = modal;
+  orderDiffModal.dialog = dialog;
+  orderDiffModal.viz = viz;
+  orderDiffModal.svg = svg;
+  orderDiffModal.beforeList = beforeList;
+  orderDiffModal.afterList = afterList;
+  orderDiffModal.emptyNotice = emptyNotice;
+  orderDiffModal.statsWrap = statsWrap;
+  orderDiffModal.title = title;
+  orderDiffModal.subtitle = subtitle;
+  return orderDiffModal;
+}
+
+function drawOrderDiffLines() {
+  if (!orderDiffState) return;
+  const { container, svg, connectors, leftMap, rightMap } = orderDiffState;
+  if (!container || !svg) return;
+  const rect = container.getBoundingClientRect();
+  const width = container.clientWidth;
+  const height = Math.max(container.scrollHeight, rect.height);
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const offsetX = rect.left;
+  const offsetY = rect.top;
+  const scrollTop = container.scrollTop || 0;
+
+  let movedIdx = 0;
+  connectors.forEach(info => {
+    const leftEl = leftMap.get(info.key);
+    const rightEl = rightMap.get(info.key);
+    if (!leftEl || !rightEl) return;
+    const lRect = leftEl.getBoundingClientRect();
+    const rRect = rightEl.getBoundingClientRect();
+    let startX = (lRect.right - offsetX);
+    const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
+    let endX = (rRect.left - offsetX);
+    const endY = (rRect.top - offsetY) + (rRect.height / 2) + scrollTop;
+    if (endX <= startX) {
+      const mid = (startX + endX) / 2;
+      startX = mid - 1;
+      endX = mid + 1;
+    }
+    const curve = Math.max(36, (endX - startX) * 0.35);
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${startX} ${startY} C ${startX + curve} ${startY}, ${endX - curve} ${endY}, ${endX} ${endY}`);
+    path.classList.add('composer-order-path');
+    path.dataset.status = info.status;
+    if (info.status === 'same') {
+      path.setAttribute('stroke', '#94a3b8');
+    } else {
+      const color = ORDER_LINE_COLORS[movedIdx % ORDER_LINE_COLORS.length];
+      movedIdx += 1;
+      path.setAttribute('stroke', color);
+    }
+    svg.appendChild(path);
+  });
+}
+
 
 function updateDraftButtonState(forceTarget) {
   const btn = document.getElementById('btnDraft');
@@ -3933,6 +4350,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ns-modal-dialog .comp-guide-head .ns-modal-close{position:static;top:auto;right:auto;margin-left:auto}
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
+
+  #composerStatus .composer-summary-entry{display:inline-flex;align-items:center;gap:.25rem;font-size:.92rem;color:inherit}
+  #composerStatus .composer-summary-label{font-weight:600;color:color-mix(in srgb,var(--text) 78%, transparent)}
+  #composerStatus .composer-summary-order{border:0;background:none;padding:0 .1rem;color:color-mix(in srgb,var(--primary) 85%, var(--text));font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-thickness:2px;text-decoration-color:color-mix(in srgb,var(--primary) 65%, transparent);border-radius:4px;transition:color 160ms ease, background-color 160ms ease}
+  #composerStatus .composer-summary-order:hover{color:color-mix(in srgb,var(--primary) 85%, var(--text));background:color-mix(in srgb,var(--primary) 12%, transparent)}
+  #composerStatus .composer-summary-order:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+
+  .composer-order-dialog{width:min(96vw, 880px);max-height:min(90vh, 720px);padding-bottom:1rem}
+  .composer-order-head{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;margin:0 -.85rem .85rem;background:color-mix(in srgb,var(--text) 5%, var(--card));border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));padding:.75rem .85rem;position:sticky;top:0;z-index:3}
+  .composer-order-head h2{margin:0;font-size:1.15rem;font-weight:700;flex:1 1 auto}
+  .composer-order-subtitle{margin:0;font-size:.9rem;color:var(--muted);flex-basis:100%;order:3}
+  .composer-order-close{margin-left:auto}
+  .composer-order-stats{display:flex;flex-wrap:wrap;gap:.4rem;margin:0 0 .85rem;font-size:.85rem;color:var(--muted)}
+  .composer-order-chip{display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;padding:.18rem .55rem;border:1px solid color-mix(in srgb,var(--text) 16%, var(--border));background:color-mix(in srgb,var(--text) 4%, var(--card));font-weight:600;color:color-mix(in srgb,var(--text) 70%, transparent)}
+  .composer-order-chip[data-status="moved"]{border-color:color-mix(in srgb,#2563eb 55%, var(--border));background:color-mix(in srgb,#2563eb 14%, transparent);color:#1d4ed8}
+  .composer-order-chip[data-status="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));background:color-mix(in srgb,#16a34a 12%, transparent);color:#166534}
+  .composer-order-chip[data-status="removed"]{border-color:color-mix(in srgb,#dc2626 55%, var(--border));background:color-mix(in srgb,#dc2626 12%, transparent);color:#b91c1c}
+  .composer-order-chip[data-status="neutral"]{border-style:dashed}
+  .composer-order-body{padding:0 0 0}
+  .composer-order-visual{position:relative;padding:.4rem 3.4rem 1.9rem}
+  .composer-order-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(3.2rem, 8vw, 6.8rem);position:relative;z-index:1}
+  .composer-order-column-title{text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:.8rem;color:color-mix(in srgb,var(--text) 60%, transparent);margin-bottom:.4rem}
+  .composer-order-list{display:flex;flex-direction:column;gap:.45rem;min-height:1.5rem}
+  .composer-order-item{display:flex;align-items:center;gap:.55rem;padding:.38rem .6rem;border:1px solid var(--border);border-radius:8px;background:color-mix(in srgb,var(--text) 3%, var(--card));position:relative;box-shadow:0 1px 2px rgba(15,23,42,0.05)}
+  .composer-order-item[data-status="moved"]{border-color:color-mix(in srgb,#2563eb 55%, var(--border));background:color-mix(in srgb,#2563eb 11%, transparent)}
+  .composer-order-item[data-status="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));background:color-mix(in srgb,#16a34a 10%, transparent)}
+  .composer-order-item[data-status="removed"]{border-color:color-mix(in srgb,#dc2626 55%, var(--border));background:color-mix(in srgb,#dc2626 10%, transparent)}
+  .composer-order-index{font-weight:700;font-size:.84rem;color:color-mix(in srgb,var(--text) 70%, transparent);min-width:2.3rem}
+  .composer-order-key{flex:1 1 auto;min-width:0;font-family:var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);font-size:.9rem;color:var(--text);word-break:break-word}
+  .composer-order-badge{margin-left:auto;font-size:.78rem;color:color-mix(in srgb,var(--text) 62%, transparent);font-weight:600}
+  .composer-order-badge.is-hidden{display:none}
+  .composer-order-lines{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:0}
+  .composer-order-path{fill:none;stroke-width:2.6;opacity:.78;stroke-linecap:round;stroke-linejoin:round}
+  .composer-order-path[data-status="same"]{stroke:#94a3b8;stroke-dasharray:6 6;opacity:.35}
+  .composer-order-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.95rem;color:var(--muted);pointer-events:none;padding:1rem}
+  .composer-order-visual.is-empty .composer-order-lines{display:none}
+  .composer-order-visual.is-empty .composer-order-columns{opacity:.15}
+  @media (max-width:860px){
+    .composer-order-columns{grid-template-columns:1fr;gap:1.8rem}
+    .composer-order-lines{display:none}
+    .composer-order-visual{padding:.4rem 1.2rem 1.4rem}
+    .composer-order-item{padding:.32rem .55rem}
+  }
 
   /* Modal animations */
   @keyframes nsModalFadeIn { from { opacity: 0 } to { opacity: 1 } }
