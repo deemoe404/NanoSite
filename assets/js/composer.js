@@ -5,6 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
+const CLEAN_STATUS_MESSAGE = 'Synced with remote';
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
@@ -645,8 +646,15 @@ function updateUnsyncedSummary() {
   if (!el) return;
   if (el.dataset.lock === '1') return;
   const summary = computeUnsyncedSummary();
-  el.textContent = summary;
-  el.dataset.summary = summary ? '1' : '0';
+  if (summary) {
+    el.textContent = summary;
+    el.dataset.summary = '1';
+    el.dataset.state = 'dirty';
+  } else {
+    el.textContent = CLEAN_STATUS_MESSAGE;
+    el.dataset.summary = '0';
+    el.dataset.state = 'clean';
+  }
 }
 
 function updateDraftButtonState(forceTarget) {
@@ -3648,10 +3656,12 @@ function showStatus(msg) {
   if (msg) {
     el.dataset.lock = '1';
     el.dataset.summary = '1';
+    el.dataset.state = 'info';
     el.textContent = msg;
   } else {
     el.dataset.lock = '0';
     el.dataset.summary = '0';
+    delete el.dataset.state;
     el.textContent = '';
     updateUnsyncedSummary();
   }
