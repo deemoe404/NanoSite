@@ -869,6 +869,95 @@ async function handleComposerRefresh(btn) {
   }
 }
 
+async function handleComposerDiscard(btn) {
+  const target = getActiveComposerFile();
+  const label = target === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const diff = composerDiffCache[target];
+  const meta = composerDraftMeta[target];
+  const hasChanges = !!(diff && diff.hasChanges);
+  const hasDraft = !!meta;
+  if (!hasChanges && !hasDraft) {
+    showStatus(`No local changes to discard for ${label}`);
+    setTimeout(() => { showStatus(''); }, 1400);
+    return;
+  }
+
+  let proceed = true;
+  try {
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      proceed = window.confirm(`Discard local changes for ${label} and reload the remote file?`);
+    }
+  } catch (_) {
+    proceed = true;
+  }
+  if (!proceed) return;
+
+  const button = btn;
+  const resetButton = () => {
+    if (!button) return;
+    button.disabled = false;
+    button.classList.remove('is-busy');
+    button.removeAttribute('aria-busy');
+    button.textContent = 'Discard';
+  };
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.classList.add('is-busy');
+      button.setAttribute('aria-busy', 'true');
+      button.textContent = 'Discarding…';
+    }
+
+    let prepared = null;
+    let fetchedFresh = false;
+    try {
+      const contentRoot = getContentRootSafe();
+      const remote = await fetchConfigWithYamlFallback([
+        `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yaml`,
+        `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yml`
+      ]);
+      if (remote != null) {
+        prepared = target === 'tabs' ? prepareTabsState(remote) : prepareIndexState(remote);
+        fetchedFresh = true;
+      }
+    } catch (err) {
+      console.warn('Discard: failed to fetch fresh remote snapshot', err);
+    }
+
+    if (!prepared) {
+      const baseline = remoteBaseline[target];
+      prepared = baseline ? deepClone(baseline) : { __order: [] };
+    }
+
+    const normalized = deepClone(prepared);
+    remoteBaseline[target] = deepClone(prepared);
+    setStateSlice(target, normalized);
+
+    if (composerAutoSaveTimers[target]) {
+      clearTimeout(composerAutoSaveTimers[target]);
+      composerAutoSaveTimers[target] = null;
+    }
+
+    if (target === 'tabs') rebuildTabsUI();
+    else rebuildIndexUI();
+
+    clearDraftStorage(target);
+
+    const msg = fetchedFresh
+      ? `Discarded local changes; loaded fresh ${label}`
+      : `Discarded local changes; restored ${label} from cached snapshot`;
+    showStatus(msg);
+    setTimeout(() => { showStatus(''); }, 2000);
+  } catch (err) {
+    console.error('Discard failed', err);
+    showStatus('Failed to discard local changes');
+    setTimeout(() => { showStatus(''); }, 2000);
+  } finally {
+    resetButton();
+  }
+}
+
 function getPrimaryEditorApi() {
   try {
     const api = window.__ns_primary_editor;
@@ -3219,6 +3308,9 @@ function bindComposerUI(state) {
 
   const btnDraft = document.getElementById('btnDraft');
   if (btnDraft) btnDraft.addEventListener('click', () => handleManualDraftSave());
+
+  const btnDiscard = document.getElementById('btnDiscard');
+  if (btnDiscard) btnDiscard.addEventListener('click', () => handleComposerDiscard(btnDiscard));
 
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) btnRefresh.addEventListener('click', () => handleComposerRefresh(btnRefresh));
