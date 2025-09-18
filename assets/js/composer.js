@@ -3555,9 +3555,11 @@ function showStatus(msg) {
   if (!el) return;
   if (msg) {
     el.dataset.lock = '1';
+    el.dataset.summary = '1';
     el.textContent = msg;
   } else {
     el.dataset.lock = '0';
+    el.dataset.summary = '0';
     el.textContent = '';
     updateUnsyncedSummary();
   }

@@ -248,6 +248,9 @@
     .global-status.err .dot { background:#dc2626; }
     .global-status a { color: var(--primary); text-decoration: none; }
     .global-status a:hover { text-decoration: underline; }
+    .status-stack { display:flex; flex-direction:column; align-items:flex-end; gap:.3rem; text-align:right; }
+    #composerStatus { margin:0; font-size:.85rem; color: var(--muted); }
+    #composerStatus[data-summary="0"] { display:none; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
@@ -320,7 +323,10 @@
       <nav class="mode-switch" role="tablist" aria-label="Mode switch">
         <button class="mode-tab is-active" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="true">Composer</button>
       </nav>
-      <div id="global-status" class="global-status" aria-live="polite"></div>
+      <div class="status-stack">
+        <div id="global-status" class="global-status" aria-live="polite"></div>
+        <div id="composerStatus" class="status" data-summary="0" aria-live="polite"></div>
+      </div>
     </div>
 
     <!-- Editor Mode -->
@@ -395,8 +401,6 @@
             </button>
           </div>
         </div>
-        <div id="composerStatus" class="status" style="margin: .25rem 0 .5rem;"></div>
-
         <!-- Composer Lists -->
         <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
         <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
