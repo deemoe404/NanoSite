@@ -2088,7 +2088,10 @@ function buildIndexUI(root, state) {
     });
   });
 
-  makeDragList(list, (newOrder) => { state.index.__order = newOrder; });
+  makeDragList(list, (newOrder) => {
+    state.index.__order = newOrder;
+    markDirty();
+  });
 }
 
 function buildTabsUI(root, state) {
