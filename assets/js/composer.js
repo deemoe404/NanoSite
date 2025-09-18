@@ -2599,6 +2599,7 @@ function buildIndexUI(root, state) {
       if (i >= 0) state.index.__order.splice(i, 1);
       delete state.index[key];
       row.remove();
+      markDirty();
     });
   });
 
