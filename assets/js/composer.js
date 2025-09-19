@@ -1534,35 +1534,7 @@ function drawOrderDiffLines() {
 }
 
 
-function updateDraftButtonState(forceTarget) {
-  const btn = document.getElementById('btnDraft');
-  if (!btn) return;
-  const target = forceTarget || getActiveComposerFile();
-  const diff = composerDiffCache[target] || { hasChanges: false };
-  const meta = composerDraftMeta[target] || null;
-  const baseSignature = computeBaselineSignature(target);
-  const stale = meta && meta.baseSignature && baseSignature && meta.baseSignature !== baseSignature;
-  btn.dataset.target = target;
-  const hasChanges = !!(diff && diff.hasChanges);
-  const isClean = !hasChanges && !stale;
-  btn.classList.toggle('is-dirty', hasChanges);
-  btn.classList.toggle('is-clean', isClean);
-  btn.classList.toggle('is-stale', !!stale);
-  btn.textContent = '暂存 Draft';
-  if (meta && meta.savedAt) {
-    try {
-      const fmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      btn.title = `Last saved ${fmt.format(new Date(meta.savedAt))}`;
-    } catch (_) {
-      btn.title = `Last saved ${new Date(meta.savedAt).toLocaleString()}`;
-    }
-  } else {
-    btn.title = 'Save a local draft of current changes';
-  }
-  if (stale) {
-    btn.title = btn.title ? `${btn.title} -- Remote snapshot changed` : 'Remote snapshot changed';
-  }
-}
+
 
 function scheduleAutoDraft(kind) {
   if (composerAutoSaveTimers[kind]) {
@@ -1592,7 +1564,7 @@ function saveDraftToStorage(kind, opts = {}) {
   writeDraftStore(store);
   composerDraftMeta[kind] = { savedAt, baseSignature, lastManual: !!opts.manual };
   updateUnsyncedSummary();
-  if (opts.manual) updateDraftButtonState();
+  
   return composerDraftMeta[kind];
 }
 
@@ -1603,7 +1575,7 @@ function clearDraftStorage(kind) {
     writeDraftStore(store);
   }
   composerDraftMeta[kind] = null;
-  updateDraftButtonState();
+
 }
 
 function notifyComposerChange(kind, options = {}) {
@@ -1612,7 +1584,7 @@ function notifyComposerChange(kind, options = {}) {
   else applyIndexDiffMarkers(diff);
   updateFileDirtyBadge(kind);
   if (!options.skipAutoSave) scheduleAutoDraft(kind);
-  updateDraftButtonState();
+
   updateUnsyncedSummary();
 }
 
@@ -1685,24 +1657,7 @@ function loadDraftSnapshotsIntoState(state) {
   return restored;
 }
 
-function handleManualDraftSave() {
-  const target = getActiveComposerFile();
-  const diff = composerDiffCache[target];
-  if (!diff || !diff.hasChanges) {
-    showStatus('No unsynced changes to save');
-    setTimeout(() => { showStatus(''); }, 1200);
-    return;
-  }
-  saveDraftToStorage(target, { manual: true });
-  if (composerAutoSaveTimers[target]) {
-    clearTimeout(composerAutoSaveTimers[target]);
-    composerAutoSaveTimers[target] = null;
-  }
-  updateDraftButtonState(target);
-  updateUnsyncedSummary();
-  showStatus('Draft saved locally');
-  setTimeout(() => { showStatus(''); }, 1200);
-}
+
 
 async function handleComposerRefresh(btn) {
   const target = getActiveComposerFile();
@@ -2361,7 +2316,7 @@ function applyComposerFile(name) {
     if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
     else document.documentElement.removeAttribute('data-init-cfile');
   } catch (_) {}
-  try { updateDraftButtonState(isIndex ? 'index' : 'tabs'); } catch (_) {}
+  
 }
 
 // Apply initial state as early as possible to avoid flash on reload
@@ -4192,8 +4147,7 @@ function bindComposerUI(state) {
     if (modal && typeof modal.__open === 'function') modal.__open();
   });
 
-  const btnDraft = document.getElementById('btnDraft');
-  if (btnDraft) btnDraft.addEventListener('click', () => handleManualDraftSave());
+  
 
   const btnDiscard = document.getElementById('btnDiscard');
   if (btnDiscard) btnDiscard.addEventListener('click', () => handleComposerDiscard(btnDiscard));
@@ -4557,7 +4511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   notifyComposerChange('index', { skipAutoSave: true });
   notifyComposerChange('tabs', { skipAutoSave: true });
-  updateDraftButtonState();
+
 
   restoreDynamicEditorState();
   allowEditorStatePersist = true;
