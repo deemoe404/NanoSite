@@ -1753,7 +1753,7 @@ function ensureComposerDiscardConfirmElements() {
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn-secondary composer-confirm-confirm';
-  confirmBtn.textContent = 'Discard';
+  confirmBtn.textContent = 'Confirm';
 
   actions.append(cancelBtn, confirmBtn);
   popover.appendChild(actions);
@@ -1767,7 +1767,7 @@ function showComposerDiscardConfirm(anchor, messageText, options) {
   const elements = ensureComposerDiscardConfirmElements();
   if (!elements) return Promise.resolve(true);
   const { popover, message, cancelBtn, confirmBtn } = elements;
-  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Discard';
+  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Confirm';
   const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
 
   message.textContent = String(messageText || '');
@@ -1973,10 +1973,10 @@ async function handleComposerDiscard(btn) {
     return;
   }
 
-  const promptMessage = `Discard local changes for ${label} and reload the remote file?`;
+  const promptMessage = `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`;
   let proceed = true;
   try {
-    proceed = await showComposerDiscardConfirm(btn, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+    proceed = await showComposerDiscardConfirm(btn, promptMessage, { confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
   } catch (err) {
     console.warn('Custom discard prompt failed, falling back to native confirm', err);
     try {
