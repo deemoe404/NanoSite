@@ -1562,6 +1562,29 @@ function updateDraftButtonState(forceTarget) {
   if (stale) {
     btn.title = btn.title ? `${btn.title} -- Remote snapshot changed` : 'Remote snapshot changed';
   }
+  try { updateDiscardButtonState(target); } catch (_) {}
+}
+
+function updateDiscardButtonState(forceTarget) {
+  const btn = document.getElementById('btnDiscard');
+  if (!btn) return;
+  const target = forceTarget || getActiveComposerFile();
+  const diff = composerDiffCache[target];
+  const meta = composerDraftMeta[target];
+  const hasChanges = !!(diff && diff.hasChanges);
+  const hasDraft = !!meta;
+  const shouldShow = hasChanges || hasDraft;
+  if (shouldShow) {
+    btn.hidden = false;
+    btn.removeAttribute('aria-hidden');
+  } else {
+    btn.hidden = true;
+    btn.setAttribute('aria-hidden', 'true');
+    btn.classList.remove('is-busy');
+    btn.removeAttribute('aria-busy');
+    btn.disabled = false;
+    try { btn.textContent = 'Discard'; } catch (_) {}
+  }
 }
 
 function scheduleAutoDraft(kind) {
