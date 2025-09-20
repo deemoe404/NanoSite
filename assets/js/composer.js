@@ -726,6 +726,8 @@ function updateDiscardButtonVisibility(hasLocalChanges) {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
   btn.hidden = !hasLocalChanges;
+  btn.setAttribute('aria-hidden', hasLocalChanges ? 'false' : 'true');
+  btn.style.display = hasLocalChanges ? '' : 'none';
 }
 
 function updateUnsyncedSummary() {

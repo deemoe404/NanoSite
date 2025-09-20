@@ -255,6 +255,7 @@
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
+    .btn-secondary[hidden] { display:none !important; }
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
