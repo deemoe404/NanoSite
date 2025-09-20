@@ -1722,6 +1722,246 @@ async function handleComposerRefresh(btn) {
   }
 }
 
+let discardConfirmElements = null;
+let discardConfirmActiveClose = null;
+let discardConfirmHideTimer = null;
+
+function ensureComposerDiscardConfirmElements() {
+  if (discardConfirmElements) return discardConfirmElements;
+  if (typeof document === 'undefined') return null;
+  const popover = document.createElement('div');
+  popover.className = 'composer-confirm-popover';
+  popover.id = 'composerDiscardConfirm';
+  popover.setAttribute('role', 'dialog');
+  popover.setAttribute('aria-modal', 'false');
+  popover.hidden = true;
+
+  const message = document.createElement('div');
+  message.className = 'composer-confirm-message';
+  message.id = 'composerDiscardConfirmMessage';
+  popover.setAttribute('aria-labelledby', message.id);
+  popover.appendChild(message);
+
+  const actions = document.createElement('div');
+  actions.className = 'composer-confirm-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary composer-confirm-cancel';
+  cancelBtn.textContent = 'Cancel';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.className = 'btn-secondary composer-confirm-confirm';
+  confirmBtn.textContent = 'Discard';
+
+  actions.append(cancelBtn, confirmBtn);
+  popover.appendChild(actions);
+
+  document.body.appendChild(popover);
+  discardConfirmElements = { popover, message, cancelBtn, confirmBtn };
+  return discardConfirmElements;
+}
+
+function showComposerDiscardConfirm(anchor, messageText, options) {
+  const elements = ensureComposerDiscardConfirmElements();
+  if (!elements) return Promise.resolve(true);
+  const { popover, message, cancelBtn, confirmBtn } = elements;
+  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Discard';
+  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
+
+  message.textContent = String(messageText || '');
+  cancelBtn.textContent = cancelLabel;
+  confirmBtn.textContent = confirmLabel;
+
+  if (anchor && typeof anchor.setAttribute === 'function') {
+    anchor.setAttribute('aria-haspopup', 'dialog');
+    anchor.setAttribute('aria-controls', popover.id);
+  }
+
+  if (typeof discardConfirmActiveClose === 'function') {
+    try { discardConfirmActiveClose(false); } catch (_) {}
+  }
+
+  if (discardConfirmHideTimer) {
+    window.clearTimeout(discardConfirmHideTimer);
+    discardConfirmHideTimer = null;
+  }
+
+  popover.hidden = false;
+  popover.style.visibility = 'hidden';
+  popover.classList.remove('is-visible');
+  popover.dataset.placement = 'bottom';
+
+  return new Promise((resolve) => {
+    let closed = false;
+
+    const finish = (result) => {
+      if (closed) return;
+      closed = true;
+      discardConfirmActiveClose = null;
+
+      popover.classList.remove('is-visible');
+      popover.style.visibility = 'hidden';
+      if (discardConfirmHideTimer) {
+        window.clearTimeout(discardConfirmHideTimer);
+        discardConfirmHideTimer = null;
+      }
+      discardConfirmHideTimer = window.setTimeout(() => {
+        popover.hidden = true;
+        popover.style.visibility = '';
+        popover.style.left = '';
+        popover.style.top = '';
+        discardConfirmHideTimer = null;
+      }, 200);
+
+      cancelBtn.removeEventListener('click', onCancel);
+      confirmBtn.removeEventListener('click', onConfirm);
+      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('mousedown', onOutside, true);
+      document.removeEventListener('touchstart', onOutside, true);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+
+      if (anchor && typeof anchor.setAttribute === 'function') {
+        anchor.setAttribute('aria-expanded', 'false');
+      }
+
+      if (!result && anchor && typeof anchor.focus === 'function') {
+        window.setTimeout(() => {
+          try { anchor.focus({ preventScroll: true }); } catch (_) {}
+        }, 120);
+      }
+
+      resolve(!!result);
+    };
+
+    const onCancel = (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      finish(false);
+    };
+    const onConfirm = (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      finish(true);
+    };
+    const onOutside = (event) => {
+      const target = event && event.target;
+      if (!target) return;
+      if (popover.contains(target) || target === anchor) return;
+      finish(false);
+    };
+    const onKeyDown = (event) => {
+      if (!event) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(false);
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusables = [cancelBtn, confirmBtn];
+        const active = document.activeElement;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey) {
+          if (active === first || !focusables.includes(active)) {
+            event.preventDefault();
+            if (last) last.focus({ preventScroll: true });
+          }
+        } else {
+          if (active === last) {
+            event.preventDefault();
+            if (first) first.focus({ preventScroll: true });
+          } else if (!focusables.includes(active)) {
+            event.preventDefault();
+            if (first) first.focus({ preventScroll: true });
+          }
+        }
+      }
+    };
+
+    const reposition = () => {
+      if (closed) return;
+      if (!anchor || !popover.isConnected) {
+        finish(false);
+        return;
+      }
+      if (typeof anchor.getBoundingClientRect !== 'function') {
+        finish(false);
+        return;
+      }
+      const rect = anchor.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        finish(false);
+        return;
+      }
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const viewportWidth = document.documentElement && document.documentElement.clientWidth
+        ? document.documentElement.clientWidth
+        : (window.innerWidth || 0);
+      const viewportHeight = document.documentElement && document.documentElement.clientHeight
+        ? document.documentElement.clientHeight
+        : (window.innerHeight || 0);
+      const margin = 12;
+      const width = popover.offsetWidth;
+      const height = popover.offsetHeight;
+
+      let left = scrollX + rect.right - width;
+      const minLeft = scrollX + margin;
+      const maxLeft = scrollX + Math.max(margin, viewportWidth - margin - width);
+      if (left < minLeft) left = minLeft;
+      if (left > maxLeft) left = maxLeft;
+
+      let placement = 'bottom';
+      let top = scrollY + rect.bottom + 12;
+      const viewportBottom = scrollY + viewportHeight;
+      const fitsBelow = top + height <= viewportBottom - margin;
+      if (!fitsBelow && rect.top >= height + margin) {
+        placement = 'top';
+        top = scrollY + rect.top - height - 12;
+      } else if (!fitsBelow) {
+        top = Math.max(scrollY + margin, viewportBottom - height - margin);
+      }
+      if (placement === 'bottom') {
+        top = Math.max(top, scrollY + rect.bottom + 4);
+      } else {
+        top = Math.min(top, scrollY + rect.top - 4);
+      }
+
+      popover.dataset.placement = placement;
+      popover.style.left = `${Math.round(left)}px`;
+      popover.style.top = `${Math.round(top)}px`;
+    };
+
+    cancelBtn.addEventListener('click', onCancel);
+    confirmBtn.addEventListener('click', onConfirm);
+    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('mousedown', onOutside, true);
+    document.addEventListener('touchstart', onOutside, true);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+
+    discardConfirmActiveClose = finish;
+
+    const runShow = () => {
+      if (closed) return;
+      reposition();
+      if (closed) return;
+      popover.style.visibility = '';
+      popover.classList.add('is-visible');
+      if (anchor && typeof anchor.setAttribute === 'function') {
+        anchor.setAttribute('aria-expanded', 'true');
+      }
+      try { confirmBtn.focus({ preventScroll: true }); } catch (_) {}
+    };
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(runShow);
+    } else {
+      runShow();
+    }
+  });
+}
+
 async function handleComposerDiscard(btn) {
   const target = getActiveComposerFile();
   const label = target === 'tabs' ? 'tabs.yaml' : 'index.yaml';
@@ -1733,13 +1973,19 @@ async function handleComposerDiscard(btn) {
     return;
   }
 
+  const promptMessage = `Discard local changes for ${label} and reload the remote file?`;
   let proceed = true;
   try {
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      proceed = window.confirm(`Discard local changes for ${label} and reload the remote file?`);
+    proceed = await showComposerDiscardConfirm(btn, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+  } catch (err) {
+    console.warn('Custom discard prompt failed, falling back to native confirm', err);
+    try {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        proceed = window.confirm(promptMessage);
+      }
+    } catch (_) {
+      proceed = true;
     }
-  } catch (_) {
-    proceed = true;
   }
   if (!proceed) return;
 

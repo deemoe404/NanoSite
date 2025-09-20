@@ -259,6 +259,69 @@
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
+    .composer-confirm-popover {
+      position: absolute;
+      inset: auto auto;
+      min-width: 250px;
+      max-width: min(320px, calc(100vw - 2.5rem));
+      padding: .9rem 1rem;
+      border-radius: .85rem;
+      border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background: color-mix(in srgb, var(--card) 96%, transparent);
+      box-shadow: var(--shadow), 0 20px 48px rgba(15, 23, 42, 0.18);
+      z-index: 1400;
+      opacity: 0;
+      transform: translateY(-6px) scale(.98);
+      transform-origin: top right;
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+      display: block;
+    }
+    .composer-confirm-popover[data-placement="top"] { transform-origin: bottom right; }
+    .composer-confirm-popover.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .composer-confirm-message {
+      font-size: .95rem;
+      line-height: 1.45;
+      color: var(--text);
+      letter-spacing: .01em;
+    }
+    .composer-confirm-actions {
+      margin-top: .85rem;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+    .composer-confirm-actions .btn-secondary {
+      min-width: 4.25rem;
+      padding-inline: .95rem;
+      font-weight: 600;
+      height: 2.25rem;
+    }
+    .composer-confirm-cancel { color: var(--muted); }
+    .composer-confirm-cancel:hover { color: var(--text); }
+    .composer-confirm-confirm {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 28%, var(--card)), color-mix(in srgb, var(--primary) 88%, var(--card)));
+      color: #fff;
+      border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+      box-shadow: 0 14px 28px rgba(37, 99, 235, 0.2);
+    }
+    .composer-confirm-confirm:hover {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 36%, var(--card)), color-mix(in srgb, var(--primary) 98%, var(--card)));
+    }
+    .composer-confirm-confirm:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 65%, transparent);
+      outline-offset: 2px;
+    }
+    .composer-confirm-popover[data-placement="top"] .composer-confirm-actions { flex-direction: row-reverse; }
+    @media (max-width: 640px) {
+      .composer-confirm-popover { min-width: min(240px, calc(100vw - 2.5rem)); }
+    }
     #btnDraft.is-dirty { border-color: color-mix(in srgb, #f97316 45%, var(--border)); background: color-mix(in srgb, #f97316 12%, var(--card)); color: color-mix(in srgb, #7c2d12 85%, transparent); }
     #btnDraft.is-clean { border-color: color-mix(in srgb, #16a34a 45%, var(--border)); background: color-mix(in srgb, #16a34a 10%, var(--card)); color: color-mix(in srgb, #14532d 85%, transparent); position: relative; }
     #btnDraft.is-clean::after { content: '✓'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #15803d; background: var(--card); border: 1px solid color-mix(in srgb, #16a34a 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
