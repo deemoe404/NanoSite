@@ -722,9 +722,18 @@ function computeUnsyncedSummary() {
   return entries;
 }
 
+function updateDiscardButtonVisibility(hasLocalChanges) {
+  const btn = document.getElementById('btnDiscard');
+  if (!btn) return;
+  btn.hidden = !hasLocalChanges;
+}
+
 function updateUnsyncedSummary() {
   const el = document.getElementById('composerStatus');
-  if (!el) return;
+  if (!el) {
+    updateDiscardButtonVisibility(false);
+    return;
+  }
   const summaryEntries = computeUnsyncedSummary();
   if (summaryEntries.length) {
     el.innerHTML = '';
@@ -746,10 +755,12 @@ function updateUnsyncedSummary() {
     });
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
+    updateDiscardButtonVisibility(true);
   } else {
     el.textContent = CLEAN_STATUS_MESSAGE;
     el.dataset.summary = '0';
     el.dataset.state = 'clean';
+    updateDiscardButtonVisibility(false);
   }
 }
 
@@ -1717,8 +1728,6 @@ async function handleComposerDiscard(btn) {
   const hasChanges = !!(diff && diff.hasChanges);
   const hasDraft = !!meta;
   if (!hasChanges && !hasDraft) {
-    showStatus(`No local changes to discard for ${label}`);
-    setTimeout(() => { showStatus(''); }, 1400);
     return;
   }
 
