@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
-  let currentFileInfo = { path: '', status: null, dirty: false, draft: null };
+  let currentFileInfo = { path: '', status: null };
   let currentFileElRef = null;
 
   const ensureCurrentFileElement = () => {
@@ -295,13 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
     currentFileElRef = document.getElementById('currentFile');
     return currentFileElRef;
   };
-
-  const escapeHtml = (value) => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 
   const formatStatusTimestamp = (ms) => {
     if (!Number.isFinite(ms)) return '';
@@ -354,45 +347,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return Object.keys(normalized).length ? normalized : (state ? { state } : null);
   };
 
-  const normalizeDraftPayload = (value) => {
-    if (!value || typeof value !== 'object') return null;
-    let savedAt = value.savedAt;
-    if (savedAt instanceof Date) savedAt = savedAt.getTime();
-    else if (typeof savedAt === 'string') {
-      const trimmed = savedAt.trim();
-      if (trimmed) {
-        const asNumber = Number(trimmed);
-        if (Number.isFinite(asNumber)) savedAt = asNumber;
-        else {
-          const parsed = Date.parse(trimmed);
-          savedAt = Number.isFinite(parsed) ? parsed : null;
-        }
-      } else {
-        savedAt = null;
-      }
-    }
-    if (Number.isFinite(savedAt)) savedAt = Math.floor(savedAt);
-    else savedAt = null;
-
-    const normalized = {};
-    if (savedAt != null) normalized.savedAt = savedAt;
-    if (value.conflict) normalized.conflict = true;
-
-    return Object.keys(normalized).length ? normalized : null;
-  };
-
   const normalizeCurrentFilePayload = (input) => {
     if (typeof input === 'string') {
-      return { path: String(input || '').trim(), status: null, dirty: false, draft: null };
+      return { path: String(input || '').trim(), status: null };
     }
     if (input && typeof input === 'object') {
       const path = input.path != null ? String(input.path || '').trim() : '';
       const status = normalizeStatusPayload(input.status);
-      const dirty = !!input.dirty;
-      const draft = normalizeDraftPayload(input.draft);
-      return { path, status, dirty, draft };
+      return { path, status };
     }
-    return { path: '', status: null, dirty: false, draft: null };
+    return { path: '', status: null };
   };
 
   const describeStatusLabel = (status) => {
@@ -403,10 +367,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (status.message) detail.push(String(status.message));
       if (Number.isFinite(status.code)) detail.push(`HTTP ${status.code}`);
       return detail.length ? `${base} (${detail.join(' · ')})` : base;
-    }
-    if (status.message) {
-      const msg = String(status.message);
-      return msg ? `${base} — ${msg}` : base;
     }
     return base;
   };
@@ -427,32 +387,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   };
 
-  const formatDraftRelative = (ms) => {
-    if (!Number.isFinite(ms)) return '';
-    try {
-      if (typeof Intl === 'object' && typeof Intl.RelativeTimeFormat === 'function') {
-        const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-        let duration = (ms - Date.now()) / 1000;
-        const divisions = [
-          { amount: 60, unit: 'second' },
-          { amount: 60, unit: 'minute' },
-          { amount: 24, unit: 'hour' },
-          { amount: 7, unit: 'day' },
-          { amount: 4.34524, unit: 'week' },
-          { amount: 12, unit: 'month' },
-          { amount: Infinity, unit: 'year' }
-        ];
-        for (const division of divisions) {
-          if (Math.abs(duration) < division.amount) {
-            return rtf.format(Math.round(duration), division.unit);
-          }
-          duration /= division.amount;
-        }
-      }
-    } catch (_) { /* fall back below */ }
-    return '';
-  };
-
   const renderCurrentFileIndicator = () => {
     const el = ensureCurrentFileElement();
     if (!el) return;
@@ -462,57 +396,22 @@ document.addEventListener('DOMContentLoaded', () => {
       el.removeAttribute('data-file-state');
       el.removeAttribute('data-last-checked');
       el.removeAttribute('title');
-      el.removeAttribute('data-dirty');
-      el.removeAttribute('data-draft-conflict');
-      el.removeAttribute('data-draft-saved');
       return;
     }
 
     const status = currentFileInfo.status || null;
-    const dirty = !!currentFileInfo.dirty;
-    const draft = currentFileInfo.draft || null;
-
     const segments = [`${path}`];
     const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     if (statusLabel) segments.push(`— ${statusLabel}`);
     if (meta) segments.push(statusLabel ? `· ${meta}` : `— ${meta}`);
-    const primaryText = segments.join(' ');
-
-    let draftText = '';
-    if (draft) {
-      const pieces = [];
-      if (draft.savedAt != null) {
-        const stamp = formatStatusTimestamp(draft.savedAt);
-        if (stamp) pieces.push(stamp);
-        const relative = formatDraftRelative(draft.savedAt);
-        if (relative && relative !== stamp) pieces.push(relative);
-      }
-      const base = draft.conflict ? 'Local draft (remote updated)' : 'Local draft';
-      draftText = pieces.length ? `${base} — ${pieces.join(' · ')}` : base;
-    } else if (dirty) {
-      draftText = 'Unsaved edits — local draft pending…';
-    }
-
-    const tooltipParts = [primaryText];
-    let html = `<span class="cf-line cf-primary">${escapeHtml(primaryText)}</span>`;
-    if (draftText) {
-      html += `<span class="cf-line cf-draft">${escapeHtml(draftText)}</span>`;
-      tooltipParts.push(draftText);
-    }
-    el.innerHTML = html;
-    el.setAttribute('title', tooltipParts.join('\n'));
-
+    const text = segments.join(' ');
+    el.textContent = text;
+    el.setAttribute('title', text);
     if (status && status.state) el.setAttribute('data-file-state', status.state);
     else el.removeAttribute('data-file-state');
     if (status && Number.isFinite(status.checkedAt)) el.setAttribute('data-last-checked', String(status.checkedAt));
     else el.removeAttribute('data-last-checked');
-    if (dirty) el.setAttribute('data-dirty', '1');
-    else el.removeAttribute('data-dirty');
-    if (draft && draft.conflict) el.setAttribute('data-draft-conflict', '1');
-    else el.removeAttribute('data-draft-conflict');
-    if (draft && Number.isFinite(draft.savedAt)) el.setAttribute('data-draft-saved', String(draft.savedAt));
-    else el.removeAttribute('data-draft-saved');
   };
 
   const bindCurrentFileElement = (el) => {

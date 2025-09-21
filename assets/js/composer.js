@@ -25,7 +25,14 @@ let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
 
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
-const MD_DRAFT_STORAGE_KEY = 'ns_editor_markdown_drafts_v1';
+
+const MARKDOWN_PUSH_LABELS = {
+  default: 'Push to GitHub',
+  create: 'Create on GitHub',
+  update: 'Update on GitHub'
+};
+
+let markdownPushButton = null;
 
 let activeComposerState = null;
 let remoteBaseline = { index: null, tabs: null };
@@ -35,14 +42,6 @@ let composerAutoSaveTimers = { index: null, tabs: null };
 let composerDiffModal = null;
 let composerOrderState = null;
 let composerDiffResizeHandler = null;
-let markdownDraftStoreCache = null;
-let markdownPushButton = null;
-
-const MARKDOWN_PUSH_LABELS = {
-  default: 'Push to GitHub',
-  create: 'Create on GitHub',
-  update: 'Update on GitHub'
-};
 
 function getActiveComposerFile() {
   try {
@@ -506,126 +505,6 @@ function writeDraftStore(store) {
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(store));
   } catch (_) {
     /* ignore storage errors */
-  }
-}
-
-function ensureMarkdownDraftStore() {
-  if (markdownDraftStoreCache && typeof markdownDraftStoreCache === 'object') {
-    return markdownDraftStoreCache;
-  }
-  markdownDraftStoreCache = {};
-  try {
-    const store = window.localStorage;
-    if (!store) return markdownDraftStoreCache;
-    const raw = store.getItem(MD_DRAFT_STORAGE_KEY);
-    if (!raw) return markdownDraftStoreCache;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return markdownDraftStoreCache;
-    Object.entries(parsed).forEach(([key, val]) => {
-      if (!key || !val || typeof val !== 'object') return;
-      const content = typeof val.content === 'string' ? val.content : '';
-      const savedAtRaw = Number(val.savedAt);
-      const savedAt = Number.isFinite(savedAtRaw) ? Math.floor(savedAtRaw) : Date.now();
-      const baseSignature = typeof val.baseSignature === 'string' ? val.baseSignature : '';
-      markdownDraftStoreCache[key] = { content, savedAt, baseSignature };
-    });
-  } catch (_) {
-    markdownDraftStoreCache = {};
-  }
-  return markdownDraftStoreCache;
-}
-
-function persistMarkdownDraftStore() {
-  try {
-    const store = window.localStorage;
-    if (!store) return;
-    const cache = ensureMarkdownDraftStore();
-    const keys = Object.keys(cache || {}).filter(key => key && cache[key]);
-    if (!keys.length) {
-      store.removeItem(MD_DRAFT_STORAGE_KEY);
-      return;
-    }
-    const payload = {};
-    keys.forEach((key) => {
-      const entry = cache[key];
-      if (!entry || typeof entry !== 'object') return;
-      payload[key] = {
-        content: entry.content != null ? String(entry.content) : '',
-        savedAt: Number.isFinite(entry.savedAt) ? Math.floor(entry.savedAt) : Date.now(),
-        baseSignature: entry.baseSignature ? String(entry.baseSignature) : ''
-      };
-    });
-    if (!Object.keys(payload).length) {
-      store.removeItem(MD_DRAFT_STORAGE_KEY);
-      return;
-    }
-    store.setItem(MD_DRAFT_STORAGE_KEY, JSON.stringify(payload));
-  } catch (_) {
-    /* ignore */
-  }
-}
-
-function getMarkdownDraftEntry(path) {
-  const norm = normalizeRelPath(path);
-  if (!norm) return null;
-  const cache = ensureMarkdownDraftStore();
-  const entry = cache[norm];
-  if (!entry || typeof entry !== 'object') return null;
-  const savedAtRaw = Number(entry.savedAt);
-  return {
-    content: entry.content != null ? String(entry.content) : '',
-    savedAt: Number.isFinite(savedAtRaw) ? Math.floor(savedAtRaw) : 0,
-    baseSignature: entry.baseSignature ? String(entry.baseSignature) : ''
-  };
-}
-
-function setMarkdownDraftEntry(path, payload) {
-  const norm = normalizeRelPath(path);
-  if (!norm) return;
-  const cache = ensureMarkdownDraftStore();
-  if (!payload) {
-    delete cache[norm];
-    persistMarkdownDraftStore();
-    return;
-  }
-  const savedAtRaw = Number(payload.savedAt);
-  cache[norm] = {
-    content: payload.content != null ? String(payload.content) : '',
-    savedAt: Number.isFinite(savedAtRaw) ? Math.floor(savedAtRaw) : Date.now(),
-    baseSignature: payload.baseSignature ? String(payload.baseSignature) : ''
-  };
-  persistMarkdownDraftStore();
-}
-
-function removeMarkdownDraftEntry(path) {
-  setMarkdownDraftEntry(path, null);
-}
-
-function computeContentSignature(text) {
-  const str = text == null ? '' : String(text);
-  let hash = 0;
-  for (let i = 0; i < str.length; i += 1) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0; // keep 32-bit
-  }
-  return `${str.length}:${(hash >>> 0).toString(16)}`;
-}
-
-function formatDraftTimestamp(ms) {
-  if (!Number.isFinite(ms)) return '';
-  try {
-    const fmt = new Intl.DateTimeFormat(undefined, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-    return fmt.format(new Date(ms));
-  } catch (_) {
-    try { return new Date(ms).toLocaleString(); }
-    catch (__) { return ''; }
   }
 }
 
@@ -2251,10 +2130,7 @@ function ensurePrimaryEditorListener() {
   detachPrimaryEditorListener = api.onChange((value) => {
     if (!activeDynamicMode) return;
     const tab = dynamicEditorTabs.get(activeDynamicMode);
-    if (!tab) return;
-    tab.content = value != null ? String(value) : '';
-    updateDynamicTabDirtyState(tab);
-    scheduleDynamicTabAutoSave(tab);
+    if (tab) tab.content = value;
   });
 }
 
@@ -2290,16 +2166,8 @@ function dirnameFromPath(relPath) {
   const norm = normalizeRelPath(relPath);
   if (!norm) return '';
   const idx = norm.lastIndexOf('/');
-  return idx >= 0 ? norm.slice(0, idx) : '';
-}
-
-function encodeGitHubPath(path) {
-  return String(path || '')
-    .replace(/[\\]/g, '/')
-    .split('/')
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
+  if (idx <= 0) return '';
+  return norm.slice(0, idx);
 }
 
 function getContentRootSafe() {
@@ -2321,13 +2189,24 @@ function computeBaseDirForPath(relPath) {
   return base.endsWith('/') ? base : `${base}/`;
 }
 
+function encodeGitHubPath(path) {
+  const clean = String(path || '')
+    .replace(/[\\]/g, '/')
+    .replace(/^\/+/g, '')
+    .replace(/\/+/g, '/')
+    .replace(/\/?$/, '');
+  if (!clean) return '';
+  return clean.split('/').map(part => encodeURIComponent(part)).join('/');
+}
+
 function isDynamicMode(mode) {
   return !!(mode && dynamicEditorTabs.has(mode));
 }
 
 function getActiveDynamicTab() {
-  if (!currentMode || !isDynamicMode(currentMode)) return null;
-  return dynamicEditorTabs.get(currentMode) || null;
+  if (!activeDynamicMode) return null;
+  const tab = dynamicEditorTabs.get(activeDynamicMode);
+  return tab || null;
 }
 
 function persistDynamicEditorState() {
@@ -2402,32 +2281,6 @@ function setTabLoadingState(tab, isLoading) {
 
 const TAB_STATE_VALUES = new Set(['checking', 'existing', 'missing', 'error']);
 
-function pushEditorCurrentFileInfo(tab) {
-  const editorApi = getPrimaryEditorApi();
-  if (editorApi && typeof editorApi.setCurrentFileLabel === 'function') {
-    let draftPayload = null;
-    if (tab && tab.draftMeta) {
-      const savedAt = Number.isFinite(tab.draftMeta.savedAt)
-        ? Math.floor(tab.draftMeta.savedAt)
-        : null;
-      if (savedAt != null || tab.draftMeta.conflict) {
-        draftPayload = { savedAt, conflict: !!tab.draftMeta.conflict };
-      }
-    }
-    const payload = tab
-      ? {
-          path: tab.path || '',
-          status: tab.fileStatus || null,
-          dirty: !!tab.dirty,
-          draft: draftPayload
-        }
-      : { path: '', status: null, dirty: false, draft: null };
-    try { editorApi.setCurrentFileLabel(payload); }
-    catch (_) {}
-  }
-  updateMarkdownPushButton(tab && tab.mode === currentMode ? tab : getActiveDynamicTab());
-}
-
 function updateMarkdownPushButton(tab) {
   if (!markdownPushButton) {
     markdownPushButton = document.getElementById('btnPushMarkdown');
@@ -2458,6 +2311,8 @@ function updateMarkdownPushButton(tab) {
     tooltip = 'Configure repo in site.yaml to enable GitHub push.';
   } else if (!active.loaded || active.pending) {
     tooltip = 'Loading file…';
+  } else if (state === 'error') {
+    tooltip = 'Resolve file load error before pushing to GitHub.';
   } else {
     disabled = false;
     tooltip = state === 'missing'
@@ -2474,17 +2329,15 @@ function updateMarkdownPushButton(tab) {
 
   if (state) btn.setAttribute('data-state', state);
   else btn.removeAttribute('data-state');
-
-  if (active && active.dirty) btn.setAttribute('data-dirty', '1');
-  else btn.removeAttribute('data-dirty');
-
-  if (active && active.draftMeta && active.draftMeta.conflict) btn.setAttribute('data-conflict', '1');
-  else btn.removeAttribute('data-conflict');
 }
 
 function openMarkdownPushOnGitHub(tab) {
   if (!tab || !tab.path) {
     showToast('info', 'Open a markdown file before pushing to GitHub.');
+    return;
+  }
+  if (!tab.loaded) {
+    showToast('info', 'Wait for the file to finish loading before pushing.');
     return;
   }
 
@@ -2496,18 +2349,6 @@ function openMarkdownPushOnGitHub(tab) {
     return;
   }
 
-  if (tab.draftMeta && tab.draftMeta.conflict) {
-    let proceed = true;
-    try {
-      if (typeof window.confirm === 'function') {
-        proceed = window.confirm('Remote version changed since this draft was saved. Continue to push your local draft?');
-      }
-    } catch (_) {
-      proceed = true;
-    }
-    if (!proceed) return;
-  }
-
   const branch = String(repo.branch || 'main').trim() || 'main';
   const root = getContentRootSafe();
   const rel = normalizeRelPath(tab.path);
@@ -2516,7 +2357,7 @@ function openMarkdownPushOnGitHub(tab) {
     return;
   }
 
-  const contentPath = `${root}/${rel}`.replace(/\/+/g, '/').replace(/^\//, '');
+  const contentPath = `${root}/${rel}`.replace(/[\\]+/g, '/').replace(/^\/+/g, '');
   const encodedContentPath = encodeGitHubPath(contentPath);
   const folder = dirnameFromPath(rel);
   const fullFolder = [root, folder].filter(Boolean).join('/');
@@ -2528,11 +2369,16 @@ function openMarkdownPushOnGitHub(tab) {
   const remoteState = tab.fileStatus && tab.fileStatus.state ? String(tab.fileStatus.state) : '';
   const isCreate = remoteState === 'missing';
 
-  const href = isCreate
-    ? (encodedFolder
-        ? `${base}/new/${branchPart}/${encodedFolder}?filename=${encodeURIComponent(filename)}`
-        : `${base}/new/${branchPart}?filename=${encodeURIComponent(filename)}`)
-    : `${base}/edit/${branchPart}/${encodedContentPath}`;
+  let href = '';
+  if (isCreate) {
+    href = encodedFolder
+      ? `${base}/new/${branchPart}/${encodedFolder}?filename=${encodeURIComponent(filename)}`
+      : `${base}/new/${branchPart}?filename=${encodeURIComponent(filename)}`;
+  } else {
+    href = encodedContentPath
+      ? `${base}/edit/${branchPart}/${encodedContentPath}`
+      : `${base}/edit/${branchPart}`;
+  }
 
   if (!href) {
     showToast('error', 'Unable to resolve GitHub URL for this file.');
@@ -2542,11 +2388,6 @@ function openMarkdownPushOnGitHub(tab) {
   const editorApi = getPrimaryEditorApi();
   if (editorApi && typeof editorApi.getValue === 'function' && currentMode === tab.mode) {
     try { tab.content = String(editorApi.getValue() || ''); }
-    catch (_) {}
-  }
-
-  if (tab.dirty) {
-    try { saveDynamicTabDraft(tab, { conflict: tab.draftMeta && tab.draftMeta.conflict }); }
     catch (_) {}
   }
 
@@ -2566,6 +2407,17 @@ function openMarkdownPushOnGitHub(tab) {
   showToast('info', message);
 
   updateMarkdownPushButton(tab);
+}
+
+function pushEditorCurrentFileInfo(tab) {
+  const editorApi = getPrimaryEditorApi();
+  if (!editorApi || typeof editorApi.setCurrentFileLabel !== 'function') return;
+  const payload = tab
+    ? { path: tab.path || '', status: tab.fileStatus || null }
+    : { path: '', status: null };
+  try { editorApi.setCurrentFileLabel(payload); }
+  catch (_) {}
+  updateMarkdownPushButton(tab && tab.mode === currentMode ? tab : getActiveDynamicTab());
 }
 
 function setDynamicTabStatus(tab, status) {
@@ -2599,163 +2451,9 @@ function setDynamicTabStatus(tab, status) {
   if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
 }
 
-function updateDynamicTabButtonState(tab) {
-  if (!tab || !tab.button) return;
-  const btn = tab.button;
-  const dirty = !!tab.dirty;
-  if (dirty) btn.setAttribute('data-dirty', '1');
-  else btn.removeAttribute('data-dirty');
-
-  const hasConflict = !!(tab.draftMeta && tab.draftMeta.conflict);
-  if (hasConflict) btn.setAttribute('data-draft-conflict', '1');
-  else btn.removeAttribute('data-draft-conflict');
-
-  if (tab.draftMeta && Number.isFinite(tab.draftMeta.savedAt)) {
-    btn.setAttribute('data-draft-saved', String(tab.draftMeta.savedAt));
-  } else {
-    btn.removeAttribute('data-draft-saved');
-  }
-
-  const baseLabel = `Open editor for ${tab.path}`;
-  const hints = [];
-  if (dirty) hints.push('unsaved local changes');
-  if (hasConflict) hints.push('remote updated');
-  const ariaLabel = hints.length ? `${baseLabel} (${hints.join(', ')})` : baseLabel;
-  btn.setAttribute('aria-label', ariaLabel);
-
-  if (tab.draftMeta && Number.isFinite(tab.draftMeta.savedAt)) {
-    const stamp = formatDraftTimestamp(tab.draftMeta.savedAt);
-    if (stamp) {
-      btn.title = `${baseLabel} — Draft saved ${stamp}`;
-    } else {
-      btn.title = baseLabel;
-    }
-  } else {
-    btn.title = baseLabel;
-  }
-
-  if (currentMode === tab.mode) {
-    pushEditorCurrentFileInfo(tab);
-  }
-}
-
-function clearDynamicTabAutoSave(tab) {
-  if (!tab || !tab.autoSaveTimer) return;
-  try { clearTimeout(tab.autoSaveTimer); }
-  catch (_) {}
-  tab.autoSaveTimer = null;
-}
-
-function updateDynamicTabDirtyState(tab) {
-  if (!tab) return;
-  const remote = tab.remoteContent != null ? String(tab.remoteContent) : '';
-  const current = tab.content != null ? String(tab.content) : '';
-  const dirty = current !== remote;
-  tab.dirty = dirty;
-  if (!dirty) {
-    tab.draftMeta = null;
-    clearDynamicTabAutoSave(tab);
-    removeMarkdownDraftEntry(tab.path);
-  }
-  updateDynamicTabButtonState(tab);
-}
-
-function saveDynamicTabDraft(tab, opts = {}) {
-  if (!tab) return;
-  clearDynamicTabAutoSave(tab);
-  if (!tab.dirty) {
-    tab.draftMeta = null;
-    removeMarkdownDraftEntry(tab.path);
-    updateDynamicTabButtonState(tab);
-    return;
-  }
-  const baseSignature = tab.baseSignature || computeContentSignature(tab.remoteContent || '');
-  const savedAt = Date.now();
-  setMarkdownDraftEntry(tab.path, {
-    content: tab.content != null ? String(tab.content) : '',
-    savedAt,
-    baseSignature
-  });
-  const conflict = opts.conflict === true || (tab.draftMeta && tab.draftMeta.conflict);
-  tab.draftMeta = { savedAt, baseSignature, conflict };
-  updateDynamicTabButtonState(tab);
-}
-
-function scheduleDynamicTabAutoSave(tab) {
-  if (!tab) return;
-  clearDynamicTabAutoSave(tab);
-  if (!tab.dirty) return;
-  try {
-    tab.autoSaveTimer = setTimeout(() => {
-      tab.autoSaveTimer = null;
-      saveDynamicTabDraft(tab);
-    }, 800);
-  } catch (_) {
-    saveDynamicTabDraft(tab);
-  }
-}
-
-function restoreDynamicTabDraft(tab) {
-  if (!tab) return null;
-  const entry = getMarkdownDraftEntry(tab.path);
-  if (!entry || typeof entry.content !== 'string') return null;
-  const conflict = !!(entry.baseSignature && tab.baseSignature && entry.baseSignature !== tab.baseSignature);
-  tab.draftMeta = {
-    savedAt: entry.savedAt || Date.now(),
-    baseSignature: entry.baseSignature || '',
-    conflict
-  };
-  return entry.content;
-}
-
-function announceDraftRestored(tab) {
-  if (!tab || tab.draftRestoreNotified) return;
-  const label = tab.path || 'markdown file';
-  const savedAt = tab.draftMeta && Number.isFinite(tab.draftMeta.savedAt)
-    ? formatDraftTimestamp(tab.draftMeta.savedAt)
-    : '';
-  const base = tab.draftMeta && tab.draftMeta.conflict
-    ? `Restored local draft for ${label} (remote updated)`
-    : `Restored local draft for ${label}`;
-  const message = savedAt ? `${base} · saved ${savedAt}` : base;
-  try { showToast(tab.draftMeta && tab.draftMeta.conflict ? 'warn' : 'info', message, { duration: 2600 }); }
-  catch (_) { try { console.info(message); } catch (__) {} }
-  tab.draftRestoreNotified = true;
-}
-
-function closeDynamicTab(modeId, options = {}) {
+function closeDynamicTab(modeId) {
   const tab = dynamicEditorTabs.get(modeId);
   if (!tab) return;
-
-  const skipPrompt = options && options.force;
-  const remoteBaselineText = tab.remoteContent != null ? String(tab.remoteContent) : '';
-  const storedDraft = getMarkdownDraftEntry(tab.path);
-  const hasStoredDraft = storedDraft && typeof storedDraft.content === 'string'
-    ? storedDraft.content !== remoteBaselineText
-    : false;
-  const hasUnsaved = !!(tab.dirty || hasStoredDraft);
-
-  if (!skipPrompt && hasUnsaved) {
-    let proceed = true;
-    const message = `You have unsaved local changes in ${tab.path}. They are saved in this browser. Close this editor tab?`;
-    try {
-      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-        proceed = window.confirm(message);
-      }
-    } catch (_) {
-      proceed = true;
-    }
-    if (!proceed) return;
-  }
-
-  if (tab.dirty) {
-    saveDynamicTabDraft(tab);
-  } else {
-    tab.draftMeta = null;
-    removeMarkdownDraftEntry(tab.path);
-  }
-  clearDynamicTabAutoSave(tab);
-
   dynamicEditorTabs.delete(modeId);
   dynamicEditorTabsByPath.delete(tab.path);
   try { tab.button?.remove(); } catch (_) {}
@@ -2816,18 +2514,10 @@ function getOrCreateDynamicMode(path) {
     content: '',
     loaded: false,
     pending: null,
-    fileStatus: null,
-    remoteContent: '',
-    baseSignature: '',
-    dirty: false,
-    autoSaveTimer: null,
-    draftMeta: null,
-    draftRestoreNotified: false
+    fileStatus: null
   };
   dynamicEditorTabs.set(modeId, data);
   dynamicEditorTabsByPath.set(normalized, modeId);
-
-  updateDynamicTabButtonState(data);
 
   btn.addEventListener('click', (event) => {
     const target = event.target;
@@ -2864,8 +2554,7 @@ async function loadDynamicTabContent(tab) {
   const url = `${root}/${rel}`.replace(/[\\]/g, '/');
 
   const runner = async () => {
-    const started = Date.now();
-    setDynamicTabStatus(tab, { state: 'checking', checkedAt: started, message: 'Checking file…' });
+    setDynamicTabStatus(tab, { state: 'checking', checkedAt: Date.now(), message: 'Checking file…' });
 
     let res;
     try {
@@ -2882,25 +2571,12 @@ async function loadDynamicTabContent(tab) {
     const checkedAt = Date.now();
 
     if (res.status === 404) {
-      const remoteText = '';
-      tab.remoteContent = remoteText;
-      tab.baseSignature = computeContentSignature(remoteText);
+      tab.content = '';
       tab.loaded = true;
-      tab.draftRestoreNotified = false;
-      const restored = restoreDynamicTabDraft(tab);
-      if (typeof restored === 'string') {
-        tab.content = restored;
-        updateDynamicTabDirtyState(tab);
-        if (tab.dirty) announceDraftRestored(tab);
-      } else {
-        tab.content = remoteText;
-        tab.draftMeta = null;
-        updateDynamicTabDirtyState(tab);
-      }
       setDynamicTabStatus(tab, {
         state: 'missing',
         checkedAt,
-        message: tab.dirty ? 'Remote missing — local draft' : 'File not found on server',
+        message: 'File not found on server',
         code: 404
       });
       return tab.content;
@@ -2919,32 +2595,13 @@ async function loadDynamicTabContent(tab) {
     }
 
     const text = await res.text();
-    const remoteText = String(text || '');
-    tab.remoteContent = remoteText;
-    tab.baseSignature = computeContentSignature(remoteText);
+    tab.content = String(text || '');
     tab.loaded = true;
-    tab.draftRestoreNotified = false;
-    const restored = restoreDynamicTabDraft(tab);
-    if (typeof restored === 'string') {
-      tab.content = restored;
-      updateDynamicTabDirtyState(tab);
-      if (tab.dirty) announceDraftRestored(tab);
-    } else {
-      tab.content = remoteText;
-      tab.draftMeta = null;
-      updateDynamicTabDirtyState(tab);
-    }
-    const statusPayload = {
+    setDynamicTabStatus(tab, {
       state: 'existing',
       checkedAt,
       code: res.status
-    };
-    if (tab.dirty) {
-      statusPayload.message = (tab.draftMeta && tab.draftMeta.conflict)
-        ? 'Local draft differs from remote'
-        : 'Local draft available';
-    }
-    setDynamicTabStatus(tab, statusPayload);
+    });
     return tab.content;
   };
 
@@ -3003,8 +2660,6 @@ function applyMode(mode) {
     if (prevTab) {
       try {
         prevTab.content = String(editorApi.getValue() || '');
-        updateDynamicTabDirtyState(prevTab);
-        saveDynamicTabDraft(prevTab);
       } catch (_) {}
     }
   }
@@ -3042,7 +2697,6 @@ function applyMode(mode) {
   if (nextMode === 'composer') {
     activeDynamicMode = null;
     pushEditorCurrentFileInfo(null);
-    updateMarkdownPushButton(null);
   } else if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
@@ -3055,12 +2709,10 @@ function applyMode(mode) {
         editorApi.setBaseDir(baseDir);
       } catch (_) {}
       pushEditorCurrentFileInfo(tab);
-      updateMarkdownPushButton(tab);
 
       const applyContent = (text) => {
         tab.content = String(text || '');
         tab.loaded = true;
-        updateDynamicTabDirtyState(tab);
         if (currentMode === nextMode) {
           editorApi.setValue(tab.content, { notify: false });
           scheduleEditorLayoutRefresh();
@@ -3305,12 +2957,9 @@ function slideToggle(el, toOpen) {
       el.style.display = 'none';
       clearInlineSlideStyles(el);
       el.dataset.open = '0';
-      }
     }
-  } else {
-    pushEditorCurrentFileInfo(null);
-    updateMarkdownPushButton(null);
   }
+}
 
 function sortLangKeys(obj) {
   const keys = Object.keys(obj || {});
@@ -4039,20 +3688,6 @@ function bindComposerUI(state) {
       applyMode(mode);
     });
   });
-
-  if (!markdownPushButton) {
-    markdownPushButton = document.getElementById('btnPushMarkdown');
-  }
-  if (markdownPushButton && !markdownPushButton.__nsPushBound) {
-    markdownPushButton.addEventListener('click', (event) => {
-      event.preventDefault();
-      const activeTab = getActiveDynamicTab();
-      if (!activeTab || markdownPushButton.disabled) return;
-      openMarkdownPushOnGitHub(activeTab);
-    });
-    markdownPushButton.__nsPushBound = true;
-  }
-  updateMarkdownPushButton(getActiveDynamicTab());
 
   // File switch (index.yaml <-> tabs.yaml)
   const links = $$('a.vt-btn[data-cfile]');
@@ -5345,6 +4980,30 @@ function showStatus(msg, kind = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const pushBtn = document.getElementById('btnPushMarkdown');
+  if (pushBtn) {
+    markdownPushButton = pushBtn;
+    pushBtn.addEventListener('click', () => {
+      const active = getActiveDynamicTab();
+      if (!active) {
+        showToast('info', 'Open a markdown file before pushing to GitHub.');
+        return;
+      }
+      if (!active.loaded) {
+        showToast('info', 'Wait for the file to finish loading before pushing.');
+        return;
+      }
+      openMarkdownPushOnGitHub(active);
+    });
+    updateMarkdownPushButton(getActiveDynamicTab());
+  }
+
+  try {
+    if (!window.__ns_site_repo || typeof window.__ns_site_repo !== 'object') {
+      window.__ns_site_repo = { owner: '', name: '', branch: 'main' };
+    }
+  } catch (_) {}
+
   const state = { index: {}, tabs: {} };
   showStatus('Loading config…');
   try {
@@ -5355,6 +5014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const repo = (site && site.repo) || {};
       window.__ns_site_repo = { owner: String(repo.owner || ''), name: String(repo.name || ''), branch: String(repo.branch || 'main') };
     } catch(_) { window.__ns_site_repo = { owner: '', name: '', branch: 'main' }; }
+    updateMarkdownPushButton(getActiveDynamicTab());
     const [idx, tbs] = await Promise.all([
       fetchConfigWithYamlFallback([`${root}/index.yaml`, `${root}/index.yml`]),
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
@@ -5371,6 +5031,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     remoteBaseline.tabs = { __order: [] };
     state.index = { __order: [] };
     state.tabs = { __order: [] };
+    updateMarkdownPushButton(getActiveDynamicTab());
   }
 
   activeComposerState = state;
