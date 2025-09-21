@@ -313,7 +313,24 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'")
+      .replace(/&#39;/g, "'")
       .replace(/&amp;/g, '&');
+
+    // Decode HTML entities for text nodes so Markdown entities render as characters.
+    const decodeEntities = (() => {
+      let textarea = null;
+      return (s) => {
+        const str = String(s || '');
+        if (!str) return '';
+        try {
+          if (!textarea) textarea = document.createElement('textarea');
+          textarea.innerHTML = str;
+          return textarea.value;
+        } catch (_) {
+          return unescapeHtml(str);
+        }
+      };
+    })();
 
     const frag = document.createDocumentFragment();
     const stack = [];
@@ -330,7 +347,7 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
     while ((m = tagRe.exec(safeHtml))) {
       // Text before the tag
       const text = safeHtml.slice(last, m.index);
-      if (text) appendNode(document.createTextNode(text));
+      if (text) appendNode(document.createTextNode(decodeEntities(text)));
       last = tagRe.lastIndex;
 
       const raw = m[0];
@@ -378,7 +395,7 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
     }
     // Remainder after the last tag
     const tail = safeHtml.slice(last);
-    if (tail) appendNode(document.createTextNode(tail));
+    if (tail) appendNode(document.createTextNode(decodeEntities(tail)));
 
     target.replaceChildren(frag);
   } catch (_) {
