@@ -3135,12 +3135,21 @@ function getOrCreateDynamicMode(path) {
   btn.setAttribute('aria-controls', 'mode-editor');
   btn.setAttribute('aria-selected', 'false');
   btn.setAttribute('aria-label', `Open editor for ${normalized}`);
-  btn.innerHTML = `
-    <span class="mode-tab-chip">
-      <span class="mode-tab-label">${label}</span>
-      <span class="mode-tab-close" aria-hidden="true">×</span>
-    </span>
-  `;
+  const chip = document.createElement('span');
+  chip.className = 'mode-tab-chip';
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'mode-tab-label';
+  labelEl.textContent = label;
+  chip.appendChild(labelEl);
+
+  const closeEl = document.createElement('span');
+  closeEl.className = 'mode-tab-close';
+  closeEl.setAttribute('aria-hidden', 'true');
+  closeEl.textContent = '×';
+  chip.appendChild(closeEl);
+
+  btn.appendChild(chip);
   nav.appendChild(btn);
 
   const data = {

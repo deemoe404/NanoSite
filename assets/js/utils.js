@@ -318,17 +318,35 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
 
     // Decode HTML entities for text nodes so Markdown entities render as characters.
     const decodeEntities = (() => {
-      let textarea = null;
+      const NAMED_ENTITIES = {
+        amp: '&',
+        lt: '<',
+        gt: '>',
+        quot: '"',
+        apos: "'",
+        nbsp: '\u00A0',
+      };
+
       return (s) => {
         const str = String(s || '');
         if (!str) return '';
-        try {
-          if (!textarea) textarea = document.createElement('textarea');
-          textarea.innerHTML = str;
-          return textarea.value;
-        } catch (_) {
-          return unescapeHtml(str);
-        }
+
+        return str.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][\w:-]*);/g, (m, entity) => {
+          if (!entity) return m;
+          if (entity[0] === '#') {
+            const isHex = entity[1] === 'x' || entity[1] === 'X';
+            const num = isHex ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+            if (!Number.isFinite(num) || num < 0) return m;
+            try {
+              return String.fromCodePoint(num);
+            } catch (_) {
+              return m;
+            }
+          }
+
+          const named = NAMED_ENTITIES[entity.toLowerCase()];
+          return typeof named === 'string' ? named : m;
+        });
       };
     })();
 
