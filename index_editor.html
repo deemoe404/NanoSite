@@ -101,6 +101,14 @@
       font-weight: 600;
       cursor: pointer;
     }
+    .mode-tab.dynamic-mode[data-dirty="1"] {
+      border-color: color-mix(in srgb, #f97316 45%, var(--border));
+      box-shadow: 0 8px 24px rgba(249, 115, 22, 0.22);
+    }
+    .mode-tab.dynamic-mode[data-draft-conflict="1"] {
+      border-color: color-mix(in srgb, #ef4444 52%, var(--border));
+      box-shadow: 0 10px 26px rgba(239, 68, 68, 0.24);
+    }
     .mode-tab.is-busy {
       opacity: .6;
       cursor: progress;
@@ -163,6 +171,19 @@
       background: linear-gradient(135deg, color-mix(in srgb, #ef4444 28%, var(--card)), color-mix(in srgb, var(--card) 90%, transparent));
       color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
       box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
+    }
+    .mode-tab.dynamic-mode[data-dirty="1"] .mode-tab-chip::after {
+      content: '';
+      flex: 0 0 auto;
+      width: .5rem;
+      height: .5rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, #f97316 82%, var(--card));
+      box-shadow: 0 0 0 2px color-mix(in srgb, #f97316 26%, transparent);
+    }
+    .mode-tab.dynamic-mode[data-draft-conflict="1"] .mode-tab-chip::after {
+      background: color-mix(in srgb, #ef4444 82%, var(--card));
+      box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 28%, transparent);
     }
     .mode-tab.dynamic-mode.is-busy {
       pointer-events: none;

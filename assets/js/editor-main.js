@@ -368,6 +368,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (Number.isFinite(status.code)) detail.push(`HTTP ${status.code}`);
       return detail.length ? `${base} (${detail.join(' · ')})` : base;
     }
+    if (status.message) {
+      const msg = String(status.message);
+      return msg ? `${base} — ${msg}` : base;
+    }
     return base;
   };
 
