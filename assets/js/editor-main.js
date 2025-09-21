@@ -27,13 +27,119 @@ const escapeHtml = (value) => String(value == null ? '' : value)
   .replace(/'/g, '&#39;');
 
 const getPlainText = (() => {
-  const scratch = document.createElement('div');
+  const entityMap = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  const knownTags = new Set([
+    'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio', 'b', 'base', 'bdi', 'bdo',
+    'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup',
+    'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt', 'em', 'embed',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd', 'label',
+    'legend', 'li', 'link', 'main', 'map', 'mark', 'meta', 'meter', 'nav', 'noscript', 'object',
+    'ol', 'optgroup', 'option', 'output', 'p', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby',
+    's', 'samp', 'script', 'section', 'select', 'slot', 'small', 'source', 'span', 'strong', 'style',
+    'sub', 'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th',
+    'thead', 'time', 'title', 'tr', 'track', 'u', 'ul', 'var', 'video', 'wbr'
+  ]);
+  const spacedTags = new Set([
+    'article', 'aside', 'blockquote', 'br', 'div', 'dl', 'dt', 'dd', 'figure', 'figcaption', 'footer',
+    'form', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'tbody', 'td',
+    'tfoot', 'th', 'thead', 'title', 'tr', 'ul', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
+  ]);
+  const decodeEntity = (entity) => {
+    if (!entity) return '&';
+    if (entity[0] === '#') {
+      const isHex = entity[1] === 'x' || entity[1] === 'X';
+      const num = Number.parseInt(entity.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+      if (Number.isFinite(num)) {
+        try {
+          return String.fromCodePoint(num);
+        } catch (_) {
+          return `&${entity};`;
+        }
+      }
+      return `&${entity};`;
+    }
+    const mapped = entityMap[entity.toLowerCase()];
+    return mapped != null ? mapped : `&${entity};`;
+  };
+
   return (value) => {
     if (value == null) return '';
-    scratch.innerHTML = String(value);
-    const text = scratch.textContent || '';
-    scratch.textContent = '';
-    return text;
+    const input = String(value);
+    let result = '';
+    let entityBuffer = '';
+    let capturingEntity = false;
+    let pendingSpace = false;
+
+    for (let i = 0; i < input.length; i += 1) {
+      const ch = input[i];
+
+      if (capturingEntity) {
+        if (ch === ';') {
+          result += decodeEntity(entityBuffer);
+          entityBuffer = '';
+          capturingEntity = false;
+        } else if (/^[0-9a-zA-Z#]$/.test(ch) && entityBuffer.length < 32) {
+          entityBuffer += ch;
+        } else {
+          result += `&${entityBuffer}${ch}`;
+          entityBuffer = '';
+          capturingEntity = false;
+        }
+        continue;
+      }
+
+      if (ch === '&') {
+        capturingEntity = true;
+        entityBuffer = '';
+        continue;
+      }
+
+      if (ch === '<') {
+        const close = input.indexOf('>', i + 1);
+        if (close === -1) {
+          result += '<';
+        } else {
+          const tagContent = input.slice(i + 1, close).trim();
+          const appendGap = () => { if (result && !/\s$/.test(result)) result += ' '; };
+          if (tagContent.startsWith('!--') || tagContent.toLowerCase().startsWith('!doctype')) {
+            appendGap();
+            pendingSpace = true;
+            i = close;
+            continue;
+          }
+          const tagMatch = tagContent.match(/^\/?\s*([a-zA-Z][a-zA-Z0-9:-]*)/);
+          const tagName = tagMatch ? tagMatch[1].toLowerCase() : null;
+          if (tagName && (knownTags.has(tagName) || tagName.includes('-'))) {
+            if (spacedTags.has(tagName)) {
+              appendGap();
+              pendingSpace = true;
+            }
+            i = close;
+            continue;
+          }
+          result += '<';
+        }
+        continue;
+      }
+
+      if (/\s/.test(ch)) {
+        if (!result || !/\s$/.test(result)) result += ' ';
+        pendingSpace = false;
+        continue;
+      }
+
+      if (pendingSpace && result && !/\s$/.test(result)) {
+        result += ' ';
+      }
+      pendingSpace = false;
+
+      result += ch;
+    }
+
+    if (capturingEntity) result += `&${entityBuffer}`;
+
+    return result.replace(/\s+/g, ' ').trim();
   };
 })();
 
