@@ -171,7 +171,8 @@ function renderPreview(mdText) {
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('mdInput');
   const editor = createHiEditor(ta, 'markdown', false);
-  const wrapToggle = document.getElementById('editorWrapToggle');
+  const wrapToggle = document.getElementById('wrapToggle');
+  const wrapToggleButtons = wrapToggle ? Array.from(wrapToggle.querySelectorAll('[data-wrap]')) : [];
   let wrapEnabled = false;
 
   const readWrapState = () => {
@@ -192,10 +193,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const syncWrapToggle = (on) => {
-    if (!wrapToggle) return;
-    const checked = !!on;
-    wrapToggle.checked = checked;
-    wrapToggle.setAttribute('aria-checked', checked ? 'true' : 'false');
+    const enabled = !!on;
+    if (wrapToggle) {
+      wrapToggle.setAttribute('data-state', enabled ? 'on' : 'off');
+    }
+    wrapToggleButtons.forEach((btn) => {
+      const isOn = (btn.dataset.wrap || '').toLowerCase() === 'on';
+      const active = isOn === enabled;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
   };
 
   const applyWrapState = (value, opts = {}) => {
@@ -213,20 +220,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (opts.persist !== false) persistWrapState(on);
   };
 
-  const handleWrapToggle = () => {
-    const next = wrapToggle ? wrapToggle.checked : !wrapEnabled;
+  const handleWrapSelection = (state) => {
+    const next = String(state || '').toLowerCase() === 'on';
     applyWrapState(next);
   };
 
-  if (wrapToggle) {
-    wrapToggle.addEventListener('change', handleWrapToggle);
-    wrapToggle.addEventListener('input', handleWrapToggle);
-    wrapToggle.addEventListener('click', () => {
-      if (!wrapToggle.matches(':focus-visible')) {
-        try { wrapToggle.blur(); } catch (_) {}
+  wrapToggleButtons.forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      handleWrapSelection(btn.dataset.wrap);
+    });
+    btn.addEventListener('keydown', (event) => {
+      if (event.key === ' ') {
+        event.preventDefault();
+        handleWrapSelection(btn.dataset.wrap);
       }
     });
-  }
+  });
 
   applyWrapState(readWrapState(), { persist: false });
 

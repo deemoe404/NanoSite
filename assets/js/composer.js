@@ -33,7 +33,7 @@ const MARKDOWN_PUSH_LABELS = {
   update: 'Synchronize'
 };
 
-const MARKDOWN_DISCARD_LABEL = 'Discard Local Changes';
+const MARKDOWN_DISCARD_LABEL = 'Discard';
 
 let markdownPushButton = null;
 let markdownDiscardButton = null;

@@ -427,21 +427,20 @@
     button#btnReview.btn-secondary:hover { background:#e6b541 !important; }
     button#btnReview.btn-secondary:active { background:#cf9830 !important; }
     button#btnReview.btn-secondary:focus-visible { outline:2px solid #f7d98f66; outline-offset:2px; }
-    .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
-    .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
-    .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; }
-    .view-toggle .vt-btn:hover { text-decoration:underline; }
-    .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    .view-toggle,
+    .wrap-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
+    .view-toggle .vt-label,
+    .wrap-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
+    .view-toggle .vt-btn,
+    .wrap-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; }
+    .view-toggle .vt-btn:hover,
+    .wrap-toggle .vt-btn:hover { text-decoration:underline; }
+    .view-toggle .vt-btn.active,
+    .wrap-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
     .view-toggle .vt-btn.has-draft::before { content:'●'; display:inline-block; font-size:.65rem; color:#f97316; margin-right:.35rem; line-height:1; }
     .view-toggle .vt-btn.has-draft { padding-left:.5rem; }
-    .wrap-toggle { position:relative; display:inline-flex; align-items:center; gap:.4rem; font-size:.92rem; color:#57606a; cursor:pointer; user-select:none; }
-    .wrap-toggle input { position:absolute; opacity:0; pointer-events:none; }
-    .wrap-toggle .wrap-track { width:36px; height:20px; border-radius:999px; background:color-mix(in srgb, var(--muted) 28%, var(--card)); border:1px solid color-mix(in srgb, var(--muted) 30%, var(--border)); position:relative; transition:background-color .18s ease, border-color .18s ease; }
-    .wrap-toggle .wrap-thumb { position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:#ffffff; box-shadow:0 2px 6px rgba(15,23,42,0.25); transition:transform .18s ease; }
-    .wrap-toggle input:checked + .wrap-track { background:color-mix(in srgb, var(--primary) 55%, var(--card)); border-color:color-mix(in srgb, var(--primary) 55%, var(--border)); }
-    .wrap-toggle input:checked + .wrap-track .wrap-thumb { transform:translateX(16px); }
-    .wrap-toggle input:focus-visible + .wrap-track { outline:2px solid color-mix(in srgb, var(--primary) 40%, transparent); outline-offset:2px; }
-    .wrap-toggle .wrap-label { font-weight:500; }
+    .view-toggle .dim,
+    .wrap-toggle .dim { color:#8c959f; }
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
     .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
     .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
@@ -527,26 +526,27 @@
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
+            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting">
+              <span class="vt-label">Wrap:</span>
+              <a href="#" class="vt-btn" data-wrap="on" role="button">on</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn active" data-wrap="off" role="button">off</a>
+            </div>
             <div class="view-toggle" aria-label="View switch">
               <span class="vt-label">View:</span>
               <a href="#" class="vt-btn active" data-view="edit">Editor</a>
               <span class="dim" aria-hidden="true">/</span>
               <a href="#" class="vt-btn" data-view="preview">Preview</a>
             </div>
+            <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
+              <span class="btn-label">Discard</span>
+            </button>
             <button type="button" class="btn-secondary" id="btnPushMarkdown" disabled>
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
               </svg>
               <span class="btn-label">Synchronize</span>
             </button>
-            <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
-              <span class="btn-label">Discard Local Changes</span>
-            </button>
-            <label class="wrap-toggle" for="editorWrapToggle">
-              <input type="checkbox" id="editorWrapToggle" role="switch" aria-checked="false">
-              <span class="wrap-track" aria-hidden="true"><span class="wrap-thumb"></span></span>
-              <span class="wrap-label">Wrap</span>
-            </label>
           </div>
         </div>
 
