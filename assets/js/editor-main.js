@@ -1,6 +1,6 @@
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
-import { getContentRoot } from './utils.js';
+import { getContentRoot, setSafeHtml } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
 import { hydrateInternalLinkCards } from './link-cards.js';
@@ -264,7 +264,7 @@ function renderPreview(mdText) {
     const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
       || (`${getContentRoot()}/`);
     const { post } = mdParse(mdText || '', baseDir);
-    target.innerHTML = post || '';
+    setSafeHtml(target, post || '', baseDir);
     try { hydratePostImages(target); } catch (_) {}
     try { applyLazyLoadingIn(target); } catch (_) {}
     try { applyLangHints(target); } catch (_) {}
