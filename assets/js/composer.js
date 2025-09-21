@@ -722,6 +722,31 @@ function computeUnsyncedSummary() {
   return entries;
 }
 
+function updateReviewButton(summaryEntries = []) {
+  const btn = document.getElementById('btnReview');
+  if (!btn) return;
+  const activeKind = getActiveComposerFile();
+  const targetEntry = summaryEntries.find(entry => entry && entry.kind === activeKind)
+    || summaryEntries[0];
+  if (targetEntry) {
+    btn.hidden = false;
+    btn.style.display = '';
+    btn.dataset.kind = targetEntry.kind;
+    btn.setAttribute('aria-hidden', 'false');
+    const label = targetEntry.label || (targetEntry.kind === 'tabs' ? 'tabs.yaml' : 'index.yaml');
+    const description = `Review changes for ${label}`;
+    btn.setAttribute('aria-label', description);
+    btn.title = description;
+  } else {
+    btn.hidden = true;
+    btn.style.display = 'none';
+    btn.removeAttribute('data-kind');
+    btn.setAttribute('aria-hidden', 'true');
+    btn.removeAttribute('title');
+    btn.removeAttribute('aria-label');
+  }
+}
+
 function updateDiscardButtonVisibility(hasLocalChanges) {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
@@ -758,11 +783,13 @@ function updateUnsyncedSummary() {
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
     updateDiscardButtonVisibility(true);
+    updateReviewButton(summaryEntries);
   } else {
     el.textContent = CLEAN_STATUS_MESSAGE;
     el.dataset.summary = '0';
     el.dataset.state = 'clean';
     updateDiscardButtonVisibility(false);
+    updateReviewButton([]);
   }
 }
 
@@ -1029,8 +1056,25 @@ function ensureComposerDiffModal() {
   dialog.appendChild(head);
   dialog.appendChild(tabsWrap);
   dialog.appendChild(viewsWrap);
+
+  const actions = document.createElement('div');
+  actions.className = 'composer-diff-actions';
+  const syncBtn = document.createElement('button');
+  syncBtn.type = 'button';
+  syncBtn.className = 'btn-secondary composer-diff-sync';
+  syncBtn.id = 'btnVerify';
+  syncBtn.innerHTML = `
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
+    </svg>
+    <span class="btn-label">Synchronize</span>
+  `;
+  actions.appendChild(syncBtn);
+  dialog.appendChild(actions);
   modal.appendChild(dialog);
   document.body.appendChild(modal);
+
+  document.dispatchEvent(new CustomEvent('composer:verify-button-ready', { detail: { button: syncBtn } }));
 
   const focusableSelector = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
   let lastActive = null;
@@ -2573,7 +2617,9 @@ function applyComposerFile(name) {
     if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
     else document.documentElement.removeAttribute('data-init-cfile');
   } catch (_) {}
-  
+
+  try { updateUnsyncedSummary(); } catch (_) {}
+
 }
 
 // Apply initial state as early as possible to avoid flash on reload
@@ -4404,7 +4450,6 @@ function bindComposerUI(state) {
     if (modal && typeof modal.__open === 'function') modal.__open();
   });
 
-  
 
   const btnDiscard = document.getElementById('btnDiscard');
   if (btnDiscard) btnDiscard.addEventListener('click', () => handleComposerDiscard(btnDiscard));
@@ -4412,11 +4457,29 @@ function bindComposerUI(state) {
   const btnRefresh = document.getElementById('btnRefresh');
   if (btnRefresh) btnRefresh.addEventListener('click', () => handleComposerRefresh(btnRefresh));
 
+  const btnReview = document.getElementById('btnReview');
+  if (btnReview) {
+    btnReview.addEventListener('click', () => {
+      const datasetKind = btnReview.dataset && btnReview.dataset.kind;
+      const preferred = datasetKind === 'tabs' ? 'tabs' : datasetKind === 'index' ? 'index' : null;
+      if (preferred) {
+        openComposerDiffModal(preferred);
+        return;
+      }
+      const summaryEntries = computeUnsyncedSummary();
+      const activeKind = getActiveComposerFile();
+      const entry = summaryEntries.find(item => item && item.kind === activeKind)
+        || summaryEntries[0];
+      if (entry) openComposerDiffModal(entry.kind);
+    });
+  }
+
   // Verify Setup: check all referenced files exist; if ok, check YAML drift
   (function bindVerifySetup(){
-    const btn = document.getElementById('btnVerify');
-    if (!btn) return;
-    const btnLabel = btn.querySelector('.btn-label');
+    function attach(btn) {
+      if (!btn || btn.__composerVerifyBound) return;
+      btn.__composerVerifyBound = true;
+      const btnLabel = btn.querySelector('.btn-label');
 
     // Helper: extract version segment like v1.2.3 from a path
     function extractVersion(p){
@@ -4685,12 +4748,12 @@ function bindComposerUI(state) {
       }
     }
 
-    btn.addEventListener('click', async () => {
-      // Perform first pass; if any missing, show modal list; otherwise go to YAML check
-      try {
-        btn.disabled = true;
-        if (btnLabel) btnLabel.textContent = 'Verifying…'; else btn.textContent = 'Verifying…';
-      } catch(_) {}
+      btn.addEventListener('click', async () => {
+        // Perform first pass; if any missing, show modal list; otherwise go to YAML check
+        try {
+          btn.disabled = true;
+          if (btnLabel) btnLabel.textContent = 'Verifying…'; else btn.textContent = 'Verifying…';
+        } catch(_) {}
       try {
         // Copy YAML snapshot up-front to retain user-activation for clipboard
         try {
@@ -4708,9 +4771,16 @@ function bindComposerUI(state) {
           if (btnLabel) btnLabel.textContent = 'Synchronize'; else btn.textContent = 'Synchronize';
         } catch(_) {}
       }
-    });
-  })();
-}
+      });
+      }
+
+      attach(document.getElementById('btnVerify'));
+      document.addEventListener('composer:verify-button-ready', (event) => {
+        const target = event && event.detail && event.detail.button;
+        attach(target || document.getElementById('btnVerify'));
+      });
+    })();
+  }
 
 function showStatus(msg, kind = 'info') {
   const el = $('#composerStatus');
@@ -5004,6 +5074,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   .composer-diff-views{padding:.85rem .15rem .35rem}
   .composer-diff-view{display:block}
   .composer-diff-empty{margin:.65rem 0;font-size:.95rem;color:var(--muted)}
+  .composer-diff-actions{display:flex;justify-content:flex-end;gap:.6rem;padding:.75rem .85rem .85rem;margin:0;border-top:1px solid color-mix(in srgb,var(--text) 12%, var(--border));background:color-mix(in srgb,var(--text) 2%, var(--card))}
+  .composer-diff-actions .btn-secondary{min-width:140px;font-weight:600}
   .composer-diff-overview-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.65rem;margin-bottom:1rem}
   .composer-diff-stat{border:1px solid color-mix(in srgb,var(--text) 14%, var(--border));border-radius:12px;padding:.65rem .75rem;background:color-mix(in srgb,var(--text) 4%, var(--card));display:flex;flex-direction:column;gap:.12rem;min-height:74px}
   .composer-diff-stat-value{font-size:1.6rem;font-weight:700;color:color-mix(in srgb,var(--text) 88%, transparent)}
