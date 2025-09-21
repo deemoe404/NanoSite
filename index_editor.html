@@ -328,15 +328,31 @@
     #btnDraft.is-stale { position: relative; }
     #btnDraft.is-stale::after { content: '\26A0'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #dc2626; background: var(--card); border: 1px solid color-mix(in srgb, #dc2626 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
     /* Make the GitHub sync button GitHub-green with icon (override theme packs with !important) */
-    button#btnVerify.btn-secondary { 
+    button#btnVerify.btn-secondary {
       background:#428646 !important;  /*66 134 70*/
-      color:#ffffff !important; 
+      color:#ffffff !important;
       border:1px solid #3d7741 !important;  /*61 119 65*/
       border-radius:8px !important;
     }
     button#btnVerify.btn-secondary:hover { background:#3d7741 !important; }
     button#btnVerify.btn-secondary:active { background:#298e46 !important; }
     button#btnVerify.btn-secondary:focus-visible { outline:2px solid #2ea44f66; outline-offset:2px; }
+    button#btnDiscard.btn-secondary {
+      background:#e15b5b !important;
+      color:#3f1010 !important;
+      border:1px solid #c94848 !important;
+    }
+    button#btnDiscard.btn-secondary:hover { background:#d14b4b !important; }
+    button#btnDiscard.btn-secondary:active { background:#b73d3d !important; }
+    button#btnDiscard.btn-secondary:focus-visible { outline:2px solid #f59f9f66; outline-offset:2px; }
+    button#btnReview.btn-secondary {
+      background:#f3c766 !important;
+      color:#4a3510 !important;
+      border:1px solid #e0ad3e !important;
+    }
+    button#btnReview.btn-secondary:hover { background:#e6b541 !important; }
+    button#btnReview.btn-secondary:active { background:#cf9830 !important; }
+    button#btnReview.btn-secondary:focus-visible { outline:2px solid #f7d98f66; outline-offset:2px; }
     .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
     .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
     .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; }
