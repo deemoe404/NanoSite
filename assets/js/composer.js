@@ -2536,43 +2536,68 @@ function updateMarkdownPushButton(tab) {
   }
   if (!markdownPushButton) return;
 
+  const btn = markdownPushButton;
   const repo = window.__ns_site_repo || {};
   const owner = String(repo.owner || '').trim();
   const name = String(repo.name || '').trim();
   const hasRepo = !!(owner && name);
 
-  const active = tab || getActiveDynamicTab();
-  const btn = markdownPushButton;
+  const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  const hasDraftContent = !!(active && active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+  const hasDirty = !!(active && active.isDirty);
+  const hasLocalChanges = !!(active && active.path && (hasDirty || hasDraftContent));
+
+  if (!hasLocalChanges) {
+    try { btn.classList.remove('is-busy'); } catch (_) {}
+    btn.hidden = true;
+    btn.setAttribute('aria-hidden', 'true');
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+    btn.removeAttribute('aria-busy');
+    btn.removeAttribute('data-state');
+    btn.removeAttribute('title');
+    return;
+  }
+
+  btn.hidden = false;
+  btn.removeAttribute('aria-hidden');
+  btn.removeAttribute('aria-busy');
+
   const state = active && active.fileStatus && active.fileStatus.state
     ? String(active.fileStatus.state)
     : '';
 
   let label = MARKDOWN_PUSH_LABELS.default;
   if (state === 'missing') label = MARKDOWN_PUSH_LABELS.create;
+  else if (state) label = MARKDOWN_PUSH_LABELS.update;
   else if (active && active.path) label = MARKDOWN_PUSH_LABELS.update;
 
-  let disabled = true;
+  let disabled = false;
   let tooltip = '';
 
-  if (!active || !active.path) {
-    tooltip = 'Open a markdown file to enable GitHub push.';
-  } else if (!hasRepo) {
+  if (!hasRepo) {
+    disabled = true;
     tooltip = 'Configure repo in site.yaml to enable GitHub push.';
-  } else if (!active.loaded || active.pending) {
-    tooltip = 'Loading file…';
+  } else if (!active || !active.path) {
+    disabled = true;
+    tooltip = 'Open a markdown file to enable GitHub push.';
   } else if (state === 'error') {
+    disabled = true;
     tooltip = 'Resolve file load error before pushing to GitHub.';
+  } else if (!active.loaded) {
+    tooltip = active.pending ? 'Checking remote version…' : 'Loading remote snapshot…';
   } else {
-    disabled = false;
     tooltip = state === 'missing'
       ? 'Copy draft and create this file on GitHub.'
       : 'Copy draft and update this file on GitHub.';
   }
 
   const busy = btn.classList.contains('is-busy');
-  btn.disabled = disabled || busy;
-  btn.setAttribute('aria-disabled', (disabled || busy) ? 'true' : 'false');
-  if (!busy) setButtonLabel(btn, label);
+  if (busy) disabled = true;
+
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  if (!busy && label) setButtonLabel(btn, label);
   if (tooltip) btn.title = tooltip;
   else btn.removeAttribute('title');
   btn.setAttribute('aria-label', tooltip || label);
@@ -2591,22 +2616,35 @@ function updateMarkdownDiscardButton(tab) {
   const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
   const hasBusy = btn.classList.contains('is-busy');
 
-  let disabled = true;
-  let tooltip = '';
+  const hasDraftContent = !!(active && active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+  const dirty = !!(active && active.isDirty);
+  const hasLocalChanges = !!(active && active.path && active.mode === currentMode && (dirty || hasDraftContent));
 
-  if (!active || !active.path || active.mode !== currentMode) {
+  if (!hasLocalChanges) {
+    if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+    try { btn.classList.remove('is-busy'); } catch (_) {}
+    btn.hidden = true;
+    btn.setAttribute('aria-hidden', 'true');
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+    btn.removeAttribute('aria-busy');
+    btn.removeAttribute('title');
+    btn.setAttribute('aria-label', MARKDOWN_DISCARD_LABEL);
+    return;
+  }
+
+  btn.hidden = false;
+  btn.removeAttribute('aria-hidden');
+  btn.removeAttribute('aria-busy');
+
+  let disabled = false;
+  let tooltip = 'Discard local markdown changes and restore the last loaded version.';
+
+  if (!active || !active.path) {
+    disabled = true;
     tooltip = 'Open a markdown file to discard local changes.';
-  } else if (!active.loaded && !(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''))) {
-    tooltip = 'Wait for the file to finish loading before discarding local changes.';
-  } else {
-    const hasDraftContent = !!(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
-    const dirty = !!active.isDirty;
-    if (dirty || hasDraftContent) {
-      disabled = false;
-      tooltip = 'Discard local markdown changes and restore the last loaded version.';
-    } else {
-      tooltip = 'No local markdown changes to discard.';
-    }
+  } else if (!active.loaded && !active.pending) {
+    tooltip = 'Discard local markdown changes (remote snapshot will be reloaded).';
   }
 
   if (hasBusy) disabled = true;
@@ -2619,13 +2657,9 @@ function updateMarkdownDiscardButton(tab) {
   btn.setAttribute('aria-label', tooltip || MARKDOWN_DISCARD_LABEL);
 }
 
-function openMarkdownPushOnGitHub(tab) {
+async function openMarkdownPushOnGitHub(tab) {
   if (!tab || !tab.path) {
     showToast('info', 'Open a markdown file before pushing to GitHub.');
-    return;
-  }
-  if (!tab.loaded) {
-    showToast('info', 'Wait for the file to finish loading before pushing.');
     return;
   }
 
@@ -2634,6 +2668,24 @@ function openMarkdownPushOnGitHub(tab) {
   const name = String(repo.name || '').trim();
   if (!owner || !name) {
     showToast('info', 'Configure repo in site.yaml to enable GitHub push.');
+    return;
+  }
+
+  try {
+    if (tab.pending) {
+      await tab.pending;
+    } else if (!tab.loaded) {
+      await loadDynamicTabContent(tab);
+    }
+  } catch (err) {
+    console.error('Failed to prepare markdown before pushing to GitHub', err);
+    showToast('error', 'Unable to load the latest markdown before pushing.');
+    updateMarkdownPushButton(tab);
+    return;
+  }
+
+  if (!tab.loaded) {
+    showToast('error', 'Markdown file is not ready to push yet.');
     return;
   }
 
@@ -5420,17 +5472,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   const pushBtn = document.getElementById('btnPushMarkdown');
   if (pushBtn) {
     markdownPushButton = pushBtn;
-    pushBtn.addEventListener('click', () => {
+    pushBtn.addEventListener('click', async (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
       const active = getActiveDynamicTab();
       if (!active) {
         showToast('info', 'Open a markdown file before pushing to GitHub.');
         return;
       }
-      if (!active.loaded) {
-        showToast('info', 'Wait for the file to finish loading before pushing.');
-        return;
+
+      const button = markdownPushButton;
+      const originalLabel = getButtonLabel(button) || MARKDOWN_PUSH_LABELS.default;
+      const setBusyState = (busy, text) => {
+        if (!button) return;
+        if (busy) {
+          button.classList.add('is-busy');
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+          button.setAttribute('aria-disabled', 'true');
+          if (text) setButtonLabel(button, text);
+        } else {
+          button.classList.remove('is-busy');
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.setAttribute('aria-disabled', 'false');
+          if (text) setButtonLabel(button, text);
+        }
+      };
+
+      setBusyState(true, 'Preparing…');
+      try {
+        await openMarkdownPushOnGitHub(active);
+      } finally {
+        setBusyState(false, originalLabel);
+        updateMarkdownPushButton(active);
       }
-      openMarkdownPushOnGitHub(active);
     });
     updateMarkdownPushButton(getActiveDynamicTab());
   }
