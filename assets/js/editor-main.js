@@ -26,6 +26,17 @@ const escapeHtml = (value) => String(value == null ? '' : value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+const getPlainText = (() => {
+  const scratch = document.createElement('div');
+  return (value) => {
+    if (value == null) return '';
+    scratch.innerHTML = String(value);
+    const text = scratch.textContent || '';
+    scratch.textContent = '';
+    return text;
+  };
+})();
+
 let editorSiteConfig = {};
 let editorPostsIndexCache = {};
 let editorAllowedLocations = null;
@@ -500,11 +511,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
     el.innerHTML = `${mainHtml}${metaHtml}`;
 
-    const tooltipParts = [path];
-    if (statusLabel) tooltipParts.push(statusLabel);
-    if (meta) tooltipParts.push(meta);
-    if (draftLabel) tooltipParts.push(draftLabel.replace(/<[^>]+>/g, ''));
-    el.setAttribute('title', tooltipParts.filter(Boolean).join(' — '));
+    const tooltipParts = [path, statusLabel, meta, draftLabel]
+      .map(part => getPlainText(part))
+      .filter(Boolean);
+    el.setAttribute('title', tooltipParts.join(' — '));
     if (status && status.state) el.setAttribute('data-file-state', status.state);
     else el.removeAttribute('data-file-state');
     if (status && Number.isFinite(status.checkedAt)) el.setAttribute('data-last-checked', String(status.checkedAt));
