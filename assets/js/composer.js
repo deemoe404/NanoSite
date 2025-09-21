@@ -28,12 +28,15 @@ const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
 const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 
 const MARKDOWN_PUSH_LABELS = {
-  default: 'Push to GitHub',
+  default: 'Synchronize',
   create: 'Create on GitHub',
-  update: 'Update on GitHub'
+  update: 'Synchronize'
 };
 
+const MARKDOWN_DISCARD_LABEL = 'Discard Local Changes';
+
 let markdownPushButton = null;
+let markdownDiscardButton = null;
 
 let activeComposerState = null;
 let remoteBaseline = { index: null, tabs: null };
@@ -144,6 +147,20 @@ function showToast(kind, text, options = {}) {
   } catch (_) {
     try { alert(text); } catch (__) {}
   }
+}
+
+function setButtonLabel(btn, label) {
+  if (!btn) return;
+  const span = btn.querySelector('.btn-label');
+  if (span) span.textContent = String(label || '');
+  else btn.textContent = String(label || '');
+}
+
+function getButtonLabel(btn) {
+  if (!btn) return '';
+  const span = btn.querySelector('.btn-label');
+  if (span) return span.textContent || '';
+  return btn.textContent || '';
 }
 
 function truncateText(value, max = 60) {
@@ -2552,15 +2569,54 @@ function updateMarkdownPushButton(tab) {
       : 'Copy draft and update this file on GitHub.';
   }
 
-  btn.disabled = disabled;
-  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-  btn.textContent = label;
+  const busy = btn.classList.contains('is-busy');
+  btn.disabled = disabled || busy;
+  btn.setAttribute('aria-disabled', (disabled || busy) ? 'true' : 'false');
+  if (!busy) setButtonLabel(btn, label);
   if (tooltip) btn.title = tooltip;
   else btn.removeAttribute('title');
   btn.setAttribute('aria-label', tooltip || label);
 
   if (state) btn.setAttribute('data-state', state);
   else btn.removeAttribute('data-state');
+}
+
+function updateMarkdownDiscardButton(tab) {
+  if (!markdownDiscardButton) {
+    markdownDiscardButton = document.getElementById('btnDiscardMarkdown');
+  }
+  if (!markdownDiscardButton) return;
+
+  const btn = markdownDiscardButton;
+  const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  const hasBusy = btn.classList.contains('is-busy');
+
+  let disabled = true;
+  let tooltip = '';
+
+  if (!active || !active.path || active.mode !== currentMode) {
+    tooltip = 'Open a markdown file to discard local changes.';
+  } else if (!active.loaded && !(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''))) {
+    tooltip = 'Wait for the file to finish loading before discarding local changes.';
+  } else {
+    const hasDraftContent = !!(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+    const dirty = !!active.isDirty;
+    if (dirty || hasDraftContent) {
+      disabled = false;
+      tooltip = 'Discard local markdown changes and restore the last loaded version.';
+    } else {
+      tooltip = 'No local markdown changes to discard.';
+    }
+  }
+
+  if (hasBusy) disabled = true;
+
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+  if (tooltip) btn.title = tooltip;
+  else btn.removeAttribute('title');
+  btn.setAttribute('aria-label', tooltip || MARKDOWN_DISCARD_LABEL);
 }
 
 function openMarkdownPushOnGitHub(tab) {
@@ -2641,6 +2697,105 @@ function openMarkdownPushOnGitHub(tab) {
   updateMarkdownPushButton(tab);
 }
 
+async function discardMarkdownLocalChanges(tab, anchor) {
+  const active = (tab && tab.path) ? tab : getActiveDynamicTab();
+  if (!active || !active.path) {
+    showToast('info', 'Open a markdown file before discarding local changes.');
+    updateMarkdownDiscardButton(null);
+    return;
+  }
+
+  flushMarkdownDraft(active);
+  const hasDraftContent = !!(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+  const dirty = !!active.isDirty;
+  if (!dirty && !hasDraftContent) {
+    showToast('info', 'No local markdown changes to discard.');
+    updateMarkdownDiscardButton(active);
+    return;
+  }
+
+  const label = active.path || 'current file';
+  const trigger = anchor && typeof anchor.closest === 'function' ? anchor.closest('button') : anchor;
+  const control = trigger || markdownDiscardButton;
+  const promptMessage = `Discard local changes for ${label}? This action cannot be undone.`;
+
+  let proceed = true;
+  try {
+    proceed = await showComposerDiscardConfirm(control, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+  } catch (err) {
+    console.warn('Markdown discard prompt failed, falling back to native confirm', err);
+    try {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        proceed = window.confirm(promptMessage);
+      }
+    } catch (_) {
+      proceed = true;
+    }
+  }
+  if (!proceed) return;
+
+  const button = control || markdownDiscardButton;
+  const originalLabel = getButtonLabel(button) || MARKDOWN_DISCARD_LABEL;
+  const setBusyState = (busy, text) => {
+    if (!button) return;
+    if (busy) {
+      button.classList.add('is-busy');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.setAttribute('aria-disabled', 'true');
+      if (text) setButtonLabel(button, text);
+    } else {
+      button.classList.remove('is-busy');
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.setAttribute('aria-disabled', 'false');
+      if (text) setButtonLabel(button, text);
+    }
+  };
+
+  setBusyState(true, 'Discarding…');
+
+  try {
+    if (active.pending) {
+      try { await active.pending; }
+      catch (_) {}
+    } else if (!active.loaded) {
+      try { await loadDynamicTabContent(active); }
+      catch (err) { console.warn('Discard: failed to refresh markdown before reset', err); }
+    }
+
+    try {
+      if (active.markdownDraftTimer) {
+        clearTimeout(active.markdownDraftTimer);
+        active.markdownDraftTimer = null;
+      }
+    } catch (_) {}
+
+    const baseline = normalizeMarkdownContent(active.remoteContent != null ? active.remoteContent : '');
+    active.content = baseline;
+    clearMarkdownDraftForTab(active);
+    active.isDirty = false;
+    active.draftConflict = false;
+
+    const editorApi = getPrimaryEditorApi();
+    if (editorApi && currentMode === active.mode) {
+      editorApi.setValue(baseline, { notify: true });
+      try { editorApi.focus(); } catch (_) {}
+    } else {
+      updateDynamicTabDirtyState(active, { autoSave: false });
+    }
+
+    showToast('success', `Discarded local changes for ${label}.`);
+  } catch (err) {
+    console.error('Failed to discard markdown changes', err);
+    showToast('error', 'Failed to discard local markdown changes.');
+  } finally {
+    setBusyState(false, originalLabel || MARKDOWN_DISCARD_LABEL);
+    updateMarkdownDiscardButton(active);
+    updateMarkdownPushButton(active);
+  }
+}
+
 function pushEditorCurrentFileInfo(tab) {
   const editorApi = getPrimaryEditorApi();
   if (!editorApi || typeof editorApi.setCurrentFileLabel !== 'function') return;
@@ -2662,7 +2817,9 @@ function pushEditorCurrentFileInfo(tab) {
     : { path: '', status: null, dirty: false, draft: null };
   try { editorApi.setCurrentFileLabel(payload); }
   catch (_) {}
-  updateMarkdownPushButton(tab && tab.mode === currentMode ? tab : getActiveDynamicTab());
+  const activeTab = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  updateMarkdownPushButton(activeTab);
+  updateMarkdownDiscardButton(activeTab);
 }
 
 function setDynamicTabStatus(tab, status) {
@@ -2736,6 +2893,7 @@ function closeDynamicTab(modeId, options = {}) {
     persistDynamicEditorState();
   }
   updateMarkdownPushButton(getActiveDynamicTab());
+  updateMarkdownDiscardButton(getActiveDynamicTab());
 }
 
 function getOrCreateDynamicMode(path) {
@@ -5275,6 +5433,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       openMarkdownPushOnGitHub(active);
     });
     updateMarkdownPushButton(getActiveDynamicTab());
+  }
+
+  const discardBtn = document.getElementById('btnDiscardMarkdown');
+  if (discardBtn) {
+    markdownDiscardButton = discardBtn;
+    discardBtn.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      discardMarkdownLocalChanges(null, discardBtn);
+    });
+    updateMarkdownDiscardButton(getActiveDynamicTab());
   }
 
   try {
