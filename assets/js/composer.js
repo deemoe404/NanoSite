@@ -791,6 +791,20 @@ function getDraftIndicatorMessage(state) {
   }
 }
 
+function updateComposerDraftContainerState(container) {
+  if (!container) return;
+  let childState = '';
+  if (container.querySelector('.ct-lang[data-draft-state="conflict"], .ci-ver-item[data-draft-state="conflict"]')) {
+    childState = 'conflict';
+  } else if (container.querySelector('.ct-lang[data-draft-state="dirty"], .ci-ver-item[data-draft-state="dirty"]')) {
+    childState = 'dirty';
+  } else {
+    childState = '';
+  }
+  if (childState) container.setAttribute('data-child-draft', childState);
+  else container.removeAttribute('data-child-draft');
+}
+
 function applyComposerDraftIndicatorState(el, state) {
   if (!el) return;
   const indicator = el.querySelector('.ct-draft-indicator, .ci-draft-indicator');
@@ -818,6 +832,7 @@ function applyComposerDraftIndicatorState(el, state) {
     indicator.removeAttribute('aria-label');
     indicator.removeAttribute('role');
   }
+  updateComposerDraftContainerState(el.closest('.ct-item, .ci-item'));
 }
 
 function updateComposerMarkdownDraftIndicators(options = {}) {
@@ -3992,14 +4007,15 @@ function buildIndexUI(root, state) {
               arr.splice(i, 1);
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
-              renderVers(prev);
-              markDirty();
-            });
-            verList.appendChild(row);
-          });
-          animateFrom(prevRects);
-        };
-        renderVers();
+        renderVers(prev);
+        markDirty();
+      });
+      verList.appendChild(row);
+    });
+    animateFrom(prevRects);
+    updateComposerDraftContainerState(verList.closest('.ci-item'));
+  };
+  renderVers();
         $('.ci-lang-addver', block).addEventListener('click', () => {
           const prev = snapRects();
           arr.push('');
@@ -4078,6 +4094,7 @@ function buildIndexUI(root, state) {
         });
         bodyInner.appendChild(addLangWrap);
       }
+      updateComposerDraftContainerState(row);
     };
     renderBody();
 
@@ -4275,6 +4292,7 @@ function buildTabsUI(root, state) {
         });
         bodyInner.appendChild(addLangWrap);
       }
+      updateComposerDraftContainerState(row);
     };
     renderBody();
 
@@ -5718,6 +5736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-head,.ct-head{border-bottom:none;}
   .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
+  .ci-key,.ct-key{transition:color .18s ease;}
   .ci-body,.ct-body{display:none;padding:.5rem .6rem;}
   .ci-body-inner,.ct-body-inner{overflow:visible;}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
@@ -5732,6 +5751,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ct-lang-label{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .6rem;background:color-mix(in srgb, var(--text) 14%, var(--card));color:var(--text);min-width:78px;white-space:nowrap;font-weight:700;border-radius:6px 0 0 6px;}
   .ct-lang-label .ct-lang-flag{font-size:1.25rem;line-height:1;transform:translateY(-1px);}
   .ct-lang-label .ct-lang-code{font-size:.9rem;font-weight:700;letter-spacing:.045em;}
+  .ci-item[data-child-draft="dirty"] .ci-key,.ct-item[data-child-draft="dirty"] .ct-key{color:#f97316;}
+  .ci-item[data-child-draft="conflict"] .ci-key,.ct-item[data-child-draft="conflict"] .ct-key{color:#ef4444;}
   .ct-draft-indicator,.ci-draft-indicator{display:inline-flex;width:.55rem;height:.55rem;border-radius:999px;background:color-mix(in srgb,var(--muted) 48%, transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 14%, transparent);flex:0 0 auto;opacity:0;transform:scale(.6);transition:opacity .18s ease, transform .18s ease, background-color .18s ease, box-shadow .18s ease;}
   .ct-draft-indicator[hidden],.ci-draft-indicator[hidden]{display:none;}
   .ct-lang[data-draft-state] .ct-draft-indicator,.ci-ver-item[data-draft-state] .ci-draft-indicator{opacity:1;transform:scale(.95);}
