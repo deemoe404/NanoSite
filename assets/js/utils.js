@@ -288,9 +288,10 @@ export function renderTags(tagVal) {
 // Safely set sanitized HTML into a target element without using innerHTML.
 // - Prefers the native Sanitizer API when available
 // - Falls back to parsing into a safe DocumentFragment with our allowlist
-export function setSafeHtml(target, html, baseDir) {
+export function setSafeHtml(target, html, baseDir, options = {}) {
   if (!target) return;
   const input = String(html || '');
+  const opts = options && typeof options === 'object' ? options : {};
   try {
     // Prefer native Sanitizer API when available
     if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
@@ -304,7 +305,7 @@ export function setSafeHtml(target, html, baseDir) {
   // 1) First, reduce to an allowlisted HTML string using our string-level sanitizer.
   // 2) Then, build a DOM fragment by tokenizing tags and creating elements/attributes programmatically.
   try {
-    const safeHtml = allowUserHtml(input, baseDir);
+    const safeHtml = opts.alreadySanitized ? input : allowUserHtml(input, baseDir);
 
     // Minimal HTML entity unescape for attribute values we set via setAttribute.
     const unescapeHtml = (s) => String(s || '')

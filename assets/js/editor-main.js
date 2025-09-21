@@ -264,7 +264,7 @@ function renderPreview(mdText) {
     const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
       || (`${getContentRoot()}/`);
     const { post } = mdParse(mdText || '', baseDir);
-    setSafeHtml(target, post || '', baseDir);
+    setSafeHtml(target, post || '', baseDir, { alreadySanitized: true });
     try { hydratePostImages(target); } catch (_) {}
     try { applyLazyLoadingIn(target); } catch (_) {}
     try { applyLangHints(target); } catch (_) {}
