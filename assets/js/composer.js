@@ -25,6 +25,7 @@ let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
 
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
+const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 
 const MARKDOWN_PUSH_LABELS = {
   default: 'Push to GitHub',
@@ -507,6 +508,234 @@ function writeDraftStore(store) {
     /* ignore storage errors */
   }
 }
+
+function normalizeMarkdownContent(text) {
+  return String(text == null ? '' : text).replace(/\r\n/g, '\n');
+}
+
+function computeTextSignature(text) {
+  const normalized = normalizeMarkdownContent(text || '');
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash * 131 + normalized.charCodeAt(i)) >>> 0; // simple rolling hash
+  }
+  return `${normalized.length}:${hash.toString(16)}`;
+}
+
+function readMarkdownDraftStore() {
+  try {
+    const raw = localStorage.getItem(MARKDOWN_DRAFT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeMarkdownDraftStore(store) {
+  try {
+    if (!store || !Object.keys(store).length) {
+      localStorage.removeItem(MARKDOWN_DRAFT_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(MARKDOWN_DRAFT_STORAGE_KEY, JSON.stringify(store));
+  } catch (_) {
+    /* ignore storage errors */
+  }
+}
+
+function getMarkdownDraftEntry(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return null;
+  const store = readMarkdownDraftStore();
+  const entry = store[norm];
+  if (!entry || typeof entry !== 'object') return null;
+  const content = entry.content != null ? normalizeMarkdownContent(entry.content) : '';
+  const savedAt = Number(entry.savedAt);
+  const remoteSignature = entry.remoteSignature ? String(entry.remoteSignature) : '';
+  return {
+    path: norm,
+    content,
+    savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
+    remoteSignature
+  };
+}
+
+function saveMarkdownDraftEntry(path, content, remoteSignature = '') {
+  const norm = normalizeRelPath(path);
+  if (!norm) return null;
+  const text = normalizeMarkdownContent(content);
+  const store = readMarkdownDraftStore();
+  const savedAt = Date.now();
+  store[norm] = { content: text, savedAt, remoteSignature: String(remoteSignature || '') };
+  writeMarkdownDraftStore(store);
+  return { path: norm, content: text, savedAt, remoteSignature: String(remoteSignature || '') };
+}
+
+function clearMarkdownDraftEntry(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return;
+  const store = readMarkdownDraftStore();
+  if (store && Object.prototype.hasOwnProperty.call(store, norm)) {
+    delete store[norm];
+    writeMarkdownDraftStore(store);
+  }
+}
+
+function restoreMarkdownDraftForTab(tab) {
+  if (!tab || !tab.path) return false;
+  try { clearTimeout(tab.markdownDraftTimer); } catch (_) {}
+  tab.markdownDraftTimer = null;
+  const entry = getMarkdownDraftEntry(tab.path);
+  if (!entry) {
+    tab.localDraft = null;
+    tab.draftConflict = false;
+    return false;
+  }
+  tab.localDraft = {
+    content: entry.content,
+    savedAt: entry.savedAt,
+    remoteSignature: entry.remoteSignature || '',
+    manual: !!entry.manual
+  };
+  tab.content = entry.content;
+  tab.draftConflict = false;
+  tab.isDirty = true;
+  updateDynamicTabDirtyState(tab, { autoSave: false });
+  return true;
+}
+
+function saveMarkdownDraftForTab(tab, options = {}) {
+  if (!tab || !tab.path) return null;
+  const text = normalizeMarkdownContent(tab.content || '');
+  const remoteSig = tab.remoteSignature || '';
+  if (!text) {
+    clearMarkdownDraftEntry(tab.path);
+    tab.localDraft = null;
+    tab.draftConflict = false;
+    return null;
+  }
+  const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig);
+  if (saved) {
+    tab.localDraft = {
+      content: saved.content,
+      savedAt: saved.savedAt,
+      remoteSignature: saved.remoteSignature,
+      manual: !!options.markManual
+    };
+  }
+  return saved;
+}
+
+function clearMarkdownDraftForTab(tab) {
+  if (!tab || !tab.path) return;
+  clearMarkdownDraftEntry(tab.path);
+  tab.localDraft = null;
+  tab.draftConflict = false;
+}
+
+function scheduleMarkdownDraftSave(tab) {
+  if (!tab) return;
+  if (tab.markdownDraftTimer) {
+    clearTimeout(tab.markdownDraftTimer);
+    tab.markdownDraftTimer = null;
+  }
+  tab.markdownDraftTimer = setTimeout(() => {
+    tab.markdownDraftTimer = null;
+    if (!tab.isDirty) {
+      clearMarkdownDraftForTab(tab);
+      return;
+    }
+    saveMarkdownDraftForTab(tab);
+    if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
+  }, 720);
+}
+
+function flushMarkdownDraft(tab) {
+  if (!tab) return;
+  if (tab.markdownDraftTimer) {
+    clearTimeout(tab.markdownDraftTimer);
+    tab.markdownDraftTimer = null;
+    if (tab.isDirty) {
+      saveMarkdownDraftForTab(tab);
+    }
+  }
+}
+
+function updateDynamicTabDirtyState(tab, options = {}) {
+  if (!tab || !tab.path) return;
+  const normalizedContent = normalizeMarkdownContent(tab.content || '');
+  const baseline = normalizeMarkdownContent(tab.remoteContent || '');
+  const dirty = normalizedContent !== baseline;
+  tab.isDirty = dirty;
+  const conflict = !!(tab.localDraft
+    && tab.localDraft.remoteSignature
+    && tab.remoteSignature
+    && tab.localDraft.remoteSignature !== tab.remoteSignature);
+  tab.draftConflict = conflict;
+  const btn = tab.button;
+  if (btn) {
+    if (dirty) btn.setAttribute('data-dirty', '1');
+    else btn.removeAttribute('data-dirty');
+    if (conflict) btn.setAttribute('data-draft-state', 'conflict');
+    else if (tab.localDraft) btn.setAttribute('data-draft-state', 'saved');
+    else btn.removeAttribute('data-draft-state');
+  }
+  if (!dirty) {
+    clearMarkdownDraftForTab(tab);
+  } else if (options.autoSave !== false) {
+    scheduleMarkdownDraftSave(tab);
+  }
+  if (currentMode === tab.mode) {
+    pushEditorCurrentFileInfo(tab);
+  } else {
+    updateMarkdownPushButton(tab);
+  }
+}
+
+function hasUnsavedComposerChanges() {
+  try {
+    if (composerDiffCache && composerDiffCache.index && composerDiffCache.index.hasChanges) return true;
+  } catch (_) {}
+  try {
+    if (composerDiffCache && composerDiffCache.tabs && composerDiffCache.tabs.hasChanges) return true;
+  } catch (_) {}
+  return false;
+}
+
+function hasUnsavedMarkdownDrafts() {
+  for (const tab of dynamicEditorTabs.values()) {
+    if (!tab) continue;
+    if (tab.isDirty) return true;
+    if (tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || '')) return true;
+  }
+  try {
+    const store = readMarkdownDraftStore();
+    if (store && Object.keys(store).length) return true;
+  } catch (_) {}
+  return false;
+}
+
+function handleBeforeUnload(event) {
+  try {
+    dynamicEditorTabs.forEach(tab => { flushMarkdownDraft(tab); });
+  } catch (_) {}
+  if (hasUnsavedComposerChanges() || hasUnsavedMarkdownDrafts()) {
+    try {
+      event.preventDefault();
+    } catch (_) {}
+    event.returnValue = '';
+  }
+}
+
+try {
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  }
+} catch (_) {}
+
+
 
 function cssEscape(value) {
   try {
@@ -2130,7 +2359,10 @@ function ensurePrimaryEditorListener() {
   detachPrimaryEditorListener = api.onChange((value) => {
     if (!activeDynamicMode) return;
     const tab = dynamicEditorTabs.get(activeDynamicMode);
-    if (tab) tab.content = value;
+    if (tab) {
+      tab.content = value;
+      updateDynamicTabDirtyState(tab);
+    }
   });
 }
 
@@ -2413,8 +2645,21 @@ function pushEditorCurrentFileInfo(tab) {
   const editorApi = getPrimaryEditorApi();
   if (!editorApi || typeof editorApi.setCurrentFileLabel !== 'function') return;
   const payload = tab
-    ? { path: tab.path || '', status: tab.fileStatus || null }
-    : { path: '', status: null };
+    ? {
+        path: tab.path || '',
+        status: tab.fileStatus || null,
+        dirty: !!tab.isDirty,
+        loaded: !!tab.loaded,
+        draft: tab.localDraft
+          ? {
+              savedAt: Number(tab.localDraft.savedAt) || Date.now(),
+              conflict: !!tab.draftConflict,
+              hasContent: true,
+              remoteSignature: tab.localDraft.remoteSignature || ''
+            }
+          : null
+      }
+    : { path: '', status: null, dirty: false, draft: null };
   try { editorApi.setCurrentFileLabel(payload); }
   catch (_) {}
   updateMarkdownPushButton(tab && tab.mode === currentMode ? tab : getActiveDynamicTab());
@@ -2451,9 +2696,26 @@ function setDynamicTabStatus(tab, status) {
   if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
 }
 
-function closeDynamicTab(modeId) {
+function closeDynamicTab(modeId, options = {}) {
   const tab = dynamicEditorTabs.get(modeId);
   if (!tab) return;
+
+  const opts = options && typeof options === 'object' ? options : {};
+  if (!opts.force) {
+    flushMarkdownDraft(tab);
+    const hasLocalDraft = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
+    const hasDirty = !!tab.isDirty;
+    if (hasDirty || hasLocalDraft) {
+      let proceed = true;
+      try {
+        proceed = window.confirm(`Close ${tab.path}? Unsaved local changes will be kept in local storage, but closing now will hide this tab.`);
+      } catch (_) {
+        proceed = true;
+      }
+      if (!proceed) return;
+    }
+  }
+
   dynamicEditorTabs.delete(modeId);
   dynamicEditorTabsByPath.delete(tab.path);
   try { tab.button?.remove(); } catch (_) {}
@@ -2473,6 +2735,7 @@ function closeDynamicTab(modeId) {
   } else {
     persistDynamicEditorState();
   }
+  updateMarkdownPushButton(getActiveDynamicTab());
 }
 
 function getOrCreateDynamicMode(path) {
@@ -2512,10 +2775,17 @@ function getOrCreateDynamicMode(path) {
     label,
     baseDir: computeBaseDirForPath(normalized),
     content: '',
+    remoteContent: '',
+    remoteSignature: '',
     loaded: false,
     pending: null,
-    fileStatus: null
+    fileStatus: null,
+    localDraft: null,
+    draftConflict: false,
+    markdownDraftTimer: null,
+    isDirty: false
   };
+  restoreMarkdownDraftForTab(data);
   dynamicEditorTabs.set(modeId, data);
   dynamicEditorTabsByPath.set(normalized, modeId);
 
@@ -2571,14 +2841,17 @@ async function loadDynamicTabContent(tab) {
     const checkedAt = Date.now();
 
     if (res.status === 404) {
-      tab.content = '';
+      tab.remoteContent = '';
+      tab.remoteSignature = computeTextSignature('');
       tab.loaded = true;
+      if (!tab.localDraft || !tab.localDraft.content) tab.content = '';
       setDynamicTabStatus(tab, {
         state: 'missing',
         checkedAt,
         message: 'File not found on server',
         code: 404
       });
+      updateDynamicTabDirtyState(tab, { autoSave: !tab.localDraft });
       return tab.content;
     }
 
@@ -2594,14 +2867,19 @@ async function loadDynamicTabContent(tab) {
       throw err;
     }
 
-    const text = await res.text();
-    tab.content = String(text || '');
+    const text = normalizeMarkdownContent(await res.text());
+    tab.remoteContent = text;
+    tab.remoteSignature = computeTextSignature(text);
     tab.loaded = true;
+    if (!tab.localDraft || !tab.localDraft.content) {
+      tab.content = text;
+    }
     setDynamicTabStatus(tab, {
       state: 'existing',
       checkedAt,
       code: res.status
     });
+    updateDynamicTabDirtyState(tab, { autoSave: !tab.localDraft });
     return tab.content;
   };
 
@@ -2712,22 +2990,23 @@ function applyMode(mode) {
 
       const applyContent = (text) => {
         tab.content = String(text || '');
-        tab.loaded = true;
         if (currentMode === nextMode) {
           editorApi.setValue(tab.content, { notify: false });
           scheduleEditorLayoutRefresh();
           try { editorApi.focus(); } catch (_) {}
           try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
           catch (_) { window.scrollTo(0, 0); }
+          updateDynamicTabDirtyState(tab, { autoSave: false });
         }
       };
 
-      if (tab.loaded) {
+      if (tab.loaded || (tab.localDraft && tab.localDraft.content)) {
         applyContent(tab.content);
       } else {
         setTabLoadingState(tab, true);
         loadDynamicTabContent(tab).then((text) => {
           setTabLoadingState(tab, false);
+          if (currentMode !== nextMode) return;
           applyContent(text);
         }).catch((err) => {
           setTabLoadingState(tab, false);

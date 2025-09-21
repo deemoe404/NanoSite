@@ -19,6 +19,13 @@ const fetchMarkdownForLinkCard = (loc) => {
   }
 };
 
+const escapeHtml = (value) => String(value == null ? '' : value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 let editorSiteConfig = {};
 let editorPostsIndexCache = {};
 let editorAllowedLocations = null;
@@ -287,7 +294,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
-  let currentFileInfo = { path: '', status: null };
+  let currentFileInfo = { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
   let currentFileElRef = null;
 
   const ensureCurrentFileElement = () => {
@@ -312,6 +319,43 @@ document.addEventListener('DOMContentLoaded', () => {
       try { return new Date(ms).toLocaleString(); }
       catch (__) { return ''; }
     }
+  };
+
+  const formatRelativeTime = (ms) => {
+    if (!Number.isFinite(ms)) return '';
+    const diff = Date.now() - ms;
+    const abs = Math.abs(diff);
+    const sec = Math.round(abs / 1000);
+    const minute = 60;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const week = 7 * day;
+    const month = 30 * day;
+    const year = 365 * day;
+    const rtf = (() => {
+      try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); }
+      catch (_) { return null; }
+    })();
+    const format = (value, unit) => {
+      if (rtf) {
+        return rtf.format(value, unit);
+      }
+      const units = { second: 'second', minute: 'minute', hour: 'hour', day: 'day', week: 'week', month: 'month', year: 'year' };
+      const label = units[unit] || unit;
+      const plural = Math.abs(value) === 1 ? '' : 's';
+      return value < 0 ? `${Math.abs(value)} ${label}${plural} from now` : `${Math.abs(value)} ${label}${plural} ago`;
+    };
+    if (sec < 45) return 'just now';
+    if (sec < 90) return format(diff < 0 ? 1 : -1, 'minute');
+    if (sec < 45 * minute) return format(Math.round(diff / (1000 * minute) * -1), 'minute');
+    if (sec < 90 * minute) return format(diff < 0 ? 1 : -1, 'hour');
+    if (sec < 22 * hour) return format(Math.round(diff / (1000 * hour) * -1), 'hour');
+    if (sec < 36 * hour) return format(diff < 0 ? 1 : -1, 'day');
+    if (sec < 10 * day) return format(Math.round(diff / (1000 * day) * -1), 'day');
+    if (sec < 14 * day) return format(diff < 0 ? 1 : -1, 'week');
+    if (sec < 8 * week) return format(Math.round(diff / (1000 * week) * -1), 'week');
+    if (sec < 18 * month) return format(Math.round(diff / (1000 * month) * -1), 'month');
+    return format(Math.round(diff / (1000 * year) * -1), 'year');
   };
 
   const normalizeStatusPayload = (value) => {
@@ -349,14 +393,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeCurrentFilePayload = (input) => {
     if (typeof input === 'string') {
-      return { path: String(input || '').trim(), status: null };
+      return { path: String(input || '').trim(), status: null, dirty: false, draft: null, draftState: '', loaded: false };
     }
     if (input && typeof input === 'object') {
       const path = input.path != null ? String(input.path || '').trim() : '';
       const status = normalizeStatusPayload(input.status);
-      return { path, status };
+      const dirty = !!input.dirty;
+      const loaded = !!input.loaded;
+      let draft = null;
+      let draftState = '';
+      if (input.draft && typeof input.draft === 'object') {
+        const savedAtRaw = Number(input.draft.savedAt);
+        const savedAt = Number.isFinite(savedAtRaw) ? savedAtRaw : null;
+        const conflict = !!input.draft.conflict;
+        const hasContent = !!input.draft.hasContent;
+        if (hasContent) {
+          draft = { savedAt, conflict, hasContent };
+          draftState = conflict ? 'conflict' : 'saved';
+        }
+      }
+      return { path, status, dirty, draft, draftState, loaded };
     }
-    return { path: '', status: null };
+    return { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
   };
 
   const describeStatusLabel = (status) => {
@@ -396,22 +454,55 @@ document.addEventListener('DOMContentLoaded', () => {
       el.removeAttribute('data-file-state');
       el.removeAttribute('data-last-checked');
       el.removeAttribute('title');
+      el.removeAttribute('data-dirty');
+      el.removeAttribute('data-draft-state');
       return;
     }
 
     const status = currentFileInfo.status || null;
-    const segments = [`${path}`];
+    const dirty = !!currentFileInfo.dirty;
+    const draft = currentFileInfo.draft;
+    const draftState = currentFileInfo.draftState || '';
     const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
-    if (statusLabel) segments.push(`— ${statusLabel}`);
-    if (meta) segments.push(statusLabel ? `· ${meta}` : `— ${meta}`);
-    const text = segments.join(' ');
-    el.textContent = text;
-    el.setAttribute('title', text);
+    const mainPieces = [];
+    mainPieces.push(`<span class="cf-path">${escapeHtml(path)}</span>`);
+    if (statusLabel) {
+      mainPieces.push('<span aria-hidden="true">—</span>');
+      mainPieces.push(`<span class="cf-status">${escapeHtml(statusLabel)}</span>`);
+    }
+    const mainHtml = `<span class="cf-line-main">${mainPieces.join(' ')}</span>`;
+
+    const metaPieces = [];
+    if (meta) metaPieces.push(`<span class="cf-remote">${escapeHtml(meta)}</span>`);
+    let draftLabel = '';
+    if (draft && draft.hasContent) {
+      if (Number.isFinite(draft.savedAt)) {
+        const rel = formatRelativeTime(draft.savedAt);
+        draftLabel = draft.conflict
+          ? (rel ? `Local draft saved ${escapeHtml(rel)} (remote updated)` : 'Local draft (remote updated)')
+          : (rel ? `Local draft saved ${escapeHtml(rel)}` : 'Local draft saved');
+      } else {
+        draftLabel = draft.conflict ? 'Local draft (remote updated)' : 'Local draft available';
+      }
+      metaPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
+    }
+    const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
+    el.innerHTML = `${mainHtml}${metaHtml}`;
+
+    const tooltipParts = [path];
+    if (statusLabel) tooltipParts.push(statusLabel);
+    if (meta) tooltipParts.push(meta);
+    if (draftLabel) tooltipParts.push(draftLabel.replace(/<[^>]+>/g, ''));
+    el.setAttribute('title', tooltipParts.filter(Boolean).join(' — '));
     if (status && status.state) el.setAttribute('data-file-state', status.state);
     else el.removeAttribute('data-file-state');
     if (status && Number.isFinite(status.checkedAt)) el.setAttribute('data-last-checked', String(status.checkedAt));
     else el.removeAttribute('data-last-checked');
+    if (dirty) el.setAttribute('data-dirty', '1');
+    else el.removeAttribute('data-dirty');
+    if (draftState) el.setAttribute('data-draft-state', draftState);
+    else el.removeAttribute('data-draft-state');
   };
 
   const bindCurrentFileElement = (el) => {
