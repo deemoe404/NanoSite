@@ -726,12 +726,12 @@ function updateReviewButton(summaryEntries = []) {
   const btn = document.getElementById('btnReview');
   if (!btn) return;
   const activeKind = getActiveComposerFile();
-  const targetEntry = summaryEntries.find(entry => entry && entry.kind === activeKind)
-    || summaryEntries[0];
+  const normalizedKind = activeKind === 'tabs' ? 'tabs' : 'index';
+  const targetEntry = summaryEntries.find(entry => entry && entry.kind === normalizedKind);
   if (targetEntry) {
     btn.hidden = false;
     btn.style.display = '';
-    btn.dataset.kind = targetEntry.kind;
+    btn.dataset.kind = targetEntry.kind === 'tabs' ? 'tabs' : 'index';
     btn.setAttribute('aria-hidden', 'false');
     const label = targetEntry.label || (targetEntry.kind === 'tabs' ? 'tabs.yaml' : 'index.yaml');
     const description = `Review changes for ${label}`;
@@ -1495,6 +1495,7 @@ function ensureComposerDiffModal() {
     }
     const safeKind = kind === 'tabs' ? 'tabs' : 'index';
     activeKind = safeKind;
+    syncBtn.dataset.kind = safeKind;
     const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
     title.textContent = `Changes — ${label}`;
     activeDiff = composerDiffCache[safeKind] || recomputeDiff(safeKind);
@@ -4468,8 +4469,8 @@ function bindComposerUI(state) {
       }
       const summaryEntries = computeUnsyncedSummary();
       const activeKind = getActiveComposerFile();
-      const entry = summaryEntries.find(item => item && item.kind === activeKind)
-        || summaryEntries[0];
+      const normalizedActive = activeKind === 'tabs' ? 'tabs' : 'index';
+      const entry = summaryEntries.find(item => item && item.kind === normalizedActive);
       if (entry) openComposerDiffModal(entry.kind);
     });
   }
@@ -4502,10 +4503,27 @@ function bindComposerUI(state) {
       return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
     }
 
-    async function computeMissingFiles(){
+    function normalizeTarget(value) {
+      return value === 'tabs' ? 'tabs' : value === 'index' ? 'index' : null;
+    }
+
+    function resolveTargetKind(button) {
+      const ds = button && button.dataset ? button.dataset.kind : null;
+      const normalized = normalizeTarget(ds);
+      if (normalized) return normalized;
+      const attr = button && typeof button.getAttribute === 'function'
+        ? normalizeTarget(button.getAttribute('data-kind'))
+        : null;
+      const fallback = getActiveComposerFile();
+      return normalizeTarget(attr) || (fallback === 'tabs' ? 'tabs' : 'index');
+    }
+
+    async function computeMissingFiles(preferredKind){
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const out = [];
-      const target = getActiveComposerFile();
+      const normalizedPreferred = normalizeTarget(preferredKind);
+      const fallback = getActiveComposerFile();
+      const target = normalizedPreferred || (fallback === 'tabs' ? 'tabs' : 'index');
       // Fetch existence in parallel batches
       const tasks = [];
       if (target === 'tabs') {
@@ -4556,7 +4574,7 @@ function bindComposerUI(state) {
       return out;
     }
 
-    function openVerifyModal(missing){
+    function openVerifyModal(missing, targetKind){
       // Build modal
       const modal = document.createElement('div');
       modal.className = 'ns-modal'; modal.setAttribute('aria-hidden', 'true');
@@ -4707,14 +4725,14 @@ function bindComposerUI(state) {
       btnVerify.addEventListener('click', async ()=>{
         btnVerify.disabled = true; btnVerify.textContent = 'Verifying…';
         try {
+          const normalizedTarget = normalizeTarget(targetKind) || (getActiveComposerFile() === 'tabs' ? 'tabs' : 'index');
           // Also copy YAML snapshot here to leverage the user gesture
           try {
-            const target = (function(){ try { const a=document.querySelector('a.vt-btn[data-cfile].active'); return (a&&a.dataset&&a.dataset.cfile)==='tabs'?'tabs':'index'; } catch(_){ return 'index'; } })();
-            const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+            const text = normalizedTarget === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
             nsCopyToClipboard(text);
           } catch(_) {}
-          const now = await computeMissingFiles();
-          if (!now.length){ close(); await afterAllGood(); }
+          const now = await computeMissingFiles(normalizedTarget);
+          if (!now.length){ close(); await afterAllGood(normalizedTarget); }
           else { renderList(now); /* no toast: inline red banner shows status */ }
         } finally {
           try { btnVerify.disabled = false; btnVerify.textContent = 'Verify'; } catch(_) {}
@@ -4724,10 +4742,11 @@ function bindComposerUI(state) {
       open();
     }
 
-    async function afterAllGood(){
+    async function afterAllGood(targetKind){
       // Compare current in-memory YAML vs remote file; open GitHub edit if differs
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-        const target = getActiveComposerFile();
+      const fallback = getActiveComposerFile();
+      const target = normalizeTarget(targetKind) || (fallback === 'tabs' ? 'tabs' : 'index');
       const desired = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
       async function fetchText(url){ try { const r = await fetch(url, { cache: 'no-store' }); if (r && r.ok) return await r.text(); } catch(_){} return ''; }
       const baseName = target === 'tabs' ? 'tabs' : 'index';
@@ -4755,15 +4774,16 @@ function bindComposerUI(state) {
           if (btnLabel) btnLabel.textContent = 'Verifying…'; else btn.textContent = 'Verifying…';
         } catch(_) {}
       try {
+        const targetKind = resolveTargetKind(btn);
+        const target = targetKind === 'tabs' ? 'tabs' : 'index';
         // Copy YAML snapshot up-front to retain user-activation for clipboard
         try {
-      const target = getActiveComposerFile();
           const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
           nsCopyToClipboard(text);
         } catch(_) {}
-        const missing = await computeMissingFiles();
-        if (missing.length) openVerifyModal(missing);
-        else await afterAllGood();
+        const missing = await computeMissingFiles(target);
+        if (missing.length) openVerifyModal(missing, target);
+        else await afterAllGood(target);
       } finally {
         try {
           btn.disabled = false;
