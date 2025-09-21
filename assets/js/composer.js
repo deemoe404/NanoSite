@@ -3034,27 +3034,62 @@ function setDynamicTabStatus(tab, status) {
   if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
 }
 
-function closeDynamicTab(modeId, options = {}) {
+async function closeDynamicTab(modeId, options = {}) {
   const tab = dynamicEditorTabs.get(modeId);
-  if (!tab) return;
+  if (!tab) return false;
 
   const opts = options && typeof options === 'object' ? options : {};
   const hasLocalDraft = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
   const hasDirty = !!tab.isDirty;
-  if (!opts.force && (hasDirty || hasLocalDraft)) {
-    let proceed = true;
-    try {
-      proceed = window.confirm(`Close ${tab.path}? Local draft changes will be discarded.`);
-    } catch (_) {
-      proceed = true;
+
+  const resolveAnchor = (candidate) => {
+    if (!candidate) return null;
+    if (typeof candidate.getBoundingClientRect === 'function') return candidate;
+    if (typeof candidate.closest === 'function') {
+      const btnEl = candidate.closest('button');
+      if (btnEl && typeof btnEl.getBoundingClientRect === 'function') return btnEl;
     }
-    if (!proceed) return;
+    return null;
+  };
+
+  let anchorEl = resolveAnchor(opts.anchor);
+  if (!anchorEl && tab.button && typeof tab.button.getBoundingClientRect === 'function') {
+    anchorEl = tab.button;
+  }
+
+  if (!opts.force && (hasDirty || hasLocalDraft)) {
+    const ref = tab.path || tab.label || 'this file';
+    const promptMessage = `Close ${ref}? Closing this tab will discard local markdown changes.`;
+    let proceed = true;
+    const runNativeConfirm = () => {
+      try {
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+          return window.confirm(promptMessage);
+        }
+      } catch (_) {
+        return true;
+      }
+      return true;
+    };
+
+    if (anchorEl) {
+      try {
+        proceed = await showComposerDiscardConfirm(anchorEl, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+      } catch (err) {
+        console.warn('Markdown tab close prompt failed, falling back to native confirm', err);
+        proceed = runNativeConfirm();
+      }
+    } else {
+      proceed = runNativeConfirm();
+    }
+
+    if (!proceed) return false;
   }
 
   clearMarkdownDraftForTab(tab);
 
   dynamicEditorTabs.delete(modeId);
-  dynamicEditorTabsByPath.delete(tab.path);
+  if (tab.path) dynamicEditorTabsByPath.delete(tab.path);
   try { tab.button?.remove(); } catch (_) {}
 
   const wasActive = (currentMode === modeId);
@@ -3075,6 +3110,7 @@ function closeDynamicTab(modeId, options = {}) {
   updateMarkdownPushButton(getActiveDynamicTab());
   updateMarkdownDiscardButton(getActiveDynamicTab());
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  return true;
 }
 
 function getOrCreateDynamicMode(path) {
@@ -3133,7 +3169,10 @@ function getOrCreateDynamicMode(path) {
     if (target && target.closest && target.closest('.mode-tab-close')) {
       event.preventDefault();
       event.stopPropagation();
-      closeDynamicTab(modeId);
+      const anchor = (target.closest && target.closest('button')) || btn;
+      closeDynamicTab(modeId, { anchor }).catch((err) => {
+        console.warn('Failed to close markdown tab', err);
+      });
       return;
     }
     applyMode(modeId);
@@ -3142,7 +3181,9 @@ function getOrCreateDynamicMode(path) {
   btn.addEventListener('keydown', (event) => {
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
-      closeDynamicTab(modeId);
+      closeDynamicTab(modeId, { anchor: btn }).catch((err) => {
+        console.warn('Failed to close markdown tab', err);
+      });
     }
   });
 
