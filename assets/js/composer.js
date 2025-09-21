@@ -747,21 +747,29 @@ function updateReviewButton(summaryEntries = []) {
   }
 }
 
-function updateDiscardButtonVisibility(hasLocalChanges) {
+function updateDiscardButtonVisibility() {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
-  btn.hidden = !hasLocalChanges;
-  btn.setAttribute('aria-hidden', hasLocalChanges ? 'false' : 'true');
-  btn.style.display = hasLocalChanges ? '' : 'none';
+  const activeKind = getActiveComposerFile();
+  const normalizedKind = activeKind === 'tabs' ? 'tabs' : 'index';
+  const diff = composerDiffCache[normalizedKind];
+  const meta = composerDraftMeta[normalizedKind];
+  const hasLocalChanges = !!(diff && diff.hasChanges);
+  const hasDraft = !!meta;
+  const shouldShow = hasLocalChanges || hasDraft;
+  btn.hidden = !shouldShow;
+  btn.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+  btn.style.display = shouldShow ? '' : 'none';
 }
 
 function updateUnsyncedSummary() {
   const el = document.getElementById('composerStatus');
   if (!el) {
-    updateDiscardButtonVisibility(false);
+    updateDiscardButtonVisibility();
     return;
   }
   const summaryEntries = computeUnsyncedSummary();
+  updateDiscardButtonVisibility();
   if (summaryEntries.length) {
     el.innerHTML = '';
     const prefix = document.createElement('span');
@@ -782,13 +790,11 @@ function updateUnsyncedSummary() {
     });
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
-    updateDiscardButtonVisibility(true);
     updateReviewButton(summaryEntries);
   } else {
     el.textContent = CLEAN_STATUS_MESSAGE;
     el.dataset.summary = '0';
     el.dataset.state = 'clean';
-    updateDiscardButtonVisibility(false);
     updateReviewButton([]);
   }
 }
