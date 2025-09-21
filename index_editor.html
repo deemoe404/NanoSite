@@ -5,6 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Markdown Editor - NanoSite</title>
   <script src="assets/js/theme-boot.js"></script>
+  <script>
+    // Early boot to avoid initial flash
+    (function () {
+      try {
+        var initMode = 'composer';
+        var rawState = localStorage.getItem('ns_composer_editor_state');
+        if (rawState) {
+          try {
+            var parsed = JSON.parse(rawState);
+            if (parsed && typeof parsed === 'object') {
+              if (parsed.mode === 'editor' || parsed.mode === 'dynamic') initMode = 'editor';
+            }
+          } catch (_) {}
+        }
+        if (initMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
+        else document.documentElement.removeAttribute('data-init-mode');
+        // Preselect composer file (index/tabs) when persisted
+        var cf = (localStorage.getItem('ns_composer_file') || 'index').toLowerCase();
+        if (cf === 'tabs') document.documentElement.setAttribute('data-init-cfile', 'tabs');
+        else document.documentElement.removeAttribute('data-init-cfile');
+      } catch (_) { /* ignore */ }
+    })();
+  </script>
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" id="theme-pack">
   <style>
@@ -14,9 +37,11 @@
     .editor-page { display: block; }
     /* Two-column layout: sidebar + editor */
     .editor-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1rem; align-items: start; }
+    .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
+    .editor-layout.is-dynamic .editor-sidebar { display: none !important; }
     .editor-sidebar { position: relative; }
     .editor-sidebar .sidebar-title { font-size: 1rem; font-weight: 700; margin: 0 0 .5rem; }
     /* Sidebar tabs for switching between Posts and Tabs */
@@ -28,6 +53,8 @@
       display: inline-flex; 
       gap: .25rem; 
       align-items: center; 
+      flex-wrap: wrap;
+      row-gap: .25rem;
       background: var(--card); 
       border: 1px solid var(--border); 
       border-radius: 12px; 
@@ -44,7 +71,7 @@
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
-      line-height: 1;
+      line-height: 1.2;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease;
     }
     .mode-tab:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
@@ -53,6 +80,156 @@
       border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
       color: var(--primary);
       cursor: default;
+    }
+    .mode-tab.dynamic-mode {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: .55rem;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+      padding: .35rem .65rem .35rem .85rem;
+      background: linear-gradient(135deg, color-mix(in srgb, var(--card) 88%, var(--primary) 12%), color-mix(in srgb, var(--card) 96%, transparent));
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+      color: color-mix(in srgb, var(--text) 65%, transparent);
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+      max-width: 240px;
+      white-space: nowrap;
+      overflow-x: hidden;
+      overflow-y: visible;
+      text-overflow: ellipsis;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mode-tab.is-busy {
+      opacity: .6;
+      cursor: progress;
+    }
+    .mode-tab.dynamic-mode:hover:not(.is-busy) {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+      color: color-mix(in srgb, var(--text) 85%, transparent);
+    }
+    .mode-tab.dynamic-mode.is-active {
+      border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 24%, var(--card)), color-mix(in srgb, var(--card) 94%, transparent));
+      color: var(--primary);
+      box-shadow: 0 14px 32px rgba(9, 105, 218, 0.2);
+    }
+    .mode-tab.dynamic-mode[data-file-state="checking"] {
+      border-color: color-mix(in srgb, #3b82f6 45%, var(--border));
+      box-shadow: 0 10px 24px rgba(59, 130, 246, 0.22);
+    }
+    .mode-tab.dynamic-mode[data-file-state="checking"]:not(.is-active) {
+      color: color-mix(in srgb, var(--text) 78%, #2563eb 25%);
+    }
+    .mode-tab.dynamic-mode[data-file-state="existing"] {
+      border-color: color-mix(in srgb, #16a34a 48%, var(--border));
+      box-shadow: 0 12px 26px rgba(22, 163, 74, 0.24);
+    }
+    .mode-tab.dynamic-mode[data-file-state="existing"]:not(.is-active) {
+      color: color-mix(in srgb, var(--text) 78%, #15803d 28%);
+    }
+    .mode-tab.dynamic-mode[data-file-state="missing"] {
+      border-color: color-mix(in srgb, #f59e0b 54%, var(--border));
+      box-shadow: 0 12px 26px rgba(245, 158, 11, 0.28);
+    }
+    .mode-tab.dynamic-mode[data-file-state="missing"]:not(.is-active) {
+      color: color-mix(in srgb, var(--text) 78%, #d97706 28%);
+    }
+    .mode-tab.dynamic-mode[data-file-state="error"] {
+      border-color: color-mix(in srgb, #ef4444 58%, var(--border));
+      box-shadow: 0 12px 26px rgba(239, 68, 68, 0.28);
+    }
+    .mode-tab.dynamic-mode[data-file-state="error"]:not(.is-active) {
+      color: color-mix(in srgb, var(--text) 78%, #dc2626 28%);
+    }
+    .mode-tab.dynamic-mode[data-file-state="checking"].is-active {
+      background: linear-gradient(135deg, color-mix(in srgb, #3b82f6 22%, var(--card)), color-mix(in srgb, var(--card) 94%, transparent));
+      color: color-mix(in srgb, #1d4ed8 82%, #2563eb 40%);
+      box-shadow: 0 16px 34px rgba(59, 130, 246, 0.28);
+    }
+    .mode-tab.dynamic-mode[data-file-state="existing"].is-active {
+      background: linear-gradient(135deg, color-mix(in srgb, #16a34a 26%, var(--card)), color-mix(in srgb, var(--card) 94%, transparent));
+      color: color-mix(in srgb, #14532d 82%, #16a34a 45%);
+      box-shadow: 0 16px 34px rgba(22, 163, 74, 0.3);
+    }
+    .mode-tab.dynamic-mode[data-file-state="missing"].is-active {
+      background: linear-gradient(135deg, color-mix(in srgb, #f59e0b 28%, var(--card)), color-mix(in srgb, var(--card) 92%, transparent));
+      color: color-mix(in srgb, #92400e 82%, #f97316 45%);
+      box-shadow: 0 16px 34px rgba(245, 158, 11, 0.32);
+    }
+    .mode-tab.dynamic-mode[data-file-state="error"].is-active {
+      background: linear-gradient(135deg, color-mix(in srgb, #ef4444 28%, var(--card)), color-mix(in srgb, var(--card) 90%, transparent));
+      color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
+      box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
+    }
+    .mode-tab.dynamic-mode::before {
+      content: '';
+      width: .55rem;
+      height: .55rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--muted) 45%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 12%, transparent);
+      opacity: 0;
+      transform: scale(.6);
+      transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+      flex: 0 0 auto;
+    }
+    .mode-tab.dynamic-mode[data-dirty="1"]::before {
+      opacity: 1;
+      transform: scale(1);
+      background: #f97316;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #f97316 22%, transparent);
+    }
+    .mode-tab.dynamic-mode[data-draft-state="saved"]:not([data-dirty])::before {
+      opacity: .95;
+      transform: scale(.95);
+      background: #22c55e;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 20%, transparent);
+    }
+    .mode-tab.dynamic-mode[data-draft-state="conflict"]::before {
+      opacity: 1;
+      transform: scale(1);
+      background: #ef4444;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 25%, transparent);
+    }
+    .mode-tab.dynamic-mode.is-busy {
+      pointer-events: none;
+    }
+    .mode-tab-chip { display: inline-flex; align-items: center; gap: .45rem; }
+    .mode-tab-label { overflow: hidden; text-overflow: ellipsis; }
+    .mode-tab-close {
+      appearance: none;
+      border: 0;
+      background: color-mix(in srgb, var(--card) 70%, transparent);
+      color: color-mix(in srgb, var(--text) 50%, transparent);
+      border-radius: 999px;
+      width: 1.45rem;
+      height: 1.45rem;
+      font-size: 1rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color .18s ease, color .18s ease, opacity .18s ease, transform .18s ease;
+      opacity: .5;
+    }
+    .mode-tab-close:hover {
+      background: color-mix(in srgb, var(--text) 14%, transparent);
+      color: var(--text);
+      opacity: 1;
+      transform: scale(1.05);
+    }
+    .mode-tab-close:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+      outline-offset: 2px;
+      opacity: 1;
+    }
+    .mode-tab.dynamic-mode:hover .mode-tab-close,
+    .mode-tab.dynamic-mode:focus-within .mode-tab-close {
+      opacity: 1;
     }
     .mode-tab:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
     .editor-sidebar .group-title { display:none; }
@@ -69,7 +246,20 @@
     .editor-sidebar .search input:focus { outline: none; box-shadow: 0 0 0 .12rem color-mix(in srgb, var(--primary) 35%, transparent); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
     .editor-sidebar .status { margin-top: .4rem; font-size: .78rem; color: var(--muted); }
     .editor-sidebar .lists { display: block; }
-    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; }
+    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
+    .current-file .cf-line-main { font-weight: 600; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+    .current-file .cf-line-main .cf-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .current-file .cf-line-meta { font-size: .78rem; color: color-mix(in srgb, var(--muted) 88%, transparent); display: inline-flex; gap: .35rem; flex-wrap: wrap; }
+    .current-file .cf-draft { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; color: color-mix(in srgb, #2563eb 70%, var(--text)); }
+    .current-file .cf-draft::before { content: ''; width: .45rem; height: .45rem; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 18%, transparent); }
+    .current-file[data-draft-state="conflict"] .cf-draft { color: color-mix(in srgb, #ef4444 75%, var(--text)); }
+    .current-file[data-draft-state="conflict"] .cf-draft::before { background: #ef4444; box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 26%, transparent); }
+    .current-file[data-dirty="1"] .cf-draft::before { background: #f97316; box-shadow: 0 0 0 3px color-mix(in srgb, #f97316 26%, transparent); }
+    .current-file[data-file-state="checking"] .cf-line-main { color: color-mix(in srgb, #2563eb 70%, var(--text)); }
+    .current-file[data-file-state="existing"] .cf-line-main { color: color-mix(in srgb, #15803d 70%, var(--text)); }
+    .current-file[data-file-state="missing"] .cf-line-main { color: color-mix(in srgb, #d97706 75%, var(--text)); }
+    .current-file[data-file-state="error"] .cf-line-main { color: color-mix(in srgb, #dc2626 80%, var(--text)); }
+    .current-file[data-dirty="1"] .cf-line-main { color: color-mix(in srgb, #f97316 78%, var(--text)); }
     /* Grouped list styles */
     .editor-sidebar .file-group { border-bottom: 1px solid var(--border); }
     .editor-sidebar .file-group:last-child { border-bottom: 0; }
@@ -97,36 +287,176 @@
     .global-status.err .dot { background:#dc2626; }
     .global-status a { color: var(--primary); text-decoration: none; }
     .global-status a:hover { text-decoration: underline; }
+    .status-stack { display:flex; flex-direction:column; align-items:flex-end; gap:.3rem; text-align:right; }
+    #composerStatus { margin:0; font-size:.85rem; color: var(--muted); min-height: 1.1em; }
+    #composerStatus[data-state="dirty"] { color: color-mix(in srgb, var(--primary) 55%, var(--text)); font-weight: 500; }
+    #composerStatus[data-state="info"] { color: var(--muted); font-weight: 400; }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
+    .btn-secondary[hidden] { display:none !important; }
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
+    .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
+    .composer-confirm-popover {
+      position: absolute;
+      inset: auto auto;
+      min-width: 250px;
+      max-width: min(320px, calc(100vw - 2.5rem));
+      padding: .9rem 1rem;
+      border-radius: .85rem;
+      border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background: color-mix(in srgb, var(--card) 96%, transparent);
+      box-shadow: var(--shadow), 0 20px 48px rgba(15, 23, 42, 0.18);
+      z-index: 1400;
+      opacity: 0;
+      transform: translateY(-6px) scale(.98);
+      transform-origin: top right;
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+      display: block;
+    }
+    .composer-confirm-popover[data-placement="top"] { transform-origin: bottom right; }
+    .composer-confirm-popover.is-visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .composer-confirm-message {
+      font-size: .95rem;
+      line-height: 1.45;
+      color: var(--text);
+      letter-spacing: .01em;
+    }
+    .composer-confirm-actions {
+      margin-top: .85rem;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+    .composer-confirm-actions .btn-secondary {
+      min-width: 4.25rem;
+      padding-inline: .95rem;
+      font-weight: 600;
+      height: 2.25rem;
+    }
+    .composer-confirm-cancel { color: var(--muted); }
+    .composer-confirm-cancel:hover { color: var(--text); }
+    .composer-confirm-confirm {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 28%, var(--card)), color-mix(in srgb, var(--primary) 88%, var(--card)));
+      color: #fff;
+      border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
+      box-shadow: 0 14px 28px rgba(37, 99, 235, 0.2);
+    }
+    .composer-confirm-confirm:hover {
+      background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 36%, var(--card)), color-mix(in srgb, var(--primary) 98%, var(--card)));
+    }
+    .composer-confirm-confirm:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 65%, transparent);
+      outline-offset: 2px;
+    }
+    .composer-confirm-popover[data-placement="top"] .composer-confirm-actions { flex-direction: row-reverse; }
+    @media (max-width: 640px) {
+      .composer-confirm-popover { min-width: min(240px, calc(100vw - 2.5rem)); }
+    }
+    #btnDraft.is-dirty { border-color: color-mix(in srgb, #f97316 45%, var(--border)); background: color-mix(in srgb, #f97316 12%, var(--card)); color: color-mix(in srgb, #7c2d12 85%, transparent); }
+    #btnDraft.is-clean { border-color: color-mix(in srgb, #16a34a 45%, var(--border)); background: color-mix(in srgb, #16a34a 10%, var(--card)); color: color-mix(in srgb, #14532d 85%, transparent); position: relative; }
+    #btnDraft.is-clean::after { content: '✓'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #15803d; background: var(--card); border: 1px solid color-mix(in srgb, #16a34a 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
+    #btnDraft.is-stale { position: relative; }
+    #btnDraft.is-stale::after { content: '\26A0'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #dc2626; background: var(--card); border: 1px solid color-mix(in srgb, #dc2626 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
     /* Make the GitHub sync button GitHub-green with icon (override theme packs with !important) */
-    button#btnVerify.btn-secondary { 
-      background:#2da44e !important; 
-      color:#ffffff !important; 
-      border:1px solid #2c974b !important; 
+    button#btnVerify.btn-secondary {
+      background:#428646 !important;  /*66 134 70*/
+      color:#ffffff !important;
+      border:1px solid #3d7741 !important;  /*61 119 65*/
       border-radius:8px !important;
     }
-    button#btnVerify.btn-secondary:hover { background:#2c974b !important; }
+    button#btnVerify.btn-secondary:hover { background:#3d7741 !important; }
     button#btnVerify.btn-secondary:active { background:#298e46 !important; }
     button#btnVerify.btn-secondary:focus-visible { outline:2px solid #2ea44f66; outline-offset:2px; }
-    .view-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
-    .view-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
-    .view-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; }
-    .view-toggle .vt-btn:hover { text-decoration:underline; }
-    .view-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    button#btnPushMarkdown.btn-secondary {
+      background:#428646 !important;
+      color:#ffffff !important;
+      border:1px solid #3d7741 !important;
+      border-radius:8px !important;
+    }
+    button#btnPushMarkdown.btn-secondary:hover { background:#3d7741 !important; }
+    button#btnPushMarkdown.btn-secondary:active { background:#298e46 !important; }
+    button#btnPushMarkdown.btn-secondary:focus-visible { outline:2px solid #2ea44f66; outline-offset:2px; }
+    button#btnPushMarkdown.btn-secondary:disabled {
+      opacity:.6;
+      cursor:not-allowed;
+      color:rgba(255,255,255,.85) !important;
+    }
+    button#btnPushMarkdown.btn-secondary svg {
+      width:16px;
+      height:16px;
+      flex:0 0 auto;
+    }
+    button#btnPushMarkdown.btn-secondary .btn-label {
+      font-weight:600;
+      white-space:nowrap;
+    }
+    button#btnDiscard.btn-secondary {
+      background:#e15b5b !important;
+      color:#3f1010 !important;
+      border:1px solid #c94848 !important;
+    }
+    button#btnDiscard.btn-secondary:hover { background:#d14b4b !important; }
+    button#btnDiscard.btn-secondary:active { background:#b73d3d !important; }
+    button#btnDiscard.btn-secondary:focus-visible { outline:2px solid #f59f9f66; outline-offset:2px; }
+    button#btnDiscardMarkdown.btn-secondary {
+      background:#e15b5b !important;
+      color:#3f1010 !important;
+      border:1px solid #c94848 !important;
+    }
+    button#btnDiscardMarkdown.btn-secondary:hover { background:#d14b4b !important; }
+    button#btnDiscardMarkdown.btn-secondary:active { background:#b73d3d !important; }
+    button#btnDiscardMarkdown.btn-secondary:focus-visible { outline:2px solid #f59f9f66; outline-offset:2px; }
+    button#btnDiscardMarkdown.btn-secondary:disabled {
+      opacity:.55;
+      cursor:not-allowed;
+    }
+    button#btnReview.btn-secondary {
+      background:#f3c766 !important;
+      color:#4a3510 !important;
+      border:1px solid #e0ad3e !important;
+    }
+    button#btnReview.btn-secondary:hover { background:#e6b541 !important; }
+    button#btnReview.btn-secondary:active { background:#cf9830 !important; }
+    button#btnReview.btn-secondary:focus-visible { outline:2px solid #f7d98f66; outline-offset:2px; }
+    .view-toggle,
+    .wrap-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
+    .view-toggle .vt-label,
+    .wrap-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
+    .view-toggle .vt-btn,
+    .wrap-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; }
+    .view-toggle .vt-btn:hover,
+    .wrap-toggle .vt-btn:hover { text-decoration:underline; }
+    .view-toggle .vt-btn.active,
+    .wrap-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    .view-toggle .vt-btn.has-draft::before { content:'●'; display:inline-block; font-size:.65rem; color:#f97316; margin-right:.35rem; line-height:1; }
+    .view-toggle .vt-btn.has-draft { padding-left:.5rem; }
+    .view-toggle .dim,
+    .wrap-toggle .dim { color:#8c959f; }
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
     .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
     .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
     .hi-editor .code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding: 1rem 0.5rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0; background: var(--code-bg); position: sticky; left: 0; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
     .hi-editor .code-scroll .code-gutter span { display: block; line-height: inherit; font-variant-numeric: tabular-nums; }
+    .hi-editor .code-scroll .code-gutter span.is-wrap-continued { color: color-mix(in srgb, var(--code-text) 38%, transparent); }
     .hi-editor { position: relative; }
     .hi-editor .hi-body { position: relative; flex: 1 1 auto; overflow: visible; }
     .hi-editor .hi-pre { position: absolute; inset: 0; margin: 0; white-space: pre; overflow: visible; pointer-events: none; }
     .hi-editor .hi-pre code { white-space: inherit; display: inline-block; min-width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
     .hi-editor .hi-ta { position: absolute; inset: 0; border: 0; outline: none; resize: none; background: transparent; color: transparent; caret-color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; white-space: pre; overflow: hidden; overscroll-behavior: none; tab-size: 4; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+    .hi-editor.is-wrap .code-scroll { overflow-x: hidden; }
+    .hi-editor.is-wrap .hi-pre,
+    .hi-editor.is-wrap .hi-pre code,
+    .hi-editor.is-wrap .hi-ta { white-space: pre-wrap; word-break: break-word; }
+    .hi-editor.is-wrap .hi-pre code { min-width: 0; width: 100%; }
     .hi-editor .hi-hl-layer { position: absolute; inset: 0; z-index: 0; }
     .hi-editor .hi-hl-line { position: absolute; left: 0; right: 0; background: rgba(9,105,218,0.08); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(9,105,218,0.35); }
     .hi-editor .code-scroll .code-gutter span.is-active { background: transparent; color: #0f172a; font-weight: 600; }
@@ -141,16 +471,31 @@
     .back-to-top:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
     .back-to-top svg { width: 1.15rem; height: 1.15rem; }
     .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
+
+    /* Preload-state CSS to avoid flash when initial mode is Composer */
+    [data-init-mode="composer"] #mode-editor { display: none !important; }
+    [data-init-mode="composer"] #mode-composer { display: block !important; }
+    [data-init-mode="composer"] .mode-tab[data-mode="composer"] {
+      background: color-mix(in srgb, var(--primary) 14%, var(--card));
+      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+      color: var(--primary);
+      cursor: default;
+    }
+    /* Preselect composer sub-file to tabs when persisted */
+    [data-init-cfile="tabs"] #composerIndex { display: none !important; }
+    [data-init-cfile="tabs"] #composerTabs { display: block !important; }
   </style>
 </head>
 <body>
   <div class="editor-page">
     <div class="page-titlebar">
       <nav class="mode-switch" role="tablist" aria-label="Mode switch">
-        <button class="mode-tab is-active" data-mode="editor" role="tab" aria-controls="mode-editor" aria-selected="true">Editor</button>
-        <button class="mode-tab" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="false">Composer</button>
+        <button class="mode-tab is-active" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="true">Composer</button>
       </nav>
-      <div id="global-status" class="global-status" aria-live="polite"></div>
+      <div class="status-stack">
+        <div id="global-status" class="global-status" aria-live="polite"></div>
+        <div id="composerStatus" class="status" data-summary="0" aria-live="polite"></div>
+      </div>
     </div>
 
     <!-- Editor Mode -->
@@ -181,12 +526,27 @@
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
+            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting">
+              <span class="vt-label">Wrap:</span>
+              <a href="#" class="vt-btn" data-wrap="on" role="button">on</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn active" data-wrap="off" role="button">off</a>
+            </div>
             <div class="view-toggle" aria-label="View switch">
               <span class="vt-label">View:</span>
               <a href="#" class="vt-btn active" data-view="edit">Editor</a>
               <span class="dim" aria-hidden="true">/</span>
               <a href="#" class="vt-btn" data-view="preview">Preview</a>
             </div>
+            <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
+              <span class="btn-label">Discard</span>
+            </button>
+            <button type="button" class="btn-secondary" id="btnPushMarkdown" disabled>
+              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
+              </svg>
+              <span class="btn-label">Synchronize</span>
+            </button>
           </div>
         </div>
 
@@ -214,17 +574,13 @@
             </div>
           </div>
           <div class="right-actions">
-            <button class="btn-secondary" id="btnAddItem">+ Add Item</button>
-            <button class="btn-secondary" id="btnVerify">
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
-              </svg>
-              <span class="btn-label">Synchronize</span>
-            </button>
+            <button class="btn-secondary" id="btnAddItem">New Post Wizard</button>
+            <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot">Refresh</button>
+
+            <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>
+            <button class="btn-secondary" id="btnReview" type="button" hidden aria-hidden="true">Review</button>
           </div>
         </div>
-        <div id="composerStatus" class="status" style="margin: .25rem 0 .5rem;"></div>
-
         <!-- Composer Lists -->
         <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
         <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>

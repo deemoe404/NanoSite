@@ -2,7 +2,237 @@ import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { getContentRoot, setSafeHtml } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
+import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
+import { hydrateInternalLinkCards } from './link-cards.js';
+import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
+import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } from './i18n.js';
+
+const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
+
+const fetchMarkdownForLinkCard = (loc) => {
+  try {
+    const url = `${getContentRoot()}/${loc}`;
+    return fetch(url, { cache: 'no-store' }).then(resp => (resp && resp.ok) ? resp.text() : '');
+  } catch (_) {
+    return Promise.resolve('');
+  }
+};
+
+const escapeHtml = (value) => String(value == null ? '' : value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const getPlainText = (() => {
+  const entityMap = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  const knownTags = new Set([
+    'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio', 'b', 'base', 'bdi', 'bdo',
+    'blockquote', 'body', 'br', 'button', 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup',
+    'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt', 'em', 'embed',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'head', 'header', 'hgroup', 'hr', 'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd', 'label',
+    'legend', 'li', 'link', 'main', 'map', 'mark', 'meta', 'meter', 'nav', 'noscript', 'object',
+    'ol', 'optgroup', 'option', 'output', 'p', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby',
+    's', 'samp', 'script', 'section', 'select', 'slot', 'small', 'source', 'span', 'strong', 'style',
+    'sub', 'summary', 'sup', 'svg', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th',
+    'thead', 'time', 'title', 'tr', 'track', 'u', 'ul', 'var', 'video', 'wbr'
+  ]);
+  const spacedTags = new Set([
+    'article', 'aside', 'blockquote', 'br', 'div', 'dl', 'dt', 'dd', 'figure', 'figcaption', 'footer',
+    'form', 'header', 'hr', 'li', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'tbody', 'td',
+    'tfoot', 'th', 'thead', 'title', 'tr', 'ul', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
+  ]);
+  const decodeEntity = (entity) => {
+    if (!entity) return '&';
+    if (entity[0] === '#') {
+      const isHex = entity[1] === 'x' || entity[1] === 'X';
+      const num = Number.parseInt(entity.slice(isHex ? 2 : 1), isHex ? 16 : 10);
+      if (Number.isFinite(num)) {
+        try {
+          return String.fromCodePoint(num);
+        } catch (_) {
+          return `&${entity};`;
+        }
+      }
+      return `&${entity};`;
+    }
+    const mapped = entityMap[entity.toLowerCase()];
+    return mapped != null ? mapped : `&${entity};`;
+  };
+
+  return (value) => {
+    if (value == null) return '';
+    const input = String(value);
+    let result = '';
+    let entityBuffer = '';
+    let capturingEntity = false;
+    let pendingSpace = false;
+
+    for (let i = 0; i < input.length; i += 1) {
+      const ch = input[i];
+
+      if (capturingEntity) {
+        if (ch === ';') {
+          result += decodeEntity(entityBuffer);
+          entityBuffer = '';
+          capturingEntity = false;
+        } else if (/^[0-9a-zA-Z#]$/.test(ch) && entityBuffer.length < 32) {
+          entityBuffer += ch;
+        } else {
+          result += `&${entityBuffer}${ch}`;
+          entityBuffer = '';
+          capturingEntity = false;
+        }
+        continue;
+      }
+
+      if (ch === '&') {
+        capturingEntity = true;
+        entityBuffer = '';
+        continue;
+      }
+
+      if (ch === '<') {
+        const close = input.indexOf('>', i + 1);
+        if (close === -1) {
+          result += '<';
+        } else {
+          const tagContent = input.slice(i + 1, close).trim();
+          const appendGap = () => { if (result && !/\s$/.test(result)) result += ' '; };
+          if (tagContent.startsWith('!--') || tagContent.toLowerCase().startsWith('!doctype')) {
+            appendGap();
+            pendingSpace = true;
+            i = close;
+            continue;
+          }
+          const tagMatch = tagContent.match(/^\/?\s*([a-zA-Z][a-zA-Z0-9:-]*)/);
+          const tagName = tagMatch ? tagMatch[1].toLowerCase() : null;
+          if (tagName && (knownTags.has(tagName) || tagName.includes('-'))) {
+            if (spacedTags.has(tagName)) {
+              appendGap();
+              pendingSpace = true;
+            }
+            i = close;
+            continue;
+          }
+          result += '<';
+        }
+        continue;
+      }
+
+      if (/\s/.test(ch)) {
+        if (!result || !/\s$/.test(result)) result += ' ';
+        pendingSpace = false;
+        continue;
+      }
+
+      if (pendingSpace && result && !/\s$/.test(result)) {
+        result += ' ';
+      }
+      pendingSpace = false;
+
+      result += ch;
+    }
+
+    if (capturingEntity) result += `&${entityBuffer}`;
+
+    return result.replace(/\s+/g, ' ').trim();
+  };
+})();
+
+let editorSiteConfig = {};
+let editorPostsIndexCache = {};
+let editorAllowedLocations = null;
+let editorLocationAliasMap = new Map();
+let editorPostsByLocationTitle = {};
+let linkCardReady = false;
+
+function rebuildLinkCardContext(posts, rawIndex) {
+  try {
+    const allowed = new Set();
+    if (posts && typeof posts === 'object') {
+      Object.values(posts).forEach(meta => {
+        if (!meta) return;
+        if (meta.location) allowed.add(String(meta.location));
+        if (Array.isArray(meta.versions)) {
+          meta.versions.forEach(ver => { if (ver && ver.location) allowed.add(String(ver.location)); });
+        }
+      });
+    }
+    if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+      for (const entry of Object.values(rawIndex)) {
+        if (!entry || typeof entry !== 'object') continue;
+        for (const [key, val] of Object.entries(entry)) {
+          if (['tag','tags','image','date','excerpt','thumb','cover'].includes(key)) continue;
+          if (key === 'location' && typeof val === 'string') { allowed.add(String(val)); continue; }
+          if (Array.isArray(val)) { val.forEach(item => { if (typeof item === 'string') allowed.add(String(item)); }); continue; }
+          if (val && typeof val === 'object' && typeof val.location === 'string') { allowed.add(String(val.location)); continue; }
+          if (typeof val === 'string') { allowed.add(String(val)); }
+        }
+      }
+    }
+
+    const byLocation = {};
+    for (const [title, meta] of Object.entries(posts || {})) {
+      if (!meta) continue;
+      if (meta.location) byLocation[String(meta.location)] = title;
+      if (Array.isArray(meta.versions)) {
+        meta.versions.forEach(ver => { if (ver && ver.location) byLocation[String(ver.location)] = title; });
+      }
+    }
+
+    const alias = new Map();
+    const reserved = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
+    const currentLang = normalizeLangKey((getCurrentLang && getCurrentLang()) || 'en');
+    if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
+      for (const entry of Object.values(rawIndex)) {
+        if (!entry || typeof entry !== 'object') continue;
+        const variants = [];
+        for (const [key, val] of Object.entries(entry)) {
+          if (reserved.has(key)) continue;
+          if (key === 'location' && typeof val === 'string') {
+            variants.push({ lang: 'default', location: String(val) });
+            continue;
+          }
+          const nk = normalizeLangKey(key);
+          if (typeof val === 'string') {
+            variants.push({ lang: nk, location: String(val) });
+          } else if (Array.isArray(val)) {
+            val.forEach(item => { if (typeof item === 'string') variants.push({ lang: nk, location: String(item) }); });
+          } else if (val && typeof val === 'object' && typeof val.location === 'string') {
+            variants.push({ lang: nk, location: String(val.location) });
+          }
+        }
+        if (!variants.length) continue;
+        const findBy = (langs) => variants.find(v => langs.includes(v.lang));
+        let canonical = null;
+        const preferred = findBy([currentLang]) || findBy(['en']) || findBy(['default']) || variants[0];
+        if (preferred) {
+          const refTitle = byLocation[preferred.location];
+          const refMeta = refTitle ? posts[refTitle] : null;
+          if (refMeta && refMeta.location) canonical = String(refMeta.location);
+        }
+        if (!canonical && preferred) canonical = preferred.location;
+        if (!canonical && variants[0]) canonical = variants[0].location;
+        if (!canonical) continue;
+        variants.forEach(v => {
+          if (v.location && v.location !== canonical) alias.set(v.location, canonical);
+        });
+      }
+    }
+
+    editorAllowedLocations = allowed;
+    editorPostsByLocationTitle = byLocation;
+    editorLocationAliasMap = alias;
+    editorPostsIndexCache = posts || {};
+    linkCardReady = true;
+  } catch (_) {
+    editorAllowedLocations = editorAllowedLocations || new Set();
+  }
+}
 
 function $(sel) { return document.querySelector(sel); }
 
@@ -34,9 +264,21 @@ function renderPreview(mdText) {
     const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
       || (`${getContentRoot()}/`);
     const { post } = mdParse(mdText || '', baseDir);
-    // Safely render the sanitized Markdown HTML without using innerHTML
-    setSafeHtml(target, post || '', baseDir);
-    // Apply syntax highlighting and gutters to code blocks
+    setSafeHtml(target, post || '', baseDir, { alreadySanitized: true });
+    try { hydratePostImages(target); } catch (_) {}
+    try { applyLazyLoadingIn(target); } catch (_) {}
+    try { applyLangHints(target); } catch (_) {}
+    try { hydrateInternalLinkCards(target, {
+      allowedLocations: linkCardReady ? editorAllowedLocations : null,
+      locationAliasMap: linkCardReady ? editorLocationAliasMap : new Map(),
+      postsByLocationTitle: linkCardReady ? editorPostsByLocationTitle : {},
+      postsIndexCache: linkCardReady ? editorPostsIndexCache : {},
+      siteConfig: editorSiteConfig,
+      translate: t,
+      makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
+      fetchMarkdown: fetchMarkdownForLinkCard
+    }); } catch (_) {}
+    try { hydratePostVideos(target); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
   } catch (_) {}
 }
@@ -46,20 +288,379 @@ function renderPreview(mdText) {
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('mdInput');
   const editor = createHiEditor(ta, 'markdown', false);
-  // Seed with a minimal template
-  const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, NanoSite!');\n\`\`\`\n`;
-  // Restore draft if exists; otherwise apply seed if empty
-  if (editor) {
-    const existing = (editor.getValue() || '').trim();
-    if (!existing) {
-      editor.setValue(seed);
+  const wrapToggle = document.getElementById('wrapToggle');
+  const wrapToggleButtons = wrapToggle ? Array.from(wrapToggle.querySelectorAll('[data-wrap]')) : [];
+  let wrapEnabled = false;
+
+  const readWrapState = () => {
+    try {
+      const raw = localStorage.getItem(LS_WRAP_KEY);
+      if (!raw) return false;
+      if (raw === '1' || raw === 'true') return true;
+      if (raw === '0' || raw === 'false') return false;
+      return Boolean(JSON.parse(raw));
+    } catch (_) {
+      return false;
     }
-  }
-  const update = () => renderPreview(editor ? editor.getValue() : (ta.value || ''));
-  if (editor && editor.textarea) editor.textarea.addEventListener('input', () => {
-    update();
+  };
+
+  const persistWrapState = (on) => {
+    try { localStorage.setItem(LS_WRAP_KEY, on ? '1' : '0'); }
+    catch (_) {}
+  };
+
+  const syncWrapToggle = (on) => {
+    const enabled = !!on;
+    if (wrapToggle) {
+      wrapToggle.setAttribute('data-state', enabled ? 'on' : 'off');
+    }
+    wrapToggleButtons.forEach((btn) => {
+      const isOn = (btn.dataset.wrap || '').toLowerCase() === 'on';
+      const active = isOn === enabled;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  };
+
+  const applyWrapState = (value, opts = {}) => {
+    const on = !!value;
+    wrapEnabled = on;
+    if (editor && typeof editor.setWrap === 'function') {
+      editor.setWrap(on);
+    } else if (ta) {
+      try {
+        ta.setAttribute('wrap', on ? 'soft' : 'off');
+        ta.style.whiteSpace = on ? 'pre-wrap' : 'pre';
+      } catch (_) {}
+    }
+    syncWrapToggle(on);
+    if (opts.persist !== false) persistWrapState(on);
+  };
+
+  const handleWrapSelection = (state) => {
+    const next = String(state || '').toLowerCase() === 'on';
+    applyWrapState(next);
+  };
+
+  wrapToggleButtons.forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      handleWrapSelection(btn.dataset.wrap);
+    });
+    btn.addEventListener('keydown', (event) => {
+      if (event.key === ' ') {
+        event.preventDefault();
+        handleWrapSelection(btn.dataset.wrap);
+      }
+    });
   });
-  update();
+
+  applyWrapState(readWrapState(), { persist: false });
+
+  const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, NanoSite!');\n\`\`\`\n`;
+
+  const changeListeners = new Set();
+  const notifyChange = (value) => {
+    changeListeners.forEach((fn) => {
+      try { fn(value); } catch (_) {}
+    });
+  };
+
+  const requestLayout = () => {
+    try {
+      if (editor && typeof editor.refreshLayout === 'function') {
+        editor.refreshLayout();
+        return;
+      }
+      if (!ta) return;
+      ta.style.height = '0px';
+      // eslint-disable-next-line no-unused-expressions
+      ta.offsetHeight;
+      ta.style.height = `${ta.scrollHeight}px`;
+    } catch (_) {}
+  };
+
+  const getValue = () => {
+    if (editor) return editor.getValue() || '';
+    if (ta) return ta.value || '';
+    return '';
+  };
+
+  const refreshPreview = () => {
+    try { renderPreview(getValue()); } catch (_) {}
+  };
+
+  const setValue = (value, opts = {}) => {
+    const text = value == null ? '' : String(value);
+    const { preview = true, notify = true } = opts;
+    if (editor) editor.setValue(text);
+    else if (ta) ta.value = text;
+    requestLayout();
+    if (preview) renderPreview(text);
+    if (notify) notifyChange(text);
+  };
+
+  const setBaseDir = (dir) => {
+    const fallback = `${getContentRoot()}/`;
+    try {
+      const raw = (dir == null ? '' : String(dir)).trim();
+      const normalized = raw
+        ? raw.replace(/\\+/g, '/').replace(/\/?$/, '/')
+        : fallback;
+      window.__ns_editor_base_dir = normalized;
+    } catch (_) {
+      try { window.__ns_editor_base_dir = fallback; } catch (__) {}
+    }
+  };
+
+  const STATUS_LABELS = {
+    checking: 'Checking file…',
+    existing: 'Existing file',
+    missing: 'New file',
+    error: 'Failed to load file'
+  };
+
+  const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
+  let currentFileInfo = { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+  let currentFileElRef = null;
+
+  const ensureCurrentFileElement = () => {
+    if (currentFileElRef && document.body.contains(currentFileElRef)) return currentFileElRef;
+    currentFileElRef = document.getElementById('currentFile');
+    return currentFileElRef;
+  };
+
+  const formatStatusTimestamp = (ms) => {
+    if (!Number.isFinite(ms)) return '';
+    try {
+      const fmt = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      return fmt.format(new Date(ms));
+    } catch (_) {
+      try { return new Date(ms).toLocaleString(); }
+      catch (__) { return ''; }
+    }
+  };
+
+  const formatRelativeTime = (ms) => {
+    if (!Number.isFinite(ms)) return '';
+    const diff = Date.now() - ms;
+    const abs = Math.abs(diff);
+    const sec = Math.round(abs / 1000);
+    const minute = 60;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const week = 7 * day;
+    const month = 30 * day;
+    const year = 365 * day;
+    const rtf = (() => {
+      try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); }
+      catch (_) { return null; }
+    })();
+    const format = (value, unit) => {
+      if (rtf) {
+        return rtf.format(value, unit);
+      }
+      const units = { second: 'second', minute: 'minute', hour: 'hour', day: 'day', week: 'week', month: 'month', year: 'year' };
+      const label = units[unit] || unit;
+      const plural = Math.abs(value) === 1 ? '' : 's';
+      return value < 0 ? `${Math.abs(value)} ${label}${plural} from now` : `${Math.abs(value)} ${label}${plural} ago`;
+    };
+    if (sec < 45) return 'just now';
+    if (sec < 90) return format(diff < 0 ? 1 : -1, 'minute');
+    if (sec < 45 * minute) return format(Math.round(diff / (1000 * minute) * -1), 'minute');
+    if (sec < 90 * minute) return format(diff < 0 ? 1 : -1, 'hour');
+    if (sec < 22 * hour) return format(Math.round(diff / (1000 * hour) * -1), 'hour');
+    if (sec < 36 * hour) return format(diff < 0 ? 1 : -1, 'day');
+    if (sec < 10 * day) return format(Math.round(diff / (1000 * day) * -1), 'day');
+    if (sec < 14 * day) return format(diff < 0 ? 1 : -1, 'week');
+    if (sec < 8 * week) return format(Math.round(diff / (1000 * week) * -1), 'week');
+    if (sec < 18 * month) return format(Math.round(diff / (1000 * month) * -1), 'month');
+    return format(Math.round(diff / (1000 * year) * -1), 'year');
+  };
+
+  const normalizeStatusPayload = (value) => {
+    if (!value || typeof value !== 'object') return null;
+    const rawState = String(value.state || '').trim().toLowerCase();
+    const state = STATUS_STATES.has(rawState) ? rawState : '';
+    const normalized = {};
+    if (state) normalized.state = state;
+
+    let checkedAt = value.checkedAt;
+    if (checkedAt instanceof Date) checkedAt = checkedAt.getTime();
+    else if (typeof checkedAt === 'string') {
+      const trimmed = checkedAt.trim();
+      if (trimmed) {
+        const asNumber = Number(trimmed);
+        if (Number.isFinite(asNumber)) checkedAt = asNumber;
+        else {
+          const parsed = Date.parse(trimmed);
+          checkedAt = Number.isFinite(parsed) ? parsed : null;
+        }
+      } else {
+        checkedAt = null;
+      }
+    }
+    if (Number.isFinite(checkedAt)) normalized.checkedAt = Math.floor(checkedAt);
+
+    if (value.message) normalized.message = String(value.message);
+    if (value.code != null && value.code !== '') {
+      const codeNum = Number(value.code);
+      if (Number.isFinite(codeNum)) normalized.code = codeNum;
+    }
+
+    return Object.keys(normalized).length ? normalized : (state ? { state } : null);
+  };
+
+  const normalizeCurrentFilePayload = (input) => {
+    if (typeof input === 'string') {
+      return { path: String(input || '').trim(), status: null, dirty: false, draft: null, draftState: '', loaded: false };
+    }
+    if (input && typeof input === 'object') {
+      const path = input.path != null ? String(input.path || '').trim() : '';
+      const status = normalizeStatusPayload(input.status);
+      const dirty = !!input.dirty;
+      const loaded = !!input.loaded;
+      let draft = null;
+      let draftState = '';
+      if (input.draft && typeof input.draft === 'object') {
+        const savedAtRaw = Number(input.draft.savedAt);
+        const savedAt = Number.isFinite(savedAtRaw) ? savedAtRaw : null;
+        const conflict = !!input.draft.conflict;
+        const hasContent = !!input.draft.hasContent;
+        if (hasContent) {
+          draft = { savedAt, conflict, hasContent };
+          draftState = conflict ? 'conflict' : 'saved';
+        }
+      }
+      return { path, status, dirty, draft, draftState, loaded };
+    }
+    return { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+  };
+
+  const describeStatusLabel = (status) => {
+    if (!status || !status.state) return '';
+    const base = STATUS_LABELS[status.state] || status.state;
+    if (status.state === 'error') {
+      const detail = [];
+      if (status.message) detail.push(String(status.message));
+      if (Number.isFinite(status.code)) detail.push(`HTTP ${status.code}`);
+      return detail.length ? `${base} (${detail.join(' · ')})` : base;
+    }
+    return base;
+  };
+
+  const formatStatusMeta = (status) => {
+    if (!status || !status.state) return '';
+    if (status.state === 'checking') {
+      if (Number.isFinite(status.checkedAt)) {
+        const ts = formatStatusTimestamp(status.checkedAt);
+        return ts ? `Checking… started ${ts}` : 'Checking…';
+      }
+      return 'Checking…';
+    }
+    if (Number.isFinite(status.checkedAt)) {
+      const ts = formatStatusTimestamp(status.checkedAt);
+      return ts ? `Last checked: ${ts}` : '';
+    }
+    return '';
+  };
+
+  const renderCurrentFileIndicator = () => {
+    const el = ensureCurrentFileElement();
+    if (!el) return;
+    const path = currentFileInfo.path ? String(currentFileInfo.path) : '';
+    if (!path) {
+      el.textContent = '';
+      el.removeAttribute('data-file-state');
+      el.removeAttribute('data-last-checked');
+      el.removeAttribute('title');
+      el.removeAttribute('data-dirty');
+      el.removeAttribute('data-draft-state');
+      return;
+    }
+
+    const status = currentFileInfo.status || null;
+    const dirty = !!currentFileInfo.dirty;
+    const draft = currentFileInfo.draft;
+    const draftState = currentFileInfo.draftState || '';
+    const statusLabel = describeStatusLabel(status);
+    const meta = formatStatusMeta(status);
+    const mainPieces = [];
+    mainPieces.push(`<span class="cf-path">${escapeHtml(path)}</span>`);
+    if (statusLabel) {
+      mainPieces.push('<span aria-hidden="true">—</span>');
+      mainPieces.push(`<span class="cf-status">${escapeHtml(statusLabel)}</span>`);
+    }
+    const mainHtml = `<span class="cf-line-main">${mainPieces.join(' ')}</span>`;
+
+    const metaPieces = [];
+    if (meta) metaPieces.push(`<span class="cf-remote">${escapeHtml(meta)}</span>`);
+    let draftLabel = '';
+    if (draft && draft.hasContent) {
+      if (Number.isFinite(draft.savedAt)) {
+        const rel = formatRelativeTime(draft.savedAt);
+        draftLabel = draft.conflict
+          ? (rel ? `Local draft saved ${escapeHtml(rel)} (remote updated)` : 'Local draft (remote updated)')
+          : (rel ? `Local draft saved ${escapeHtml(rel)}` : 'Local draft saved');
+      } else {
+        draftLabel = draft.conflict ? 'Local draft (remote updated)' : 'Local draft available';
+      }
+      metaPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
+    }
+    const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
+    el.innerHTML = `${mainHtml}${metaHtml}`;
+
+    const tooltipParts = [path, statusLabel, meta, draftLabel]
+      .map(part => getPlainText(part))
+      .filter(Boolean);
+    el.setAttribute('title', tooltipParts.join(' — '));
+    if (status && status.state) el.setAttribute('data-file-state', status.state);
+    else el.removeAttribute('data-file-state');
+    if (status && Number.isFinite(status.checkedAt)) el.setAttribute('data-last-checked', String(status.checkedAt));
+    else el.removeAttribute('data-last-checked');
+    if (dirty) el.setAttribute('data-dirty', '1');
+    else el.removeAttribute('data-dirty');
+    if (draftState) el.setAttribute('data-draft-state', draftState);
+    else el.removeAttribute('data-draft-state');
+  };
+
+  const bindCurrentFileElement = (el) => {
+    currentFileElRef = el || null;
+    renderCurrentFileIndicator();
+  };
+
+  const assignCurrentFileLabel = (input) => {
+    currentFileInfo = normalizeCurrentFilePayload(input);
+    renderCurrentFileIndicator();
+  };
+
+  renderCurrentFileIndicator();
+
+  const handleInput = () => {
+    const val = getValue();
+    renderPreview(val);
+    notifyChange(val);
+  };
+
+  if (editor && editor.textarea) editor.textarea.addEventListener('input', handleInput);
+  else if (ta) ta.addEventListener('input', handleInput);
+
+  // If empty, seed default text; otherwise render current content once.
+  const initial = (getValue() || '').trim();
+  if (!initial) {
+    setValue(seed, { notify: false });
+  } else {
+    renderPreview(initial);
+  }
+
+  setBaseDir('');
 
   // View toggle
   document.querySelectorAll('.vt-btn[data-view]').forEach(a => {
@@ -67,9 +668,38 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const mode = a.dataset.view;
       switchView(mode);
-      if (mode === 'preview') update();
+      if (mode === 'preview') renderPreview(getValue());
     });
   });
+
+  const primaryEditorApi = {
+    getValue,
+    setValue: (value, opts = {}) => setValue(value, opts),
+    focus: () => {
+      try {
+        if (editor && typeof editor.focus === 'function') editor.focus();
+        else if (ta && typeof ta.focus === 'function') ta.focus();
+      } catch (_) {}
+    },
+    setView: (mode) => {
+      switchView(mode === 'preview' ? 'preview' : 'edit');
+      if (mode === 'preview') renderPreview(getValue());
+      else requestLayout();
+    },
+    setBaseDir: (dir) => setBaseDir(dir),
+    setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
+    onChange: (fn) => {
+      if (typeof fn !== 'function') return () => {};
+      changeListeners.add(fn);
+      return () => { changeListeners.delete(fn); };
+    },
+    refreshPreview: () => { renderPreview(getValue()); },
+    requestLayout: () => { requestLayout(); },
+    setWrap: (value, opts = {}) => { applyWrapState(value, opts); },
+    isWrapEnabled: () => wrapEnabled
+  };
+
+  try { window.__ns_primary_editor = primaryEditorApi; } catch (_) {}
 
   // Clear draft action removed (no local storage drafts)
 
@@ -114,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeGroup = 'index';
 
     const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
-    const setCurrentFile = (p) => { if (currentFileEl) currentFileEl.textContent = p ? `Loaded: ${p}` : ''; };
+    bindCurrentFileElement(currentFileEl);
 
     const basename = (p) => {
       try { const s = String(p || ''); const i = s.lastIndexOf('/'); return i >= 0 ? s.slice(i + 1) : s; } catch (_) { return String(p || ''); }
@@ -145,15 +775,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const r = await fetch(url, { cache: 'no-store' });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const text = await r.text();
-          if (editor) editor.setValue(text);
-          // Set preview base dir to the directory of the loaded markdown file
           try {
             const lastSlash = relPath.lastIndexOf('/');
             const dir = lastSlash >= 0 ? relPath.slice(0, lastSlash + 1) : '';
-            window.__ns_editor_base_dir = `${contentRoot}/${dir}`.replace(/\\+/g, '/');
-          } catch (_) { window.__ns_editor_base_dir = `${contentRoot}/`; }
-          renderPreview(text);
-          setCurrentFile(`${relPath}`);
+            const base = `${contentRoot}/${dir}`.replace(/\\+/g, '/');
+            setBaseDir(base);
+          } catch (_) {
+            setBaseDir(`${contentRoot}/`);
+          }
+          setValue(text);
+          assignCurrentFileLabel(`${relPath}`);
           if (currentActive) currentActive.classList.remove('is-active');
           currentActive = li; currentActive.classList.add('is-active');
           switchView('edit');
@@ -496,17 +1127,32 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         setStatus('Loading site config…');
         const site = await fetchConfigWithYamlFallback(['site.yaml','site.yml']);
+        editorSiteConfig = site || {};
         contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
-      } catch (_) { contentRoot = 'wwwroot'; }
+      } catch (_) {
+        editorSiteConfig = {};
+        contentRoot = 'wwwroot';
+      }
       // Keep a global hint for content root, and default editor base dir
       try { window.__ns_content_root = contentRoot; } catch (_) {}
       try { window.__ns_editor_base_dir = `${contentRoot}/`; } catch (_) {}
 
       try {
         setStatus('Loading index…');
-        const idx = await fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]);
-        renderGroupedIndex(listIndex, idx);
-      } catch (e) { console.warn('Failed to load index.yaml', e); }
+        const [idxResult, postsResult] = await Promise.allSettled([
+          fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]),
+          loadContentJson(contentRoot, 'index')
+        ]);
+        const rawIndex = idxResult.status === 'fulfilled' ? (idxResult.value || {}) : {};
+        const posts = postsResult.status === 'fulfilled' ? (postsResult.value || {}) : {};
+        renderGroupedIndex(listIndex, rawIndex);
+        rebuildLinkCardContext(posts, rawIndex);
+        if (linkCardReady) refreshPreview();
+        if (idxResult.status === 'rejected') console.warn('Failed to load index.yaml', idxResult.reason);
+        if (postsResult.status === 'rejected') console.warn('Failed to load index metadata', postsResult.reason);
+      } catch (err) {
+        console.warn('Failed to load index data', err);
+      }
 
       try {
         setStatus('Loading tabs…');

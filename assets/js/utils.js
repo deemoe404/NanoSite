@@ -95,15 +95,25 @@ export function sanitizeImageUrl(url) {
 
 export function resolveImageSrc(src, baseDir) {
   const s = String(src || '').trim();
+  if (!s) return '';
   if (/^[a-z][a-z0-9+.-]*:/.test(s) || s.startsWith('/') || s.startsWith('#')) {
     return sanitizeUrl(s);
   }
-  const base = String(baseDir || '').replace(/^\/+|\/+$/g, '') + '/';
+  const stripSlashes = (val) => String(val || '').replace(/^\/+|\/+$/g, '');
+  const normalizedBase = stripSlashes(baseDir);
+  const normalizedRoot = stripSlashes(getContentRoot());
+  const candidate = s.replace(/^\/+/, '');
+
+  // Already normalized relative to either the active base directory or content root
+  if (normalizedBase && candidate.startsWith(`${normalizedBase}/`)) return candidate;
+  if (normalizedRoot && candidate.startsWith(`${normalizedRoot}/`)) return candidate;
+
+  const base = (normalizedBase ? `${normalizedBase}/` : '');
   try {
-    const u = new URL(s, `${location.origin}/${base}`);
+    const u = new URL(candidate, `${location.origin}/${base}`);
     return u.pathname.replace(/^\/+/, '');
   } catch (_) {
-    return `${base}${s}`.replace(/\/+/, '/');
+    return `${base}${candidate}`.replace(/\/+/, '/');
   }
 }
 
@@ -278,9 +288,10 @@ export function renderTags(tagVal) {
 // Safely set sanitized HTML into a target element without using innerHTML.
 // - Prefers the native Sanitizer API when available
 // - Falls back to parsing into a safe DocumentFragment with our allowlist
-export function setSafeHtml(target, html, baseDir) {
+export function setSafeHtml(target, html, baseDir, options = {}) {
   if (!target) return;
   const input = String(html || '');
+  const opts = options && typeof options === 'object' ? options : {};
   try {
     // Prefer native Sanitizer API when available
     if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
@@ -294,7 +305,7 @@ export function setSafeHtml(target, html, baseDir) {
   // 1) First, reduce to an allowlisted HTML string using our string-level sanitizer.
   // 2) Then, build a DOM fragment by tokenizing tags and creating elements/attributes programmatically.
   try {
-    const safeHtml = allowUserHtml(input, baseDir);
+    const safeHtml = opts.alreadySanitized ? input : allowUserHtml(input, baseDir);
 
     // Minimal HTML entity unescape for attribute values we set via setAttribute.
     const unescapeHtml = (s) => String(s || '')
@@ -302,7 +313,42 @@ export function setSafeHtml(target, html, baseDir) {
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#039;/g, "'")
+      .replace(/&#39;/g, "'")
       .replace(/&amp;/g, '&');
+
+    // Decode HTML entities for text nodes so Markdown entities render as characters.
+    const decodeEntities = (() => {
+      const NAMED_ENTITIES = {
+        amp: '&',
+        lt: '<',
+        gt: '>',
+        quot: '"',
+        apos: "'",
+        nbsp: '\u00A0',
+      };
+
+      return (s) => {
+        const str = String(s || '');
+        if (!str) return '';
+
+        return str.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z][\w:-]*);/g, (m, entity) => {
+          if (!entity) return m;
+          if (entity[0] === '#') {
+            const isHex = entity[1] === 'x' || entity[1] === 'X';
+            const num = isHex ? parseInt(entity.slice(2), 16) : parseInt(entity.slice(1), 10);
+            if (!Number.isFinite(num) || num < 0) return m;
+            try {
+              return String.fromCodePoint(num);
+            } catch (_) {
+              return m;
+            }
+          }
+
+          const named = NAMED_ENTITIES[entity.toLowerCase()];
+          return typeof named === 'string' ? named : m;
+        });
+      };
+    })();
 
     const frag = document.createDocumentFragment();
     const stack = [];
@@ -319,7 +365,7 @@ export function setSafeHtml(target, html, baseDir) {
     while ((m = tagRe.exec(safeHtml))) {
       // Text before the tag
       const text = safeHtml.slice(last, m.index);
-      if (text) appendNode(document.createTextNode(text));
+      if (text) appendNode(document.createTextNode(decodeEntities(text)));
       last = tagRe.lastIndex;
 
       const raw = m[0];
@@ -367,7 +413,7 @@ export function setSafeHtml(target, html, baseDir) {
     }
     // Remainder after the last tag
     const tail = safeHtml.slice(last);
-    if (tail) appendNode(document.createTextNode(tail));
+    if (tail) appendNode(document.createTextNode(decodeEntities(tail)));
 
     target.replaceChildren(frag);
   } catch (_) {
