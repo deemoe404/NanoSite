@@ -25,6 +25,18 @@ let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
 
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
+const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
+
+const MARKDOWN_PUSH_LABELS = {
+  default: 'Synchronize',
+  create: 'Create on GitHub',
+  update: 'Synchronize'
+};
+
+const MARKDOWN_DISCARD_LABEL = 'Discard';
+
+let markdownPushButton = null;
+let markdownDiscardButton = null;
 
 let activeComposerState = null;
 let remoteBaseline = { index: null, tabs: null };
@@ -135,6 +147,20 @@ function showToast(kind, text, options = {}) {
   } catch (_) {
     try { alert(text); } catch (__) {}
   }
+}
+
+function setButtonLabel(btn, label) {
+  if (!btn) return;
+  const span = btn.querySelector('.btn-label');
+  if (span) span.textContent = String(label || '');
+  else btn.textContent = String(label || '');
+}
+
+function getButtonLabel(btn) {
+  if (!btn) return '';
+  const span = btn.querySelector('.btn-label');
+  if (span) return span.textContent || '';
+  return btn.textContent || '';
 }
 
 function truncateText(value, max = 60) {
@@ -500,11 +526,366 @@ function writeDraftStore(store) {
   }
 }
 
+function normalizeMarkdownContent(text) {
+  return String(text == null ? '' : text).replace(/\r\n/g, '\n');
+}
+
+function computeTextSignature(text) {
+  const normalized = normalizeMarkdownContent(text || '');
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash * 131 + normalized.charCodeAt(i)) >>> 0; // simple rolling hash
+  }
+  return `${normalized.length}:${hash.toString(16)}`;
+}
+
+function readMarkdownDraftStore() {
+  try {
+    const raw = localStorage.getItem(MARKDOWN_DRAFT_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writeMarkdownDraftStore(store) {
+  try {
+    if (!store || !Object.keys(store).length) {
+      localStorage.removeItem(MARKDOWN_DRAFT_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(MARKDOWN_DRAFT_STORAGE_KEY, JSON.stringify(store));
+  } catch (_) {
+    /* ignore storage errors */
+  }
+}
+
+function getMarkdownDraftEntry(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return null;
+  const store = readMarkdownDraftStore();
+  const entry = store[norm];
+  if (!entry || typeof entry !== 'object') return null;
+  const content = entry.content != null ? normalizeMarkdownContent(entry.content) : '';
+  const savedAt = Number(entry.savedAt);
+  const remoteSignature = entry.remoteSignature ? String(entry.remoteSignature) : '';
+  return {
+    path: norm,
+    content,
+    savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
+    remoteSignature
+  };
+}
+
+function saveMarkdownDraftEntry(path, content, remoteSignature = '') {
+  const norm = normalizeRelPath(path);
+  if (!norm) return null;
+  const text = normalizeMarkdownContent(content);
+  const store = readMarkdownDraftStore();
+  const savedAt = Date.now();
+  store[norm] = { content: text, savedAt, remoteSignature: String(remoteSignature || '') };
+  writeMarkdownDraftStore(store);
+  return { path: norm, content: text, savedAt, remoteSignature: String(remoteSignature || '') };
+}
+
+function clearMarkdownDraftEntry(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return;
+  const store = readMarkdownDraftStore();
+  if (store && Object.prototype.hasOwnProperty.call(store, norm)) {
+    delete store[norm];
+    writeMarkdownDraftStore(store);
+  }
+}
+
+function restoreMarkdownDraftForTab(tab) {
+  if (!tab || !tab.path) return false;
+  try { clearTimeout(tab.markdownDraftTimer); } catch (_) {}
+  tab.markdownDraftTimer = null;
+  const entry = getMarkdownDraftEntry(tab.path);
+  if (!entry) {
+    tab.localDraft = null;
+    tab.draftConflict = false;
+    return false;
+  }
+  tab.localDraft = {
+    content: entry.content,
+    savedAt: entry.savedAt,
+    remoteSignature: entry.remoteSignature || '',
+    manual: !!entry.manual
+  };
+  tab.content = entry.content;
+  tab.draftConflict = false;
+  tab.isDirty = true;
+  updateDynamicTabDirtyState(tab, { autoSave: false });
+  return true;
+}
+
+function saveMarkdownDraftForTab(tab, options = {}) {
+  if (!tab || !tab.path) return null;
+  const text = normalizeMarkdownContent(tab.content || '');
+  const remoteSig = tab.remoteSignature || '';
+  if (!text) {
+    clearMarkdownDraftEntry(tab.path);
+    tab.localDraft = null;
+    tab.draftConflict = false;
+    updateComposerMarkdownDraftIndicators({ path: tab.path });
+    return null;
+  }
+  const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig);
+  if (saved) {
+    tab.localDraft = {
+      content: saved.content,
+      savedAt: saved.savedAt,
+      remoteSignature: saved.remoteSignature,
+      manual: !!options.markManual
+    };
+    updateComposerMarkdownDraftIndicators({ path: tab.path });
+  }
+  return saved;
+}
+
+function clearMarkdownDraftForTab(tab) {
+  if (!tab || !tab.path) return;
+  try {
+    if (tab.markdownDraftTimer) {
+      clearTimeout(tab.markdownDraftTimer);
+      tab.markdownDraftTimer = null;
+    }
+  } catch (_) {
+    tab.markdownDraftTimer = null;
+  }
+  clearMarkdownDraftEntry(tab.path);
+  tab.localDraft = null;
+  tab.draftConflict = false;
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
+}
+
+function scheduleMarkdownDraftSave(tab) {
+  if (!tab) return;
+  if (tab.markdownDraftTimer) {
+    clearTimeout(tab.markdownDraftTimer);
+    tab.markdownDraftTimer = null;
+  }
+  tab.markdownDraftTimer = setTimeout(() => {
+    tab.markdownDraftTimer = null;
+    if (!tab.isDirty) {
+      clearMarkdownDraftForTab(tab);
+      return;
+    }
+    saveMarkdownDraftForTab(tab);
+    if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
+  }, 720);
+}
+
+function flushMarkdownDraft(tab) {
+  if (!tab) return;
+  if (tab.markdownDraftTimer) {
+    clearTimeout(tab.markdownDraftTimer);
+    tab.markdownDraftTimer = null;
+    if (tab.isDirty) {
+      saveMarkdownDraftForTab(tab);
+    }
+  }
+}
+
+function updateDynamicTabDirtyState(tab, options = {}) {
+  if (!tab || !tab.path) return;
+  const normalizedContent = normalizeMarkdownContent(tab.content || '');
+  const baseline = normalizeMarkdownContent(tab.remoteContent || '');
+  const dirty = normalizedContent !== baseline;
+  tab.isDirty = dirty;
+  const conflict = !!(tab.localDraft
+    && tab.localDraft.remoteSignature
+    && tab.remoteSignature
+    && tab.localDraft.remoteSignature !== tab.remoteSignature);
+  tab.draftConflict = conflict;
+  const btn = tab.button;
+  if (btn) {
+    if (dirty) btn.setAttribute('data-dirty', '1');
+    else btn.removeAttribute('data-dirty');
+    if (conflict) btn.setAttribute('data-draft-state', 'conflict');
+    else if (tab.localDraft) btn.setAttribute('data-draft-state', 'saved');
+    else btn.removeAttribute('data-draft-state');
+  }
+  if (!dirty) {
+    clearMarkdownDraftForTab(tab);
+  } else if (options.autoSave !== false) {
+    scheduleMarkdownDraftSave(tab);
+  }
+  if (currentMode === tab.mode) {
+    pushEditorCurrentFileInfo(tab);
+  } else {
+    updateMarkdownPushButton(tab);
+  }
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
+}
+
+function hasUnsavedComposerChanges() {
+  try {
+    if (composerDiffCache && composerDiffCache.index && composerDiffCache.index.hasChanges) return true;
+  } catch (_) {}
+  try {
+    if (composerDiffCache && composerDiffCache.tabs && composerDiffCache.tabs.hasChanges) return true;
+  } catch (_) {}
+  return false;
+}
+
+function hasUnsavedMarkdownDrafts() {
+  for (const tab of dynamicEditorTabs.values()) {
+    if (!tab) continue;
+    if (tab.isDirty) return true;
+    if (tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || '')) return true;
+  }
+  try {
+    const store = readMarkdownDraftStore();
+    if (store && Object.keys(store).length) return true;
+  } catch (_) {}
+  return false;
+}
+
+function handleBeforeUnload(event) {
+  try {
+    dynamicEditorTabs.forEach(tab => { flushMarkdownDraft(tab); });
+  } catch (_) {}
+  if (hasUnsavedComposerChanges() || hasUnsavedMarkdownDrafts()) {
+    try {
+      event.preventDefault();
+    } catch (_) {}
+    event.returnValue = '';
+  }
+}
+
+try {
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  }
+} catch (_) {}
+
+
+
 function cssEscape(value) {
   try {
     if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value);
   } catch (_) {}
   return safeString(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+function collectDynamicMarkdownDraftStates() {
+  const map = new Map();
+  dynamicEditorTabs.forEach(tab => {
+    if (!tab || !tab.path) return;
+    const norm = normalizeRelPath(tab.path);
+    if (!norm) return;
+    if (tab.draftConflict) map.set(norm, 'conflict');
+    else if (tab.isDirty) map.set(norm, 'dirty');
+    else if (tab.localDraft) map.set(norm, 'saved');
+  });
+  return map;
+}
+
+function getDraftIndicatorMessage(state) {
+  switch (state) {
+    case 'conflict':
+      return 'Local draft conflicts with remote file';
+    case 'dirty':
+      return 'Unsaved changes pending in editor';
+    case 'saved':
+      return 'Local draft saved in browser';
+    default:
+      return '';
+  }
+}
+
+function updateComposerDraftContainerState(container) {
+  if (!container) return;
+  let childState = '';
+  if (container.querySelector('.ct-lang[data-draft-state="conflict"], .ci-ver-item[data-draft-state="conflict"]')) {
+    childState = 'conflict';
+  } else if (container.querySelector('.ct-lang[data-draft-state="dirty"], .ci-ver-item[data-draft-state="dirty"]')) {
+    childState = 'dirty';
+  } else {
+    childState = '';
+  }
+  if (childState) container.setAttribute('data-child-draft', childState);
+  else container.removeAttribute('data-child-draft');
+}
+
+function applyComposerDraftIndicatorState(el, state) {
+  if (!el) return;
+  const indicator = el.querySelector('.ct-draft-indicator, .ci-draft-indicator');
+  const value = state ? String(state) : '';
+  if (value) el.setAttribute('data-draft-state', value);
+  else el.removeAttribute('data-draft-state');
+  if (!indicator) return;
+  if (value) {
+    indicator.hidden = false;
+    indicator.dataset.state = value;
+    const label = getDraftIndicatorMessage(value);
+    if (label) {
+      indicator.setAttribute('title', label);
+      indicator.setAttribute('aria-label', label);
+      indicator.setAttribute('role', 'img');
+    } else {
+      indicator.removeAttribute('title');
+      indicator.removeAttribute('aria-label');
+      indicator.removeAttribute('role');
+    }
+  } else {
+    indicator.hidden = true;
+    indicator.dataset.state = '';
+    indicator.removeAttribute('title');
+    indicator.removeAttribute('aria-label');
+    indicator.removeAttribute('role');
+  }
+  updateComposerDraftContainerState(el.closest('.ct-item, .ci-item'));
+}
+
+function updateComposerMarkdownDraftIndicators(options = {}) {
+  const store = options.store || readMarkdownDraftStore();
+  const overrides = options.overrideMap || collectDynamicMarkdownDraftStates();
+  const normalizedPath = options.path ? normalizeRelPath(options.path) : '';
+  const selectors = ['.ct-lang', '.ci-ver-item'];
+
+  const updateElement = (el) => {
+    if (!el) return;
+    const raw = el.dataset ? el.dataset.mdPath : '';
+    const path = normalizeRelPath(raw);
+    if (path) el.dataset.mdPath = path;
+    else delete el.dataset.mdPath;
+    let state = '';
+    if (path) {
+      if (overrides && overrides.has(path)) {
+        state = overrides.get(path) || '';
+      } else if (store && Object.prototype.hasOwnProperty.call(store, path)) {
+        state = 'saved';
+      }
+    }
+    applyComposerDraftIndicatorState(el, state);
+  };
+
+  if (options.element) {
+    updateElement(options.element);
+  }
+
+  if (normalizedPath) {
+    selectors.forEach(sel => {
+      const query = `${sel}[data-md-path="${cssEscape(normalizedPath)}"]`;
+      $$(query).forEach(el => {
+        if (options.element && el === options.element) return;
+        updateElement(el);
+      });
+    });
+    return;
+  }
+
+  if (options.element) return;
+
+  selectors.forEach(sel => {
+    $$( `${sel}[data-md-path]` ).forEach(updateElement);
+  });
 }
 
 function getStateSlice(kind) {
@@ -1673,6 +2054,7 @@ function rebuildIndexUI(preserveOpen = true) {
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
   notifyComposerChange('index', { skipAutoSave: true });
+  updateComposerMarkdownDraftIndicators();
 }
 
 function rebuildTabsUI(preserveOpen = true) {
@@ -1696,6 +2078,7 @@ function rebuildTabsUI(preserveOpen = true) {
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
   notifyComposerChange('tabs', { skipAutoSave: true });
+  updateComposerMarkdownDraftIndicators();
 }
 
 function loadDraftSnapshotsIntoState(state) {
@@ -2122,7 +2505,10 @@ function ensurePrimaryEditorListener() {
   detachPrimaryEditorListener = api.onChange((value) => {
     if (!activeDynamicMode) return;
     const tab = dynamicEditorTabs.get(activeDynamicMode);
-    if (tab) tab.content = value;
+    if (tab) {
+      tab.content = value;
+      updateDynamicTabDirtyState(tab);
+    }
   });
 }
 
@@ -2154,6 +2540,14 @@ function basenameFromPath(relPath) {
   return idx >= 0 ? norm.slice(idx + 1) : norm;
 }
 
+function dirnameFromPath(relPath) {
+  const norm = normalizeRelPath(relPath);
+  if (!norm) return '';
+  const idx = norm.lastIndexOf('/');
+  if (idx <= 0) return '';
+  return norm.slice(0, idx);
+}
+
 function getContentRootSafe() {
   try {
     const root = window.__ns_content_root;
@@ -2173,8 +2567,24 @@ function computeBaseDirForPath(relPath) {
   return base.endsWith('/') ? base : `${base}/`;
 }
 
+function encodeGitHubPath(path) {
+  const clean = String(path || '')
+    .replace(/[\\]/g, '/')
+    .replace(/^\/+/g, '')
+    .replace(/\/+/g, '/')
+    .replace(/\/?$/, '');
+  if (!clean) return '';
+  return clean.split('/').map(part => encodeURIComponent(part)).join('/');
+}
+
 function isDynamicMode(mode) {
   return !!(mode && dynamicEditorTabs.has(mode));
+}
+
+function getActiveDynamicTab() {
+  if (!activeDynamicMode) return null;
+  const tab = dynamicEditorTabs.get(activeDynamicMode);
+  return tab || null;
 }
 
 function persistDynamicEditorState() {
@@ -2249,14 +2659,348 @@ function setTabLoadingState(tab, isLoading) {
 
 const TAB_STATE_VALUES = new Set(['checking', 'existing', 'missing', 'error']);
 
+function updateMarkdownPushButton(tab) {
+  if (!markdownPushButton) {
+    markdownPushButton = document.getElementById('btnPushMarkdown');
+  }
+  if (!markdownPushButton) return;
+
+  const btn = markdownPushButton;
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  const hasRepo = !!(owner && name);
+
+  const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  const hasDraftContent = !!(active && active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+  const hasDirty = !!(active && active.isDirty);
+  const hasLocalChanges = !!(active && active.path && (hasDirty || hasDraftContent));
+
+  if (!hasLocalChanges) {
+    try { btn.classList.remove('is-busy'); } catch (_) {}
+    btn.hidden = true;
+    btn.setAttribute('aria-hidden', 'true');
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+    btn.removeAttribute('aria-busy');
+    btn.removeAttribute('data-state');
+    btn.removeAttribute('title');
+    return;
+  }
+
+  btn.hidden = false;
+  btn.removeAttribute('aria-hidden');
+  btn.removeAttribute('aria-busy');
+
+  const state = active && active.fileStatus && active.fileStatus.state
+    ? String(active.fileStatus.state)
+    : '';
+
+  let label = MARKDOWN_PUSH_LABELS.default;
+  if (state === 'missing') label = MARKDOWN_PUSH_LABELS.create;
+  else if (state) label = MARKDOWN_PUSH_LABELS.update;
+  else if (active && active.path) label = MARKDOWN_PUSH_LABELS.update;
+
+  let disabled = false;
+  let tooltip = '';
+
+  if (!hasRepo) {
+    disabled = true;
+    tooltip = 'Configure repo in site.yaml to enable GitHub push.';
+  } else if (!active || !active.path) {
+    disabled = true;
+    tooltip = 'Open a markdown file to enable GitHub push.';
+  } else if (state === 'error') {
+    disabled = true;
+    tooltip = 'Resolve file load error before pushing to GitHub.';
+  } else if (!active.loaded) {
+    tooltip = active.pending ? 'Checking remote version…' : 'Loading remote snapshot…';
+  } else {
+    tooltip = state === 'missing'
+      ? 'Copy draft and create this file on GitHub.'
+      : 'Copy draft and update this file on GitHub.';
+  }
+
+  const busy = btn.classList.contains('is-busy');
+  if (busy) disabled = true;
+
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  if (!busy && label) setButtonLabel(btn, label);
+  if (tooltip) btn.title = tooltip;
+  else btn.removeAttribute('title');
+  btn.setAttribute('aria-label', tooltip || label);
+
+  if (state) btn.setAttribute('data-state', state);
+  else btn.removeAttribute('data-state');
+}
+
+function updateMarkdownDiscardButton(tab) {
+  if (!markdownDiscardButton) {
+    markdownDiscardButton = document.getElementById('btnDiscardMarkdown');
+  }
+  if (!markdownDiscardButton) return;
+
+  const btn = markdownDiscardButton;
+  const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  const hasBusy = btn.classList.contains('is-busy');
+
+  const hasDraftContent = !!(active && active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+  const dirty = !!(active && active.isDirty);
+  const hasLocalChanges = !!(active && active.path && active.mode === currentMode && (dirty || hasDraftContent));
+
+  if (!hasLocalChanges) {
+    if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+    try { btn.classList.remove('is-busy'); } catch (_) {}
+    btn.hidden = true;
+    btn.setAttribute('aria-hidden', 'true');
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+    btn.removeAttribute('aria-busy');
+    btn.removeAttribute('title');
+    btn.setAttribute('aria-label', MARKDOWN_DISCARD_LABEL);
+    return;
+  }
+
+  btn.hidden = false;
+  btn.removeAttribute('aria-hidden');
+  btn.removeAttribute('aria-busy');
+
+  let disabled = false;
+  let tooltip = 'Discard local markdown changes and restore the last loaded version.';
+
+  if (!active || !active.path) {
+    disabled = true;
+    tooltip = 'Open a markdown file to discard local changes.';
+  } else if (!active.loaded && !active.pending) {
+    tooltip = 'Discard local markdown changes (remote snapshot will be reloaded).';
+  }
+
+  if (hasBusy) disabled = true;
+
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+  if (tooltip) btn.title = tooltip;
+  else btn.removeAttribute('title');
+  btn.setAttribute('aria-label', tooltip || MARKDOWN_DISCARD_LABEL);
+}
+
+async function openMarkdownPushOnGitHub(tab) {
+  if (!tab || !tab.path) {
+    showToast('info', 'Open a markdown file before pushing to GitHub.');
+    return;
+  }
+
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  if (!owner || !name) {
+    showToast('info', 'Configure repo in site.yaml to enable GitHub push.');
+    return;
+  }
+
+  try {
+    if (tab.pending) {
+      await tab.pending;
+    } else if (!tab.loaded) {
+      await loadDynamicTabContent(tab);
+    }
+  } catch (err) {
+    console.error('Failed to prepare markdown before pushing to GitHub', err);
+    showToast('error', 'Unable to load the latest markdown before pushing.');
+    updateMarkdownPushButton(tab);
+    return;
+  }
+
+  if (!tab.loaded) {
+    showToast('error', 'Markdown file is not ready to push yet.');
+    return;
+  }
+
+  const branch = String(repo.branch || 'main').trim() || 'main';
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) {
+    showToast('error', 'Invalid markdown path.');
+    return;
+  }
+
+  const contentPath = `${root}/${rel}`.replace(/[\\]+/g, '/').replace(/^\/+/g, '');
+  const encodedContentPath = encodeGitHubPath(contentPath);
+  const folder = dirnameFromPath(rel);
+  const fullFolder = [root, folder].filter(Boolean).join('/');
+  const encodedFolder = encodeGitHubPath(fullFolder);
+  const filename = basenameFromPath(rel) || 'main.md';
+
+  const base = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const branchPart = encodeURIComponent(branch);
+  const remoteState = tab.fileStatus && tab.fileStatus.state ? String(tab.fileStatus.state) : '';
+  const isCreate = remoteState === 'missing';
+
+  let href = '';
+  if (isCreate) {
+    href = encodedFolder
+      ? `${base}/new/${branchPart}/${encodedFolder}?filename=${encodeURIComponent(filename)}`
+      : `${base}/new/${branchPart}?filename=${encodeURIComponent(filename)}`;
+  } else {
+    href = encodedContentPath
+      ? `${base}/edit/${branchPart}/${encodedContentPath}`
+      : `${base}/edit/${branchPart}`;
+  }
+
+  if (!href) {
+    showToast('error', 'Unable to resolve GitHub URL for this file.');
+    return;
+  }
+
+  const editorApi = getPrimaryEditorApi();
+  if (editorApi && typeof editorApi.getValue === 'function' && currentMode === tab.mode) {
+    try { tab.content = String(editorApi.getValue() || ''); }
+    catch (_) {}
+  }
+
+  try { nsCopyToClipboard(tab.content != null ? String(tab.content) : ''); }
+  catch (_) {}
+
+  try {
+    window.open(href, '_blank', 'noopener');
+  } catch (_) {
+    try { window.location.href = href; }
+    catch (__) {}
+  }
+
+  const message = isCreate
+    ? 'Markdown copied. GitHub will open to create this file.'
+    : 'Markdown copied. GitHub will open to update this file.';
+  showToast('info', message);
+
+  updateMarkdownPushButton(tab);
+}
+
+async function discardMarkdownLocalChanges(tab, anchor) {
+  const active = (tab && tab.path) ? tab : getActiveDynamicTab();
+  if (!active || !active.path) {
+    showToast('info', 'Open a markdown file before discarding local changes.');
+    updateMarkdownDiscardButton(null);
+    return;
+  }
+
+  flushMarkdownDraft(active);
+  const hasDraftContent = !!(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
+  const dirty = !!active.isDirty;
+  if (!dirty && !hasDraftContent) {
+    showToast('info', 'No local markdown changes to discard.');
+    updateMarkdownDiscardButton(active);
+    return;
+  }
+
+  const label = active.path || 'current file';
+  const trigger = anchor && typeof anchor.closest === 'function' ? anchor.closest('button') : anchor;
+  const control = trigger || markdownDiscardButton;
+  const promptMessage = `Discard local changes for ${label}? This action cannot be undone.`;
+
+  let proceed = true;
+  try {
+    proceed = await showComposerDiscardConfirm(control, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+  } catch (err) {
+    console.warn('Markdown discard prompt failed, falling back to native confirm', err);
+    try {
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        proceed = window.confirm(promptMessage);
+      }
+    } catch (_) {
+      proceed = true;
+    }
+  }
+  if (!proceed) return;
+
+  const button = control || markdownDiscardButton;
+  const originalLabel = getButtonLabel(button) || MARKDOWN_DISCARD_LABEL;
+  const setBusyState = (busy, text) => {
+    if (!button) return;
+    if (busy) {
+      button.classList.add('is-busy');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.setAttribute('aria-disabled', 'true');
+      if (text) setButtonLabel(button, text);
+    } else {
+      button.classList.remove('is-busy');
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.setAttribute('aria-disabled', 'false');
+      if (text) setButtonLabel(button, text);
+    }
+  };
+
+  setBusyState(true, 'Discarding…');
+
+  try {
+    if (active.pending) {
+      try { await active.pending; }
+      catch (_) {}
+    } else if (!active.loaded) {
+      try { await loadDynamicTabContent(active); }
+      catch (err) { console.warn('Discard: failed to refresh markdown before reset', err); }
+    }
+
+    try {
+      if (active.markdownDraftTimer) {
+        clearTimeout(active.markdownDraftTimer);
+        active.markdownDraftTimer = null;
+      }
+    } catch (_) {}
+
+    const baseline = normalizeMarkdownContent(active.remoteContent != null ? active.remoteContent : '');
+    active.content = baseline;
+    clearMarkdownDraftForTab(active);
+    active.isDirty = false;
+    active.draftConflict = false;
+
+    const editorApi = getPrimaryEditorApi();
+    if (editorApi && currentMode === active.mode) {
+      editorApi.setValue(baseline, { notify: true });
+      try { editorApi.focus(); } catch (_) {}
+    } else {
+      updateDynamicTabDirtyState(active, { autoSave: false });
+    }
+
+    showToast('success', `Discarded local changes for ${label}.`);
+  } catch (err) {
+    console.error('Failed to discard markdown changes', err);
+    showToast('error', 'Failed to discard local markdown changes.');
+  } finally {
+    setBusyState(false, originalLabel || MARKDOWN_DISCARD_LABEL);
+    updateMarkdownDiscardButton(active);
+    updateMarkdownPushButton(active);
+  }
+}
+
 function pushEditorCurrentFileInfo(tab) {
   const editorApi = getPrimaryEditorApi();
   if (!editorApi || typeof editorApi.setCurrentFileLabel !== 'function') return;
   const payload = tab
-    ? { path: tab.path || '', status: tab.fileStatus || null }
-    : { path: '', status: null };
+    ? {
+        path: tab.path || '',
+        status: tab.fileStatus || null,
+        dirty: !!tab.isDirty,
+        loaded: !!tab.loaded,
+        draft: tab.localDraft
+          ? {
+              savedAt: Number(tab.localDraft.savedAt) || Date.now(),
+              conflict: !!tab.draftConflict,
+              hasContent: true,
+              remoteSignature: tab.localDraft.remoteSignature || ''
+            }
+          : null
+      }
+    : { path: '', status: null, dirty: false, draft: null };
   try { editorApi.setCurrentFileLabel(payload); }
   catch (_) {}
+  const activeTab = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  updateMarkdownPushButton(activeTab);
+  updateMarkdownDiscardButton(activeTab);
 }
 
 function setDynamicTabStatus(tab, status) {
@@ -2290,11 +3034,62 @@ function setDynamicTabStatus(tab, status) {
   if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
 }
 
-function closeDynamicTab(modeId) {
+async function closeDynamicTab(modeId, options = {}) {
   const tab = dynamicEditorTabs.get(modeId);
-  if (!tab) return;
+  if (!tab) return false;
+
+  const opts = options && typeof options === 'object' ? options : {};
+  const hasLocalDraft = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
+  const hasDirty = !!tab.isDirty;
+
+  const resolveAnchor = (candidate) => {
+    if (!candidate) return null;
+    if (typeof candidate.getBoundingClientRect === 'function') return candidate;
+    if (typeof candidate.closest === 'function') {
+      const btnEl = candidate.closest('button');
+      if (btnEl && typeof btnEl.getBoundingClientRect === 'function') return btnEl;
+    }
+    return null;
+  };
+
+  let anchorEl = resolveAnchor(opts.anchor);
+  if (!anchorEl && tab.button && typeof tab.button.getBoundingClientRect === 'function') {
+    anchorEl = tab.button;
+  }
+
+  if (!opts.force && (hasDirty || hasLocalDraft)) {
+    const ref = tab.path || tab.label || 'this file';
+    const promptMessage = `Close ${ref}? Closing this tab will discard local markdown changes.`;
+    let proceed = true;
+    const runNativeConfirm = () => {
+      try {
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+          return window.confirm(promptMessage);
+        }
+      } catch (_) {
+        return true;
+      }
+      return true;
+    };
+
+    if (anchorEl) {
+      try {
+        proceed = await showComposerDiscardConfirm(anchorEl, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+      } catch (err) {
+        console.warn('Markdown tab close prompt failed, falling back to native confirm', err);
+        proceed = runNativeConfirm();
+      }
+    } else {
+      proceed = runNativeConfirm();
+    }
+
+    if (!proceed) return false;
+  }
+
+  clearMarkdownDraftForTab(tab);
+
   dynamicEditorTabs.delete(modeId);
-  dynamicEditorTabsByPath.delete(tab.path);
+  if (tab.path) dynamicEditorTabsByPath.delete(tab.path);
   try { tab.button?.remove(); } catch (_) {}
 
   const wasActive = (currentMode === modeId);
@@ -2312,6 +3107,10 @@ function closeDynamicTab(modeId) {
   } else {
     persistDynamicEditorState();
   }
+  updateMarkdownPushButton(getActiveDynamicTab());
+  updateMarkdownDiscardButton(getActiveDynamicTab());
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
+  return true;
 }
 
 function getOrCreateDynamicMode(path) {
@@ -2351,10 +3150,17 @@ function getOrCreateDynamicMode(path) {
     label,
     baseDir: computeBaseDirForPath(normalized),
     content: '',
+    remoteContent: '',
+    remoteSignature: '',
     loaded: false,
     pending: null,
-    fileStatus: null
+    fileStatus: null,
+    localDraft: null,
+    draftConflict: false,
+    markdownDraftTimer: null,
+    isDirty: false
   };
+  restoreMarkdownDraftForTab(data);
   dynamicEditorTabs.set(modeId, data);
   dynamicEditorTabsByPath.set(normalized, modeId);
 
@@ -2363,7 +3169,10 @@ function getOrCreateDynamicMode(path) {
     if (target && target.closest && target.closest('.mode-tab-close')) {
       event.preventDefault();
       event.stopPropagation();
-      closeDynamicTab(modeId);
+      const anchor = (target.closest && target.closest('button')) || btn;
+      closeDynamicTab(modeId, { anchor }).catch((err) => {
+        console.warn('Failed to close markdown tab', err);
+      });
       return;
     }
     applyMode(modeId);
@@ -2372,7 +3181,9 @@ function getOrCreateDynamicMode(path) {
   btn.addEventListener('keydown', (event) => {
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
-      closeDynamicTab(modeId);
+      closeDynamicTab(modeId, { anchor: btn }).catch((err) => {
+        console.warn('Failed to close markdown tab', err);
+      });
     }
   });
 
@@ -2410,14 +3221,17 @@ async function loadDynamicTabContent(tab) {
     const checkedAt = Date.now();
 
     if (res.status === 404) {
-      tab.content = '';
+      tab.remoteContent = '';
+      tab.remoteSignature = computeTextSignature('');
       tab.loaded = true;
+      if (!tab.localDraft || !tab.localDraft.content) tab.content = '';
       setDynamicTabStatus(tab, {
         state: 'missing',
         checkedAt,
         message: 'File not found on server',
         code: 404
       });
+      updateDynamicTabDirtyState(tab, { autoSave: !tab.localDraft });
       return tab.content;
     }
 
@@ -2433,14 +3247,19 @@ async function loadDynamicTabContent(tab) {
       throw err;
     }
 
-    const text = await res.text();
-    tab.content = String(text || '');
+    const text = normalizeMarkdownContent(await res.text());
+    tab.remoteContent = text;
+    tab.remoteSignature = computeTextSignature(text);
     tab.loaded = true;
+    if (!tab.localDraft || !tab.localDraft.content) {
+      tab.content = text;
+    }
     setDynamicTabStatus(tab, {
       state: 'existing',
       checkedAt,
       code: res.status
     });
+    updateDynamicTabDirtyState(tab, { autoSave: !tab.localDraft });
     return tab.content;
   };
 
@@ -2551,22 +3370,23 @@ function applyMode(mode) {
 
       const applyContent = (text) => {
         tab.content = String(text || '');
-        tab.loaded = true;
         if (currentMode === nextMode) {
           editorApi.setValue(tab.content, { notify: false });
           scheduleEditorLayoutRefresh();
           try { editorApi.focus(); } catch (_) {}
           try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
           catch (_) { window.scrollTo(0, 0); }
+          updateDynamicTabDirtyState(tab, { autoSave: false });
         }
       };
 
-      if (tab.loaded) {
+      if (tab.loaded || (tab.localDraft && tab.localDraft.content)) {
         applyContent(tab.content);
       } else {
         setTabLoadingState(tab, true);
         loadDynamicTabContent(tab).then((text) => {
           setTabLoadingState(tab, false);
+          if (currentMode !== nextMode) return;
           applyContent(text);
         }).catch((err) => {
           setTabLoadingState(tab, false);
@@ -3171,7 +3991,11 @@ function buildIndexUI(root, state) {
           row.dataset.lang = lang;
           row.dataset.index = String(i);
           row.dataset.value = p || '';
+          const normalizedPath = normalizeRelPath(p);
+          if (normalizedPath) row.dataset.mdPath = normalizedPath;
+          else delete row.dataset.mdPath;
           row.innerHTML = `
+            <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
             <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
             <span class="ci-ver-actions">
               <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
@@ -3180,18 +4004,26 @@ function buildIndexUI(root, state) {
                 <button class="btn-secondary ci-remove" title="Remove">✕</button>
               </span>
             `;
-            const up = $('.ci-up', row);
-            const down = $('.ci-down', row);
-            // Disable ↑ for first, ↓ for last
-            if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
-            if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+          const up = $('.ci-up', row);
+          const down = $('.ci-down', row);
+          // Disable ↑ for first, ↓ for last
+          if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
+          if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+          updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
 
-            $('.ci-path', row).addEventListener('input', (e) => {
-              arr[i] = e.target.value;
-              entry[lang] = arr.slice();
-              row.dataset.value = arr[i] || '';
-              markDirty();
-            });
+          $('.ci-path', row).addEventListener('input', (e) => {
+            const prevPath = row.dataset.mdPath || '';
+            arr[i] = e.target.value;
+            entry[lang] = arr.slice();
+            row.dataset.value = arr[i] || '';
+            const nextPath = normalizeRelPath(arr[i]);
+            if (nextPath) row.dataset.mdPath = nextPath;
+            else delete row.dataset.mdPath;
+            updateComposerMarkdownDraftIndicators({ element: row });
+            if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
+            if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
+            markDirty();
+          });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
               if (!rel) {
@@ -3223,14 +4055,15 @@ function buildIndexUI(root, state) {
               arr.splice(i, 1);
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
-              renderVers(prev);
-              markDirty();
-            });
-            verList.appendChild(row);
-          });
-          animateFrom(prevRects);
-        };
-        renderVers();
+        renderVers(prev);
+        markDirty();
+      });
+      verList.appendChild(row);
+    });
+    animateFrom(prevRects);
+    updateComposerDraftContainerState(verList.closest('.ci-item'));
+  };
+  renderVers();
         $('.ci-lang-addver', block).addEventListener('click', () => {
           const prev = snapRects();
           arr.push('');
@@ -3309,6 +4142,7 @@ function buildIndexUI(root, state) {
         });
         bodyInner.appendChild(addLangWrap);
       }
+      updateComposerDraftContainerState(row);
     };
     renderBody();
 
@@ -3384,8 +4218,12 @@ function buildTabsUI(root, state) {
         const block = document.createElement('div');
         block.className = 'ct-lang';
         block.dataset.lang = lang;
+        const initialPath = normalizeRelPath(v.location);
+        if (initialPath) block.dataset.mdPath = initialPath;
+        else delete block.dataset.mdPath;
         block.innerHTML = `
           <div class="ct-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
+            <span class="ct-draft-indicator" aria-hidden="true" hidden></span>
             ${flagSpan}
             <span class="ct-lang-code" aria-hidden="true">${lang.toUpperCase()}</span>
           </div>
@@ -3408,14 +4246,22 @@ function buildTabsUI(root, state) {
           locInput.dataset.lang = lang;
           locInput.dataset.field = 'location';
         }
+        updateComposerMarkdownDraftIndicators({ element: block, path: initialPath });
         titleInput.addEventListener('input', (e) => {
           entry[lang] = entry[lang] || {};
           entry[lang].title = e.target.value;
           markDirty();
         });
         locInput.addEventListener('input', (e) => {
+          const prevPath = block.dataset.mdPath || '';
           entry[lang] = entry[lang] || {};
           entry[lang].location = e.target.value;
+          const nextPath = normalizeRelPath(e.target.value);
+          if (nextPath) block.dataset.mdPath = nextPath;
+          else delete block.dataset.mdPath;
+          updateComposerMarkdownDraftIndicators({ element: block });
+          if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
+          if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
           markDirty();
         });
         $('.ct-edit', block).addEventListener('click', () => {
@@ -3494,6 +4340,7 @@ function buildTabsUI(root, state) {
         });
         bodyInner.appendChild(addLangWrap);
       }
+      updateComposerDraftContainerState(row);
     };
     renderBody();
 
@@ -4819,6 +5666,63 @@ function showStatus(msg, kind = 'info') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const pushBtn = document.getElementById('btnPushMarkdown');
+  if (pushBtn) {
+    markdownPushButton = pushBtn;
+    pushBtn.addEventListener('click', async (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      const active = getActiveDynamicTab();
+      if (!active) {
+        showToast('info', 'Open a markdown file before pushing to GitHub.');
+        return;
+      }
+
+      const button = markdownPushButton;
+      const originalLabel = getButtonLabel(button) || MARKDOWN_PUSH_LABELS.default;
+      const setBusyState = (busy, text) => {
+        if (!button) return;
+        if (busy) {
+          button.classList.add('is-busy');
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+          button.setAttribute('aria-disabled', 'true');
+          if (text) setButtonLabel(button, text);
+        } else {
+          button.classList.remove('is-busy');
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+          button.setAttribute('aria-disabled', 'false');
+          if (text) setButtonLabel(button, text);
+        }
+      };
+
+      setBusyState(true, 'Preparing…');
+      try {
+        await openMarkdownPushOnGitHub(active);
+      } finally {
+        setBusyState(false, originalLabel);
+        updateMarkdownPushButton(active);
+      }
+    });
+    updateMarkdownPushButton(getActiveDynamicTab());
+  }
+
+  const discardBtn = document.getElementById('btnDiscardMarkdown');
+  if (discardBtn) {
+    markdownDiscardButton = discardBtn;
+    discardBtn.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      discardMarkdownLocalChanges(null, discardBtn);
+    });
+    updateMarkdownDiscardButton(getActiveDynamicTab());
+  }
+
+  try {
+    if (!window.__ns_site_repo || typeof window.__ns_site_repo !== 'object') {
+      window.__ns_site_repo = { owner: '', name: '', branch: 'main' };
+    }
+  } catch (_) {}
+
   const state = { index: {}, tabs: {} };
   showStatus('Loading config…');
   try {
@@ -4829,6 +5733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const repo = (site && site.repo) || {};
       window.__ns_site_repo = { owner: String(repo.owner || ''), name: String(repo.name || ''), branch: String(repo.branch || 'main') };
     } catch(_) { window.__ns_site_repo = { owner: '', name: '', branch: 'main' }; }
+    updateMarkdownPushButton(getActiveDynamicTab());
     const [idx, tbs] = await Promise.all([
       fetchConfigWithYamlFallback([`${root}/index.yaml`, `${root}/index.yml`]),
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
@@ -4845,6 +5750,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     remoteBaseline.tabs = { __order: [] };
     state.index = { __order: [] };
     state.tabs = { __order: [] };
+    updateMarkdownPushButton(getActiveDynamicTab());
   }
 
   activeComposerState = state;
@@ -4878,6 +5784,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-head,.ct-head{border-bottom:none;}
   .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
+  .ci-key,.ct-key{transition:color .18s ease;}
   .ci-body,.ct-body{display:none;padding:.5rem .6rem;}
   .ci-body-inner,.ct-body-inner{overflow:visible;}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
@@ -4892,6 +5799,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ct-lang-label{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .6rem;background:color-mix(in srgb, var(--text) 14%, var(--card));color:var(--text);min-width:78px;white-space:nowrap;font-weight:700;border-radius:6px 0 0 6px;}
   .ct-lang-label .ct-lang-flag{font-size:1.25rem;line-height:1;transform:translateY(-1px);}
   .ct-lang-label .ct-lang-code{font-size:.9rem;font-weight:700;letter-spacing:.045em;}
+  .ci-item[data-child-draft="dirty"] .ci-key,.ct-item[data-child-draft="dirty"] .ct-key{color:#f97316;}
+  .ci-item[data-child-draft="conflict"] .ci-key,.ct-item[data-child-draft="conflict"] .ct-key{color:#ef4444;}
+  .ct-draft-indicator,.ci-draft-indicator{display:inline-flex;width:.55rem;height:.55rem;border-radius:999px;background:color-mix(in srgb,var(--muted) 48%, transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 14%, transparent);flex:0 0 auto;opacity:0;transform:scale(.6);transition:opacity .18s ease, transform .18s ease, background-color .18s ease, box-shadow .18s ease;}
+  .ct-draft-indicator[hidden],.ci-draft-indicator[hidden]{display:none;}
+  .ct-lang[data-draft-state] .ct-draft-indicator,.ci-ver-item[data-draft-state] .ci-draft-indicator{opacity:1;transform:scale(.95);}
+  .ct-lang[data-draft-state="dirty"] .ct-draft-indicator,.ci-ver-item[data-draft-state="dirty"] .ci-draft-indicator{background:#f97316;box-shadow:0 0 0 3px color-mix(in srgb,#f97316 22%, transparent);}
+  .ct-lang[data-draft-state="saved"] .ct-draft-indicator,.ci-ver-item[data-draft-state="saved"] .ci-draft-indicator{background:#22c55e;box-shadow:0 0 0 3px color-mix(in srgb,#22c55e 20%, transparent);}
+  .ct-lang[data-draft-state="conflict"] .ct-draft-indicator,.ci-ver-item[data-draft-state="conflict"] .ci-draft-indicator{background:#ef4444;box-shadow:0 0 0 3px color-mix(in srgb,#ef4444 25%, transparent);}
   .ct-lang-main{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:.5rem;align-items:center;padding:.35rem .6rem .35rem .75rem;}
   .ct-field{display:flex;align-items:center;gap:.4rem;font-weight:600;color:color-mix(in srgb, var(--text) 65%, transparent);white-space:nowrap;}
   .ct-field input{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;}
