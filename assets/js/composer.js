@@ -649,6 +649,14 @@ function saveMarkdownDraftForTab(tab, options = {}) {
 
 function clearMarkdownDraftForTab(tab) {
   if (!tab || !tab.path) return;
+  try {
+    if (tab.markdownDraftTimer) {
+      clearTimeout(tab.markdownDraftTimer);
+      tab.markdownDraftTimer = null;
+    }
+  } catch (_) {
+    tab.markdownDraftTimer = null;
+  }
   clearMarkdownDraftEntry(tab.path);
   tab.localDraft = null;
   tab.draftConflict = false;
@@ -3031,20 +3039,19 @@ function closeDynamicTab(modeId, options = {}) {
   if (!tab) return;
 
   const opts = options && typeof options === 'object' ? options : {};
-  if (!opts.force) {
-    flushMarkdownDraft(tab);
-    const hasLocalDraft = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
-    const hasDirty = !!tab.isDirty;
-    if (hasDirty || hasLocalDraft) {
-      let proceed = true;
-      try {
-        proceed = window.confirm(`Close ${tab.path}? Unsaved local changes will be kept in local storage, but closing now will hide this tab.`);
-      } catch (_) {
-        proceed = true;
-      }
-      if (!proceed) return;
+  const hasLocalDraft = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
+  const hasDirty = !!tab.isDirty;
+  if (!opts.force && (hasDirty || hasLocalDraft)) {
+    let proceed = true;
+    try {
+      proceed = window.confirm(`Close ${tab.path}? Local draft changes will be discarded.`);
+    } catch (_) {
+      proceed = true;
     }
+    if (!proceed) return;
   }
+
+  clearMarkdownDraftForTab(tab);
 
   dynamicEditorTabs.delete(modeId);
   dynamicEditorTabsByPath.delete(tab.path);
