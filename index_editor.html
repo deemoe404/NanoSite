@@ -172,7 +172,7 @@
       color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
       box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
     }
-    .mode-tab.dynamic-mode[data-dirty="1"] .mode-tab-chip::after {
+    .mode-tab.dynamic-mode[data-dirty="1"] .mode-tab-chip::before {
       content: '';
       flex: 0 0 auto;
       width: .5rem;
@@ -180,8 +180,9 @@
       border-radius: 999px;
       background: color-mix(in srgb, #f97316 82%, var(--card));
       box-shadow: 0 0 0 2px color-mix(in srgb, #f97316 26%, transparent);
+      margin-right: .38rem;
     }
-    .mode-tab.dynamic-mode[data-draft-conflict="1"] .mode-tab-chip::after {
+    .mode-tab.dynamic-mode[data-draft-conflict="1"] .mode-tab-chip::before {
       background: color-mix(in srgb, #ef4444 82%, var(--card));
       box-shadow: 0 0 0 2px color-mix(in srgb, #ef4444 28%, transparent);
     }
@@ -189,6 +190,9 @@
       pointer-events: none;
     }
     .mode-tab-chip { display: inline-flex; align-items: center; gap: .45rem; }
+    .mode-tab-chip::before { display: none; }
+    .mode-tab.dynamic-mode[data-dirty="1"] .mode-tab-chip::before,
+    .mode-tab.dynamic-mode[data-draft-conflict="1"] .mode-tab-chip::before { display: inline-flex; }
     .mode-tab-label { overflow: hidden; text-overflow: ellipsis; }
     .mode-tab-close {
       appearance: none;
@@ -237,11 +241,52 @@
     .editor-sidebar .search input:focus { outline: none; box-shadow: 0 0 0 .12rem color-mix(in srgb, var(--primary) 35%, transparent); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
     .editor-sidebar .status { margin-top: .4rem; font-size: .78rem; color: var(--muted); }
     .editor-sidebar .lists { display: block; }
-    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; }
-    .current-file[data-file-state="checking"] { color: color-mix(in srgb, #2563eb 70%, var(--text)); }
-    .current-file[data-file-state="existing"] { color: color-mix(in srgb, #15803d 70%, var(--text)); }
-    .current-file[data-file-state="missing"] { color: color-mix(in srgb, #d97706 75%, var(--text)); }
-    .current-file[data-file-state="error"] { color: color-mix(in srgb, #dc2626 80%, var(--text)); }
+    .current-file {
+      color: var(--muted);
+      font-size: .85rem;
+      margin-left: .5rem;
+      display: inline-flex;
+      flex-direction: column;
+      gap: .15rem;
+      min-width: 0;
+      max-width: min(340px, 55vw);
+      white-space: normal;
+    }
+    .current-file .cf-line {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .current-file .cf-primary {
+      font-weight: 600;
+      color: inherit;
+      line-height: 1.2;
+    }
+    .current-file .cf-draft {
+      font-size: .78rem;
+      color: color-mix(in srgb, var(--muted) 86%, var(--text) 14%);
+      line-height: 1.25;
+    }
+    .current-file[data-dirty="1"] .cf-primary {
+      color: color-mix(in srgb, var(--text) 88%, var(--primary) 18%);
+    }
+    .current-file[data-draft-conflict="1"] .cf-draft {
+      color: color-mix(in srgb, #dc2626 72%, var(--text));
+    }
+    .current-file[data-file-state="checking"] .cf-primary { color: color-mix(in srgb, #2563eb 70%, var(--text)); }
+    .current-file[data-file-state="existing"] .cf-primary { color: color-mix(in srgb, #15803d 70%, var(--text)); }
+    .current-file[data-file-state="missing"] .cf-primary { color: color-mix(in srgb, #d97706 75%, var(--text)); }
+    .current-file[data-file-state="error"] .cf-primary { color: color-mix(in srgb, #dc2626 80%, var(--text)); }
+    #btnPushMarkdown { white-space: nowrap; }
+    #btnPushMarkdown[data-dirty="1"] {
+      border-color: color-mix(in srgb, #f97316 42%, var(--border));
+      color: color-mix(in srgb, var(--text) 82%, #f97316 30%);
+    }
+    #btnPushMarkdown[data-conflict="1"] {
+      border-color: color-mix(in srgb, #ef4444 55%, var(--border));
+      color: color-mix(in srgb, var(--text) 82%, #ef4444 35%);
+    }
     /* Grouped list styles */
     .editor-sidebar .file-group { border-bottom: 1px solid var(--border); }
     .editor-sidebar .file-group:last-child { border-bottom: 0; }
@@ -473,6 +518,7 @@
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
+            <button class="btn-secondary" id="btnPushMarkdown" type="button" title="Copy Markdown and open the GitHub editor" aria-label="Push local draft to GitHub">Push to GitHub</button>
             <div class="view-toggle" aria-label="View switch">
               <span class="vt-label">View:</span>
               <a href="#" class="vt-btn active" data-view="edit">Editor</a>

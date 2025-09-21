@@ -36,6 +36,13 @@ let composerDiffModal = null;
 let composerOrderState = null;
 let composerDiffResizeHandler = null;
 let markdownDraftStoreCache = null;
+let markdownPushButton = null;
+
+const MARKDOWN_PUSH_LABELS = {
+  default: 'Push to GitHub',
+  create: 'Create on GitHub',
+  update: 'Update on GitHub'
+};
 
 function getActiveComposerFile() {
   try {
@@ -2279,6 +2286,22 @@ function basenameFromPath(relPath) {
   return idx >= 0 ? norm.slice(idx + 1) : norm;
 }
 
+function dirnameFromPath(relPath) {
+  const norm = normalizeRelPath(relPath);
+  if (!norm) return '';
+  const idx = norm.lastIndexOf('/');
+  return idx >= 0 ? norm.slice(0, idx) : '';
+}
+
+function encodeGitHubPath(path) {
+  return String(path || '')
+    .replace(/[\\]/g, '/')
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
 function getContentRootSafe() {
   try {
     const root = window.__ns_content_root;
@@ -2300,6 +2323,11 @@ function computeBaseDirForPath(relPath) {
 
 function isDynamicMode(mode) {
   return !!(mode && dynamicEditorTabs.has(mode));
+}
+
+function getActiveDynamicTab() {
+  if (!currentMode || !isDynamicMode(currentMode)) return null;
+  return dynamicEditorTabs.get(currentMode) || null;
 }
 
 function persistDynamicEditorState() {
@@ -2376,12 +2404,168 @@ const TAB_STATE_VALUES = new Set(['checking', 'existing', 'missing', 'error']);
 
 function pushEditorCurrentFileInfo(tab) {
   const editorApi = getPrimaryEditorApi();
-  if (!editorApi || typeof editorApi.setCurrentFileLabel !== 'function') return;
-  const payload = tab
-    ? { path: tab.path || '', status: tab.fileStatus || null }
-    : { path: '', status: null };
-  try { editorApi.setCurrentFileLabel(payload); }
+  if (editorApi && typeof editorApi.setCurrentFileLabel === 'function') {
+    let draftPayload = null;
+    if (tab && tab.draftMeta) {
+      const savedAt = Number.isFinite(tab.draftMeta.savedAt)
+        ? Math.floor(tab.draftMeta.savedAt)
+        : null;
+      if (savedAt != null || tab.draftMeta.conflict) {
+        draftPayload = { savedAt, conflict: !!tab.draftMeta.conflict };
+      }
+    }
+    const payload = tab
+      ? {
+          path: tab.path || '',
+          status: tab.fileStatus || null,
+          dirty: !!tab.dirty,
+          draft: draftPayload
+        }
+      : { path: '', status: null, dirty: false, draft: null };
+    try { editorApi.setCurrentFileLabel(payload); }
+    catch (_) {}
+  }
+  updateMarkdownPushButton(tab && tab.mode === currentMode ? tab : getActiveDynamicTab());
+}
+
+function updateMarkdownPushButton(tab) {
+  if (!markdownPushButton) {
+    markdownPushButton = document.getElementById('btnPushMarkdown');
+  }
+  if (!markdownPushButton) return;
+
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  const hasRepo = !!(owner && name);
+
+  const active = tab || getActiveDynamicTab();
+  const btn = markdownPushButton;
+  const state = active && active.fileStatus && active.fileStatus.state
+    ? String(active.fileStatus.state)
+    : '';
+
+  let label = MARKDOWN_PUSH_LABELS.default;
+  if (state === 'missing') label = MARKDOWN_PUSH_LABELS.create;
+  else if (active && active.path) label = MARKDOWN_PUSH_LABELS.update;
+
+  let disabled = true;
+  let tooltip = '';
+
+  if (!active || !active.path) {
+    tooltip = 'Open a markdown file to enable GitHub push.';
+  } else if (!hasRepo) {
+    tooltip = 'Configure repo in site.yaml to enable GitHub push.';
+  } else if (!active.loaded || active.pending) {
+    tooltip = 'Loading file…';
+  } else {
+    disabled = false;
+    tooltip = state === 'missing'
+      ? 'Copy draft and create this file on GitHub.'
+      : 'Copy draft and update this file on GitHub.';
+  }
+
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  btn.textContent = label;
+  if (tooltip) btn.title = tooltip;
+  else btn.removeAttribute('title');
+  btn.setAttribute('aria-label', tooltip || label);
+
+  if (state) btn.setAttribute('data-state', state);
+  else btn.removeAttribute('data-state');
+
+  if (active && active.dirty) btn.setAttribute('data-dirty', '1');
+  else btn.removeAttribute('data-dirty');
+
+  if (active && active.draftMeta && active.draftMeta.conflict) btn.setAttribute('data-conflict', '1');
+  else btn.removeAttribute('data-conflict');
+}
+
+function openMarkdownPushOnGitHub(tab) {
+  if (!tab || !tab.path) {
+    showToast('info', 'Open a markdown file before pushing to GitHub.');
+    return;
+  }
+
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  if (!owner || !name) {
+    showToast('info', 'Configure repo in site.yaml to enable GitHub push.');
+    return;
+  }
+
+  if (tab.draftMeta && tab.draftMeta.conflict) {
+    let proceed = true;
+    try {
+      if (typeof window.confirm === 'function') {
+        proceed = window.confirm('Remote version changed since this draft was saved. Continue to push your local draft?');
+      }
+    } catch (_) {
+      proceed = true;
+    }
+    if (!proceed) return;
+  }
+
+  const branch = String(repo.branch || 'main').trim() || 'main';
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) {
+    showToast('error', 'Invalid markdown path.');
+    return;
+  }
+
+  const contentPath = `${root}/${rel}`.replace(/\/+/g, '/').replace(/^\//, '');
+  const encodedContentPath = encodeGitHubPath(contentPath);
+  const folder = dirnameFromPath(rel);
+  const fullFolder = [root, folder].filter(Boolean).join('/');
+  const encodedFolder = encodeGitHubPath(fullFolder);
+  const filename = basenameFromPath(rel) || 'main.md';
+
+  const base = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const branchPart = encodeURIComponent(branch);
+  const remoteState = tab.fileStatus && tab.fileStatus.state ? String(tab.fileStatus.state) : '';
+  const isCreate = remoteState === 'missing';
+
+  const href = isCreate
+    ? (encodedFolder
+        ? `${base}/new/${branchPart}/${encodedFolder}?filename=${encodeURIComponent(filename)}`
+        : `${base}/new/${branchPart}?filename=${encodeURIComponent(filename)}`)
+    : `${base}/edit/${branchPart}/${encodedContentPath}`;
+
+  if (!href) {
+    showToast('error', 'Unable to resolve GitHub URL for this file.');
+    return;
+  }
+
+  const editorApi = getPrimaryEditorApi();
+  if (editorApi && typeof editorApi.getValue === 'function' && currentMode === tab.mode) {
+    try { tab.content = String(editorApi.getValue() || ''); }
+    catch (_) {}
+  }
+
+  if (tab.dirty) {
+    try { saveDynamicTabDraft(tab, { conflict: tab.draftMeta && tab.draftMeta.conflict }); }
+    catch (_) {}
+  }
+
+  try { nsCopyToClipboard(tab.content != null ? String(tab.content) : ''); }
   catch (_) {}
+
+  try {
+    window.open(href, '_blank', 'noopener');
+  } catch (_) {
+    try { window.location.href = href; }
+    catch (__) {}
+  }
+
+  const message = isCreate
+    ? 'Markdown copied. GitHub will open to create this file.'
+    : 'Markdown copied. GitHub will open to update this file.';
+  showToast('info', message);
+
+  updateMarkdownPushButton(tab);
 }
 
 function setDynamicTabStatus(tab, status) {
@@ -2448,6 +2632,10 @@ function updateDynamicTabButtonState(tab) {
     }
   } else {
     btn.title = baseLabel;
+  }
+
+  if (currentMode === tab.mode) {
+    pushEditorCurrentFileInfo(tab);
   }
 }
 
@@ -2854,6 +3042,7 @@ function applyMode(mode) {
   if (nextMode === 'composer') {
     activeDynamicMode = null;
     pushEditorCurrentFileInfo(null);
+    updateMarkdownPushButton(null);
   } else if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
@@ -2866,6 +3055,7 @@ function applyMode(mode) {
         editorApi.setBaseDir(baseDir);
       } catch (_) {}
       pushEditorCurrentFileInfo(tab);
+      updateMarkdownPushButton(tab);
 
       const applyContent = (text) => {
         tab.content = String(text || '');
@@ -3115,9 +3305,12 @@ function slideToggle(el, toOpen) {
       el.style.display = 'none';
       clearInlineSlideStyles(el);
       el.dataset.open = '0';
+      }
     }
+  } else {
+    pushEditorCurrentFileInfo(null);
+    updateMarkdownPushButton(null);
   }
-}
 
 function sortLangKeys(obj) {
   const keys = Object.keys(obj || {});
@@ -3846,6 +4039,20 @@ function bindComposerUI(state) {
       applyMode(mode);
     });
   });
+
+  if (!markdownPushButton) {
+    markdownPushButton = document.getElementById('btnPushMarkdown');
+  }
+  if (markdownPushButton && !markdownPushButton.__nsPushBound) {
+    markdownPushButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      const activeTab = getActiveDynamicTab();
+      if (!activeTab || markdownPushButton.disabled) return;
+      openMarkdownPushOnGitHub(activeTab);
+    });
+    markdownPushButton.__nsPushBound = true;
+  }
+  updateMarkdownPushButton(getActiveDynamicTab());
 
   // File switch (index.yaml <-> tabs.yaml)
   const links = $$('a.vt-btn[data-cfile]');
