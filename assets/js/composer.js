@@ -631,6 +631,7 @@ function saveMarkdownDraftForTab(tab, options = {}) {
     clearMarkdownDraftEntry(tab.path);
     tab.localDraft = null;
     tab.draftConflict = false;
+    updateComposerMarkdownDraftIndicators({ path: tab.path });
     return null;
   }
   const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig);
@@ -641,6 +642,7 @@ function saveMarkdownDraftForTab(tab, options = {}) {
       remoteSignature: saved.remoteSignature,
       manual: !!options.markManual
     };
+    updateComposerMarkdownDraftIndicators({ path: tab.path });
   }
   return saved;
 }
@@ -650,6 +652,7 @@ function clearMarkdownDraftForTab(tab) {
   clearMarkdownDraftEntry(tab.path);
   tab.localDraft = null;
   tab.draftConflict = false;
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
 }
 
 function scheduleMarkdownDraftSave(tab) {
@@ -709,6 +712,7 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   } else {
     updateMarkdownPushButton(tab);
   }
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
 }
 
 function hasUnsavedComposerChanges() {
@@ -759,6 +763,106 @@ function cssEscape(value) {
     if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(value);
   } catch (_) {}
   return safeString(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+}
+
+function collectDynamicMarkdownDraftStates() {
+  const map = new Map();
+  dynamicEditorTabs.forEach(tab => {
+    if (!tab || !tab.path) return;
+    const norm = normalizeRelPath(tab.path);
+    if (!norm) return;
+    if (tab.draftConflict) map.set(norm, 'conflict');
+    else if (tab.isDirty) map.set(norm, 'dirty');
+    else if (tab.localDraft) map.set(norm, 'saved');
+  });
+  return map;
+}
+
+function getDraftIndicatorMessage(state) {
+  switch (state) {
+    case 'conflict':
+      return 'Local draft conflicts with remote file';
+    case 'dirty':
+      return 'Unsaved changes pending in editor';
+    case 'saved':
+      return 'Local draft saved in browser';
+    default:
+      return '';
+  }
+}
+
+function applyComposerDraftIndicatorState(el, state) {
+  if (!el) return;
+  const indicator = el.querySelector('.ct-draft-indicator, .ci-draft-indicator');
+  const value = state ? String(state) : '';
+  if (value) el.setAttribute('data-draft-state', value);
+  else el.removeAttribute('data-draft-state');
+  if (!indicator) return;
+  if (value) {
+    indicator.hidden = false;
+    indicator.dataset.state = value;
+    const label = getDraftIndicatorMessage(value);
+    if (label) {
+      indicator.setAttribute('title', label);
+      indicator.setAttribute('aria-label', label);
+      indicator.setAttribute('role', 'img');
+    } else {
+      indicator.removeAttribute('title');
+      indicator.removeAttribute('aria-label');
+      indicator.removeAttribute('role');
+    }
+  } else {
+    indicator.hidden = true;
+    indicator.dataset.state = '';
+    indicator.removeAttribute('title');
+    indicator.removeAttribute('aria-label');
+    indicator.removeAttribute('role');
+  }
+}
+
+function updateComposerMarkdownDraftIndicators(options = {}) {
+  const store = options.store || readMarkdownDraftStore();
+  const overrides = options.overrideMap || collectDynamicMarkdownDraftStates();
+  const normalizedPath = options.path ? normalizeRelPath(options.path) : '';
+  const selectors = ['.ct-lang', '.ci-ver-item'];
+
+  const updateElement = (el) => {
+    if (!el) return;
+    const raw = el.dataset ? el.dataset.mdPath : '';
+    const path = normalizeRelPath(raw);
+    if (path) el.dataset.mdPath = path;
+    else delete el.dataset.mdPath;
+    let state = '';
+    if (path) {
+      if (overrides && overrides.has(path)) {
+        state = overrides.get(path) || '';
+      } else if (store && Object.prototype.hasOwnProperty.call(store, path)) {
+        state = 'saved';
+      }
+    }
+    applyComposerDraftIndicatorState(el, state);
+  };
+
+  if (options.element) {
+    updateElement(options.element);
+  }
+
+  if (normalizedPath) {
+    selectors.forEach(sel => {
+      const query = `${sel}[data-md-path="${cssEscape(normalizedPath)}"]`;
+      $$(query).forEach(el => {
+        if (options.element && el === options.element) return;
+        updateElement(el);
+      });
+    });
+    return;
+  }
+
+  if (options.element) return;
+
+  selectors.forEach(sel => {
+    $$( `${sel}[data-md-path]` ).forEach(updateElement);
+  });
 }
 
 function getStateSlice(kind) {
@@ -1927,6 +2031,7 @@ function rebuildIndexUI(preserveOpen = true) {
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
   notifyComposerChange('index', { skipAutoSave: true });
+  updateComposerMarkdownDraftIndicators();
 }
 
 function rebuildTabsUI(preserveOpen = true) {
@@ -1950,6 +2055,7 @@ function rebuildTabsUI(preserveOpen = true) {
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
   notifyComposerChange('tabs', { skipAutoSave: true });
+  updateComposerMarkdownDraftIndicators();
 }
 
 function loadDraftSnapshotsIntoState(state) {
@@ -2946,6 +3052,7 @@ function closeDynamicTab(modeId, options = {}) {
   }
   updateMarkdownPushButton(getActiveDynamicTab());
   updateMarkdownDiscardButton(getActiveDynamicTab());
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
 }
 
 function getOrCreateDynamicMode(path) {
@@ -3821,7 +3928,11 @@ function buildIndexUI(root, state) {
           row.dataset.lang = lang;
           row.dataset.index = String(i);
           row.dataset.value = p || '';
+          const normalizedPath = normalizeRelPath(p);
+          if (normalizedPath) row.dataset.mdPath = normalizedPath;
+          else delete row.dataset.mdPath;
           row.innerHTML = `
+            <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
             <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
             <span class="ci-ver-actions">
               <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
@@ -3830,18 +3941,26 @@ function buildIndexUI(root, state) {
                 <button class="btn-secondary ci-remove" title="Remove">✕</button>
               </span>
             `;
-            const up = $('.ci-up', row);
-            const down = $('.ci-down', row);
-            // Disable ↑ for first, ↓ for last
-            if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
-            if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+          const up = $('.ci-up', row);
+          const down = $('.ci-down', row);
+          // Disable ↑ for first, ↓ for last
+          if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
+          if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+          updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
 
-            $('.ci-path', row).addEventListener('input', (e) => {
-              arr[i] = e.target.value;
-              entry[lang] = arr.slice();
-              row.dataset.value = arr[i] || '';
-              markDirty();
-            });
+          $('.ci-path', row).addEventListener('input', (e) => {
+            const prevPath = row.dataset.mdPath || '';
+            arr[i] = e.target.value;
+            entry[lang] = arr.slice();
+            row.dataset.value = arr[i] || '';
+            const nextPath = normalizeRelPath(arr[i]);
+            if (nextPath) row.dataset.mdPath = nextPath;
+            else delete row.dataset.mdPath;
+            updateComposerMarkdownDraftIndicators({ element: row });
+            if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
+            if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
+            markDirty();
+          });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
               if (!rel) {
@@ -4034,8 +4153,12 @@ function buildTabsUI(root, state) {
         const block = document.createElement('div');
         block.className = 'ct-lang';
         block.dataset.lang = lang;
+        const initialPath = normalizeRelPath(v.location);
+        if (initialPath) block.dataset.mdPath = initialPath;
+        else delete block.dataset.mdPath;
         block.innerHTML = `
           <div class="ct-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
+            <span class="ct-draft-indicator" aria-hidden="true" hidden></span>
             ${flagSpan}
             <span class="ct-lang-code" aria-hidden="true">${lang.toUpperCase()}</span>
           </div>
@@ -4058,14 +4181,22 @@ function buildTabsUI(root, state) {
           locInput.dataset.lang = lang;
           locInput.dataset.field = 'location';
         }
+        updateComposerMarkdownDraftIndicators({ element: block, path: initialPath });
         titleInput.addEventListener('input', (e) => {
           entry[lang] = entry[lang] || {};
           entry[lang].title = e.target.value;
           markDirty();
         });
         locInput.addEventListener('input', (e) => {
+          const prevPath = block.dataset.mdPath || '';
           entry[lang] = entry[lang] || {};
           entry[lang].location = e.target.value;
+          const nextPath = normalizeRelPath(e.target.value);
+          if (nextPath) block.dataset.mdPath = nextPath;
+          else delete block.dataset.mdPath;
+          updateComposerMarkdownDraftIndicators({ element: block });
+          if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
+          if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
           markDirty();
         });
         $('.ct-edit', block).addEventListener('click', () => {
@@ -5601,6 +5732,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ct-lang-label{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .6rem;background:color-mix(in srgb, var(--text) 14%, var(--card));color:var(--text);min-width:78px;white-space:nowrap;font-weight:700;border-radius:6px 0 0 6px;}
   .ct-lang-label .ct-lang-flag{font-size:1.25rem;line-height:1;transform:translateY(-1px);}
   .ct-lang-label .ct-lang-code{font-size:.9rem;font-weight:700;letter-spacing:.045em;}
+  .ct-draft-indicator,.ci-draft-indicator{display:inline-flex;width:.55rem;height:.55rem;border-radius:999px;background:color-mix(in srgb,var(--muted) 48%, transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--muted) 14%, transparent);flex:0 0 auto;opacity:0;transform:scale(.6);transition:opacity .18s ease, transform .18s ease, background-color .18s ease, box-shadow .18s ease;}
+  .ct-draft-indicator[hidden],.ci-draft-indicator[hidden]{display:none;}
+  .ct-lang[data-draft-state] .ct-draft-indicator,.ci-ver-item[data-draft-state] .ci-draft-indicator{opacity:1;transform:scale(.95);}
+  .ct-lang[data-draft-state="dirty"] .ct-draft-indicator,.ci-ver-item[data-draft-state="dirty"] .ci-draft-indicator{background:#f97316;box-shadow:0 0 0 3px color-mix(in srgb,#f97316 22%, transparent);}
+  .ct-lang[data-draft-state="saved"] .ct-draft-indicator,.ci-ver-item[data-draft-state="saved"] .ci-draft-indicator{background:#22c55e;box-shadow:0 0 0 3px color-mix(in srgb,#22c55e 20%, transparent);}
+  .ct-lang[data-draft-state="conflict"] .ct-draft-indicator,.ci-ver-item[data-draft-state="conflict"] .ci-draft-indicator{background:#ef4444;box-shadow:0 0 0 3px color-mix(in srgb,#ef4444 25%, transparent);}
   .ct-lang-main{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:.5rem;align-items:center;padding:.35rem .6rem .35rem .75rem;}
   .ct-field{display:flex;align-items:center;gap:.4rem;font-weight:600;color:color-mix(in srgb, var(--text) 65%, transparent);white-space:nowrap;}
   .ct-field input{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;}
