@@ -293,16 +293,13 @@
     .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
     .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
     .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
-    .global-status .gs-header { display:flex; gap:.55rem; align-items:center; width:100%; }
-    .global-status .gs-logo { width:22px; height:22px; flex:0 0 auto; color: color-mix(in srgb, var(--text) 82%, transparent); }
-    .global-status .gs-title { font-size:1rem; font-weight:700; color: color-mix(in srgb, var(--text) 78%, transparent); }
     .global-status .gs-flow { display:flex; align-items:stretch; justify-content:space-between; gap:1.1rem; width:100%; }
     .global-status .gs-node { display:flex; align-items:flex-start; gap:.75rem; background: color-mix(in srgb, var(--card) 92%, transparent); border:1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius:16px; padding:.85rem 1rem; flex:1 1 0; min-width:0; position:relative; }
     .global-status .gs-node::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transition: box-shadow .18s ease, border-color .18s ease; border:2px solid transparent; }
     .global-status .gs-node-icon { width:24px; height:24px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
-    .global-status .gs-node-body { display:flex; flex-direction:column; gap:.5rem; min-width:0; width:100%; }
-    .global-status .gs-node-label { display:block; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color: color-mix(in srgb, var(--muted) 75%, transparent); }
-    .global-status .gs-node-detail { display:flex; flex-direction:column; gap:.45rem; font-size:.9rem; color: color-mix(in srgb, var(--text) 85%, transparent); min-height:1.2em; white-space:normal; }
+    .global-status .gs-node-body { display:flex; flex-direction:column; gap:.45rem; min-width:0; width:100%; }
+    .global-status .gs-node-label { display:block; font-size:.82rem; font-weight:700; letter-spacing:.06em; text-transform:none; color: color-mix(in srgb, var(--muted) 70%, transparent); }
+    .global-status .gs-node-detail { display:flex; flex-direction:column; gap:.4rem; font-size:.9rem; color: color-mix(in srgb, var(--text) 85%, transparent); min-height:1.2em; white-space:normal; }
     .global-status .gs-node-summary { width:100%; }
     .global-status .gs-node-state { font-size:.95rem; font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); line-height:1.4; }
     .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); font-size:.92rem; line-height:1.4; }
@@ -321,8 +318,8 @@
     .gs-node-drafts {
       display:flex;
       flex-direction:column;
-      gap:.35rem;
-      margin-top:.35rem;
+      gap:.25rem;
+      margin-top:.25rem;
       font-size:.88rem;
       color: color-mix(in srgb, var(--text) 82%, transparent);
     }
@@ -333,7 +330,7 @@
       padding:0;
       display:flex;
       flex-direction:column;
-      gap:.3rem;
+      gap:.18rem;
     }
     .gs-node-drafts .gs-node-drafts-item {
       display:flex;
@@ -345,14 +342,14 @@
     }
     .gs-node-drafts .gs-node-drafts-item::before {
       content:'';
-      width:.45rem;
-      height:.45rem;
+      width:.4rem;
+      height:.4rem;
       border-radius:999px;
       background: color-mix(in srgb, var(--primary) 40%, var(--text) 25%);
       position:absolute;
       left:0;
-      top:.38rem;
-      box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
+      top:.32rem;
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
     }
     .gs-node-drafts .gs-node-drafts-item span {
       font-weight:600;
@@ -619,14 +616,6 @@
       </nav>
       <div class="status-stack">
         <div id="global-status" class="global-status" aria-live="polite">
-          <div class="gs-header">
-            <span class="gs-logo" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
-              </svg>
-            </span>
-            <span class="gs-title">GitHub Sync</span>
-          </div>
           <div class="gs-flow">
             <div class="gs-node gs-node-local">
               <span class="gs-node-icon" aria-hidden="true">
@@ -637,7 +626,7 @@
                 </svg>
               </span>
               <div class="gs-node-body">
-                <span class="gs-node-label">Local</span>
+                <span class="gs-node-label">LOCAL changes</span>
                 <div class="gs-node-detail">
                   <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
                 </div>
@@ -652,8 +641,8 @@
             </span>
             <div class="gs-node gs-node-remote">
               <span class="gs-node-icon" aria-hidden="true">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7.5 18.25h9A3.75 3.75 0 0 0 20.25 14.5 3.75 3.75 0 0 0 17.8 11a5.25 5.25 0 0 0-10.3 0 3.75 3.75 0 0 0-2.45 3.5 3.75 3.75 0 0 0 3.45 3.75Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <svg width="22" height="22" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
                 </svg>
               </span>
               <div class="gs-node-body">
