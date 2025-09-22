@@ -82,7 +82,7 @@ async function initGithubStatus() {
       setStatus(
         'ok',
         describeRepo(owner, name, defaultBranch),
-        `Repository connected. Default branch “${defaultBranch}”. Push drafts when you are ready.`
+        `Repository connected · Default branch “${defaultBranch}”`
       );
       return;
     }
@@ -98,7 +98,7 @@ async function initGithubStatus() {
       return;
     }
 
-    setStatus('ok', describeRepo(owner, name, branch), 'Repository and branch verified. Push drafts to publish your changes.');
+    setStatus('ok', describeRepo(owner, name, branch), 'Repository connected');
   } catch (e) {
     setStatus('err', 'GitHub configuration unavailable', 'Failed to read site.yaml.');
   }

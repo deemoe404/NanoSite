@@ -5,8 +5,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'Local workspace synced with GitHub';
-const DIRTY_STATUS_MESSAGE = 'Local drafts waiting to push to GitHub';
+const CLEAN_STATUS_MESSAGE = 'No drafts pending push';
+const DIRTY_STATUS_MESSAGE = 'Push required to sync with GitHub';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
