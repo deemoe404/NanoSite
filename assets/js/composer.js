@@ -935,7 +935,14 @@ function computeTabsSignature(state) {
 function diffVersionLists(currentValue, baselineValue) {
   const normalize = (value) => {
     if (Array.isArray(value)) {
-      return { kind: 'list', items: value.map(item => safeString(item)) };
+      const items = value.map(item => safeString(item));
+      if (items.length === 0) {
+        return { kind: 'list', items: [] };
+      }
+      if (items.length === 1) {
+        return { kind: 'single', items: [items[0]] };
+      }
+      return { kind: 'list', items };
     }
     return { kind: 'single', items: [safeString(value)] };
   };
@@ -5051,6 +5058,17 @@ function getDefaultComposerLanguage() {
   return 'en';
 }
 
+function buildDefaultEntryPath(kind, key, lang) {
+  const normalizedKind = kind === 'tabs' ? 'tabs' : 'index';
+  const baseFolder = normalizedKind === 'tabs' ? 'tab' : 'post';
+  const safeKey = String(key || '').trim();
+  const fallbackLang = String(lang || '').trim() || getDefaultComposerLanguage() || 'en';
+  const normalizedLang = fallbackLang.toLowerCase();
+  const filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
+  const folder = safeKey ? `${baseFolder}/${safeKey}` : baseFolder;
+  return `${folder}/${filename}`;
+}
+
 function promptComposerEntryKey(kind) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   const slice = getStateSlice(normalized) || {};
@@ -5120,11 +5138,17 @@ function addComposerEntry(kind) {
   if (normalized === 'tabs') {
     slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
     const lang = getDefaultComposerLanguage();
-    if (lang && !slice[key][lang]) slice[key][lang] = { title: '', location: '' };
+    if (lang && !slice[key][lang]) {
+      const defaultPath = buildDefaultEntryPath('tabs', key, lang);
+      slice[key][lang] = { title: '', location: defaultPath };
+    }
   } else {
     slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
     const lang = getDefaultComposerLanguage();
-    if (lang && !slice[key][lang]) slice[key][lang] = [''];
+    if (lang && !slice[key][lang]) {
+      const defaultPath = buildDefaultEntryPath('index', key, lang);
+      slice[key][lang] = [defaultPath];
+    }
   }
 
   slice.__order.unshift(key);
@@ -5485,6 +5509,16 @@ function bindComposerUI(state) {
       if (norm(cur) === norm(desired)) {
         closePopupWindow(popup);
         showToast('success', `${baseName}.yaml is up to date`);
+        try {
+          const snapshot = await fetchComposerRemoteSnapshot(target);
+          if (snapshot && snapshot.state === 'existing') {
+            applyComposerRemoteSnapshot(target, snapshot);
+            clearDraftStorage(target);
+            updateUnsyncedSummary();
+          }
+        } catch (err) {
+          console.warn('Composer: failed to refresh baseline after verify', err);
+        }
         return;
       }
       // Need update -> copy and open GitHub edit/new page
