@@ -625,19 +625,18 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       if (matches) {
         return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
       }
-      if (attempts >= 3) {
-        return {
-          done: true,
-          data: snapshot,
-          mismatch: true,
-          statusMessage: 'Remote file differs from local content.'
-        };
-      }
-      return {
+      const waitingStatus = attempts >= 3
+        ? 'Remote file still differs from local content. Waiting…'
+        : 'Remote file exists but content differs. Waiting…';
+      const response = {
         done: false,
-        statusMessage: 'Remote file exists but content differs. Waiting…',
+        statusMessage: waitingStatus,
         retryDelay: 5200
       };
+      if (attempts === 3) {
+        response.message = 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.';
+      }
+      return response;
     },
     onSuccess: (result) => {
       if (result && result.data) {
@@ -742,19 +741,18 @@ function startComposerSyncWatcher(kind, options = {}) {
       if (matches) {
         return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
       }
-      if (attempts >= 3) {
-        return {
-          done: true,
-          data: snapshot,
-          mismatch: true,
-          statusMessage: 'Remote YAML differs from local snapshot.'
-        };
-      }
-      return {
+      const waitingStatus = attempts >= 3
+        ? 'Remote YAML still differs from the local snapshot. Waiting…'
+        : 'Remote YAML updated but content differs. Waiting…';
+      const response = {
         done: false,
-        statusMessage: 'Remote YAML updated but content differs. Waiting…',
+        statusMessage: waitingStatus,
         retryDelay: 5400
       };
+      if (attempts === 3) {
+        response.message = 'If the commit was different from your draft, cancel and click Refresh to pull it in.';
+      }
+      return response;
     },
     onSuccess: (result) => {
       if (result && result.data) {
