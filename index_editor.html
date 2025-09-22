@@ -293,8 +293,24 @@
     .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
     .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
     .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
-    .global-status .gs-flow { display:flex; align-items:stretch; justify-content:space-between; gap:1.1rem; width:100%; }
-    .global-status .gs-node { display:flex; flex-direction:column; align-items:flex-start; gap:.55rem; background: color-mix(in srgb, var(--card) 92%, transparent); border:1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius:16px; padding:.95rem 1rem; flex:1 1 0; min-width:0; position:relative; }
+    .global-status .gs-flow {
+      display:grid;
+      grid-template-columns: minmax(0, 1fr) minmax(160px, .8fr) minmax(0, 1fr);
+      align-items:stretch;
+      width:100%;
+    }
+    .global-status .gs-node {
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:.55rem;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      border:1px solid color-mix(in srgb, var(--border) 80%, transparent);
+      border-radius:16px;
+      padding:.95rem 1rem;
+      min-width:0;
+      position:relative;
+    }
     .global-status .gs-node::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transition: box-shadow .18s ease, border-color .18s ease; border:2px solid transparent; }
     .global-status .gs-node-header { display:flex; align-items:center; gap:.55rem; width:100%; }
     .global-status .gs-node-icon { width:24px; height:24px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
@@ -303,15 +319,142 @@
     .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); font-size:.92rem; line-height:1.4; }
     .global-status .gs-message { font-size:.86rem; color: color-mix(in srgb, var(--muted) 88%, transparent); line-height:1.45; }
     .global-status .gs-message:empty { display:none; }
-    .global-status .gs-arrow { flex:0 0 auto; color: color-mix(in srgb, var(--muted) 75%, transparent); display:flex; align-items:center; justify-content:center; }
-    .global-status .gs-arrow svg { width:26px; height:26px; }
+    .global-status .gs-arrow {
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 2.2rem;
+      width:100%;
+      --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
+      color: var(--gs-arrow-color);
+    }
+    .global-status .gs-arrow::before {
+      content:'';
+      position:absolute;
+      left:0;
+      right:0;
+      top:50%;
+      transform:translateY(-50%);
+      height:2px;
+      background: color-mix(in srgb, currentColor 85%, transparent);
+      opacity:.55;
+    }
+    .global-status .gs-arrow::after {
+      content:'';
+      position:absolute;
+      top:50%;
+      right:0;
+      transform:translate(50%, -50%);
+      width:18px;
+      height:18px;
+      background: currentColor;
+      clip-path: polygon(0 50%, 100% 0, 100% 100%);
+      opacity:.75;
+    }
+    .global-status .gs-arrow-tail {
+      position:absolute;
+      left:0;
+      top:50%;
+      transform:translate(-50%, -50%);
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      border:2px solid currentColor;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      box-shadow:0 2px 8px rgba(15, 23, 42, 0.08);
+      pointer-events:none;
+    }
+    .global-status .gs-arrow-bubble {
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:.25rem .75rem;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:600;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      white-space:nowrap;
+      color: color-mix(in srgb, var(--muted) 72%, transparent);
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+      box-shadow:0 6px 18px rgba(15, 23, 42, 0.08);
+    }
     .global-status[data-dirty="1"] .gs-node-local::after { box-shadow:0 0 0 2px color-mix(in srgb, #f97316 26%, transparent); border-color:color-mix(in srgb, #f97316 44%, transparent); }
     .global-status[data-state="warn"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #f59e0b 24%, transparent); border-color:color-mix(in srgb, #f59e0b 42%, transparent); }
     .global-status[data-state="err"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #dc2626 26%, transparent); border-color:color-mix(in srgb, #dc2626 46%, transparent); }
     .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #1f883d 22%, transparent); border-color:color-mix(in srgb, #1f883d 42%, transparent); }
+    .global-status[data-dirty="1"] .gs-arrow { --gs-arrow-color: color-mix(in srgb, #f97316 75%, var(--text) 10%); }
+    .global-status[data-dirty="1"] .gs-arrow-bubble {
+      color: color-mix(in srgb, #9a3412 70%, transparent);
+      background: color-mix(in srgb, #fed7aa 55%, var(--card) 60%);
+      border-color: color-mix(in srgb, #fb923c 40%, var(--border));
+    }
+    .global-status:not([data-dirty="1"]) .gs-arrow { --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent); }
+    .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-arrow-bubble {
+      color: color-mix(in srgb, #166534 74%, transparent);
+      background: color-mix(in srgb, #dcfce7 60%, var(--card) 65%);
+      border-color: color-mix(in srgb, #22c55e 32%, var(--border));
+    }
+    .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow {
+      --gs-arrow-color: color-mix(in srgb, #f59e0b 68%, var(--text) 10%);
+    }
+    .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow-bubble {
+      color: color-mix(in srgb, #92400e 70%, transparent);
+      background: color-mix(in srgb, #fef3c7 60%, var(--card) 68%);
+      border-color: color-mix(in srgb, #f59e0b 38%, var(--border));
+    }
+    .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow {
+      --gs-arrow-color: color-mix(in srgb, #ef4444 70%, var(--text) 12%);
+    }
+    .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow-bubble {
+      color: color-mix(in srgb, #991b1b 72%, transparent);
+      background: color-mix(in srgb, #fee2e2 60%, var(--card) 65%);
+      border-color: color-mix(in srgb, #f87171 42%, var(--border));
+    }
     @media (max-width: 520px) {
-      .global-status .gs-flow { flex-direction:column; align-items:stretch; }
-      .global-status .gs-arrow { transform:rotate(90deg); }
+      .global-status .gs-flow {
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+        gap:.75rem;
+      }
+      .global-status .gs-arrow {
+        padding:1.5rem 0 .5rem;
+      }
+      .global-status .gs-arrow::before {
+        left:50%;
+        right:auto;
+        top:0;
+        bottom:0;
+        width:2px;
+        height:auto;
+        transform:none;
+      }
+      .global-status .gs-arrow::after {
+        top:auto;
+        bottom:0;
+        right:50%;
+        transform:translate(50%, 50%);
+        width:0;
+        height:0;
+        background:none;
+        clip-path:none;
+        border-left:8px solid transparent;
+        border-right:8px solid transparent;
+        border-top:10px solid currentColor;
+      }
+      .global-status .gs-arrow-tail {
+        top:0;
+        left:50%;
+        transform:translate(-50%, -50%);
+      }
+      .global-status .gs-arrow-bubble {
+        margin:.4rem auto 0;
+      }
     }
     .gs-node-drafts {
       display:flex;
@@ -628,10 +771,8 @@
               <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
             </div>
             <span class="gs-arrow" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 12h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="m15 7 5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+              <span class="gs-arrow-tail"></span>
+              <span class="gs-arrow-bubble" id="globalArrowLabel">Synced</span>
             </span>
             <div class="gs-node gs-node-remote">
               <div class="gs-node-header">

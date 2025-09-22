@@ -1804,6 +1804,7 @@ function updateUnsyncedSummary() {
   updateDiscardButtonVisibility();
   const globalStatusEl = document.getElementById('global-status');
   const globalLocalStateEl = document.getElementById('globalLocalState');
+  const globalArrowLabelEl = document.getElementById('globalArrowLabel');
   if (summaryEntries.length) {
     if (summaryContainer) {
       summaryContainer.innerHTML = '';
@@ -1822,6 +1823,10 @@ function updateUnsyncedSummary() {
     }
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
+    if (globalArrowLabelEl) {
+      if (count === 1) globalArrowLabelEl.textContent = '1 pending';
+      else globalArrowLabelEl.textContent = `${count} pending`;
+    }
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = '';
       globalLocalStateEl.hidden = true;
@@ -1833,6 +1838,7 @@ function updateUnsyncedSummary() {
       summaryContainer.hidden = true;
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;
       globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;

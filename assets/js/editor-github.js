@@ -7,8 +7,15 @@ function setStatus(state, repoText, messageText) {
   else box.removeAttribute('data-state');
   const repoEl = document.getElementById('globalStatusRepo');
   const messageEl = document.getElementById('globalStatusMessage');
+  const arrowLabelEl = document.getElementById('globalArrowLabel');
   if (repoEl) repoEl.textContent = repoText ? String(repoText) : '';
   if (messageEl) messageEl.textContent = messageText ? String(messageText) : '';
+  if (arrowLabelEl && box && !box.hasAttribute('data-dirty')) {
+    if (state === 'ok') arrowLabelEl.textContent = 'Synced';
+    else if (state === 'warn') arrowLabelEl.textContent = 'Check repo';
+    else if (state === 'err') arrowLabelEl.textContent = 'Error';
+    else arrowLabelEl.textContent = 'Status';
+  }
 }
 
 function describeRepo(owner, repo, branch) {
