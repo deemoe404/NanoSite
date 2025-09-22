@@ -472,6 +472,22 @@
     .back-to-top svg { width: 1.15rem; height: 1.15rem; }
     .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
 
+    /* Full-screen overlay used while waiting for GitHub sync */
+    .sync-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1rem; background: color-mix(in srgb, rgba(15,23,42,0.62) 88%, transparent); backdrop-filter: blur(6px); z-index: 1600; }
+    .sync-overlay.is-visible { display: flex; }
+    body.ns-sync-overlay-open { overflow: hidden; }
+    .sync-overlay-panel { background: color-mix(in srgb, var(--card) 96%, transparent); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 16px; padding: 2rem 2.5rem; max-width: min(520px, 100%); box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28); display: flex; flex-direction: column; align-items: center; gap: 1.1rem; text-align: center; position: relative; }
+    .sync-overlay-spinner { width: 52px; height: 52px; border-radius: 50%; border: 4px solid color-mix(in srgb, var(--primary) 22%, transparent); border-top-color: var(--primary); animation: sync-overlay-spin .85s linear infinite; }
+    .sync-overlay-title { margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--text); }
+    .sync-overlay-message { margin: 0; color: color-mix(in srgb, var(--muted) 92%, transparent); font-size: .98rem; line-height: 1.5; }
+    .sync-overlay-status { margin: 0; color: color-mix(in srgb, var(--text) 82%, transparent); font-size: 1rem; font-weight: 600; min-height: 1.35em; }
+    .sync-overlay-cancel { margin-top: .25rem; min-width: 8.5rem; }
+    .sync-overlay-cancel[hidden] { display: none !important; }
+    @media (max-width: 640px) {
+      .sync-overlay-panel { padding: 1.6rem 1.4rem; }
+    }
+    @keyframes sync-overlay-spin { to { transform: rotate(360deg); } }
+
     /* Preload-state CSS to avoid flash when initial mode is Composer */
     [data-init-mode="composer"] #mode-editor { display: none !important; }
     [data-init-mode="composer"] #mode-composer { display: block !important; }
