@@ -328,6 +328,48 @@
       color: var(--text);
       letter-spacing: .01em;
     }
+    .composer-key-form {
+      margin-top: .75rem;
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
+    }
+    .composer-key-input {
+      border-radius: .65rem;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: color-mix(in srgb, var(--card) 96%, transparent);
+      padding: .5rem .7rem;
+      font-size: .95rem;
+      color: var(--text);
+      width: 100%;
+      transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .composer-key-input::placeholder {
+      color: color-mix(in srgb, var(--muted) 70%, var(--text));
+    }
+    .composer-key-input:focus {
+      outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+      outline-offset: 1px;
+      border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .composer-key-input[aria-invalid="true"] {
+      border-color: color-mix(in srgb, #dc2626 60%, var(--border));
+      background: color-mix(in srgb, #fee2e2 45%, var(--card));
+    }
+    .composer-key-hint {
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    .composer-key-error {
+      font-size: .78rem;
+      color: #dc2626;
+      min-height: 1em;
+    }
+    .composer-key-error:empty {
+      display: none;
+    }
     .composer-confirm-actions {
       margin-top: .85rem;
       display: flex;
@@ -472,6 +514,22 @@
     .back-to-top svg { width: 1.15rem; height: 1.15rem; }
     .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
 
+    /* Full-screen overlay used while waiting for GitHub sync */
+    .sync-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1rem; background: color-mix(in srgb, rgba(15,23,42,0.62) 88%, transparent); backdrop-filter: blur(6px); z-index: 14000; }
+    .sync-overlay.is-visible { display: flex; }
+    body.ns-sync-overlay-open { overflow: hidden; }
+    .sync-overlay-panel { background: color-mix(in srgb, var(--card) 96%, transparent); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 16px; padding: 2rem 2.5rem; max-width: min(520px, 100%); box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28); display: flex; flex-direction: column; align-items: center; gap: 1.1rem; text-align: center; position: relative; }
+    .sync-overlay-spinner { width: 52px; height: 52px; border-radius: 50%; border: 4px solid color-mix(in srgb, var(--primary) 22%, transparent); border-top-color: var(--primary); animation: sync-overlay-spin .85s linear infinite; }
+    .sync-overlay-title { margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--text); }
+    .sync-overlay-message { margin: 0; color: color-mix(in srgb, var(--muted) 92%, transparent); font-size: .98rem; line-height: 1.5; }
+    .sync-overlay-status { margin: 0; color: color-mix(in srgb, var(--text) 82%, transparent); font-size: 1rem; font-weight: 600; min-height: 1.35em; }
+    .sync-overlay-cancel { margin-top: .25rem; min-width: 8.5rem; }
+    .sync-overlay-cancel[hidden] { display: none !important; }
+    @media (max-width: 640px) {
+      .sync-overlay-panel { padding: 1.6rem 1.4rem; }
+    }
+    @keyframes sync-overlay-spin { to { transform: rotate(360deg); } }
+
     /* Preload-state CSS to avoid flash when initial mode is Composer */
     [data-init-mode="composer"] #mode-editor { display: none !important; }
     [data-init-mode="composer"] #mode-composer { display: block !important; }
@@ -574,7 +632,7 @@
             </div>
           </div>
           <div class="right-actions">
-            <button class="btn-secondary" id="btnAddItem">New Post Wizard</button>
+            <button class="btn-secondary" id="btnAddItem">Add Post Entry</button>
             <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot">Refresh</button>
 
             <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>

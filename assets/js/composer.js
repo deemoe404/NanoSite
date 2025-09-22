@@ -1,4 +1,4 @@
-import { fetchConfigWithYamlFallback } from './yaml.js';
+import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -108,7 +108,6 @@ function showToast(kind, text, options = {}) {
     const root = ensureToastRoot();
     const el = document.createElement('div');
     el.className = `toast ${kind || ''}`;
-    el.textContent = message;
     el.style.pointerEvents = 'auto';
     el.style.background = 'color-mix(in srgb, var(--card) 70%, #000 5%)';
     el.style.color = 'var(--text)';
@@ -126,10 +125,59 @@ function showToast(kind, text, options = {}) {
     el.style.transition = 'opacity .28s ease, transform .28s ease';
     el.style.opacity = '0';
     el.style.transform = 'translateY(12px)';
+    el.style.gap = '.7rem';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    textSpan.style.flex = '1 1 auto';
+    textSpan.style.textAlign = 'center';
+    textSpan.style.minWidth = '0';
+    el.appendChild(textSpan);
+
+    const action = options && options.action;
+    if (action && (action.href || typeof action.onClick === 'function')) {
+      el.style.justifyContent = 'space-between';
+      textSpan.style.textAlign = 'left';
+      const actionEl = document.createElement(action.href ? 'a' : 'button');
+      actionEl.className = 'toast-action';
+      actionEl.textContent = safeString(action.label) || 'Open';
+      if (action.href) {
+        actionEl.href = action.href;
+        actionEl.target = action.target || '_blank';
+        actionEl.rel = action.rel || 'noopener';
+      } else {
+        actionEl.type = 'button';
+      }
+      actionEl.style.flex = '0 0 auto';
+      actionEl.style.marginLeft = '.35rem';
+      actionEl.style.padding = '.35rem .85rem';
+      actionEl.style.borderRadius = '999px';
+      actionEl.style.border = '1px solid color-mix(in srgb, var(--primary) 28%, var(--border))';
+      actionEl.style.background = 'color-mix(in srgb, var(--card) 88%, var(--primary) 10%)';
+      actionEl.style.color = 'color-mix(in srgb, var(--primary) 85%, var(--text) 40%)';
+      actionEl.style.fontWeight = '600';
+      actionEl.style.fontSize = '.88rem';
+      actionEl.style.pointerEvents = 'auto';
+      actionEl.style.textDecoration = 'none';
+      actionEl.style.display = 'inline-flex';
+      actionEl.style.alignItems = 'center';
+      actionEl.style.justifyContent = 'center';
+      actionEl.style.gap = '.35rem';
+      actionEl.style.cursor = 'pointer';
+      if (typeof action.onClick === 'function') {
+        actionEl.addEventListener('click', (event) => {
+          try { action.onClick(event); } catch (_) {}
+        });
+      }
+      el.appendChild(actionEl);
+    }
+
     if (kind === 'error') {
       el.style.borderColor = 'color-mix(in srgb, #dc2626 45%, transparent)';
     } else if (kind === 'success') {
       el.style.borderColor = 'color-mix(in srgb, #16a34a 45%, transparent)';
+    } else if (kind === 'warn' || kind === 'warning') {
+      el.style.borderColor = 'color-mix(in srgb, #f59e0b 45%, transparent)';
     }
     root.appendChild(el);
     requestAnimationFrame(() => {
@@ -147,6 +195,591 @@ function showToast(kind, text, options = {}) {
   } catch (_) {
     try { alert(text); } catch (__) {}
   }
+}
+
+// --- GitHub sync overlay and remote polling helpers ---
+
+let syncOverlayElements = null;
+let syncOverlayCancelHandler = null;
+let activeSyncWatcher = null;
+
+function ensureSyncOverlayElements() {
+  if (syncOverlayElements) return syncOverlayElements;
+  if (typeof document === 'undefined') return null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'nsSyncOverlay';
+  overlay.className = 'sync-overlay';
+  overlay.hidden = true;
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-hidden', 'true');
+
+  const panel = document.createElement('div');
+  panel.className = 'sync-overlay-panel';
+  panel.setAttribute('role', 'document');
+
+  const spinner = document.createElement('div');
+  spinner.className = 'sync-overlay-spinner';
+  spinner.setAttribute('aria-hidden', 'true');
+
+  const title = document.createElement('h2');
+  title.className = 'sync-overlay-title';
+  title.id = 'nsSyncOverlayTitle';
+  title.textContent = 'Waiting for GitHub…';
+  title.tabIndex = -1;
+
+  const message = document.createElement('p');
+  message.className = 'sync-overlay-message';
+  message.id = 'nsSyncOverlayMessage';
+
+  const status = document.createElement('p');
+  status.className = 'sync-overlay-status';
+  status.id = 'nsSyncOverlayStatus';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary sync-overlay-cancel';
+  cancelBtn.textContent = 'Stop waiting';
+
+  panel.append(spinner, title, message, status, cancelBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  cancelBtn.addEventListener('click', () => {
+    if (syncOverlayCancelHandler) syncOverlayCancelHandler('button');
+  });
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay && syncOverlayCancelHandler) {
+      syncOverlayCancelHandler('backdrop');
+    }
+  });
+
+  overlay.addEventListener('keydown', (event) => {
+    if ((event.key || '').toLowerCase() === 'escape' && syncOverlayCancelHandler) {
+      event.preventDefault();
+      syncOverlayCancelHandler('escape');
+    }
+  });
+
+  syncOverlayElements = { overlay, panel, spinner, title, message, status, cancelBtn };
+  return syncOverlayElements;
+}
+
+function setSyncOverlayTitle(text) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.title) return;
+  els.title.textContent = text || 'Waiting for GitHub…';
+}
+
+function setSyncOverlayMessage(text) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.message) return;
+  els.message.textContent = text ? String(text) : '';
+}
+
+function setSyncOverlayStatus(text) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.status) return;
+  els.status.textContent = text ? String(text) : '';
+}
+
+function setSyncOverlayCancelHandler(handler, cancelable = true) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.cancelBtn) return;
+  if (cancelable && typeof handler === 'function') {
+    syncOverlayCancelHandler = handler;
+    els.cancelBtn.hidden = false;
+    els.cancelBtn.disabled = false;
+  } else {
+    syncOverlayCancelHandler = null;
+    els.cancelBtn.hidden = true;
+    els.cancelBtn.disabled = true;
+  }
+}
+
+function showSyncOverlay(options = {}) {
+  const els = ensureSyncOverlayElements();
+  if (!els || !els.overlay) return;
+
+  const title = options.title || 'Waiting for GitHub…';
+  const message = options.message || '';
+  const status = options.status || '';
+  const cancelLabel = options.cancelLabel || 'Stop waiting';
+  const cancelable = options.cancelable !== false;
+
+  setSyncOverlayTitle(title);
+  setSyncOverlayMessage(message);
+  setSyncOverlayStatus(status);
+
+  try {
+    els.overlay.hidden = false;
+    els.overlay.classList.add('is-visible');
+    els.overlay.setAttribute('aria-hidden', 'false');
+  } catch (_) {}
+
+  if (els.cancelBtn) {
+    els.cancelBtn.textContent = cancelLabel;
+  }
+  setSyncOverlayCancelHandler(null, cancelable);
+
+  try { document.body.classList.add('ns-sync-overlay-open'); }
+  catch (_) {}
+
+  requestAnimationFrame(() => {
+    try {
+      if (cancelable && els.cancelBtn && !els.cancelBtn.hidden) {
+        els.cancelBtn.focus();
+      } else if (els.title) {
+        els.title.focus({ preventScroll: true });
+      }
+    } catch (_) {}
+  });
+}
+
+function hideSyncOverlay() {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.overlay) return;
+  try {
+    els.overlay.classList.remove('is-visible');
+    els.overlay.setAttribute('aria-hidden', 'true');
+    els.overlay.hidden = true;
+  } catch (_) {}
+  setSyncOverlayCancelHandler(null, true);
+  try { document.body.classList.remove('ns-sync-overlay-open'); }
+  catch (_) {}
+}
+
+function preparePopupWindow() {
+  try {
+    const win = window.open('', '_blank');
+    if (win) {
+      try { win.opener = null; } catch (_) {}
+    }
+    return win;
+  } catch (_) {
+    return null;
+  }
+}
+
+function closePopupWindow(win) {
+  if (!win) return;
+  try {
+    if (!win.closed) win.close();
+  } catch (_) {}
+}
+
+function finalizePopupWindow(win, href) {
+  if (!href) {
+    closePopupWindow(win);
+    return null;
+  }
+  if (win && !win.closed) {
+    try {
+      win.location.replace(href);
+      win.opener = null;
+      return win;
+    } catch (_) {
+      closePopupWindow(win);
+    }
+  }
+  let opened = null;
+  try {
+    opened = window.open(href, '_blank');
+  } catch (_) {
+    opened = null;
+  }
+  if (opened) {
+    try { opened.opener = null; } catch (_) {}
+    return opened;
+  }
+  return null;
+}
+
+function handlePopupBlocked(href, options = {}) {
+  try {
+    console.warn('Popup blocked while opening GitHub window', href);
+  } catch (_) {}
+  const message = safeString(options.message) || 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.';
+  const kind = safeString(options.kind) || 'warn';
+  const duration = typeof options.duration === 'number' ? Math.max(1600, options.duration) : 9000;
+  const actionHref = safeString(options.actionHref || href);
+  const actionLabel = safeString(options.actionLabel) || 'Open GitHub';
+  const onRetry = typeof options.onRetry === 'function' ? options.onRetry : null;
+
+  showToast(kind, message, {
+    duration,
+    action: actionHref
+      ? {
+          label: actionLabel,
+          href: actionHref,
+          target: safeString(options.actionTarget) || '_blank',
+          rel: safeString(options.actionRel) || 'noopener',
+          onClick: (event) => {
+            if (onRetry) {
+              setTimeout(() => {
+                try { onRetry(event); } catch (_) {}
+              }, 60);
+            }
+          }
+        }
+      : null
+  });
+}
+
+function startRemoteSyncWatcher(config = {}) {
+  if (!config || typeof config.fetch !== 'function') return null;
+  if (activeSyncWatcher && typeof activeSyncWatcher.cancel === 'function') {
+    try { activeSyncWatcher.cancel('replaced'); } catch (_) {}
+  }
+
+  const overlayTitle = config.title || 'Waiting for GitHub…';
+  const overlayMessage = config.message || '';
+  const overlayStatus = config.initialStatus || 'Preparing…';
+  const cancelLabel = config.cancelLabel || 'Stop waiting';
+  const cancelable = config.cancelable !== false;
+
+  showSyncOverlay({ title: overlayTitle, message: overlayMessage, status: overlayStatus, cancelLabel, cancelable });
+  setSyncOverlayStatus(overlayStatus);
+
+  let aborted = false;
+  let attempts = 0;
+  let timer = null;
+
+  const cancel = (reason) => {
+    if (aborted) return;
+    aborted = true;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    hideSyncOverlay();
+    activeSyncWatcher = null;
+    if (typeof config.onCancel === 'function') {
+      try { config.onCancel(reason); } catch (_) {}
+    }
+  };
+
+  setSyncOverlayCancelHandler(cancelable ? cancel : null, cancelable);
+
+  const scheduleNext = (delay) => {
+    if (aborted) return;
+    const ms = Math.max(1200, Number(delay) || 0);
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(runFetch, ms);
+  };
+
+  const runFetch = async () => {
+    if (aborted) return;
+    attempts += 1;
+    let result;
+    try {
+      result = await config.fetch({ attempts, updateStatus: setSyncOverlayStatus });
+    } catch (err) {
+      if (aborted) return;
+      const msg = (typeof config.onErrorStatus === 'function')
+        ? config.onErrorStatus(err, attempts)
+        : 'Remote check failed. Retrying…';
+      setSyncOverlayStatus(msg);
+      scheduleNext(config.errorDelay || 6000);
+      return;
+    }
+
+    if (aborted) return;
+    if (result && result.statusMessage) setSyncOverlayStatus(result.statusMessage);
+    if (result && result.message) setSyncOverlayMessage(result.message);
+
+    if (result && result.done) {
+      aborted = true;
+      hideSyncOverlay();
+      activeSyncWatcher = null;
+      if (typeof config.onSuccess === 'function') {
+        try { config.onSuccess(result); } catch (_) {}
+      }
+      return;
+    }
+
+    const nextDelay = result && typeof result.retryDelay === 'number'
+      ? result.retryDelay
+      : config.interval || 5000;
+    scheduleNext(nextDelay);
+  };
+
+  activeSyncWatcher = { cancel, attempts: () => attempts };
+
+  const initialDelay = config.initialDelay != null ? config.initialDelay : 2400;
+  scheduleNext(initialDelay);
+  return activeSyncWatcher;
+}
+
+async function fetchMarkdownRemoteSnapshot(tab) {
+  if (!tab || !tab.path) return null;
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) return null;
+  const url = `${root}/${rel}`.replace(/[\\]/g, '/');
+  let res;
+  try {
+    res = await fetch(url, { cache: 'no-store' });
+  } catch (err) {
+    return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+  }
+
+  const checkedAt = Date.now();
+
+  if (res.status === 404) {
+    return { state: 'missing', status: 404, content: '', signature: computeTextSignature(''), checkedAt };
+  }
+
+  if (!res.ok) {
+    return { state: 'error', status: res.status, message: `HTTP ${res.status}`, checkedAt };
+  }
+
+  const text = normalizeMarkdownContent(await res.text());
+  return {
+    state: 'existing',
+    status: res.status,
+    content: text,
+    signature: computeTextSignature(text),
+    checkedAt
+  };
+}
+
+function applyMarkdownRemoteSnapshot(tab, snapshot) {
+  if (!tab) return;
+  const normalized = normalizeMarkdownContent(snapshot && snapshot.content != null ? snapshot.content : '');
+  tab.remoteContent = normalized;
+  tab.remoteSignature = computeTextSignature(normalized);
+  tab.loaded = true;
+
+  const stateLabel = snapshot && snapshot.state === 'missing' ? 'missing' : 'existing';
+  const statusCode = snapshot && snapshot.status;
+  const statusMessage = snapshot && snapshot.state === 'missing'
+    ? 'File not found on server'
+    : 'Remote snapshot updated';
+
+  setDynamicTabStatus(tab, {
+    state: stateLabel,
+    checkedAt: Date.now(),
+    code: statusCode,
+    message: statusMessage
+  });
+
+  if (!tab.localDraft || !tab.localDraft.content) {
+    const currentNormalized = normalizeMarkdownContent(tab.content || '');
+    tab.content = currentNormalized;
+    if (currentNormalized !== normalized) {
+      tab.content = normalized;
+      if (currentMode === tab.mode) {
+        const editorApi = getPrimaryEditorApi();
+        if (editorApi && typeof editorApi.setValue === 'function') {
+          try { editorApi.setValue(normalized, { notify: false }); } catch (_) {}
+        }
+      }
+    }
+  }
+
+  updateDynamicTabDirtyState(tab, { autoSave: false });
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
+}
+
+function startMarkdownSyncWatcher(tab, options = {}) {
+  if (!tab || !tab.path) return;
+  const expectedSignature = options.expectedSignature || computeTextSignature(tab.content || '');
+  const label = options.label || tab.label || basenameFromPath(tab.path) || tab.path;
+  const isCreate = !!options.isCreate;
+  const message = isCreate
+    ? `Waiting for GitHub to create ${label}`
+    : `Waiting for GitHub to update ${label}`;
+
+  setDynamicTabStatus(tab, {
+    state: 'checking',
+    checkedAt: Date.now(),
+    message: 'Waiting for GitHub commit…'
+  });
+  updateMarkdownPushButton(tab);
+
+  startRemoteSyncWatcher({
+    title: 'Checking remote changes…',
+    message,
+    initialStatus: 'Waiting for commit…',
+    cancelLabel: 'Stop waiting',
+    fetch: async ({ attempts }) => {
+      const snapshot = await fetchMarkdownRemoteSnapshot(tab);
+      if (!snapshot) {
+        return { done: false, statusMessage: 'Waiting for remote response…', retryDelay: 5000 };
+      }
+      if (snapshot.state === 'error') {
+        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        return { done: false, statusMessage: msg, retryDelay: 6000 };
+      }
+      if (snapshot.state === 'missing') {
+        const done = expectedSignature === computeTextSignature('');
+        const statusMessage = isCreate
+          ? 'Remote file not found yet…'
+          : 'Remote file still missing…';
+        return { done, data: snapshot, statusMessage, retryDelay: 5600 };
+      }
+      const matches = snapshot.signature === expectedSignature;
+      if (matches) {
+        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+      }
+      const waitingStatus = attempts >= 3
+        ? 'Remote file still differs from local content. Waiting…'
+        : 'Remote file exists but content differs. Waiting…';
+      const response = {
+        done: false,
+        statusMessage: waitingStatus,
+        retryDelay: 5200
+      };
+      if (attempts === 3) {
+        response.message = 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.';
+      }
+      return response;
+    },
+    onSuccess: (result) => {
+      if (result && result.data) {
+        applyMarkdownRemoteSnapshot(tab, result.data);
+        if (result.mismatch) {
+          showToast('warn', 'Remote markdown differs from the local draft. Review the changes before continuing.', { duration: 4200 });
+        } else {
+          showToast('success', 'Markdown synchronized with GitHub.');
+        }
+      }
+      updateMarkdownPushButton(tab);
+      updateMarkdownDiscardButton(tab);
+    },
+    onCancel: () => {
+      setDynamicTabStatus(tab, {
+        state: 'existing',
+        checkedAt: Date.now(),
+        message: 'Remote check canceled'
+      });
+      updateMarkdownPushButton(tab);
+      updateMarkdownDiscardButton(tab);
+      showToast('info', 'Remote check canceled. Use Refresh after your commit is ready.');
+    }
+  });
+}
+
+async function fetchComposerRemoteSnapshot(kind) {
+  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const root = getContentRootSafe();
+  const base = safeKind === 'tabs' ? 'tabs' : 'index';
+  const urls = [`${root}/${base}.yaml`, `${root}/${base}.yml`];
+  let lastStatus = 404;
+  for (const url of urls) {
+    let res;
+    try {
+      res = await fetch(url, { cache: 'no-store' });
+    } catch (err) {
+      return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+    }
+    lastStatus = res.status;
+    if (res.status === 404) continue;
+    if (!res.ok) {
+      return { state: 'error', status: res.status, message: `HTTP ${res.status}` };
+    }
+    const text = await res.text();
+    let parsed = null;
+    try { parsed = parseYAML(text); }
+    catch (_) { parsed = null; }
+    return {
+      state: 'existing',
+      status: res.status,
+      text,
+      parsed,
+      signature: computeTextSignature(text)
+    };
+  }
+  return { state: 'missing', status: lastStatus };
+}
+
+function applyComposerRemoteSnapshot(kind, snapshot) {
+  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  if (!snapshot || snapshot.state !== 'existing') return;
+  let parsed = snapshot.parsed;
+  if (!parsed || typeof parsed !== 'object') {
+    try { parsed = parseYAML(snapshot.text || ''); }
+    catch (_) { parsed = null; }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    showToast('warn', `Fetched ${safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml'} but failed to parse YAML.`, { duration: 4200 });
+    return;
+  }
+  const prepared = safeKind === 'tabs' ? prepareTabsState(parsed || {}) : prepareIndexState(parsed || {});
+  remoteBaseline[safeKind] = deepClone(prepared);
+  notifyComposerChange(safeKind, { skipAutoSave: true });
+}
+
+function startComposerSyncWatcher(kind, options = {}) {
+  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const expectedText = options.expectedText != null ? String(options.expectedText) : '';
+  const expectedSignature = computeTextSignature(expectedText);
+  const message = options.message || `Waiting for ${label} to update on GitHub…`;
+
+  startRemoteSyncWatcher({
+    title: options.title || 'Waiting for GitHub…',
+    message,
+    initialStatus: options.initialStatus || 'Waiting for commit…',
+    cancelLabel: options.cancelLabel || 'Stop waiting',
+    fetch: async ({ attempts }) => {
+      const snapshot = await fetchComposerRemoteSnapshot(safeKind);
+      if (!snapshot) {
+        return { done: false, statusMessage: 'Waiting for remote…', retryDelay: 5200 };
+      }
+      if (snapshot.state === 'missing') {
+        return { done: false, statusMessage: `${label} not found on remote yet…`, retryDelay: 5600 };
+      }
+      if (snapshot.state === 'error') {
+        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        return { done: false, statusMessage: msg, retryDelay: 6200 };
+      }
+      const matches = snapshot.signature === expectedSignature;
+      if (matches) {
+        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+      }
+      const waitingStatus = attempts >= 3
+        ? 'Remote YAML still differs from the local snapshot. Waiting…'
+        : 'Remote YAML updated but content differs. Waiting…';
+      const response = {
+        done: false,
+        statusMessage: waitingStatus,
+        retryDelay: 5400
+      };
+      if (attempts === 3) {
+        response.message = 'If the commit was different from your draft, cancel and click Refresh to pull it in.';
+      }
+      return response;
+    },
+    onSuccess: (result) => {
+      if (result && result.data) {
+        applyComposerRemoteSnapshot(safeKind, result.data);
+        if (result.mismatch) {
+          showToast('warn', `${label} was updated differently on GitHub. Review the highlighted differences.`, { duration: 4600 });
+        } else {
+          clearDraftStorage(safeKind);
+          updateUnsyncedSummary();
+          const modal = composerDiffModal;
+          const matchesKind = modal && typeof modal.getActiveKind === 'function'
+            ? modal.getActiveKind() === safeKind
+            : true;
+          const isOpen = modal && modal.modal && modal.modal.classList
+            ? (modal.modal.classList.contains('is-open') && modal.modal.getAttribute('aria-hidden') !== 'true')
+            : false;
+          if (modal && typeof modal.close === 'function' && matchesKind && isOpen) {
+            try { modal.close(); } catch (_) {}
+          }
+          showToast('success', `${label} synchronized with GitHub.`);
+        }
+      }
+    },
+    onCancel: () => {
+      showToast('info', 'Remote check canceled. Click Refresh when your commit is ready.');
+    }
+  });
 }
 
 function setButtonLabel(btn, label) {
@@ -302,7 +935,14 @@ function computeTabsSignature(state) {
 function diffVersionLists(currentValue, baselineValue) {
   const normalize = (value) => {
     if (Array.isArray(value)) {
-      return { kind: 'list', items: value.map(item => safeString(item)) };
+      const items = value.map(item => safeString(item));
+      if (items.length === 0) {
+        return { kind: 'list', items: [] };
+      }
+      if (items.length === 1) {
+        return { kind: 'single', items: [items[0]] };
+      }
+      return { kind: 'list', items };
     }
     return { kind: 'single', items: [safeString(value)] };
   };
@@ -697,11 +1337,23 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   const baseline = normalizeMarkdownContent(tab.remoteContent || '');
   const dirty = normalizedContent !== baseline;
   tab.isDirty = dirty;
-  const conflict = !!(tab.localDraft
-    && tab.localDraft.remoteSignature
-    && tab.remoteSignature
-    && tab.localDraft.remoteSignature !== tab.remoteSignature);
+
+  let conflict = false;
+
+  if (dirty) {
+    conflict = !!(tab.localDraft
+      && tab.localDraft.remoteSignature
+      && tab.remoteSignature
+      && tab.localDraft.remoteSignature !== tab.remoteSignature);
+    if (options.autoSave !== false) {
+      scheduleMarkdownDraftSave(tab);
+    }
+  } else {
+    clearMarkdownDraftForTab(tab);
+  }
+
   tab.draftConflict = conflict;
+
   const btn = tab.button;
   if (btn) {
     if (dirty) btn.setAttribute('data-dirty', '1');
@@ -710,16 +1362,13 @@ function updateDynamicTabDirtyState(tab, options = {}) {
     else if (tab.localDraft) btn.setAttribute('data-draft-state', 'saved');
     else btn.removeAttribute('data-draft-state');
   }
-  if (!dirty) {
-    clearMarkdownDraftForTab(tab);
-  } else if (options.autoSave !== false) {
-    scheduleMarkdownDraftSave(tab);
-  }
+
   if (currentMode === tab.mode) {
     pushEditorCurrentFileInfo(tab);
   } else {
     updateMarkdownPushButton(tab);
   }
+
   updateComposerMarkdownDraftIndicators({ path: tab.path });
 }
 
@@ -1915,6 +2564,8 @@ function ensureComposerDiffModal() {
     open: openModal,
     close: closeModal,
     activate: setActiveTab,
+    getActiveKind: () => activeKind,
+    isOpen: () => modal.classList.contains('is-open') && modal.getAttribute('aria-hidden') !== 'true',
     modal,
     dialog,
     title,
@@ -2048,8 +2699,9 @@ function rebuildIndexUI(preserveOpen = true) {
     const btn = row.querySelector('.ci-expand');
     row.classList.add('is-open');
     if (body) {
-      body.style.display = '';
+      body.style.display = 'block';
       body.dataset.open = '1';
+      clearInlineSlideStyles(body);
     }
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
@@ -2072,8 +2724,9 @@ function rebuildTabsUI(preserveOpen = true) {
     const btn = row.querySelector('.ct-expand');
     row.classList.add('is-open');
     if (body) {
-      body.style.display = '';
+      body.style.display = 'block';
       body.dataset.open = '1';
+      clearInlineSlideStyles(body);
     }
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
@@ -2159,6 +2812,350 @@ async function handleComposerRefresh(btn) {
 let discardConfirmElements = null;
 let discardConfirmActiveClose = null;
 let discardConfirmHideTimer = null;
+
+let addEntryPromptElements = null;
+let addEntryPromptActiveClose = null;
+let addEntryPromptHideTimer = null;
+
+function ensureComposerAddEntryPromptElements() {
+  if (addEntryPromptElements) return addEntryPromptElements;
+  if (typeof document === 'undefined') return null;
+
+  const popover = document.createElement('div');
+  popover.id = 'composerAddEntryPrompt';
+  popover.className = 'composer-confirm-popover composer-key-popover';
+  popover.setAttribute('role', 'dialog');
+  popover.setAttribute('aria-modal', 'false');
+  popover.hidden = true;
+
+  const fieldWrap = document.createElement('div');
+  fieldWrap.className = 'composer-key-form';
+
+  const label = document.createElement('label');
+  label.className = 'composer-confirm-message';
+  label.id = 'composerAddEntryPromptLabel';
+  label.setAttribute('for', 'composerAddEntryKeyInput');
+  fieldWrap.appendChild(label);
+
+  popover.setAttribute('aria-labelledby', label.id);
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'composerAddEntryKeyInput';
+  input.className = 'composer-key-input';
+  input.autocomplete = 'off';
+  input.autocapitalize = 'none';
+  input.spellcheck = false;
+  input.setAttribute('spellcheck', 'false');
+  fieldWrap.appendChild(input);
+
+  const hint = document.createElement('div');
+  hint.className = 'composer-key-hint';
+  hint.id = 'composerAddEntryPromptHint';
+  hint.textContent = 'Use only English letters and numbers.';
+  fieldWrap.appendChild(hint);
+
+  const error = document.createElement('div');
+  error.className = 'composer-key-error';
+  error.id = 'composerAddEntryPromptError';
+  error.setAttribute('role', 'alert');
+  fieldWrap.appendChild(error);
+
+  input.setAttribute('aria-describedby', `${hint.id} ${error.id}`);
+  popover.setAttribute('aria-describedby', `${hint.id} ${error.id}`);
+
+  popover.appendChild(fieldWrap);
+
+  const actions = document.createElement('div');
+  actions.className = 'composer-confirm-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary composer-confirm-cancel';
+  cancelBtn.textContent = 'Cancel';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.className = 'btn-secondary composer-confirm-confirm';
+  confirmBtn.textContent = 'Add Entry';
+
+  actions.append(cancelBtn, confirmBtn);
+  popover.appendChild(actions);
+
+  document.body.appendChild(popover);
+  addEntryPromptElements = { popover, label, input, error, cancelBtn, confirmBtn };
+  return addEntryPromptElements;
+}
+
+function showComposerAddEntryPrompt(anchor, options) {
+  const elements = ensureComposerAddEntryPromptElements();
+  if (!elements) return Promise.resolve({ confirmed: false, value: '' });
+
+  const { popover, label, input, error, cancelBtn, confirmBtn } = elements;
+  const typeLabel = options && options.typeLabel ? String(options.typeLabel) : 'entry';
+  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Add Entry';
+  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
+  const placeholder = options && options.placeholder ? String(options.placeholder) : 'Entry key';
+  const existingKeys = options && options.existingKeys ? new Set(options.existingKeys) : new Set();
+
+  label.textContent = options && options.message ? String(options.message) : `Enter a new ${typeLabel} key:`;
+  cancelBtn.textContent = cancelLabel;
+  confirmBtn.textContent = confirmLabel;
+  input.value = options && options.initialValue ? String(options.initialValue).trim() : '';
+  input.placeholder = placeholder;
+  input.setAttribute('aria-invalid', 'false');
+  error.textContent = '';
+
+  if (anchor && typeof anchor.setAttribute === 'function') {
+    anchor.setAttribute('aria-haspopup', 'dialog');
+    anchor.setAttribute('aria-controls', popover.id);
+  }
+
+  if (typeof addEntryPromptActiveClose === 'function') {
+    try { addEntryPromptActiveClose(false); } catch (_) {}
+  }
+
+  if (addEntryPromptHideTimer) {
+    window.clearTimeout(addEntryPromptHideTimer);
+    addEntryPromptHideTimer = null;
+  }
+
+  popover.hidden = false;
+  popover.style.visibility = 'hidden';
+  popover.classList.remove('is-visible');
+  popover.dataset.placement = 'bottom';
+
+  const setError = (message) => {
+    const text = String(message || '');
+    error.textContent = text;
+    if (text) {
+      input.setAttribute('aria-invalid', 'true');
+    } else {
+      input.setAttribute('aria-invalid', 'false');
+    }
+  };
+
+  const validateKey = () => {
+    const raw = input.value || '';
+    const value = raw.trim();
+    if (!value) {
+      setError('Key cannot be empty.');
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+      return null;
+    }
+    if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+      setError('Key must contain only English letters, numbers, underscores, or hyphens.');
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+      return null;
+    }
+    if (existingKeys.has(value)) {
+      setError('That key already exists. Choose a different key.');
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+      return null;
+    }
+    setError('');
+    return value;
+  };
+
+  let resolve;
+  let closed = false;
+
+  const finish = (result, value) => {
+    if (closed) return;
+    closed = true;
+    addEntryPromptActiveClose = null;
+
+    popover.classList.remove('is-visible');
+    popover.style.visibility = 'hidden';
+
+    if (addEntryPromptHideTimer) {
+      window.clearTimeout(addEntryPromptHideTimer);
+      addEntryPromptHideTimer = null;
+    }
+    addEntryPromptHideTimer = window.setTimeout(() => {
+      popover.hidden = true;
+      popover.style.visibility = '';
+      popover.style.left = '';
+      popover.style.top = '';
+      addEntryPromptHideTimer = null;
+    }, 200);
+
+    cancelBtn.removeEventListener('click', onCancel);
+    confirmBtn.removeEventListener('click', onConfirm);
+    input.removeEventListener('keydown', onInputKeyDown, true);
+    input.removeEventListener('input', onInputChange);
+    document.removeEventListener('keydown', onKeyDown, true);
+    document.removeEventListener('mousedown', onOutside, true);
+    document.removeEventListener('touchstart', onOutside, true);
+    window.removeEventListener('resize', reposition);
+    window.removeEventListener('scroll', reposition, true);
+
+    if (anchor && typeof anchor.setAttribute === 'function') {
+      anchor.setAttribute('aria-expanded', 'false');
+    }
+
+    if (!result && anchor && typeof anchor.focus === 'function') {
+      window.setTimeout(() => {
+        try { anchor.focus({ preventScroll: true }); } catch (_) {}
+      }, 120);
+    }
+
+    setError('');
+    input.value = '';
+
+    if (typeof resolve === 'function') {
+      resolve({ confirmed: !!result, value: result ? String(value || '') : '' });
+    }
+    resolve = null;
+  };
+
+  const onCancel = (event) => {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    finish(false, '');
+  };
+
+  const onConfirm = (event) => {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const value = validateKey();
+    if (value == null) return;
+    finish(true, value);
+  };
+
+  const onInputKeyDown = (event) => {
+    if (!event) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const value = validateKey();
+      if (value == null) return;
+      finish(true, value);
+    }
+  };
+
+  const onInputChange = () => {
+    if (error.textContent) setError('');
+  };
+
+  const onOutside = (event) => {
+    const target = event && event.target;
+    if (!target) return;
+    if (popover.contains(target) || target === anchor) return;
+    finish(false, '');
+  };
+
+  const onKeyDown = (event) => {
+    if (!event) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      finish(false, '');
+      return;
+    }
+    if (event.key === 'Tab') {
+      const focusables = [input, confirmBtn, cancelBtn];
+      const active = document.activeElement;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey) {
+        if (active === first || !focusables.includes(active)) {
+          event.preventDefault();
+          if (last) last.focus({ preventScroll: true });
+        }
+      } else {
+        if (active === last) {
+          event.preventDefault();
+          if (first) first.focus({ preventScroll: true });
+        } else if (!focusables.includes(active)) {
+          event.preventDefault();
+          if (first) first.focus({ preventScroll: true });
+        }
+      }
+    }
+  };
+
+  const reposition = () => {
+    if (!anchor || !popover.isConnected) {
+      finish(false, '');
+      return;
+    }
+    if (typeof anchor.getBoundingClientRect !== 'function') {
+      finish(false, '');
+      return;
+    }
+    const rect = anchor.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      finish(false, '');
+      return;
+    }
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const viewportWidth = document.documentElement && document.documentElement.clientWidth
+      ? document.documentElement.clientWidth
+      : (window.innerWidth || 0);
+    const viewportHeight = document.documentElement && document.documentElement.clientHeight
+      ? document.documentElement.clientHeight
+      : (window.innerHeight || 0);
+    const margin = 12;
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+
+    let left = scrollX + rect.right - width;
+    const minLeft = scrollX + margin;
+    const maxLeft = scrollX + Math.max(margin, viewportWidth - margin - width);
+    if (left < minLeft) left = minLeft;
+    if (left > maxLeft) left = maxLeft;
+
+    let placement = 'bottom';
+    let top = scrollY + rect.bottom + 12;
+    const viewportBottom = scrollY + viewportHeight;
+    const fitsBelow = top + height <= viewportBottom - margin;
+    if (!fitsBelow && rect.top >= height + margin) {
+      placement = 'top';
+      top = scrollY + rect.top - height - 12;
+    } else if (!fitsBelow) {
+      top = Math.max(scrollY + margin, viewportBottom - height - margin);
+    }
+    if (placement === 'bottom') {
+      top = Math.max(top, scrollY + rect.bottom + 4);
+    } else {
+      top = Math.min(top, scrollY + rect.top - 4);
+    }
+
+    popover.dataset.placement = placement;
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  };
+
+  cancelBtn.addEventListener('click', onCancel);
+  confirmBtn.addEventListener('click', onConfirm);
+  input.addEventListener('keydown', onInputKeyDown, true);
+  input.addEventListener('input', onInputChange);
+  document.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('mousedown', onOutside, true);
+  document.addEventListener('touchstart', onOutside, true);
+  window.addEventListener('resize', reposition);
+  window.addEventListener('scroll', reposition, true);
+
+  return new Promise((res) => {
+    resolve = res;
+    addEntryPromptActiveClose = () => finish(false, '');
+
+    const runShow = () => {
+      reposition();
+      if (closed) return;
+      popover.style.visibility = '';
+      popover.classList.add('is-visible');
+      if (anchor && typeof anchor.setAttribute === 'function') {
+        anchor.setAttribute('aria-expanded', 'true');
+      }
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(runShow);
+    } else {
+      runShow();
+    }
+  });
+}
 
 function ensureComposerDiscardConfirmElements() {
   if (discardConfirmElements) return discardConfirmElements;
@@ -2800,6 +3797,16 @@ async function openMarkdownPushOnGitHub(tab) {
     return;
   }
 
+  const branch = String(repo.branch || 'main').trim() || 'main';
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) {
+    showToast('error', 'Invalid markdown path.');
+    return;
+  }
+
+  const popup = preparePopupWindow();
+
   try {
     if (tab.pending) {
       await tab.pending;
@@ -2807,6 +3814,7 @@ async function openMarkdownPushOnGitHub(tab) {
       await loadDynamicTabContent(tab);
     }
   } catch (err) {
+    closePopupWindow(popup);
     console.error('Failed to prepare markdown before pushing to GitHub', err);
     showToast('error', 'Unable to load the latest markdown before pushing.');
     updateMarkdownPushButton(tab);
@@ -2814,15 +3822,8 @@ async function openMarkdownPushOnGitHub(tab) {
   }
 
   if (!tab.loaded) {
+    closePopupWindow(popup);
     showToast('error', 'Markdown file is not ready to push yet.');
-    return;
-  }
-
-  const branch = String(repo.branch || 'main').trim() || 'main';
-  const root = getContentRootSafe();
-  const rel = normalizeRelPath(tab.path);
-  if (!rel) {
-    showToast('error', 'Invalid markdown path.');
     return;
   }
 
@@ -2850,6 +3851,7 @@ async function openMarkdownPushOnGitHub(tab) {
   }
 
   if (!href) {
+    closePopupWindow(popup);
     showToast('error', 'Unable to resolve GitHub URL for this file.');
     return;
   }
@@ -2863,17 +3865,37 @@ async function openMarkdownPushOnGitHub(tab) {
   try { nsCopyToClipboard(tab.content != null ? String(tab.content) : ''); }
   catch (_) {}
 
-  try {
-    window.open(href, '_blank', 'noopener');
-  } catch (_) {
-    try { window.location.href = href; }
-    catch (__) {}
-  }
-
-  const message = isCreate
+  const expectedSignature = computeTextSignature(tab.content != null ? String(tab.content) : '');
+  const successMessage = isCreate
     ? 'Markdown copied. GitHub will open to create this file.'
     : 'Markdown copied. GitHub will open to update this file.';
-  showToast('info', message);
+  const blockedMessage = isCreate
+    ? 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.'
+    : 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.';
+
+  const startWatcher = () => {
+    startMarkdownSyncWatcher(tab, {
+      expectedSignature,
+      isCreate,
+      label: filename || tab.path || 'markdown file'
+    });
+  };
+
+  const opened = finalizePopupWindow(popup, href);
+  if (opened) {
+    showToast('info', successMessage);
+    startWatcher();
+  } else {
+    closePopupWindow(popup);
+    handlePopupBlocked(href, {
+      message: blockedMessage,
+      actionLabel: 'Open GitHub',
+      onRetry: () => {
+        showToast('info', successMessage);
+        startWatcher();
+      }
+    });
+  }
 
   updateMarkdownPushButton(tab);
 }
@@ -3446,7 +4468,7 @@ function applyComposerFile(name) {
   } catch (_) {}
   try {
     const btn = $('#btnAddItem');
-    if (btn) btn.textContent = isIndex ? 'New Post Wizard' : 'New Tab Wizard';
+    if (btn) btn.textContent = isIndex ? 'Add Post Entry' : 'Add Tab Entry';
   } catch (_) {}
   // Sync preload attribute to avoid CSS forcing the wrong sub-file
   try {
@@ -4375,6 +5397,141 @@ function buildTabsUI(root, state) {
   });
 }
 
+function getDefaultComposerLanguage() {
+  if (Array.isArray(PREFERRED_LANG_ORDER) && PREFERRED_LANG_ORDER.length > 0) {
+    return PREFERRED_LANG_ORDER[0];
+  }
+  return 'en';
+}
+
+function buildDefaultEntryPath(kind, key, lang) {
+  const normalizedKind = kind === 'tabs' ? 'tabs' : 'index';
+  const baseFolder = normalizedKind === 'tabs' ? 'tab' : 'post';
+  const safeKey = String(key || '').trim();
+  const fallbackLang = String(lang || '').trim() || getDefaultComposerLanguage() || 'en';
+  const normalizedLang = fallbackLang.toLowerCase();
+  const filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
+  const folder = safeKey ? `${baseFolder}/${safeKey}` : baseFolder;
+  return `${folder}/${filename}`;
+}
+
+async function promptComposerEntryKey(kind, anchor) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const slice = getStateSlice(normalized) || {};
+  const existing = new Set();
+  try {
+    const order = Array.isArray(slice.__order) ? slice.__order : [];
+    order.forEach((key) => {
+      const normalizedKey = String(key || '').trim();
+      if (normalizedKey) existing.add(normalizedKey);
+    });
+  } catch (_) {}
+  try {
+    Object.keys(slice || {}).forEach((key) => {
+      if (key === '__order') return;
+      const normalizedKey = String(key || '').trim();
+      if (normalizedKey) existing.add(normalizedKey);
+    });
+  } catch (_) {}
+
+  const typeLabel = normalized === 'tabs' ? 'tab' : 'post';
+  const typeTitle = typeLabel === 'tab' ? 'Tab' : 'Post';
+  const confirmLabel = `Add ${typeTitle} Entry`;
+  const placeholder = `${typeTitle} key`;
+  const message = `Enter a new ${typeLabel} key (letters and numbers only):`;
+
+  try {
+    const result = await showComposerAddEntryPrompt(anchor, {
+      typeLabel,
+      confirmLabel,
+      placeholder,
+      existingKeys: existing,
+      message
+    });
+    if (!result || !result.confirmed) return '';
+    return String(result.value || '').trim();
+  } catch (err) {
+    console.warn('Failed to capture new entry key', err);
+    return '';
+  }
+}
+
+function focusComposerEntry(kind, key) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const root = normalized === 'tabs' ? document.getElementById('composerTabs') : document.getElementById('composerIndex');
+  if (!root) return;
+  const selector = normalized === 'tabs' ? `.ct-item[data-key="${cssEscape(key)}"]` : `.ci-item[data-key="${cssEscape(key)}"]`;
+  const row = root.querySelector(selector);
+  if (!row) return;
+  const body = row.querySelector(normalized === 'tabs' ? '.ct-body' : '.ci-body');
+  const expandBtn = row.querySelector(normalized === 'tabs' ? '.ct-expand' : '.ci-expand');
+  if (body) {
+    body.style.display = 'block';
+    body.dataset.open = '1';
+    clearInlineSlideStyles(body);
+  }
+  if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
+  row.classList.add('is-open');
+
+  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-title, .ct-loc' : '.ci-path');
+  const fallbackFocus = row.querySelector('input, textarea, button');
+  const target = preferredFocus || fallbackFocus;
+  if (target && typeof target.focus === 'function') {
+    try { target.focus(); } catch (_) {}
+  }
+  try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+}
+
+async function addComposerEntry(kind, anchor) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const slice = getStateSlice(normalized);
+  if (!slice) return;
+  if (!Array.isArray(slice.__order)) slice.__order = [];
+
+  let key = '';
+  try {
+    key = await promptComposerEntryKey(normalized, anchor);
+  } catch (err) {
+    console.warn('Failed to add composer entry', err);
+    return;
+  }
+  if (!key) return;
+  if (slice.__order.includes(key)) return;
+
+  if (normalized === 'tabs') {
+    slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
+    const lang = getDefaultComposerLanguage();
+    if (lang && !slice[key][lang]) {
+      const defaultPath = buildDefaultEntryPath('tabs', key, lang);
+      slice[key][lang] = { title: key, location: defaultPath };
+    }
+  } else {
+    slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
+    const lang = getDefaultComposerLanguage();
+    if (lang && !slice[key][lang]) {
+      const defaultPath = buildDefaultEntryPath('index', key, lang);
+      slice[key][lang] = [defaultPath];
+    }
+  }
+
+  slice.__order.unshift(key);
+
+  if (normalized === 'index') {
+    rebuildIndexUI();
+    notifyComposerChange('index');
+  } else {
+    rebuildTabsUI();
+    notifyComposerChange('tabs');
+  }
+
+  requestAnimationFrame(() => focusComposerEntry(normalized, key));
+
+  const message = normalized === 'tabs'
+    ? `Tab entry "${key}" added. Fill in the details below.`
+    : `Post entry "${key}" added. Fill in the details below.`;
+  try { showToast('info', message); } catch (_) {}
+}
+
 function bindComposerUI(state) {
   // Mode switch (Editor <-> Composer)
   $$('.mode-tab').forEach(btn => {
@@ -4395,923 +5552,25 @@ function bindComposerUI(state) {
   setFile(getInitialComposerFile());
 
   // ----- Composer: New Post Wizard -----
-  // Build a small guided flow to:
-  // 1) Set metadata (key, languages, filename)
-  // 2) Guide creating folder + file on GitHub
-  // 3) Add entry to index.yaml via Composer, then export YAML
+  // Legacy wizard removed in favor of inline add buttons.
   (function buildComposerGuide(){
-    const host = document.getElementById('mode-composer');
-    if (!host) return;
-    const section = host.querySelector('section.editor-main');
-    if (!section) return;
-    const toolbar = section.querySelector('.toolbar');
-
-    const wrap = document.createElement('div');
-    wrap.id = 'composerGuide';
-    wrap.className = 'comp-guide';
-    wrap.innerHTML = `
-      <div class="comp-guide-head">
-        <strong>Composer Wizard - Post</strong>
-        <span class="muted">Create files on GitHub and update YAML</span>
-      </div>
-      <div class="comp-form">
-        <label>Key <input id="compKey" type="text" placeholder="e.g., myPost" /></label>
-        <div id="compTitlesWrap" class="comp-titles" style="display:none;"></div>
-        <label>Filename <input id="compFilename" type="text" value="main.md" /></label>
-        <div class="comp-langs">
-          <span class="lab">Languages</span>
-          <label><input type="checkbox" value="en" id="compLangEN" checked><span>EN</span></label>
-          <label><input type="checkbox" value="zh" id="compLangZH"><span>ZH</span></label>
-          <label><input type="checkbox" value="ja" id="compLangJA"><span>JA</span></label>
-        </div>
-        <div class="comp-actions">
-          <button class="btn-secondary" id="compGen">Generate Steps</button>
-        </div>
-      </div>
-      <div class="comp-divider" id="compDivider" hidden></div>
-      <div class="comp-steps" id="compSteps" hidden></div>
-      <div class="comp-footer" style="display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem;">
-        <span id="compHint" class="comp-hint" hidden>Wait for GitHub Pages to finish deploying (may take a few minutes) before verifying.</span>
-        <button class="btn-primary" id="compFinish" hidden>Verify Setup</button>
-      </div>
-    `;
-    // Create a modal container and mount the wizard inside
-    const modal = document.createElement('div');
-    modal.id = 'compModal';
-    modal.className = 'ns-modal';
-    modal.setAttribute('aria-hidden', 'true');
-
-    const dialog = document.createElement('div');
-    dialog.className = 'ns-modal-dialog';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-labelledby', 'compGuideTitle');
-
-    // Add close button
-    const btnClose = document.createElement('button');
-    btnClose.className = 'ns-modal-close btn-secondary';
-    btnClose.type = 'button';
-    btnClose.setAttribute('aria-label', 'Cancel');
-    btnClose.textContent = 'Cancel';
-
-    // Label the title for a11y and restructure header to include the close button
-    const headStrong = document.createElement('strong');
-    headStrong.id = 'compGuideTitle';
-    headStrong.textContent = 'Composer Wizard - Post';
-    const head = wrap.querySelector('.comp-guide-head');
-    if (head) {
-      const muted = head.querySelector('.muted');
-      const left = document.createElement('div');
-      left.className = 'comp-head-left';
-      left.appendChild(headStrong);
-      if (muted) left.appendChild(muted);
-      head.innerHTML = '';
-      head.appendChild(left);
-      head.appendChild(btnClose);
-    }
-
-    dialog.appendChild(wrap);
-    modal.appendChild(dialog);
-    document.body.appendChild(modal);
-
-    // Modal behaviors
-    const focusableSelector = 'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    let lastActive = null;
-    let compMode = 'index'; // 'index' | 'tabs'
-    function getActiveTarget(){ try { return ($('#composerIndex').style.display !== 'none') ? 'index' : 'tabs'; } catch(_) { return 'index'; } }
-
-    function openModal() {
-      lastActive = document.activeElement;
-      const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
-      // Ensure we start clean
-      try { modal.classList.remove('ns-anim-out'); } catch(_) {}
-      modal.classList.add('is-open');
-      modal.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('ns-modal-open');
-      if (!reduce) {
-        try {
-          // Trigger enter animation
-          modal.classList.add('ns-anim-in');
-          const onEnd = () => { try { modal.classList.remove('ns-anim-in'); } catch(_) {}; dialog.removeEventListener('animationend', onEnd); };
-          dialog.addEventListener('animationend', onEnd, { once: true });
-        } catch(_) {}
-      }
-      // Default to Cancel until verification passes
-      try { btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label', 'Cancel'); } catch(_){}
-      // Unlock form controls for a new session
-      try { if (typeof setFormLocked === 'function') setFormLocked(false); } catch(_){}
-      // Clear any floating bubble
-      try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_){}
-      // Hide Verify until steps are generated again
-      try { if (typeof setVerifyVisible === 'function') setVerifyVisible(false); } catch(_){}
-      // Clear any title bubble
-      try { if (typeof hideTitleBubble === 'function') hideTitleBubble(); } catch(_){}
-      // Adapt header and fields by active file type
-      try {
-        compMode = getActiveTarget();
-        if (compMode === 'tabs') {
-          headStrong.textContent = 'Composer Wizard - Tab';
-          updateTitlesUI();
-        } else {
-          headStrong.textContent = 'Composer Wizard - Post';
-          updateTitlesUI();
-        }
-      } catch(_) {}
-      setTimeout(() => { try { wrap.querySelector('#compKey')?.focus(); } catch(_){} }, 0);
-    }
-    function closeModal() {
-      const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
-      if (reduce) {
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('ns-modal-open');
-        try { lastActive && lastActive.focus(); } catch(_){}
-        return;
-      }
-      try { modal.classList.remove('ns-anim-in'); } catch(_) {}
-      try { modal.classList.add('ns-anim-out'); } catch(_) {}
-      const finish = () => {
-        try { modal.classList.remove('ns-anim-out'); } catch(_) {}
-        modal.classList.remove('is-open');
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('ns-modal-open');
-        try { lastActive && lastActive.focus(); } catch(_){}
-      };
-      try {
-        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); finish(); };
-        dialog.addEventListener('animationend', onEnd, { once: true });
-        // Safety net in case animationend doesn't fire
-        setTimeout(finish, 220);
-      } catch(_) { finish(); }
-    }
-
-    modal.__open = openModal;
-    modal.__close = closeModal;
-    modal.addEventListener('mousedown', (e) => { if (e.target === modal) closeModal(); });
-    modal.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
-      if (e.key === 'Tab') {
-        const focusables = Array.from(dialog.querySelectorAll(focusableSelector)).filter(el => el.offsetParent !== null || el === document.activeElement);
-        if (!focusables.length) return;
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    });
-
-    const compKey = $('#compKey', wrap);
-    const compFilename = $('#compFilename', wrap);
-    const compTitlesWrap = $('#compTitlesWrap', wrap);
-    const titlesStore = Object.create(null); // { lang: title }
-
-    function langNameFor(code){
-      const c = String(code||'').toLowerCase();
-      if (c==='en') return 'EN';
-      if (c==='zh') return 'ZH';
-      if (c==='ja') return 'JA';
-      return c.toUpperCase();
-    }
-
-    function getSelectedLangs(){
-      const arr = [];
-      try { const el = wrap.querySelector('#compLangEN'); if (el && el.checked) arr.push('en'); } catch(_){}
-      try { const el = wrap.querySelector('#compLangZH'); if (el && el.checked) arr.push('zh'); } catch(_){}
-      try { const el = wrap.querySelector('#compLangJA'); if (el && el.checked) arr.push('ja'); } catch(_){}
-      // keep preferred order
-      const set = Array.from(new Set(arr));
-      return set.sort((a,b)=>{
-        const ia = PREFERRED_LANG_ORDER.indexOf(a);
-        const ib = PREFERRED_LANG_ORDER.indexOf(b);
-        if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-        return a.localeCompare(b);
-      });
-    }
-
-    function updateTitlesUI(){
-      if (!compTitlesWrap) return;
-      const isTabs = compMode === 'tabs';
-      compTitlesWrap.style.display = isTabs ? '' : 'none';
-      if (!isTabs) { compTitlesWrap.innerHTML = ''; return; }
-      const langs = getSelectedLangs();
-      // preserve existing input values
-      try {
-        Array.from(compTitlesWrap.querySelectorAll('input[data-lang]')).forEach(inp=>{
-          const l = inp.getAttribute('data-lang');
-          if (l) titlesStore[l] = inp.value;
-        });
-      } catch(_){}
-      compTitlesWrap.innerHTML = '';
-      langs.forEach(l => {
-        const label = document.createElement('label');
-        label.setAttribute('data-title-item', l);
-        label.innerHTML = `Title (${langNameFor(l)}) <input type="text" data-lang="${l}" placeholder="Title for ${l.toUpperCase()}" />`;
-        const inp = label.querySelector('input');
-        inp.value = titlesStore[l] || '';
-        inp.addEventListener('input', () => { titlesStore[l] = inp.value; });
-        compTitlesWrap.appendChild(label);
-      });
-    }
-
-    function getTitlesMap(){
-      const out = Object.create(null);
-      try {
-        (compTitlesWrap?.querySelectorAll('input[data-lang]') || []).forEach(inp => {
-          const l = inp.getAttribute('data-lang');
-          if (l) out[l] = String(inp.value || '').trim();
-        });
-      } catch(_) {}
-      return out;
-    }
-    const compLangEN = $('#compLangEN', wrap);
-    const compLangZH = $('#compLangZH', wrap);
-    const compLangJA = $('#compLangJA', wrap);
-    const compGen = $('#compGen', wrap);
-    const steps = $('#compSteps', wrap);
-    const compDivider = $('#compDivider', wrap);
-    const compFinish = $('#compFinish', wrap);
-    const compHint = $('#compHint', wrap);
-
-    // Enforce at least one language selected
-    const langCheckboxes = [compLangEN, compLangZH, compLangJA];
-    function enforceMinOneLang(e) {
-      try {
-        if (!langCheckboxes.some(cb => cb && cb.checked)) {
-          // Re-check the toggled one back on
-          const cb = e && e.target && e.target instanceof HTMLElement ? e.target : langCheckboxes[0];
-          if (cb) cb.checked = true;
-        }
-      } catch (_) {}
-    }
-    langCheckboxes.forEach(cb => { try { cb.addEventListener('change', enforceMinOneLang); cb.addEventListener('change', updateTitlesUI); } catch(_){} });
-
-    // Lock/unlock the top form after generating steps
-    function setFormLocked(locked) {
-      try {
-        compKey.disabled = !!locked;
-        compFilename.disabled = !!locked;
-        if (compTitlesWrap) compTitlesWrap.querySelectorAll('input').forEach(inp => { try { inp.disabled = !!locked; } catch(_){} });
-        compLangEN.disabled = !!locked;
-        compLangZH.disabled = !!locked;
-        compLangJA.disabled = !!locked;
-        compGen.disabled = !!locked;
-      } catch (_) {}
-    }
-
-    // Helper to flip top-right button label based on validation state
-    function setCloseBtnReady(ready) {
-      if (!btnClose) return;
-      if (ready) { btnClose.textContent = 'Finish'; btnClose.setAttribute('aria-label', 'Finish'); }
-      else { btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label', 'Cancel'); }
-    }
-
-    // Show/hide Verify Setup button
-    function setVerifyVisible(visible) {
-      try {
-        if (compFinish) {
-          // Toggle both [hidden] and inline display to avoid being overridden by CSS
-          compFinish.hidden = !visible;
-          compFinish.style.display = visible ? '' : 'none';
-        }
-        if (compHint) {
-          compHint.hidden = !visible;
-          compHint.style.display = visible ? '' : 'none';
-        }
-      } catch (_) {}
-    }
-    // Hide Verify initially until steps are generated
-    setVerifyVisible(false);
-
-    // Show/hide steps and divider together
-    function setStepsVisible(visible) {
-      try {
-        if (steps) steps.hidden = !visible;
-        if (compDivider) compDivider.hidden = !visible;
-      } catch(_) {}
-    }
-
-    // Reset wizard inputs and generated steps
-    function resetWizard() {
-      try {
-        compKey.value = '';
-        compFilename.value = 'main.md';
-        // Clear stored titles and UI
-        for (const k in titlesStore) { if (Object.prototype.hasOwnProperty.call(titlesStore, k)) delete titlesStore[k]; }
-        if (compTitlesWrap) compTitlesWrap.innerHTML = '';
-        compLangEN.checked = true;
-        compLangZH.checked = false;
-        compLangJA.checked = false;
-        steps.innerHTML = '';
-        steps.hidden = true;
-        setFormLocked(false);
-        setCloseBtnReady(false);
-        setVerifyVisible(false);
-        // Clear any bubble
-        try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_) {}
-        try { if (typeof hideTitleBubble === 'function') hideTitleBubble(); } catch(_) {}
-      } catch (_) {}
-    }
-
-    // Close button: on Cancel -> reset, on Finish -> just close
-    btnClose.addEventListener('click', () => {
-      const label = (btnClose.textContent || '').trim().toLowerCase();
-      if (label === 'cancel' || label === 'finish') {
-        resetWizard();
-      }
-      closeModal();
-    });
-
-    // Read repo/contentRoot from previously loaded context
-    const siteRepo = (window.__ns_site_repo) || {};
-    const contentRoot = (window.__ns_content_root) || 'wwwroot';
-
-    function buildGhNewLink(owner, repo, branch, folderPath, filename) {
-      const enc = (s) => encodeURIComponent(String(s || ''));
-      // GitHub new file page for a folder; user can type filename there
-      const clean = String(folderPath || '').replace(/^\/+/, '');
-      const base = `https://github.com/${enc(owner)}/${enc(repo)}/new/${enc(branch)}/${clean}`;
-      if (filename) return `${base}?filename=${enc(filename)}`;
-      return base;
-    }
-    function buildGhEditFileLink(owner, repo, branch, filePath) {
-      const enc = (s) => encodeURIComponent(String(s || ''));
-      const clean = String(filePath || '').replace(/^\/+/, '');
-      return `https://github.com/${enc(owner)}/${enc(repo)}/edit/${enc(branch)}/${clean}`;
-    }
-    function buildGhBlobFileLink(owner, repo, branch, filePath) {
-      const enc = (s) => encodeURIComponent(String(s || ''));
-      const clean = String(filePath || '').replace(/^\/+/, '');
-      return `https://github.com/${enc(owner)}/${enc(repo)}/blob/${enc(branch)}/${clean}`;
-    }
-    function buildGhTreeLink(owner, repo, branch, folderPath) {
-      const enc = (s) => encodeURIComponent(String(s || ''));
-      const clean = String(folderPath || '').replace(/^\/+/, '');
-      return `https://github.com/${enc(owner)}/${enc(repo)}/tree/${enc(branch)}/${clean}`;
-    }
-
-    function getLangs() {
-      const langs = [];
-      if (compLangEN.checked) langs.push('en');
-      if (compLangZH.checked) langs.push('zh');
-      if (compLangJA.checked) langs.push('ja');
-      // Unique and in preferred order if possible
-      const set = Array.from(new Set(langs));
-      return set.sort((a,b)=>{
-        const ia = PREFERRED_LANG_ORDER.indexOf(a);
-        const ib = PREFERRED_LANG_ORDER.indexOf(b);
-        if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-        return a.localeCompare(b);
-      });
-    }
-
-    function safeKey(v){
-      const s = String(v || '').trim();
-      // allow letters, numbers, dash, underscore; must start with letter/number
-      const ok = /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(s);
-      return ok ? s : '';
-    }
-    function safeFilename(v){
-      let s = String(v || '').trim();
-      if (!s) s = 'main.md';
-      if (!/\.md$/i.test(s)) s = s + '.md';
-      // collapse slashes, avoid leading slash
-      s = s.replace(/\\+/g,'/').replace(/^\/+/, '');
-      return s;
-    }
-    function withLangSuffix(fname, lang) {
-      const s = safeFilename(fname);
-      const i = s.lastIndexOf('.');
-      if (i > 0) return s.slice(0, i) + '_' + String(lang || '').toLowerCase() + s.slice(i);
-      return s + '_' + String(lang || '').toLowerCase() + '.md';
-    }
-
-    // use global helper
-
-    function showKeyBubble(msg) {
-      try {
-        // Remove any existing bubble
-        const existing = document.getElementById('compKeyBubble');
-        if (existing && existing.parentElement) {
-          try {
-            dialog?.removeEventListener('scroll', existing.__reposition);
-            window?.removeEventListener('resize', existing.__reposition);
-          } catch(_) {}
-          existing.remove();
-        }
-        const target = compKey;
-        if (!target) return;
-        const tip = document.createElement('div');
-        tip.id = 'compKeyBubble';
-        tip.className = 'comp-bubble is-floating';
-        tip.role = 'alert';
-        tip.textContent = msg || 'Please enter a valid key';
-        // Attach to the modal overlay to avoid clipping by dialog overflow
-        (modal || document.body).appendChild(tip);
-
-        function position() {
-          try {
-            const rect = target.getBoundingClientRect();
-            const bw = tip.offsetWidth;
-            const bh = tip.offsetHeight;
-            const vw = window.innerWidth || document.documentElement.clientWidth || 1280;
-            const margin = 8;
-            let left = rect.left;
-            let top = rect.top - bh - 10;
-            // Clamp within viewport horizontally
-            if (left + bw > vw - margin) left = vw - margin - bw;
-            if (left < margin) left = margin;
-            // If not enough space above, place below input
-            if (top < margin) top = rect.bottom + 10;
-            tip.style.left = left + 'px';
-            tip.style.top = top + 'px';
-          } catch(_) {}
-        }
-        tip.style.position = 'fixed';
-        tip.style.visibility = 'hidden';
-        // Initial paint then position
-        requestAnimationFrame(() => {
-          position();
-          tip.style.visibility = 'visible';
-        });
-        // Reposition on dialog scroll and window resize
-        tip.__reposition = position;
-        try { dialog?.addEventListener('scroll', position, { passive: true }); } catch(_) {}
-        try { window?.addEventListener('resize', position, { passive: true }); } catch(_) {}
-      } catch (_) {}
-    }
-    function hideKeyBubble() {
-      try {
-        const tip = document.getElementById('compKeyBubble');
-        if (tip) {
-          try {
-            dialog?.removeEventListener('scroll', tip.__reposition);
-            window?.removeEventListener('resize', tip.__reposition);
-          } catch(_) {}
-          tip.remove();
-        }
-      } catch(_) {}
-    }
-
-    // Floating bubble for missing tab titles, anchored to a specific input
-    function showTitleBubble(targetInput, msg) {
-      try {
-        const existing = document.getElementById('compTitleBubble');
-        if (existing && existing.parentElement) {
-          try {
-            dialog?.removeEventListener('scroll', existing.__reposition);
-            window?.removeEventListener('resize', existing.__reposition);
-          } catch(_) {}
-          existing.remove();
-        }
-        if (!targetInput) return;
-        const tip = document.createElement('div');
-        tip.id = 'compTitleBubble';
-        tip.className = 'comp-bubble is-floating';
-        tip.role = 'alert';
-        tip.textContent = msg || 'Please enter a title for this language';
-        (modal || document.body).appendChild(tip);
-
-        function position() {
-          try {
-            const rect = targetInput.getBoundingClientRect();
-            const bw = tip.offsetWidth;
-            const bh = tip.offsetHeight;
-            const vw = window.innerWidth || document.documentElement.clientWidth || 1280;
-            const margin = 8;
-            let left = rect.left;
-            let top = rect.top - bh - 10;
-            if (left + bw > vw - margin) left = vw - margin - bw;
-            if (left < margin) left = margin;
-            if (top < margin) top = rect.bottom + 10;
-            tip.style.left = left + 'px';
-            tip.style.top = top + 'px';
-          } catch(_) {}
-        }
-        tip.style.position = 'fixed';
-        tip.style.visibility = 'hidden';
-        requestAnimationFrame(() => { position(); tip.style.visibility = 'visible'; });
-        tip.__reposition = position;
-        try { dialog?.addEventListener('scroll', position, { passive: true }); } catch(_) {}
-        try { window?.addEventListener('resize', position, { passive: true }); } catch(_) {}
-      } catch(_) {}
-    }
-    function hideTitleBubble() {
-      try {
-        const tip = document.getElementById('compTitleBubble');
-        if (tip) {
-          try {
-            dialog?.removeEventListener('scroll', tip.__reposition);
-            window?.removeEventListener('resize', tip.__reposition);
-          } catch(_) {}
-          tip.remove();
-        }
-      } catch(_) {}
-    }
-
-  compKey.addEventListener('input', hideKeyBubble);
-  try { compTitlesWrap?.addEventListener('input', hideTitleBubble); } catch(_) {}
-
-    function renderSteps(){
-      const key = safeKey(compKey.value);
-      const fname = safeFilename(compFilename.value);
-      const langs = getLangs();
-      steps.innerHTML = '';
-      if (!key) {
-        // keep form interactive, do not lock; show floating bubble over the key input
-        setStepsVisible(false);
-        showKeyBubble('Please enter a valid key (letters/numbers/-/_).');
-        setVerifyVisible(false);
-        return;
-      }
-      const baseFolder = (compMode === 'tabs') ? 'tab' : 'post';
-      const relFolder = `${baseFolder}/${key}`;
-      const relFile = `${relFolder}/${fname}`;
-      const fullFolder = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/${relFolder}`;
-      const ghOwner = siteRepo.owner || '';
-      const ghName = siteRepo.name || '';
-      const ghBranch = siteRepo.branch || 'main';
-      const hasGh = !!(ghOwner && ghName);
-
-      const frag = document.createDocumentFragment();
-      const langMeta = (l) => {
-        const code = String(l || '').toLowerCase();
-        if (code === 'en') return { name: 'English', emoji: '🇺🇸' };
-        if (code === 'zh') return { name: 'Chinese', emoji: '🇨🇳' };
-        if (code === 'ja') return { name: 'Japanese', emoji: '🇯🇵' };
-        return { name: code.toUpperCase(), emoji: '📝' };
-      };
-      const makeStep = (n, title, body) => {
-        const div = document.createElement('div');
-        div.className = 'comp-step';
-        div.innerHTML = `<div class="num">${n}</div><div class="body"><div class="title">${title}</div></div>`;
-        const bodyHost = div.querySelector('.body');
-        if (body instanceof Node) bodyHost.appendChild(body);
-        else if (typeof body === 'string') { const p = document.createElement('div'); p.className = 'desc'; p.textContent = body; bodyHost.appendChild(p); }
-        frag.appendChild(div);
-      };
-
-      // Steps 1..N: per language, copy filename and open GitHub to create file
-      let stepNum = 1;
-      (langs.length ? langs : ['en']).forEach(lang => {
-        const s = document.createElement('div'); s.className = 'kv';
-        const p = document.createElement('p'); p.className = 'desc';
-        p.textContent = 'Instructions: Click “Create File on GitHub” to open a new file with a pre-filled filename, paste your content, and commit the change.';
-        const fnameLang = withLangSuffix(fname, lang);
-        const actions = document.createElement('div'); actions.className = 'actions';
-        const a1 = document.createElement('a'); a1.className = hasGh ? 'btn-secondary btn-github' : 'btn-secondary'; a1.target = '_blank'; a1.rel = 'noopener';
-        if (hasGh) {
-          // For index.yaml (posts) flow, prefill the editor with a front-matter template
-          let href = buildGhNewLink(ghOwner, ghName, ghBranch, fullFolder, fnameLang);
-          if (compMode !== 'tabs') {
-            try { href += `&value=${encodeURIComponent(makeDefaultMdTemplate())}`; } catch(_) {}
-          }
-          a1.href = href;
-        } else {
-          a1.href = '#';
-        }
-        if (hasGh) {
-          a1.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Create File</span>';
-        } else {
-          a1.textContent = 'No repo configured (site.yaml -> repo)';
-        }
-        actions.appendChild(a1);
-        s.appendChild(p); s.appendChild(actions);
-        const { name, emoji } = langMeta(lang);
-        makeStep(stepNum, `Step ${stepNum} – Create ${name} File ${emoji}`, s);
-        stepNum++;
-      });
-      // Final: Update index.yaml and commit on GitHub
-      {
-        const s = document.createElement('div'); s.className = 'kv';
-        const p = document.createElement('p'); p.className = 'desc';
-        const yamlName = (compMode === 'tabs') ? 'tabs.yaml' : 'index.yaml';
-        p.textContent = `We will copy the YAML for you, then open ${yamlName} on GitHub. In the editor, select all and paste to replace, then commit.`;
-        const actions = document.createElement('div'); actions.className = 'actions';
-        const filePath = `${contentRoot.replace(/\\+/g,'/').replace(/\/?$/, '')}/${yamlName}`;
-        const aEdit = document.createElement('a'); aEdit.className = hasGh ? 'btn-secondary btn-github' : 'btn-secondary'; aEdit.target = '_blank'; aEdit.rel = 'noopener';
-        aEdit.href = hasGh ? buildGhEditFileLink(ghOwner, ghName, ghBranch, filePath) : '#';
-        if (hasGh) {
-          const label = (compMode === 'tabs') ? 'Edit tabs.yaml' : 'Edit index.yaml';
-          aEdit.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">' + label + '</span>';
-        } else {
-          aEdit.textContent = '—';
-        }
-        aEdit.title = 'We will copy YAML to your clipboard. On GitHub, select all and paste to replace, then commit.';
-        // On click, auto-copy YAML draft to clipboard, then open GitHub edit page
-        aEdit.addEventListener('click', async (e) => {
-          if (!hasGh) return;
-          try { e.preventDefault(); } catch(_) {}
-          try {
-            // Build a merged draft that includes current form entry even if not clicked "Add" button
-            const keyDraft = safeKey(compKey.value);
-            const fnameDraft = safeFilename(compFilename.value);
-            const langsDraft = getLangs();
-            const titlesMap = getTitlesMap();
-            if (compMode === 'tabs') {
-              const draft = {};
-              Object.keys(state.tabs || {}).forEach(k => { if (k !== '__order') draft[k] = state.tabs[k]; });
-              let order = Array.isArray(state.tabs.__order) ? state.tabs.__order.slice() : Object.keys(draft);
-              if (keyDraft) {
-                const entry = {};
-                (langsDraft.length ? langsDraft : ['en']).forEach(l => {
-                  const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fnameDraft, l) : fnameDraft;
-                  const t = String(titlesMap[l] || '').trim() || keyDraft;
-                  entry[l] = { title: t, location: `tab/${keyDraft}/${fLang}` };
-                });
-                draft[keyDraft] = entry;
-                const pos = order.indexOf(keyDraft);
-                if (pos >= 0) order.splice(pos, 1);
-                order.unshift(keyDraft);
-              }
-              draft.__order = order;
-              const text = toTabsYaml(draft);
-              try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
-            } else {
-              const draft = {};
-              Object.keys(state.index || {}).forEach(k => { if (k !== '__order') draft[k] = state.index[k]; });
-              let order = Array.isArray(state.index.__order) ? state.index.__order.slice() : Object.keys(draft);
-              if (keyDraft) {
-                const entry = {};
-                (langsDraft.length ? langsDraft : ['en']).forEach(l => {
-                  const fLang = (typeof withLangSuffix === 'function') ? withLangSuffix(fnameDraft, l) : fnameDraft;
-                  entry[l] = `post/${keyDraft}/${fLang}`;
-                });
-                draft[keyDraft] = entry;
-                const pos = order.indexOf(keyDraft);
-                if (pos >= 0) order.splice(pos, 1);
-                order.unshift(keyDraft);
-              }
-              draft.__order = order;
-              const text = toIndexYaml(draft);
-              try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
-            }
-          } catch(_) { /* ignore */ }
-          try { window.open(aEdit.href, '_blank', 'noopener'); } catch(_) { location.href = aEdit.href; }
-        });
-        actions.appendChild(aEdit);
-        s.appendChild(p);
-        s.appendChild(actions);
-        makeStep(stepNum, (compMode === 'tabs') ? `Step ${stepNum} – Update Tabs Index 📑` : `Step ${stepNum} – Update Post Index 📑`, s);
-      }
-      steps.appendChild(frag);
-      setStepsVisible(true);
-      setVerifyVisible(true);
-      // steps generated
-
-      // Bind copy buttons
-      steps.querySelectorAll('button[data-copy]')?.forEach(btn => {
-        btn.addEventListener('click', () => nsCopyToClipboard(btn.getAttribute('data-copy')));
-      });
-    }
-
-    compGen.addEventListener('click', async () => {
-      // Clear any previous bubble
-      try { if (typeof hideKeyBubble === 'function') hideKeyBubble(); } catch(_) {}
-
-      const key = safeKey(compKey.value);
-      const fname = safeFilename(compFilename.value);
-      const langs = getLangs();
-      const mode = (function(){ try { return ($('#composerIndex').style.display !== 'none') ? 'index' : 'tabs'; } catch(_) { return 'index'; } })();
-      const rootNorm = (contentRoot || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-
-      // Invalid or empty key -> show bubble and do not proceed
-      if (!key) {
-        steps.innerHTML = '';
-        setStepsVisible(false);
-        setVerifyVisible(false);
-        setFormLocked(false);
-        showKeyBubble('Please enter a valid key (letters/numbers/-/_).');
-        try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
-        return;
-      }
-
-      // Duplicate key in existing YAML -> show bubble and block
-      try {
-        const coll = (mode === 'tabs') ? state.tabs : state.index;
-        if (coll && Object.prototype.hasOwnProperty.call(coll, key)) {
-          steps.innerHTML = '';
-          setStepsVisible(false);
-          setVerifyVisible(false);
-          setFormLocked(false);
-          showKeyBubble(mode === 'tabs' ? 'This key already exists in tabs.yaml. Please choose a new key.' : 'This key already exists in index.yaml. Please choose a new key.');
-          try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
-          return;
-        }
-      } catch(_) {}
-
-      // In tabs mode, require non-empty titles for all selected languages
-      if (mode === 'tabs') {
-        try {
-          const langsList = (langs.length ? langs : ['en']);
-          let missing = '';
-          let target = null;
-          for (const l of langsList) {
-            const inp = compTitlesWrap?.querySelector(`input[data-lang="${l}"]`);
-            const val = String((inp && inp.value) || '').trim();
-            if (!val) { missing = l; target = inp; break; }
-          }
-          if (missing) {
-            steps.innerHTML = '';
-            setStepsVisible(false);
-            setVerifyVisible(false);
-            setFormLocked(false);
-            showTitleBubble(target, `Please enter the title for ${missing.toUpperCase()}.`);
-            try { target?.focus(); } catch(_) {}
-            return;
-          }
-        } catch(_) {}
-      }
-
-      // Check if any target file already exists -> show bubble and block
-      const baseFolder = (mode === 'tabs') ? 'tab' : 'post';
-      const relFolder = `${baseFolder}/${key}`;
-      let existingPath = '';
-      try {
-        const langList = (langs.length ? langs : ['en']);
-        for (const lang of langList) {
-          const fLang = withLangSuffix(fname, lang);
-          const url = `${rootNorm}/${relFolder}/${fLang}`;
-          try {
-            const r = await fetch(url, { cache: 'no-store' });
-            if (r && r.ok) { existingPath = `${relFolder}/${fLang}`; break; }
-          } catch(_) { /* ignore fetch errors here */ }
-        }
-      } catch(_) {}
-      if (existingPath) {
-        steps.innerHTML = '';
-        setStepsVisible(false);
-        setVerifyVisible(false);
-        setFormLocked(false);
-        showKeyBubble(`File already exists: ${existingPath}. Choose a different key or filename.`);
-        try { wrap.querySelector('#compKey')?.focus(); } catch(_) {}
-        return;
-      }
-
-      // All good -> render steps and lock form
-      renderSteps();
-      if (safeKey(compKey.value)) setFormLocked(true); else setFormLocked(false);
-    });
-    // Validate created files and index.yaml before closing
-    compFinish.addEventListener('click', async () => {
-      if (compFinish.disabled) return;
-      const prevText = compFinish.textContent;
-      try {
-        compFinish.disabled = true;
-        compFinish.textContent = 'Verifying…';
-        compFinish.setAttribute('aria-busy', 'true');
-      } catch (_) {}
-      // Ensure steps are rendered so we can annotate results
-      if (!steps || steps.children.length === 0 || steps.hidden) {
-        renderSteps();
-      }
-
-      const key = safeKey(compKey.value);
-      const fname = safeFilename(compFilename.value);
-      const langs = getLangs();
-      const mode = (function(){ try { return ($('#composerIndex').style.display !== 'none') ? 'index' : 'tabs'; } catch(_) { return 'index'; } })();
-      const relFolder = key ? `${mode === 'tabs' ? 'tab' : 'post'}/${key}` : '';
-      const rootNorm = (contentRoot || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
-
-      const stepEls = Array.from(steps.querySelectorAll('.comp-step'));
-
-      function setStepStatus(el, ok, msg) {
-        if (!el) return;
-        el.classList.remove('ok', 'err');
-        const host = el.querySelector('.body') || el;
-        // remove any existing status areas inside this card
-        const oldWarn = el.querySelector('.comp-warn'); if (oldWarn) oldWarn.remove();
-        const oldOk = el.querySelector('.comp-ok'); if (oldOk) oldOk.remove();
-        const s = el.querySelector('.comp-status'); if (s) s.remove();
-
-        if (ok) {
-          // create success note section inside the card at bottom
-          const okBox = document.createElement('div');
-          okBox.className = 'comp-ok';
-          const p = document.createElement('div');
-          p.className = 'comp-ok-text';
-          p.textContent = msg || 'OK';
-          okBox.appendChild(p);
-          el.appendChild(okBox);
-          el.classList.add('ok');
-        } else {
-          // create warning section inside the card at bottom
-          const warn = document.createElement('div');
-          warn.className = 'comp-warn';
-          const p = document.createElement('div');
-          p.className = 'comp-warn-text';
-          p.textContent = msg || 'Validation failed';
-          warn.appendChild(p);
-          el.appendChild(warn);
-          el.classList.add('err');
-        }
-      }
-
-      // Clear previous statuses
-      stepEls.forEach(el => {
-        el.classList.remove('ok', 'err');
-        const s = el.querySelector('.comp-status'); if (s) s.remove();
-        const w = el.querySelector('.comp-warn'); if (w) w.remove();
-        const o = el.querySelector('.comp-ok'); if (o) o.remove();
-      });
-
-      let hadError = false;
-
-      // Check each language file existence
-      const langList = (langs.length ? langs : ['en']);
-      await Promise.all(langList.map(async (lang, idx) => {
-        const fLang = withLangSuffix(fname, lang);
-        const fileRel = `${relFolder}/${fLang}`;
-        const url = `${rootNorm}/${fileRel}`;
-        const stepEl = stepEls[idx];
-        if (!key) {
-          hadError = true;
-          setStepStatus(stepEl, false, 'Invalid key. Please enter a valid key.');
-          return;
-        }
-        try {
-          const r = await fetch(url, { cache: 'no-store' });
-          if (!r.ok) {
-            hadError = true;
-            setStepStatus(stepEl, false, `File not found: ${url}`);
-          } else {
-            setStepStatus(stepEl, true, `Found: ${fileRel}`);
-          }
-        } catch (e) {
-          hadError = true;
-          setStepStatus(stepEl, false, `Cannot access: ${url}`);
-        }
-      }));
-
-      // Check index.yaml/tabs.yaml content
-      const yamlStepEl = stepEls[langList.length];
-      try {
-        const baseName = (mode === 'tabs') ? 'tabs' : 'index';
-        const idxObj = await fetchConfigWithYamlFallback([
-          `${rootNorm}/${baseName}.yaml`, `${rootNorm}/${baseName}.yml`
-        ]);
-        let yamlOk = true;
-        let msg = '';
-        if (!key) {
-          yamlOk = false; msg = 'Invalid key';
-        } else if (!idxObj || typeof idxObj !== 'object' || !idxObj[key]) {
-          yamlOk = false; msg = `${baseName}.yaml missing key: ${key}`;
-        } else {
-          if (mode === 'tabs') {
-            for (const lang of langList) {
-              const expected = `${relFolder}/${withLangSuffix(fname, lang)}`;
-              const val = idxObj[key][lang];
-              if (!val || typeof val !== 'object') { yamlOk = false; msg = `Language ${lang} entry missing`; break; }
-              if (String(val.location || '') !== expected) { yamlOk = false; msg = `Language ${lang} location mismatch. Expected: ${expected}`; break; }
-              const titleStr = String(val.title ?? '').trim();
-              if (!titleStr) { yamlOk = false; msg = `Language ${lang} title missing`; break; }
-            }
-          } else {
-            for (const lang of langList) {
-              const expected = `${relFolder}/${withLangSuffix(fname, lang)}`;
-              const val = idxObj[key][lang];
-              if (Array.isArray(val)) {
-                if (!val.includes(expected)) { yamlOk = false; msg = `Language ${lang} missing path: ${expected}`; break; }
-              } else if (typeof val === 'string') {
-                if (val !== expected) { yamlOk = false; msg = `Language ${lang} path mismatch. Expected: ${expected}`; break; }
-              } else {
-                yamlOk = false; msg = `Language ${lang} path not set`; break;
-              }
-            }
-          }
-        }
-        if (!yamlOk) { hadError = true; setStepStatus(yamlStepEl, false, msg || `${baseName}.yaml validation failed`); }
-        else { setStepStatus(yamlStepEl, true, `${baseName}.yaml validated`); }
-      } catch (e) {
-        hadError = true;
-        const baseName = (mode === 'tabs') ? 'tabs' : 'index';
-        setStepStatus(yamlStepEl, false, `${baseName}.yaml read failed`);
-      }
-
-      if (!hadError) {
-        // Verification passed: flip close button to Finish
-        setCloseBtnReady(true);
-      } else {
-        // Verification failed: keep close button as Cancel
-        setCloseBtnReady(false);
-        // Focus first error section for convenience
-        const firstErr = steps.querySelector('.comp-warn');
-        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      try {} finally {
-        try {
-          compFinish.disabled = false;
-          compFinish.textContent = prevText || 'Verify Setup';
-          compFinish.removeAttribute('aria-busy');
-        } catch (_) {}
-      }
-    });
+    // Composer wizard removed; direct add buttons handle new entries.
   })();
 
-  // Add item (Post or Tab) -> open unified composer wizard
-  $('#btnAddItem').addEventListener('click', () => {
-    const modal = document.getElementById('compModal');
-    if (modal && typeof modal.__open === 'function') modal.__open();
-  });
+  // Add item (Post or Tab) directly within the composer lists
+  const btnAddItem = document.getElementById('btnAddItem');
+  if (btnAddItem) {
+    btnAddItem.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      const kind = getActiveComposerFile();
+      const anchor = event && event.currentTarget ? event.currentTarget : btnAddItem;
+      addComposerEntry(kind, anchor).catch((err) => {
+        console.error('Failed to launch add entry prompt', err);
+      });
+    });
+  }
 
 
   const btnDiscard = document.getElementById('btnDiscard');
@@ -5615,7 +5874,22 @@ function bindComposerUI(state) {
       const url1 = `${contentRoot}/${baseName}.yaml`; const url2 = `${contentRoot}/${baseName}.yml`;
       const cur = (await fetchText(url1)) || (await fetchText(url2));
       const norm = (s)=>String(s||'').replace(/\r\n/g,'\n').trim();
-      if (norm(cur) === norm(desired)) { showToast('success', `${baseName}.yaml is up to date`); return; }
+      const popup = preparePopupWindow();
+      if (norm(cur) === norm(desired)) {
+        closePopupWindow(popup);
+        showToast('success', `${baseName}.yaml is up to date`);
+        try {
+          const snapshot = await fetchComposerRemoteSnapshot(target);
+          if (snapshot && snapshot.state === 'existing') {
+            applyComposerRemoteSnapshot(target, snapshot);
+            clearDraftStorage(target);
+            updateUnsyncedSummary();
+          }
+        } catch (err) {
+          console.warn('Composer: failed to refresh baseline after verify', err);
+        }
+        return;
+      }
       // Need update -> copy and open GitHub edit/new page
       try { nsCopyToClipboard(desired); } catch(_) {}
       const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
@@ -5623,8 +5897,40 @@ function bindComposerUI(state) {
         let href = '';
         if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/${baseName}.yaml`);
         else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `${baseName}.yaml`);
-        try { window.open(href, '_blank', 'noopener'); } catch(_) { location.href = href; }
+        if (!href) {
+          closePopupWindow(popup);
+          showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
+          return;
+        }
+        const successMessage = cur
+          ? `${baseName}.yaml copied. GitHub will open so you can paste the update.`
+          : `${baseName}.yaml copied. GitHub will open so you can create the file.`;
+        const blockedMessage = `${baseName}.yaml copied. Click “Open GitHub” if the new tab did not appear.`;
+
+        const startWatcher = () => {
+          startComposerSyncWatcher(target, {
+            expectedText: desired,
+            message: `Waiting for GitHub to apply ${baseName}.yaml changes…`
+          });
+        };
+
+        const opened = finalizePopupWindow(popup, href);
+        if (opened) {
+          showToast('info', successMessage);
+          startWatcher();
+        } else {
+          closePopupWindow(popup);
+          handlePopupBlocked(href, {
+            message: blockedMessage,
+            actionLabel: 'Open GitHub',
+            onRetry: () => {
+              showToast('info', successMessage);
+              startWatcher();
+            }
+          });
+        }
       } else {
+        closePopupWindow(popup);
         showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
       }
     }
