@@ -3545,6 +3545,18 @@ function dirnameFromPath(relPath) {
   return norm.slice(0, idx);
 }
 
+function extractVersionFromPath(relPath) {
+  try {
+    const match = String(relPath || '').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i);
+    if (!match || !match[0]) return '';
+    const segment = match[0];
+    const slash = segment.lastIndexOf('/');
+    return slash >= 0 ? segment.slice(slash + 1) : segment;
+  } catch (_) {
+    return '';
+  }
+}
+
 function getContentRootSafe() {
   try {
     const root = window.__ns_content_root;
@@ -4255,7 +4267,10 @@ async function loadDynamicTabContent(tab) {
       tab.remoteContent = '';
       tab.remoteSignature = computeTextSignature('');
       tab.loaded = true;
-      if (!tab.localDraft || !tab.localDraft.content) tab.content = '';
+      if (!tab.localDraft || !tab.localDraft.content) {
+        const template = getDefaultMarkdownForPath(rel);
+        tab.content = template || '';
+      }
       setDynamicTabStatus(tab, {
         state: 'missing',
         checkedAt,
@@ -4332,6 +4347,19 @@ function makeDefaultMdTemplate(opts) {
     ''
   );
   return lines.join('\n');
+}
+
+function getDefaultMarkdownForPath(relPath) {
+  try {
+    const normalized = normalizeRelPath(relPath);
+    if (!normalized) return '';
+    const clean = normalized.replace(/^\/+/, '');
+    if (!clean.toLowerCase().startsWith('post/')) return '';
+    const version = extractVersionFromPath(clean);
+    return makeDefaultMdTemplate(version ? { version } : undefined);
+  } catch (_) {
+    return '';
+  }
 }
 
 function applyMode(mode) {
@@ -5603,10 +5631,6 @@ function bindComposerUI(state) {
       btn.__composerVerifyBound = true;
       const btnLabel = btn.querySelector('.btn-label');
 
-    // Helper: extract version segment like v1.2.3 from a path
-    function extractVersion(p){
-      try { const m = String(p||'').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i); return m ? m[0].split('/').pop() : ''; } catch(_) { return ''; }
-    }
     function dirname(p){ try { const s=String(p||''); const i=s.lastIndexOf('/'); return i>=0? s.slice(0,i) : ''; } catch(_) { return ''; } }
     function basename(p){ try { const s=String(p||''); const i=s.lastIndexOf('/'); return i>=0? s.slice(i+1) : s; } catch(_) { return String(p||''); } }
     function uniq(arr){ return Array.from(new Set(arr||[])); }
@@ -5662,9 +5686,9 @@ function bindComposerUI(state) {
               try {
                 const r = await fetch(url, { cache: 'no-store' });
                 if (!r || !r.ok) {
-                  out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                  out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) });
                 }
-              } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+              } catch(_) { out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) }); }
             })());
           }
         }
@@ -5683,9 +5707,9 @@ function bindComposerUI(state) {
                 try {
                   const r = await fetch(url, { cache: 'no-store' });
                   if (!r || !r.ok) {
-                    out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                    out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) });
                   }
-                } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+                } catch(_) { out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) }); }
               })());
             }
           }
