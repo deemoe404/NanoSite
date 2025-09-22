@@ -1808,6 +1808,7 @@ function updateUnsyncedSummary() {
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
   const globalStatusEl = document.getElementById('global-status');
+  const globalLocalStateEl = document.getElementById('globalLocalState');
   if (summaryEntries.length) {
     el.innerHTML = '';
     const label = document.createElement('span');
@@ -1838,12 +1839,21 @@ function updateUnsyncedSummary() {
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
+    if (globalLocalStateEl) {
+      const count = summaryEntries.length;
+      globalLocalStateEl.textContent = count === 1
+        ? '1 draft pending push'
+        : `${count} drafts pending push`;
+    }
     updateReviewButton(summaryEntries);
   } else {
     el.textContent = CLEAN_STATUS_MESSAGE;
     el.dataset.summary = '0';
     el.dataset.state = 'clean';
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalLocalStateEl) {
+      globalLocalStateEl.textContent = 'All drafts synced';
+    }
     updateReviewButton([]);
   }
 }
