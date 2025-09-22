@@ -762,6 +762,18 @@ function startComposerSyncWatcher(kind, options = {}) {
         if (result.mismatch) {
           showToast('warn', `${label} was updated differently on GitHub. Review the highlighted differences.`, { duration: 4600 });
         } else {
+          clearDraftStorage(safeKind);
+          updateUnsyncedSummary();
+          const modal = composerDiffModal;
+          const matchesKind = modal && typeof modal.getActiveKind === 'function'
+            ? modal.getActiveKind() === safeKind
+            : true;
+          const isOpen = modal && modal.modal && modal.modal.classList
+            ? (modal.modal.classList.contains('is-open') && modal.modal.getAttribute('aria-hidden') !== 'true')
+            : false;
+          if (modal && typeof modal.close === 'function' && matchesKind && isOpen) {
+            try { modal.close(); } catch (_) {}
+          }
           showToast('success', `${label} synchronized with GitHub.`);
         }
       }
@@ -2538,6 +2550,8 @@ function ensureComposerDiffModal() {
     open: openModal,
     close: closeModal,
     activate: setActiveTab,
+    getActiveKind: () => activeKind,
+    isOpen: () => modal.classList.contains('is-open') && modal.getAttribute('aria-hidden') !== 'true',
     modal,
     dialog,
     title,
