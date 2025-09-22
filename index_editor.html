@@ -473,7 +473,7 @@
     .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
 
     /* Full-screen overlay used while waiting for GitHub sync */
-    .sync-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1rem; background: color-mix(in srgb, rgba(15,23,42,0.62) 88%, transparent); backdrop-filter: blur(6px); z-index: 1600; }
+    .sync-overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 1rem; background: color-mix(in srgb, rgba(15,23,42,0.62) 88%, transparent); backdrop-filter: blur(6px); z-index: 14000; }
     .sync-overlay.is-visible { display: flex; }
     body.ns-sync-overlay-open { overflow: hidden; }
     .sync-overlay-panel { background: color-mix(in srgb, var(--card) 96%, transparent); border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 16px; padding: 2rem 2.5rem; max-width: min(520px, 100%); box-shadow: 0 24px 64px rgba(15, 23, 42, 0.28); display: flex; flex-direction: column; align-items: center; gap: 1.1rem; text-align: center; position: relative; }

@@ -108,7 +108,6 @@ function showToast(kind, text, options = {}) {
     const root = ensureToastRoot();
     const el = document.createElement('div');
     el.className = `toast ${kind || ''}`;
-    el.textContent = message;
     el.style.pointerEvents = 'auto';
     el.style.background = 'color-mix(in srgb, var(--card) 70%, #000 5%)';
     el.style.color = 'var(--text)';
@@ -126,10 +125,59 @@ function showToast(kind, text, options = {}) {
     el.style.transition = 'opacity .28s ease, transform .28s ease';
     el.style.opacity = '0';
     el.style.transform = 'translateY(12px)';
+    el.style.gap = '.7rem';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    textSpan.style.flex = '1 1 auto';
+    textSpan.style.textAlign = 'center';
+    textSpan.style.minWidth = '0';
+    el.appendChild(textSpan);
+
+    const action = options && options.action;
+    if (action && (action.href || typeof action.onClick === 'function')) {
+      el.style.justifyContent = 'space-between';
+      textSpan.style.textAlign = 'left';
+      const actionEl = document.createElement(action.href ? 'a' : 'button');
+      actionEl.className = 'toast-action';
+      actionEl.textContent = safeString(action.label) || 'Open';
+      if (action.href) {
+        actionEl.href = action.href;
+        actionEl.target = action.target || '_blank';
+        actionEl.rel = action.rel || 'noopener';
+      } else {
+        actionEl.type = 'button';
+      }
+      actionEl.style.flex = '0 0 auto';
+      actionEl.style.marginLeft = '.35rem';
+      actionEl.style.padding = '.35rem .85rem';
+      actionEl.style.borderRadius = '999px';
+      actionEl.style.border = '1px solid color-mix(in srgb, var(--primary) 28%, var(--border))';
+      actionEl.style.background = 'color-mix(in srgb, var(--card) 88%, var(--primary) 10%)';
+      actionEl.style.color = 'color-mix(in srgb, var(--primary) 85%, var(--text) 40%)';
+      actionEl.style.fontWeight = '600';
+      actionEl.style.fontSize = '.88rem';
+      actionEl.style.pointerEvents = 'auto';
+      actionEl.style.textDecoration = 'none';
+      actionEl.style.display = 'inline-flex';
+      actionEl.style.alignItems = 'center';
+      actionEl.style.justifyContent = 'center';
+      actionEl.style.gap = '.35rem';
+      actionEl.style.cursor = 'pointer';
+      if (typeof action.onClick === 'function') {
+        actionEl.addEventListener('click', (event) => {
+          try { action.onClick(event); } catch (_) {}
+        });
+      }
+      el.appendChild(actionEl);
+    }
+
     if (kind === 'error') {
       el.style.borderColor = 'color-mix(in srgb, #dc2626 45%, transparent)';
     } else if (kind === 'success') {
       el.style.borderColor = 'color-mix(in srgb, #16a34a 45%, transparent)';
+    } else if (kind === 'warn' || kind === 'warning') {
+      el.style.borderColor = 'color-mix(in srgb, #f59e0b 45%, transparent)';
     }
     root.appendChild(el);
     requestAnimationFrame(() => {
@@ -179,6 +227,7 @@ function ensureSyncOverlayElements() {
   title.className = 'sync-overlay-title';
   title.id = 'nsSyncOverlayTitle';
   title.textContent = 'Waiting for GitHub…';
+  title.tabIndex = -1;
 
   const message = document.createElement('p');
   message.className = 'sync-overlay-message';
@@ -335,16 +384,48 @@ function finalizePopupWindow(win, href) {
       closePopupWindow(win);
     }
   }
+  let opened = null;
   try {
-    const opened = window.open(href, '_blank');
-    if (opened) {
-      try { opened.opener = null; } catch (_) {}
-    }
-    return opened;
+    opened = window.open(href, '_blank');
   } catch (_) {
-    try { window.location.href = href; } catch (__) {}
-    return null;
+    opened = null;
   }
+  if (opened) {
+    try { opened.opener = null; } catch (_) {}
+    return opened;
+  }
+  return null;
+}
+
+function handlePopupBlocked(href, options = {}) {
+  try {
+    console.warn('Popup blocked while opening GitHub window', href);
+  } catch (_) {}
+  const message = safeString(options.message) || 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.';
+  const kind = safeString(options.kind) || 'warn';
+  const duration = typeof options.duration === 'number' ? Math.max(1600, options.duration) : 9000;
+  const actionHref = safeString(options.actionHref || href);
+  const actionLabel = safeString(options.actionLabel) || 'Open GitHub';
+  const onRetry = typeof options.onRetry === 'function' ? options.onRetry : null;
+
+  showToast(kind, message, {
+    duration,
+    action: actionHref
+      ? {
+          label: actionLabel,
+          href: actionHref,
+          target: safeString(options.actionTarget) || '_blank',
+          rel: safeString(options.actionRel) || 'noopener',
+          onClick: (event) => {
+            if (onRetry) {
+              setTimeout(() => {
+                try { onRetry(event); } catch (_) {}
+              }, 60);
+            }
+          }
+        }
+      : null
+  });
 }
 
 function startRemoteSyncWatcher(config = {}) {
@@ -3411,23 +3492,36 @@ async function openMarkdownPushOnGitHub(tab) {
   catch (_) {}
 
   const expectedSignature = computeTextSignature(tab.content != null ? String(tab.content) : '');
-
-  const opened = finalizePopupWindow(popup, href);
-  if (!opened) {
-    try { window.location.href = href; }
-    catch (__) {}
-  }
-
-  const message = isCreate
+  const successMessage = isCreate
     ? 'Markdown copied. GitHub will open to create this file.'
     : 'Markdown copied. GitHub will open to update this file.';
-  showToast('info', message);
+  const blockedMessage = isCreate
+    ? 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.'
+    : 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.';
 
-  startMarkdownSyncWatcher(tab, {
-    expectedSignature,
-    isCreate,
-    label: filename || tab.path || 'markdown file'
-  });
+  const startWatcher = () => {
+    startMarkdownSyncWatcher(tab, {
+      expectedSignature,
+      isCreate,
+      label: filename || tab.path || 'markdown file'
+    });
+  };
+
+  const opened = finalizePopupWindow(popup, href);
+  if (opened) {
+    showToast('info', successMessage);
+    startWatcher();
+  } else {
+    closePopupWindow(popup);
+    handlePopupBlocked(href, {
+      message: blockedMessage,
+      actionLabel: 'Open GitHub',
+      onRetry: () => {
+        showToast('info', successMessage);
+        startWatcher();
+      }
+    });
+  }
 
   updateMarkdownPushButton(tab);
 }
@@ -5603,18 +5697,40 @@ function bindComposerUI(state) {
             const href = aEdit.href;
             if (!href || href === '#') {
               closePopupWindow(popup);
-            } else {
-              const opened = finalizePopupWindow(popup, href);
-              if (!opened) {
-                try { window.location.href = href; } catch(_) {}
-              }
+              showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
+              return;
             }
-            startComposerSyncWatcher(compMode === 'tabs' ? 'tabs' : 'index', {
-              expectedText: yamlText,
-              message: compMode === 'tabs'
-                ? 'Waiting for GitHub to apply tabs.yaml changes…'
-                : 'Waiting for GitHub to apply index.yaml changes…'
-            });
+            const targetKind = compMode === 'tabs' ? 'tabs' : 'index';
+            const successMessage = targetKind === 'tabs'
+              ? 'tabs.yaml copied. GitHub will open so you can paste and commit.'
+              : 'index.yaml copied. GitHub will open so you can paste and commit.';
+            const blockedMessage = targetKind === 'tabs'
+              ? 'tabs.yaml copied. Click “Open GitHub” if the new tab did not appear.'
+              : 'index.yaml copied. Click “Open GitHub” if the new tab did not appear.';
+
+            const startWatcher = () => {
+              startComposerSyncWatcher(targetKind, {
+                expectedText: yamlText,
+                message: targetKind === 'tabs'
+                  ? 'Waiting for GitHub to apply tabs.yaml changes…'
+                  : 'Waiting for GitHub to apply index.yaml changes…'
+              });
+            };
+            const opened = finalizePopupWindow(popup, href);
+            if (opened) {
+              showToast('info', successMessage);
+              startWatcher();
+            } else {
+              closePopupWindow(popup);
+              handlePopupBlocked(href, {
+                message: blockedMessage,
+                actionLabel: 'Open GitHub',
+                onRetry: () => {
+                  showToast('info', successMessage);
+                  startWatcher();
+                }
+              });
+            }
           } catch(_) {
             closePopupWindow(popup);
           }
@@ -6204,14 +6320,33 @@ function bindComposerUI(state) {
           showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
           return;
         }
+        const successMessage = cur
+          ? `${baseName}.yaml copied. GitHub will open so you can paste the update.`
+          : `${baseName}.yaml copied. GitHub will open so you can create the file.`;
+        const blockedMessage = `${baseName}.yaml copied. Click “Open GitHub” if the new tab did not appear.`;
+
+        const startWatcher = () => {
+          startComposerSyncWatcher(target, {
+            expectedText: desired,
+            message: `Waiting for GitHub to apply ${baseName}.yaml changes…`
+          });
+        };
+
         const opened = finalizePopupWindow(popup, href);
-        if (!opened) {
-          try { window.location.href = href; } catch(_) {}
+        if (opened) {
+          showToast('info', successMessage);
+          startWatcher();
+        } else {
+          closePopupWindow(popup);
+          handlePopupBlocked(href, {
+            message: blockedMessage,
+            actionLabel: 'Open GitHub',
+            onRetry: () => {
+              showToast('info', successMessage);
+              startWatcher();
+            }
+          });
         }
-        startComposerSyncWatcher(target, {
-          expectedText: desired,
-          message: `Waiting for GitHub to apply ${baseName}.yaml changes…`
-        });
       } else {
         closePopupWindow(popup);
         showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
