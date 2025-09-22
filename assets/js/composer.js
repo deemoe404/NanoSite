@@ -593,6 +593,10 @@ function startMarkdownSyncWatcher(tab, options = {}) {
     ? `Waiting for GitHub to create ${label}`
     : `Waiting for GitHub to update ${label}`;
 
+  const previousStatus = tab.fileStatus && typeof tab.fileStatus === 'object'
+    ? { ...tab.fileStatus }
+    : null;
+
   setDynamicTabStatus(tab, {
     state: 'checking',
     checkedAt: Date.now(),
@@ -651,8 +655,11 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       updateMarkdownDiscardButton(tab);
     },
     onCancel: () => {
+      const fallbackStatus = (previousStatus && previousStatus.state)
+        ? previousStatus
+        : { state: isCreate ? 'missing' : 'existing' };
       setDynamicTabStatus(tab, {
-        state: 'existing',
+        ...fallbackStatus,
         checkedAt: Date.now(),
         message: 'Remote check canceled'
       });
