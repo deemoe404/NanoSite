@@ -2699,8 +2699,9 @@ function rebuildIndexUI(preserveOpen = true) {
     const btn = row.querySelector('.ci-expand');
     row.classList.add('is-open');
     if (body) {
-      body.style.display = '';
+      body.style.display = 'block';
       body.dataset.open = '1';
+      clearInlineSlideStyles(body);
     }
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
@@ -2723,8 +2724,9 @@ function rebuildTabsUI(preserveOpen = true) {
     const btn = row.querySelector('.ct-expand');
     row.classList.add('is-open');
     if (body) {
-      body.style.display = '';
+      body.style.display = 'block';
       body.dataset.open = '1';
+      clearInlineSlideStyles(body);
     }
     if (btn) btn.setAttribute('aria-expanded', 'true');
   });
