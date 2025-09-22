@@ -1330,11 +1330,23 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   const baseline = normalizeMarkdownContent(tab.remoteContent || '');
   const dirty = normalizedContent !== baseline;
   tab.isDirty = dirty;
-  const conflict = !!(tab.localDraft
-    && tab.localDraft.remoteSignature
-    && tab.remoteSignature
-    && tab.localDraft.remoteSignature !== tab.remoteSignature);
+
+  let conflict = false;
+
+  if (dirty) {
+    conflict = !!(tab.localDraft
+      && tab.localDraft.remoteSignature
+      && tab.remoteSignature
+      && tab.localDraft.remoteSignature !== tab.remoteSignature);
+    if (options.autoSave !== false) {
+      scheduleMarkdownDraftSave(tab);
+    }
+  } else {
+    clearMarkdownDraftForTab(tab);
+  }
+
   tab.draftConflict = conflict;
+
   const btn = tab.button;
   if (btn) {
     if (dirty) btn.setAttribute('data-dirty', '1');
@@ -1343,16 +1355,13 @@ function updateDynamicTabDirtyState(tab, options = {}) {
     else if (tab.localDraft) btn.setAttribute('data-draft-state', 'saved');
     else btn.removeAttribute('data-draft-state');
   }
-  if (!dirty) {
-    clearMarkdownDraftForTab(tab);
-  } else if (options.autoSave !== false) {
-    scheduleMarkdownDraftSave(tab);
-  }
+
   if (currentMode === tab.mode) {
     pushEditorCurrentFileInfo(tab);
   } else {
     updateMarkdownPushButton(tab);
   }
+
   updateComposerMarkdownDraftIndicators({ path: tab.path });
 }
 
