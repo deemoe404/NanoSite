@@ -2943,8 +2943,8 @@ function showComposerAddEntryPrompt(anchor, options) {
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
-    if (!/^[A-Za-z0-9_]+$/.test(value)) {
-      setError('Key must contain only English letters, numbers, or underscores.');
+    if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+      setError('Key must contain only English letters, numbers, underscores, or hyphens.');
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
