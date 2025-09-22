@@ -5110,8 +5110,9 @@ function focusComposerEntry(kind, key) {
   const body = row.querySelector(normalized === 'tabs' ? '.ct-body' : '.ci-body');
   const expandBtn = row.querySelector(normalized === 'tabs' ? '.ct-expand' : '.ci-expand');
   if (body) {
-    body.style.display = '';
+    body.style.display = 'block';
     body.dataset.open = '1';
+    clearInlineSlideStyles(body);
   }
   if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
   row.classList.add('is-open');
@@ -5140,7 +5141,7 @@ function addComposerEntry(kind) {
     const lang = getDefaultComposerLanguage();
     if (lang && !slice[key][lang]) {
       const defaultPath = buildDefaultEntryPath('tabs', key, lang);
-      slice[key][lang] = { title: '', location: defaultPath };
+      slice[key][lang] = { title: key, location: defaultPath };
     }
   } else {
     slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
