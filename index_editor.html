@@ -295,8 +295,10 @@
     .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
     .global-status .gs-flow {
       display:grid;
-      grid-template-columns: minmax(0, 1fr) minmax(160px, .8fr) minmax(0, 1fr);
+      grid-template-columns: max-content minmax(160px, 1fr) max-content;
       align-items:stretch;
+      justify-content:center;
+      column-gap:1.25rem;
       width:100%;
     }
     .global-status .gs-node {
