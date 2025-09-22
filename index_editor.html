@@ -317,7 +317,40 @@
     .global-status .gs-node-label { display:block; font-size:.82rem; font-weight:700; letter-spacing:.06em; text-transform:none; color: color-mix(in srgb, var(--muted) 70%, transparent); }
     .global-status .gs-node-state { font-size:.95rem; font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); line-height:1.4; }
     .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); font-size:.92rem; line-height:1.4; }
-    .global-status .gs-message { font-size:.86rem; color: color-mix(in srgb, var(--muted) 88%, transparent); line-height:1.45; }
+    .global-status .gs-message {
+      display:flex;
+      align-items:center;
+      gap:.45rem;
+      font-size:.86rem;
+      color: color-mix(in srgb, var(--muted) 88%, transparent);
+      line-height:1.45;
+    }
+    .global-status .gs-message::before {
+      content:'';
+      width:.5rem;
+      height:.5rem;
+      border-radius:999px;
+      background: color-mix(in srgb, var(--muted) 72%, transparent);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--muted) 18%, transparent);
+      flex:0 0 auto;
+      transition:background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+      transform:scale(.92);
+    }
+    .global-status[data-state="ok"] .gs-message::before {
+      background:#22c55e;
+      box-shadow:0 0 0 3px color-mix(in srgb, #22c55e 28%, transparent);
+      transform:scale(1);
+    }
+    .global-status[data-state="warn"] .gs-message::before {
+      background:#f59e0b;
+      box-shadow:0 0 0 3px color-mix(in srgb, #f59e0b 28%, transparent);
+      transform:scale(1);
+    }
+    .global-status[data-state="err"] .gs-message::before {
+      background:#ef4444;
+      box-shadow:0 0 0 3px color-mix(in srgb, #ef4444 28%, transparent);
+      transform:scale(1);
+    }
     .global-status .gs-message:empty { display:none; }
     .global-status .gs-arrow {
       position:relative;
