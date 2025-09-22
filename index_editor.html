@@ -334,22 +334,17 @@
     .gs-node-drafts .gs-node-drafts-item {
       display:flex;
       align-items:center;
-      gap:.35rem;
-      position:relative;
-      padding-left:.65rem;
+      gap:.4rem;
       color: color-mix(in srgb, var(--text) 84%, transparent);
       line-height:1.25;
     }
     .gs-node-drafts .gs-node-drafts-item::before {
       content:'';
-      width:.42rem;
-      height:.42rem;
+      width:.48rem;
+      height:.48rem;
       border-radius:999px;
       background: color-mix(in srgb, var(--primary) 40%, var(--text) 25%);
-      position:absolute;
-      left:0;
-      top:50%;
-      transform:translateY(-50%);
+      flex:0 0 auto;
       box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
     }
     .gs-node-drafts .gs-node-drafts-item span {
