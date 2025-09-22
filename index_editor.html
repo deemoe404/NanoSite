@@ -328,6 +328,48 @@
       color: var(--text);
       letter-spacing: .01em;
     }
+    .composer-key-form {
+      margin-top: .75rem;
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
+    }
+    .composer-key-input {
+      border-radius: .65rem;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: color-mix(in srgb, var(--card) 96%, transparent);
+      padding: .5rem .7rem;
+      font-size: .95rem;
+      color: var(--text);
+      width: 100%;
+      transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .composer-key-input::placeholder {
+      color: color-mix(in srgb, var(--muted) 70%, var(--text));
+    }
+    .composer-key-input:focus {
+      outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+      outline-offset: 1px;
+      border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .composer-key-input[aria-invalid="true"] {
+      border-color: color-mix(in srgb, #dc2626 60%, var(--border));
+      background: color-mix(in srgb, #fee2e2 45%, var(--card));
+    }
+    .composer-key-hint {
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    .composer-key-error {
+      font-size: .78rem;
+      color: #dc2626;
+      min-height: 1em;
+    }
+    .composer-key-error:empty {
+      display: none;
+    }
     .composer-confirm-actions {
       margin-top: .85rem;
       display: flex;
@@ -590,7 +632,7 @@
             </div>
           </div>
           <div class="right-actions">
-            <button class="btn-secondary" id="btnAddItem">New Post Wizard</button>
+            <button class="btn-secondary" id="btnAddItem">Add Post Entry</button>
             <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot">Refresh</button>
 
             <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>
