@@ -280,8 +280,8 @@
     .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
-    .status-stack { display:flex; flex-direction:column; align-items:flex-end; gap:.55rem; }
-    .status-stack > * { width:min(340px, 100%); }
+    .status-stack { display:flex; flex-direction:column; align-items:flex-end; gap:.75rem; }
+    .status-stack > * { width:min(540px, 100%); }
     .global-status {
       display:flex;
       flex-direction:column;
@@ -300,20 +300,21 @@
     .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
     .global-status .gs-header { display:flex; gap:.55rem; align-items:center; width:100%; }
     .global-status .gs-logo { width:22px; height:22px; flex:0 0 auto; color: color-mix(in srgb, var(--text) 82%, transparent); }
-    .global-status .gs-title { font-size:.98rem; font-weight:700; color: color-mix(in srgb, var(--text) 78%, transparent); }
-    .global-status .gs-flow { display:flex; align-items:center; justify-content:space-between; gap:.65rem; width:100%; }
-    .global-status .gs-node { display:flex; align-items:center; gap:.55rem; background: color-mix(in srgb, var(--card) 88%, transparent); border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:12px; padding:.6rem .75rem; flex:1 1 0; min-width:0; position:relative; }
+    .global-status .gs-title { font-size:1rem; font-weight:700; color: color-mix(in srgb, var(--text) 78%, transparent); }
+    .global-status .gs-flow { display:flex; align-items:stretch; justify-content:space-between; gap:.9rem; width:100%; }
+    .global-status .gs-node { display:flex; align-items:flex-start; gap:.75rem; background: color-mix(in srgb, var(--card) 88%, transparent); border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:14px; padding:.75rem .9rem; flex:1 1 0; min-width:0; position:relative; }
     .global-status .gs-node::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transition: box-shadow .18s ease, border-color .18s ease; border:2px solid transparent; }
-    .global-status .gs-node-icon { width:22px; height:22px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
-    .global-status .gs-node-label { display:block; font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color: color-mix(in srgb, var(--muted) 78%, transparent); }
-    .global-status .gs-node-body { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
-    .global-status .gs-node-detail { font-size:.85rem; color: color-mix(in srgb, var(--text) 78%, transparent); min-height:1.2em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .global-status .gs-node-remote .gs-node-detail { display:flex; flex-direction:column; gap:.2rem; white-space:normal; }
-    .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 82%, transparent); font-size:.9rem; min-height:1.2em; }
-    .global-status .gs-message { font-size:.82rem; color: color-mix(in srgb, var(--muted) 88%, transparent); line-height:1.35; }
+    .global-status .gs-node-icon { width:24px; height:24px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
+    .global-status .gs-node-body { display:flex; flex-direction:column; gap:.5rem; min-width:0; width:100%; }
+    .global-status .gs-node-label { display:block; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color: color-mix(in srgb, var(--muted) 75%, transparent); }
+    .global-status .gs-node-detail { display:flex; flex-direction:column; gap:.45rem; font-size:.88rem; color: color-mix(in srgb, var(--text) 82%, transparent); min-height:1.2em; white-space:normal; }
+    .global-status .gs-node-summary { width:100%; }
+    .global-status .gs-node-state { font-size:.95rem; font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); line-height:1.4; }
+    .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); font-size:.92rem; line-height:1.4; }
+    .global-status .gs-message { font-size:.86rem; color: color-mix(in srgb, var(--muted) 88%, transparent); line-height:1.45; }
     .global-status .gs-arrow { flex:0 0 auto; color: color-mix(in srgb, var(--muted) 75%, transparent); display:flex; align-items:center; justify-content:center; }
     .global-status .gs-arrow svg { width:26px; height:26px; }
-    .global-status[data-dirty="1"] .gs-node-local::after { box-shadow:0 0 0 2px color-mix(in srgb, #f97316 28%, transparent); border-color:color-mix(in srgb, #f97316 45%, transparent); }
+    .global-status[data-dirty="1"] .gs-node-local::after { box-shadow:0 0 0 2px color-mix(in srgb, #f97316 26%, transparent); border-color:color-mix(in srgb, #f97316 44%, transparent); }
     .global-status[data-state="warn"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #f59e0b 24%, transparent); border-color:color-mix(in srgb, #f59e0b 42%, transparent); }
     .global-status[data-state="err"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #dc2626 26%, transparent); border-color:color-mix(in srgb, #dc2626 46%, transparent); }
     .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #1f883d 22%, transparent); border-color:color-mix(in srgb, #1f883d 42%, transparent); }
@@ -323,29 +324,19 @@
       .global-status .gs-arrow { transform:rotate(90deg); }
     }
     #composerStatus {
-      margin:0;
-      font-size:.85rem;
-      color: var(--muted);
-      min-height: 1.1em;
-      text-align:left;
+      display:none;
+      border-radius:12px;
+      border:1px solid color-mix(in srgb, #fb923c 30%, transparent);
+      background: color-mix(in srgb, #fff7ed 70%, transparent);
+      padding:.75rem .85rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
     }
-    #composerStatus[data-state="dirty"] {
-      background: color-mix(in srgb, #f97316 9%, var(--card));
-      border:1px solid color-mix(in srgb, #f97316 32%, var(--border));
-      border-radius: 12px;
-      padding:.65rem .75rem;
-      color: color-mix(in srgb, var(--text) 85%, transparent);
-      box-shadow: var(--shadow);
-    }
-    #composerStatus[data-state="clean"] { color: color-mix(in srgb, var(--muted) 80%, transparent); }
+    #composerStatus[data-summary="1"] { display:flex; flex-direction:column; gap:.45rem; }
     #composerStatus .composer-summary-label {
       display:block;
       font-weight:600;
-      color: color-mix(in srgb, var(--text) 74%, transparent);
-      margin-bottom:.35rem;
-    }
-    #composerStatus[data-state="dirty"] .composer-summary-label {
-      color: color-mix(in srgb, #ea580c 78%, var(--text));
+      color: color-mix(in srgb, #ea580c 82%, var(--text));
+      font-size:.9rem;
     }
     #composerStatus .composer-summary-list {
       list-style:none;
@@ -353,13 +344,14 @@
       padding:0;
       display:flex;
       flex-direction:column;
-      gap:.3rem;
+      gap:.4rem;
     }
     #composerStatus .composer-summary-item {
       display:flex;
-      gap:.4rem;
+      gap:.45rem;
       align-items:flex-start;
-      color: color-mix(in srgb, var(--text) 78%, transparent);
+      color: color-mix(in srgb, var(--text) 82%, transparent);
+      line-height:1.35;
     }
     #composerStatus .composer-summary-item::before {
       content:'';
@@ -368,11 +360,11 @@
       border-radius:999px;
       background: color-mix(in srgb, #f97316 68%, #fb923c 35%);
       box-shadow:0 0 0 1px color-mix(in srgb, #f97316 30%, transparent);
-      margin-top:.35rem;
+      margin-top:.45rem;
       flex:0 0 auto;
     }
     #composerStatus .composer-summary-name { font-weight:600; }
-    #composerStatus .composer-summary-detail { color: color-mix(in srgb, var(--muted) 82%, transparent); }
+    #composerStatus .composer-summary-detail { color: color-mix(in srgb, var(--muted) 80%, transparent); }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
@@ -653,7 +645,10 @@
               </span>
               <div class="gs-node-body">
                 <span class="gs-node-label">Local</span>
-                <span class="gs-node-detail" id="globalLocalState">Checking drafts…</span>
+                <div class="gs-node-detail">
+                  <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
+                  <div id="composerStatus" class="gs-node-summary" data-summary="0" aria-live="polite"></div>
+                </div>
               </div>
             </div>
             <span class="gs-arrow" aria-hidden="true">
@@ -670,15 +665,14 @@
               </span>
               <div class="gs-node-body">
                 <span class="gs-node-label">GitHub</span>
-                <span class="gs-node-detail">
+                <div class="gs-node-detail">
                   <span class="gs-repo" id="globalStatusRepo">Loading GitHub settings…</span>
                   <span class="gs-message" id="globalStatusMessage">Checking connection…</span>
-                </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div id="composerStatus" class="status" data-summary="0" aria-live="polite"></div>
       </div>
     </div>
 

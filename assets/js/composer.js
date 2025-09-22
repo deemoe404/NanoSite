@@ -5,7 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'All changes synced with GitHub';
+const CLEAN_STATUS_MESSAGE = 'Local workspace synced with GitHub';
 const DIRTY_STATUS_MESSAGE = 'Local drafts waiting to push to GitHub';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
@@ -1811,9 +1811,10 @@ function updateUnsyncedSummary() {
   const globalLocalStateEl = document.getElementById('globalLocalState');
   if (summaryEntries.length) {
     el.innerHTML = '';
+    const count = summaryEntries.length;
     const label = document.createElement('span');
     label.className = 'composer-summary-label';
-    label.textContent = DIRTY_STATUS_MESSAGE;
+    label.textContent = count === 1 ? '1 draft pending push' : `${count} drafts pending push`;
     el.appendChild(label);
     const list = document.createElement('ul');
     list.className = 'composer-summary-list';
@@ -1837,22 +1838,17 @@ function updateUnsyncedSummary() {
     });
     el.appendChild(list);
     el.dataset.summary = '1';
-    el.dataset.state = 'dirty';
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalLocalStateEl) {
-      const count = summaryEntries.length;
-      globalLocalStateEl.textContent = count === 1
-        ? '1 draft pending push'
-        : `${count} drafts pending push`;
+      globalLocalStateEl.textContent = DIRTY_STATUS_MESSAGE;
     }
     updateReviewButton(summaryEntries);
   } else {
-    el.textContent = CLEAN_STATUS_MESSAGE;
+    el.innerHTML = '';
     el.dataset.summary = '0';
-    el.dataset.state = 'clean';
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalLocalStateEl) {
-      globalLocalStateEl.textContent = 'All drafts synced';
+      globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
     }
     updateReviewButton([]);
   }
@@ -6368,13 +6364,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  #composerStatus .composer-summary-label{display:block;font-weight:600;color:color-mix(in srgb,var(--text) 74%, transparent);margin-bottom:.35rem}
-  #composerStatus[data-state="dirty"] .composer-summary-label{color:color-mix(in srgb,#ea580c 78%, var(--text))}
-  #composerStatus .composer-summary-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
-  #composerStatus .composer-summary-item{display:flex;gap:.4rem;align-items:flex-start;color:color-mix(in srgb,var(--text) 78%, transparent)}
-  #composerStatus .composer-summary-item::before{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,#f97316 68%, #fb923c 35%);box-shadow:0 0 0 1px color-mix(in srgb,#f97316 30%, transparent);margin-top:.35rem;flex:0 0 auto}
+  #composerStatus{display:none;border-radius:12px;border:1px solid color-mix(in srgb,#fb923c 30%, transparent);background:color-mix(in srgb,#fff7ed 70%, transparent);padding:.75rem .85rem;box-shadow:inset 0 1px 0 rgba(255,255,255,0.4)}
+  #composerStatus[data-summary="1"]{display:flex;flex-direction:column;gap:.45rem}
+  #composerStatus .composer-summary-label{display:block;font-weight:600;color:color-mix(in srgb,#ea580c 82%, var(--text));font-size:.9rem}
+  #composerStatus .composer-summary-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
+  #composerStatus .composer-summary-item{display:flex;gap:.45rem;align-items:flex-start;color:color-mix(in srgb,var(--text) 82%, transparent);line-height:1.35}
+  #composerStatus .composer-summary-item::before{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,#f97316 68%, #fb923c 35%);box-shadow:0 0 0 1px color-mix(in srgb,#f97316 30%, transparent);margin-top:.45rem;flex:0 0 auto}
   #composerStatus .composer-summary-name{font-weight:600}
-  #composerStatus .composer-summary-detail{color:color-mix(in srgb,var(--muted) 82%, transparent)}
+  #composerStatus .composer-summary-detail{color:color-mix(in srgb,var(--muted) 80%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
