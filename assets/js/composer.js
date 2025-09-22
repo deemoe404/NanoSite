@@ -1823,9 +1823,8 @@ function updateUnsyncedSummary() {
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalLocalStateEl) {
-      globalLocalStateEl.textContent = count === 1
-        ? 'Local change ready to push'
-        : 'Local changes ready to push';
+      globalLocalStateEl.textContent = '';
+      globalLocalStateEl.hidden = true;
     }
     updateReviewButton(summaryEntries);
   } else {
@@ -1835,6 +1834,7 @@ function updateUnsyncedSummary() {
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalLocalStateEl) {
+      globalLocalStateEl.hidden = false;
       globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
     }
     updateReviewButton([]);
