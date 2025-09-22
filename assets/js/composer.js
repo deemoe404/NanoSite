@@ -2811,6 +2811,350 @@ let discardConfirmElements = null;
 let discardConfirmActiveClose = null;
 let discardConfirmHideTimer = null;
 
+let addEntryPromptElements = null;
+let addEntryPromptActiveClose = null;
+let addEntryPromptHideTimer = null;
+
+function ensureComposerAddEntryPromptElements() {
+  if (addEntryPromptElements) return addEntryPromptElements;
+  if (typeof document === 'undefined') return null;
+
+  const popover = document.createElement('div');
+  popover.id = 'composerAddEntryPrompt';
+  popover.className = 'composer-confirm-popover composer-key-popover';
+  popover.setAttribute('role', 'dialog');
+  popover.setAttribute('aria-modal', 'false');
+  popover.hidden = true;
+
+  const fieldWrap = document.createElement('div');
+  fieldWrap.className = 'composer-key-form';
+
+  const label = document.createElement('label');
+  label.className = 'composer-confirm-message';
+  label.id = 'composerAddEntryPromptLabel';
+  label.setAttribute('for', 'composerAddEntryKeyInput');
+  fieldWrap.appendChild(label);
+
+  popover.setAttribute('aria-labelledby', label.id);
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.id = 'composerAddEntryKeyInput';
+  input.className = 'composer-key-input';
+  input.autocomplete = 'off';
+  input.autocapitalize = 'none';
+  input.spellcheck = false;
+  input.setAttribute('spellcheck', 'false');
+  fieldWrap.appendChild(input);
+
+  const hint = document.createElement('div');
+  hint.className = 'composer-key-hint';
+  hint.id = 'composerAddEntryPromptHint';
+  hint.textContent = 'Use only English letters and numbers.';
+  fieldWrap.appendChild(hint);
+
+  const error = document.createElement('div');
+  error.className = 'composer-key-error';
+  error.id = 'composerAddEntryPromptError';
+  error.setAttribute('role', 'alert');
+  fieldWrap.appendChild(error);
+
+  input.setAttribute('aria-describedby', `${hint.id} ${error.id}`);
+  popover.setAttribute('aria-describedby', `${hint.id} ${error.id}`);
+
+  popover.appendChild(fieldWrap);
+
+  const actions = document.createElement('div');
+  actions.className = 'composer-confirm-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary composer-confirm-cancel';
+  cancelBtn.textContent = 'Cancel';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.className = 'btn-secondary composer-confirm-confirm';
+  confirmBtn.textContent = 'Add Entry';
+
+  actions.append(cancelBtn, confirmBtn);
+  popover.appendChild(actions);
+
+  document.body.appendChild(popover);
+  addEntryPromptElements = { popover, label, input, error, cancelBtn, confirmBtn };
+  return addEntryPromptElements;
+}
+
+function showComposerAddEntryPrompt(anchor, options) {
+  const elements = ensureComposerAddEntryPromptElements();
+  if (!elements) return Promise.resolve({ confirmed: false, value: '' });
+
+  const { popover, label, input, error, cancelBtn, confirmBtn } = elements;
+  const typeLabel = options && options.typeLabel ? String(options.typeLabel) : 'entry';
+  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Add Entry';
+  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
+  const placeholder = options && options.placeholder ? String(options.placeholder) : 'Entry key';
+  const existingKeys = options && options.existingKeys ? new Set(options.existingKeys) : new Set();
+
+  label.textContent = options && options.message ? String(options.message) : `Enter a new ${typeLabel} key:`;
+  cancelBtn.textContent = cancelLabel;
+  confirmBtn.textContent = confirmLabel;
+  input.value = options && options.initialValue ? String(options.initialValue).trim() : '';
+  input.placeholder = placeholder;
+  input.setAttribute('aria-invalid', 'false');
+  error.textContent = '';
+
+  if (anchor && typeof anchor.setAttribute === 'function') {
+    anchor.setAttribute('aria-haspopup', 'dialog');
+    anchor.setAttribute('aria-controls', popover.id);
+  }
+
+  if (typeof addEntryPromptActiveClose === 'function') {
+    try { addEntryPromptActiveClose(false); } catch (_) {}
+  }
+
+  if (addEntryPromptHideTimer) {
+    window.clearTimeout(addEntryPromptHideTimer);
+    addEntryPromptHideTimer = null;
+  }
+
+  popover.hidden = false;
+  popover.style.visibility = 'hidden';
+  popover.classList.remove('is-visible');
+  popover.dataset.placement = 'bottom';
+
+  const setError = (message) => {
+    const text = String(message || '');
+    error.textContent = text;
+    if (text) {
+      input.setAttribute('aria-invalid', 'true');
+    } else {
+      input.setAttribute('aria-invalid', 'false');
+    }
+  };
+
+  const validateKey = () => {
+    const raw = input.value || '';
+    const value = raw.trim();
+    if (!value) {
+      setError('Key cannot be empty.');
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+      return null;
+    }
+    if (!/^[A-Za-z0-9]+$/.test(value)) {
+      setError('Key must contain only English letters and numbers.');
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+      return null;
+    }
+    if (existingKeys.has(value)) {
+      setError('That key already exists. Choose a different key.');
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+      return null;
+    }
+    setError('');
+    return value;
+  };
+
+  let resolve;
+  let closed = false;
+
+  const finish = (result, value) => {
+    if (closed) return;
+    closed = true;
+    addEntryPromptActiveClose = null;
+
+    popover.classList.remove('is-visible');
+    popover.style.visibility = 'hidden';
+
+    if (addEntryPromptHideTimer) {
+      window.clearTimeout(addEntryPromptHideTimer);
+      addEntryPromptHideTimer = null;
+    }
+    addEntryPromptHideTimer = window.setTimeout(() => {
+      popover.hidden = true;
+      popover.style.visibility = '';
+      popover.style.left = '';
+      popover.style.top = '';
+      addEntryPromptHideTimer = null;
+    }, 200);
+
+    cancelBtn.removeEventListener('click', onCancel);
+    confirmBtn.removeEventListener('click', onConfirm);
+    input.removeEventListener('keydown', onInputKeyDown, true);
+    input.removeEventListener('input', onInputChange);
+    document.removeEventListener('keydown', onKeyDown, true);
+    document.removeEventListener('mousedown', onOutside, true);
+    document.removeEventListener('touchstart', onOutside, true);
+    window.removeEventListener('resize', reposition);
+    window.removeEventListener('scroll', reposition, true);
+
+    if (anchor && typeof anchor.setAttribute === 'function') {
+      anchor.setAttribute('aria-expanded', 'false');
+    }
+
+    if (!result && anchor && typeof anchor.focus === 'function') {
+      window.setTimeout(() => {
+        try { anchor.focus({ preventScroll: true }); } catch (_) {}
+      }, 120);
+    }
+
+    setError('');
+    input.value = '';
+
+    if (typeof resolve === 'function') {
+      resolve({ confirmed: !!result, value: result ? String(value || '') : '' });
+    }
+    resolve = null;
+  };
+
+  const onCancel = (event) => {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    finish(false, '');
+  };
+
+  const onConfirm = (event) => {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
+    const value = validateKey();
+    if (value == null) return;
+    finish(true, value);
+  };
+
+  const onInputKeyDown = (event) => {
+    if (!event) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const value = validateKey();
+      if (value == null) return;
+      finish(true, value);
+    }
+  };
+
+  const onInputChange = () => {
+    if (error.textContent) setError('');
+  };
+
+  const onOutside = (event) => {
+    const target = event && event.target;
+    if (!target) return;
+    if (popover.contains(target) || target === anchor) return;
+    finish(false, '');
+  };
+
+  const onKeyDown = (event) => {
+    if (!event) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      finish(false, '');
+      return;
+    }
+    if (event.key === 'Tab') {
+      const focusables = [input, confirmBtn, cancelBtn];
+      const active = document.activeElement;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey) {
+        if (active === first || !focusables.includes(active)) {
+          event.preventDefault();
+          if (last) last.focus({ preventScroll: true });
+        }
+      } else {
+        if (active === last) {
+          event.preventDefault();
+          if (first) first.focus({ preventScroll: true });
+        } else if (!focusables.includes(active)) {
+          event.preventDefault();
+          if (first) first.focus({ preventScroll: true });
+        }
+      }
+    }
+  };
+
+  const reposition = () => {
+    if (!anchor || !popover.isConnected) {
+      finish(false, '');
+      return;
+    }
+    if (typeof anchor.getBoundingClientRect !== 'function') {
+      finish(false, '');
+      return;
+    }
+    const rect = anchor.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      finish(false, '');
+      return;
+    }
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    const viewportWidth = document.documentElement && document.documentElement.clientWidth
+      ? document.documentElement.clientWidth
+      : (window.innerWidth || 0);
+    const viewportHeight = document.documentElement && document.documentElement.clientHeight
+      ? document.documentElement.clientHeight
+      : (window.innerHeight || 0);
+    const margin = 12;
+    const width = popover.offsetWidth;
+    const height = popover.offsetHeight;
+
+    let left = scrollX + rect.right - width;
+    const minLeft = scrollX + margin;
+    const maxLeft = scrollX + Math.max(margin, viewportWidth - margin - width);
+    if (left < minLeft) left = minLeft;
+    if (left > maxLeft) left = maxLeft;
+
+    let placement = 'bottom';
+    let top = scrollY + rect.bottom + 12;
+    const viewportBottom = scrollY + viewportHeight;
+    const fitsBelow = top + height <= viewportBottom - margin;
+    if (!fitsBelow && rect.top >= height + margin) {
+      placement = 'top';
+      top = scrollY + rect.top - height - 12;
+    } else if (!fitsBelow) {
+      top = Math.max(scrollY + margin, viewportBottom - height - margin);
+    }
+    if (placement === 'bottom') {
+      top = Math.max(top, scrollY + rect.bottom + 4);
+    } else {
+      top = Math.min(top, scrollY + rect.top - 4);
+    }
+
+    popover.dataset.placement = placement;
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+  };
+
+  cancelBtn.addEventListener('click', onCancel);
+  confirmBtn.addEventListener('click', onConfirm);
+  input.addEventListener('keydown', onInputKeyDown, true);
+  input.addEventListener('input', onInputChange);
+  document.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('mousedown', onOutside, true);
+  document.addEventListener('touchstart', onOutside, true);
+  window.addEventListener('resize', reposition);
+  window.addEventListener('scroll', reposition, true);
+
+  return new Promise((res) => {
+    resolve = res;
+    addEntryPromptActiveClose = () => finish(false, '');
+
+    const runShow = () => {
+      reposition();
+      if (closed) return;
+      popover.style.visibility = '';
+      popover.classList.add('is-visible');
+      if (anchor && typeof anchor.setAttribute === 'function') {
+        anchor.setAttribute('aria-expanded', 'true');
+      }
+      try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(runShow);
+    } else {
+      runShow();
+    }
+  });
+}
+
 function ensureComposerDiscardConfirmElements() {
   if (discardConfirmElements) return discardConfirmElements;
   if (typeof document === 'undefined') return null;
@@ -5069,34 +5413,44 @@ function buildDefaultEntryPath(kind, key, lang) {
   return `${folder}/${filename}`;
 }
 
-function promptComposerEntryKey(kind) {
+async function promptComposerEntryKey(kind, anchor) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   const slice = getStateSlice(normalized) || {};
   const existing = new Set();
   try {
     const order = Array.isArray(slice.__order) ? slice.__order : [];
-    order.forEach((key) => existing.add(String(key || '')));
+    order.forEach((key) => {
+      const normalizedKey = String(key || '').trim();
+      if (normalizedKey) existing.add(normalizedKey);
+    });
+  } catch (_) {}
+  try {
+    Object.keys(slice || {}).forEach((key) => {
+      if (key === '__order') return;
+      const normalizedKey = String(key || '').trim();
+      if (normalizedKey) existing.add(normalizedKey);
+    });
   } catch (_) {}
 
   const typeLabel = normalized === 'tabs' ? 'tab' : 'post';
+  const typeTitle = typeLabel === 'tab' ? 'Tab' : 'Post';
+  const confirmLabel = `Add ${typeTitle} Entry`;
+  const placeholder = `${typeTitle} key`;
+  const message = `Enter a new ${typeLabel} key (letters and numbers only):`;
 
-  while (true) {
-    const raw = window.prompt(`Enter a new ${typeLabel} key (letters, numbers, dash, underscore):`);
-    if (raw === null) return '';
-    const value = String(raw || '').trim();
-    if (!value) {
-      alert('Key cannot be empty.');
-      continue;
-    }
-    if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(value)) {
-      alert('Key must start with a letter or number and may only include letters, numbers, hyphen (-), or underscore (_).');
-      continue;
-    }
-    if (existing.has(value)) {
-      alert('That key already exists. Choose a different key.');
-      continue;
-    }
-    return value;
+  try {
+    const result = await showComposerAddEntryPrompt(anchor, {
+      typeLabel,
+      confirmLabel,
+      placeholder,
+      existingKeys: existing,
+      message
+    });
+    if (!result || !result.confirmed) return '';
+    return String(result.value || '').trim();
+  } catch (err) {
+    console.warn('Failed to capture new entry key', err);
+    return '';
   }
 }
 
@@ -5126,13 +5480,19 @@ function focusComposerEntry(kind, key) {
   try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
 }
 
-function addComposerEntry(kind) {
+async function addComposerEntry(kind, anchor) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   const slice = getStateSlice(normalized);
   if (!slice) return;
   if (!Array.isArray(slice.__order)) slice.__order = [];
 
-  const key = promptComposerEntryKey(normalized);
+  let key = '';
+  try {
+    key = await promptComposerEntryKey(normalized, anchor);
+  } catch (err) {
+    console.warn('Failed to add composer entry', err);
+    return;
+  }
   if (!key) return;
   if (slice.__order.includes(key)) return;
 
@@ -5198,9 +5558,15 @@ function bindComposerUI(state) {
   // Add item (Post or Tab) directly within the composer lists
   const btnAddItem = document.getElementById('btnAddItem');
   if (btnAddItem) {
-    btnAddItem.addEventListener('click', () => {
+    btnAddItem.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
       const kind = getActiveComposerFile();
-      addComposerEntry(kind);
+      const anchor = event && event.currentTarget ? event.currentTarget : btnAddItem;
+      addComposerEntry(kind, anchor).catch((err) => {
+        console.error('Failed to launch add entry prompt', err);
+      });
     });
   }
 
