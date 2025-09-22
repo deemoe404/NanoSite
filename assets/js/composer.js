@@ -1,4 +1,4 @@
-import { fetchConfigWithYamlFallback } from './yaml.js';
+import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -108,7 +108,6 @@ function showToast(kind, text, options = {}) {
     const root = ensureToastRoot();
     const el = document.createElement('div');
     el.className = `toast ${kind || ''}`;
-    el.textContent = message;
     el.style.pointerEvents = 'auto';
     el.style.background = 'color-mix(in srgb, var(--card) 70%, #000 5%)';
     el.style.color = 'var(--text)';
@@ -126,10 +125,59 @@ function showToast(kind, text, options = {}) {
     el.style.transition = 'opacity .28s ease, transform .28s ease';
     el.style.opacity = '0';
     el.style.transform = 'translateY(12px)';
+    el.style.gap = '.7rem';
+
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message;
+    textSpan.style.flex = '1 1 auto';
+    textSpan.style.textAlign = 'center';
+    textSpan.style.minWidth = '0';
+    el.appendChild(textSpan);
+
+    const action = options && options.action;
+    if (action && (action.href || typeof action.onClick === 'function')) {
+      el.style.justifyContent = 'space-between';
+      textSpan.style.textAlign = 'left';
+      const actionEl = document.createElement(action.href ? 'a' : 'button');
+      actionEl.className = 'toast-action';
+      actionEl.textContent = safeString(action.label) || 'Open';
+      if (action.href) {
+        actionEl.href = action.href;
+        actionEl.target = action.target || '_blank';
+        actionEl.rel = action.rel || 'noopener';
+      } else {
+        actionEl.type = 'button';
+      }
+      actionEl.style.flex = '0 0 auto';
+      actionEl.style.marginLeft = '.35rem';
+      actionEl.style.padding = '.35rem .85rem';
+      actionEl.style.borderRadius = '999px';
+      actionEl.style.border = '1px solid color-mix(in srgb, var(--primary) 28%, var(--border))';
+      actionEl.style.background = 'color-mix(in srgb, var(--card) 88%, var(--primary) 10%)';
+      actionEl.style.color = 'color-mix(in srgb, var(--primary) 85%, var(--text) 40%)';
+      actionEl.style.fontWeight = '600';
+      actionEl.style.fontSize = '.88rem';
+      actionEl.style.pointerEvents = 'auto';
+      actionEl.style.textDecoration = 'none';
+      actionEl.style.display = 'inline-flex';
+      actionEl.style.alignItems = 'center';
+      actionEl.style.justifyContent = 'center';
+      actionEl.style.gap = '.35rem';
+      actionEl.style.cursor = 'pointer';
+      if (typeof action.onClick === 'function') {
+        actionEl.addEventListener('click', (event) => {
+          try { action.onClick(event); } catch (_) {}
+        });
+      }
+      el.appendChild(actionEl);
+    }
+
     if (kind === 'error') {
       el.style.borderColor = 'color-mix(in srgb, #dc2626 45%, transparent)';
     } else if (kind === 'success') {
       el.style.borderColor = 'color-mix(in srgb, #16a34a 45%, transparent)';
+    } else if (kind === 'warn' || kind === 'warning') {
+      el.style.borderColor = 'color-mix(in srgb, #f59e0b 45%, transparent)';
     }
     root.appendChild(el);
     requestAnimationFrame(() => {
@@ -147,6 +195,591 @@ function showToast(kind, text, options = {}) {
   } catch (_) {
     try { alert(text); } catch (__) {}
   }
+}
+
+// --- GitHub sync overlay and remote polling helpers ---
+
+let syncOverlayElements = null;
+let syncOverlayCancelHandler = null;
+let activeSyncWatcher = null;
+
+function ensureSyncOverlayElements() {
+  if (syncOverlayElements) return syncOverlayElements;
+  if (typeof document === 'undefined') return null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'nsSyncOverlay';
+  overlay.className = 'sync-overlay';
+  overlay.hidden = true;
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-hidden', 'true');
+
+  const panel = document.createElement('div');
+  panel.className = 'sync-overlay-panel';
+  panel.setAttribute('role', 'document');
+
+  const spinner = document.createElement('div');
+  spinner.className = 'sync-overlay-spinner';
+  spinner.setAttribute('aria-hidden', 'true');
+
+  const title = document.createElement('h2');
+  title.className = 'sync-overlay-title';
+  title.id = 'nsSyncOverlayTitle';
+  title.textContent = 'Waiting for GitHub…';
+  title.tabIndex = -1;
+
+  const message = document.createElement('p');
+  message.className = 'sync-overlay-message';
+  message.id = 'nsSyncOverlayMessage';
+
+  const status = document.createElement('p');
+  status.className = 'sync-overlay-status';
+  status.id = 'nsSyncOverlayStatus';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary sync-overlay-cancel';
+  cancelBtn.textContent = 'Stop waiting';
+
+  panel.append(spinner, title, message, status, cancelBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+
+  cancelBtn.addEventListener('click', () => {
+    if (syncOverlayCancelHandler) syncOverlayCancelHandler('button');
+  });
+
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay && syncOverlayCancelHandler) {
+      syncOverlayCancelHandler('backdrop');
+    }
+  });
+
+  overlay.addEventListener('keydown', (event) => {
+    if ((event.key || '').toLowerCase() === 'escape' && syncOverlayCancelHandler) {
+      event.preventDefault();
+      syncOverlayCancelHandler('escape');
+    }
+  });
+
+  syncOverlayElements = { overlay, panel, spinner, title, message, status, cancelBtn };
+  return syncOverlayElements;
+}
+
+function setSyncOverlayTitle(text) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.title) return;
+  els.title.textContent = text || 'Waiting for GitHub…';
+}
+
+function setSyncOverlayMessage(text) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.message) return;
+  els.message.textContent = text ? String(text) : '';
+}
+
+function setSyncOverlayStatus(text) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.status) return;
+  els.status.textContent = text ? String(text) : '';
+}
+
+function setSyncOverlayCancelHandler(handler, cancelable = true) {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.cancelBtn) return;
+  if (cancelable && typeof handler === 'function') {
+    syncOverlayCancelHandler = handler;
+    els.cancelBtn.hidden = false;
+    els.cancelBtn.disabled = false;
+  } else {
+    syncOverlayCancelHandler = null;
+    els.cancelBtn.hidden = true;
+    els.cancelBtn.disabled = true;
+  }
+}
+
+function showSyncOverlay(options = {}) {
+  const els = ensureSyncOverlayElements();
+  if (!els || !els.overlay) return;
+
+  const title = options.title || 'Waiting for GitHub…';
+  const message = options.message || '';
+  const status = options.status || '';
+  const cancelLabel = options.cancelLabel || 'Stop waiting';
+  const cancelable = options.cancelable !== false;
+
+  setSyncOverlayTitle(title);
+  setSyncOverlayMessage(message);
+  setSyncOverlayStatus(status);
+
+  try {
+    els.overlay.hidden = false;
+    els.overlay.classList.add('is-visible');
+    els.overlay.setAttribute('aria-hidden', 'false');
+  } catch (_) {}
+
+  if (els.cancelBtn) {
+    els.cancelBtn.textContent = cancelLabel;
+  }
+  setSyncOverlayCancelHandler(null, cancelable);
+
+  try { document.body.classList.add('ns-sync-overlay-open'); }
+  catch (_) {}
+
+  requestAnimationFrame(() => {
+    try {
+      if (cancelable && els.cancelBtn && !els.cancelBtn.hidden) {
+        els.cancelBtn.focus();
+      } else if (els.title) {
+        els.title.focus({ preventScroll: true });
+      }
+    } catch (_) {}
+  });
+}
+
+function hideSyncOverlay() {
+  const els = syncOverlayElements || ensureSyncOverlayElements();
+  if (!els || !els.overlay) return;
+  try {
+    els.overlay.classList.remove('is-visible');
+    els.overlay.setAttribute('aria-hidden', 'true');
+    els.overlay.hidden = true;
+  } catch (_) {}
+  setSyncOverlayCancelHandler(null, true);
+  try { document.body.classList.remove('ns-sync-overlay-open'); }
+  catch (_) {}
+}
+
+function preparePopupWindow() {
+  try {
+    const win = window.open('', '_blank');
+    if (win) {
+      try { win.opener = null; } catch (_) {}
+    }
+    return win;
+  } catch (_) {
+    return null;
+  }
+}
+
+function closePopupWindow(win) {
+  if (!win) return;
+  try {
+    if (!win.closed) win.close();
+  } catch (_) {}
+}
+
+function finalizePopupWindow(win, href) {
+  if (!href) {
+    closePopupWindow(win);
+    return null;
+  }
+  if (win && !win.closed) {
+    try {
+      win.location.replace(href);
+      win.opener = null;
+      return win;
+    } catch (_) {
+      closePopupWindow(win);
+    }
+  }
+  let opened = null;
+  try {
+    opened = window.open(href, '_blank');
+  } catch (_) {
+    opened = null;
+  }
+  if (opened) {
+    try { opened.opener = null; } catch (_) {}
+    return opened;
+  }
+  return null;
+}
+
+function handlePopupBlocked(href, options = {}) {
+  try {
+    console.warn('Popup blocked while opening GitHub window', href);
+  } catch (_) {}
+  const message = safeString(options.message) || 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.';
+  const kind = safeString(options.kind) || 'warn';
+  const duration = typeof options.duration === 'number' ? Math.max(1600, options.duration) : 9000;
+  const actionHref = safeString(options.actionHref || href);
+  const actionLabel = safeString(options.actionLabel) || 'Open GitHub';
+  const onRetry = typeof options.onRetry === 'function' ? options.onRetry : null;
+
+  showToast(kind, message, {
+    duration,
+    action: actionHref
+      ? {
+          label: actionLabel,
+          href: actionHref,
+          target: safeString(options.actionTarget) || '_blank',
+          rel: safeString(options.actionRel) || 'noopener',
+          onClick: (event) => {
+            if (onRetry) {
+              setTimeout(() => {
+                try { onRetry(event); } catch (_) {}
+              }, 60);
+            }
+          }
+        }
+      : null
+  });
+}
+
+function startRemoteSyncWatcher(config = {}) {
+  if (!config || typeof config.fetch !== 'function') return null;
+  if (activeSyncWatcher && typeof activeSyncWatcher.cancel === 'function') {
+    try { activeSyncWatcher.cancel('replaced'); } catch (_) {}
+  }
+
+  const overlayTitle = config.title || 'Waiting for GitHub…';
+  const overlayMessage = config.message || '';
+  const overlayStatus = config.initialStatus || 'Preparing…';
+  const cancelLabel = config.cancelLabel || 'Stop waiting';
+  const cancelable = config.cancelable !== false;
+
+  showSyncOverlay({ title: overlayTitle, message: overlayMessage, status: overlayStatus, cancelLabel, cancelable });
+  setSyncOverlayStatus(overlayStatus);
+
+  let aborted = false;
+  let attempts = 0;
+  let timer = null;
+
+  const cancel = (reason) => {
+    if (aborted) return;
+    aborted = true;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    hideSyncOverlay();
+    activeSyncWatcher = null;
+    if (typeof config.onCancel === 'function') {
+      try { config.onCancel(reason); } catch (_) {}
+    }
+  };
+
+  setSyncOverlayCancelHandler(cancelable ? cancel : null, cancelable);
+
+  const scheduleNext = (delay) => {
+    if (aborted) return;
+    const ms = Math.max(1200, Number(delay) || 0);
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(runFetch, ms);
+  };
+
+  const runFetch = async () => {
+    if (aborted) return;
+    attempts += 1;
+    let result;
+    try {
+      result = await config.fetch({ attempts, updateStatus: setSyncOverlayStatus });
+    } catch (err) {
+      if (aborted) return;
+      const msg = (typeof config.onErrorStatus === 'function')
+        ? config.onErrorStatus(err, attempts)
+        : 'Remote check failed. Retrying…';
+      setSyncOverlayStatus(msg);
+      scheduleNext(config.errorDelay || 6000);
+      return;
+    }
+
+    if (aborted) return;
+    if (result && result.statusMessage) setSyncOverlayStatus(result.statusMessage);
+    if (result && result.message) setSyncOverlayMessage(result.message);
+
+    if (result && result.done) {
+      aborted = true;
+      hideSyncOverlay();
+      activeSyncWatcher = null;
+      if (typeof config.onSuccess === 'function') {
+        try { config.onSuccess(result); } catch (_) {}
+      }
+      return;
+    }
+
+    const nextDelay = result && typeof result.retryDelay === 'number'
+      ? result.retryDelay
+      : config.interval || 5000;
+    scheduleNext(nextDelay);
+  };
+
+  activeSyncWatcher = { cancel, attempts: () => attempts };
+
+  const initialDelay = config.initialDelay != null ? config.initialDelay : 2400;
+  scheduleNext(initialDelay);
+  return activeSyncWatcher;
+}
+
+async function fetchMarkdownRemoteSnapshot(tab) {
+  if (!tab || !tab.path) return null;
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) return null;
+  const url = `${root}/${rel}`.replace(/[\\]/g, '/');
+  let res;
+  try {
+    res = await fetch(url, { cache: 'no-store' });
+  } catch (err) {
+    return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+  }
+
+  const checkedAt = Date.now();
+
+  if (res.status === 404) {
+    return { state: 'missing', status: 404, content: '', signature: computeTextSignature(''), checkedAt };
+  }
+
+  if (!res.ok) {
+    return { state: 'error', status: res.status, message: `HTTP ${res.status}`, checkedAt };
+  }
+
+  const text = normalizeMarkdownContent(await res.text());
+  return {
+    state: 'existing',
+    status: res.status,
+    content: text,
+    signature: computeTextSignature(text),
+    checkedAt
+  };
+}
+
+function applyMarkdownRemoteSnapshot(tab, snapshot) {
+  if (!tab) return;
+  const normalized = normalizeMarkdownContent(snapshot && snapshot.content != null ? snapshot.content : '');
+  tab.remoteContent = normalized;
+  tab.remoteSignature = computeTextSignature(normalized);
+  tab.loaded = true;
+
+  const stateLabel = snapshot && snapshot.state === 'missing' ? 'missing' : 'existing';
+  const statusCode = snapshot && snapshot.status;
+  const statusMessage = snapshot && snapshot.state === 'missing'
+    ? 'File not found on server'
+    : 'Remote snapshot updated';
+
+  setDynamicTabStatus(tab, {
+    state: stateLabel,
+    checkedAt: Date.now(),
+    code: statusCode,
+    message: statusMessage
+  });
+
+  if (!tab.localDraft || !tab.localDraft.content) {
+    const currentNormalized = normalizeMarkdownContent(tab.content || '');
+    tab.content = currentNormalized;
+    if (currentNormalized !== normalized) {
+      tab.content = normalized;
+      if (currentMode === tab.mode) {
+        const editorApi = getPrimaryEditorApi();
+        if (editorApi && typeof editorApi.setValue === 'function') {
+          try { editorApi.setValue(normalized, { notify: false }); } catch (_) {}
+        }
+      }
+    }
+  }
+
+  updateDynamicTabDirtyState(tab, { autoSave: false });
+  updateComposerMarkdownDraftIndicators({ path: tab.path });
+}
+
+function startMarkdownSyncWatcher(tab, options = {}) {
+  if (!tab || !tab.path) return;
+  const expectedSignature = options.expectedSignature || computeTextSignature(tab.content || '');
+  const label = options.label || tab.label || basenameFromPath(tab.path) || tab.path;
+  const isCreate = !!options.isCreate;
+  const message = isCreate
+    ? `Waiting for GitHub to create ${label}`
+    : `Waiting for GitHub to update ${label}`;
+
+  setDynamicTabStatus(tab, {
+    state: 'checking',
+    checkedAt: Date.now(),
+    message: 'Waiting for GitHub commit…'
+  });
+  updateMarkdownPushButton(tab);
+
+  startRemoteSyncWatcher({
+    title: 'Checking remote changes…',
+    message,
+    initialStatus: 'Waiting for commit…',
+    cancelLabel: 'Stop waiting',
+    fetch: async ({ attempts }) => {
+      const snapshot = await fetchMarkdownRemoteSnapshot(tab);
+      if (!snapshot) {
+        return { done: false, statusMessage: 'Waiting for remote response…', retryDelay: 5000 };
+      }
+      if (snapshot.state === 'error') {
+        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        return { done: false, statusMessage: msg, retryDelay: 6000 };
+      }
+      if (snapshot.state === 'missing') {
+        const done = expectedSignature === computeTextSignature('');
+        const statusMessage = isCreate
+          ? 'Remote file not found yet…'
+          : 'Remote file still missing…';
+        return { done, data: snapshot, statusMessage, retryDelay: 5600 };
+      }
+      const matches = snapshot.signature === expectedSignature;
+      if (matches) {
+        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+      }
+      const waitingStatus = attempts >= 3
+        ? 'Remote file still differs from local content. Waiting…'
+        : 'Remote file exists but content differs. Waiting…';
+      const response = {
+        done: false,
+        statusMessage: waitingStatus,
+        retryDelay: 5200
+      };
+      if (attempts === 3) {
+        response.message = 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.';
+      }
+      return response;
+    },
+    onSuccess: (result) => {
+      if (result && result.data) {
+        applyMarkdownRemoteSnapshot(tab, result.data);
+        if (result.mismatch) {
+          showToast('warn', 'Remote markdown differs from the local draft. Review the changes before continuing.', { duration: 4200 });
+        } else {
+          showToast('success', 'Markdown synchronized with GitHub.');
+        }
+      }
+      updateMarkdownPushButton(tab);
+      updateMarkdownDiscardButton(tab);
+    },
+    onCancel: () => {
+      setDynamicTabStatus(tab, {
+        state: 'existing',
+        checkedAt: Date.now(),
+        message: 'Remote check canceled'
+      });
+      updateMarkdownPushButton(tab);
+      updateMarkdownDiscardButton(tab);
+      showToast('info', 'Remote check canceled. Use Refresh after your commit is ready.');
+    }
+  });
+}
+
+async function fetchComposerRemoteSnapshot(kind) {
+  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const root = getContentRootSafe();
+  const base = safeKind === 'tabs' ? 'tabs' : 'index';
+  const urls = [`${root}/${base}.yaml`, `${root}/${base}.yml`];
+  let lastStatus = 404;
+  for (const url of urls) {
+    let res;
+    try {
+      res = await fetch(url, { cache: 'no-store' });
+    } catch (err) {
+      return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+    }
+    lastStatus = res.status;
+    if (res.status === 404) continue;
+    if (!res.ok) {
+      return { state: 'error', status: res.status, message: `HTTP ${res.status}` };
+    }
+    const text = await res.text();
+    let parsed = null;
+    try { parsed = parseYAML(text); }
+    catch (_) { parsed = null; }
+    return {
+      state: 'existing',
+      status: res.status,
+      text,
+      parsed,
+      signature: computeTextSignature(text)
+    };
+  }
+  return { state: 'missing', status: lastStatus };
+}
+
+function applyComposerRemoteSnapshot(kind, snapshot) {
+  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  if (!snapshot || snapshot.state !== 'existing') return;
+  let parsed = snapshot.parsed;
+  if (!parsed || typeof parsed !== 'object') {
+    try { parsed = parseYAML(snapshot.text || ''); }
+    catch (_) { parsed = null; }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    showToast('warn', `Fetched ${safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml'} but failed to parse YAML.`, { duration: 4200 });
+    return;
+  }
+  const prepared = safeKind === 'tabs' ? prepareTabsState(parsed || {}) : prepareIndexState(parsed || {});
+  remoteBaseline[safeKind] = deepClone(prepared);
+  notifyComposerChange(safeKind, { skipAutoSave: true });
+}
+
+function startComposerSyncWatcher(kind, options = {}) {
+  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const expectedText = options.expectedText != null ? String(options.expectedText) : '';
+  const expectedSignature = computeTextSignature(expectedText);
+  const message = options.message || `Waiting for ${label} to update on GitHub…`;
+
+  startRemoteSyncWatcher({
+    title: options.title || 'Waiting for GitHub…',
+    message,
+    initialStatus: options.initialStatus || 'Waiting for commit…',
+    cancelLabel: options.cancelLabel || 'Stop waiting',
+    fetch: async ({ attempts }) => {
+      const snapshot = await fetchComposerRemoteSnapshot(safeKind);
+      if (!snapshot) {
+        return { done: false, statusMessage: 'Waiting for remote…', retryDelay: 5200 };
+      }
+      if (snapshot.state === 'missing') {
+        return { done: false, statusMessage: `${label} not found on remote yet…`, retryDelay: 5600 };
+      }
+      if (snapshot.state === 'error') {
+        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        return { done: false, statusMessage: msg, retryDelay: 6200 };
+      }
+      const matches = snapshot.signature === expectedSignature;
+      if (matches) {
+        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+      }
+      const waitingStatus = attempts >= 3
+        ? 'Remote YAML still differs from the local snapshot. Waiting…'
+        : 'Remote YAML updated but content differs. Waiting…';
+      const response = {
+        done: false,
+        statusMessage: waitingStatus,
+        retryDelay: 5400
+      };
+      if (attempts === 3) {
+        response.message = 'If the commit was different from your draft, cancel and click Refresh to pull it in.';
+      }
+      return response;
+    },
+    onSuccess: (result) => {
+      if (result && result.data) {
+        applyComposerRemoteSnapshot(safeKind, result.data);
+        if (result.mismatch) {
+          showToast('warn', `${label} was updated differently on GitHub. Review the highlighted differences.`, { duration: 4600 });
+        } else {
+          clearDraftStorage(safeKind);
+          updateUnsyncedSummary();
+          const modal = composerDiffModal;
+          const matchesKind = modal && typeof modal.getActiveKind === 'function'
+            ? modal.getActiveKind() === safeKind
+            : true;
+          const isOpen = modal && modal.modal && modal.modal.classList
+            ? (modal.modal.classList.contains('is-open') && modal.modal.getAttribute('aria-hidden') !== 'true')
+            : false;
+          if (modal && typeof modal.close === 'function' && matchesKind && isOpen) {
+            try { modal.close(); } catch (_) {}
+          }
+          showToast('success', `${label} synchronized with GitHub.`);
+        }
+      }
+    },
+    onCancel: () => {
+      showToast('info', 'Remote check canceled. Click Refresh when your commit is ready.');
+    }
+  });
 }
 
 function setButtonLabel(btn, label) {
@@ -697,11 +1330,23 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   const baseline = normalizeMarkdownContent(tab.remoteContent || '');
   const dirty = normalizedContent !== baseline;
   tab.isDirty = dirty;
-  const conflict = !!(tab.localDraft
-    && tab.localDraft.remoteSignature
-    && tab.remoteSignature
-    && tab.localDraft.remoteSignature !== tab.remoteSignature);
+
+  let conflict = false;
+
+  if (dirty) {
+    conflict = !!(tab.localDraft
+      && tab.localDraft.remoteSignature
+      && tab.remoteSignature
+      && tab.localDraft.remoteSignature !== tab.remoteSignature);
+    if (options.autoSave !== false) {
+      scheduleMarkdownDraftSave(tab);
+    }
+  } else {
+    clearMarkdownDraftForTab(tab);
+  }
+
   tab.draftConflict = conflict;
+
   const btn = tab.button;
   if (btn) {
     if (dirty) btn.setAttribute('data-dirty', '1');
@@ -710,16 +1355,13 @@ function updateDynamicTabDirtyState(tab, options = {}) {
     else if (tab.localDraft) btn.setAttribute('data-draft-state', 'saved');
     else btn.removeAttribute('data-draft-state');
   }
-  if (!dirty) {
-    clearMarkdownDraftForTab(tab);
-  } else if (options.autoSave !== false) {
-    scheduleMarkdownDraftSave(tab);
-  }
+
   if (currentMode === tab.mode) {
     pushEditorCurrentFileInfo(tab);
   } else {
     updateMarkdownPushButton(tab);
   }
+
   updateComposerMarkdownDraftIndicators({ path: tab.path });
 }
 
@@ -1915,6 +2557,8 @@ function ensureComposerDiffModal() {
     open: openModal,
     close: closeModal,
     activate: setActiveTab,
+    getActiveKind: () => activeKind,
+    isOpen: () => modal.classList.contains('is-open') && modal.getAttribute('aria-hidden') !== 'true',
     modal,
     dialog,
     title,
@@ -2800,6 +3444,16 @@ async function openMarkdownPushOnGitHub(tab) {
     return;
   }
 
+  const branch = String(repo.branch || 'main').trim() || 'main';
+  const root = getContentRootSafe();
+  const rel = normalizeRelPath(tab.path);
+  if (!rel) {
+    showToast('error', 'Invalid markdown path.');
+    return;
+  }
+
+  const popup = preparePopupWindow();
+
   try {
     if (tab.pending) {
       await tab.pending;
@@ -2807,6 +3461,7 @@ async function openMarkdownPushOnGitHub(tab) {
       await loadDynamicTabContent(tab);
     }
   } catch (err) {
+    closePopupWindow(popup);
     console.error('Failed to prepare markdown before pushing to GitHub', err);
     showToast('error', 'Unable to load the latest markdown before pushing.');
     updateMarkdownPushButton(tab);
@@ -2814,15 +3469,8 @@ async function openMarkdownPushOnGitHub(tab) {
   }
 
   if (!tab.loaded) {
+    closePopupWindow(popup);
     showToast('error', 'Markdown file is not ready to push yet.');
-    return;
-  }
-
-  const branch = String(repo.branch || 'main').trim() || 'main';
-  const root = getContentRootSafe();
-  const rel = normalizeRelPath(tab.path);
-  if (!rel) {
-    showToast('error', 'Invalid markdown path.');
     return;
   }
 
@@ -2850,6 +3498,7 @@ async function openMarkdownPushOnGitHub(tab) {
   }
 
   if (!href) {
+    closePopupWindow(popup);
     showToast('error', 'Unable to resolve GitHub URL for this file.');
     return;
   }
@@ -2863,17 +3512,37 @@ async function openMarkdownPushOnGitHub(tab) {
   try { nsCopyToClipboard(tab.content != null ? String(tab.content) : ''); }
   catch (_) {}
 
-  try {
-    window.open(href, '_blank', 'noopener');
-  } catch (_) {
-    try { window.location.href = href; }
-    catch (__) {}
-  }
-
-  const message = isCreate
+  const expectedSignature = computeTextSignature(tab.content != null ? String(tab.content) : '');
+  const successMessage = isCreate
     ? 'Markdown copied. GitHub will open to create this file.'
     : 'Markdown copied. GitHub will open to update this file.';
-  showToast('info', message);
+  const blockedMessage = isCreate
+    ? 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.'
+    : 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.';
+
+  const startWatcher = () => {
+    startMarkdownSyncWatcher(tab, {
+      expectedSignature,
+      isCreate,
+      label: filename || tab.path || 'markdown file'
+    });
+  };
+
+  const opened = finalizePopupWindow(popup, href);
+  if (opened) {
+    showToast('info', successMessage);
+    startWatcher();
+  } else {
+    closePopupWindow(popup);
+    handlePopupBlocked(href, {
+      message: blockedMessage,
+      actionLabel: 'Open GitHub',
+      onRetry: () => {
+        showToast('info', successMessage);
+        startWatcher();
+      }
+    });
+  }
 
   updateMarkdownPushButton(tab);
 }
@@ -5001,12 +5670,14 @@ function bindComposerUI(state) {
         aEdit.addEventListener('click', async (e) => {
           if (!hasGh) return;
           try { e.preventDefault(); } catch(_) {}
+          const popup = preparePopupWindow();
           try {
             // Build a merged draft that includes current form entry even if not clicked "Add" button
             const keyDraft = safeKey(compKey.value);
             const fnameDraft = safeFilename(compFilename.value);
             const langsDraft = getLangs();
             const titlesMap = getTitlesMap();
+            let yamlText = '';
             if (compMode === 'tabs') {
               const draft = {};
               Object.keys(state.tabs || {}).forEach(k => { if (k !== '__order') draft[k] = state.tabs[k]; });
@@ -5024,8 +5695,7 @@ function bindComposerUI(state) {
                 order.unshift(keyDraft);
               }
               draft.__order = order;
-              const text = toTabsYaml(draft);
-              try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
+              yamlText = toTabsYaml(draft);
             } else {
               const draft = {};
               Object.keys(state.index || {}).forEach(k => { if (k !== '__order') draft[k] = state.index[k]; });
@@ -5042,11 +5712,49 @@ function bindComposerUI(state) {
                 order.unshift(keyDraft);
               }
               draft.__order = order;
-              const text = toIndexYaml(draft);
-              try { nsCopyToClipboard(text); } catch(_) { /* ignore */ }
+              yamlText = toIndexYaml(draft);
             }
-          } catch(_) { /* ignore */ }
-          try { window.open(aEdit.href, '_blank', 'noopener'); } catch(_) { location.href = aEdit.href; }
+            try { nsCopyToClipboard(yamlText); } catch(_) { /* ignore */ }
+            const href = aEdit.href;
+            if (!href || href === '#') {
+              closePopupWindow(popup);
+              showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
+              return;
+            }
+            const targetKind = compMode === 'tabs' ? 'tabs' : 'index';
+            const successMessage = targetKind === 'tabs'
+              ? 'tabs.yaml copied. GitHub will open so you can paste and commit.'
+              : 'index.yaml copied. GitHub will open so you can paste and commit.';
+            const blockedMessage = targetKind === 'tabs'
+              ? 'tabs.yaml copied. Click “Open GitHub” if the new tab did not appear.'
+              : 'index.yaml copied. Click “Open GitHub” if the new tab did not appear.';
+
+            const startWatcher = () => {
+              startComposerSyncWatcher(targetKind, {
+                expectedText: yamlText,
+                message: targetKind === 'tabs'
+                  ? 'Waiting for GitHub to apply tabs.yaml changes…'
+                  : 'Waiting for GitHub to apply index.yaml changes…'
+              });
+            };
+            const opened = finalizePopupWindow(popup, href);
+            if (opened) {
+              showToast('info', successMessage);
+              startWatcher();
+            } else {
+              closePopupWindow(popup);
+              handlePopupBlocked(href, {
+                message: blockedMessage,
+                actionLabel: 'Open GitHub',
+                onRetry: () => {
+                  showToast('info', successMessage);
+                  startWatcher();
+                }
+              });
+            }
+          } catch(_) {
+            closePopupWindow(popup);
+          }
         });
         actions.appendChild(aEdit);
         s.appendChild(p);
@@ -5615,7 +6323,12 @@ function bindComposerUI(state) {
       const url1 = `${contentRoot}/${baseName}.yaml`; const url2 = `${contentRoot}/${baseName}.yml`;
       const cur = (await fetchText(url1)) || (await fetchText(url2));
       const norm = (s)=>String(s||'').replace(/\r\n/g,'\n').trim();
-      if (norm(cur) === norm(desired)) { showToast('success', `${baseName}.yaml is up to date`); return; }
+      const popup = preparePopupWindow();
+      if (norm(cur) === norm(desired)) {
+        closePopupWindow(popup);
+        showToast('success', `${baseName}.yaml is up to date`);
+        return;
+      }
       // Need update -> copy and open GitHub edit/new page
       try { nsCopyToClipboard(desired); } catch(_) {}
       const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
@@ -5623,8 +6336,40 @@ function bindComposerUI(state) {
         let href = '';
         if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/${baseName}.yaml`);
         else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `${baseName}.yaml`);
-        try { window.open(href, '_blank', 'noopener'); } catch(_) { location.href = href; }
+        if (!href) {
+          closePopupWindow(popup);
+          showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
+          return;
+        }
+        const successMessage = cur
+          ? `${baseName}.yaml copied. GitHub will open so you can paste the update.`
+          : `${baseName}.yaml copied. GitHub will open so you can create the file.`;
+        const blockedMessage = `${baseName}.yaml copied. Click “Open GitHub” if the new tab did not appear.`;
+
+        const startWatcher = () => {
+          startComposerSyncWatcher(target, {
+            expectedText: desired,
+            message: `Waiting for GitHub to apply ${baseName}.yaml changes…`
+          });
+        };
+
+        const opened = finalizePopupWindow(popup, href);
+        if (opened) {
+          showToast('info', successMessage);
+          startWatcher();
+        } else {
+          closePopupWindow(popup);
+          handlePopupBlocked(href, {
+            message: blockedMessage,
+            actionLabel: 'Open GitHub',
+            onRetry: () => {
+              showToast('info', successMessage);
+              startWatcher();
+            }
+          });
+        }
       } else {
+        closePopupWindow(popup);
         showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
       }
     }
