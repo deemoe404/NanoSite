@@ -1,49 +1,20 @@
 import { fetchConfigWithYamlFallback } from './yaml.js';
 
-function buildStatusFrag(text) {
-  const frag = document.createDocumentFragment();
-  const dot = document.createElement('span');
-  dot.className = 'dot';
-  frag.appendChild(dot);
-  const label = document.createElement('span');
-  label.textContent = String(text || '');
-  frag.appendChild(label);
-  return frag;
-}
-
-function setStatus(mode, content) {
+function setStatus(state, repoText, messageText) {
   const box = document.getElementById('global-status');
   if (!box) return;
-  box.className = `global-status ${mode || ''}`;
-  while (box.firstChild) box.removeChild(box.firstChild);
-  if (content == null || content === '') return;
-  if (typeof content === 'string') box.appendChild(buildStatusFrag(content));
-  else if (content instanceof Node) box.appendChild(content);
+  if (state) box.dataset.state = state;
+  else box.removeAttribute('data-state');
+  const repoEl = document.getElementById('globalStatusRepo');
+  const messageEl = document.getElementById('globalStatusMessage');
+  if (repoEl) repoEl.textContent = repoText ? String(repoText) : '';
+  if (messageEl) messageEl.textContent = messageText ? String(messageText) : '';
 }
 
-function renderRepoLink(owner, repo, branch, extraText) {
-  const frag = document.createDocumentFragment();
-  const dot = document.createElement('span');
-  dot.className = 'dot';
-  frag.appendChild(dot);
-  if (!owner || !repo) {
-    const label = document.createElement('span');
-    label.textContent = 'No repository configured';
-    frag.appendChild(label);
-    return frag;
-  }
-  const a = document.createElement('a');
-  a.href = `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
-  a.target = '_blank';
-  a.rel = 'noopener';
-  a.textContent = `@${owner}/${repo}`;
-  frag.appendChild(a);
-  const tail = document.createElement('span');
-  const btxt = branch ? ` (${branch})` : '';
-  const extra = extraText ? ` · ${String(extraText)}` : '';
-  tail.textContent = `${btxt}${extra}`;
-  frag.appendChild(tail);
-  return frag;
+function describeRepo(owner, repo, branch) {
+  if (!owner || !repo) return 'GitHub repository not configured';
+  const base = `@${owner}/${repo}`;
+  return branch ? `${base} (${branch})` : base;
 }
 
 async function fetchRepoExists(owner, repo) {
@@ -73,7 +44,7 @@ async function fetchBranchExists(owner, repo, branch) {
 
 async function initGithubStatus() {
   try {
-    setStatus('warn', buildStatusFrag('Loading GitHub config…'));
+    setStatus('warn', 'Loading GitHub settings…', 'Reading site.yaml for GitHub connection details…');
     const cfg = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
     const repo = (cfg && cfg.repo) || {};
     const owner = String(repo.owner || '').trim();
@@ -81,39 +52,55 @@ async function initGithubStatus() {
     const branch = String(repo.branch || '').trim();
 
     if (!owner || !name) {
-      setStatus('warn', buildStatusFrag('No repository configured in site.yaml'));
+      setStatus(
+        'warn',
+        'GitHub repository not configured',
+        'Add repo.owner and repo.name to site.yaml to enable pushing your drafts.'
+      );
       return;
     }
 
     // Checking repository
-    setStatus('warn', renderRepoLink(owner, name, branch || '', 'Checking…'));
+    setStatus('warn', describeRepo(owner, name, branch || ''), 'Checking repository access…');
     const repoInfo = await fetchRepoExists(owner, name);
     if (!repoInfo.ok) {
-      if (repoInfo.reason === 'rate_limited') setStatus('err', renderRepoLink(owner, name, branch || '', 'GitHub rate limit, try later'));
-      else if (repoInfo.reason === 'not_found') setStatus('err', renderRepoLink(owner, name, branch || '', 'Repository not found'));
-      else setStatus('err', renderRepoLink(owner, name, branch || '', 'Repository check failed'));
+      if (repoInfo.reason === 'rate_limited') {
+        setStatus('err', describeRepo(owner, name, branch || ''), 'GitHub rate limit hit. Try again later.');
+      } else if (repoInfo.reason === 'not_found') {
+        setStatus('err', describeRepo(owner, name, branch || ''), 'Repository not found on GitHub.');
+      } else if (repoInfo.reason === 'network') {
+        setStatus('err', describeRepo(owner, name, branch || ''), 'Could not reach GitHub. Check your connection.');
+      } else {
+        setStatus('err', describeRepo(owner, name, branch || ''), 'Repository check failed.');
+      }
       return;
     }
 
     // If branch missing in config, display repo OK using default branch hint
     if (!branch) {
-      setStatus('ok', renderRepoLink(owner, name, repoInfo.default_branch || '', 'OK'));
+      const defaultBranch = repoInfo.default_branch || 'main';
+      setStatus(
+        'ok',
+        describeRepo(owner, name, defaultBranch),
+        `Repository connected. Default branch “${defaultBranch}”. Push drafts when you are ready.`
+      );
       return;
     }
 
     // Checking branch
-    setStatus('warn', renderRepoLink(owner, name, branch, 'Checking branch…'));
+    setStatus('warn', describeRepo(owner, name, branch), 'Checking branch access…');
     const b = await fetchBranchExists(owner, name, branch);
     if (!b.ok) {
-      if (b.reason === 'rate_limited') setStatus('err', renderRepoLink(owner, name, branch, 'Rate limited'));
-      else if (b.reason === 'not_found') setStatus('err', renderRepoLink(owner, name, branch, 'Branch not found'));
-      else setStatus('err', renderRepoLink(owner, name, branch, 'Branch check failed'));
+      if (b.reason === 'rate_limited') setStatus('err', describeRepo(owner, name, branch), 'GitHub rate limit hit. Try again later.');
+      else if (b.reason === 'not_found') setStatus('err', describeRepo(owner, name, branch), 'Branch not found on GitHub.');
+      else if (b.reason === 'network') setStatus('err', describeRepo(owner, name, branch), 'Could not reach GitHub. Check your connection.');
+      else setStatus('err', describeRepo(owner, name, branch), 'Branch check failed.');
       return;
     }
 
-    setStatus('ok', renderRepoLink(owner, name, branch, 'OK'));
+    setStatus('ok', describeRepo(owner, name, branch), 'Repository and branch verified. Push drafts to publish your changes.');
   } catch (e) {
-    setStatus('err', buildStatusFrag('Failed to read site.yaml'));
+    setStatus('err', 'GitHub configuration unavailable', 'Failed to read site.yaml.');
   }
 }
 

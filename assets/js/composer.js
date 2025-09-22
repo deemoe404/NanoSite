@@ -5,8 +5,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'Synced with remote';
-const DIRTY_STATUS_MESSAGE = 'Local changes pending';
+const CLEAN_STATUS_MESSAGE = 'All changes synced with GitHub';
+const DIRTY_STATUS_MESSAGE = 'Local drafts waiting to push to GitHub';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
@@ -1807,31 +1807,43 @@ function updateUnsyncedSummary() {
   }
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
+  const globalStatusEl = document.getElementById('global-status');
   if (summaryEntries.length) {
     el.innerHTML = '';
-    const prefix = document.createElement('span');
-    prefix.className = 'composer-summary-prefix';
-    prefix.textContent = `${DIRTY_STATUS_MESSAGE} → `;
-    el.appendChild(prefix);
-    summaryEntries.forEach((entry, idx) => {
-      if (idx > 0) el.append(' · ');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'composer-summary-link';
-      btn.textContent = entry.label;
-      btn.dataset.kind = entry.kind;
-      if (entry.hasOrderChange) btn.dataset.order = '1';
-      if (entry.hasContentChange) btn.dataset.content = '1';
-      btn.addEventListener('click', () => openComposerDiffModal(entry.kind));
-      el.appendChild(btn);
+    const label = document.createElement('span');
+    label.className = 'composer-summary-label';
+    label.textContent = DIRTY_STATUS_MESSAGE;
+    el.appendChild(label);
+    const list = document.createElement('ul');
+    list.className = 'composer-summary-list';
+    summaryEntries.forEach(entry => {
+      const item = document.createElement('li');
+      item.className = 'composer-summary-item';
+      const name = document.createElement('span');
+      name.className = 'composer-summary-name';
+      name.textContent = entry.label;
+      item.appendChild(name);
+      const details = [];
+      if (entry.hasContentChange) details.push('content edits');
+      if (entry.hasOrderChange) details.push('order changes');
+      if (details.length) {
+        const detail = document.createElement('span');
+        detail.className = 'composer-summary-detail';
+        detail.textContent = `— ${details.join(' & ')}`;
+        item.appendChild(detail);
+      }
+      list.appendChild(item);
     });
+    el.appendChild(list);
     el.dataset.summary = '1';
     el.dataset.state = 'dirty';
+    if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     updateReviewButton(summaryEntries);
   } else {
     el.textContent = CLEAN_STATUS_MESSAGE;
     el.dataset.summary = '0';
     el.dataset.state = 'clean';
+    if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     updateReviewButton([]);
   }
 }
@@ -6346,11 +6358,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  #composerStatus .composer-summary-prefix{font-weight:600;color:color-mix(in srgb,var(--text) 74%, transparent)}
-  #composerStatus .composer-summary-link{border:0;background:none;padding:.1rem .4rem;font-weight:600;font-size:.92rem;color:color-mix(in srgb,var(--primary) 82%, var(--text));cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;transition:color 150ms ease, background-color 150ms ease}
-  #composerStatus .composer-summary-link:hover{color:color-mix(in srgb,var(--primary) 88%, var(--text));background:color-mix(in srgb,var(--primary) 14%, transparent)}
-  #composerStatus .composer-summary-link:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
-  #composerStatus .composer-summary-link[data-order="1"]::after{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,var(--primary) 70%, var(--text));box-shadow:0 0 0 1px color-mix(in srgb,var(--card) 80%, transparent)}
+  #composerStatus .composer-summary-label{display:block;font-weight:600;color:color-mix(in srgb,var(--text) 74%, transparent);margin-bottom:.35rem}
+  #composerStatus[data-state="dirty"] .composer-summary-label{color:color-mix(in srgb,#ea580c 78%, var(--text))}
+  #composerStatus .composer-summary-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
+  #composerStatus .composer-summary-item{display:flex;gap:.4rem;align-items:flex-start;color:color-mix(in srgb,var(--text) 78%, transparent)}
+  #composerStatus .composer-summary-item::before{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,#f97316 68%, #fb923c 35%);box-shadow:0 0 0 1px color-mix(in srgb,#f97316 30%, transparent);margin-top:.35rem;flex:0 0 auto}
+  #composerStatus .composer-summary-name{font-weight:600}
+  #composerStatus .composer-summary-detail{color:color-mix(in srgb,var(--muted) 82%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
