@@ -6,7 +6,6 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 const CLEAN_STATUS_MESSAGE = 'No drafts pending push';
-const DIRTY_STATUS_MESSAGE = 'Push required to sync with GitHub';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
@@ -1800,52 +1799,38 @@ function updateDiscardButtonVisibility() {
 }
 
 function updateUnsyncedSummary() {
-  const el = document.getElementById('composerStatus');
-  if (!el) {
-    updateDiscardButtonVisibility();
-    return;
-  }
+  const summaryContainer = document.getElementById('localDraftSummary');
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
   const globalStatusEl = document.getElementById('global-status');
   const globalLocalStateEl = document.getElementById('globalLocalState');
   if (summaryEntries.length) {
-    el.innerHTML = '';
+    if (summaryContainer) {
+      summaryContainer.innerHTML = '';
+      const list = document.createElement('ul');
+      list.className = 'gs-node-drafts-list';
+      summaryEntries.forEach(entry => {
+        const item = document.createElement('li');
+        item.className = 'gs-node-drafts-item';
+        const name = document.createElement('span');
+        name.textContent = entry.label;
+        item.appendChild(name);
+        list.appendChild(item);
+      });
+      summaryContainer.appendChild(list);
+      summaryContainer.hidden = false;
+    }
     const count = summaryEntries.length;
-    const label = document.createElement('span');
-    label.className = 'composer-summary-label';
-    label.textContent = count === 1 ? '1 draft pending push' : `${count} drafts pending push`;
-    el.appendChild(label);
-    const list = document.createElement('ul');
-    list.className = 'composer-summary-list';
-    summaryEntries.forEach(entry => {
-      const item = document.createElement('li');
-      item.className = 'composer-summary-item';
-      const name = document.createElement('span');
-      name.className = 'composer-summary-name';
-      name.textContent = entry.label;
-      item.appendChild(name);
-      const details = [];
-      if (entry.hasContentChange) details.push('content edits');
-      if (entry.hasOrderChange) details.push('order changes');
-      if (details.length) {
-        const detail = document.createElement('span');
-        detail.className = 'composer-summary-detail';
-        detail.textContent = `— ${details.join(' & ')}`;
-        item.appendChild(detail);
-      }
-      list.appendChild(item);
-    });
-    el.appendChild(list);
-    el.dataset.summary = '1';
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalLocalStateEl) {
-      globalLocalStateEl.textContent = DIRTY_STATUS_MESSAGE;
+      globalLocalStateEl.textContent = count === 1 ? '1 draft pending push' : `${count} drafts pending push`;
     }
     updateReviewButton(summaryEntries);
   } else {
-    el.innerHTML = '';
-    el.dataset.summary = '0';
+    if (summaryContainer) {
+      summaryContainer.innerHTML = '';
+      summaryContainer.hidden = true;
+    }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
@@ -6020,8 +6005,6 @@ function bindComposerUI(state) {
   }
 
 function showStatus(msg, kind = 'info') {
-  const el = $('#composerStatus');
-  if (!el) return;
   if (msg) {
     const type = typeof kind === 'string' ? kind : 'info';
     showToast(type, msg);
@@ -6364,14 +6347,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  #composerStatus{display:none;border-radius:12px;border:1px solid color-mix(in srgb,#fb923c 30%, transparent);background:color-mix(in srgb,#fff7ed 70%, transparent);padding:.75rem .85rem;box-shadow:inset 0 1px 0 rgba(255,255,255,0.4)}
-  #composerStatus[data-summary="1"]{display:flex;flex-direction:column;gap:.45rem}
-  #composerStatus .composer-summary-label{display:block;font-weight:600;color:color-mix(in srgb,#ea580c 82%, var(--text));font-size:.9rem}
-  #composerStatus .composer-summary-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.4rem}
-  #composerStatus .composer-summary-item{display:flex;gap:.45rem;align-items:flex-start;color:color-mix(in srgb,var(--text) 82%, transparent);line-height:1.35}
-  #composerStatus .composer-summary-item::before{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,#f97316 68%, #fb923c 35%);box-shadow:0 0 0 1px color-mix(in srgb,#f97316 30%, transparent);margin-top:.45rem;flex:0 0 auto}
-  #composerStatus .composer-summary-name{font-weight:600}
-  #composerStatus .composer-summary-detail{color:color-mix(in srgb,var(--muted) 80%, transparent)}
+  .gs-node-drafts{display:flex;flex-direction:column;gap:.35rem;margin-top:.35rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 80%, transparent)}
+  .gs-node-drafts[hidden]{display:none!important}
+  .gs-node-drafts .gs-node-drafts-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
+  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.45rem;position:relative;padding-left:1rem;color:color-mix(in srgb,var(--text) 86%, transparent)}
+  .gs-node-drafts .gs-node-drafts-item::before{content:'';width:.45rem;height:.45rem;border-radius:999px;background:color-mix(in srgb,#f97316 58%, #fb923c 25%);position:absolute;left:0;top:.35rem;box-shadow:0 0 0 4px color-mix(in srgb,#f97316 12%, transparent)}
+  .gs-node-drafts .gs-node-drafts-item span{font-weight:600;color:color-mix(in srgb,var(--text) 92%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}

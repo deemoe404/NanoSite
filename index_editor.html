@@ -318,45 +318,46 @@
       .global-status .gs-flow { flex-direction:column; align-items:stretch; }
       .global-status .gs-arrow { transform:rotate(90deg); }
     }
-    #composerStatus {
-      display:none;
+    .gs-node-drafts {
+      display:flex;
       flex-direction:column;
       gap:.35rem;
+      margin-top:.35rem;
+      font-size:.88rem;
+      color: color-mix(in srgb, var(--text) 82%, transparent);
     }
-    #composerStatus[data-summary="1"] { display:flex; }
-    #composerStatus .composer-summary-label {
-      display:block;
-      font-weight:600;
-      color: color-mix(in srgb, var(--text) 88%, transparent);
-      font-size:.92rem;
-    }
-    #composerStatus .composer-summary-list {
+    .gs-node-drafts[hidden] { display:none !important; }
+    .gs-node-drafts .gs-node-drafts-list {
       list-style:none;
       margin:0;
       padding:0;
       display:flex;
       flex-direction:column;
-      gap:.35rem;
+      gap:.3rem;
     }
-    #composerStatus .composer-summary-item {
+    .gs-node-drafts .gs-node-drafts-item {
       display:flex;
+      align-items:center;
       gap:.45rem;
-      align-items:flex-start;
-      color: color-mix(in srgb, var(--text) 86%, transparent);
-      line-height:1.4;
+      position:relative;
+      padding-left:1rem;
+      color: color-mix(in srgb, var(--text) 84%, transparent);
     }
-    #composerStatus .composer-summary-item::before {
+    .gs-node-drafts .gs-node-drafts-item::before {
       content:'';
-      width:6px;
-      height:6px;
+      width:.45rem;
+      height:.45rem;
       border-radius:999px;
-      background: color-mix(in srgb, var(--primary) 24%, var(--text) 6%);
-      box-shadow:0 0 0 1px color-mix(in srgb, var(--primary) 40%, transparent);
-      margin-top:.5rem;
-      flex:0 0 auto;
+      background: color-mix(in srgb, var(--primary) 40%, var(--text) 25%);
+      position:absolute;
+      left:0;
+      top:.38rem;
+      box-shadow:0 0 0 4px color-mix(in srgb, var(--primary) 12%, transparent);
     }
-    #composerStatus .composer-summary-name { font-weight:600; }
-    #composerStatus .composer-summary-detail { color: color-mix(in srgb, var(--muted) 82%, transparent); }
+    .gs-node-drafts .gs-node-drafts-item span {
+      font-weight:600;
+      color: color-mix(in srgb, var(--text) 90%, transparent);
+    }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
@@ -639,8 +640,8 @@
                 <span class="gs-node-label">Local</span>
                 <div class="gs-node-detail">
                   <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
-                  <div id="composerStatus" class="gs-node-summary" data-summary="0" aria-live="polite"></div>
                 </div>
+                <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
               </div>
             </div>
             <span class="gs-arrow" aria-hidden="true">
