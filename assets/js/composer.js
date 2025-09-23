@@ -1426,12 +1426,11 @@ function handleBeforeUnload(event) {
   try {
     dynamicEditorTabs.forEach(tab => { flushMarkdownDraft(tab); });
   } catch (_) {}
-  if (hasUnsavedComposerChanges() || hasUnsavedMarkdownDrafts()) {
-    try {
-      event.preventDefault();
-    } catch (_) {}
-    event.returnValue = '';
-  }
+  // Previously we attempted to warn users about unsaved changes. The editor now
+  // performs automatic saving, so the confirmation dialog is no longer needed.
+  // Keep flushing drafts but avoid setting `event.returnValue`, which would
+  // trigger the browser prompt.
+  void event;
 }
 
 try {
