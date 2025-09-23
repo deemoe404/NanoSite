@@ -1994,7 +1994,9 @@ function readLocalDraftCarouselState() {
     if (!parsed || typeof parsed !== 'object') return null;
     const state = {};
     if (typeof parsed.key === 'string') state.key = parsed.key;
-    if (Number.isFinite(parsed.offset)) state.offset = parsed.offset;
+    if (Number.isFinite(parsed.rotation)) state.rotation = parsed.rotation;
+    else if (Number.isFinite(parsed.offset)) state.rotation = parsed.offset;
+    if (Number.isFinite(parsed.offsetPx)) state.offsetPx = parsed.offsetPx;
     return state;
   } catch (_) {
     return null;
@@ -2010,9 +2012,15 @@ function writeLocalDraftCarouselState(state) {
       storage.removeItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
       return;
     }
+    const rotation = Number.isFinite(state.rotation)
+      ? state.rotation
+      : (Number.isFinite(state.offset) ? state.offset : 0);
+    const offsetPx = Number.isFinite(state.offsetPx) ? state.offsetPx : 0;
     const payload = {
       key: typeof state.key === 'string' ? state.key : '',
-      offset: Number.isFinite(state.offset) ? state.offset : 0
+      rotation,
+      offset: rotation,
+      offsetPx
     };
     storage.setItem(LOCAL_DRAFT_SCROLL_STATE_KEY, JSON.stringify(payload));
   } catch (_) {}
@@ -2042,6 +2050,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   let rafId = null;
   let lastTimestamp = null;
   let offsetPx = 0;
+  let collapsedHeightPx = null;
 
   track.style.transition = 'none';
   track.style.willChange = 'transform';
@@ -2080,25 +2089,42 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   const updateSavedState = () => {
     const items = getItems();
     const count = items.length;
-    rotationOffset = normalizeOffset(count);
+    rotationOffset = normalizeOffset(count, rotationOffset);
     const first = items[0] || null;
     const key = buildItemKey(first);
     if (key) summaryContainer.dataset.draftsLeadKey = key;
     else delete summaryContainer.dataset.draftsLeadKey;
+    const normalizedOffsetPxRaw = Number.isFinite(offsetPx) ? offsetPx : 0;
+    const normalizedOffsetPx = normalizedOffsetPxRaw <= 0.0001
+      ? 0
+      : Math.max(0, Math.round(normalizedOffsetPxRaw * 1000) / 1000);
     summaryContainer.dataset.draftsLeadOffset = String(rotationOffset);
-    writeLocalDraftCarouselState({ key, offset: rotationOffset });
+    summaryContainer.dataset.draftsScrollOffset = String(normalizedOffsetPx);
+    writeLocalDraftCarouselState({
+      key,
+      rotation: rotationOffset,
+      offset: rotationOffset,
+      offsetPx: normalizedOffsetPx
+    });
   };
 
   const savedState = (() => {
     const datasetKey = summaryContainer.dataset && summaryContainer.dataset.draftsLeadKey;
     const datasetOffsetRaw = summaryContainer.dataset && summaryContainer.dataset.draftsLeadOffset;
     const datasetOffset = datasetOffsetRaw != null ? Number.parseInt(datasetOffsetRaw, 10) : NaN;
+    const datasetScrollRaw = summaryContainer.dataset && summaryContainer.dataset.draftsScrollOffset;
+    const datasetScroll = datasetScrollRaw != null ? Number.parseFloat(datasetScrollRaw) : NaN;
     const stored = readLocalDraftCarouselState();
     const key = datasetKey || (stored && stored.key) || '';
-    const offset = Number.isFinite(datasetOffset)
+    const rotation = Number.isFinite(datasetOffset)
       ? datasetOffset
-      : (stored && Number.isFinite(stored.offset) ? stored.offset : 0);
-    return { key, offset };
+      : (stored && Number.isFinite(stored.rotation)
+        ? stored.rotation
+        : (stored && Number.isFinite(stored.offset) ? stored.offset : 0));
+    const scrollOffset = Number.isFinite(datasetScroll)
+      ? datasetScroll
+      : (stored && Number.isFinite(stored.offsetPx) ? stored.offsetPx : 0);
+    return { key, rotation, scrollOffset };
   })();
 
   const restoreRotation = () => {
@@ -2113,7 +2139,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     if (savedState.key) {
       targetIndex = items.findIndex(item => buildItemKey(item) === savedState.key);
     }
-    if (targetIndex < 0) targetIndex = normalizeOffset(count, savedState.offset);
+    if (targetIndex < 0) targetIndex = normalizeOffset(count, savedState.rotation);
     if (targetIndex > 0) {
       for (let i = 0; i < targetIndex; i += 1) {
         const first = track.firstElementChild;
@@ -2121,9 +2147,21 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       }
     }
     rotationOffset = normalizeOffset(count, targetIndex);
+    let restoredOffset = Number.isFinite(savedState.scrollOffset) ? savedState.scrollOffset : 0;
+    if (restoredOffset < 0) restoredOffset = 0;
+    if (count > 0) {
+      const first = items[0];
+      const rect = first && typeof first.getBoundingClientRect === 'function' ? first.getBoundingClientRect() : null;
+      const height = rect && Number.isFinite(rect.height) ? rect.height : (first ? first.offsetHeight || 0 : 0);
+      const gap = count > 1 ? getGap() : 0;
+      const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gap) ? gap : 0);
+      if (distance > 0 && restoredOffset >= distance) {
+        const remainder = restoredOffset % distance;
+        restoredOffset = remainder <= 0.0001 ? 0 : remainder;
+      }
+    }
+    setOffset(restoredOffset);
     updateSavedState();
-    offsetPx = 0;
-    track.style.transform = 'translateY(0)';
   };
 
   const advanceRotation = (amount = 1) => {
@@ -2176,25 +2214,49 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       shell.style.removeProperty('height');
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
       summaryContainer.classList.remove('has-many');
+      collapsedHeightPx = null;
       updateSavedState();
       return;
     }
     const visible = Math.min(2, count);
     const padding = getShellPadding();
     const gap = visible > 1 ? getGap() : 0;
-    let height = padding;
-    for (let i = 0; i < visible; i += 1) {
-      const itemHeight = items[i] ? items[i].getBoundingClientRect().height : 0;
-      height += Number.isFinite(itemHeight) ? itemHeight : 0;
+    const heights = items.map(item => {
+      if (!item) return 0;
+      const rect = typeof item.getBoundingClientRect === 'function' ? item.getBoundingClientRect() : null;
+      const value = rect && Number.isFinite(rect.height) ? rect.height : (item.offsetHeight || 0);
+      return Number.isFinite(value) ? value : 0;
+    });
+    let contentHeight = 0;
+    if (visible === 1) {
+      contentHeight = heights[0] || 0;
+    } else if (visible > 1) {
+      if (count === 2) {
+        contentHeight = (heights[0] || 0) + (heights[1] || 0);
+      } else {
+        let maxPair = 0;
+        for (let i = 0; i < count; i += 1) {
+          const firstHeight = heights[i] || 0;
+          const secondHeight = heights[(i + 1) % count] || 0;
+          const pairHeight = firstHeight + secondHeight;
+          if (pairHeight > maxPair) maxPair = pairHeight;
+        }
+        contentHeight = maxPair;
+      }
+      if (gap > 0) contentHeight += gap;
     }
-    if (visible > 1) height += gap * (visible - 1);
-    if (!Number.isFinite(height) || height <= 0) {
+    const totalHeight = contentHeight + padding;
+    if (!Number.isFinite(totalHeight) || totalHeight <= 0) {
       shell.style.removeProperty('height');
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
+      collapsedHeightPx = null;
     } else {
-      const px = Math.round(height * 100) / 100;
-      shell.style.height = `${px}px`;
-      summaryContainer.style.setProperty('--gs-drafts-collapsed-height', `${px}px`);
+      const px = Math.round(totalHeight * 100) / 100;
+      if (collapsedHeightPx == null || Math.abs(collapsedHeightPx - px) >= 0.25) {
+        collapsedHeightPx = px;
+        shell.style.height = `${px}px`;
+        summaryContainer.style.setProperty('--gs-drafts-collapsed-height', `${px}px`);
+      }
     }
     summaryContainer.classList.toggle('has-many', count > 2);
     if (count <= 2) setOffset(0);
@@ -2351,7 +2413,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     if (isDisposed) return;
     isDisposed = true;
     cancelAnimationLoop();
-    setOffset(0);
+    updateSavedState();
     track.style.removeProperty('transition');
     track.style.removeProperty('will-change');
     track.style.removeProperty('transform');
@@ -2369,7 +2431,8 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     }
     localDraftAutoscrollControllers.delete(summaryContainer);
     cleanupRef = null;
-    updateSavedState();
+    offsetPx = 0;
+    collapsedHeightPx = null;
   };
 
   const controller = {
