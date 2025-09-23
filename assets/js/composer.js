@@ -1995,8 +1995,10 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   if (!summaryContainer || !shell || !track) return;
   teardownLocalDraftAutoscroll(summaryContainer);
 
-  const CYCLE_DELAY_MS = 2600;
-  const TRANSITION_MS = 620;
+  const CYCLE_DELAY_MS = 0;
+  const BASE_SPEED_PX_PER_SECOND = 18;
+  const MIN_TRANSITION_MS = 1400;
+  const MAX_TRANSITION_MS = 4200;
   let timerId = null;
   let isAnimating = false;
   let pointerInside = false;
@@ -2086,8 +2088,15 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       scheduleNext(CYCLE_DELAY_MS);
       return;
     }
+    const idealDuration = Number.isFinite(distance)
+      ? (distance / BASE_SPEED_PX_PER_SECOND) * 1000
+      : MIN_TRANSITION_MS;
+    const duration = Math.max(
+      MIN_TRANSITION_MS,
+      Math.min(MAX_TRANSITION_MS, Number.isFinite(idealDuration) ? idealDuration : MIN_TRANSITION_MS)
+    );
     isAnimating = true;
-    track.style.transition = `transform ${TRANSITION_MS}ms ease`;
+    track.style.transition = `transform ${Math.round(duration)}ms linear`;
     track.style.transform = `translateY(-${distance}px)`;
   };
 
