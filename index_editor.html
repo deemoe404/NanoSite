@@ -652,12 +652,12 @@
       color: color-mix(in srgb, var(--text) 84%, transparent);
       line-height:1.25;
       position:relative;
-      padding-left:1.05rem;
+      padding-left: calc(1.05rem + .125rem);
     }
     .gs-node-drafts .gs-node-drafts-item::before {
       content:'';
       position:absolute;
-      left:0;
+      left:.125rem;
       top:calc(50% - .24rem);
       width:.48rem;
       height:.48rem;
