@@ -1977,6 +1977,515 @@ function updateReviewButton(summaryEntries = []) {
   }
 }
 
+const reduceMotionQuery = (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+
+const LOCAL_DRAFT_SCROLL_STATE_KEY = 'ns_local_draft_carousel_state_v1';
+
+function readLocalDraftCarouselState() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.getItem !== 'function') return null;
+    const raw = storage.getItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const state = {};
+    if (typeof parsed.key === 'string') state.key = parsed.key;
+    if (Number.isFinite(parsed.rotation)) state.rotation = parsed.rotation;
+    else if (Number.isFinite(parsed.offset)) state.rotation = parsed.offset;
+    if (Number.isFinite(parsed.offsetPx)) state.offsetPx = parsed.offsetPx;
+    return state;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeLocalDraftCarouselState(state) {
+  if (typeof window === 'undefined') return;
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.setItem !== 'function') return;
+    if (!state) {
+      storage.removeItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
+      return;
+    }
+    const rotation = Number.isFinite(state.rotation)
+      ? state.rotation
+      : (Number.isFinite(state.offset) ? state.offset : 0);
+    const offsetPx = Number.isFinite(state.offsetPx) ? state.offsetPx : 0;
+    const payload = {
+      key: typeof state.key === 'string' ? state.key : '',
+      rotation,
+      offset: rotation,
+      offsetPx
+    };
+    storage.setItem(LOCAL_DRAFT_SCROLL_STATE_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
+const localDraftAutoscrollControllers = new WeakMap();
+
+function teardownLocalDraftAutoscroll(summaryContainer) {
+  if (!summaryContainer) return;
+  const controller = localDraftAutoscrollControllers.get(summaryContainer);
+  if (!controller) return;
+  controller.cleanup();
+}
+
+
+function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
+  if (!summaryContainer || !shell || !track) return;
+  teardownLocalDraftAutoscroll(summaryContainer);
+
+  const BASE_SPEED_PX_PER_SECOND = 18;
+  const MAX_FRAME_DELTA_MS = 48;
+  let pointerInside = false;
+  let focusInside = false;
+  let isDisposed = false;
+  let cleanupRef = null;
+  let rotationOffset = 0;
+  let rafId = null;
+  let lastTimestamp = null;
+  let offsetPx = 0;
+  let collapsedHeightPx = null;
+
+  track.style.transition = 'none';
+  track.style.willChange = 'transform';
+
+  const requestFrame = (fn) => {
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(() => fn(Date.now()), 16);
+  };
+  const cancelFrame = (id) => {
+    if (id == null) return;
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
+
+  const ensureConnected = () => summaryContainer.isConnected && shell.isConnected && track.isConnected;
+
+  const flyout = summaryContainer.querySelector('.gs-node-drafts-flyout');
+
+  const syncFlyoutAriaHidden = () => {
+    if (!flyout) return;
+    const shouldHide = !summaryContainer.classList.contains('has-many') || (!pointerInside && !focusInside);
+    if (shouldHide) flyout.setAttribute('aria-hidden', 'true');
+    else flyout.removeAttribute('aria-hidden');
+  };
+
+  const getItems = () => Array.from(track.children).filter(node => node.nodeType === Node.ELEMENT_NODE);
+
+  const buildItemKey = (node) => {
+    if (!node) return '';
+    const ds = node.dataset || {};
+    if (ds.path) return `path:${ds.path}`;
+    if (ds.kind && ds.state) return `kind:${ds.kind}:${ds.state}`;
+    if (ds.kind) return `kind:${ds.kind}`;
+    const label = node.querySelector('.gs-node-drafts-label');
+    if (label && label.textContent) return `label:${label.textContent.trim()}`;
+    return node.textContent ? node.textContent.trim() : '';
+  };
+
+  const normalizeOffset = (count, value = rotationOffset) => {
+    if (!Number.isFinite(count) || count <= 0) return 0;
+    const mod = Number.isFinite(value) ? value % count : 0;
+    return mod < 0 ? mod + count : mod;
+  };
+
+  const updateSavedState = () => {
+    const items = getItems();
+    const count = items.length;
+    rotationOffset = normalizeOffset(count, rotationOffset);
+    const first = items[0] || null;
+    const key = buildItemKey(first);
+    if (key) summaryContainer.dataset.draftsLeadKey = key;
+    else delete summaryContainer.dataset.draftsLeadKey;
+    const normalizedOffsetPxRaw = Number.isFinite(offsetPx) ? offsetPx : 0;
+    const normalizedOffsetPx = normalizedOffsetPxRaw <= 0.0001
+      ? 0
+      : Math.max(0, Math.round(normalizedOffsetPxRaw * 1000) / 1000);
+    summaryContainer.dataset.draftsLeadOffset = String(rotationOffset);
+    summaryContainer.dataset.draftsScrollOffset = String(normalizedOffsetPx);
+    writeLocalDraftCarouselState({
+      key,
+      rotation: rotationOffset,
+      offset: rotationOffset,
+      offsetPx: normalizedOffsetPx
+    });
+  };
+
+  const savedState = (() => {
+    const datasetKey = summaryContainer.dataset && summaryContainer.dataset.draftsLeadKey;
+    const datasetOffsetRaw = summaryContainer.dataset && summaryContainer.dataset.draftsLeadOffset;
+    const datasetOffset = datasetOffsetRaw != null ? Number.parseInt(datasetOffsetRaw, 10) : NaN;
+    const datasetScrollRaw = summaryContainer.dataset && summaryContainer.dataset.draftsScrollOffset;
+    const datasetScroll = datasetScrollRaw != null ? Number.parseFloat(datasetScrollRaw) : NaN;
+    const stored = readLocalDraftCarouselState();
+    const key = datasetKey || (stored && stored.key) || '';
+    const rotation = Number.isFinite(datasetOffset)
+      ? datasetOffset
+      : (stored && Number.isFinite(stored.rotation)
+        ? stored.rotation
+        : (stored && Number.isFinite(stored.offset) ? stored.offset : 0));
+    const scrollOffset = Number.isFinite(datasetScroll)
+      ? datasetScroll
+      : (stored && Number.isFinite(stored.offsetPx) ? stored.offsetPx : 0);
+    return { key, rotation, scrollOffset };
+  })();
+
+  const restoreRotation = () => {
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      rotationOffset = 0;
+      updateSavedState();
+      return;
+    }
+    let targetIndex = -1;
+    if (savedState.key) {
+      targetIndex = items.findIndex(item => buildItemKey(item) === savedState.key);
+    }
+    if (targetIndex < 0) targetIndex = normalizeOffset(count, savedState.rotation);
+    if (targetIndex > 0) {
+      for (let i = 0; i < targetIndex; i += 1) {
+        const first = track.firstElementChild;
+        if (first) track.appendChild(first);
+      }
+    }
+    rotationOffset = normalizeOffset(count, targetIndex);
+    let restoredOffset = Number.isFinite(savedState.scrollOffset) ? savedState.scrollOffset : 0;
+    if (restoredOffset < 0) restoredOffset = 0;
+    if (count > 0) {
+      const first = items[0];
+      const gap = count > 1 ? getGap() : 0;
+      const distance = measureScrollDistance(first, gap);
+      if (distance > 0 && restoredOffset >= distance) {
+        const remainder = restoredOffset % distance;
+        restoredOffset = remainder <= 0.0001 ? 0 : remainder;
+      }
+    }
+    setOffset(restoredOffset);
+    updateSavedState();
+  };
+
+  const advanceRotation = (amount = 1) => {
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      rotationOffset = 0;
+      updateSavedState();
+      return;
+    }
+    rotationOffset = normalizeOffset(count, rotationOffset + amount);
+    updateSavedState();
+  };
+
+  const setOffset = (value) => {
+    const next = Number.isFinite(value) ? value : 0;
+    offsetPx = next <= 0.0001 ? 0 : next;
+    if (offsetPx === 0) track.style.transform = 'translate3d(0, 0, 0)';
+    else track.style.transform = `translate3d(0, -${offsetPx}px, 0)`;
+  };
+
+  const getGap = () => {
+    if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return 0;
+    const style = window.getComputedStyle(track);
+    if (!style) return 0;
+    const rawGap = style.rowGap || style.gap || '0';
+    const parsed = parseFloat(rawGap);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const measureScrollDistance = (node, fallbackGap) => {
+    if (!node || !ensureConnected()) return 0;
+    const next = node.nextElementSibling;
+    if (next && typeof node.getBoundingClientRect === 'function' && typeof next.getBoundingClientRect === 'function') {
+      const firstRect = node.getBoundingClientRect();
+      const secondRect = next.getBoundingClientRect();
+      if (firstRect && secondRect) {
+        const delta = Number.isFinite(secondRect.top) && Number.isFinite(firstRect.top)
+          ? secondRect.top - firstRect.top
+          : NaN;
+        if (Number.isFinite(delta) && delta > 0.0001) return delta;
+      }
+    }
+    const rect = typeof node.getBoundingClientRect === 'function' ? node.getBoundingClientRect() : null;
+    const height = rect && Number.isFinite(rect.height) ? rect.height : (node.offsetHeight || 0);
+    const gapValue = Number.isFinite(fallbackGap) ? fallbackGap : getGap();
+    const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gapValue) ? gapValue : 0);
+    return distance > 0.0001 ? distance : 0;
+  };
+
+  const getShellPadding = () => {
+    if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return 0;
+    const style = window.getComputedStyle(shell);
+    if (!style) return 0;
+    const top = parseFloat(style.paddingTop || '0');
+    const bottom = parseFloat(style.paddingBottom || '0');
+    const total = (Number.isFinite(top) ? top : 0) + (Number.isFinite(bottom) ? bottom : 0);
+    return Number.isFinite(total) ? total : 0;
+  };
+
+  const applyCollapsedHeight = () => {
+    if (!ensureConnected()) {
+      if (cleanupRef) cleanupRef();
+      return;
+    }
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      setOffset(0);
+      shell.style.removeProperty('height');
+      summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
+      summaryContainer.classList.remove('has-many');
+      collapsedHeightPx = null;
+      updateSavedState();
+      syncFlyoutAriaHidden();
+      return;
+    }
+    const visible = Math.min(2, count);
+    const padding = getShellPadding();
+    const gap = visible > 1 ? getGap() : 0;
+    const heights = items.map(item => {
+      if (!item) return 0;
+      const rect = typeof item.getBoundingClientRect === 'function' ? item.getBoundingClientRect() : null;
+      const value = rect && Number.isFinite(rect.height) ? rect.height : (item.offsetHeight || 0);
+      return Number.isFinite(value) ? value : 0;
+    });
+    let contentHeight = 0;
+    if (visible === 1) {
+      contentHeight = heights[0] || 0;
+    } else if (visible > 1) {
+      if (count === 2) {
+        contentHeight = (heights[0] || 0) + (heights[1] || 0);
+      } else {
+        let maxPair = 0;
+        for (let i = 0; i < count; i += 1) {
+          const firstHeight = heights[i] || 0;
+          const secondHeight = heights[(i + 1) % count] || 0;
+          const pairHeight = firstHeight + secondHeight;
+          if (pairHeight > maxPair) maxPair = pairHeight;
+        }
+        contentHeight = maxPair;
+      }
+      if (gap > 0) contentHeight += gap;
+    }
+    const totalHeight = contentHeight + padding;
+    if (!Number.isFinite(totalHeight) || totalHeight <= 0) {
+      shell.style.removeProperty('height');
+      summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
+      collapsedHeightPx = null;
+    } else {
+      const px = Math.round(totalHeight * 100) / 100;
+      if (collapsedHeightPx == null || Math.abs(collapsedHeightPx - px) >= 0.25) {
+        collapsedHeightPx = px;
+        shell.style.height = `${px}px`;
+        summaryContainer.style.setProperty('--gs-drafts-collapsed-height', `${px}px`);
+      }
+    }
+    summaryContainer.classList.toggle('has-many', count > 2);
+    syncFlyoutAriaHidden();
+    if (count <= 2) setOffset(0);
+    updateSavedState();
+  };
+
+  const shouldAnimate = () => {
+    if (!ensureConnected()) return false;
+    if (pointerInside || focusInside) return false;
+    if (reduceMotionQuery && reduceMotionQuery.matches) return false;
+    const items = getItems();
+    return items.length > 2;
+  };
+
+  const cancelAnimationLoop = () => {
+    if (rafId !== null) {
+      cancelFrame(rafId);
+      rafId = null;
+    }
+    lastTimestamp = null;
+  };
+
+  const shiftFirstItem = () => {
+    if (!ensureConnected()) return false;
+    const first = track.firstElementChild;
+    if (!first) return false;
+    track.appendChild(first);
+    advanceRotation(1);
+    applyCollapsedHeight();
+    return true;
+  };
+
+  const adjustOverflow = (gapValue) => {
+    if (!ensureConnected()) return;
+    const gap = Number.isFinite(gapValue) ? gapValue : getGap();
+    const items = getItems();
+    const maxIterations = Math.max(4, items.length * 3);
+    let iterations = 0;
+    while (iterations < maxIterations) {
+      const first = track.firstElementChild;
+      if (!first) {
+        if (offsetPx !== 0) setOffset(0);
+        break;
+      }
+      const distance = measureScrollDistance(first, gap);
+      if (!(distance > 0)) {
+        if (iterations + 1 >= maxIterations && offsetPx !== 0) setOffset(0);
+        if (!shiftFirstItem()) break;
+        iterations += 1;
+        continue;
+      }
+      if (offsetPx < distance) break;
+      const nextOffset = offsetPx - distance;
+      setOffset(nextOffset <= 0.0001 ? 0 : nextOffset);
+      if (!shiftFirstItem()) break;
+      iterations += 1;
+    }
+    if (iterations >= maxIterations && offsetPx !== 0) setOffset(0);
+  };
+
+  const advanceBy = (deltaPx) => {
+    if (!ensureConnected()) return;
+    if (Number.isFinite(deltaPx) && deltaPx > 0) {
+      setOffset(offsetPx + deltaPx);
+    }
+    adjustOverflow(getGap());
+  };
+
+  const handleFrame = (timestamp) => {
+    if (isDisposed) return;
+    if (!ensureConnected()) {
+      if (cleanupRef) cleanupRef();
+      return;
+    }
+    rafId = null;
+    if (!shouldAnimate()) {
+      lastTimestamp = timestamp;
+      return;
+    }
+    const now = typeof timestamp === 'number' && !Number.isNaN(timestamp)
+      ? timestamp
+      : (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now());
+    let delta = lastTimestamp == null ? 0 : now - lastTimestamp;
+    if (!Number.isFinite(delta) || delta < 0) delta = 0;
+    if (delta > MAX_FRAME_DELTA_MS) delta = MAX_FRAME_DELTA_MS;
+    lastTimestamp = now;
+    if (delta > 0) advanceBy((delta / 1000) * BASE_SPEED_PX_PER_SECOND);
+    else advanceBy(0);
+    ensureAnimationLoop();
+  };
+
+  const ensureAnimationLoop = () => {
+    if (isDisposed) return;
+    if (rafId !== null) return;
+    if (!shouldAnimate()) return;
+    rafId = requestFrame(handleFrame);
+  };
+
+  const handlePointerEnter = () => {
+    pointerInside = true;
+    cancelAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+  const handlePointerLeave = () => {
+    pointerInside = false;
+    ensureAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+  const handleFocusEnter = () => {
+    focusInside = true;
+    cancelAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+  const handleFocusLeave = () => {
+    focusInside = false;
+    ensureAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+
+  summaryContainer.addEventListener('mouseenter', handlePointerEnter);
+  summaryContainer.addEventListener('mouseleave', handlePointerLeave);
+  summaryContainer.addEventListener('focusin', handleFocusEnter);
+  summaryContainer.addEventListener('focusout', handleFocusLeave);
+
+  let resizeObserver;
+  if (typeof ResizeObserver === 'function') {
+    resizeObserver = new ResizeObserver(() => {
+      if (!ensureConnected()) return;
+      applyCollapsedHeight();
+      advanceBy(0);
+    });
+    resizeObserver.observe(shell);
+  }
+
+  const handleMotionChange = () => {
+    applyCollapsedHeight();
+    if (reduceMotionQuery && reduceMotionQuery.matches) {
+      cancelAnimationLoop();
+      setOffset(0);
+    } else {
+      ensureAnimationLoop();
+    }
+  };
+
+  if (reduceMotionQuery) {
+    if (typeof reduceMotionQuery.addEventListener === 'function') {
+      reduceMotionQuery.addEventListener('change', handleMotionChange);
+    } else if (typeof reduceMotionQuery.addListener === 'function') {
+      reduceMotionQuery.addListener(handleMotionChange);
+    }
+  }
+
+  const cleanup = () => {
+    if (isDisposed) return;
+    isDisposed = true;
+    cancelAnimationLoop();
+    updateSavedState();
+    track.style.removeProperty('transition');
+    track.style.removeProperty('will-change');
+    track.style.removeProperty('transform');
+    summaryContainer.removeEventListener('mouseenter', handlePointerEnter);
+    summaryContainer.removeEventListener('mouseleave', handlePointerLeave);
+    summaryContainer.removeEventListener('focusin', handleFocusEnter);
+    summaryContainer.removeEventListener('focusout', handleFocusLeave);
+    if (resizeObserver) resizeObserver.disconnect();
+    if (reduceMotionQuery) {
+      if (typeof reduceMotionQuery.removeEventListener === 'function') {
+        reduceMotionQuery.removeEventListener('change', handleMotionChange);
+      } else if (typeof reduceMotionQuery.removeListener === 'function') {
+        reduceMotionQuery.removeListener(handleMotionChange);
+      }
+    }
+    if (flyout) flyout.setAttribute('aria-hidden', 'true');
+    localDraftAutoscrollControllers.delete(summaryContainer);
+    cleanupRef = null;
+    offsetPx = 0;
+    collapsedHeightPx = null;
+  };
+
+  const controller = {
+    cleanup,
+    refresh: () => {
+      applyCollapsedHeight();
+      advanceBy(0);
+      if (shouldAnimate()) ensureAnimationLoop();
+      else cancelAnimationLoop();
+    }
+  };
+
+  cleanupRef = cleanup;
+  localDraftAutoscrollControllers.set(summaryContainer, controller);
+
+  restoreRotation();
+  applyCollapsedHeight();
+  advanceBy(0);
+  if (shouldAnimate()) ensureAnimationLoop();
+}
+
 function updateDiscardButtonVisibility() {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
@@ -1992,6 +2501,33 @@ function updateDiscardButtonVisibility() {
   btn.style.display = shouldShow ? '' : 'none';
 }
 
+function buildLocalDraftSummaryItem(entry) {
+  const item = document.createElement('li');
+  item.className = 'gs-node-drafts-item';
+  if (entry && entry.kind) item.dataset.kind = entry.kind;
+  if (entry && entry.path) item.dataset.path = entry.path;
+  if (entry && entry.state) item.dataset.state = entry.state;
+
+  const name = document.createElement('span');
+  name.className = 'gs-node-drafts-label';
+  name.textContent = entry && entry.label ? entry.label : '';
+
+  if (entry && entry.kind === 'markdown') {
+    let hintText = '';
+    if (entry.state === 'conflict') hintText = ' (conflict)';
+    else if (entry.state === 'saved') hintText = ' (draft saved)';
+    if (hintText) {
+      const hint = document.createElement('span');
+      hint.className = 'gs-node-drafts-hint';
+      hint.textContent = hintText;
+      name.appendChild(hint);
+    }
+  }
+
+  item.appendChild(name);
+  return item;
+}
+
 function updateUnsyncedSummary() {
   const summaryContainer = document.getElementById('localDraftSummary');
   const summaryEntries = computeUnsyncedSummary();
@@ -2001,33 +2537,48 @@ function updateUnsyncedSummary() {
   const globalArrowLabelEl = document.getElementById('globalArrowLabel');
   if (summaryEntries.length) {
     if (summaryContainer) {
+      teardownLocalDraftAutoscroll(summaryContainer);
       summaryContainer.innerHTML = '';
-      const list = document.createElement('ul');
-      list.className = 'gs-node-drafts-list';
-      summaryEntries.forEach(entry => {
-        const item = document.createElement('li');
-        item.className = 'gs-node-drafts-item';
-        if (entry && entry.kind) item.dataset.kind = entry.kind;
-        if (entry && entry.path) item.dataset.path = entry.path;
-        if (entry && entry.state) item.dataset.state = entry.state;
-        const name = document.createElement('span');
-        name.textContent = entry && entry.label ? entry.label : '';
-        if (entry && entry.kind === 'markdown') {
-          let hintText = '';
-          if (entry.state === 'conflict') hintText = ' (conflict)';
-          else if (entry.state === 'saved') hintText = ' (draft saved)';
-          if (hintText) {
-            const hint = document.createElement('span');
-            hint.className = 'gs-node-drafts-hint';
-            hint.textContent = hintText;
-            name.appendChild(hint);
-          }
-        }
-        item.appendChild(name);
-        list.appendChild(item);
-      });
-      summaryContainer.appendChild(list);
       summaryContainer.hidden = false;
+      summaryContainer.removeAttribute('aria-hidden');
+      summaryContainer.setAttribute('tabindex', '0');
+      summaryContainer.dataset.count = String(summaryEntries.length);
+      summaryContainer.classList.remove('has-many');
+
+      const collapsed = document.createElement('div');
+      collapsed.className = 'gs-node-drafts-collapsed';
+
+      const shell = document.createElement('div');
+      shell.className = 'gs-node-drafts-shell';
+
+      const track = document.createElement('ul');
+      track.className = 'gs-node-drafts-list gs-node-drafts-track';
+      summaryEntries.forEach(entry => {
+        track.appendChild(buildLocalDraftSummaryItem(entry));
+      });
+
+      shell.appendChild(track);
+      collapsed.appendChild(shell);
+      summaryContainer.appendChild(collapsed);
+
+      const flyout = document.createElement('div');
+      flyout.className = 'gs-node-drafts-flyout';
+      flyout.setAttribute('aria-hidden', 'true');
+
+      const flyoutCard = document.createElement('div');
+      flyoutCard.className = 'gs-node-drafts-flyout-card';
+
+      const flyoutList = document.createElement('ul');
+      flyoutList.className = 'gs-node-drafts-list gs-node-drafts-overlay';
+      summaryEntries.forEach(entry => {
+        flyoutList.appendChild(buildLocalDraftSummaryItem(entry));
+      });
+
+      flyoutCard.appendChild(flyoutList);
+      flyout.appendChild(flyoutCard);
+      summaryContainer.appendChild(flyout);
+
+      setupLocalDraftAutoscroll(summaryContainer, shell, track);
     }
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
@@ -2042,8 +2593,14 @@ function updateUnsyncedSummary() {
     updateReviewButton(summaryEntries);
   } else {
     if (summaryContainer) {
+      teardownLocalDraftAutoscroll(summaryContainer);
       summaryContainer.innerHTML = '';
       summaryContainer.hidden = true;
+      summaryContainer.setAttribute('aria-hidden', 'true');
+      summaryContainer.removeAttribute('tabindex');
+      delete summaryContainer.dataset.count;
+      summaryContainer.classList.remove('has-many');
+      summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
@@ -6589,12 +7146,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  .gs-node-drafts{display:flex;flex-direction:column;gap:.35rem;margin-top:.35rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 80%, transparent)}
+  .gs-node-drafts{--gs-drafts-collapsed-height:3.6rem;--gs-drafts-expanded-max:min(60vh,420px);display:flex;flex-direction:column;gap:.3rem;width:100%;margin-top:.1rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 82%, transparent);position:relative;isolation:isolate;z-index:1}
   .gs-node-drafts[hidden]{display:none!important}
-  .gs-node-drafts .gs-node-drafts-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
-  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.45rem;position:relative;padding-left:1rem;color:color-mix(in srgb,var(--text) 86%, transparent)}
-  .gs-node-drafts .gs-node-drafts-item::before{content:'';width:.45rem;height:.45rem;border-radius:999px;background:color-mix(in srgb,#f97316 58%, #fb923c 25%);position:absolute;left:0;top:.35rem;box-shadow:0 0 0 4px color-mix(in srgb,#f97316 12%, transparent)}
-  .gs-node-drafts .gs-node-drafts-item span{font-weight:600;color:color-mix(in srgb,var(--text) 92%, transparent)}
+  .gs-node-drafts:focus{outline:none}
+  .gs-node-drafts:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:4px}
+  .gs-node-drafts-collapsed{position:relative;z-index:1}
+  .gs-node-drafts-shell{padding:.35rem .5rem;border-radius:.85rem;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 2px 8px rgba(15,23,42,0.06);height:var(--gs-drafts-collapsed-height);min-height:var(--gs-drafts-collapsed-height);overflow:hidden;transition:border-color .18s ease, box-shadow .18s ease}
+  .gs-node-drafts.has-many .gs-node-drafts-shell{cursor:pointer}
+  .gs-node-drafts-track,.gs-node-drafts-overlay{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.18rem;width:100%}
+  .gs-node-drafts-track{will-change:transform}
+  .gs-node-drafts-overlay{max-height:var(--gs-drafts-expanded-max);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin}
+  .gs-node-drafts-flyout{position:absolute;top:0;left:0;width:100%;max-height:var(--gs-drafts-expanded-max);pointer-events:none;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top center;transition:opacity .16s ease, transform .16s ease;z-index:20}
+  .gs-node-drafts-flyout-card{padding:.35rem .5rem;border-radius:.9rem;border:1px solid color-mix(in srgb,var(--primary) 26%, var(--border));background:color-mix(in srgb,var(--card) 96%, white 4%);box-shadow:0 18px 36px rgba(15,23,42,0.18);max-height:inherit;overflow:visible}
+  .gs-node-drafts.has-many:hover .gs-node-drafts-shell,.gs-node-drafts.has-many:focus-within .gs-node-drafts-shell{border-color:color-mix(in srgb,var(--primary) 28%, var(--border));box-shadow:0 12px 28px rgba(15,23,42,0.16)}
+  .gs-node-drafts.has-many:hover .gs-node-drafts-flyout,.gs-node-drafts.has-many:focus-within .gs-node-drafts-flyout{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+  .gs-node-drafts:not(.has-many) .gs-node-drafts-flyout{display:none}
+  @media (prefers-reduced-motion: reduce){.gs-node-drafts-shell,.gs-node-drafts-flyout{transition:none}}
+  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.42rem;color:color-mix(in srgb,var(--text) 84%, transparent);line-height:1.25;position:relative;padding-left:calc(1.05rem + .125rem)}
+  .gs-node-drafts .gs-node-drafts-item::before{content:'';position:absolute;left:.125rem;top:calc(50% - .24rem);width:.48rem;height:.48rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 40%, var(--text) 25%);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 10%, transparent)}
+  .gs-node-drafts .gs-node-drafts-label{font-weight:600;color:color-mix(in srgb,var(--text) 90%, transparent);display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap}
+  .gs-node-drafts .gs-node-drafts-hint{font-weight:500;color:color-mix(in srgb,var(--muted) 88%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
