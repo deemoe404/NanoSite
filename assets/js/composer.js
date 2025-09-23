@@ -3695,6 +3695,16 @@ function isDynamicMode(mode) {
   return !!(mode && dynamicEditorTabs.has(mode));
 }
 
+function getFirstDynamicModeId() {
+  try {
+    const iterator = dynamicEditorTabs.keys();
+    const first = iterator.next();
+    return first && !first.done ? first.value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function getActiveDynamicTab() {
   if (!activeDynamicMode) return null;
   const tab = dynamicEditorTabs.get(activeDynamicMode);
@@ -4470,6 +4480,14 @@ function getDefaultMarkdownForPath(relPath) {
 }
 
 function applyMode(mode) {
+  if (mode === 'editor' && dynamicEditorTabs.size) {
+    const firstDynamicMode = getFirstDynamicModeId();
+    if (firstDynamicMode) {
+      applyMode(firstDynamicMode);
+      return;
+    }
+  }
+
   const candidate = mode || 'composer';
   const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
     ? candidate
@@ -4498,9 +4516,13 @@ function applyMode(mode) {
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
   } catch (_) {}
 
+  const isDynamic = isDynamicMode(nextMode);
   try {
-    $$('.mode-tab').forEach(b => {
-      const isOn = (b.dataset.mode === nextMode);
+    $$('.mode-tab').forEach((b) => {
+      const targetMode = b.classList.contains('dynamic-mode')
+        ? nextMode
+        : (isDynamic ? 'editor' : nextMode);
+      const isOn = (b.dataset.mode === targetMode);
       b.classList.toggle('is-active', isOn);
       b.setAttribute('aria-selected', isOn ? 'true' : 'false');
     });
