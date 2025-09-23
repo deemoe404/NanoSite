@@ -49,17 +49,18 @@
     .sidebar-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
     .sidebar-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
     /* Top mode switch (Editor / Composer): bigger, nav-like */
-    .mode-switch { 
-      display: inline-flex; 
-      gap: .25rem; 
-      align-items: center; 
+    .mode-switch {
+      display: inline-flex;
+      gap: .25rem;
+      align-items: center;
       flex-wrap: wrap;
       row-gap: .25rem;
-      background: var(--card); 
-      border: 1px solid var(--border); 
-      border-radius: 12px; 
-      padding: .25rem; 
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .25rem;
       box-shadow: var(--shadow);
+      min-width: 0;
     }
     .mode-tab {
       appearance: none;
@@ -232,6 +233,22 @@
       opacity: 1;
     }
     .mode-tab:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
+    .mode-switch-editor {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .25rem;
+      row-gap: .25rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .25rem;
+      box-shadow: var(--shadow);
+      margin-bottom: .75rem;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .mode-switch-editor[hidden] { display: none !important; }
     .editor-sidebar .group-title { display:none; }
     .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
     .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -277,7 +294,7 @@
     .editor-sidebar .file-subheader { font-size: .8rem; font-weight: 600; color: var(--muted); padding: .25rem .6rem; text-transform: uppercase; }
     /* Ensure main editor can use full width */
     .editor-main { min-width: 0; overflow: visible; }
-    .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
+    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
     .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
@@ -797,6 +814,7 @@
     <div class="page-titlebar">
       <nav class="mode-switch" role="tablist" aria-label="Mode switch">
         <button class="mode-tab is-active" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="true">Composer</button>
+        <button class="mode-tab" data-mode="editor" role="tab" aria-controls="mode-editor" aria-selected="false">Editor</button>
       </nav>
       <div class="status-stack">
         <div id="global-status" class="global-status" aria-live="polite">
@@ -838,7 +856,7 @@
 
     <!-- Editor Mode -->
     <div class="editor-layout" id="mode-editor">
-      <aside class="editor-sidebar box" aria-label="Articles sidebar">
+      <aside class="editor-sidebar" aria-label="Articles sidebar">
         <div class="sidebar-title">Articles</div>
         <div class="sidebar-tabs" role="tablist">
           <button class="sidebar-tab is-active" data-target="index" role="tab" aria-selected="true">Posts</button>
@@ -859,6 +877,7 @@
       </aside>
 
       <section class="box editor-main">
+        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" hidden aria-hidden="true"></nav>
         <div class="toolbar">
           <div class="left-actions">
             <span class="current-file" id="currentFile" aria-live="polite"></span>
