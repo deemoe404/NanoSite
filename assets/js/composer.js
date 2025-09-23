@@ -1981,6 +1981,43 @@ const reduceMotionQuery = (typeof window !== 'undefined' && typeof window.matchM
   ? window.matchMedia('(prefers-reduced-motion: reduce)')
   : null;
 
+const LOCAL_DRAFT_SCROLL_STATE_KEY = 'ns_local_draft_carousel_state_v1';
+
+function readLocalDraftCarouselState() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.getItem !== 'function') return null;
+    const raw = storage.getItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const state = {};
+    if (typeof parsed.key === 'string') state.key = parsed.key;
+    if (Number.isFinite(parsed.offset)) state.offset = parsed.offset;
+    return state;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeLocalDraftCarouselState(state) {
+  if (typeof window === 'undefined') return;
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.setItem !== 'function') return;
+    if (!state) {
+      storage.removeItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
+      return;
+    }
+    const payload = {
+      key: typeof state.key === 'string' ? state.key : '',
+      offset: Number.isFinite(state.offset) ? state.offset : 0
+    };
+    storage.setItem(LOCAL_DRAFT_SCROLL_STATE_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
 const localDraftAutoscrollControllers = new WeakMap();
 
 function teardownLocalDraftAutoscroll(summaryContainer) {
@@ -2005,10 +2042,96 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   let focusInside = false;
   let isDisposed = false;
   let cleanupRef = null;
+  let rotationOffset = 0;
 
   const ensureConnected = () => summaryContainer.isConnected && shell.isConnected && track.isConnected;
 
   const getItems = () => Array.from(track.children).filter(node => node.nodeType === Node.ELEMENT_NODE);
+
+  const buildItemKey = (node) => {
+    if (!node) return '';
+    const ds = node.dataset || {};
+    if (ds.path) return `path:${ds.path}`;
+    if (ds.kind && ds.state) return `kind:${ds.kind}:${ds.state}`;
+    if (ds.kind) return `kind:${ds.kind}`;
+    const label = node.querySelector('.gs-node-drafts-label');
+    if (label && label.textContent) return `label:${label.textContent.trim()}`;
+    return node.textContent ? node.textContent.trim() : '';
+  };
+
+  const normalizeOffset = (count, value = rotationOffset) => {
+    if (!Number.isFinite(count) || count <= 0) return 0;
+    const mod = Number.isFinite(value) ? value % count : 0;
+    return mod < 0 ? mod + count : mod;
+  };
+
+  const updateSavedState = () => {
+    const items = getItems();
+    const count = items.length;
+    rotationOffset = normalizeOffset(count);
+    const first = items[0] || null;
+    const key = buildItemKey(first);
+    if (key) summaryContainer.dataset.draftsLeadKey = key;
+    else delete summaryContainer.dataset.draftsLeadKey;
+    summaryContainer.dataset.draftsLeadOffset = String(rotationOffset);
+    writeLocalDraftCarouselState({ key, offset: rotationOffset });
+  };
+
+  const savedState = (() => {
+    const datasetKey = summaryContainer.dataset && summaryContainer.dataset.draftsLeadKey;
+    const datasetOffsetRaw = summaryContainer.dataset && summaryContainer.dataset.draftsLeadOffset;
+    const datasetOffset = datasetOffsetRaw != null ? Number.parseInt(datasetOffsetRaw, 10) : NaN;
+    const stored = readLocalDraftCarouselState();
+    const key = datasetKey || (stored && stored.key) || '';
+    const offset = Number.isFinite(datasetOffset)
+      ? datasetOffset
+      : (stored && Number.isFinite(stored.offset) ? stored.offset : 0);
+    return { key, offset };
+  })();
+
+  const restoreRotation = () => {
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      rotationOffset = 0;
+      updateSavedState();
+      return;
+    }
+    let targetIndex = -1;
+    if (savedState.key) {
+      targetIndex = items.findIndex(item => buildItemKey(item) === savedState.key);
+    }
+    if (targetIndex < 0) targetIndex = normalizeOffset(count, savedState.offset);
+    if (targetIndex > 0) {
+      for (let i = 0; i < targetIndex; i += 1) {
+        const first = track.firstElementChild;
+        if (first) track.appendChild(first);
+      }
+    }
+    rotationOffset = normalizeOffset(count, targetIndex);
+    updateSavedState();
+  };
+
+  const advanceRotation = (amount = 1) => {
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      rotationOffset = 0;
+      updateSavedState();
+      return;
+    }
+    rotationOffset = normalizeOffset(count, rotationOffset + amount);
+    updateSavedState();
+  };
+
+  const runOnNextFrame = (fn) => {
+    if (typeof fn !== 'function') return;
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => { fn(); });
+    } else {
+      setTimeout(fn, 0);
+    }
+  };
 
   const getGap = () => {
     if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return 0;
@@ -2040,6 +2163,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       shell.style.removeProperty('height');
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
       summaryContainer.classList.remove('has-many');
+      updateSavedState();
       return;
     }
     const visible = Math.min(2, count);
@@ -2060,6 +2184,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       summaryContainer.style.setProperty('--gs-drafts-collapsed-height', `${px}px`);
     }
     summaryContainer.classList.toggle('has-many', count > 2);
+    updateSavedState();
   };
 
   const shouldAnimate = () => {
@@ -2117,12 +2242,16 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     }
     const first = track.firstElementChild;
     if (first) track.appendChild(first);
-    track.style.transition = 'none';
-    track.style.transform = 'translateY(0)';
-    track.getBoundingClientRect();
-    isAnimating = false;
-    applyCollapsedHeight();
-    scheduleNext(CYCLE_DELAY_MS);
+    advanceRotation(1);
+    runOnNextFrame(() => {
+      if (!ensureConnected()) return;
+      track.style.transition = 'none';
+      track.style.transform = 'translateY(0)';
+      track.getBoundingClientRect();
+      isAnimating = false;
+      applyCollapsedHeight();
+      scheduleNext(CYCLE_DELAY_MS);
+    });
   };
 
   const handleTransitionEnd = event => {
@@ -2187,6 +2316,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     track.style.transform = 'translateY(0)';
     track.getBoundingClientRect();
     isAnimating = false;
+    updateSavedState();
   };
 
   const cleanup = () => {
@@ -2194,6 +2324,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     isDisposed = true;
     clearTimer();
     stopAnimation();
+    updateSavedState();
     track.removeEventListener('transitionend', handleTransitionEnd);
     summaryContainer.removeEventListener('mouseenter', handlePointerEnter);
     summaryContainer.removeEventListener('mouseleave', handlePointerLeave);
@@ -2223,6 +2354,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   cleanupRef = cleanup;
   localDraftAutoscrollControllers.set(summaryContainer, controller);
 
+  restoreRotation();
   applyCollapsedHeight();
   if (shouldAnimate()) scheduleNext(CYCLE_DELAY_MS);
 }
