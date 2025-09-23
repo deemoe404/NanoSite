@@ -1278,6 +1278,7 @@ function saveMarkdownDraftForTab(tab, options = {}) {
     tab.localDraft = null;
     tab.draftConflict = false;
     updateComposerMarkdownDraftIndicators({ path: tab.path });
+    try { updateUnsyncedSummary(); } catch (_) {}
     return null;
   }
   const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig);
@@ -1289,6 +1290,7 @@ function saveMarkdownDraftForTab(tab, options = {}) {
       manual: !!options.markManual
     };
     updateComposerMarkdownDraftIndicators({ path: tab.path });
+    try { updateUnsyncedSummary(); } catch (_) {}
   }
   return saved;
 }
@@ -1307,6 +1309,7 @@ function clearMarkdownDraftForTab(tab) {
   tab.localDraft = null;
   tab.draftConflict = false;
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  try { updateUnsyncedSummary(); } catch (_) {}
 }
 
 function scheduleMarkdownDraftSave(tab) {
@@ -1376,6 +1379,7 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   }
 
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  try { updateUnsyncedSummary(); } catch (_) {}
 }
 
 function hasUnsavedComposerChanges() {
@@ -1731,6 +1735,56 @@ function updateFileDirtyBadge(kind) {
   else el.removeAttribute('data-dirty');
 }
 
+function collectUnsyncedMarkdownEntries() {
+  const entries = [];
+  const seen = new Set();
+
+  dynamicEditorTabs.forEach((tab) => {
+    if (!tab || !tab.path) return;
+    const path = normalizeRelPath(tab.path);
+    if (!path || seen.has(path)) return;
+    const hasDraftContent = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
+    const hasDirtyChanges = !!tab.isDirty;
+    if (!hasDirtyChanges && !hasDraftContent) return;
+    let state = '';
+    if (tab.draftConflict) state = 'conflict';
+    else if (hasDirtyChanges) state = 'dirty';
+    else if (hasDraftContent) state = 'saved';
+    entries.push({
+      kind: 'markdown',
+      label: path,
+      path,
+      state,
+    });
+    seen.add(path);
+  });
+
+  const store = readMarkdownDraftStore();
+  if (store && typeof store === 'object') {
+    Object.keys(store).forEach((key) => {
+      const path = normalizeRelPath(key);
+      if (!path || seen.has(path)) return;
+      const entry = store[key];
+      if (!entry || typeof entry !== 'object') return;
+      const content = entry.content != null ? normalizeMarkdownContent(entry.content) : '';
+      if (!content) return;
+      entries.push({
+        kind: 'markdown',
+        label: path,
+        path,
+        state: 'saved',
+      });
+      seen.add(path);
+    });
+  }
+
+  entries.sort((a, b) => {
+    try { return a.label.localeCompare(b.label); }
+    catch (_) { return 0; }
+  });
+  return entries;
+}
+
 function computeUnsyncedSummary() {
   const entries = [];
   const indexDiff = composerDiffCache.index;
@@ -1755,6 +1809,8 @@ function computeUnsyncedSummary() {
         || tabsDiff.removedKeys.length > 0
     });
   }
+  const markdownEntries = collectUnsyncedMarkdownEntries();
+  if (markdownEntries.length) entries.push(...markdownEntries);
   return entries;
 }
 
@@ -1813,8 +1869,24 @@ function updateUnsyncedSummary() {
       summaryEntries.forEach(entry => {
         const item = document.createElement('li');
         item.className = 'gs-node-drafts-item';
+        if (entry && entry.kind) item.dataset.kind = entry.kind;
+        if (entry && entry.path) item.dataset.path = entry.path;
+        if (entry && entry.state) item.dataset.state = entry.state;
         const name = document.createElement('span');
-        name.textContent = entry.label;
+        name.textContent = entry && entry.label ? entry.label : '';
+        if (entry && entry.kind === 'markdown') {
+          const hint = document.createElement('span');
+          hint.className = 'gs-node-drafts-hint';
+          const stateLabel = entry.state === 'conflict'
+            ? 'conflict'
+            : entry.state === 'dirty'
+              ? 'unsaved'
+              : entry.state === 'saved'
+                ? 'draft saved'
+                : '';
+          hint.textContent = stateLabel ? ` (${stateLabel})` : ' (markdown)';
+          name.appendChild(hint);
+        }
         item.appendChild(name);
         list.appendChild(item);
       });
