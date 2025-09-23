@@ -5,8 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'Synced with remote';
-const DIRTY_STATUS_MESSAGE = 'Local changes pending';
+const CLEAN_STATUS_MESSAGE = 'No local changes waiting to push';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
@@ -1800,38 +1799,50 @@ function updateDiscardButtonVisibility() {
 }
 
 function updateUnsyncedSummary() {
-  const el = document.getElementById('composerStatus');
-  if (!el) {
-    updateDiscardButtonVisibility();
-    return;
-  }
+  const summaryContainer = document.getElementById('localDraftSummary');
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
+  const globalStatusEl = document.getElementById('global-status');
+  const globalLocalStateEl = document.getElementById('globalLocalState');
+  const globalArrowLabelEl = document.getElementById('globalArrowLabel');
   if (summaryEntries.length) {
-    el.innerHTML = '';
-    const prefix = document.createElement('span');
-    prefix.className = 'composer-summary-prefix';
-    prefix.textContent = `${DIRTY_STATUS_MESSAGE} → `;
-    el.appendChild(prefix);
-    summaryEntries.forEach((entry, idx) => {
-      if (idx > 0) el.append(' · ');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'composer-summary-link';
-      btn.textContent = entry.label;
-      btn.dataset.kind = entry.kind;
-      if (entry.hasOrderChange) btn.dataset.order = '1';
-      if (entry.hasContentChange) btn.dataset.content = '1';
-      btn.addEventListener('click', () => openComposerDiffModal(entry.kind));
-      el.appendChild(btn);
-    });
-    el.dataset.summary = '1';
-    el.dataset.state = 'dirty';
+    if (summaryContainer) {
+      summaryContainer.innerHTML = '';
+      const list = document.createElement('ul');
+      list.className = 'gs-node-drafts-list';
+      summaryEntries.forEach(entry => {
+        const item = document.createElement('li');
+        item.className = 'gs-node-drafts-item';
+        const name = document.createElement('span');
+        name.textContent = entry.label;
+        item.appendChild(name);
+        list.appendChild(item);
+      });
+      summaryContainer.appendChild(list);
+      summaryContainer.hidden = false;
+    }
+    const count = summaryEntries.length;
+    if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
+    if (globalArrowLabelEl) {
+      if (count === 1) globalArrowLabelEl.textContent = '1 pending';
+      else globalArrowLabelEl.textContent = `${count} pending`;
+    }
+    if (globalLocalStateEl) {
+      globalLocalStateEl.textContent = '';
+      globalLocalStateEl.hidden = true;
+    }
     updateReviewButton(summaryEntries);
   } else {
-    el.textContent = CLEAN_STATUS_MESSAGE;
-    el.dataset.summary = '0';
-    el.dataset.state = 'clean';
+    if (summaryContainer) {
+      summaryContainer.innerHTML = '';
+      summaryContainer.hidden = true;
+    }
+    if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
+    if (globalLocalStateEl) {
+      globalLocalStateEl.hidden = false;
+      globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
+    }
     updateReviewButton([]);
   }
 }
@@ -6002,8 +6013,6 @@ function bindComposerUI(state) {
   }
 
 function showStatus(msg, kind = 'info') {
-  const el = $('#composerStatus');
-  if (!el) return;
   if (msg) {
     const type = typeof kind === 'string' ? kind : 'info';
     showToast(type, msg);
@@ -6346,11 +6355,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  #composerStatus .composer-summary-prefix{font-weight:600;color:color-mix(in srgb,var(--text) 74%, transparent)}
-  #composerStatus .composer-summary-link{border:0;background:none;padding:.1rem .4rem;font-weight:600;font-size:.92rem;color:color-mix(in srgb,var(--primary) 82%, var(--text));cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;transition:color 150ms ease, background-color 150ms ease}
-  #composerStatus .composer-summary-link:hover{color:color-mix(in srgb,var(--primary) 88%, var(--text));background:color-mix(in srgb,var(--primary) 14%, transparent)}
-  #composerStatus .composer-summary-link:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
-  #composerStatus .composer-summary-link[data-order="1"]::after{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,var(--primary) 70%, var(--text));box-shadow:0 0 0 1px color-mix(in srgb,var(--card) 80%, transparent)}
+  .gs-node-drafts{display:flex;flex-direction:column;gap:.35rem;margin-top:.35rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 80%, transparent)}
+  .gs-node-drafts[hidden]{display:none!important}
+  .gs-node-drafts .gs-node-drafts-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
+  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.45rem;position:relative;padding-left:1rem;color:color-mix(in srgb,var(--text) 86%, transparent)}
+  .gs-node-drafts .gs-node-drafts-item::before{content:'';width:.45rem;height:.45rem;border-radius:999px;background:color-mix(in srgb,#f97316 58%, #fb923c 25%);position:absolute;left:0;top:.35rem;box-shadow:0 0 0 4px color-mix(in srgb,#f97316 12%, transparent)}
+  .gs-node-drafts .gs-node-drafts-item span{font-weight:600;color:color-mix(in srgb,var(--text) 92%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
