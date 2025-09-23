@@ -2032,17 +2032,29 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   if (!summaryContainer || !shell || !track) return;
   teardownLocalDraftAutoscroll(summaryContainer);
 
-  const CYCLE_DELAY_MS = 0;
   const BASE_SPEED_PX_PER_SECOND = 18;
-  const MIN_TRANSITION_MS = 1400;
-  const MAX_TRANSITION_MS = 4200;
-  let timerId = null;
-  let isAnimating = false;
+  const MAX_FRAME_DELTA_MS = 48;
   let pointerInside = false;
   let focusInside = false;
   let isDisposed = false;
   let cleanupRef = null;
   let rotationOffset = 0;
+  let rafId = null;
+  let lastTimestamp = null;
+  let offsetPx = 0;
+
+  track.style.transition = 'none';
+  track.style.willChange = 'transform';
+
+  const requestFrame = (fn) => {
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(() => fn(Date.now()), 16);
+  };
+  const cancelFrame = (id) => {
+    if (id == null) return;
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
 
   const ensureConnected = () => summaryContainer.isConnected && shell.isConnected && track.isConnected;
 
@@ -2110,6 +2122,8 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     }
     rotationOffset = normalizeOffset(count, targetIndex);
     updateSavedState();
+    offsetPx = 0;
+    track.style.transform = 'translateY(0)';
   };
 
   const advanceRotation = (amount = 1) => {
@@ -2124,13 +2138,11 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     updateSavedState();
   };
 
-  const runOnNextFrame = (fn) => {
-    if (typeof fn !== 'function') return;
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => { fn(); });
-    } else {
-      setTimeout(fn, 0);
-    }
+  const setOffset = (value) => {
+    const next = Number.isFinite(value) ? value : 0;
+    offsetPx = next <= 0.0001 ? 0 : next;
+    if (offsetPx === 0) track.style.transform = 'translateY(0)';
+    else track.style.transform = `translateY(-${offsetPx}px)`;
   };
 
   const getGap = () => {
@@ -2160,6 +2172,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     const items = getItems();
     const count = items.length;
     if (!count) {
+      setOffset(0);
       shell.style.removeProperty('height');
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
       summaryContainer.classList.remove('has-many');
@@ -2184,6 +2197,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       summaryContainer.style.setProperty('--gs-drafts-collapsed-height', `${px}px`);
     }
     summaryContainer.classList.toggle('has-many', count > 2);
+    if (count <= 2) setOffset(0);
     updateSavedState();
   };
 
@@ -2195,88 +2209,109 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     return items.length > 2;
   };
 
-  const clearTimer = () => {
-    if (timerId !== null) {
-      clearTimeout(timerId);
-      timerId = null;
+  const cancelAnimationLoop = () => {
+    if (rafId !== null) {
+      cancelFrame(rafId);
+      rafId = null;
     }
+    lastTimestamp = null;
   };
 
-  const startCycle = () => {
-    if (!shouldAnimate() || isAnimating) return;
-    const items = getItems();
-    if (items.length <= 2) return;
-    const first = items[0];
-    if (!first) return;
-    const distance = first.getBoundingClientRect().height + getGap();
-    if (!Number.isFinite(distance) || distance <= 0) {
-      scheduleNext(CYCLE_DELAY_MS);
-      return;
-    }
-    const idealDuration = Number.isFinite(distance)
-      ? (distance / BASE_SPEED_PX_PER_SECOND) * 1000
-      : MIN_TRANSITION_MS;
-    const duration = Math.max(
-      MIN_TRANSITION_MS,
-      Math.min(MAX_TRANSITION_MS, Number.isFinite(idealDuration) ? idealDuration : MIN_TRANSITION_MS)
-    );
-    isAnimating = true;
-    track.style.transition = `transform ${Math.round(duration)}ms linear`;
-    track.style.transform = `translateY(-${distance}px)`;
-  };
-
-  const scheduleNext = (delay = CYCLE_DELAY_MS) => {
-    clearTimer();
-    if (!shouldAnimate()) return;
-    const safeDelay = Math.max(0, Number.isFinite(delay) ? delay : CYCLE_DELAY_MS);
-    timerId = window.setTimeout(() => {
-      timerId = null;
-      startCycle();
-    }, safeDelay);
-  };
-
-  const finalizeCycle = () => {
-    if (!isAnimating) {
-      applyCollapsedHeight();
-      return;
-    }
+  const shiftFirstItem = () => {
+    if (!ensureConnected()) return false;
     const first = track.firstElementChild;
-    if (first) track.appendChild(first);
+    if (!first) return false;
+    track.appendChild(first);
     advanceRotation(1);
-    runOnNextFrame(() => {
-      if (!ensureConnected()) return;
-      track.style.transition = 'none';
-      track.style.transform = 'translateY(0)';
-      track.getBoundingClientRect();
-      isAnimating = false;
-      applyCollapsedHeight();
-      scheduleNext(CYCLE_DELAY_MS);
-    });
+    applyCollapsedHeight();
+    return true;
   };
 
-  const handleTransitionEnd = event => {
-    if (event && event.target !== track) return;
-    if (event && event.propertyName && event.propertyName !== 'transform') return;
-    finalizeCycle();
+  const adjustOverflow = (gapValue) => {
+    if (!ensureConnected()) return;
+    const gap = Number.isFinite(gapValue) ? gapValue : getGap();
+    const items = getItems();
+    const maxIterations = Math.max(4, items.length * 3);
+    let iterations = 0;
+    while (iterations < maxIterations) {
+      const first = track.firstElementChild;
+      if (!first) {
+        if (offsetPx !== 0) setOffset(0);
+        break;
+      }
+      const rect = first.getBoundingClientRect();
+      const height = rect && Number.isFinite(rect.height) ? rect.height : first.offsetHeight || 0;
+      const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gap) ? gap : 0);
+      if (!(distance > 0)) {
+        if (iterations + 1 >= maxIterations && offsetPx !== 0) setOffset(0);
+        if (!shiftFirstItem()) break;
+        iterations += 1;
+        continue;
+      }
+      if (offsetPx < distance) break;
+      const nextOffset = offsetPx - distance;
+      setOffset(nextOffset <= 0.0001 ? 0 : nextOffset);
+      if (!shiftFirstItem()) break;
+      iterations += 1;
+    }
+    if (iterations >= maxIterations && offsetPx !== 0) setOffset(0);
   };
 
-  track.addEventListener('transitionend', handleTransitionEnd);
+  const advanceBy = (deltaPx) => {
+    if (!ensureConnected()) return;
+    if (Number.isFinite(deltaPx) && deltaPx > 0) {
+      setOffset(offsetPx + deltaPx);
+    }
+    adjustOverflow(getGap());
+  };
+
+  const handleFrame = (timestamp) => {
+    if (isDisposed) return;
+    if (!ensureConnected()) {
+      if (cleanupRef) cleanupRef();
+      return;
+    }
+    rafId = null;
+    if (!shouldAnimate()) {
+      lastTimestamp = timestamp;
+      return;
+    }
+    const now = typeof timestamp === 'number' && !Number.isNaN(timestamp)
+      ? timestamp
+      : (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now());
+    let delta = lastTimestamp == null ? 0 : now - lastTimestamp;
+    if (!Number.isFinite(delta) || delta < 0) delta = 0;
+    if (delta > MAX_FRAME_DELTA_MS) delta = MAX_FRAME_DELTA_MS;
+    lastTimestamp = now;
+    if (delta > 0) advanceBy((delta / 1000) * BASE_SPEED_PX_PER_SECOND);
+    else advanceBy(0);
+    ensureAnimationLoop();
+  };
+
+  const ensureAnimationLoop = () => {
+    if (isDisposed) return;
+    if (rafId !== null) return;
+    if (!shouldAnimate()) return;
+    rafId = requestFrame(handleFrame);
+  };
 
   const handlePointerEnter = () => {
     pointerInside = true;
-    clearTimer();
+    cancelAnimationLoop();
   };
   const handlePointerLeave = () => {
     pointerInside = false;
-    scheduleNext(CYCLE_DELAY_MS);
+    ensureAnimationLoop();
   };
   const handleFocusEnter = () => {
     focusInside = true;
-    clearTimer();
+    cancelAnimationLoop();
   };
   const handleFocusLeave = () => {
     focusInside = false;
-    scheduleNext(CYCLE_DELAY_MS);
+    ensureAnimationLoop();
   };
 
   summaryContainer.addEventListener('mouseenter', handlePointerEnter);
@@ -2289,6 +2324,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     resizeObserver = new ResizeObserver(() => {
       if (!ensureConnected()) return;
       applyCollapsedHeight();
+      advanceBy(0);
     });
     resizeObserver.observe(shell);
   }
@@ -2296,9 +2332,10 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   const handleMotionChange = () => {
     applyCollapsedHeight();
     if (reduceMotionQuery && reduceMotionQuery.matches) {
-      clearTimer();
+      cancelAnimationLoop();
+      setOffset(0);
     } else {
-      scheduleNext(CYCLE_DELAY_MS);
+      ensureAnimationLoop();
     }
   };
 
@@ -2310,22 +2347,14 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     }
   }
 
-  const stopAnimation = () => {
-    if (!ensureConnected()) return;
-    track.style.transition = 'none';
-    track.style.transform = 'translateY(0)';
-    track.getBoundingClientRect();
-    isAnimating = false;
-    updateSavedState();
-  };
-
   const cleanup = () => {
     if (isDisposed) return;
     isDisposed = true;
-    clearTimer();
-    stopAnimation();
-    updateSavedState();
-    track.removeEventListener('transitionend', handleTransitionEnd);
+    cancelAnimationLoop();
+    setOffset(0);
+    track.style.removeProperty('transition');
+    track.style.removeProperty('will-change');
+    track.style.removeProperty('transform');
     summaryContainer.removeEventListener('mouseenter', handlePointerEnter);
     summaryContainer.removeEventListener('mouseleave', handlePointerLeave);
     summaryContainer.removeEventListener('focusin', handleFocusEnter);
@@ -2340,14 +2369,16 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     }
     localDraftAutoscrollControllers.delete(summaryContainer);
     cleanupRef = null;
+    updateSavedState();
   };
 
   const controller = {
     cleanup,
     refresh: () => {
       applyCollapsedHeight();
-      if (shouldAnimate()) scheduleNext(CYCLE_DELAY_MS);
-      else clearTimer();
+      advanceBy(0);
+      if (shouldAnimate()) ensureAnimationLoop();
+      else cancelAnimationLoop();
     }
   };
 
@@ -2356,7 +2387,8 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
 
   restoreRotation();
   applyCollapsedHeight();
-  if (shouldAnimate()) scheduleNext(CYCLE_DELAY_MS);
+  advanceBy(0);
+  if (shouldAnimate()) ensureAnimationLoop();
 }
 
 function updateDiscardButtonVisibility() {
