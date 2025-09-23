@@ -1830,6 +1830,128 @@ function computeUnsyncedSummary() {
   return entries;
 }
 
+function getModeTabButton(mode) {
+  try {
+    return document.querySelector(`.mode-tab[data-mode="${mode}"]:not(.dynamic-mode)`);
+  } catch (_) {
+    return null;
+  }
+}
+
+function getModeTabBaseLabel(btn) {
+  if (!btn) return '';
+  if (btn.dataset && btn.dataset.tabLabel) return btn.dataset.tabLabel;
+  const attr = btn.getAttribute('data-tab-label');
+  if (attr) {
+    const trimmed = attr.trim();
+    if (btn.dataset) btn.dataset.tabLabel = trimmed;
+    return trimmed;
+  }
+  if (btn.dataset && btn.dataset.baseLabel) return btn.dataset.baseLabel;
+  const fallback = (btn.textContent || '').trim();
+  if (fallback) {
+    if (btn.dataset) btn.dataset.baseLabel = fallback;
+    return fallback;
+  }
+  const mode = (btn.getAttribute('data-mode') || '').trim();
+  if (!mode) return '';
+  const formatted = mode.charAt(0).toUpperCase() + mode.slice(1);
+  if (btn.dataset) btn.dataset.baseLabel = formatted;
+  return formatted;
+}
+
+function ensureModeTabBadgeElement(btn) {
+  if (!btn) return null;
+  let badge = btn.querySelector('.mode-tab-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'mode-tab-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.hidden = true;
+    btn.appendChild(badge);
+  }
+  return badge;
+}
+
+function applyModeTabBadgeState(mode, count) {
+  const btn = getModeTabButton(mode);
+  if (!btn) return;
+  const baseLabel = getModeTabBaseLabel(btn);
+  const badge = ensureModeTabBadgeElement(btn);
+  if (baseLabel && btn.dataset) btn.dataset.tabLabel = baseLabel;
+
+  let numericCount = 0;
+  if (typeof count === 'number' && Number.isFinite(count)) {
+    numericCount = Math.max(0, Math.floor(count));
+  } else {
+    const parsed = parseInt(count, 10);
+    numericCount = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }
+
+  if (numericCount > 0) {
+    const displayValue = numericCount > 99 ? '99+' : String(numericCount);
+    if (badge) {
+      badge.textContent = displayValue;
+      badge.hidden = false;
+    }
+    btn.setAttribute('data-dirty', '1');
+    if (btn.dataset) btn.dataset.badgeCount = String(numericCount);
+    if (baseLabel) {
+      const accessibleCount = numericCount > 99 ? 'more than 99' : String(numericCount);
+      const changeLabel = numericCount === 1 ? 'pending change' : 'pending changes';
+      btn.setAttribute('aria-label', `${baseLabel} (${accessibleCount} ${changeLabel})`);
+    }
+  } else {
+    if (badge) {
+      badge.hidden = true;
+      badge.textContent = '';
+    }
+    btn.removeAttribute('data-dirty');
+    if (btn.dataset) delete btn.dataset.badgeCount;
+    if (baseLabel) {
+      btn.setAttribute('aria-label', baseLabel);
+    } else {
+      btn.removeAttribute('aria-label');
+    }
+  }
+}
+
+function updateModeDirtyIndicators(summaryEntries) {
+  let entries = Array.isArray(summaryEntries) ? summaryEntries : null;
+  if (!entries) {
+    if (summaryEntries && typeof summaryEntries === 'object') entries = [summaryEntries];
+    else {
+      try { entries = computeUnsyncedSummary(); }
+      catch (_) { entries = []; }
+    }
+  }
+
+  let composerCount = 0;
+  let editorCount = 0;
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.kind === 'index' || entry.kind === 'tabs') composerCount += 1;
+    else if (entry.kind === 'markdown') editorCount += 1;
+  }
+
+  if (!composerCount) {
+    try {
+      if (hasUnsavedComposerChanges()) composerCount = Math.max(composerCount, 1);
+      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs)) composerCount = Math.max(composerCount, 1);
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!editorCount && !Array.isArray(summaryEntries)) {
+    try {
+      if (hasUnsavedMarkdownDrafts()) editorCount = Math.max(editorCount, 1);
+    } catch (_) { editorCount = 0; }
+  }
+
+  applyModeTabBadgeState('composer', composerCount);
+  applyModeTabBadgeState('editor', editorCount);
+}
+
 function updateReviewButton(summaryEntries = []) {
   const btn = document.getElementById('btnReview');
   if (!btn) return;
@@ -1931,6 +2053,7 @@ function updateUnsyncedSummary() {
     }
     updateReviewButton([]);
   }
+  updateModeDirtyIndicators(summaryEntries);
 }
 
 function computeOrderDiffDetails(kind) {
