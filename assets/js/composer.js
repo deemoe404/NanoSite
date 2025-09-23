@@ -2151,10 +2151,8 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     if (restoredOffset < 0) restoredOffset = 0;
     if (count > 0) {
       const first = items[0];
-      const rect = first && typeof first.getBoundingClientRect === 'function' ? first.getBoundingClientRect() : null;
-      const height = rect && Number.isFinite(rect.height) ? rect.height : (first ? first.offsetHeight || 0 : 0);
       const gap = count > 1 ? getGap() : 0;
-      const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gap) ? gap : 0);
+      const distance = measureScrollDistance(first, gap);
       if (distance > 0 && restoredOffset >= distance) {
         const remainder = restoredOffset % distance;
         restoredOffset = remainder <= 0.0001 ? 0 : remainder;
@@ -2179,8 +2177,8 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   const setOffset = (value) => {
     const next = Number.isFinite(value) ? value : 0;
     offsetPx = next <= 0.0001 ? 0 : next;
-    if (offsetPx === 0) track.style.transform = 'translateY(0)';
-    else track.style.transform = `translateY(-${offsetPx}px)`;
+    if (offsetPx === 0) track.style.transform = 'translate3d(0, 0, 0)';
+    else track.style.transform = `translate3d(0, -${offsetPx}px, 0)`;
   };
 
   const getGap = () => {
@@ -2190,6 +2188,26 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
     const rawGap = style.rowGap || style.gap || '0';
     const parsed = parseFloat(rawGap);
     return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const measureScrollDistance = (node, fallbackGap) => {
+    if (!node || !ensureConnected()) return 0;
+    const next = node.nextElementSibling;
+    if (next && typeof node.getBoundingClientRect === 'function' && typeof next.getBoundingClientRect === 'function') {
+      const firstRect = node.getBoundingClientRect();
+      const secondRect = next.getBoundingClientRect();
+      if (firstRect && secondRect) {
+        const delta = Number.isFinite(secondRect.top) && Number.isFinite(firstRect.top)
+          ? secondRect.top - firstRect.top
+          : NaN;
+        if (Number.isFinite(delta) && delta > 0.0001) return delta;
+      }
+    }
+    const rect = typeof node.getBoundingClientRect === 'function' ? node.getBoundingClientRect() : null;
+    const height = rect && Number.isFinite(rect.height) ? rect.height : (node.offsetHeight || 0);
+    const gapValue = Number.isFinite(fallbackGap) ? fallbackGap : getGap();
+    const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gapValue) ? gapValue : 0);
+    return distance > 0.0001 ? distance : 0;
   };
 
   const getShellPadding = () => {
@@ -2301,9 +2319,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
         if (offsetPx !== 0) setOffset(0);
         break;
       }
-      const rect = first.getBoundingClientRect();
-      const height = rect && Number.isFinite(rect.height) ? rect.height : first.offsetHeight || 0;
-      const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gap) ? gap : 0);
+      const distance = measureScrollDistance(first, gap);
       if (!(distance > 0)) {
         if (iterations + 1 >= maxIterations && offsetPx !== 0) setOffset(0);
         if (!shiftFirstItem()) break;
