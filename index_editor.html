@@ -313,6 +313,12 @@
       min-width:0;
       position:relative;
     }
+    @media (min-width: 521px) {
+      .global-status .gs-node-remote,
+      .global-status .gs-arrow {
+        align-self:center;
+      }
+    }
     .global-status .gs-node::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transition: box-shadow .18s ease, border-color .18s ease; border:2px solid transparent; }
     .global-status .gs-node-header { display:flex; align-items:center; gap:.55rem; width:100%; }
     .global-status .gs-node-icon { width:24px; height:24px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
