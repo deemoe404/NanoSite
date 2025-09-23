@@ -1830,6 +1830,62 @@ function computeUnsyncedSummary() {
   return entries;
 }
 
+function getModeTabButton(mode) {
+  try {
+    return document.querySelector(`.mode-tab[data-mode="${mode}"]:not(.dynamic-mode)`);
+  } catch (_) {
+    return null;
+  }
+}
+
+function applyModeTabDirtyState(mode, dirty) {
+  const btn = getModeTabButton(mode);
+  if (!btn) return;
+  if (dirty) {
+    if (btn.getAttribute('data-dirty') !== '1') {
+      btn.setAttribute('data-dirty', '1');
+    }
+  } else if (btn.hasAttribute('data-dirty')) {
+    btn.removeAttribute('data-dirty');
+  }
+}
+
+function updateModeDirtyIndicators(summaryEntries) {
+  let entries = Array.isArray(summaryEntries) ? summaryEntries : null;
+  if (!entries) {
+    if (summaryEntries && typeof summaryEntries === 'object') entries = [summaryEntries];
+    else {
+      try { entries = computeUnsyncedSummary(); }
+      catch (_) { entries = []; }
+    }
+  }
+
+  let composerDirty = false;
+  let editorDirty = false;
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.kind === 'index' || entry.kind === 'tabs') composerDirty = true;
+    else if (entry.kind === 'markdown') editorDirty = true;
+    if (composerDirty && editorDirty) break;
+  }
+
+  if (!composerDirty) {
+    try {
+      if (hasUnsavedComposerChanges()) composerDirty = true;
+      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs)) composerDirty = true;
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!editorDirty && !Array.isArray(summaryEntries)) {
+    try { editorDirty = hasUnsavedMarkdownDrafts(); }
+    catch (_) { editorDirty = false; }
+  }
+
+  applyModeTabDirtyState('composer', composerDirty);
+  applyModeTabDirtyState('editor', editorDirty);
+}
+
 function updateReviewButton(summaryEntries = []) {
   const btn = document.getElementById('btnReview');
   if (!btn) return;
@@ -1931,6 +1987,7 @@ function updateUnsyncedSummary() {
     }
     updateReviewButton([]);
   }
+  updateModeDirtyIndicators(summaryEntries);
 }
 
 function computeOrderDiffDetails(kind) {

@@ -74,6 +74,8 @@
       cursor: pointer;
       line-height: 1.2;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+      position: relative;
+      overflow: visible;
     }
     .mode-tab:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
     .mode-tab.is-active {
@@ -164,6 +166,27 @@
       background: linear-gradient(135deg, color-mix(in srgb, #ef4444 28%, var(--card)), color-mix(in srgb, var(--card) 90%, transparent));
       color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
       box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
+    }
+    .mode-tab:not(.dynamic-mode)::after {
+      content: '';
+      position: absolute;
+      width: .55rem;
+      height: .55rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--muted) 45%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--muted) 12%, transparent);
+      opacity: 0;
+      transform: translate(50%, -50%) scale(.6);
+      transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+      top: .5rem;
+      right: .5rem;
+      pointer-events: none;
+    }
+    .mode-tab[data-dirty="1"]:not(.dynamic-mode)::after {
+      opacity: 1;
+      transform: translate(50%, -50%) scale(1);
+      background: #f97316;
+      box-shadow: 0 0 0 3px color-mix(in srgb, #f97316 22%, transparent);
     }
     .mode-tab.dynamic-mode::before {
       content: '';
