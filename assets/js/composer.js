@@ -38,12 +38,6 @@ function updateDynamicTabsGroupState() {
   container.hidden = !hasTabs;
   if (hasTabs) container.removeAttribute('aria-hidden');
   else container.setAttribute('aria-hidden', 'true');
-  const group = container.closest('.mode-switch-editor');
-  if (group) {
-    group.classList.toggle('has-tabs', hasTabs);
-    if (hasTabs) group.setAttribute('data-has-tabs', '1');
-    else group.removeAttribute('data-has-tabs');
-  }
 }
 
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';

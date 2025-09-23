@@ -234,25 +234,21 @@
     }
     .mode-tab:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
     .mode-switch-editor {
-      display: inline-flex;
+      display: flex;
       align-items: center;
       flex-wrap: wrap;
       gap: .25rem;
+      row-gap: .25rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .25rem;
+      box-shadow: var(--shadow);
+      margin-bottom: .75rem;
       min-width: 0;
+      max-width: 100%;
     }
-    .mode-switch-editor.has-tabs {
-      padding-left: .4rem;
-      margin-left: .2rem;
-      border-left: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-    }
-    .mode-switch-editor-tabs {
-      display: inline-flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: .25rem;
-      min-width: 0;
-    }
-    .mode-switch-editor-tabs[hidden] { display: none !important; }
+    .mode-switch-editor[hidden] { display: none !important; }
     .editor-sidebar .group-title { display:none; }
     .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
     .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -818,10 +814,7 @@
     <div class="page-titlebar">
       <nav class="mode-switch" role="tablist" aria-label="Mode switch">
         <button class="mode-tab is-active" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="true">Composer</button>
-        <div class="mode-switch-editor" role="presentation">
-          <button class="mode-tab" data-mode="editor" role="tab" aria-controls="mode-editor" aria-selected="false">Editor</button>
-          <div class="mode-switch-editor-tabs" id="modeDynamicTabs" role="presentation" hidden aria-hidden="true"></div>
-        </div>
+        <button class="mode-tab" data-mode="editor" role="tab" aria-controls="mode-editor" aria-selected="false">Editor</button>
       </nav>
       <div class="status-stack">
         <div id="global-status" class="global-status" aria-live="polite">
@@ -884,6 +877,7 @@
       </aside>
 
       <section class="box editor-main">
+        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" hidden aria-hidden="true"></nav>
         <div class="toolbar">
           <div class="left-actions">
             <span class="current-file" id="currentFile" aria-live="polite"></span>
