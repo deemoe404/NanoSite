@@ -50,9 +50,12 @@ const MARKDOWN_PUSH_LABELS = {
 };
 
 const MARKDOWN_DISCARD_LABEL = 'Discard';
+const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
 let markdownPushButton = null;
 let markdownDiscardButton = null;
+let gitHubCommitInFlight = false;
+let cachedFineGrainedTokenMemory = '';
 
 let activeComposerState = null;
 let remoteBaseline = { index: null, tabs: null };
@@ -442,6 +445,41 @@ function handlePopupBlocked(href, options = {}) {
         }
       : null
   });
+}
+
+function sleep(ms) {
+  const timeout = Math.max(0, Number(ms) || 0);
+  return new Promise((resolve) => { setTimeout(resolve, timeout); });
+}
+
+function getCachedFineGrainedToken() {
+  try {
+    const value = sessionStorage.getItem(GITHUB_PAT_STORAGE_KEY);
+    if (typeof value === 'string' && value) {
+      cachedFineGrainedTokenMemory = value;
+      return value;
+    }
+  } catch (_) {
+    /* ignore unavailable storage */
+  }
+  return cachedFineGrainedTokenMemory || '';
+}
+
+function setCachedFineGrainedToken(token) {
+  const trimmed = String(token || '').trim();
+  cachedFineGrainedTokenMemory = trimmed;
+  try {
+    if (trimmed) sessionStorage.setItem(GITHUB_PAT_STORAGE_KEY, trimmed);
+    else sessionStorage.removeItem(GITHUB_PAT_STORAGE_KEY);
+  } catch (_) {
+    /* ignore storage errors */
+  }
+}
+
+function clearCachedFineGrainedToken() {
+  cachedFineGrainedTokenMemory = '';
+  try { sessionStorage.removeItem(GITHUB_PAT_STORAGE_KEY); }
+  catch (_) { /* ignore */ }
 }
 
 function startRemoteSyncWatcher(config = {}) {
@@ -2611,6 +2649,634 @@ function updateUnsyncedSummary() {
     updateReviewButton([]);
   }
   updateModeDirtyIndicators(summaryEntries);
+}
+
+function findDynamicTabByPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  const modeId = dynamicEditorTabsByPath.get(normalized);
+  if (!modeId) return null;
+  return dynamicEditorTabs.get(modeId) || null;
+}
+
+function encodeContentToBase64(text) {
+  const input = String(text == null ? '' : text);
+  if (typeof window !== 'undefined' && typeof window.TextEncoder === 'function') {
+    try {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(input);
+      const chunkSize = 0x8000;
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const slice = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, slice);
+      }
+      return btoa(binary);
+    } catch (_) {
+      /* fall through to fallback */
+    }
+  }
+  try {
+    return btoa(unescape(encodeURIComponent(input)));
+  } catch (_) {
+    let binary = '';
+    for (let i = 0; i < input.length; i += 1) {
+      const code = input.charCodeAt(i);
+      if (code > 0xFF) {
+        binary += String.fromCharCode(code >> 8, code & 0xFF);
+      } else {
+        binary += String.fromCharCode(code);
+      }
+    }
+    return btoa(binary);
+  }
+}
+
+function gatherLocalChangesForCommit() {
+  const files = [];
+  const seenPaths = new Set();
+  const addFile = (entry) => {
+    if (!entry || !entry.path) return;
+    const key = entry.path.replace(/\\+/g, '/');
+    if (seenPaths.has(key)) return;
+    seenPaths.add(key);
+    files.push({ ...entry, path: key });
+  };
+
+  try {
+    dynamicEditorTabs.forEach((tab) => { flushMarkdownDraft(tab); });
+  } catch (_) { /* ignore */ }
+
+  const root = getContentRootSafe();
+  const normalizedRoot = String(root || '')
+    .replace(/\\+/g, '/').replace(/\/?$/, '');
+  const rootPrefix = normalizedRoot ? `${normalizedRoot}/` : '';
+
+  if (composerDiffCache.index && composerDiffCache.index.hasChanges) {
+    const state = getStateSlice('index') || { __order: [] };
+    const yaml = toIndexYaml(state);
+    addFile({ kind: 'index', label: 'index.yaml', path: `${rootPrefix}index.yaml`, content: yaml });
+  }
+  if (composerDiffCache.tabs && composerDiffCache.tabs.hasChanges) {
+    const state = getStateSlice('tabs') || { __order: [] };
+    const yaml = toTabsYaml(state);
+    addFile({ kind: 'tabs', label: 'tabs.yaml', path: `${rootPrefix}tabs.yaml`, content: yaml });
+  }
+
+  const markdownEntries = collectUnsyncedMarkdownEntries();
+  if (markdownEntries && markdownEntries.length) {
+    const editorApi = getPrimaryEditorApi();
+    const activeTab = getActiveDynamicTab();
+    let activeValue = null;
+    if (editorApi && typeof editorApi.getValue === 'function' && activeTab && activeTab.mode === currentMode) {
+      try { activeValue = String(editorApi.getValue() || ''); }
+      catch (_) { activeValue = null; }
+    }
+    const draftStore = readMarkdownDraftStore();
+    markdownEntries.forEach((entry) => {
+      const rel = normalizeRelPath(entry.path);
+      if (!rel) return;
+      const repoPath = `${rootPrefix}${rel}`;
+      const tab = findDynamicTabByPath(rel);
+      let text = '';
+      if (tab) {
+        if (tab === activeTab && activeValue != null) {
+          tab.content = activeValue;
+        }
+        if (tab.content != null && tab.content !== undefined) {
+          text = normalizeMarkdownContent(tab.content);
+        } else if (tab.localDraft && tab.localDraft.content != null) {
+          text = normalizeMarkdownContent(tab.localDraft.content);
+        }
+      } else if (draftStore && draftStore[rel] && typeof draftStore[rel] === 'object') {
+        const draft = draftStore[rel];
+        if (draft.content != null) text = normalizeMarkdownContent(draft.content);
+      }
+      addFile({
+        kind: 'markdown',
+        label: rel,
+        path: repoPath,
+        content: text,
+        markdownPath: rel,
+        state: entry.state || ''
+      });
+    });
+  }
+
+  return { files };
+}
+
+async function githubGraphqlRequest(token, query, variables = {}) {
+  const trimmedToken = String(token || '').trim();
+  if (!trimmedToken) throw new Error('GitHub token is required.');
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${trimmedToken}`,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  const body = JSON.stringify({ query, variables });
+  let response;
+  try {
+    response = await fetch('https://api.github.com/graphql', { method: 'POST', headers, body });
+  } catch (err) {
+    const error = new Error('Network error while reaching GitHub.');
+    error.cause = err;
+    throw error;
+  }
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    payload = null;
+  }
+  if (!response.ok) {
+    const error = new Error((payload && payload.message) || `GitHub API error (${response.status})`);
+    error.status = response.status;
+    error.response = payload;
+    throw error;
+  }
+  if (payload && Array.isArray(payload.errors) && payload.errors.length) {
+    const first = payload.errors[0];
+    const error = new Error((first && first.message) || 'GitHub GraphQL error.');
+    error.status = response.status;
+    error.response = payload;
+    throw error;
+  }
+  return payload ? payload.data : null;
+}
+
+function describeSummaryEntry(entry) {
+  if (!entry) return '';
+  const base = entry.label || entry.path || entry.kind || '';
+  if (entry.kind === 'markdown') {
+    const status = entry.state ? ` (${entry.state})` : '';
+    return `${base}${status}`;
+  }
+  if (entry.kind === 'index' || entry.kind === 'tabs') {
+    const bits = [];
+    if (entry.hasContentChange) bits.push('content');
+    if (entry.hasOrderChange) bits.push('order');
+    if (!bits.length) return base;
+    return `${base} – ${bits.join(' & ')} changes`;
+  }
+  return base;
+}
+
+function promptForFineGrainedToken(summaryEntries = []) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'ns-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    const dialog = document.createElement('div');
+    dialog.className = 'ns-modal-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'nsGithubTokenTitle');
+
+    const head = document.createElement('div');
+    head.className = 'comp-guide-head';
+    const headLeft = document.createElement('div');
+    headLeft.className = 'comp-head-left';
+    const title = document.createElement('strong');
+    title.id = 'nsGithubTokenTitle';
+    title.textContent = 'Synchronize with GitHub';
+    const subtitle = document.createElement('span');
+    subtitle.className = 'muted';
+    subtitle.textContent = 'Provide a Fine-grained Personal Access Token with repository contents access.';
+    headLeft.appendChild(title);
+    headLeft.appendChild(subtitle);
+    const btnClose = document.createElement('button');
+    btnClose.type = 'button';
+    btnClose.className = 'ns-modal-close btn-secondary';
+    btnClose.textContent = 'Cancel';
+    btnClose.setAttribute('aria-label', 'Cancel');
+    head.appendChild(headLeft);
+    head.appendChild(btnClose);
+    dialog.appendChild(head);
+
+    const form = document.createElement('form');
+    form.className = 'comp-guide';
+    form.setAttribute('novalidate', 'novalidate');
+
+    const summaryBlock = document.createElement('div');
+    summaryBlock.style.margin = '.25rem 0 1rem';
+    if (Array.isArray(summaryEntries) && summaryEntries.length) {
+      const info = document.createElement('p');
+      info.textContent = 'The following files will be committed:';
+      summaryBlock.appendChild(info);
+      const list = document.createElement('ul');
+      list.style.margin = '.4rem 0 0';
+      list.style.paddingLeft = '1.25rem';
+      summaryEntries.forEach((entry) => {
+        const item = document.createElement('li');
+        item.textContent = describeSummaryEntry(entry);
+        list.appendChild(item);
+      });
+      summaryBlock.appendChild(list);
+    }
+    form.appendChild(summaryBlock);
+
+    const tokenField = document.createElement('label');
+    tokenField.style.display = 'block';
+    tokenField.style.marginBottom = '.75rem';
+    tokenField.textContent = 'Fine-grained Personal Access Token';
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.required = true;
+    input.style.display = 'block';
+    input.style.width = '100%';
+    input.style.marginTop = '.35rem';
+    input.style.borderRadius = '6px';
+    input.style.border = '1px solid var(--border)';
+    input.style.background = 'var(--card)';
+    input.style.color = 'var(--text)';
+    input.style.padding = '.5rem .6rem';
+    const cached = getCachedFineGrainedToken();
+    if (cached) input.value = cached;
+    tokenField.appendChild(input);
+    form.appendChild(tokenField);
+
+    const help = document.createElement('p');
+    help.className = 'muted';
+    help.style.fontSize = '.85rem';
+    help.innerHTML = 'Create a token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> with access to the repository\'s contents. The token is stored for this browser session only.';
+    form.appendChild(help);
+
+    const errorText = document.createElement('p');
+    errorText.className = 'muted';
+    errorText.style.color = '#dc2626';
+    errorText.style.fontSize = '.85rem';
+    errorText.style.marginTop = '.35rem';
+    errorText.hidden = true;
+    form.appendChild(errorText);
+
+    const footer = document.createElement('div');
+    footer.style.display = 'flex';
+    footer.style.justifyContent = 'flex-end';
+    footer.style.gap = '.5rem';
+    footer.style.marginTop = '1rem';
+
+    const btnForget = document.createElement('button');
+    btnForget.type = 'button';
+    btnForget.className = 'btn-secondary';
+    btnForget.textContent = 'Forget token';
+    if (!cached) btnForget.hidden = true;
+    footer.appendChild(btnForget);
+
+    const btnSubmit = document.createElement('button');
+    btnSubmit.type = 'submit';
+    btnSubmit.className = 'btn-primary';
+    btnSubmit.textContent = 'Commit changes';
+    footer.appendChild(btnSubmit);
+
+    form.appendChild(footer);
+    dialog.appendChild(form);
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+
+    let resolved = false;
+    const reduceMotion = (function () {
+      try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+      catch (_) { return false; }
+    })();
+
+    const close = (result) => {
+      if (resolved) return;
+      resolved = true;
+      const finish = () => {
+        try { modal.remove(); } catch (_) {}
+        document.body.classList.remove('ns-modal-open');
+        resolve(result);
+      };
+      if (reduceMotion) { finish(); return; }
+      try { modal.classList.remove('ns-anim-in'); modal.classList.add('ns-anim-out'); }
+      catch (_) {}
+      const onEnd = () => {
+        dialog.removeEventListener('animationend', onEnd);
+        try { modal.classList.remove('ns-anim-out'); } catch (_) {}
+        finish();
+      };
+      try {
+        dialog.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(onEnd, 200);
+      } catch (_) { onEnd(); }
+    };
+
+    const open = () => {
+      document.body.classList.add('ns-modal-open');
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      if (!reduceMotion) {
+        try {
+          modal.classList.add('ns-anim-in');
+          const onEnd = () => {
+            dialog.removeEventListener('animationend', onEnd);
+            try { modal.classList.remove('ns-anim-in'); } catch (_) {}
+          };
+          dialog.addEventListener('animationend', onEnd, { once: true });
+        } catch (_) {}
+      }
+      requestAnimationFrame(() => {
+        try { input.focus({ preventScroll: true }); }
+        catch (_) { input.focus(); }
+      });
+    };
+
+    const showError = (message) => {
+      errorText.textContent = message;
+      errorText.hidden = false;
+    };
+
+    btnClose.addEventListener('click', () => close(null));
+    modal.addEventListener('mousedown', (event) => {
+      if (event.target === modal) close(null);
+    });
+    modal.addEventListener('keydown', (event) => {
+      if ((event.key || '').toLowerCase() === 'escape') {
+        event.preventDefault();
+        close(null);
+      }
+    });
+
+    btnForget.addEventListener('click', () => {
+      clearCachedFineGrainedToken();
+      input.value = '';
+      btnForget.hidden = true;
+      errorText.hidden = true;
+      try { input.focus({ preventScroll: true }); }
+      catch (_) { input.focus(); }
+    });
+
+    form.addEventListener('submit', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      const value = String(input.value || '').trim();
+      if (!value) {
+        showError('Enter a Fine-grained Personal Access Token to continue.');
+        try { input.focus({ preventScroll: true }); }
+        catch (_) { input.focus(); }
+        return;
+      }
+      setCachedFineGrainedToken(value);
+      close(value);
+    });
+
+    open();
+  });
+}
+
+async function waitForRemotePropagation(files = []) {
+  if (!Array.isArray(files) || !files.length) return;
+  const unique = [];
+  const seen = new Set();
+  files.forEach((file) => {
+    if (!file || !file.path) return;
+    const normalized = String(file.path).replace(/\\+/g, '/').replace(/^\/+/, '');
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    unique.push({ ...file, path: normalized });
+  });
+  const attemptsMax = 8;
+  const delayMs = 4200;
+  for (const file of unique) {
+    const expected = normalizeMarkdownContent(file.content || '');
+    for (let attempt = 1; attempt <= attemptsMax; attempt += 1) {
+      setSyncOverlayStatus(`Checking ${file.label || file.path} (${attempt}/${attemptsMax})…`);
+      let ok = false;
+      try {
+        const url = `${file.path}?ts=${Date.now()}`;
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (resp.ok) {
+          const text = normalizeMarkdownContent(await resp.text());
+          ok = (text === expected);
+        } else {
+          ok = false;
+        }
+      } catch (_) {
+        ok = false;
+      }
+      if (ok) break;
+      if (attempt === attemptsMax) {
+        throw new Error(`Timed out waiting for ${file.label || file.path} to update on the site. Refresh to confirm the deployment.`);
+      }
+      await sleep(delayMs);
+    }
+  }
+  setSyncOverlayStatus('All files confirmed on site.');
+}
+
+function applyLocalPostCommitState(files = []) {
+  if (!Array.isArray(files) || !files.length) return;
+  const handledMarkdown = new Set();
+  files.forEach((file) => {
+    if (!file || !file.kind) return;
+    if (file.kind === 'index') {
+      const state = getStateSlice('index') || { __order: [] };
+      remoteBaseline.index = deepClone(prepareIndexState(state));
+      notifyComposerChange('index', { skipAutoSave: true });
+      clearDraftStorage('index');
+    } else if (file.kind === 'tabs') {
+      const state = getStateSlice('tabs') || { __order: [] };
+      remoteBaseline.tabs = deepClone(prepareTabsState(state));
+      notifyComposerChange('tabs', { skipAutoSave: true });
+      clearDraftStorage('tabs');
+    } else if (file.kind === 'markdown') {
+      const norm = normalizeRelPath(file.markdownPath || file.label || '');
+      if (!norm) return;
+      handledMarkdown.add(norm);
+      const text = normalizeMarkdownContent(file.content || '');
+      clearMarkdownDraftEntry(norm);
+      const tab = findDynamicTabByPath(norm);
+      if (tab) {
+        tab.content = text;
+        tab.remoteContent = text;
+        tab.remoteSignature = computeTextSignature(text);
+        tab.loaded = true;
+        tab.localDraft = null;
+        tab.draftConflict = false;
+        tab.isDirty = false;
+        updateDynamicTabDirtyState(tab, { autoSave: false });
+        setDynamicTabStatus(tab, {
+          state: 'existing',
+          checkedAt: Date.now(),
+          message: 'Synchronized via NanoSite'
+        });
+      }
+      updateComposerMarkdownDraftIndicators({ path: norm });
+    }
+  });
+  updateUnsyncedSummary();
+  updateMarkdownPushButton(getActiveDynamicTab());
+  updateMarkdownDiscardButton(getActiveDynamicTab());
+}
+
+async function performDirectGithubCommit(token, summaryEntries = []) {
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  const branch = String(repo.branch || '').trim() || 'main';
+  if (!owner || !name) {
+    throw new Error('GitHub repository information is missing in site.yaml.');
+  }
+
+  const bubble = document.querySelector('.gs-arrow-bubble');
+  const statusMessageEl = document.getElementById('globalStatusMessage');
+  const globalStatusEl = document.getElementById('global-status');
+  const previousMessage = statusMessageEl ? statusMessageEl.textContent : '';
+  const previousState = globalStatusEl ? globalStatusEl.getAttribute('data-state') : null;
+  let commitSucceeded = false;
+
+  gitHubCommitInFlight = true;
+  if (bubble) {
+    bubble.classList.add('is-busy');
+    bubble.setAttribute('aria-busy', 'true');
+    bubble.setAttribute('aria-label', 'Synchronizing drafts to GitHub');
+    bubble.textContent = 'Syncing…';
+  }
+  if (statusMessageEl) statusMessageEl.textContent = 'Committing to GitHub…';
+  if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'warn');
+
+  showSyncOverlay({
+    title: 'Synchronizing with GitHub…',
+    message: 'Preparing commit…',
+    status: 'Gathering local changes…',
+    cancelable: false
+  });
+
+  try {
+    const { files } = gatherLocalChangesForCommit();
+    if (!files.length) {
+      hideSyncOverlay();
+      showToast('info', 'No pending changes to commit.');
+      return;
+    }
+
+    const branchRef = branch.startsWith('refs/') ? branch : `refs/heads/${branch}`;
+    setSyncOverlayStatus('Fetching repository state…');
+    const headQuery = `
+      query($owner:String!, $name:String!, $ref:String!) {
+        repository(owner:$owner, name:$name) {
+          ref(qualifiedName:$ref) {
+            target {
+              ... on Commit { oid }
+            }
+          }
+        }
+      }
+    `;
+    const headData = await githubGraphqlRequest(token, headQuery, { owner, name, ref: branchRef });
+    const refInfo = headData && headData.repository && headData.repository.ref;
+    const expectedHeadOid = refInfo && refInfo.target && refInfo.target.oid;
+    if (!expectedHeadOid) throw new Error('Unable to resolve the branch head on GitHub.');
+
+    setSyncOverlayStatus('Encoding files…');
+    const additions = files.map((file) => ({
+      path: String(file.path || '').replace(/^\/+/, ''),
+      contents: encodeContentToBase64(file.content || '')
+    }));
+
+    const commitMutation = `
+      mutation($input: CreateCommitOnBranchInput!) {
+        createCommitOnBranch(input: $input) {
+          commit { oid }
+        }
+      }
+    `;
+    const headline = `chore: sync ${files.length === 1 ? 'draft' : 'drafts'} via NanoSite`;
+    const mutationInput = {
+      branch: { repositoryNameWithOwner: `${owner}/${name}`, branchName: branch },
+      message: { headline },
+      expectedHeadOid,
+      fileChanges: { additions }
+    };
+
+    setSyncOverlayStatus('Creating commit…');
+    await githubGraphqlRequest(token, commitMutation, { input: mutationInput });
+
+    setSyncOverlayStatus('Updating editor state…');
+    applyLocalPostCommitState(files);
+    commitSucceeded = true;
+    if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'ok');
+
+    const fileCount = files.length;
+    const summaryLabel = fileCount === 1 ? describeSummaryEntry(summaryEntries[0] || files[0]) : `${fileCount} files`;
+    setSyncOverlayMessage(`Commit pushed for ${summaryLabel}. Waiting for the site to update…`);
+    await waitForRemotePropagation(files);
+
+    hideSyncOverlay();
+    showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
+  } catch (err) {
+    hideSyncOverlay();
+    let message = err && err.message ? err.message : 'GitHub commit failed.';
+    if (err && err.status === 401) {
+      clearCachedFineGrainedToken();
+      message = 'GitHub rejected the access token. Enter a new Fine-grained Personal Access Token.';
+    }
+    console.error('NanoSite GitHub commit failed', err);
+    showToast('error', message, { duration: 5200 });
+    if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'err');
+  } finally {
+    gitHubCommitInFlight = false;
+    if (statusMessageEl) statusMessageEl.textContent = previousMessage;
+    if (globalStatusEl) {
+      if (commitSucceeded) {
+        globalStatusEl.setAttribute('data-state', 'ok');
+      } else if (globalStatusEl.getAttribute('data-state') !== 'err' && previousState) {
+        globalStatusEl.setAttribute('data-state', previousState);
+      }
+    }
+    if (bubble) {
+      bubble.classList.remove('is-busy');
+      bubble.removeAttribute('aria-busy');
+      bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
+      const pendingCount = computeUnsyncedSummary().length;
+      if (pendingCount) bubble.textContent = pendingCount === 1 ? '1 pending' : `${pendingCount} pending`;
+      else bubble.textContent = 'Synced';
+    }
+  }
+}
+
+async function handleGlobalBubbleActivation(event) {
+  if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  if (gitHubCommitInFlight) return;
+  const summary = computeUnsyncedSummary();
+  if (!summary.length) {
+    showToast('info', 'No local changes to commit.');
+    return;
+  }
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  if (!owner || !name) {
+    showToast('error', 'Configure repo.owner and repo.name in site.yaml to enable GitHub synchronization.');
+    return;
+  }
+  try {
+    const token = await promptForFineGrainedToken(summary);
+    if (!token) return;
+    await performDirectGithubCommit(token, summary);
+  } catch (_) {
+    /* errors handled downstream */
+  }
+}
+
+function attachGlobalStatusCommitHandler() {
+  const bubble = document.querySelector('.gs-arrow-bubble');
+  if (!bubble || bubble.__nsCommitBound) return;
+  bubble.__nsCommitBound = true;
+  bubble.setAttribute('role', 'button');
+  bubble.setAttribute('tabindex', '0');
+  bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
+  bubble.addEventListener('click', handleGlobalBubbleActivation);
+  bubble.addEventListener('keydown', (event) => {
+    const key = (event && event.key) ? event.key.toLowerCase() : '';
+    if (key === 'enter' || key === ' ') {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      handleGlobalBubbleActivation(event);
+    }
+  });
 }
 
 function computeOrderDiffDetails(kind) {
@@ -6911,6 +7577,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   bindComposerUI(state);
+  attachGlobalStatusCommitHandler();
   buildIndexUI($('#composerIndex'), state);
   buildTabsUI($('#composerTabs'), state);
 
