@@ -23,6 +23,29 @@ let activeDynamicMode = null;
 let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
 
+function getDynamicTabsContainer() {
+  try {
+    return document.getElementById('modeDynamicTabs');
+  } catch (_) {
+    return null;
+  }
+}
+
+function updateDynamicTabsGroupState() {
+  const container = getDynamicTabsContainer();
+  if (!container) return;
+  const hasTabs = !!container.querySelector('.mode-tab.dynamic-mode');
+  container.hidden = !hasTabs;
+  if (hasTabs) container.removeAttribute('aria-hidden');
+  else container.setAttribute('aria-hidden', 'true');
+  const group = container.closest('.mode-switch-editor');
+  if (group) {
+    group.classList.toggle('has-tabs', hasTabs);
+    if (hasTabs) group.setAttribute('data-has-tabs', '1');
+    else group.removeAttribute('data-has-tabs');
+  }
+}
+
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
 const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 
@@ -4213,6 +4236,7 @@ async function closeDynamicTab(modeId, options = {}) {
   dynamicEditorTabs.delete(modeId);
   if (tab.path) dynamicEditorTabsByPath.delete(tab.path);
   try { tab.button?.remove(); } catch (_) {}
+  updateDynamicTabsGroupState();
 
   const wasActive = (currentMode === modeId);
   if (activeDynamicMode === modeId) activeDynamicMode = null;
@@ -4241,7 +4265,7 @@ function getOrCreateDynamicMode(path) {
   const existing = dynamicEditorTabsByPath.get(normalized);
   if (existing) return existing;
 
-  const nav = $('.mode-switch');
+  const nav = getDynamicTabsContainer() || $('.mode-switch');
   if (!nav) return null;
 
   dynamicTabCounter += 1;
@@ -4273,6 +4297,7 @@ function getOrCreateDynamicMode(path) {
 
   btn.appendChild(chip);
   nav.appendChild(btn);
+  updateDynamicTabsGroupState();
 
   const data = {
     mode: modeId,
@@ -4600,6 +4625,7 @@ function applyComposerFile(name) {
 (() => {
   try { applyMode('composer'); } catch (_) {}
   try { applyComposerFile(getInitialComposerFile()); } catch (_) {}
+  try { updateDynamicTabsGroupState(); } catch (_) {}
 })();
 
 // Robust clipboard helper available to all composer flows
