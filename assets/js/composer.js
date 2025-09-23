@@ -3038,12 +3038,15 @@ async function waitForRemotePropagation(files = []) {
     seen.add(normalized);
     unique.push({ ...file, path: normalized });
   });
-  const attemptsMax = 8;
-  const delayMs = 4200;
+  const checkIntervalMs = 30000;
+  const countdownStepMs = 1000;
   for (const file of unique) {
     const expected = normalizeMarkdownContent(file.content || '');
-    for (let attempt = 1; attempt <= attemptsMax; attempt += 1) {
-      setSyncOverlayStatus(`Checking ${file.label || file.path} (${attempt}/${attemptsMax})…`);
+    const displayLabel = String(file.label || file.path || '').trim() || file.path;
+    let attempt = 0;
+    while (true) {
+      attempt += 1;
+      setSyncOverlayStatus(`Checking ${displayLabel} (attempt ${attempt})…`);
       let ok = false;
       try {
         const url = `${file.path}?ts=${Date.now()}`;
@@ -3058,10 +3061,11 @@ async function waitForRemotePropagation(files = []) {
         ok = false;
       }
       if (ok) break;
-      if (attempt === attemptsMax) {
-        throw new Error(`Timed out waiting for ${file.label || file.path} to update on the site. Refresh to confirm the deployment.`);
+      for (let remaining = checkIntervalMs; remaining > 0; remaining -= countdownStepMs) {
+        const seconds = Math.ceil(remaining / 1000);
+        setSyncOverlayStatus(`Attempt ${attempt} did not match for ${displayLabel}. Next check in ${seconds}s…`);
+        await sleep(Math.min(countdownStepMs, remaining));
       }
-      await sleep(delayMs);
     }
   }
   setSyncOverlayStatus('All files confirmed on site.');
