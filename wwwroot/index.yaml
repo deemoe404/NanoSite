@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../assets/schema/index.json
 
+githubpages:
+  en: post/page/githubpages_en.md
+  zh: post/page/githubpages_zh.md
+  ja: post/page/githubpages_ja.md
 nanoSite:
   en:
     - post/main/v1.0.0/main_en.md
@@ -23,10 +27,6 @@ nanodoc:
     - post/doc/v1.0.0/doc_ja.md
     - post/doc/v2.0.0/doc_ja.md
     - post/doc/v2.1.0/doc_ja.md
-githubpages:
-  en: post/page/githubpages_en.md
-  zh: post/page/githubpages_zh.md
-  ja: post/page/githubpages_ja.md
 seo:
   en: post/seo/seo_en.md
   zh: post/seo/seo_zh.md
