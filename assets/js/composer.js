@@ -2067,6 +2067,15 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
 
   const ensureConnected = () => summaryContainer.isConnected && shell.isConnected && track.isConnected;
 
+  const flyout = summaryContainer.querySelector('.gs-node-drafts-flyout');
+
+  const syncFlyoutAriaHidden = () => {
+    if (!flyout) return;
+    const shouldHide = !summaryContainer.classList.contains('has-many') || (!pointerInside && !focusInside);
+    if (shouldHide) flyout.setAttribute('aria-hidden', 'true');
+    else flyout.removeAttribute('aria-hidden');
+  };
+
   const getItems = () => Array.from(track.children).filter(node => node.nodeType === Node.ELEMENT_NODE);
 
   const buildItemKey = (node) => {
@@ -2234,6 +2243,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       summaryContainer.classList.remove('has-many');
       collapsedHeightPx = null;
       updateSavedState();
+      syncFlyoutAriaHidden();
       return;
     }
     const visible = Math.min(2, count);
@@ -2277,6 +2287,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
       }
     }
     summaryContainer.classList.toggle('has-many', count > 2);
+    syncFlyoutAriaHidden();
     if (count <= 2) setOffset(0);
     updateSavedState();
   };
@@ -2378,18 +2389,22 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
   const handlePointerEnter = () => {
     pointerInside = true;
     cancelAnimationLoop();
+    syncFlyoutAriaHidden();
   };
   const handlePointerLeave = () => {
     pointerInside = false;
     ensureAnimationLoop();
+    syncFlyoutAriaHidden();
   };
   const handleFocusEnter = () => {
     focusInside = true;
     cancelAnimationLoop();
+    syncFlyoutAriaHidden();
   };
   const handleFocusLeave = () => {
     focusInside = false;
     ensureAnimationLoop();
+    syncFlyoutAriaHidden();
   };
 
   summaryContainer.addEventListener('mouseenter', handlePointerEnter);
@@ -2445,6 +2460,7 @@ function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
         reduceMotionQuery.removeListener(handleMotionChange);
       }
     }
+    if (flyout) flyout.setAttribute('aria-hidden', 'true');
     localDraftAutoscrollControllers.delete(summaryContainer);
     cleanupRef = null;
     offsetPx = 0;
@@ -7130,12 +7146,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  .gs-node-drafts{display:flex;flex-direction:column;gap:.35rem;margin-top:.35rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 80%, transparent)}
+  .gs-node-drafts{--gs-drafts-collapsed-height:3.6rem;--gs-drafts-expanded-max:min(60vh,420px);display:flex;flex-direction:column;gap:.3rem;width:100%;margin-top:.1rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 82%, transparent);position:relative;isolation:isolate;z-index:1}
   .gs-node-drafts[hidden]{display:none!important}
-  .gs-node-drafts .gs-node-drafts-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.3rem}
-  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.45rem;position:relative;padding-left:1rem;color:color-mix(in srgb,var(--text) 86%, transparent)}
-  .gs-node-drafts .gs-node-drafts-item::before{content:'';width:.45rem;height:.45rem;border-radius:999px;background:color-mix(in srgb,#f97316 58%, #fb923c 25%);position:absolute;left:0;top:.35rem;box-shadow:0 0 0 4px color-mix(in srgb,#f97316 12%, transparent)}
-  .gs-node-drafts .gs-node-drafts-item span{font-weight:600;color:color-mix(in srgb,var(--text) 92%, transparent)}
+  .gs-node-drafts:focus{outline:none}
+  .gs-node-drafts:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:4px}
+  .gs-node-drafts-collapsed{position:relative;z-index:1}
+  .gs-node-drafts-shell{padding:.35rem .5rem;border-radius:.85rem;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 2px 8px rgba(15,23,42,0.06);height:var(--gs-drafts-collapsed-height);min-height:var(--gs-drafts-collapsed-height);overflow:hidden;transition:border-color .18s ease, box-shadow .18s ease}
+  .gs-node-drafts.has-many .gs-node-drafts-shell{cursor:pointer}
+  .gs-node-drafts-track,.gs-node-drafts-overlay{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.18rem;width:100%}
+  .gs-node-drafts-track{will-change:transform}
+  .gs-node-drafts-overlay{max-height:var(--gs-drafts-expanded-max);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin}
+  .gs-node-drafts-flyout{position:absolute;top:0;left:0;width:100%;max-height:var(--gs-drafts-expanded-max);pointer-events:none;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top center;transition:opacity .16s ease, transform .16s ease;z-index:20}
+  .gs-node-drafts-flyout-card{padding:.35rem .5rem;border-radius:.9rem;border:1px solid color-mix(in srgb,var(--primary) 26%, var(--border));background:color-mix(in srgb,var(--card) 96%, white 4%);box-shadow:0 18px 36px rgba(15,23,42,0.18);max-height:inherit;overflow:visible}
+  .gs-node-drafts.has-many:hover .gs-node-drafts-shell,.gs-node-drafts.has-many:focus-within .gs-node-drafts-shell{border-color:color-mix(in srgb,var(--primary) 28%, var(--border));box-shadow:0 12px 28px rgba(15,23,42,0.16)}
+  .gs-node-drafts.has-many:hover .gs-node-drafts-flyout,.gs-node-drafts.has-many:focus-within .gs-node-drafts-flyout{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+  .gs-node-drafts:not(.has-many) .gs-node-drafts-flyout{display:none}
+  @media (prefers-reduced-motion: reduce){.gs-node-drafts-shell,.gs-node-drafts-flyout{transition:none}}
+  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.42rem;color:color-mix(in srgb,var(--text) 84%, transparent);line-height:1.25;position:relative;padding-left:calc(1.05rem + .125rem)}
+  .gs-node-drafts .gs-node-drafts-item::before{content:'';position:absolute;left:.125rem;top:calc(50% - .24rem);width:.48rem;height:.48rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 40%, var(--text) 25%);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 10%, transparent)}
+  .gs-node-drafts .gs-node-drafts-label{font-weight:600;color:color-mix(in srgb,var(--text) 90%, transparent);display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap}
+  .gs-node-drafts .gs-node-drafts-hint{font-weight:500;color:color-mix(in srgb,var(--muted) 88%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
