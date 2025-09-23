@@ -3028,7 +3028,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
 }
 
 async function waitForRemotePropagation(files = []) {
-  if (!Array.isArray(files) || !files.length) return;
+  if (!Array.isArray(files) || !files.length) return { canceled: false };
   const unique = [];
   const seen = new Set();
   files.forEach((file) => {
@@ -3040,11 +3040,21 @@ async function waitForRemotePropagation(files = []) {
   });
   const checkIntervalMs = 30000;
   const countdownStepMs = 1000;
+  let canceled = false;
+
+  const cancelHandler = () => {
+    if (canceled) return;
+    canceled = true;
+    setSyncOverlayStatus('Stopping remote checks…');
+  };
+  setSyncOverlayCancelHandler(cancelHandler, true);
+
   for (const file of unique) {
+    if (canceled) break;
     const expected = normalizeMarkdownContent(file.content || '');
     const displayLabel = String(file.label || file.path || '').trim() || file.path;
     let attempt = 0;
-    while (true) {
+    while (!canceled) {
       attempt += 1;
       setSyncOverlayStatus(`Checking ${displayLabel} (attempt ${attempt})…`);
       let ok = false;
@@ -3060,15 +3070,23 @@ async function waitForRemotePropagation(files = []) {
       } catch (_) {
         ok = false;
       }
+      if (canceled) break;
       if (ok) break;
       for (let remaining = checkIntervalMs; remaining > 0; remaining -= countdownStepMs) {
+        if (canceled) break;
         const seconds = Math.ceil(remaining / 1000);
         setSyncOverlayStatus(`Attempt ${attempt} did not match for ${displayLabel}. Next check in ${seconds}s…`);
         await sleep(Math.min(countdownStepMs, remaining));
+        if (canceled) break;
       }
     }
   }
+  setSyncOverlayCancelHandler(null, true);
+  if (canceled) {
+    return { canceled: true };
+  }
   setSyncOverlayStatus('All files confirmed on site.');
+  return { canceled: false };
 }
 
 function applyLocalPostCommitState(files = []) {
@@ -3206,11 +3224,15 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
 
     const fileCount = files.length;
     const summaryLabel = fileCount === 1 ? describeSummaryEntry(summaryEntries[0] || files[0]) : `${fileCount} files`;
-    setSyncOverlayMessage(`Commit pushed for ${summaryLabel}. Waiting for the site to update…`);
-    await waitForRemotePropagation(files);
+    setSyncOverlayMessage(`Commit pushed for ${summaryLabel}. Waiting for the site to update… This can take a few minutes. If you stop waiting, the commit stays on GitHub but the live site might not show the changes yet.`);
+    const propagationResult = await waitForRemotePropagation(files);
 
     hideSyncOverlay();
-    showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
+    if (propagationResult && propagationResult.canceled) {
+      showToast('info', 'Stopped waiting for the live site. Your commit is already on GitHub, but it may take a few minutes to appear.');
+    } else {
+      showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
+    }
   } catch (err) {
     hideSyncOverlay();
     let message = err && err.message ? err.message : 'GitHub commit failed.';
