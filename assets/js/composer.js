@@ -1875,17 +1875,15 @@ function updateUnsyncedSummary() {
         const name = document.createElement('span');
         name.textContent = entry && entry.label ? entry.label : '';
         if (entry && entry.kind === 'markdown') {
-          const hint = document.createElement('span');
-          hint.className = 'gs-node-drafts-hint';
-          const stateLabel = entry.state === 'conflict'
-            ? 'conflict'
-            : entry.state === 'dirty'
-              ? 'unsaved'
-              : entry.state === 'saved'
-                ? 'draft saved'
-                : '';
-          hint.textContent = stateLabel ? ` (${stateLabel})` : ' (markdown)';
-          name.appendChild(hint);
+          let hintText = '';
+          if (entry.state === 'conflict') hintText = ' (conflict)';
+          else if (entry.state === 'saved') hintText = ' (draft saved)';
+          if (hintText) {
+            const hint = document.createElement('span');
+            hint.className = 'gs-node-drafts-hint';
+            hint.textContent = hintText;
+            name.appendChild(hint);
+          }
         }
         item.appendChild(name);
         list.appendChild(item);
