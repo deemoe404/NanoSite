@@ -561,7 +561,7 @@
       color: color-mix(in srgb, var(--text) 82%, transparent);
       position:relative;
       overflow:visible;
-      --gs-drafts-collapsed-height: 4.75rem;
+      --gs-drafts-collapsed-height: 3.7rem;
       --gs-drafts-expanded-max: min(60vh, 420px);
     }
     .gs-node-drafts[hidden] { display:none !important; }
@@ -572,17 +572,18 @@
       display:flex;
       flex-direction:column;
       gap:.12rem;
+      width:100%;
       max-height: var(--gs-drafts-collapsed-height);
       overflow-y:auto;
       scroll-behavior:smooth;
       overscroll-behavior:contain;
-      scrollbar-gutter: stable both-edges;
+      scrollbar-gutter: stable;
       scrollbar-width: thin;
       border-radius:.75rem;
       border:1px solid color-mix(in srgb, var(--border) 78%, transparent);
       background: color-mix(in srgb, var(--card) 98%, transparent);
       box-shadow:0 2px 8px rgba(15, 23, 42, 0.06);
-      transition:max-height .24s ease, box-shadow .18s ease, border-color .18s ease;
+      transition:box-shadow .18s ease, border-color .18s ease;
     }
     @media (prefers-reduced-motion: reduce) {
       .gs-node-drafts .gs-node-drafts-list {

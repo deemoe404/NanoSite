@@ -1977,6 +1977,180 @@ function updateReviewButton(summaryEntries = []) {
   }
 }
 
+const reduceMotionQuery = (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+
+const localDraftAutoscrollControllers = new WeakMap();
+
+function teardownLocalDraftAutoscroll(summaryContainer) {
+  if (!summaryContainer) return;
+  const controller = localDraftAutoscrollControllers.get(summaryContainer);
+  if (!controller) return;
+  controller.cleanup();
+}
+
+function setupLocalDraftAutoscroll(summaryContainer, list) {
+  if (!summaryContainer || !list) return;
+  if (typeof requestAnimationFrame !== 'function' || typeof cancelAnimationFrame !== 'function') return;
+  teardownLocalDraftAutoscroll(summaryContainer);
+
+  const EDGE_PAUSE_MS = 1600;
+  const SPEED_PX_PER_SECOND = 18;
+  let rafId = null;
+  let lastTick = 0;
+  let direction = 1;
+  let pauseUntil = 0;
+  let isDisposed = false;
+
+  const step = timestamp => {
+    if (rafId === null) return;
+    if (pauseUntil === -1) {
+      pauseUntil = timestamp + EDGE_PAUSE_MS;
+    }
+    if (pauseUntil && timestamp < pauseUntil) {
+      rafId = requestAnimationFrame(step);
+      return;
+    }
+
+    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+    if (maxScroll <= 0) {
+      stop();
+      if (list.scrollTop !== 0) list.scrollTop = 0;
+      return;
+    }
+
+    if (!lastTick) lastTick = timestamp;
+    const delta = timestamp - lastTick;
+    lastTick = timestamp;
+    if (!delta) {
+      rafId = requestAnimationFrame(step);
+      return;
+    }
+
+    const distance = (SPEED_PX_PER_SECOND * delta) / 1000;
+    let nextScroll = direction > 0
+      ? Math.min(maxScroll, list.scrollTop + distance)
+      : Math.max(0, list.scrollTop - distance);
+
+    const reachedBoundary = direction > 0
+      ? nextScroll >= maxScroll - 0.5
+      : nextScroll <= 0.5;
+
+    list.scrollTop = nextScroll;
+
+    if (reachedBoundary) {
+      direction = direction > 0 ? -1 : 1;
+      pauseUntil = timestamp + EDGE_PAUSE_MS;
+      lastTick = 0;
+    }
+
+    rafId = requestAnimationFrame(step);
+  };
+
+  const stop = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    lastTick = 0;
+    pauseUntil = 0;
+  };
+
+  const start = withPause => {
+    if (rafId !== null) return;
+    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+    if (maxScroll <= 0) {
+      stop();
+      if (list.scrollTop !== 0) list.scrollTop = 0;
+      return;
+    }
+    lastTick = 0;
+    pauseUntil = withPause ? -1 : 0;
+    rafId = requestAnimationFrame(step);
+  };
+
+  const refresh = withPause => {
+    if (!summaryContainer.isConnected || !list.isConnected) {
+      cleanup();
+      return;
+    }
+    if ((reduceMotionQuery && reduceMotionQuery.matches) || summaryContainer.matches(':hover, :focus-within')) {
+      stop();
+      return;
+    }
+    const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+    if (maxScroll <= 0) {
+      stop();
+      if (list.scrollTop !== 0) list.scrollTop = 0;
+      return;
+    }
+    if (rafId === null) start(!!withPause);
+  };
+
+  const handlePointerEnter = () => stop();
+  const handlePointerLeave = () => refresh(true);
+  const handleFocusEnter = () => stop();
+  const handleFocusLeave = () => refresh(true);
+
+  summaryContainer.addEventListener('mouseenter', handlePointerEnter);
+  summaryContainer.addEventListener('mouseleave', handlePointerLeave);
+  summaryContainer.addEventListener('focusin', handleFocusEnter);
+  summaryContainer.addEventListener('focusout', handleFocusLeave);
+
+  let resizeObserver;
+  if (typeof ResizeObserver === 'function') {
+    resizeObserver = new ResizeObserver(() => refresh(false));
+    resizeObserver.observe(list);
+  }
+
+  let mutationObserver;
+  if (typeof MutationObserver === 'function') {
+    mutationObserver = new MutationObserver(() => refresh(false));
+    mutationObserver.observe(list, { childList: true, subtree: true });
+  }
+
+  const handleMotionChange = () => {
+    if (reduceMotionQuery && reduceMotionQuery.matches) {
+      stop();
+    } else {
+      refresh(true);
+    }
+  };
+
+  if (reduceMotionQuery) {
+    if (typeof reduceMotionQuery.addEventListener === 'function') {
+      reduceMotionQuery.addEventListener('change', handleMotionChange);
+    } else if (typeof reduceMotionQuery.addListener === 'function') {
+      reduceMotionQuery.addListener(handleMotionChange);
+    }
+  }
+
+  const cleanup = () => {
+    if (isDisposed) return;
+    isDisposed = true;
+    stop();
+    summaryContainer.removeEventListener('mouseenter', handlePointerEnter);
+    summaryContainer.removeEventListener('mouseleave', handlePointerLeave);
+    summaryContainer.removeEventListener('focusin', handleFocusEnter);
+    summaryContainer.removeEventListener('focusout', handleFocusLeave);
+    if (resizeObserver) resizeObserver.disconnect();
+    if (mutationObserver) mutationObserver.disconnect();
+    if (reduceMotionQuery) {
+      if (typeof reduceMotionQuery.removeEventListener === 'function') {
+        reduceMotionQuery.removeEventListener('change', handleMotionChange);
+      } else if (typeof reduceMotionQuery.removeListener === 'function') {
+        reduceMotionQuery.removeListener(handleMotionChange);
+      }
+    }
+    localDraftAutoscrollControllers.delete(summaryContainer);
+  };
+
+  const controller = { cleanup, refresh: () => refresh(true) };
+  localDraftAutoscrollControllers.set(summaryContainer, controller);
+  refresh(true);
+}
+
 function updateDiscardButtonVisibility() {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
@@ -2001,6 +2175,7 @@ function updateUnsyncedSummary() {
   const globalArrowLabelEl = document.getElementById('globalArrowLabel');
   if (summaryEntries.length) {
     if (summaryContainer) {
+      teardownLocalDraftAutoscroll(summaryContainer);
       summaryContainer.innerHTML = '';
       const list = document.createElement('ul');
       list.className = 'gs-node-drafts-list';
@@ -2028,6 +2203,7 @@ function updateUnsyncedSummary() {
       });
       summaryContainer.appendChild(list);
       summaryContainer.hidden = false;
+      setupLocalDraftAutoscroll(summaryContainer, list);
     }
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
@@ -2042,6 +2218,7 @@ function updateUnsyncedSummary() {
     updateReviewButton(summaryEntries);
   } else {
     if (summaryContainer) {
+      teardownLocalDraftAutoscroll(summaryContainer);
       summaryContainer.innerHTML = '';
       summaryContainer.hidden = true;
     }
