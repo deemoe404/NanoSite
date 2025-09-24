@@ -3563,6 +3563,86 @@ function openOrderDiffModal(kind) {
   openComposerDiffModal(kind, 'order');
 }
 
+function getComposerOrderHoverContainer(element) {
+  if (!element || typeof element.closest !== 'function') return null;
+  return element.closest('.composer-order-visual, .composer-order-host');
+}
+
+function applyComposerOrderHover(container, key) {
+  if (!container) return;
+  const state = container.__nsOrderHoverState || (container.__nsOrderHoverState = {});
+  const normalizedKey = typeof key === 'string' ? key : '';
+  let svg = state.svg;
+  if (!svg || !svg.isConnected) {
+    svg = container.querySelector('svg.composer-order-lines');
+    if (svg) state.svg = svg;
+  }
+  const pathMap = state.pathMap instanceof Map ? state.pathMap : null;
+  const leftMap = state.leftMap instanceof Map ? state.leftMap : null;
+  const prevLeft = state.activeLeft;
+  const nextLeft = normalizedKey && leftMap ? leftMap.get(normalizedKey) || null : null;
+  if (prevLeft && prevLeft !== nextLeft) {
+    try { prevLeft.classList.remove('is-hovered'); } catch (_) {}
+  }
+  if (nextLeft && nextLeft !== prevLeft) {
+    try { nextLeft.classList.add('is-hovered'); } catch (_) {}
+  }
+  state.activeLeft = nextLeft || null;
+
+  state.currentKey = normalizedKey;
+
+  const activePathKey = (pathMap && normalizedKey && pathMap.has(normalizedKey)) ? normalizedKey : '';
+
+  if (!svg) return;
+
+  if (!pathMap) {
+    if (normalizedKey) svg.classList.add('is-hovering');
+    else svg.classList.remove('is-hovering');
+    return;
+  }
+
+  pathMap.forEach((paths, pathKey) => {
+    const isActive = !!activePathKey && pathKey === activePathKey;
+    if (!Array.isArray(paths)) return;
+    paths.forEach(path => {
+      if (!path || !path.classList) return;
+      if (isActive) path.classList.add('is-active');
+      else path.classList.remove('is-active');
+    });
+  });
+
+  if (activePathKey) svg.classList.add('is-hovering');
+  else svg.classList.remove('is-hovering');
+}
+
+function bindComposerOrderHover(element, key) {
+  if (!element) return;
+  const hoverKey = typeof key === 'string' ? key : (element.getAttribute && element.getAttribute('data-key')) || '';
+  const existing = element.__nsOrderHoverBound;
+  if (existing && existing.key === hoverKey) return;
+  if (existing) {
+    element.removeEventListener('mouseenter', existing.enter);
+    element.removeEventListener('mouseleave', existing.leave);
+    element.removeEventListener('focusin', existing.enter);
+    element.removeEventListener('focusout', existing.leave);
+  }
+  const handleEnter = () => {
+    const container = getComposerOrderHoverContainer(element);
+    if (!container) return;
+    applyComposerOrderHover(container, hoverKey);
+  };
+  const handleLeave = () => {
+    const container = getComposerOrderHoverContainer(element);
+    if (!container) return;
+    applyComposerOrderHover(container, '');
+  };
+  element.addEventListener('mouseenter', handleEnter);
+  element.addEventListener('mouseleave', handleLeave);
+  element.addEventListener('focusin', handleEnter);
+  element.addEventListener('focusout', handleLeave);
+  element.__nsOrderHoverBound = { key: hoverKey, enter: handleEnter, leave: handleLeave };
+}
+
 function buildOrderDiffItem(entry, side) {
   const item = document.createElement('div');
   item.className = 'composer-order-item';
@@ -3599,6 +3679,7 @@ function buildOrderDiffItem(entry, side) {
     badgeEl.classList.add('is-hidden');
   }
   item.appendChild(badgeEl);
+  bindComposerOrderHover(item, entry.key);
   return item;
 }
 
@@ -4144,6 +4225,17 @@ function ensureComposerDiffModal() {
       afterList.appendChild(item);
     });
 
+    const hoverState = viz.__nsOrderHoverState || {};
+    if (hoverState.activeLeft && !hoverState.activeLeft.isConnected) {
+      try { hoverState.activeLeft.classList.remove('is-hovered'); } catch (_) {}
+      hoverState.activeLeft = null;
+    }
+    hoverState.leftMap = leftMap;
+    hoverState.rightMap = rightMap;
+    hoverState.svg = svg;
+    hoverState.pathMap = null;
+    viz.__nsOrderHoverState = hoverState;
+
     const hasItems = beforeEntries.length || afterEntries.length;
     if (hasItems) {
       emptyNotice.hidden = true;
@@ -4161,6 +4253,9 @@ function ensureComposerDiffModal() {
     composerOrderState = hasItems
       ? { container: viz, svg, connectors, leftMap, rightMap }
       : null;
+    if (!hasItems) {
+      applyComposerOrderHover(viz, '');
+    }
     if (activeTab === 'order') {
       drawOrderDiffLines();
       requestAnimationFrame(drawOrderDiffLines);
@@ -4241,6 +4336,11 @@ function drawOrderDiffLines(state) {
   const { container, svg, connectors, leftMap, rightMap } = ctx;
   if (!container || !svg) return;
 
+  const hoverState = container.__nsOrderHoverState || (container.__nsOrderHoverState = {});
+  hoverState.svg = svg;
+  if (leftMap instanceof Map) hoverState.leftMap = leftMap;
+  if (rightMap instanceof Map) hoverState.rightMap = rightMap;
+
   if (leftMap && typeof leftMap.forEach === 'function') {
     leftMap.forEach(el => {
       if (!el || !el.style) return;
@@ -4268,6 +4368,7 @@ function drawOrderDiffLines(state) {
   let fallbackMarginTop = '';
   let fallbackMarginBottom = '';
   const layoutSegments = [];
+  const pathMap = new Map();
   segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
     const rightEl = rightMap.get(info.key);
@@ -4325,6 +4426,7 @@ function drawOrderDiffLines(state) {
     path.setAttribute('d', `M ${startX} ${startY} C ${startX + curve} ${startY}, ${endX - curve} ${endY}, ${endX} ${endY}`);
     path.classList.add('composer-order-path');
     path.dataset.status = info.status;
+    if (info.key) path.dataset.key = info.key;
     if (info.status === 'same') {
       path.setAttribute('stroke', '#94a3b8');
     } else {
@@ -4332,8 +4434,18 @@ function drawOrderDiffLines(state) {
       movedIdx += 1;
       path.setAttribute('stroke', color);
     }
+    const key = info.key || '';
+    if (!pathMap.has(key)) pathMap.set(key, []);
+    pathMap.get(key).push(path);
     svg.appendChild(path);
   });
+
+  hoverState.pathMap = pathMap;
+  if (typeof hoverState.currentKey === 'string' && hoverState.currentKey) {
+    applyComposerOrderHover(container, hoverState.currentKey);
+  } else {
+    applyComposerOrderHover(container, '');
+  }
 }
 
 function ensureComposerOrderPreview(kind) {
@@ -4450,7 +4562,9 @@ function updateComposerOrderPreview(kind, options = {}) {
     afterEntries.forEach(entry => {
       if (!entry || !entry.key) return;
       const row = main.querySelector(`${selector}[data-key="${cssEscape(entry.key)}"]`);
-      if (row) rightMap.set(entry.key, row);
+      if (!row) return;
+      rightMap.set(entry.key, row);
+      bindComposerOrderHover(row, entry.key);
     });
   }
 
@@ -4461,6 +4575,19 @@ function updateComposerOrderPreview(kind, options = {}) {
   const hasBaseline = leftMap.size > 0;
   const hasOrderChanges = (stats.moved || stats.added || stats.removed) > 0;
   const hasDiffChanges = !!(diff && diff.hasChanges);
+
+  if (host) {
+    const hoverState = host.__nsOrderHoverState || {};
+    if (hoverState.activeLeft && !hoverState.activeLeft.isConnected) {
+      try { hoverState.activeLeft.classList.remove('is-hovered'); } catch (_) {}
+      hoverState.activeLeft = null;
+    }
+    hoverState.leftMap = leftMap;
+    hoverState.rightMap = rightMap;
+    hoverState.svg = svg;
+    if (!hasOrderChanges) hoverState.pathMap = null;
+    host.__nsOrderHoverState = hoverState;
+  }
 
   if (emptyNotice) {
     if (!hasBaseline) {
@@ -4489,6 +4616,13 @@ function updateComposerOrderPreview(kind, options = {}) {
     }
     if (host) host.dataset.state = 'clean';
     if (svg) svg.style.display = 'none';
+    if (host) {
+      const hoverState = host.__nsOrderHoverState || {};
+      hoverState.pathMap = null;
+      hoverState.currentKey = '';
+      host.__nsOrderHoverState = hoverState;
+      applyComposerOrderHover(host, '');
+    }
     composerOrderPreviewState[normalized] = null;
     return;
   }
@@ -4517,7 +4651,17 @@ function updateComposerOrderPreview(kind, options = {}) {
     : null;
   composerOrderPreviewState[normalized] = state;
   if (svg) svg.style.display = state ? '' : 'none';
+  if (!state && host) {
+    const hoverState = host.__nsOrderHoverState || {};
+    hoverState.pathMap = null;
+    hoverState.currentKey = '';
+    host.__nsOrderHoverState = hoverState;
+    applyComposerOrderHover(host, '');
+  }
   if (state) {
+    if (host && host.__nsOrderHoverState && typeof host.__nsOrderHoverState.currentKey === 'string') {
+      applyComposerOrderHover(host, host.__nsOrderHoverState.currentKey);
+    }
     drawOrderDiffLines(state);
     requestAnimationFrame(() => drawOrderDiffLines(state));
     setTimeout(() => drawOrderDiffLines(state), 120);
@@ -8368,9 +8512,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   .composer-order-key{flex:1 1 auto;min-width:0;font-family:var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);font-size:.9rem;color:var(--text);word-break:break-word}
   .composer-order-badge{margin-left:auto;font-size:.78rem;color:color-mix(in srgb,var(--text) 62%, transparent);font-weight:600}
   .composer-order-badge.is-hidden{display:none}
-  .composer-order-lines{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:0}
-  .composer-order-path{fill:none;stroke-width:2.6;opacity:.78;stroke-linecap:round;stroke-linejoin:round}
-  .composer-order-path[data-status="same"]{stroke:#94a3b8;stroke-dasharray:6 6;opacity:.35}
+  .composer-order-lines{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:0;opacity:0;transition:opacity .18s ease}
+  .composer-order-lines.is-hovering{opacity:1}
+  .composer-order-path{fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;opacity:0;transition:opacity .18s ease}
+  .composer-order-path.is-active{opacity:.78}
+  .composer-order-path[data-status="same"]{stroke:#94a3b8;stroke-dasharray:6 6}
+  .composer-order-path[data-status="same"].is-active{opacity:.35}
+  .composer-order-item.is-hovered{box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .composer-order-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:.95rem;color:var(--muted);pointer-events:none;padding:1rem}
   .composer-order-visual.is-empty .composer-order-lines{display:none}
   .composer-order-visual.is-empty .composer-order-columns{opacity:.15}

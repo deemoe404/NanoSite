@@ -953,7 +953,8 @@
     .composer-order-inline-body { display: flex; flex-direction: column; }
     .composer-order-inline-list { display: block; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
-    .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .18s ease; }
+    .composer-order-inline-lines.is-hovering { opacity: 1; }
     .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
     .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
     .composer-order-inline .composer-order-item {
