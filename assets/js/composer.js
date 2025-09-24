@@ -3040,7 +3040,9 @@ async function waitForRemotePropagation(files = []) {
   });
   const checkIntervalMs = 30000;
   const countdownStepMs = 1000;
+  const maxAttempts = 10;
   let canceled = false;
+  let timedOut = false;
 
   const cancelHandler = () => {
     if (canceled) return;
@@ -3050,11 +3052,12 @@ async function waitForRemotePropagation(files = []) {
   setSyncOverlayCancelHandler(cancelHandler, true);
 
   for (const file of unique) {
-    if (canceled) break;
+    if (canceled || timedOut) break;
     const expected = normalizeMarkdownContent(file.content || '');
     const displayLabel = String(file.label || file.path || '').trim() || file.path;
     let attempt = 0;
-    while (!canceled) {
+    let confirmed = false;
+    while (!canceled && attempt < maxAttempts) {
       attempt += 1;
       setSyncOverlayStatus(`Checking ${displayLabel} (attempt ${attempt})…`);
       let ok = false;
@@ -3071,7 +3074,10 @@ async function waitForRemotePropagation(files = []) {
         ok = false;
       }
       if (canceled) break;
-      if (ok) break;
+      if (ok) {
+        confirmed = true;
+        break;
+      }
       for (let remaining = checkIntervalMs; remaining > 0; remaining -= countdownStepMs) {
         if (canceled) break;
         const seconds = Math.ceil(remaining / 1000);
@@ -3080,13 +3086,20 @@ async function waitForRemotePropagation(files = []) {
         if (canceled) break;
       }
     }
+    if (!canceled && !confirmed) {
+      timedOut = true;
+      setSyncOverlayStatus(`Could not confirm ${displayLabel} after ${maxAttempts} attempts.`);
+    }
   }
   setSyncOverlayCancelHandler(null, true);
   if (canceled) {
     return { canceled: true };
   }
+  if (timedOut) {
+    return { canceled: false, timedOut: true };
+  }
   setSyncOverlayStatus('All files confirmed on site.');
-  return { canceled: false };
+  return { canceled: false, timedOut: false };
 }
 
 function applyLocalPostCommitState(files = []) {
@@ -3109,22 +3122,43 @@ function applyLocalPostCommitState(files = []) {
       if (!norm) return;
       handledMarkdown.add(norm);
       const text = normalizeMarkdownContent(file.content || '');
-      clearMarkdownDraftEntry(norm);
       const tab = findDynamicTabByPath(norm);
+      const commitSignature = computeTextSignature(text);
+      const checkedAt = Date.now();
       if (tab) {
-        tab.content = text;
+        const currentText = normalizeMarkdownContent(tab.content || '');
+        const hasNewerLocalContent = currentText !== text;
         tab.remoteContent = text;
-        tab.remoteSignature = computeTextSignature(text);
+        tab.remoteSignature = commitSignature;
         tab.loaded = true;
-        tab.localDraft = null;
-        tab.draftConflict = false;
-        tab.isDirty = false;
-        updateDynamicTabDirtyState(tab, { autoSave: false });
-        setDynamicTabStatus(tab, {
-          state: 'existing',
-          checkedAt: Date.now(),
-          message: 'Synchronized via NanoSite'
-        });
+        if (hasNewerLocalContent) {
+          const saved = saveMarkdownDraftEntry(norm, tab.content, tab.remoteSignature);
+          if (saved) {
+            tab.localDraft = { ...saved, manual: !!(tab.localDraft && tab.localDraft.manual) };
+          } else if (tab.localDraft) {
+            tab.localDraft = { ...tab.localDraft, remoteSignature: tab.remoteSignature };
+          }
+          updateDynamicTabDirtyState(tab, { autoSave: false });
+          setDynamicTabStatus(tab, {
+            state: 'existing',
+            checkedAt,
+            message: 'Local edits pending sync'
+          });
+        } else {
+          clearMarkdownDraftEntry(norm);
+          tab.content = text;
+          tab.localDraft = null;
+          tab.draftConflict = false;
+          tab.isDirty = false;
+          updateDynamicTabDirtyState(tab, { autoSave: false });
+          setDynamicTabStatus(tab, {
+            state: 'existing',
+            checkedAt,
+            message: 'Synchronized via NanoSite'
+          });
+        }
+      } else {
+        clearMarkdownDraftEntry(norm);
       }
       updateComposerMarkdownDraftIndicators({ path: norm });
     }
@@ -3230,6 +3264,8 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
     hideSyncOverlay();
     if (propagationResult && propagationResult.canceled) {
       showToast('info', 'Stopped waiting for the live site. Your commit is already on GitHub, but it may take a few minutes to appear.');
+    } else if (propagationResult && propagationResult.timedOut) {
+      showToast('warning', 'Committed files to GitHub, but the live site did not update in time. Check the deploy status manually.');
     } else {
       showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
     }
