@@ -2774,8 +2774,7 @@ function updateUnsyncedSummary() {
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalArrowEl) globalArrowEl.classList.add('is-pending');
     if (globalArrowLabelEl) {
-      if (count === 1) globalArrowLabelEl.textContent = '1 pending';
-      else globalArrowLabelEl.textContent = `${count} pending`;
+      globalArrowLabelEl.textContent = 'UPLOAD';
     }
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = '';
@@ -3448,7 +3447,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       bubble.removeAttribute('aria-busy');
       bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
       const pendingCount = computeUnsyncedSummary().length;
-      if (pendingCount) bubble.textContent = pendingCount === 1 ? '1 pending' : `${pendingCount} pending`;
+      if (pendingCount) bubble.textContent = 'UPLOAD';
       else bubble.textContent = 'Synced';
     }
   }
