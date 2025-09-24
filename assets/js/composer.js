@@ -154,6 +154,18 @@ function showToast(kind, text, options = {}) {
     el.appendChild(textSpan);
 
     const action = options && options.action;
+    const shouldAutoDismiss = kind !== 'info';
+
+    const dismiss = () => {
+      if (el.dataset.dismissed === 'true') return;
+      el.dataset.dismissed = 'true';
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(12px)';
+      setTimeout(() => {
+        try { el.remove(); } catch (_) {}
+      }, 320);
+    };
+
     if (action && (action.href || typeof action.onClick === 'function')) {
       el.style.justifyContent = 'space-between';
       textSpan.style.textAlign = 'left';
@@ -191,6 +203,37 @@ function showToast(kind, text, options = {}) {
       el.appendChild(actionEl);
     }
 
+    if (!shouldAutoDismiss) {
+      el.style.justifyContent = 'space-between';
+      textSpan.style.textAlign = 'left';
+      const closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.className = 'toast-close';
+      closeButton.setAttribute('aria-label', 'Close notification');
+      closeButton.textContent = '\u00D7';
+      closeButton.style.flex = '0 0 auto';
+      closeButton.style.marginLeft = '.5rem';
+      closeButton.style.width = '2rem';
+      closeButton.style.height = '2rem';
+      closeButton.style.borderRadius = '50%';
+      closeButton.style.border = '1px solid color-mix(in srgb, var(--border) 70%, transparent)';
+      closeButton.style.background = 'transparent';
+      closeButton.style.color = 'inherit';
+      closeButton.style.fontSize = '1.1rem';
+      closeButton.style.lineHeight = '1';
+      closeButton.style.display = 'inline-flex';
+      closeButton.style.alignItems = 'center';
+      closeButton.style.justifyContent = 'center';
+      closeButton.style.cursor = 'pointer';
+      closeButton.style.pointerEvents = 'auto';
+      closeButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        dismiss();
+      });
+      el.appendChild(closeButton);
+    }
+
     if (kind === 'error') {
       el.style.borderColor = 'color-mix(in srgb, #dc2626 45%, transparent)';
     } else if (kind === 'success') {
@@ -203,14 +246,10 @@ function showToast(kind, text, options = {}) {
       el.style.opacity = '1';
       el.style.transform = 'translateY(0)';
     });
-    const ttl = typeof options.duration === 'number' ? Math.max(1200, options.duration) : 2300;
-    setTimeout(() => {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(12px)';
-    }, ttl);
-    setTimeout(() => {
-      try { el.remove(); } catch (_) {}
-    }, ttl + 320);
+    if (shouldAutoDismiss) {
+      const ttl = typeof options.duration === 'number' ? Math.max(1200, options.duration) : 2300;
+      setTimeout(dismiss, ttl);
+    }
   } catch (_) {
     try { alert(text); } catch (__) {}
   }
