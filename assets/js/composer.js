@@ -238,14 +238,36 @@ function showToast(kind, text, options = {}) {
     const dismiss = () => {
       if (el.dataset.dismissed === 'true') return;
       el.dataset.dismissed = 'true';
+      let toastRect = null;
+      let rootRect = null;
+      try {
+        toastRect = el.getBoundingClientRect();
+        rootRect = root.getBoundingClientRect();
+      } catch (_) {
+        /* ignore */
+      }
       const animateStack = prepareToastStackAnimation(root, el);
+      el.style.pointerEvents = 'none';
+      if (toastRect && rootRect) {
+        const offsetBottom = rootRect.bottom - toastRect.bottom;
+        const offsetRight = rootRect.right - toastRect.right;
+        el.style.position = 'absolute';
+        el.style.bottom = `${offsetBottom}px`;
+        el.style.right = `${offsetRight}px`;
+        el.style.left = 'auto';
+        el.style.top = 'auto';
+        el.style.margin = '0';
+        el.style.width = `${toastRect.width}px`;
+        el.style.height = `${toastRect.height}px`;
+        el.style.zIndex = '1';
+      }
+      if (typeof animateStack === 'function') {
+        try { animateStack(); } catch (_) {}
+      }
       el.style.opacity = '0';
       el.style.transform = 'translateY(12px)';
       setTimeout(() => {
         try { el.remove(); } catch (_) {}
-        if (typeof animateStack === 'function') {
-          try { animateStack(); } catch (_) {}
-        }
       }, 320);
     };
 
