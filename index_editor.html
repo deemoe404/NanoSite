@@ -38,10 +38,23 @@
     /* Two-column layout: sidebar + editor */
     .editor-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
+    .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
     .editor-layout.is-dynamic .editor-sidebar { display: none !important; }
+    .editor-layout.is-empty .editor-sidebar,
+    .editor-layout.is-empty .editor-main { display: none; }
+    .editor-empty-state { display: none; grid-column: 1 / -1; min-height: clamp(320px, 60vh, 640px); align-items: center; justify-content: center; text-align: center; padding: 2.5rem 1.5rem; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--card) 96%, transparent); color: var(--muted); }
+    .editor-layout.is-empty .editor-empty-state { display: flex; }
+    .editor-empty-state .empty-body { display: flex; flex-direction: column; gap: .75rem; align-items: center; justify-content: center; max-width: min(520px, 100%); }
+    .editor-empty-state h2 { margin: 0; font-size: 1.4rem; font-weight: 700; color: var(--text); }
+    .editor-empty-state p { margin: 0; font-size: 1rem; line-height: 1.6; }
+    @media (max-width: 600px) {
+      .editor-empty-state { padding: 2rem 1.25rem; min-height: clamp(260px, 55vh, 520px); }
+      .editor-empty-state h2 { font-size: 1.25rem; }
+      .editor-empty-state p { font-size: .95rem; }
+    }
     .editor-sidebar { position: relative; }
     .editor-sidebar .sidebar-title { font-size: 1rem; font-weight: 700; margin: 0 0 .5rem; }
     /* Sidebar tabs for switching between Posts and Tabs */
@@ -1082,7 +1095,7 @@
     </div>
 
     <!-- Editor Mode -->
-    <div class="editor-layout" id="mode-editor">
+    <div class="editor-layout is-empty" id="mode-editor">
       <aside class="editor-sidebar" aria-label="Articles sidebar">
         <div class="sidebar-title">Articles</div>
         <div class="sidebar-tabs" role="tablist">
@@ -1143,6 +1156,13 @@
           <div id="mainview"></div>
         </div>
       </section>
+
+      <div class="editor-empty-state" id="editorEmptyState" role="status" aria-live="polite">
+        <div class="empty-body">
+          <h2>没有打开的编辑器</h2>
+          <p>从左侧选择一篇文章或 Tab 文件，或在 Composer 中打开要编辑的 Markdown 内容。</p>
+        </div>
+      </div>
     </div>
 
     <!-- Composer Mode -->

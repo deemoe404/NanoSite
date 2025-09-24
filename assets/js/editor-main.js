@@ -290,7 +290,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const editor = createHiEditor(ta, 'markdown', false);
   const wrapToggle = document.getElementById('wrapToggle');
   const wrapToggleButtons = wrapToggle ? Array.from(wrapToggle.querySelectorAll('[data-wrap]')) : [];
+  const editorLayoutEl = document.getElementById('mode-editor');
+  const editorSidebarEl = editorLayoutEl ? editorLayoutEl.querySelector('.editor-sidebar') : null;
+  const editorMainEl = editorLayoutEl ? editorLayoutEl.querySelector('.editor-main') : null;
+  const editorEmptyStateEl = document.getElementById('editorEmptyState');
   let wrapEnabled = false;
+
+  const applyEditorEmptyState = (isEmpty) => {
+    const empty = !!isEmpty;
+    if (editorLayoutEl) editorLayoutEl.classList.toggle('is-empty', empty);
+    if (editorSidebarEl) {
+      if (empty) editorSidebarEl.setAttribute('hidden', '');
+      else editorSidebarEl.removeAttribute('hidden');
+    }
+    if (editorMainEl) {
+      if (empty) editorMainEl.setAttribute('hidden', '');
+      else editorMainEl.removeAttribute('hidden');
+    }
+    if (editorEmptyStateEl) {
+      if (empty) {
+        editorEmptyStateEl.removeAttribute('hidden');
+        editorEmptyStateEl.removeAttribute('aria-hidden');
+      } else {
+        editorEmptyStateEl.setAttribute('hidden', '');
+        editorEmptyStateEl.setAttribute('aria-hidden', 'true');
+      }
+    }
+  };
+  applyEditorEmptyState(true);
 
   const readWrapState = () => {
     try {
@@ -573,9 +600,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const renderCurrentFileIndicator = () => {
+    const path = currentFileInfo.path ? String(currentFileInfo.path) : '';
+    applyEditorEmptyState(!path);
     const el = ensureCurrentFileElement();
     if (!el) return;
-    const path = currentFileInfo.path ? String(currentFileInfo.path) : '';
     if (!path) {
       el.textContent = '';
       el.removeAttribute('data-file-state');
