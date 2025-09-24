@@ -2775,7 +2775,12 @@ function updateUnsyncedSummary() {
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalArrowEl) globalArrowEl.classList.add('is-pending');
     if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'UPLOAD';
-    if (globalArrowBubbleEl) globalArrowBubbleEl.textContent = 'UPLOAD';
+    if (globalArrowBubbleEl) {
+      globalArrowBubbleEl.textContent = 'UPLOAD';
+      if (globalArrowBubbleEl.dataset && 'hoverLabel' in globalArrowBubbleEl.dataset) {
+        globalArrowBubbleEl.dataset.hoverLabel = 'UPLOAD';
+      }
+    }
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = '';
       globalLocalStateEl.hidden = true;
@@ -2795,7 +2800,12 @@ function updateUnsyncedSummary() {
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalArrowEl) globalArrowEl.classList.remove('is-pending');
     if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
-    if (globalArrowBubbleEl) globalArrowBubbleEl.textContent = 'Synced';
+    if (globalArrowBubbleEl) {
+      globalArrowBubbleEl.textContent = 'Synced';
+      if (globalArrowBubbleEl.dataset && 'hoverLabel' in globalArrowBubbleEl.dataset) {
+        globalArrowBubbleEl.dataset.hoverLabel = 'Synced';
+      }
+    }
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;
       globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
@@ -3344,6 +3354,9 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
     bubble.setAttribute('aria-busy', 'true');
     bubble.setAttribute('aria-label', 'Synchronizing drafts to GitHub');
     bubble.textContent = 'Syncing…';
+    if (bubble.dataset && 'hoverLabel' in bubble.dataset) {
+      bubble.dataset.hoverLabel = 'Syncing…';
+    }
   }
   if (statusMessageEl) statusMessageEl.textContent = 'Committing to GitHub…';
   if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'warn');
@@ -3448,8 +3461,17 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       bubble.removeAttribute('aria-busy');
       bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
       const pendingCount = computeUnsyncedSummary().length;
-      if (pendingCount) bubble.textContent = 'UPLOAD';
-      else bubble.textContent = 'Synced';
+      if (pendingCount) {
+        bubble.textContent = 'UPLOAD';
+        if (bubble.dataset && 'hoverLabel' in bubble.dataset) {
+          bubble.dataset.hoverLabel = 'UPLOAD';
+        }
+      } else {
+        bubble.textContent = 'Synced';
+        if (bubble.dataset && 'hoverLabel' in bubble.dataset) {
+          bubble.dataset.hoverLabel = 'Synced';
+        }
+      }
     }
   }
 }
