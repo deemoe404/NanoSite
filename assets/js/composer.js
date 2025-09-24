@@ -3488,10 +3488,26 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   const orderChanged = !!summary.orderChanged;
   const orderHasStats = !!(orderStats && (orderStats.moved || orderStats.added || orderStats.removed));
 
+  const formatKeyList = (keys) => {
+    if (!Array.isArray(keys) || !keys.length) return '';
+    const clean = keys.filter(key => key != null && key !== '');
+    if (!clean.length) return '';
+    const max = Math.max(1, options.maxKeys || 3);
+    const shown = clean.slice(0, max);
+    let text = shown.join(', ');
+    if (clean.length > shown.length) text += ` +${clean.length - shown.length} more`;
+    return text;
+  };
+
+  const withKeySummary = (keys, baseLabel) => {
+    const summaryText = formatKeyList(keys);
+    return summaryText ? `${baseLabel}: ${summaryText}` : baseLabel;
+  };
+
   const chips = [];
-  if (addedCount) chips.push({ variant: 'added', label: `+${addedCount} added` });
-  if (removedCount) chips.push({ variant: 'removed', label: `-${removedCount} removed` });
-  if (modifiedCount) chips.push({ variant: 'modified', label: `~${modifiedCount} modified` });
+  if (addedCount) chips.push({ variant: 'added', label: withKeySummary(summary.addedKeys, `+${addedCount} added`) });
+  if (removedCount) chips.push({ variant: 'removed', label: withKeySummary(summary.removedKeys, `-${removedCount} removed`) });
+  if (modifiedCount) chips.push({ variant: 'modified', label: withKeySummary(modifiedKeys, `~${modifiedCount} modified`) });
   if (orderChanged) {
     let orderLabel = 'Order changed';
     if (orderHasStats) {
@@ -3504,65 +3520,18 @@ function renderComposerInlineSummary(target, diff, options = {}) {
     chips.push({ variant: 'order', label: orderLabel });
   }
 
-  if (chips.length) {
-    const chipRow = document.createElement('div');
-    chipRow.className = 'composer-inline-chip-row';
-    chips.forEach(chipInfo => {
-      const chip = document.createElement('span');
-      chip.className = 'composer-inline-chip';
-      chip.dataset.variant = chipInfo.variant;
-      chip.textContent = chipInfo.label;
-      chipRow.appendChild(chip);
-    });
-    target.appendChild(chipRow);
-  }
+  const chipRow = document.createElement('div');
+  chipRow.className = 'composer-inline-chip-row';
 
-  const detailWrap = document.createElement('div');
-  detailWrap.className = 'composer-inline-details';
-
-  const formatKeyList = (keys) => {
-    if (!Array.isArray(keys) || !keys.length) return '';
-    const clean = keys.filter(key => key != null && key !== '');
-    if (!clean.length) return '';
-    const max = Math.max(1, options.maxKeys || 3);
-    const shown = clean.slice(0, max);
-    let text = shown.join(', ');
-    if (clean.length > shown.length) text += ` +${clean.length - shown.length} more`;
-    return text;
+  const addChip = (chipInfo) => {
+    const chip = document.createElement('span');
+    chip.className = 'composer-inline-chip';
+    if (chipInfo.variant) chip.dataset.variant = chipInfo.variant;
+    chip.textContent = chipInfo.label;
+    chipRow.appendChild(chip);
   };
 
-  const appendDetail = (variant, label, value) => {
-    let text = '';
-    if (Array.isArray(value)) text = formatKeyList(value);
-    else if (typeof value === 'number') text = String(value);
-    else if (typeof value === 'string') text = value;
-    if (!text) return;
-    const row = document.createElement('div');
-    row.className = 'composer-inline-detail';
-    if (variant) row.dataset.variant = variant;
-    const labelEl = document.createElement('span');
-    labelEl.className = 'composer-inline-detail-label';
-    labelEl.textContent = `${label}:`;
-    const valueEl = document.createElement('span');
-    valueEl.className = 'composer-inline-detail-value';
-    valueEl.textContent = text;
-    row.appendChild(labelEl);
-    row.appendChild(valueEl);
-    detailWrap.appendChild(row);
-  };
-
-  appendDetail('added', 'Added', summary.addedKeys);
-  appendDetail('removed', 'Removed', summary.removedKeys);
-  appendDetail('modified', 'Modified', modifiedKeys);
-
-  if (orderChanged) {
-    const parts = [];
-    if (orderStats.moved) parts.push(`${orderStats.moved} moved`);
-    if (orderStats.added) parts.push(`+${orderStats.added} new`);
-    if (orderStats.removed) parts.push(`-${orderStats.removed} removed`);
-    appendDetail('order', 'Order', parts.length ? parts.join(', ') : 'changed');
-  }
-
+  chips.forEach(addChip);
   const langSet = new Set();
   Object.values(diffKeys).forEach(info => {
     if (!info) return;
@@ -3572,12 +3541,13 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   });
   if (langSet.size) {
     const langs = Array.from(langSet).filter(Boolean).sort();
-    appendDetail('langs', 'Languages', langs.join(', '));
+    const summary = formatKeyList(langs);
+    if (summary) addChip({ variant: 'langs', label: `Langs: ${summary}` });
   }
 
-  if (detailWrap.children.length) target.appendChild(detailWrap);
+  if (chipRow.children.length) target.appendChild(chipRow);
 
-  if (!chips.length && !detailWrap.children.length) {
+  if (!chipRow.children.length) {
     const empty = document.createElement('span');
     empty.className = 'composer-inline-summary-empty';
     empty.textContent = 'Changes detected.';
