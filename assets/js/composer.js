@@ -5,8 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'Synced with remote';
-const DIRTY_STATUS_MESSAGE = 'Local changes pending';
+const CLEAN_STATUS_MESSAGE = 'No local changes waiting to push';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
@@ -24,6 +23,23 @@ let activeDynamicMode = null;
 let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
 
+function getDynamicTabsContainer() {
+  try {
+    return document.getElementById('modeDynamicTabs');
+  } catch (_) {
+    return null;
+  }
+}
+
+function updateDynamicTabsGroupState() {
+  const container = getDynamicTabsContainer();
+  if (!container) return;
+  const hasTabs = !!container.querySelector('.mode-tab.dynamic-mode');
+  container.hidden = !hasTabs;
+  if (hasTabs) container.removeAttribute('aria-hidden');
+  else container.setAttribute('aria-hidden', 'true');
+}
+
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
 const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 
@@ -34,9 +50,12 @@ const MARKDOWN_PUSH_LABELS = {
 };
 
 const MARKDOWN_DISCARD_LABEL = 'Discard';
+const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
 let markdownPushButton = null;
 let markdownDiscardButton = null;
+let gitHubCommitInFlight = false;
+let cachedFineGrainedTokenMemory = '';
 
 let activeComposerState = null;
 let remoteBaseline = { index: null, tabs: null };
@@ -428,6 +447,41 @@ function handlePopupBlocked(href, options = {}) {
   });
 }
 
+function sleep(ms) {
+  const timeout = Math.max(0, Number(ms) || 0);
+  return new Promise((resolve) => { setTimeout(resolve, timeout); });
+}
+
+function getCachedFineGrainedToken() {
+  try {
+    const value = sessionStorage.getItem(GITHUB_PAT_STORAGE_KEY);
+    if (typeof value === 'string' && value) {
+      cachedFineGrainedTokenMemory = value;
+      return value;
+    }
+  } catch (_) {
+    /* ignore unavailable storage */
+  }
+  return cachedFineGrainedTokenMemory || '';
+}
+
+function setCachedFineGrainedToken(token) {
+  const trimmed = String(token || '').trim();
+  cachedFineGrainedTokenMemory = trimmed;
+  try {
+    if (trimmed) sessionStorage.setItem(GITHUB_PAT_STORAGE_KEY, trimmed);
+    else sessionStorage.removeItem(GITHUB_PAT_STORAGE_KEY);
+  } catch (_) {
+    /* ignore storage errors */
+  }
+}
+
+function clearCachedFineGrainedToken() {
+  cachedFineGrainedTokenMemory = '';
+  try { sessionStorage.removeItem(GITHUB_PAT_STORAGE_KEY); }
+  catch (_) { /* ignore */ }
+}
+
 function startRemoteSyncWatcher(config = {}) {
   if (!config || typeof config.fetch !== 'function') return null;
   if (activeSyncWatcher && typeof activeSyncWatcher.cancel === 'function') {
@@ -593,6 +647,10 @@ function startMarkdownSyncWatcher(tab, options = {}) {
     ? `Waiting for GitHub to create ${label}`
     : `Waiting for GitHub to update ${label}`;
 
+  const previousStatus = tab.fileStatus && typeof tab.fileStatus === 'object'
+    ? { ...tab.fileStatus }
+    : null;
+
   setDynamicTabStatus(tab, {
     state: 'checking',
     checkedAt: Date.now(),
@@ -651,8 +709,11 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       updateMarkdownDiscardButton(tab);
     },
     onCancel: () => {
+      const fallbackStatus = (previousStatus && previousStatus.state)
+        ? previousStatus
+        : { state: isCreate ? 'missing' : 'existing' };
       setDynamicTabStatus(tab, {
-        state: 'existing',
+        ...fallbackStatus,
         checkedAt: Date.now(),
         message: 'Remote check canceled'
       });
@@ -1272,6 +1333,7 @@ function saveMarkdownDraftForTab(tab, options = {}) {
     tab.localDraft = null;
     tab.draftConflict = false;
     updateComposerMarkdownDraftIndicators({ path: tab.path });
+    try { updateUnsyncedSummary(); } catch (_) {}
     return null;
   }
   const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig);
@@ -1283,6 +1345,7 @@ function saveMarkdownDraftForTab(tab, options = {}) {
       manual: !!options.markManual
     };
     updateComposerMarkdownDraftIndicators({ path: tab.path });
+    try { updateUnsyncedSummary(); } catch (_) {}
   }
   return saved;
 }
@@ -1301,6 +1364,7 @@ function clearMarkdownDraftForTab(tab) {
   tab.localDraft = null;
   tab.draftConflict = false;
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  try { updateUnsyncedSummary(); } catch (_) {}
 }
 
 function scheduleMarkdownDraftSave(tab) {
@@ -1370,6 +1434,7 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   }
 
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  try { updateUnsyncedSummary(); } catch (_) {}
 }
 
 function hasUnsavedComposerChanges() {
@@ -1399,12 +1464,11 @@ function handleBeforeUnload(event) {
   try {
     dynamicEditorTabs.forEach(tab => { flushMarkdownDraft(tab); });
   } catch (_) {}
-  if (hasUnsavedComposerChanges() || hasUnsavedMarkdownDrafts()) {
-    try {
-      event.preventDefault();
-    } catch (_) {}
-    event.returnValue = '';
-  }
+  // Previously we attempted to warn users about unsaved changes. The editor now
+  // performs automatic saving, so the confirmation dialog is no longer needed.
+  // Keep flushing drafts but avoid setting `event.returnValue`, which would
+  // trigger the browser prompt.
+  void event;
 }
 
 try {
@@ -1725,6 +1789,56 @@ function updateFileDirtyBadge(kind) {
   else el.removeAttribute('data-dirty');
 }
 
+function collectUnsyncedMarkdownEntries() {
+  const entries = [];
+  const seen = new Set();
+
+  dynamicEditorTabs.forEach((tab) => {
+    if (!tab || !tab.path) return;
+    const path = normalizeRelPath(tab.path);
+    if (!path || seen.has(path)) return;
+    const hasDraftContent = !!(tab.localDraft && normalizeMarkdownContent(tab.localDraft.content || ''));
+    const hasDirtyChanges = !!tab.isDirty;
+    if (!hasDirtyChanges && !hasDraftContent) return;
+    let state = '';
+    if (tab.draftConflict) state = 'conflict';
+    else if (hasDirtyChanges) state = 'dirty';
+    else if (hasDraftContent) state = 'saved';
+    entries.push({
+      kind: 'markdown',
+      label: path,
+      path,
+      state,
+    });
+    seen.add(path);
+  });
+
+  const store = readMarkdownDraftStore();
+  if (store && typeof store === 'object') {
+    Object.keys(store).forEach((key) => {
+      const path = normalizeRelPath(key);
+      if (!path || seen.has(path)) return;
+      const entry = store[key];
+      if (!entry || typeof entry !== 'object') return;
+      const content = entry.content != null ? normalizeMarkdownContent(entry.content) : '';
+      if (!content) return;
+      entries.push({
+        kind: 'markdown',
+        label: path,
+        path,
+        state: 'saved',
+      });
+      seen.add(path);
+    });
+  }
+
+  entries.sort((a, b) => {
+    try { return a.label.localeCompare(b.label); }
+    catch (_) { return 0; }
+  });
+  return entries;
+}
+
 function computeUnsyncedSummary() {
   const entries = [];
   const indexDiff = composerDiffCache.index;
@@ -1749,7 +1863,131 @@ function computeUnsyncedSummary() {
         || tabsDiff.removedKeys.length > 0
     });
   }
+  const markdownEntries = collectUnsyncedMarkdownEntries();
+  if (markdownEntries.length) entries.push(...markdownEntries);
   return entries;
+}
+
+function getModeTabButton(mode) {
+  try {
+    return document.querySelector(`.mode-tab[data-mode="${mode}"]:not(.dynamic-mode)`);
+  } catch (_) {
+    return null;
+  }
+}
+
+function getModeTabBaseLabel(btn) {
+  if (!btn) return '';
+  if (btn.dataset && btn.dataset.tabLabel) return btn.dataset.tabLabel;
+  const attr = btn.getAttribute('data-tab-label');
+  if (attr) {
+    const trimmed = attr.trim();
+    if (btn.dataset) btn.dataset.tabLabel = trimmed;
+    return trimmed;
+  }
+  if (btn.dataset && btn.dataset.baseLabel) return btn.dataset.baseLabel;
+  const fallback = (btn.textContent || '').trim();
+  if (fallback) {
+    if (btn.dataset) btn.dataset.baseLabel = fallback;
+    return fallback;
+  }
+  const mode = (btn.getAttribute('data-mode') || '').trim();
+  if (!mode) return '';
+  const formatted = mode.charAt(0).toUpperCase() + mode.slice(1);
+  if (btn.dataset) btn.dataset.baseLabel = formatted;
+  return formatted;
+}
+
+function ensureModeTabBadgeElement(btn) {
+  if (!btn) return null;
+  let badge = btn.querySelector('.mode-tab-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'mode-tab-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.hidden = true;
+    btn.appendChild(badge);
+  }
+  return badge;
+}
+
+function applyModeTabBadgeState(mode, count) {
+  const btn = getModeTabButton(mode);
+  if (!btn) return;
+  const baseLabel = getModeTabBaseLabel(btn);
+  const badge = ensureModeTabBadgeElement(btn);
+  if (baseLabel && btn.dataset) btn.dataset.tabLabel = baseLabel;
+
+  let numericCount = 0;
+  if (typeof count === 'number' && Number.isFinite(count)) {
+    numericCount = Math.max(0, Math.floor(count));
+  } else {
+    const parsed = parseInt(count, 10);
+    numericCount = Number.isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }
+
+  if (numericCount > 0) {
+    const displayValue = numericCount > 99 ? '99+' : String(numericCount);
+    if (badge) {
+      badge.textContent = displayValue;
+      badge.hidden = false;
+    }
+    btn.setAttribute('data-dirty', '1');
+    if (btn.dataset) btn.dataset.badgeCount = String(numericCount);
+    if (baseLabel) {
+      const accessibleCount = numericCount > 99 ? 'more than 99' : String(numericCount);
+      const changeLabel = numericCount === 1 ? 'pending change' : 'pending changes';
+      btn.setAttribute('aria-label', `${baseLabel} (${accessibleCount} ${changeLabel})`);
+    }
+  } else {
+    if (badge) {
+      badge.hidden = true;
+      badge.textContent = '';
+    }
+    btn.removeAttribute('data-dirty');
+    if (btn.dataset) delete btn.dataset.badgeCount;
+    if (baseLabel) {
+      btn.setAttribute('aria-label', baseLabel);
+    } else {
+      btn.removeAttribute('aria-label');
+    }
+  }
+}
+
+function updateModeDirtyIndicators(summaryEntries) {
+  let entries = Array.isArray(summaryEntries) ? summaryEntries : null;
+  if (!entries) {
+    if (summaryEntries && typeof summaryEntries === 'object') entries = [summaryEntries];
+    else {
+      try { entries = computeUnsyncedSummary(); }
+      catch (_) { entries = []; }
+    }
+  }
+
+  let composerCount = 0;
+  let editorCount = 0;
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (entry.kind === 'index' || entry.kind === 'tabs') composerCount += 1;
+    else if (entry.kind === 'markdown') editorCount += 1;
+  }
+
+  if (!composerCount) {
+    try {
+      if (hasUnsavedComposerChanges()) composerCount = Math.max(composerCount, 1);
+      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs)) composerCount = Math.max(composerCount, 1);
+    } catch (_) { /* ignore */ }
+  }
+
+  if (!editorCount && !Array.isArray(summaryEntries)) {
+    try {
+      if (hasUnsavedMarkdownDrafts()) editorCount = Math.max(editorCount, 1);
+    } catch (_) { editorCount = 0; }
+  }
+
+  applyModeTabBadgeState('composer', composerCount);
+  applyModeTabBadgeState('editor', editorCount);
 }
 
 function updateReviewButton(summaryEntries = []) {
@@ -1777,6 +2015,515 @@ function updateReviewButton(summaryEntries = []) {
   }
 }
 
+const reduceMotionQuery = (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+
+const LOCAL_DRAFT_SCROLL_STATE_KEY = 'ns_local_draft_carousel_state_v1';
+
+function readLocalDraftCarouselState() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.getItem !== 'function') return null;
+    const raw = storage.getItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const state = {};
+    if (typeof parsed.key === 'string') state.key = parsed.key;
+    if (Number.isFinite(parsed.rotation)) state.rotation = parsed.rotation;
+    else if (Number.isFinite(parsed.offset)) state.rotation = parsed.offset;
+    if (Number.isFinite(parsed.offsetPx)) state.offsetPx = parsed.offsetPx;
+    return state;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeLocalDraftCarouselState(state) {
+  if (typeof window === 'undefined') return;
+  try {
+    const storage = window.localStorage;
+    if (!storage || typeof storage.setItem !== 'function') return;
+    if (!state) {
+      storage.removeItem(LOCAL_DRAFT_SCROLL_STATE_KEY);
+      return;
+    }
+    const rotation = Number.isFinite(state.rotation)
+      ? state.rotation
+      : (Number.isFinite(state.offset) ? state.offset : 0);
+    const offsetPx = Number.isFinite(state.offsetPx) ? state.offsetPx : 0;
+    const payload = {
+      key: typeof state.key === 'string' ? state.key : '',
+      rotation,
+      offset: rotation,
+      offsetPx
+    };
+    storage.setItem(LOCAL_DRAFT_SCROLL_STATE_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
+const localDraftAutoscrollControllers = new WeakMap();
+
+function teardownLocalDraftAutoscroll(summaryContainer) {
+  if (!summaryContainer) return;
+  const controller = localDraftAutoscrollControllers.get(summaryContainer);
+  if (!controller) return;
+  controller.cleanup();
+}
+
+
+function setupLocalDraftAutoscroll(summaryContainer, shell, track) {
+  if (!summaryContainer || !shell || !track) return;
+  teardownLocalDraftAutoscroll(summaryContainer);
+
+  const BASE_SPEED_PX_PER_SECOND = 18;
+  const MAX_FRAME_DELTA_MS = 48;
+  let pointerInside = false;
+  let focusInside = false;
+  let isDisposed = false;
+  let cleanupRef = null;
+  let rotationOffset = 0;
+  let rafId = null;
+  let lastTimestamp = null;
+  let offsetPx = 0;
+  let collapsedHeightPx = null;
+
+  track.style.transition = 'none';
+  track.style.willChange = 'transform';
+
+  const requestFrame = (fn) => {
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(() => fn(Date.now()), 16);
+  };
+  const cancelFrame = (id) => {
+    if (id == null) return;
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
+
+  const ensureConnected = () => summaryContainer.isConnected && shell.isConnected && track.isConnected;
+
+  const flyout = summaryContainer.querySelector('.gs-node-drafts-flyout');
+
+  const syncFlyoutAriaHidden = () => {
+    if (!flyout) return;
+    const shouldHide = !summaryContainer.classList.contains('has-many') || (!pointerInside && !focusInside);
+    if (shouldHide) flyout.setAttribute('aria-hidden', 'true');
+    else flyout.removeAttribute('aria-hidden');
+  };
+
+  const getItems = () => Array.from(track.children).filter(node => node.nodeType === Node.ELEMENT_NODE);
+
+  const buildItemKey = (node) => {
+    if (!node) return '';
+    const ds = node.dataset || {};
+    if (ds.path) return `path:${ds.path}`;
+    if (ds.kind && ds.state) return `kind:${ds.kind}:${ds.state}`;
+    if (ds.kind) return `kind:${ds.kind}`;
+    const label = node.querySelector('.gs-node-drafts-label');
+    if (label && label.textContent) return `label:${label.textContent.trim()}`;
+    return node.textContent ? node.textContent.trim() : '';
+  };
+
+  const normalizeOffset = (count, value = rotationOffset) => {
+    if (!Number.isFinite(count) || count <= 0) return 0;
+    const mod = Number.isFinite(value) ? value % count : 0;
+    return mod < 0 ? mod + count : mod;
+  };
+
+  const updateSavedState = () => {
+    const items = getItems();
+    const count = items.length;
+    rotationOffset = normalizeOffset(count, rotationOffset);
+    const first = items[0] || null;
+    const key = buildItemKey(first);
+    if (key) summaryContainer.dataset.draftsLeadKey = key;
+    else delete summaryContainer.dataset.draftsLeadKey;
+    const normalizedOffsetPxRaw = Number.isFinite(offsetPx) ? offsetPx : 0;
+    const normalizedOffsetPx = normalizedOffsetPxRaw <= 0.0001
+      ? 0
+      : Math.max(0, Math.round(normalizedOffsetPxRaw * 1000) / 1000);
+    summaryContainer.dataset.draftsLeadOffset = String(rotationOffset);
+    summaryContainer.dataset.draftsScrollOffset = String(normalizedOffsetPx);
+    writeLocalDraftCarouselState({
+      key,
+      rotation: rotationOffset,
+      offset: rotationOffset,
+      offsetPx: normalizedOffsetPx
+    });
+  };
+
+  const savedState = (() => {
+    const datasetKey = summaryContainer.dataset && summaryContainer.dataset.draftsLeadKey;
+    const datasetOffsetRaw = summaryContainer.dataset && summaryContainer.dataset.draftsLeadOffset;
+    const datasetOffset = datasetOffsetRaw != null ? Number.parseInt(datasetOffsetRaw, 10) : NaN;
+    const datasetScrollRaw = summaryContainer.dataset && summaryContainer.dataset.draftsScrollOffset;
+    const datasetScroll = datasetScrollRaw != null ? Number.parseFloat(datasetScrollRaw) : NaN;
+    const stored = readLocalDraftCarouselState();
+    const key = datasetKey || (stored && stored.key) || '';
+    const rotation = Number.isFinite(datasetOffset)
+      ? datasetOffset
+      : (stored && Number.isFinite(stored.rotation)
+        ? stored.rotation
+        : (stored && Number.isFinite(stored.offset) ? stored.offset : 0));
+    const scrollOffset = Number.isFinite(datasetScroll)
+      ? datasetScroll
+      : (stored && Number.isFinite(stored.offsetPx) ? stored.offsetPx : 0);
+    return { key, rotation, scrollOffset };
+  })();
+
+  const restoreRotation = () => {
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      rotationOffset = 0;
+      updateSavedState();
+      return;
+    }
+    let targetIndex = -1;
+    if (savedState.key) {
+      targetIndex = items.findIndex(item => buildItemKey(item) === savedState.key);
+    }
+    if (targetIndex < 0) targetIndex = normalizeOffset(count, savedState.rotation);
+    if (targetIndex > 0) {
+      for (let i = 0; i < targetIndex; i += 1) {
+        const first = track.firstElementChild;
+        if (first) track.appendChild(first);
+      }
+    }
+    rotationOffset = normalizeOffset(count, targetIndex);
+    let restoredOffset = Number.isFinite(savedState.scrollOffset) ? savedState.scrollOffset : 0;
+    if (restoredOffset < 0) restoredOffset = 0;
+    if (count > 0) {
+      const first = items[0];
+      const gap = count > 1 ? getGap() : 0;
+      const distance = measureScrollDistance(first, gap);
+      if (distance > 0 && restoredOffset >= distance) {
+        const remainder = restoredOffset % distance;
+        restoredOffset = remainder <= 0.0001 ? 0 : remainder;
+      }
+    }
+    setOffset(restoredOffset);
+    updateSavedState();
+  };
+
+  const advanceRotation = (amount = 1) => {
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      rotationOffset = 0;
+      updateSavedState();
+      return;
+    }
+    rotationOffset = normalizeOffset(count, rotationOffset + amount);
+    updateSavedState();
+  };
+
+  const setOffset = (value) => {
+    const next = Number.isFinite(value) ? value : 0;
+    offsetPx = next <= 0.0001 ? 0 : next;
+    if (offsetPx === 0) track.style.transform = 'translate3d(0, 0, 0)';
+    else track.style.transform = `translate3d(0, -${offsetPx}px, 0)`;
+  };
+
+  const getGap = () => {
+    if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return 0;
+    const style = window.getComputedStyle(track);
+    if (!style) return 0;
+    const rawGap = style.rowGap || style.gap || '0';
+    const parsed = parseFloat(rawGap);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const measureScrollDistance = (node, fallbackGap) => {
+    if (!node || !ensureConnected()) return 0;
+    const next = node.nextElementSibling;
+    if (next && typeof node.getBoundingClientRect === 'function' && typeof next.getBoundingClientRect === 'function') {
+      const firstRect = node.getBoundingClientRect();
+      const secondRect = next.getBoundingClientRect();
+      if (firstRect && secondRect) {
+        const delta = Number.isFinite(secondRect.top) && Number.isFinite(firstRect.top)
+          ? secondRect.top - firstRect.top
+          : NaN;
+        if (Number.isFinite(delta) && delta > 0.0001) return delta;
+      }
+    }
+    const rect = typeof node.getBoundingClientRect === 'function' ? node.getBoundingClientRect() : null;
+    const height = rect && Number.isFinite(rect.height) ? rect.height : (node.offsetHeight || 0);
+    const gapValue = Number.isFinite(fallbackGap) ? fallbackGap : getGap();
+    const distance = Math.max(0, Number.isFinite(height) ? height : 0) + (Number.isFinite(gapValue) ? gapValue : 0);
+    return distance > 0.0001 ? distance : 0;
+  };
+
+  const getShellPadding = () => {
+    if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return 0;
+    const style = window.getComputedStyle(shell);
+    if (!style) return 0;
+    const top = parseFloat(style.paddingTop || '0');
+    const bottom = parseFloat(style.paddingBottom || '0');
+    const total = (Number.isFinite(top) ? top : 0) + (Number.isFinite(bottom) ? bottom : 0);
+    return Number.isFinite(total) ? total : 0;
+  };
+
+  const applyCollapsedHeight = () => {
+    if (!ensureConnected()) {
+      if (cleanupRef) cleanupRef();
+      return;
+    }
+    const items = getItems();
+    const count = items.length;
+    if (!count) {
+      setOffset(0);
+      shell.style.removeProperty('height');
+      summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
+      summaryContainer.classList.remove('has-many');
+      collapsedHeightPx = null;
+      updateSavedState();
+      syncFlyoutAriaHidden();
+      return;
+    }
+    const visible = Math.min(2, count);
+    const padding = getShellPadding();
+    const gap = visible > 1 ? getGap() : 0;
+    const heights = items.map(item => {
+      if (!item) return 0;
+      const rect = typeof item.getBoundingClientRect === 'function' ? item.getBoundingClientRect() : null;
+      const value = rect && Number.isFinite(rect.height) ? rect.height : (item.offsetHeight || 0);
+      return Number.isFinite(value) ? value : 0;
+    });
+    let contentHeight = 0;
+    if (visible === 1) {
+      contentHeight = heights[0] || 0;
+    } else if (visible > 1) {
+      if (count === 2) {
+        contentHeight = (heights[0] || 0) + (heights[1] || 0);
+      } else {
+        let maxPair = 0;
+        for (let i = 0; i < count; i += 1) {
+          const firstHeight = heights[i] || 0;
+          const secondHeight = heights[(i + 1) % count] || 0;
+          const pairHeight = firstHeight + secondHeight;
+          if (pairHeight > maxPair) maxPair = pairHeight;
+        }
+        contentHeight = maxPair;
+      }
+      if (gap > 0) contentHeight += gap;
+    }
+    const totalHeight = contentHeight + padding;
+    if (!Number.isFinite(totalHeight) || totalHeight <= 0) {
+      shell.style.removeProperty('height');
+      summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
+      collapsedHeightPx = null;
+    } else {
+      const px = Math.round(totalHeight * 100) / 100;
+      if (collapsedHeightPx == null || Math.abs(collapsedHeightPx - px) >= 0.25) {
+        collapsedHeightPx = px;
+        shell.style.height = `${px}px`;
+        summaryContainer.style.setProperty('--gs-drafts-collapsed-height', `${px}px`);
+      }
+    }
+    summaryContainer.classList.toggle('has-many', count > 2);
+    syncFlyoutAriaHidden();
+    if (count <= 2) setOffset(0);
+    updateSavedState();
+  };
+
+  const shouldAnimate = () => {
+    if (!ensureConnected()) return false;
+    if (pointerInside || focusInside) return false;
+    if (reduceMotionQuery && reduceMotionQuery.matches) return false;
+    const items = getItems();
+    return items.length > 2;
+  };
+
+  const cancelAnimationLoop = () => {
+    if (rafId !== null) {
+      cancelFrame(rafId);
+      rafId = null;
+    }
+    lastTimestamp = null;
+  };
+
+  const shiftFirstItem = () => {
+    if (!ensureConnected()) return false;
+    const first = track.firstElementChild;
+    if (!first) return false;
+    track.appendChild(first);
+    advanceRotation(1);
+    applyCollapsedHeight();
+    return true;
+  };
+
+  const adjustOverflow = (gapValue) => {
+    if (!ensureConnected()) return;
+    const gap = Number.isFinite(gapValue) ? gapValue : getGap();
+    const items = getItems();
+    const maxIterations = Math.max(4, items.length * 3);
+    let iterations = 0;
+    while (iterations < maxIterations) {
+      const first = track.firstElementChild;
+      if (!first) {
+        if (offsetPx !== 0) setOffset(0);
+        break;
+      }
+      const distance = measureScrollDistance(first, gap);
+      if (!(distance > 0)) {
+        if (iterations + 1 >= maxIterations && offsetPx !== 0) setOffset(0);
+        if (!shiftFirstItem()) break;
+        iterations += 1;
+        continue;
+      }
+      if (offsetPx < distance) break;
+      const nextOffset = offsetPx - distance;
+      setOffset(nextOffset <= 0.0001 ? 0 : nextOffset);
+      if (!shiftFirstItem()) break;
+      iterations += 1;
+    }
+    if (iterations >= maxIterations && offsetPx !== 0) setOffset(0);
+  };
+
+  const advanceBy = (deltaPx) => {
+    if (!ensureConnected()) return;
+    if (Number.isFinite(deltaPx) && deltaPx > 0) {
+      setOffset(offsetPx + deltaPx);
+    }
+    adjustOverflow(getGap());
+  };
+
+  const handleFrame = (timestamp) => {
+    if (isDisposed) return;
+    if (!ensureConnected()) {
+      if (cleanupRef) cleanupRef();
+      return;
+    }
+    rafId = null;
+    if (!shouldAnimate()) {
+      lastTimestamp = timestamp;
+      return;
+    }
+    const now = typeof timestamp === 'number' && !Number.isNaN(timestamp)
+      ? timestamp
+      : (typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now());
+    let delta = lastTimestamp == null ? 0 : now - lastTimestamp;
+    if (!Number.isFinite(delta) || delta < 0) delta = 0;
+    if (delta > MAX_FRAME_DELTA_MS) delta = MAX_FRAME_DELTA_MS;
+    lastTimestamp = now;
+    if (delta > 0) advanceBy((delta / 1000) * BASE_SPEED_PX_PER_SECOND);
+    else advanceBy(0);
+    ensureAnimationLoop();
+  };
+
+  const ensureAnimationLoop = () => {
+    if (isDisposed) return;
+    if (rafId !== null) return;
+    if (!shouldAnimate()) return;
+    rafId = requestFrame(handleFrame);
+  };
+
+  const handlePointerEnter = () => {
+    pointerInside = true;
+    cancelAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+  const handlePointerLeave = () => {
+    pointerInside = false;
+    ensureAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+  const handleFocusEnter = () => {
+    focusInside = true;
+    cancelAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+  const handleFocusLeave = () => {
+    focusInside = false;
+    ensureAnimationLoop();
+    syncFlyoutAriaHidden();
+  };
+
+  summaryContainer.addEventListener('mouseenter', handlePointerEnter);
+  summaryContainer.addEventListener('mouseleave', handlePointerLeave);
+  summaryContainer.addEventListener('focusin', handleFocusEnter);
+  summaryContainer.addEventListener('focusout', handleFocusLeave);
+
+  let resizeObserver;
+  if (typeof ResizeObserver === 'function') {
+    resizeObserver = new ResizeObserver(() => {
+      if (!ensureConnected()) return;
+      applyCollapsedHeight();
+      advanceBy(0);
+    });
+    resizeObserver.observe(shell);
+  }
+
+  const handleMotionChange = () => {
+    applyCollapsedHeight();
+    if (reduceMotionQuery && reduceMotionQuery.matches) {
+      cancelAnimationLoop();
+      setOffset(0);
+    } else {
+      ensureAnimationLoop();
+    }
+  };
+
+  if (reduceMotionQuery) {
+    if (typeof reduceMotionQuery.addEventListener === 'function') {
+      reduceMotionQuery.addEventListener('change', handleMotionChange);
+    } else if (typeof reduceMotionQuery.addListener === 'function') {
+      reduceMotionQuery.addListener(handleMotionChange);
+    }
+  }
+
+  const cleanup = () => {
+    if (isDisposed) return;
+    isDisposed = true;
+    cancelAnimationLoop();
+    updateSavedState();
+    track.style.removeProperty('transition');
+    track.style.removeProperty('will-change');
+    track.style.removeProperty('transform');
+    summaryContainer.removeEventListener('mouseenter', handlePointerEnter);
+    summaryContainer.removeEventListener('mouseleave', handlePointerLeave);
+    summaryContainer.removeEventListener('focusin', handleFocusEnter);
+    summaryContainer.removeEventListener('focusout', handleFocusLeave);
+    if (resizeObserver) resizeObserver.disconnect();
+    if (reduceMotionQuery) {
+      if (typeof reduceMotionQuery.removeEventListener === 'function') {
+        reduceMotionQuery.removeEventListener('change', handleMotionChange);
+      } else if (typeof reduceMotionQuery.removeListener === 'function') {
+        reduceMotionQuery.removeListener(handleMotionChange);
+      }
+    }
+    if (flyout) flyout.setAttribute('aria-hidden', 'true');
+    localDraftAutoscrollControllers.delete(summaryContainer);
+    cleanupRef = null;
+    offsetPx = 0;
+    collapsedHeightPx = null;
+  };
+
+  const controller = {
+    cleanup,
+    refresh: () => {
+      applyCollapsedHeight();
+      advanceBy(0);
+      if (shouldAnimate()) ensureAnimationLoop();
+      else cancelAnimationLoop();
+    }
+  };
+
+  cleanupRef = cleanup;
+  localDraftAutoscrollControllers.set(summaryContainer, controller);
+
+  restoreRotation();
+  applyCollapsedHeight();
+  advanceBy(0);
+  if (shouldAnimate()) ensureAnimationLoop();
+}
+
 function updateDiscardButtonVisibility() {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
@@ -1792,41 +2539,806 @@ function updateDiscardButtonVisibility() {
   btn.style.display = shouldShow ? '' : 'none';
 }
 
-function updateUnsyncedSummary() {
-  const el = document.getElementById('composerStatus');
-  if (!el) {
-    updateDiscardButtonVisibility();
-    return;
+function buildLocalDraftSummaryItem(entry) {
+  const item = document.createElement('li');
+  item.className = 'gs-node-drafts-item';
+  if (entry && entry.kind) item.dataset.kind = entry.kind;
+  if (entry && entry.path) item.dataset.path = entry.path;
+  if (entry && entry.state) item.dataset.state = entry.state;
+
+  const name = document.createElement('span');
+  name.className = 'gs-node-drafts-label';
+  name.textContent = entry && entry.label ? entry.label : '';
+
+  if (entry && entry.kind === 'markdown') {
+    let hintText = '';
+    if (entry.state === 'conflict') hintText = ' (conflict)';
+    else if (entry.state === 'saved') hintText = ' (draft saved)';
+    if (hintText) {
+      const hint = document.createElement('span');
+      hint.className = 'gs-node-drafts-hint';
+      hint.textContent = hintText;
+      name.appendChild(hint);
+    }
   }
+
+  item.appendChild(name);
+  return item;
+}
+
+function updateUnsyncedSummary() {
+  const summaryContainer = document.getElementById('localDraftSummary');
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
+  const globalStatusEl = document.getElementById('global-status');
+  const globalLocalStateEl = document.getElementById('globalLocalState');
+  const globalArrowLabelEl = document.getElementById('globalArrowLabel');
   if (summaryEntries.length) {
-    el.innerHTML = '';
-    const prefix = document.createElement('span');
-    prefix.className = 'composer-summary-prefix';
-    prefix.textContent = `${DIRTY_STATUS_MESSAGE} → `;
-    el.appendChild(prefix);
-    summaryEntries.forEach((entry, idx) => {
-      if (idx > 0) el.append(' · ');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'composer-summary-link';
-      btn.textContent = entry.label;
-      btn.dataset.kind = entry.kind;
-      if (entry.hasOrderChange) btn.dataset.order = '1';
-      if (entry.hasContentChange) btn.dataset.content = '1';
-      btn.addEventListener('click', () => openComposerDiffModal(entry.kind));
-      el.appendChild(btn);
-    });
-    el.dataset.summary = '1';
-    el.dataset.state = 'dirty';
+    if (summaryContainer) {
+      teardownLocalDraftAutoscroll(summaryContainer);
+      summaryContainer.innerHTML = '';
+      summaryContainer.hidden = false;
+      summaryContainer.removeAttribute('aria-hidden');
+      summaryContainer.setAttribute('tabindex', '0');
+      summaryContainer.dataset.count = String(summaryEntries.length);
+      summaryContainer.classList.remove('has-many');
+
+      const collapsed = document.createElement('div');
+      collapsed.className = 'gs-node-drafts-collapsed';
+
+      const shell = document.createElement('div');
+      shell.className = 'gs-node-drafts-shell';
+
+      const track = document.createElement('ul');
+      track.className = 'gs-node-drafts-list gs-node-drafts-track';
+      summaryEntries.forEach(entry => {
+        track.appendChild(buildLocalDraftSummaryItem(entry));
+      });
+
+      shell.appendChild(track);
+      collapsed.appendChild(shell);
+      summaryContainer.appendChild(collapsed);
+
+      const flyout = document.createElement('div');
+      flyout.className = 'gs-node-drafts-flyout';
+      flyout.setAttribute('aria-hidden', 'true');
+
+      const flyoutCard = document.createElement('div');
+      flyoutCard.className = 'gs-node-drafts-flyout-card';
+
+      const flyoutList = document.createElement('ul');
+      flyoutList.className = 'gs-node-drafts-list gs-node-drafts-overlay';
+      summaryEntries.forEach(entry => {
+        flyoutList.appendChild(buildLocalDraftSummaryItem(entry));
+      });
+
+      flyoutCard.appendChild(flyoutList);
+      flyout.appendChild(flyoutCard);
+      summaryContainer.appendChild(flyout);
+
+      setupLocalDraftAutoscroll(summaryContainer, shell, track);
+    }
+    const count = summaryEntries.length;
+    if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
+    if (globalArrowLabelEl) {
+      if (count === 1) globalArrowLabelEl.textContent = '1 pending';
+      else globalArrowLabelEl.textContent = `${count} pending`;
+    }
+    if (globalLocalStateEl) {
+      globalLocalStateEl.textContent = '';
+      globalLocalStateEl.hidden = true;
+    }
     updateReviewButton(summaryEntries);
   } else {
-    el.textContent = CLEAN_STATUS_MESSAGE;
-    el.dataset.summary = '0';
-    el.dataset.state = 'clean';
+    if (summaryContainer) {
+      teardownLocalDraftAutoscroll(summaryContainer);
+      summaryContainer.innerHTML = '';
+      summaryContainer.hidden = true;
+      summaryContainer.setAttribute('aria-hidden', 'true');
+      summaryContainer.removeAttribute('tabindex');
+      delete summaryContainer.dataset.count;
+      summaryContainer.classList.remove('has-many');
+      summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
+    }
+    if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
+    if (globalLocalStateEl) {
+      globalLocalStateEl.hidden = false;
+      globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
+    }
     updateReviewButton([]);
   }
+  updateModeDirtyIndicators(summaryEntries);
+}
+
+function findDynamicTabByPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  const modeId = dynamicEditorTabsByPath.get(normalized);
+  if (!modeId) return null;
+  return dynamicEditorTabs.get(modeId) || null;
+}
+
+function encodeContentToBase64(text) {
+  const input = String(text == null ? '' : text);
+  if (typeof window !== 'undefined' && typeof window.TextEncoder === 'function') {
+    try {
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(input);
+      const chunkSize = 0x8000;
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const slice = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, slice);
+      }
+      return btoa(binary);
+    } catch (_) {
+      /* fall through to fallback */
+    }
+  }
+  try {
+    return btoa(unescape(encodeURIComponent(input)));
+  } catch (_) {
+    let binary = '';
+    for (let i = 0; i < input.length; i += 1) {
+      const code = input.charCodeAt(i);
+      if (code > 0xFF) {
+        binary += String.fromCharCode(code >> 8, code & 0xFF);
+      } else {
+        binary += String.fromCharCode(code);
+      }
+    }
+    return btoa(binary);
+  }
+}
+
+function gatherLocalChangesForCommit() {
+  const files = [];
+  const seenPaths = new Set();
+  const addFile = (entry) => {
+    if (!entry || !entry.path) return;
+    const key = entry.path.replace(/\\+/g, '/');
+    if (seenPaths.has(key)) return;
+    seenPaths.add(key);
+    files.push({ ...entry, path: key });
+  };
+
+  try {
+    dynamicEditorTabs.forEach((tab) => { flushMarkdownDraft(tab); });
+  } catch (_) { /* ignore */ }
+
+  const root = getContentRootSafe();
+  const normalizedRoot = String(root || '')
+    .replace(/\\+/g, '/').replace(/\/?$/, '');
+  const rootPrefix = normalizedRoot ? `${normalizedRoot}/` : '';
+
+  if (composerDiffCache.index && composerDiffCache.index.hasChanges) {
+    const state = getStateSlice('index') || { __order: [] };
+    const yaml = toIndexYaml(state);
+    addFile({ kind: 'index', label: 'index.yaml', path: `${rootPrefix}index.yaml`, content: yaml });
+  }
+  if (composerDiffCache.tabs && composerDiffCache.tabs.hasChanges) {
+    const state = getStateSlice('tabs') || { __order: [] };
+    const yaml = toTabsYaml(state);
+    addFile({ kind: 'tabs', label: 'tabs.yaml', path: `${rootPrefix}tabs.yaml`, content: yaml });
+  }
+
+  const markdownEntries = collectUnsyncedMarkdownEntries();
+  if (markdownEntries && markdownEntries.length) {
+    const editorApi = getPrimaryEditorApi();
+    const activeTab = getActiveDynamicTab();
+    let activeValue = null;
+    if (editorApi && typeof editorApi.getValue === 'function' && activeTab && activeTab.mode === currentMode) {
+      try { activeValue = String(editorApi.getValue() || ''); }
+      catch (_) { activeValue = null; }
+    }
+    const draftStore = readMarkdownDraftStore();
+    markdownEntries.forEach((entry) => {
+      const rel = normalizeRelPath(entry.path);
+      if (!rel) return;
+      const repoPath = `${rootPrefix}${rel}`;
+      const tab = findDynamicTabByPath(rel);
+      let text = '';
+      if (tab) {
+        if (tab === activeTab && activeValue != null) {
+          tab.content = activeValue;
+        }
+        if (tab.content != null && tab.content !== undefined) {
+          text = normalizeMarkdownContent(tab.content);
+        } else if (tab.localDraft && tab.localDraft.content != null) {
+          text = normalizeMarkdownContent(tab.localDraft.content);
+        }
+      } else if (draftStore && draftStore[rel] && typeof draftStore[rel] === 'object') {
+        const draft = draftStore[rel];
+        if (draft.content != null) text = normalizeMarkdownContent(draft.content);
+      }
+      addFile({
+        kind: 'markdown',
+        label: rel,
+        path: repoPath,
+        content: text,
+        markdownPath: rel,
+        state: entry.state || ''
+      });
+    });
+  }
+
+  return { files };
+}
+
+async function githubGraphqlRequest(token, query, variables = {}) {
+  const trimmedToken = String(token || '').trim();
+  if (!trimmedToken) throw new Error('GitHub token is required.');
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${trimmedToken}`,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  const body = JSON.stringify({ query, variables });
+  let response;
+  try {
+    response = await fetch('https://api.github.com/graphql', { method: 'POST', headers, body });
+  } catch (err) {
+    const error = new Error('Network error while reaching GitHub.');
+    error.cause = err;
+    throw error;
+  }
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    payload = null;
+  }
+  if (!response.ok) {
+    const error = new Error((payload && payload.message) || `GitHub API error (${response.status})`);
+    error.status = response.status;
+    error.response = payload;
+    throw error;
+  }
+  if (payload && Array.isArray(payload.errors) && payload.errors.length) {
+    const first = payload.errors[0];
+    const error = new Error((first && first.message) || 'GitHub GraphQL error.');
+    error.status = response.status;
+    error.response = payload;
+    throw error;
+  }
+  return payload ? payload.data : null;
+}
+
+function describeSummaryEntry(entry) {
+  if (!entry) return '';
+  const base = entry.label || entry.path || entry.kind || '';
+  if (entry.kind === 'markdown') {
+    const status = entry.state ? ` (${entry.state})` : '';
+    return `${base}${status}`;
+  }
+  if (entry.kind === 'index' || entry.kind === 'tabs') {
+    const bits = [];
+    if (entry.hasContentChange) bits.push('content');
+    if (entry.hasOrderChange) bits.push('order');
+    if (!bits.length) return base;
+    return `${base} – ${bits.join(' & ')} changes`;
+  }
+  return base;
+}
+
+function promptForFineGrainedToken(summaryEntries = []) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'ns-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    const dialog = document.createElement('div');
+    dialog.className = 'ns-modal-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'nsGithubTokenTitle');
+
+    const head = document.createElement('div');
+    head.className = 'comp-guide-head';
+    const headLeft = document.createElement('div');
+    headLeft.className = 'comp-head-left';
+    const title = document.createElement('strong');
+    title.id = 'nsGithubTokenTitle';
+    title.textContent = 'Synchronize with GitHub';
+    const subtitle = document.createElement('span');
+    subtitle.className = 'muted';
+    subtitle.textContent = 'Provide a Fine-grained Personal Access Token with repository contents access.';
+    headLeft.appendChild(title);
+    headLeft.appendChild(subtitle);
+    const btnClose = document.createElement('button');
+    btnClose.type = 'button';
+    btnClose.className = 'ns-modal-close btn-secondary';
+    btnClose.textContent = 'Cancel';
+    btnClose.setAttribute('aria-label', 'Cancel');
+    head.appendChild(headLeft);
+    head.appendChild(btnClose);
+    dialog.appendChild(head);
+
+    const form = document.createElement('form');
+    form.className = 'comp-guide';
+    form.setAttribute('novalidate', 'novalidate');
+
+    const summaryBlock = document.createElement('div');
+    summaryBlock.style.margin = '.25rem 0 1rem';
+    if (Array.isArray(summaryEntries) && summaryEntries.length) {
+      const info = document.createElement('p');
+      info.textContent = 'The following files will be committed:';
+      summaryBlock.appendChild(info);
+      const list = document.createElement('ul');
+      list.style.margin = '.4rem 0 0';
+      list.style.paddingLeft = '1.25rem';
+      summaryEntries.forEach((entry) => {
+        const item = document.createElement('li');
+        item.textContent = describeSummaryEntry(entry);
+        list.appendChild(item);
+      });
+      summaryBlock.appendChild(list);
+    }
+    form.appendChild(summaryBlock);
+
+    const tokenField = document.createElement('label');
+    tokenField.style.display = 'block';
+    tokenField.style.marginBottom = '.75rem';
+    tokenField.textContent = 'Fine-grained Personal Access Token';
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.required = true;
+    input.style.display = 'block';
+    input.style.width = '100%';
+    input.style.marginTop = '.35rem';
+    input.style.borderRadius = '6px';
+    input.style.border = '1px solid var(--border)';
+    input.style.background = 'var(--card)';
+    input.style.color = 'var(--text)';
+    input.style.padding = '.5rem .6rem';
+    const cached = getCachedFineGrainedToken();
+    if (cached) input.value = cached;
+    tokenField.appendChild(input);
+    form.appendChild(tokenField);
+
+    const help = document.createElement('p');
+    help.className = 'muted';
+    help.style.fontSize = '.85rem';
+    help.innerHTML = 'Create a token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> with access to the repository\'s contents. The token is stored for this browser session only.';
+    form.appendChild(help);
+
+    const errorText = document.createElement('p');
+    errorText.className = 'muted';
+    errorText.style.color = '#dc2626';
+    errorText.style.fontSize = '.85rem';
+    errorText.style.marginTop = '.35rem';
+    errorText.hidden = true;
+    form.appendChild(errorText);
+
+    const footer = document.createElement('div');
+    footer.style.display = 'flex';
+    footer.style.justifyContent = 'flex-end';
+    footer.style.gap = '.5rem';
+    footer.style.marginTop = '1rem';
+
+    const btnForget = document.createElement('button');
+    btnForget.type = 'button';
+    btnForget.className = 'btn-secondary';
+    btnForget.textContent = 'Forget token';
+    if (!cached) btnForget.hidden = true;
+    footer.appendChild(btnForget);
+
+    const btnSubmit = document.createElement('button');
+    btnSubmit.type = 'submit';
+    btnSubmit.className = 'btn-primary';
+    btnSubmit.textContent = 'Commit changes';
+    footer.appendChild(btnSubmit);
+
+    form.appendChild(footer);
+    dialog.appendChild(form);
+    modal.appendChild(dialog);
+    document.body.appendChild(modal);
+
+    let resolved = false;
+    const reduceMotion = (function () {
+      try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+      catch (_) { return false; }
+    })();
+
+    const close = (result) => {
+      if (resolved) return;
+      resolved = true;
+      const finish = () => {
+        try { modal.remove(); } catch (_) {}
+        document.body.classList.remove('ns-modal-open');
+        resolve(result);
+      };
+      if (reduceMotion) { finish(); return; }
+      try { modal.classList.remove('ns-anim-in'); modal.classList.add('ns-anim-out'); }
+      catch (_) {}
+      const onEnd = () => {
+        dialog.removeEventListener('animationend', onEnd);
+        try { modal.classList.remove('ns-anim-out'); } catch (_) {}
+        finish();
+      };
+      try {
+        dialog.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(onEnd, 200);
+      } catch (_) { onEnd(); }
+    };
+
+    const open = () => {
+      document.body.classList.add('ns-modal-open');
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      if (!reduceMotion) {
+        try {
+          modal.classList.add('ns-anim-in');
+          const onEnd = () => {
+            dialog.removeEventListener('animationend', onEnd);
+            try { modal.classList.remove('ns-anim-in'); } catch (_) {}
+          };
+          dialog.addEventListener('animationend', onEnd, { once: true });
+        } catch (_) {}
+      }
+      requestAnimationFrame(() => {
+        try { input.focus({ preventScroll: true }); }
+        catch (_) { input.focus(); }
+      });
+    };
+
+    const showError = (message) => {
+      errorText.textContent = message;
+      errorText.hidden = false;
+    };
+
+    btnClose.addEventListener('click', () => close(null));
+    modal.addEventListener('mousedown', (event) => {
+      if (event.target === modal) close(null);
+    });
+    modal.addEventListener('keydown', (event) => {
+      if ((event.key || '').toLowerCase() === 'escape') {
+        event.preventDefault();
+        close(null);
+      }
+    });
+
+    btnForget.addEventListener('click', () => {
+      clearCachedFineGrainedToken();
+      input.value = '';
+      btnForget.hidden = true;
+      errorText.hidden = true;
+      try { input.focus({ preventScroll: true }); }
+      catch (_) { input.focus(); }
+    });
+
+    form.addEventListener('submit', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      const value = String(input.value || '').trim();
+      if (!value) {
+        showError('Enter a Fine-grained Personal Access Token to continue.');
+        try { input.focus({ preventScroll: true }); }
+        catch (_) { input.focus(); }
+        return;
+      }
+      setCachedFineGrainedToken(value);
+      close(value);
+    });
+
+    open();
+  });
+}
+
+async function waitForRemotePropagation(files = []) {
+  if (!Array.isArray(files) || !files.length) return { canceled: false };
+  const unique = [];
+  const seen = new Set();
+  files.forEach((file) => {
+    if (!file || !file.path) return;
+    const normalized = String(file.path).replace(/\\+/g, '/').replace(/^\/+/, '');
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    unique.push({ ...file, path: normalized });
+  });
+  const checkIntervalMs = 30000;
+  const countdownStepMs = 1000;
+  const maxAttempts = 10;
+  let canceled = false;
+  let timedOut = false;
+
+  const cancelHandler = () => {
+    if (canceled) return;
+    canceled = true;
+    setSyncOverlayStatus('Stopping remote checks…');
+  };
+  setSyncOverlayCancelHandler(cancelHandler, true);
+
+  for (const file of unique) {
+    if (canceled || timedOut) break;
+    const expected = normalizeMarkdownContent(file.content || '');
+    const displayLabel = String(file.label || file.path || '').trim() || file.path;
+    let attempt = 0;
+    let confirmed = false;
+    while (!canceled && attempt < maxAttempts) {
+      attempt += 1;
+      setSyncOverlayStatus(`Checking ${displayLabel} (attempt ${attempt})…`);
+      let ok = false;
+      try {
+        const url = `${file.path}?ts=${Date.now()}`;
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (resp.ok) {
+          const text = normalizeMarkdownContent(await resp.text());
+          ok = (text === expected);
+        } else {
+          ok = false;
+        }
+      } catch (_) {
+        ok = false;
+      }
+      if (canceled) break;
+      if (ok) {
+        confirmed = true;
+        break;
+      }
+      for (let remaining = checkIntervalMs; remaining > 0; remaining -= countdownStepMs) {
+        if (canceled) break;
+        const seconds = Math.ceil(remaining / 1000);
+        setSyncOverlayStatus(`Attempt ${attempt} did not match for ${displayLabel}. Next check in ${seconds}s…`);
+        await sleep(Math.min(countdownStepMs, remaining));
+        if (canceled) break;
+      }
+    }
+    if (!canceled && !confirmed) {
+      timedOut = true;
+      setSyncOverlayStatus(`Could not confirm ${displayLabel} after ${maxAttempts} attempts.`);
+    }
+  }
+  setSyncOverlayCancelHandler(null, true);
+  if (canceled) {
+    return { canceled: true };
+  }
+  if (timedOut) {
+    return { canceled: false, timedOut: true };
+  }
+  setSyncOverlayStatus('All files confirmed on site.');
+  return { canceled: false, timedOut: false };
+}
+
+function applyLocalPostCommitState(files = []) {
+  if (!Array.isArray(files) || !files.length) return;
+  const handledMarkdown = new Set();
+  files.forEach((file) => {
+    if (!file || !file.kind) return;
+    if (file.kind === 'index') {
+      const state = getStateSlice('index') || { __order: [] };
+      remoteBaseline.index = deepClone(prepareIndexState(state));
+      notifyComposerChange('index', { skipAutoSave: true });
+      clearDraftStorage('index');
+    } else if (file.kind === 'tabs') {
+      const state = getStateSlice('tabs') || { __order: [] };
+      remoteBaseline.tabs = deepClone(prepareTabsState(state));
+      notifyComposerChange('tabs', { skipAutoSave: true });
+      clearDraftStorage('tabs');
+    } else if (file.kind === 'markdown') {
+      const norm = normalizeRelPath(file.markdownPath || file.label || '');
+      if (!norm) return;
+      handledMarkdown.add(norm);
+      const text = normalizeMarkdownContent(file.content || '');
+      const tab = findDynamicTabByPath(norm);
+      const commitSignature = computeTextSignature(text);
+      const checkedAt = Date.now();
+      if (tab) {
+        const currentText = normalizeMarkdownContent(tab.content || '');
+        const hasNewerLocalContent = currentText !== text;
+        tab.remoteContent = text;
+        tab.remoteSignature = commitSignature;
+        tab.loaded = true;
+        if (hasNewerLocalContent) {
+          const saved = saveMarkdownDraftEntry(norm, tab.content, tab.remoteSignature);
+          if (saved) {
+            tab.localDraft = { ...saved, manual: !!(tab.localDraft && tab.localDraft.manual) };
+          } else if (tab.localDraft) {
+            tab.localDraft = { ...tab.localDraft, remoteSignature: tab.remoteSignature };
+          }
+          updateDynamicTabDirtyState(tab, { autoSave: false });
+          setDynamicTabStatus(tab, {
+            state: 'existing',
+            checkedAt,
+            message: 'Local edits pending sync'
+          });
+        } else {
+          clearMarkdownDraftEntry(norm);
+          tab.content = text;
+          tab.localDraft = null;
+          tab.draftConflict = false;
+          tab.isDirty = false;
+          updateDynamicTabDirtyState(tab, { autoSave: false });
+          setDynamicTabStatus(tab, {
+            state: 'existing',
+            checkedAt,
+            message: 'Synchronized via NanoSite'
+          });
+        }
+      } else {
+        clearMarkdownDraftEntry(norm);
+      }
+      updateComposerMarkdownDraftIndicators({ path: norm });
+    }
+  });
+  updateUnsyncedSummary();
+  updateMarkdownPushButton(getActiveDynamicTab());
+  updateMarkdownDiscardButton(getActiveDynamicTab());
+}
+
+async function performDirectGithubCommit(token, summaryEntries = []) {
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  const branch = String(repo.branch || '').trim() || 'main';
+  if (!owner || !name) {
+    throw new Error('GitHub repository information is missing in site.yaml.');
+  }
+
+  const bubble = document.querySelector('.gs-arrow-bubble');
+  const statusMessageEl = document.getElementById('globalStatusMessage');
+  const globalStatusEl = document.getElementById('global-status');
+  const previousMessage = statusMessageEl ? statusMessageEl.textContent : '';
+  const previousState = globalStatusEl ? globalStatusEl.getAttribute('data-state') : null;
+  let commitSucceeded = false;
+
+  gitHubCommitInFlight = true;
+  if (bubble) {
+    bubble.classList.add('is-busy');
+    bubble.setAttribute('aria-busy', 'true');
+    bubble.setAttribute('aria-label', 'Synchronizing drafts to GitHub');
+    bubble.textContent = 'Syncing…';
+  }
+  if (statusMessageEl) statusMessageEl.textContent = 'Committing to GitHub…';
+  if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'warn');
+
+  showSyncOverlay({
+    title: 'Synchronizing with GitHub…',
+    message: 'Preparing commit…',
+    status: 'Gathering local changes…',
+    cancelable: false
+  });
+
+  try {
+    const { files } = gatherLocalChangesForCommit();
+    if (!files.length) {
+      hideSyncOverlay();
+      showToast('info', 'No pending changes to commit.');
+      return;
+    }
+
+    const branchRef = branch.startsWith('refs/') ? branch : `refs/heads/${branch}`;
+    setSyncOverlayStatus('Fetching repository state…');
+    const headQuery = `
+      query($owner:String!, $name:String!, $ref:String!) {
+        repository(owner:$owner, name:$name) {
+          ref(qualifiedName:$ref) {
+            target {
+              ... on Commit { oid }
+            }
+          }
+        }
+      }
+    `;
+    const headData = await githubGraphqlRequest(token, headQuery, { owner, name, ref: branchRef });
+    const refInfo = headData && headData.repository && headData.repository.ref;
+    const expectedHeadOid = refInfo && refInfo.target && refInfo.target.oid;
+    if (!expectedHeadOid) throw new Error('Unable to resolve the branch head on GitHub.');
+
+    setSyncOverlayStatus('Encoding files…');
+    const additions = files.map((file) => ({
+      path: String(file.path || '').replace(/^\/+/, ''),
+      contents: encodeContentToBase64(file.content || '')
+    }));
+
+    const commitMutation = `
+      mutation($input: CreateCommitOnBranchInput!) {
+        createCommitOnBranch(input: $input) {
+          commit { oid }
+        }
+      }
+    `;
+    const headline = `chore: sync ${files.length === 1 ? 'draft' : 'drafts'} via NanoSite`;
+    const mutationInput = {
+      branch: { repositoryNameWithOwner: `${owner}/${name}`, branchName: branch },
+      message: { headline },
+      expectedHeadOid,
+      fileChanges: { additions }
+    };
+
+    setSyncOverlayStatus('Creating commit…');
+    await githubGraphqlRequest(token, commitMutation, { input: mutationInput });
+
+    setSyncOverlayStatus('Updating editor state…');
+    applyLocalPostCommitState(files);
+    commitSucceeded = true;
+    if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'ok');
+
+    const fileCount = files.length;
+    const summaryLabel = fileCount === 1 ? describeSummaryEntry(summaryEntries[0] || files[0]) : `${fileCount} files`;
+    setSyncOverlayMessage(`Commit pushed for ${summaryLabel}. Waiting for the site to update… This can take a few minutes. If you stop waiting, the commit stays on GitHub but the live site might not show the changes yet.`);
+    const propagationResult = await waitForRemotePropagation(files);
+
+    hideSyncOverlay();
+    if (propagationResult && propagationResult.canceled) {
+      showToast('info', 'Stopped waiting for the live site. Your commit is already on GitHub, but it may take a few minutes to appear.');
+    } else if (propagationResult && propagationResult.timedOut) {
+      showToast('warning', 'Committed files to GitHub, but the live site did not update in time. Check the deploy status manually.');
+    } else {
+      showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
+    }
+  } catch (err) {
+    hideSyncOverlay();
+    let message = err && err.message ? err.message : 'GitHub commit failed.';
+    if (err && err.status === 401) {
+      clearCachedFineGrainedToken();
+      message = 'GitHub rejected the access token. Enter a new Fine-grained Personal Access Token.';
+    }
+    console.error('NanoSite GitHub commit failed', err);
+    showToast('error', message, { duration: 5200 });
+    if (globalStatusEl) globalStatusEl.setAttribute('data-state', 'err');
+  } finally {
+    gitHubCommitInFlight = false;
+    if (statusMessageEl) statusMessageEl.textContent = previousMessage;
+    if (globalStatusEl) {
+      if (commitSucceeded) {
+        globalStatusEl.setAttribute('data-state', 'ok');
+      } else if (globalStatusEl.getAttribute('data-state') !== 'err' && previousState) {
+        globalStatusEl.setAttribute('data-state', previousState);
+      }
+    }
+    if (bubble) {
+      bubble.classList.remove('is-busy');
+      bubble.removeAttribute('aria-busy');
+      bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
+      const pendingCount = computeUnsyncedSummary().length;
+      if (pendingCount) bubble.textContent = pendingCount === 1 ? '1 pending' : `${pendingCount} pending`;
+      else bubble.textContent = 'Synced';
+    }
+  }
+}
+
+async function handleGlobalBubbleActivation(event) {
+  if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  if (gitHubCommitInFlight) return;
+  const summary = computeUnsyncedSummary();
+  if (!summary.length) {
+    showToast('info', 'No local changes to commit.');
+    return;
+  }
+  const repo = window.__ns_site_repo || {};
+  const owner = String(repo.owner || '').trim();
+  const name = String(repo.name || '').trim();
+  if (!owner || !name) {
+    showToast('error', 'Configure repo.owner and repo.name in site.yaml to enable GitHub synchronization.');
+    return;
+  }
+  try {
+    const token = await promptForFineGrainedToken(summary);
+    if (!token) return;
+    await performDirectGithubCommit(token, summary);
+  } catch (_) {
+    /* errors handled downstream */
+  }
+}
+
+function attachGlobalStatusCommitHandler() {
+  const bubble = document.querySelector('.gs-arrow-bubble');
+  if (!bubble || bubble.__nsCommitBound) return;
+  bubble.__nsCommitBound = true;
+  bubble.setAttribute('role', 'button');
+  bubble.setAttribute('tabindex', '0');
+  bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
+  bubble.addEventListener('click', handleGlobalBubbleActivation);
+  bubble.addEventListener('keydown', (event) => {
+    const key = (event && event.key) ? event.key.toLowerCase() : '';
+    if (key === 'enter' || key === ' ') {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      handleGlobalBubbleActivation(event);
+    }
+  });
 }
 
 function computeOrderDiffDetails(kind) {
@@ -3545,6 +5057,18 @@ function dirnameFromPath(relPath) {
   return norm.slice(0, idx);
 }
 
+function extractVersionFromPath(relPath) {
+  try {
+    const match = String(relPath || '').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i);
+    if (!match || !match[0]) return '';
+    const segment = match[0];
+    const slash = segment.lastIndexOf('/');
+    return slash >= 0 ? segment.slice(slash + 1) : segment;
+  } catch (_) {
+    return '';
+  }
+}
+
 function getContentRootSafe() {
   try {
     const root = window.__ns_content_root;
@@ -3576,6 +5100,16 @@ function encodeGitHubPath(path) {
 
 function isDynamicMode(mode) {
   return !!(mode && dynamicEditorTabs.has(mode));
+}
+
+function getFirstDynamicModeId() {
+  try {
+    const iterator = dynamicEditorTabs.keys();
+    const first = iterator.next();
+    return first && !first.done ? first.value : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function getActiveDynamicTab() {
@@ -4113,6 +5647,7 @@ async function closeDynamicTab(modeId, options = {}) {
   dynamicEditorTabs.delete(modeId);
   if (tab.path) dynamicEditorTabsByPath.delete(tab.path);
   try { tab.button?.remove(); } catch (_) {}
+  updateDynamicTabsGroupState();
 
   const wasActive = (currentMode === modeId);
   if (activeDynamicMode === modeId) activeDynamicMode = null;
@@ -4141,7 +5676,7 @@ function getOrCreateDynamicMode(path) {
   const existing = dynamicEditorTabsByPath.get(normalized);
   if (existing) return existing;
 
-  const nav = $('.mode-switch');
+  const nav = getDynamicTabsContainer() || $('.mode-switch');
   if (!nav) return null;
 
   dynamicTabCounter += 1;
@@ -4173,6 +5708,7 @@ function getOrCreateDynamicMode(path) {
 
   btn.appendChild(chip);
   nav.appendChild(btn);
+  updateDynamicTabsGroupState();
 
   const data = {
     mode: modeId,
@@ -4255,7 +5791,10 @@ async function loadDynamicTabContent(tab) {
       tab.remoteContent = '';
       tab.remoteSignature = computeTextSignature('');
       tab.loaded = true;
-      if (!tab.localDraft || !tab.localDraft.content) tab.content = '';
+      if (!tab.localDraft || !tab.localDraft.content) {
+        const template = getDefaultMarkdownForPath(rel);
+        tab.content = template || '';
+      }
       setDynamicTabStatus(tab, {
         state: 'missing',
         checkedAt,
@@ -4334,7 +5873,28 @@ function makeDefaultMdTemplate(opts) {
   return lines.join('\n');
 }
 
+function getDefaultMarkdownForPath(relPath) {
+  try {
+    const normalized = normalizeRelPath(relPath);
+    if (!normalized) return '';
+    const clean = normalized.replace(/^\/+/, '');
+    if (!clean.toLowerCase().startsWith('post/')) return '';
+    const version = extractVersionFromPath(clean);
+    return makeDefaultMdTemplate(version ? { version } : undefined);
+  } catch (_) {
+    return '';
+  }
+}
+
 function applyMode(mode) {
+  if (mode === 'editor' && dynamicEditorTabs.size) {
+    const firstDynamicMode = getFirstDynamicModeId();
+    if (firstDynamicMode) {
+      applyMode(firstDynamicMode);
+      return;
+    }
+  }
+
   const candidate = mode || 'composer';
   const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
     ? candidate
@@ -4363,9 +5923,13 @@ function applyMode(mode) {
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
   } catch (_) {}
 
+  const isDynamic = isDynamicMode(nextMode);
   try {
-    $$('.mode-tab').forEach(b => {
-      const isOn = (b.dataset.mode === nextMode);
+    $$('.mode-tab').forEach((b) => {
+      const targetMode = b.classList.contains('dynamic-mode')
+        ? nextMode
+        : (isDynamic ? 'editor' : nextMode);
+      const isOn = (b.dataset.mode === targetMode);
       b.classList.toggle('is-active', isOn);
       b.setAttribute('aria-selected', isOn ? 'true' : 'false');
     });
@@ -4484,6 +6048,7 @@ function applyComposerFile(name) {
 (() => {
   try { applyMode('composer'); } catch (_) {}
   try { applyComposerFile(getInitialComposerFile()); } catch (_) {}
+  try { updateDynamicTabsGroupState(); } catch (_) {}
 })();
 
 // Robust clipboard helper available to all composer flows
@@ -5603,10 +7168,6 @@ function bindComposerUI(state) {
       btn.__composerVerifyBound = true;
       const btnLabel = btn.querySelector('.btn-label');
 
-    // Helper: extract version segment like v1.2.3 from a path
-    function extractVersion(p){
-      try { const m = String(p||'').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i); return m ? m[0].split('/').pop() : ''; } catch(_) { return ''; }
-    }
     function dirname(p){ try { const s=String(p||''); const i=s.lastIndexOf('/'); return i>=0? s.slice(0,i) : ''; } catch(_) { return ''; } }
     function basename(p){ try { const s=String(p||''); const i=s.lastIndexOf('/'); return i>=0? s.slice(i+1) : s; } catch(_) { return String(p||''); } }
     function uniq(arr){ return Array.from(new Set(arr||[])); }
@@ -5662,9 +7223,9 @@ function bindComposerUI(state) {
               try {
                 const r = await fetch(url, { cache: 'no-store' });
                 if (!r || !r.ok) {
-                  out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                  out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) });
                 }
-              } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+              } catch(_) { out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) }); }
             })());
           }
         }
@@ -5683,9 +7244,9 @@ function bindComposerUI(state) {
                 try {
                   const r = await fetch(url, { cache: 'no-store' });
                   if (!r || !r.ok) {
-                    out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) });
+                    out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) });
                   }
-                } catch(_) { out.push({ key, lang, path: rel, version: extractVersion(rel), folder: dirname(rel), filename: basename(rel) }); }
+                } catch(_) { out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) }); }
               })());
             }
           }
@@ -5971,8 +7532,6 @@ function bindComposerUI(state) {
   }
 
 function showStatus(msg, kind = 'info') {
-  const el = $('#composerStatus');
-  if (!el) return;
   if (msg) {
     const type = typeof kind === 'string' ? kind : 'info';
     showToast(type, msg);
@@ -6080,6 +7639,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   bindComposerUI(state);
+  attachGlobalStatusCommitHandler();
   buildIndexUI($('#composerIndex'), state);
   buildTabsUI($('#composerTabs'), state);
 
@@ -6315,11 +7875,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  #composerStatus .composer-summary-prefix{font-weight:600;color:color-mix(in srgb,var(--text) 74%, transparent)}
-  #composerStatus .composer-summary-link{border:0;background:none;padding:.1rem .4rem;font-weight:600;font-size:.92rem;color:color-mix(in srgb,var(--primary) 82%, var(--text));cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;border-radius:999px;transition:color 150ms ease, background-color 150ms ease}
-  #composerStatus .composer-summary-link:hover{color:color-mix(in srgb,var(--primary) 88%, var(--text));background:color-mix(in srgb,var(--primary) 14%, transparent)}
-  #composerStatus .composer-summary-link:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
-  #composerStatus .composer-summary-link[data-order="1"]::after{content:'';width:6px;height:6px;border-radius:999px;background:color-mix(in srgb,var(--primary) 70%, var(--text));box-shadow:0 0 0 1px color-mix(in srgb,var(--card) 80%, transparent)}
+  .gs-node-drafts{--gs-drafts-collapsed-height:3.6rem;--gs-drafts-expanded-max:min(60vh,420px);display:flex;flex-direction:column;gap:.3rem;width:100%;margin-top:.1rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 82%, transparent);position:relative;isolation:isolate;z-index:1}
+  .gs-node-drafts[hidden]{display:none!important}
+  .gs-node-drafts:focus{outline:none}
+  .gs-node-drafts:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:4px}
+  .gs-node-drafts-collapsed{position:relative;z-index:1}
+  .gs-node-drafts-shell{padding:.35rem .5rem;border-radius:.85rem;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 2px 8px rgba(15,23,42,0.06);height:var(--gs-drafts-collapsed-height);min-height:var(--gs-drafts-collapsed-height);overflow:hidden;transition:border-color .18s ease, box-shadow .18s ease}
+  .gs-node-drafts.has-many .gs-node-drafts-shell{cursor:pointer}
+  .gs-node-drafts-track,.gs-node-drafts-overlay{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.18rem;width:100%}
+  .gs-node-drafts-track{will-change:transform}
+  .gs-node-drafts-overlay{max-height:var(--gs-drafts-expanded-max);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin}
+  .gs-node-drafts-flyout{position:absolute;top:0;left:0;width:100%;max-height:var(--gs-drafts-expanded-max);pointer-events:none;opacity:0;transform:translateY(-6px) scale(.98);transform-origin:top center;transition:opacity .16s ease, transform .16s ease;z-index:20}
+  .gs-node-drafts-flyout-card{padding:.35rem .5rem;border-radius:.9rem;border:1px solid color-mix(in srgb,var(--primary) 26%, var(--border));background:color-mix(in srgb,var(--card) 96%, white 4%);box-shadow:0 18px 36px rgba(15,23,42,0.18);max-height:inherit;overflow:visible}
+  .gs-node-drafts.has-many:hover .gs-node-drafts-shell,.gs-node-drafts.has-many:focus-within .gs-node-drafts-shell{border-color:color-mix(in srgb,var(--primary) 28%, var(--border));box-shadow:0 12px 28px rgba(15,23,42,0.16)}
+  .gs-node-drafts.has-many:hover .gs-node-drafts-flyout,.gs-node-drafts.has-many:focus-within .gs-node-drafts-flyout{opacity:1;pointer-events:auto;transform:translateY(0) scale(1)}
+  .gs-node-drafts:not(.has-many) .gs-node-drafts-flyout{display:none}
+  @media (prefers-reduced-motion: reduce){.gs-node-drafts-shell,.gs-node-drafts-flyout{transition:none}}
+  .gs-node-drafts .gs-node-drafts-item{display:flex;align-items:center;gap:.42rem;color:color-mix(in srgb,var(--text) 84%, transparent);line-height:1.25;position:relative;padding-left:calc(1.05rem + .125rem)}
+  .gs-node-drafts .gs-node-drafts-item::before{content:'';position:absolute;left:.125rem;top:calc(50% - .24rem);width:.48rem;height:.48rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 40%, var(--text) 25%);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 10%, transparent)}
+  .gs-node-drafts .gs-node-drafts-label{font-weight:600;color:color-mix(in srgb,var(--text) 90%, transparent);display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap}
+  .gs-node-drafts .gs-node-drafts-hint{font-weight:500;color:color-mix(in srgb,var(--muted) 88%, transparent)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}

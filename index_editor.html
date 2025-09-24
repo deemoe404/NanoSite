@@ -49,17 +49,18 @@
     .sidebar-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
     .sidebar-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
     /* Top mode switch (Editor / Composer): bigger, nav-like */
-    .mode-switch { 
-      display: inline-flex; 
-      gap: .25rem; 
-      align-items: center; 
+    .mode-switch {
+      display: inline-flex;
+      gap: .25rem;
+      align-items: center;
       flex-wrap: wrap;
       row-gap: .25rem;
-      background: var(--card); 
-      border: 1px solid var(--border); 
-      border-radius: 12px; 
-      padding: .25rem; 
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .25rem;
       box-shadow: var(--shadow);
+      min-width: 0;
     }
     .mode-tab {
       appearance: none;
@@ -73,6 +74,13 @@
       cursor: pointer;
       line-height: 1.2;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+      position: relative;
+      overflow: visible;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .35rem;
+      text-align: center;
     }
     .mode-tab:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
     .mode-tab.is-active {
@@ -164,6 +172,36 @@
       color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
       box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
     }
+    .mode-tab-badge {
+      position: absolute;
+      top: -.35rem;
+      right: -.35rem;
+      min-width: 1.25rem;
+      height: 1.25rem;
+      padding: 0 .35rem;
+      border-radius: 999px;
+      background: #ef4444;
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: .01em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 8px rgba(15, 23, 42, 0.22), 0 0 0 2px var(--card);
+      transform: scale(.6);
+      opacity: 0;
+      transition: opacity .18s ease, transform .18s ease;
+      pointer-events: none;
+      z-index: 2;
+      font-feature-settings: 'tnum' 1, 'case' 1;
+    }
+    .mode-tab-badge[hidden] { display: none; }
+    .mode-tab[data-dirty] .mode-tab-badge {
+      opacity: 1;
+      transform: scale(1);
+    }
     .mode-tab.dynamic-mode::before {
       content: '';
       width: .55rem;
@@ -232,6 +270,22 @@
       opacity: 1;
     }
     .mode-tab:focus-visible { outline: 2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset: 2px; }
+    .mode-switch-editor {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .25rem;
+      row-gap: .25rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: .25rem;
+      box-shadow: var(--shadow);
+      margin-bottom: .75rem;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .mode-switch-editor[hidden] { display: none !important; }
     .editor-sidebar .group-title { display:none; }
     .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
     .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -277,20 +331,364 @@
     .editor-sidebar .file-subheader { font-size: .8rem; font-weight: 600; color: var(--muted); padding: .25rem .6rem; text-transform: uppercase; }
     /* Ensure main editor can use full width */
     .editor-main { min-width: 0; overflow: visible; }
-    .page-titlebar { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
+    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
-    .global-status { display:flex; align-items:center; gap:.45rem; color: var(--muted); font-size:.95rem; }
-    .global-status .dot { width:8px; height:8px; border-radius:50%; background:#8c959f; display:inline-block; }
-    .global-status.ok .dot { background:#1f883d; }
-    .global-status.warn .dot { background:#f59e0b; }
-    .global-status.err .dot { background:#dc2626; }
-    .global-status a { color: var(--primary); text-decoration: none; }
-    .global-status a:hover { text-decoration: underline; }
-    .status-stack { display:flex; flex-direction:column; align-items:flex-end; gap:.3rem; text-align:right; }
-    #composerStatus { margin:0; font-size:.85rem; color: var(--muted); min-height: 1.1em; }
-    #composerStatus[data-state="dirty"] { color: color-mix(in srgb, var(--primary) 55%, var(--text)); font-weight: 500; }
-    #composerStatus[data-state="info"] { color: var(--muted); font-weight: 400; }
+    .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
+    .status-stack > * { width:100%; }
+    .global-status {
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:.7rem;
+      color: var(--muted);
+      font-size:.92rem;
+    }
+    .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
+    .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
+    .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
+    .global-status .gs-flow {
+      display:grid;
+      grid-template-columns: max-content minmax(160px, 1fr) max-content;
+      align-items:stretch;
+      justify-content:center;
+      column-gap:1.25rem;
+      width:100%;
+    }
+    .global-status .gs-node {
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:.55rem;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      border:1px solid color-mix(in srgb, var(--border) 80%, transparent);
+      border-radius:16px;
+      padding:.95rem 1rem;
+      min-width:0;
+      position:relative;
+    }
+    @media (min-width: 521px) {
+      .global-status .gs-node-remote,
+      .global-status .gs-arrow {
+        align-self:center;
+      }
+    }
+    .global-status .gs-node::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transition: box-shadow .18s ease, border-color .18s ease; border:2px solid transparent; }
+    .global-status .gs-node-header { display:flex; align-items:center; gap:.55rem; width:100%; }
+    .global-status .gs-node-icon { width:24px; height:24px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
+    .global-status .gs-node-label { display:block; font-size:.82rem; font-weight:700; letter-spacing:.06em; text-transform:none; color: color-mix(in srgb, var(--muted) 70%, transparent); }
+    .global-status .gs-node-state { font-size:.95rem; font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); line-height:1.4; }
+    .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); font-size:.92rem; line-height:1.4; }
+    .global-status .gs-message {
+      display:flex;
+      align-items:center;
+      gap:.45rem;
+      font-size:.86rem;
+      color: color-mix(in srgb, var(--muted) 88%, transparent);
+      line-height:1.45;
+    }
+    .global-status .gs-message::before {
+      content:'';
+      width:.5rem;
+      height:.5rem;
+      border-radius:999px;
+      background: color-mix(in srgb, var(--muted) 72%, transparent);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--muted) 18%, transparent);
+      flex:0 0 auto;
+      transition:background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+      transform:scale(.92);
+    }
+    .global-status[data-state="ok"] .gs-message::before {
+      background:#22c55e;
+      box-shadow:0 0 0 3px color-mix(in srgb, #22c55e 28%, transparent);
+      transform:scale(1);
+    }
+    .global-status[data-state="warn"] .gs-message::before {
+      background:#f59e0b;
+      box-shadow:0 0 0 3px color-mix(in srgb, #f59e0b 28%, transparent);
+      transform:scale(1);
+    }
+    .global-status[data-state="err"] .gs-message::before {
+      background:#ef4444;
+      box-shadow:0 0 0 3px color-mix(in srgb, #ef4444 28%, transparent);
+      transform:scale(1);
+    }
+    .global-status .gs-message:empty { display:none; }
+    .global-status .gs-arrow {
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 2.2rem;
+      width:100%;
+      --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
+      color: var(--gs-arrow-color);
+    }
+    .global-status .gs-arrow::before {
+      content:'';
+      position:absolute;
+      left:0;
+      right:0;
+      top:50%;
+      transform:translateY(-50%);
+      height:2px;
+      background: color-mix(in srgb, currentColor 85%, transparent);
+      opacity:.55;
+    }
+    .global-status .gs-arrow::after {
+      content:'';
+      position:absolute;
+      top:50%;
+      right:0;
+      transform:translate(50%, -50%);
+      width:18px;
+      height:18px;
+      background: currentColor;
+      clip-path: polygon(0 0, 100% 50%, 0 100%);
+      opacity:.75;
+    }
+    .global-status .gs-arrow-tail {
+      position:absolute;
+      left:0;
+      top:50%;
+      transform:translate(-50%, -50%);
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      border:2px solid currentColor;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      box-shadow:0 2px 8px rgba(15, 23, 42, 0.08);
+      pointer-events:none;
+    }
+    .global-status .gs-arrow-bubble {
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:.25rem .75rem;
+      border-radius:999px;
+      font-size:.78rem;
+      font-weight:600;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      white-space:nowrap;
+      color: color-mix(in srgb, var(--muted) 72%, transparent);
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
+      box-shadow:0 6px 18px rgba(15, 23, 42, 0.08);
+      cursor: pointer;
+      user-select: none;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .global-status .gs-arrow-bubble:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 62%, transparent);
+      outline-offset: 2px;
+    }
+    .global-status .gs-arrow-bubble.is-busy {
+      cursor: progress;
+      opacity: .75;
+      box-shadow:0 4px 14px rgba(15, 23, 42, 0.12);
+    }
+    .global-status[data-dirty="1"] .gs-node-local::after { box-shadow:0 0 0 2px color-mix(in srgb, #f97316 26%, transparent); border-color:color-mix(in srgb, #f97316 44%, transparent); }
+    .global-status[data-state="warn"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #f59e0b 24%, transparent); border-color:color-mix(in srgb, #f59e0b 42%, transparent); }
+    .global-status[data-state="err"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #dc2626 26%, transparent); border-color:color-mix(in srgb, #dc2626 46%, transparent); }
+    .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #1f883d 22%, transparent); border-color:color-mix(in srgb, #1f883d 42%, transparent); }
+    .global-status[data-dirty="1"] .gs-arrow { --gs-arrow-color: color-mix(in srgb, #f97316 75%, var(--text) 10%); }
+    .global-status[data-dirty="1"] .gs-arrow-bubble {
+      color: color-mix(in srgb, #9a3412 70%, transparent);
+      background: color-mix(in srgb, #fed7aa 55%, var(--card) 60%);
+      border-color: color-mix(in srgb, #fb923c 40%, var(--border));
+    }
+    .global-status:not([data-dirty="1"]) .gs-arrow { --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent); }
+    .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-arrow-bubble {
+      color: color-mix(in srgb, #166534 74%, transparent);
+      background: color-mix(in srgb, #dcfce7 60%, var(--card) 65%);
+      border-color: color-mix(in srgb, #22c55e 32%, var(--border));
+    }
+    .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow {
+      --gs-arrow-color: color-mix(in srgb, #f59e0b 68%, var(--text) 10%);
+    }
+    .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow-bubble {
+      color: color-mix(in srgb, #92400e 70%, transparent);
+      background: color-mix(in srgb, #fef3c7 60%, var(--card) 68%);
+      border-color: color-mix(in srgb, #f59e0b 38%, var(--border));
+    }
+    .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow {
+      --gs-arrow-color: color-mix(in srgb, #ef4444 70%, var(--text) 12%);
+    }
+    .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow-bubble {
+      color: color-mix(in srgb, #991b1b 72%, transparent);
+      background: color-mix(in srgb, #fee2e2 60%, var(--card) 65%);
+      border-color: color-mix(in srgb, #f87171 42%, var(--border));
+    }
+    @media (max-width: 520px) {
+      .global-status .gs-flow {
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+        gap:.75rem;
+      }
+      .global-status .gs-arrow {
+        padding:1.5rem 0 .5rem;
+      }
+      .global-status .gs-arrow::before {
+        left:50%;
+        right:auto;
+        top:0;
+        bottom:0;
+        width:2px;
+        height:auto;
+        transform:none;
+      }
+      .global-status .gs-arrow::after {
+        top:auto;
+        bottom:0;
+        right:50%;
+        transform:translate(50%, 50%);
+        width:0;
+        height:0;
+        background:none;
+        clip-path:none;
+        border-left:8px solid transparent;
+        border-right:8px solid transparent;
+        border-top:10px solid currentColor;
+      }
+      .global-status .gs-arrow-tail {
+        top:0;
+        left:50%;
+        transform:translate(-50%, -50%);
+      }
+      .global-status .gs-arrow-bubble {
+        margin:.4rem auto 0;
+      }
+    }
+    .gs-node-drafts {
+      --gs-drafts-collapsed-height: 3.6rem;
+      --gs-drafts-expanded-max: min(60vh, 420px);
+      display:flex;
+      flex-direction:column;
+      gap:.3rem;
+      width:100%;
+      margin-top:.1rem;
+      font-size:.88rem;
+      color: color-mix(in srgb, var(--text) 82%, transparent);
+      position:relative;
+      isolation:isolate;
+      z-index:1;
+    }
+    .gs-node-drafts[hidden] { display:none !important; }
+    .gs-node-drafts:focus { outline:none; }
+    .gs-node-drafts:focus-visible {
+      outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+      outline-offset:4px;
+    }
+    .gs-node-drafts-collapsed {
+      position:relative;
+      z-index:1;
+    }
+    .gs-node-drafts-shell {
+      padding:.35rem .5rem;
+      border-radius:.85rem;
+      border:1px solid color-mix(in srgb, var(--border) 78%, transparent);
+      background: color-mix(in srgb, var(--card) 98%, transparent);
+      box-shadow:0 2px 8px rgba(15, 23, 42, 0.06);
+      height: var(--gs-drafts-collapsed-height);
+      min-height: var(--gs-drafts-collapsed-height);
+      overflow:hidden;
+      transition:border-color .18s ease, box-shadow .18s ease;
+    }
+    .gs-node-drafts.has-many .gs-node-drafts-shell { cursor:pointer; }
+    .gs-node-drafts-track,
+    .gs-node-drafts-overlay {
+      list-style:none;
+      margin:0;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      gap:.18rem;
+      width:100%;
+    }
+    .gs-node-drafts-track { will-change:transform; }
+    .gs-node-drafts-overlay {
+      max-height: var(--gs-drafts-expanded-max);
+      overflow-y:auto;
+      overscroll-behavior:contain;
+      scrollbar-gutter:stable;
+      scrollbar-width:thin;
+    }
+    .gs-node-drafts-flyout {
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      max-height: var(--gs-drafts-expanded-max);
+      pointer-events:none;
+      opacity:0;
+      transform:translateY(-6px) scale(.98);
+      transform-origin:top center;
+      transition:opacity .16s ease, transform .16s ease;
+      z-index:20;
+    }
+    .gs-node-drafts-flyout-card {
+      padding:.35rem .5rem;
+      border-radius:.9rem;
+      border:1px solid color-mix(in srgb, var(--primary) 26%, var(--border));
+      background: color-mix(in srgb, var(--card) 96%, white 4%);
+      box-shadow:0 18px 36px rgba(15, 23, 42, 0.18);
+      max-height:inherit;
+      overflow:visible;
+    }
+    .gs-node-drafts.has-many:hover .gs-node-drafts-shell,
+    .gs-node-drafts.has-many:focus-within .gs-node-drafts-shell {
+      border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+      box-shadow:0 12px 28px rgba(15, 23, 42, 0.16);
+    }
+    .gs-node-drafts.has-many:hover .gs-node-drafts-flyout,
+    .gs-node-drafts.has-many:focus-within .gs-node-drafts-flyout {
+      opacity:1;
+      pointer-events:auto;
+      transform:translateY(0) scale(1);
+    }
+    .gs-node-drafts:not(.has-many) .gs-node-drafts-flyout { display:none; }
+    @media (prefers-reduced-motion: reduce) {
+      .gs-node-drafts-shell,
+      .gs-node-drafts-flyout {
+        transition:none;
+      }
+    }
+    .gs-node-drafts .gs-node-drafts-item {
+      display:flex;
+      align-items:center;
+      gap:.42rem;
+      color: color-mix(in srgb, var(--text) 84%, transparent);
+      line-height:1.25;
+      position:relative;
+      padding-left: calc(1.05rem + .125rem);
+    }
+    .gs-node-drafts .gs-node-drafts-item::before {
+      content:'';
+      position:absolute;
+      left:.125rem;
+      top:calc(50% - .24rem);
+      width:.48rem;
+      height:.48rem;
+      border-radius:999px;
+      background: color-mix(in srgb, var(--primary) 40%, var(--text) 25%);
+      box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
+    }
+    .gs-node-drafts .gs-node-drafts-label {
+      font-weight:600;
+      color: color-mix(in srgb, var(--text) 90%, transparent);
+      display:inline-flex;
+      align-items:center;
+      gap:.25rem;
+      flex-wrap:wrap;
+    }
+    .gs-node-drafts .gs-node-drafts-hint {
+      font-weight:500;
+      color: color-mix(in srgb, var(--muted) 88%, transparent);
+    }
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
@@ -548,17 +946,56 @@
   <div class="editor-page">
     <div class="page-titlebar">
       <nav class="mode-switch" role="tablist" aria-label="Mode switch">
-        <button class="mode-tab is-active" data-mode="composer" role="tab" aria-controls="mode-composer" aria-selected="true">Composer</button>
+        <button class="mode-tab is-active" data-mode="composer" data-tab-label="Composer" role="tab" aria-controls="mode-composer" aria-selected="true" aria-label="Composer">
+          Composer
+          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+        </button>
+        <button class="mode-tab" data-mode="editor" data-tab-label="Editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor">
+          Editor
+          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+        </button>
       </nav>
       <div class="status-stack">
-        <div id="global-status" class="global-status" aria-live="polite"></div>
-        <div id="composerStatus" class="status" data-summary="0" aria-live="polite"></div>
+        <div id="global-status" class="global-status" aria-live="polite">
+          <div class="gs-flow">
+            <div class="gs-node gs-node-local">
+              <div class="gs-node-header">
+                <span class="gs-node-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4.75 4h14.5A1.75 1.75 0 0 1 21 5.75v8.5A1.75 1.75 0 0 1 19.25 16H4.75A1.75 1.75 0 0 1 3 14.25v-8.5A1.75 1.75 0 0 1 4.75 4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M7 20h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M9 16v1.25A1.75 1.75 0 0 0 10.75 19h2.5A1.75 1.75 0 0 0 15 17.25V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="gs-node-label">LOCAL changes</span>
+              </div>
+              <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
+              <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
+            </div>
+            <span class="gs-arrow" aria-hidden="true">
+              <span class="gs-arrow-tail"></span>
+              <span class="gs-arrow-bubble" id="globalArrowLabel">Synced</span>
+            </span>
+            <div class="gs-node gs-node-remote">
+              <div class="gs-node-header">
+                <span class="gs-node-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
+                  </svg>
+                </span>
+                <span class="gs-node-label">GitHub</span>
+              </div>
+              <span class="gs-repo" id="globalStatusRepo">Loading GitHub settings…</span>
+              <span class="gs-message" id="globalStatusMessage">Checking connection…</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Editor Mode -->
     <div class="editor-layout" id="mode-editor">
-      <aside class="editor-sidebar box" aria-label="Articles sidebar">
+      <aside class="editor-sidebar" aria-label="Articles sidebar">
         <div class="sidebar-title">Articles</div>
         <div class="sidebar-tabs" role="tablist">
           <button class="sidebar-tab is-active" data-target="index" role="tab" aria-selected="true">Posts</button>
@@ -579,6 +1016,7 @@
       </aside>
 
       <section class="box editor-main">
+        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" hidden aria-hidden="true"></nav>
         <div class="toolbar">
           <div class="left-actions">
             <span class="current-file" id="currentFile" aria-live="polite"></span>
