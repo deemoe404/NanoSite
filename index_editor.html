@@ -43,13 +43,13 @@
       .editor-layout { grid-template-columns: 1fr; }
     }
     .editor-layout.is-empty .editor-main { display: none; }
-    .editor-empty-state { display: none; grid-column: 1 / -1; min-height: clamp(320px, 60vh, 640px); align-items: center; justify-content: center; text-align: center; padding: 2.5rem 1.5rem; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--card) 96%, transparent); color: var(--muted); }
+    .editor-empty-state { display: none; grid-column: 1 / -1; align-self: center; justify-self: center; align-items: center; justify-content: center; text-align: center; padding: clamp(1.75rem, 2vw + 1.2rem, 2.25rem) clamp(1.5rem, 2.8vw + 1rem, 2.75rem); border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--card) 96%, transparent); color: var(--muted); width: min(100%, 520px); box-shadow: 0 20px 36px rgba(15, 23, 42, 0.08); }
     .editor-layout.is-empty .editor-empty-state { display: flex; }
-    .editor-empty-state .empty-body { display: flex; flex-direction: column; gap: .75rem; align-items: center; justify-content: center; max-width: min(520px, 100%); }
+    .editor-empty-state .empty-body { display: flex; flex-direction: column; gap: .85rem; align-items: center; justify-content: center; }
     .editor-empty-state h2 { margin: 0; font-size: 1.4rem; font-weight: 700; color: var(--text); }
     .editor-empty-state p { margin: 0; font-size: 1rem; line-height: 1.6; }
     @media (max-width: 600px) {
-      .editor-empty-state { padding: 2rem 1.25rem; min-height: clamp(260px, 55vh, 520px); }
+      .editor-empty-state { padding: clamp(1.5rem, 6vw + .75rem, 1.9rem) clamp(1.25rem, 5vw + .85rem, 2.1rem); width: min(100%, 460px); }
       .editor-empty-state h2 { font-size: 1.25rem; }
       .editor-empty-state p { font-size: .95rem; }
     }
