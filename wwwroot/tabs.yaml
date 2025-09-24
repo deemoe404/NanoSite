@@ -1,23 +1,12 @@
 # yaml-language-server: $schema=../assets/schema/tabs.json
 
-History:
+Hello_World:
   en:
-    title: Updates
-    location: tab/history/en.md
+    title: Hello, World!
+    location: tab/hello_world_en.md
   zh:
-    title: 更新日志
-    location: tab/history/zh.md
+    title: 你好，世界！
+    location: tab/hello_world_zh.md
   ja:
-    title: 更新履歴
-    location: tab/history/ja.md
-
-About:
-  en:
-    title: About
-    location: tab/about/en.md
-  zh:
-    title: 关于微站
-    location: tab/about/zh.md
-  ja:
-    title: 概要
-    location: tab/about/ja.md
+    title: こんにちは、世界！
+    location: tab/hello_world_ja.md
