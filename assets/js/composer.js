@@ -4672,6 +4672,7 @@ function updateComposerOrderPreview(kind, options = {}) {
       if (!row) return;
       rightMap.set(entry.key, row);
       bindComposerOrderHover(row, entry.key);
+      observeComposerOrderRow(row, normalized);
     });
   }
 
@@ -4773,6 +4774,25 @@ function updateComposerOrderPreview(kind, options = {}) {
     requestAnimationFrame(() => drawOrderDiffLines(state));
     setTimeout(() => drawOrderDiffLines(state), 120);
   }
+}
+
+function observeComposerOrderRow(row, kind) {
+  if (!row || typeof ResizeObserver !== 'function') return;
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const existing = row.__nsOrderResize;
+  if (existing && existing.kind === normalized) return;
+  try {
+    if (existing && existing.observer) {
+      existing.observer.disconnect();
+    }
+  } catch (_) {}
+  try {
+    const observer = new ResizeObserver(() => {
+      scheduleComposerOrderPreviewRelayout(normalized);
+    });
+    observer.observe(row);
+    row.__nsOrderResize = { observer, kind: normalized };
+  } catch (_) {}
 }
 
 function setComposerOrderPreviewActiveKind(kind) {
