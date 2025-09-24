@@ -3493,28 +3493,6 @@ function attachGlobalStatusCommitHandler() {
       handleGlobalBubbleActivation(event);
     }
   });
-  const restoreHoverLabel = () => {
-    if (!bubble.dataset) return;
-    const original = bubble.dataset.hoverLabel;
-    if (bubble.classList.contains('is-busy')) {
-      delete bubble.dataset.hoverLabel;
-      return;
-    }
-    if (original != null) {
-      bubble.textContent = original;
-    }
-    delete bubble.dataset.hoverLabel;
-  };
-  bubble.addEventListener('pointerenter', () => {
-    if (bubble.classList.contains('is-busy')) return;
-    if (!bubble.dataset.hoverLabel) {
-      bubble.dataset.hoverLabel = bubble.textContent || '';
-    }
-    bubble.textContent = 'UPLOAD';
-  });
-  bubble.addEventListener('pointerleave', restoreHoverLabel);
-  bubble.addEventListener('pointercancel', restoreHoverLabel);
-  bubble.addEventListener('blur', restoreHoverLabel);
 }
 
 function computeOrderDiffDetails(kind) {

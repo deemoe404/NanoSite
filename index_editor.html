@@ -397,24 +397,21 @@
       display:flex;
       align-items:center;
       justify-content:center;
+      padding:0 2.2rem;
       width:100%;
-      --gs-arrow-gap: clamp(1.65rem, 4vw, 2.75rem);
       --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
       color: var(--gs-arrow-color);
-      padding-inline: var(--gs-arrow-gap);
     }
     .global-status .gs-arrow::before {
       content:'';
       position:absolute;
-      left: calc(-1 * var(--gs-arrow-gap));
-      right: calc(-1 * var(--gs-arrow-gap));
+      left:0;
+      right:0;
       top:50%;
       transform:translateY(-50%);
-      height:3px;
-      border-radius:999px;
-      background: color-mix(in srgb, currentColor 82%, transparent);
-      box-shadow:0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
-      opacity:.7;
+      height:2px;
+      background: color-mix(in srgb, currentColor 85%, transparent);
+      opacity:.55;
     }
     @keyframes gs-arrow-flow {
       0% { background-position: 0% 0; }
@@ -425,22 +422,22 @@
       100% { background-position: 0% 200%; }
     }
     .global-status .gs-arrow.is-pending::before {
-      background-color: color-mix(in srgb, currentColor 55%, transparent);
+      background-color: color-mix(in srgb, currentColor 65%, transparent);
       background-image: linear-gradient(90deg,
-        color-mix(in srgb, currentColor 18%, transparent) 0%,
-        color-mix(in srgb, currentColor 38%, transparent) 30%,
-        color-mix(in srgb, currentColor 90%, white 22%) 50%,
-        color-mix(in srgb, currentColor 38%, transparent) 70%,
-        color-mix(in srgb, currentColor 12%, transparent) 100%);
-      background-size: 240% 100%;
-      animation: gs-arrow-flow 1.05s linear infinite;
-      opacity:1;
+        transparent 0%,
+        color-mix(in srgb, currentColor 65%, transparent) 25%,
+        currentColor 50%,
+        color-mix(in srgb, currentColor 65%, transparent) 75%,
+        transparent 100%);
+      background-size: 200% 100%;
+      animation: gs-arrow-flow 1.15s linear infinite;
+      opacity:.8;
     }
     .global-status .gs-arrow::after {
       content:'';
       position:absolute;
       top:50%;
-      right: calc(-1 * var(--gs-arrow-gap));
+      right:0;
       transform:translate(50%, -50%);
       width:18px;
       height:18px;
@@ -450,7 +447,7 @@
     }
     .global-status .gs-arrow-tail {
       position:absolute;
-      left: calc(-1 * var(--gs-arrow-gap));
+      left:0;
       top:50%;
       transform:translate(-50%, -50%);
       width:12px;
@@ -538,7 +535,6 @@
       }
       .global-status .gs-arrow {
         padding:1.5rem 0 .5rem;
-        --gs-arrow-gap: 2.1rem;
       }
       .global-status .gs-arrow::before {
         left:50%;
@@ -548,7 +544,6 @@
         width:2px;
         height:auto;
         transform:none;
-        box-shadow:0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
       }
       .global-status .gs-arrow.is-pending::before {
         background-image: linear-gradient(180deg,
@@ -557,7 +552,7 @@
           currentColor 50%,
           color-mix(in srgb, currentColor 65%, transparent) 75%,
           transparent 100%);
-        background-size: 100% 240%;
+        background-size: 100% 200%;
         animation: gs-arrow-flow-vertical 1.15s linear infinite;
       }
       .global-status .gs-arrow::after {
