@@ -2724,6 +2724,7 @@ function updateUnsyncedSummary() {
   const globalStatusEl = document.getElementById('global-status');
   const globalLocalStateEl = document.getElementById('globalLocalState');
   const globalArrowLabelEl = document.getElementById('globalArrowLabel');
+  const globalArrowEl = document.querySelector('.gs-arrow');
   if (summaryEntries.length) {
     if (summaryContainer) {
       teardownLocalDraftAutoscroll(summaryContainer);
@@ -2771,6 +2772,7 @@ function updateUnsyncedSummary() {
     }
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
+    if (globalArrowEl) globalArrowEl.classList.add('is-pending');
     if (globalArrowLabelEl) {
       if (count === 1) globalArrowLabelEl.textContent = '1 pending';
       else globalArrowLabelEl.textContent = `${count} pending`;
@@ -2792,6 +2794,7 @@ function updateUnsyncedSummary() {
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalArrowEl) globalArrowEl.classList.remove('is-pending');
     if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;
