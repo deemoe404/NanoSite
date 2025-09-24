@@ -126,6 +126,79 @@ function ensureToastRoot() {
   return root;
 }
 
+function prepareToastStackAnimation(container, excluded) {
+  if (!container) return null;
+  const items = Array.from(container.children || [])
+    .filter((child) => child !== excluded && child.dataset && child.dataset.dismissed !== 'true');
+  if (!items.length) return null;
+
+  const initialRects = new Map();
+  for (const item of items) {
+    try {
+      initialRects.set(item, item.getBoundingClientRect());
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  return () => {
+    if (!items.length) return;
+    requestAnimationFrame(() => {
+      for (const item of items) {
+        const first = initialRects.get(item);
+        if (!first) continue;
+        let last;
+        try {
+          last = item.getBoundingClientRect();
+        } catch (_) {
+          continue;
+        }
+        const deltaY = first.top - last.top;
+        if (Math.abs(deltaY) < 0.5) continue;
+        try {
+          item.style.willChange = 'transform';
+          const distance = Math.abs(deltaY);
+          const baseDuration = distance > 1 ? Math.min(640, 320 + distance * 4) : 360;
+          if (typeof item.animate === 'function') {
+            const animation = item.animate(
+              [
+                { transform: `translateY(${deltaY}px)` },
+                { transform: 'translateY(0)' }
+              ],
+              {
+                duration: baseDuration,
+                easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                fill: 'none'
+              }
+            );
+            const cleanup = () => {
+              item.style.transform = '';
+              item.style.willChange = '';
+            };
+            animation.addEventListener('finish', cleanup, { once: true });
+            animation.addEventListener('cancel', cleanup, { once: true });
+          } else {
+            const previousTransition = item.style.transition;
+            item.style.transition = 'none';
+            item.style.transform = `translateY(${deltaY}px)`;
+            requestAnimationFrame(() => {
+              item.style.transition = `transform ${baseDuration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+              item.style.transform = 'translateY(0)';
+              setTimeout(() => {
+                item.style.transition = previousTransition;
+                item.style.transform = '';
+                item.style.willChange = '';
+              }, baseDuration + 80);
+            });
+          }
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    });
+  };
+}
+
 function showToast(kind, text, options = {}) {
   try {
     const message = safeString(text);
@@ -165,6 +238,32 @@ function showToast(kind, text, options = {}) {
     const dismiss = () => {
       if (el.dataset.dismissed === 'true') return;
       el.dataset.dismissed = 'true';
+      let toastRect = null;
+      let rootRect = null;
+      try {
+        toastRect = el.getBoundingClientRect();
+        rootRect = root.getBoundingClientRect();
+      } catch (_) {
+        /* ignore */
+      }
+      const animateStack = prepareToastStackAnimation(root, el);
+      el.style.pointerEvents = 'none';
+      if (toastRect && rootRect) {
+        const offsetBottom = rootRect.bottom - toastRect.bottom;
+        const offsetRight = rootRect.right - toastRect.right;
+        el.style.position = 'absolute';
+        el.style.bottom = `${offsetBottom}px`;
+        el.style.right = `${offsetRight}px`;
+        el.style.left = 'auto';
+        el.style.top = 'auto';
+        el.style.margin = '0';
+        el.style.width = `${toastRect.width}px`;
+        el.style.height = `${toastRect.height}px`;
+        el.style.zIndex = '1';
+      }
+      if (typeof animateStack === 'function') {
+        try { animateStack(); } catch (_) {}
+      }
       el.style.opacity = '0';
       el.style.transform = 'translateY(12px)';
       setTimeout(() => {
