@@ -157,11 +157,40 @@ function prepareToastStackAnimation(container, excluded) {
         if (Math.abs(deltaY) < 0.5) continue;
         try {
           item.style.willChange = 'transform';
-          item.style.transform = `translateY(${deltaY}px)`;
-          requestAnimationFrame(() => {
-            item.style.transform = 'translateY(0)';
-            setTimeout(() => { item.style.willChange = ''; }, 360);
-          });
+          const distance = Math.abs(deltaY);
+          const baseDuration = distance > 1 ? Math.min(640, 320 + distance * 4) : 360;
+          if (typeof item.animate === 'function') {
+            const animation = item.animate(
+              [
+                { transform: `translateY(${deltaY}px)` },
+                { transform: 'translateY(0)' }
+              ],
+              {
+                duration: baseDuration,
+                easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+                fill: 'none'
+              }
+            );
+            const cleanup = () => {
+              item.style.transform = '';
+              item.style.willChange = '';
+            };
+            animation.addEventListener('finish', cleanup, { once: true });
+            animation.addEventListener('cancel', cleanup, { once: true });
+          } else {
+            const previousTransition = item.style.transition;
+            item.style.transition = 'none';
+            item.style.transform = `translateY(${deltaY}px)`;
+            requestAnimationFrame(() => {
+              item.style.transition = `transform ${baseDuration}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+              item.style.transform = 'translateY(0)';
+              setTimeout(() => {
+                item.style.transition = previousTransition;
+                item.style.transform = '';
+                item.style.willChange = '';
+              }, baseDuration + 80);
+            });
+          }
         } catch (_) {
           /* ignore */
         }
