@@ -956,7 +956,12 @@
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
     .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
     .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
-    .composer-order-inline .composer-order-item { margin: .5rem 0; }
+    .composer-order-inline .composer-order-item {
+      margin: .5rem 0;
+      min-height: 2.5rem;
+      display: flex;
+      align-items: center;
+    }
     .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }
     .composer-order-inline .composer-order-key {
       font-size: .84rem;

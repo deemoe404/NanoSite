@@ -4264,25 +4264,53 @@ function drawOrderDiffLines(state) {
 
   const segments = Array.isArray(connectors) ? connectors : [];
   let movedIdx = 0;
+  let fallbackHeight = 0;
+  let fallbackMarginTop = '';
+  let fallbackMarginBottom = '';
+  const layoutSegments = [];
   segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
     const rightEl = rightMap.get(info.key);
-    if (!leftEl || !rightEl) return;
-    const rightRect = rightEl.getBoundingClientRect();
-    const cs = (typeof window !== 'undefined' && window.getComputedStyle)
+    if (!leftEl) return;
+    const rightRect = rightEl ? rightEl.getBoundingClientRect() : null;
+    const cs = (typeof window !== 'undefined' && window.getComputedStyle && rightEl)
       ? window.getComputedStyle(rightEl)
       : null;
     if (leftEl.style) {
-      if (rightRect && rightRect.height) {
-        leftEl.style.minHeight = Math.max(rightRect.height, 0) + 'px';
+      if (rightRect && typeof rightRect.height === 'number' && rightRect.height > 0) {
+        const heightPx = Math.max(rightRect.height, 0);
+        leftEl.style.minHeight = `${heightPx}px`;
+        if (heightPx > fallbackHeight) fallbackHeight = heightPx;
       }
       if (cs) {
         leftEl.style.marginTop = cs.marginTop;
         leftEl.style.marginBottom = cs.marginBottom;
+        if (!fallbackMarginTop) fallbackMarginTop = cs.marginTop;
+        if (!fallbackMarginBottom) fallbackMarginBottom = cs.marginBottom;
       }
     }
+    if (!rightRect) return;
+    layoutSegments.push({ info, leftEl, rightEl });
+  });
+
+  if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
+    leftMap.forEach(el => {
+      if (!el || !el.style) return;
+      if (!el.style.minHeight) {
+        el.style.minHeight = `${fallbackHeight}px`;
+      }
+      if (fallbackMarginTop !== '' && !el.style.marginTop) {
+        el.style.marginTop = fallbackMarginTop;
+      }
+      if (fallbackMarginBottom !== '' && !el.style.marginBottom) {
+        el.style.marginBottom = fallbackMarginBottom;
+      }
+    });
+  }
+
+  layoutSegments.forEach(({ info, leftEl, rightEl }) => {
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightRect;
+    const rRect = rightEl.getBoundingClientRect();
     let startX = (lRect.right - offsetX);
     const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
     let endX = (rRect.left - offsetX);
