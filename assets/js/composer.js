@@ -4381,16 +4381,21 @@ function drawOrderDiffLines(state) {
     }
     if (!anchor) anchor = rightRow || null;
 
-    const rightRect = anchor && typeof anchor.getBoundingClientRect === 'function'
-      ? anchor.getBoundingClientRect()
+    const rowRect = rightRow && typeof rightRow.getBoundingClientRect === 'function'
+      ? rightRow.getBoundingClientRect()
       : null;
+    const anchorRect = anchor && typeof anchor.getBoundingClientRect === 'function'
+      ? anchor.getBoundingClientRect()
+      : rowRect;
     const cs = (typeof window !== 'undefined' && window.getComputedStyle && rightRow)
       ? window.getComputedStyle(rightRow)
       : null;
 
     if (leftEl.style) {
-      if (rightRect && typeof rightRect.height === 'number' && rightRect.height > 0) {
-        const heightPx = Math.max(rightRect.height, 0);
+      const anchorHeight = anchorRect && typeof anchorRect.height === 'number' ? anchorRect.height : 0;
+      const rowHeight = rowRect && typeof rowRect.height === 'number' ? rowRect.height : 0;
+      const heightPx = Math.max(anchorHeight, rowHeight, 0);
+      if (heightPx > 0) {
         leftEl.style.minHeight = `${heightPx}px`;
         if (heightPx > fallbackHeight) fallbackHeight = heightPx;
       }
@@ -4402,8 +4407,18 @@ function drawOrderDiffLines(state) {
       }
     }
 
-    if (!rightRect || !anchor) return;
-    layoutSegments.push({ info, leftEl, rightEl: anchor, rightRect });
+    if (!anchorRect || !anchor) return;
+
+    let anchorCenter = null;
+    if (anchorRect && rowRect) {
+      anchorCenter = (anchorRect.top - rowRect.top) + (anchorRect.height / 2);
+    } else if (anchorRect) {
+      anchorCenter = anchorRect.height / 2;
+    } else if (rowRect) {
+      anchorCenter = rowRect.height / 2;
+    }
+
+    layoutSegments.push({ info, leftEl, rightEl: anchor, rightRect: anchorRect, rightRow, anchorCenter });
   });
 
   if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
@@ -4421,14 +4436,44 @@ function drawOrderDiffLines(state) {
     });
   }
 
-  layoutSegments.forEach(({ info, leftEl, rightEl, rightRect }) => {
+  layoutSegments.forEach(({ info, leftEl, rightEl, rightRect, rightRow, anchorCenter }) => {
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightRect || (rightEl ? rightEl.getBoundingClientRect() : null);
-    if (!rRect) return;
+    const row = rightRow && typeof rightRow.getBoundingClientRect === 'function' ? rightRow : null;
+    const rowRect = row ? row.getBoundingClientRect() : null;
+    const anchorEl = rightEl && typeof rightEl.getBoundingClientRect === 'function' ? rightEl : row;
+    let rRect = anchorEl ? anchorEl.getBoundingClientRect() : null;
+    if (!rRect && rightRect) rRect = rightRect;
+    const baseRect = rowRect || rRect || rightRect;
+    if (!rRect || !baseRect) return;
+
+    let anchorOffset = anchorCenter;
+    if (anchorOffset == null) {
+      if (rRect && rowRect) {
+        anchorOffset = (rRect.top - rowRect.top) + (rRect.height / 2);
+      } else if (rRect) {
+        anchorOffset = rRect.height / 2;
+      } else if (rowRect) {
+        anchorOffset = rowRect.height / 2;
+      } else {
+        anchorOffset = lRect.height / 2;
+      }
+    }
+
+    const clampOffset = (offset, size) => {
+      if (offset == null) return 0;
+      if (size == null || size <= 0) return Math.max(offset, 0);
+      if (offset < 0) return 0;
+      if (offset > size) return size;
+      return offset;
+    };
+
+    const leftOffset = clampOffset(anchorOffset, lRect.height || anchorOffset);
+    const rightOffset = clampOffset(anchorOffset, baseRect.height || anchorOffset);
+
     let startX = (lRect.right - offsetX);
-    const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
+    const startY = (lRect.top - offsetY) + leftOffset + scrollTop;
     let endX = (rRect.left - offsetX);
-    const endY = (rRect.top - offsetY) + (rRect.height / 2) + scrollTop;
+    const endY = (baseRect.top - offsetY) + rightOffset + scrollTop;
     if (endX <= startX) {
       const mid = (startX + endX) / 2;
       startX = mid - 1;
