@@ -1507,6 +1507,13 @@ function clearMarkdownDraftForTab(tab) {
   clearMarkdownDraftEntry(tab.path);
   tab.localDraft = null;
   tab.draftConflict = false;
+  tab.isDirty = false;
+  if (tab.button) {
+    try { tab.button.removeAttribute('data-dirty'); }
+    catch (_) {}
+    try { tab.button.removeAttribute('data-draft-state'); }
+    catch (_) {}
+  }
   updateComposerMarkdownDraftIndicators({ path: tab.path });
   try { updateUnsyncedSummary(); } catch (_) {}
 }
