@@ -4267,6 +4267,7 @@ function drawOrderDiffLines(state) {
   let fallbackHeight = 0;
   let fallbackMarginTop = '';
   let fallbackMarginBottom = '';
+  const layoutSegments = [];
   segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
     const rightEl = rightMap.get(info.key);
@@ -4289,8 +4290,27 @@ function drawOrderDiffLines(state) {
       }
     }
     if (!rightRect) return;
+    layoutSegments.push({ info, leftEl, rightEl });
+  });
+
+  if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
+    leftMap.forEach(el => {
+      if (!el || !el.style) return;
+      if (!el.style.minHeight) {
+        el.style.minHeight = `${fallbackHeight}px`;
+      }
+      if (fallbackMarginTop !== '' && !el.style.marginTop) {
+        el.style.marginTop = fallbackMarginTop;
+      }
+      if (fallbackMarginBottom !== '' && !el.style.marginBottom) {
+        el.style.marginBottom = fallbackMarginBottom;
+      }
+    });
+  }
+
+  layoutSegments.forEach(({ info, leftEl, rightEl }) => {
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightRect;
+    const rRect = rightEl.getBoundingClientRect();
     let startX = (lRect.right - offsetX);
     const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
     let endX = (rRect.left - offsetX);
@@ -4314,21 +4334,6 @@ function drawOrderDiffLines(state) {
     }
     svg.appendChild(path);
   });
-
-  if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
-    leftMap.forEach(el => {
-      if (!el || !el.style) return;
-      if (!el.style.minHeight) {
-        el.style.minHeight = `${fallbackHeight}px`;
-      }
-      if (fallbackMarginTop !== '' && !el.style.marginTop) {
-        el.style.marginTop = fallbackMarginTop;
-      }
-      if (fallbackMarginBottom !== '' && !el.style.marginBottom) {
-        el.style.marginBottom = fallbackMarginBottom;
-      }
-    });
-  }
 }
 
 function ensureComposerOrderPreview(kind) {
