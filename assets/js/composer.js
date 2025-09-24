@@ -65,6 +65,10 @@ let composerAutoSaveTimers = { index: null, tabs: null };
 let composerDiffModal = null;
 let composerOrderState = null;
 let composerDiffResizeHandler = null;
+let composerOrderPreviewElements = null;
+let composerOrderPreviewState = null;
+let composerOrderPreviewActiveKind = 'index';
+let composerOrderPreviewResizeHandler = null;
 
 function getActiveComposerFile() {
   try {
@@ -3434,6 +3438,27 @@ function computeOrderDiffDetails(kind) {
   return { beforeEntries, afterEntries, connectors, stats };
 }
 
+function renderOrderStatsChips(target, stats, options = {}) {
+  if (!target) return;
+  const safeStats = stats || { moved: 0, added: 0, removed: 0 };
+  const emptyLabel = options.emptyLabel || 'No direct moves; changes come from additions/removals';
+  const pieces = [];
+  if (safeStats.moved) pieces.push({ label: `Moved ${safeStats.moved}`, status: 'moved' });
+  if (safeStats.added) pieces.push({ label: `+${safeStats.added} new`, status: 'added' });
+  if (safeStats.removed) pieces.push({ label: `-${safeStats.removed} removed`, status: 'removed' });
+  target.innerHTML = '';
+  if (!pieces.length) {
+    pieces.push({ label: emptyLabel, status: 'neutral' });
+  }
+  pieces.forEach(info => {
+    const chip = document.createElement('span');
+    chip.className = 'composer-order-chip';
+    chip.dataset.status = info.status;
+    chip.textContent = info.label;
+    target.appendChild(chip);
+  });
+}
+
 function openComposerDiffModal(kind, initialTab = 'overview') {
   try {
     const modal = ensureComposerDiffModal();
@@ -4002,22 +4027,6 @@ function ensureComposerDiffModal() {
     });
   }
 
-  function updateOrderStats(stats) {
-    statsWrap.innerHTML = '';
-    const pieces = [];
-    if (stats.moved) pieces.push({ label: `Moved ${stats.moved}`, status: 'moved' });
-    if (stats.added) pieces.push({ label: `+${stats.added} new`, status: 'added' });
-    if (stats.removed) pieces.push({ label: `-${stats.removed} removed`, status: 'removed' });
-    if (!pieces.length) pieces.push({ label: 'No direct moves; changes come from additions/removals', status: 'neutral' });
-    pieces.forEach(info => {
-      const chip = document.createElement('span');
-      chip.className = 'composer-order-chip';
-      chip.dataset.status = info.status;
-      chip.textContent = info.label;
-      statsWrap.appendChild(chip);
-    });
-  }
-
   function renderOrder(kind) {
     const label = kind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
     title.textContent = `Changes — ${label}`;
@@ -4054,7 +4063,7 @@ function ensureComposerDiffModal() {
     }
     viz.classList.toggle('is-empty', !hasItems);
 
-    updateOrderStats(stats);
+    renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No direct moves; changes come from additions/removals' });
 
     composerOrderState = hasItems
       ? { container: viz, svg, connectors, leftMap, rightMap }
@@ -4132,9 +4141,11 @@ function ensureComposerDiffModal() {
   return composerDiffModal;
 }
 
-function drawOrderDiffLines() {
-  if (!composerOrderState) return;
-  const { container, svg, connectors, leftMap, rightMap } = composerOrderState;
+function drawOrderDiffLines(state) {
+  let ctx = state;
+  if (!ctx || typeof ctx !== 'object' || !ctx.container) ctx = composerOrderState;
+  if (!ctx) return;
+  const { container, svg, connectors, leftMap, rightMap } = ctx;
   if (!container || !svg) return;
   const rect = container.getBoundingClientRect();
   const width = container.clientWidth;
@@ -4178,6 +4189,229 @@ function drawOrderDiffLines() {
     }
     svg.appendChild(path);
   });
+}
+
+function ensureComposerOrderPreview() {
+  if (composerOrderPreviewElements) return composerOrderPreviewElements;
+  const root = document.getElementById('composerOrderPreview');
+  if (!root) return null;
+  root.innerHTML = '';
+  root.setAttribute('role', 'complementary');
+  root.setAttribute('aria-hidden', 'true');
+
+  const head = document.createElement('div');
+  head.className = 'composer-order-preview-head';
+
+  const titles = document.createElement('div');
+  titles.className = 'composer-order-preview-titles';
+
+  const title = document.createElement('h3');
+  title.className = 'composer-order-preview-title';
+  title.id = 'composerOrderPreviewTitle';
+  title.textContent = 'Order changes';
+  titles.appendChild(title);
+
+  const kindLabel = document.createElement('span');
+  kindLabel.className = 'composer-order-preview-kind';
+  kindLabel.textContent = 'index.yaml';
+  titles.appendChild(kindLabel);
+
+  head.appendChild(titles);
+
+  const openBtn = document.createElement('button');
+  openBtn.type = 'button';
+  openBtn.className = 'btn-secondary btn-compact composer-order-preview-open';
+  openBtn.textContent = 'Details';
+  openBtn.setAttribute('aria-label', 'Open detailed order diff');
+  head.appendChild(openBtn);
+
+  root.appendChild(head);
+
+  const statsWrap = document.createElement('div');
+  statsWrap.className = 'composer-order-stats composer-order-preview-stats';
+  root.appendChild(statsWrap);
+
+  const viz = document.createElement('div');
+  viz.className = 'composer-order-visual composer-order-preview-visual';
+
+  const emptyNotice = document.createElement('div');
+  emptyNotice.className = 'composer-order-empty';
+  emptyNotice.textContent = 'No entries to compare yet.';
+  emptyNotice.hidden = false;
+  emptyNotice.style.display = 'flex';
+  emptyNotice.setAttribute('aria-hidden', 'false');
+  viz.appendChild(emptyNotice);
+
+  const columns = document.createElement('div');
+  columns.className = 'composer-order-columns';
+
+  const beforeCol = document.createElement('div');
+  beforeCol.className = 'composer-order-column';
+  const beforeTitle = document.createElement('div');
+  beforeTitle.className = 'composer-order-column-title';
+  beforeTitle.textContent = 'Before';
+  const beforeList = document.createElement('div');
+  beforeList.className = 'composer-order-list';
+  beforeCol.appendChild(beforeTitle);
+  beforeCol.appendChild(beforeList);
+
+  const afterCol = document.createElement('div');
+  afterCol.className = 'composer-order-column';
+  const afterTitle = document.createElement('div');
+  afterTitle.className = 'composer-order-column-title';
+  afterTitle.textContent = 'After';
+  const afterList = document.createElement('div');
+  afterList.className = 'composer-order-list';
+  afterCol.appendChild(afterTitle);
+  afterCol.appendChild(afterList);
+
+  columns.appendChild(beforeCol);
+  columns.appendChild(afterCol);
+  viz.appendChild(columns);
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('composer-order-lines');
+  svg.setAttribute('aria-hidden', 'true');
+  viz.appendChild(svg);
+
+  root.appendChild(viz);
+  root.setAttribute('aria-labelledby', title.id);
+
+  if (!openBtn.__nsBound) {
+    openBtn.__nsBound = true;
+    openBtn.addEventListener('click', () => {
+      openOrderDiffModal(composerOrderPreviewActiveKind);
+    });
+  }
+
+  let scrollRaf = null;
+  viz.addEventListener('scroll', () => {
+    if (!composerOrderPreviewState) return;
+    if (scrollRaf) cancelAnimationFrame(scrollRaf);
+    scrollRaf = requestAnimationFrame(() => {
+      drawOrderDiffLines(composerOrderPreviewState);
+      scrollRaf = null;
+    });
+  });
+
+  if (!composerOrderPreviewResizeHandler) {
+    composerOrderPreviewResizeHandler = () => {
+      if (composerOrderPreviewState) drawOrderDiffLines(composerOrderPreviewState);
+    };
+    window.addEventListener('resize', composerOrderPreviewResizeHandler);
+  }
+
+  composerOrderPreviewElements = {
+    root,
+    title,
+    kindLabel,
+    statsWrap,
+    viz,
+    beforeList,
+    afterList,
+    emptyNotice,
+    svg,
+    openBtn
+  };
+  return composerOrderPreviewElements;
+}
+
+function syncComposerOrderPreviewContainer() {
+  const split = document.getElementById('composerSplit');
+  const preview = composerOrderPreviewElements || ensureComposerOrderPreview();
+  if (!split || !preview || !preview.root) return;
+  const visible = !preview.root.hidden;
+  split.classList.toggle('has-preview', visible);
+}
+
+function updateComposerOrderPreview(kind, options = {}) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const preview = ensureComposerOrderPreview();
+  if (!preview) return;
+  composerOrderPreviewActiveKind = normalized;
+  const { root, title, kindLabel, statsWrap, viz, beforeList, afterList, emptyNotice, svg, openBtn } = preview;
+  const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  if (title) title.textContent = 'Order changes';
+  if (kindLabel) kindLabel.textContent = label;
+  if (root) {
+    root.setAttribute('aria-label', `Order changes for ${label}`);
+    root.dataset.kind = normalized;
+  }
+  if (openBtn) {
+    openBtn.dataset.kind = normalized;
+    openBtn.setAttribute('aria-label', `Open detailed order diff for ${label}`);
+  }
+
+  const details = computeOrderDiffDetails(normalized) || {};
+  const beforeEntries = Array.isArray(details.beforeEntries) ? details.beforeEntries : [];
+  const afterEntries = Array.isArray(details.afterEntries) ? details.afterEntries : [];
+  const connectors = Array.isArray(details.connectors) ? details.connectors : [];
+  const stats = details.stats || { moved: 0, added: 0, removed: 0 };
+
+  beforeList.innerHTML = '';
+  afterList.innerHTML = '';
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const leftMap = new Map();
+  beforeEntries.forEach(entry => {
+    const item = buildOrderDiffItem(entry, 'before');
+    leftMap.set(entry.key, item);
+    beforeList.appendChild(item);
+  });
+
+  const rightMap = new Map();
+  afterEntries.forEach(entry => {
+    const item = buildOrderDiffItem(entry, 'after');
+    rightMap.set(entry.key, item);
+    afterList.appendChild(item);
+  });
+
+  const hasItems = beforeEntries.length > 0 || afterEntries.length > 0;
+  if (hasItems) {
+    emptyNotice.hidden = true;
+    emptyNotice.style.display = 'none';
+    emptyNotice.setAttribute('aria-hidden', 'true');
+  } else {
+    emptyNotice.hidden = false;
+    emptyNotice.style.display = 'flex';
+    emptyNotice.setAttribute('aria-hidden', 'false');
+  }
+  viz.classList.toggle('is-empty', !hasItems);
+
+  renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No order changes yet' });
+
+  if (hasItems || connectors.length) {
+    composerOrderPreviewState = { container: viz, svg, connectors, leftMap, rightMap };
+    const previewState = composerOrderPreviewState;
+    drawOrderDiffLines(previewState);
+    requestAnimationFrame(() => drawOrderDiffLines(previewState));
+    setTimeout(() => drawOrderDiffLines(previewState), 120);
+  } else {
+    composerOrderPreviewState = null;
+  }
+
+  if (options.reveal !== false) {
+    root.hidden = false;
+    root.setAttribute('aria-hidden', 'false');
+  } else if (options.hideWhenEmpty && !hasItems && !connectors.length) {
+    root.hidden = true;
+    root.setAttribute('aria-hidden', 'true');
+  }
+
+  const changed = (stats.moved || stats.added || stats.removed) > 0;
+  root.dataset.state = changed ? 'changed' : 'clean';
+
+  syncComposerOrderPreviewContainer();
+}
+
+function setComposerOrderPreviewActiveKind(kind) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  if (composerOrderPreviewActiveKind === normalized && composerOrderPreviewElements) {
+    updateComposerOrderPreview(normalized);
+    return;
+  }
+  composerOrderPreviewActiveKind = normalized;
+  updateComposerOrderPreview(normalized);
 }
 
 
@@ -4233,6 +4467,7 @@ function notifyComposerChange(kind, options = {}) {
   if (!options.skipAutoSave) scheduleAutoDraft(kind);
 
   updateUnsyncedSummary();
+  if (composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -6079,6 +6314,7 @@ function applyComposerFile(name) {
     else document.documentElement.removeAttribute('data-init-cfile');
   } catch (_) {}
 
+  try { setComposerOrderPreviewActiveKind(isIndex ? 'index' : 'tabs'); } catch (_) {}
   try { updateUnsyncedSummary(); } catch (_) {}
 
 }
