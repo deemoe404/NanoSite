@@ -2,10 +2,10 @@
 
 # Site identity configurations
 siteTitle:
-  default: NanoSite
-  en: NanoSite
-  zh: 微站
-  ja: ナノサイト
+  default: Yet-another NanoSite
+  en: Yet-another NanoSite
+  zh: 世界上的另一个微站
+  ja: もうひとつのナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
   en: Just Markdown. Just a website.
@@ -15,19 +15,17 @@ avatar: assets/avatar.jpeg
 
 # Social media links
 profileLinks:
-  - label: GitHub
-    href: https://github.com/deemoe404/NanoSite
-  - label: Demo
-    href: https://nano.dee.moe/
+  - label: demo
+    href: https://deemoe404.github.io/NanoSite/
 
 # SEO optimization configurations
-resourceURL: https://nano.dee.moe/wwwroot/
-siteDescription:
-  default: NanoSite - Just Markdown. Just a website.
-  zh: 微站 - 写下 Markdown，就是你的网站。
-  ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
-siteKeywords:
-  default: static blog, markdown, github pages, blog
+# resourceURL: https://deemoe404.github.io/NanoSite/wwwroot/
+# siteDescription:
+#   default: NanoSite - Just Markdown. Just a website.
+#   zh: 微站 - 写下 Markdown，就是你的网站。
+#   ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
+# siteKeywords:
+#   default: static blog, markdown, github pages, blog
 
 # Miscellaneous configurations
 contentOutdatedDays: 180  # Days before content is considered outdated
@@ -43,10 +41,10 @@ themePack: native
 themeOverride: true
 
 # Repository information used for internal linking of "report issue" etc.
-repo:
-  owner: deemoe404
-  name: NanoSite
-  branch: main
+# repo:
+#   owner: deemoe404
+#   name: NanoSite
+#   branch: main
 
 # Asset warnings configurations
 assetWarnings:
@@ -54,5 +52,5 @@ assetWarnings:
     enabled: true
     thresholdKB: 500
 
-landingTab: About   # Set to a tab slug or title defined in tabs.yaml
-showAllPosts: true      # Set to false to hide the All Posts tab/index
+# landingTab: About   # Set to a tab slug or title defined in tabs.yaml
+# showAllPosts: true  # Set to false to hide the All Posts tab/index
