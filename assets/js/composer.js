@@ -3486,7 +3486,9 @@ function buildOrderDiffItem(entry, side) {
 
   const keyEl = document.createElement('span');
   keyEl.className = 'composer-order-key';
-  keyEl.textContent = entry.key || '(empty)';
+  const keyText = entry.key || '(empty)';
+  keyEl.textContent = keyText;
+  keyEl.title = keyText;
   item.appendChild(keyEl);
 
   const badgeEl = document.createElement('span');

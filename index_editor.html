@@ -939,7 +939,13 @@
     .composer-order-meta .btn-secondary { align-self: flex-start; }
     .composer-order-inline .composer-order-item { margin: .5rem 0; }
     .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }
-    .composer-order-inline .composer-order-key { font-size: .84rem; }
+    .composer-order-inline .composer-order-key {
+      font-size: .84rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      word-break: normal;
+    }
     .composer-order-inline .composer-order-badge { font-size: .7rem; }
     @media (max-width: 900px) {
       .composer-panels { gap: 1rem; }
