@@ -69,6 +69,7 @@ let composerOrderPreviewElements = { index: null, tabs: null };
 let composerOrderPreviewState = { index: null, tabs: null };
 let composerOrderPreviewActiveKind = 'index';
 let composerOrderPreviewResizeHandler = null;
+const composerOrderPreviewRelayoutTimers = { index: null, tabs: null };
 
 function getActiveComposerFile() {
   try {
@@ -4460,6 +4461,55 @@ function drawOrderDiffLines(state) {
   }
 }
 
+function scheduleComposerOrderPreviewRelayout(kind) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const timers = composerOrderPreviewRelayoutTimers[normalized];
+  if (timers) {
+    if (typeof cancelAnimationFrame === 'function' && typeof timers.raf === 'number') {
+      try { cancelAnimationFrame(timers.raf); } catch (_) {}
+    }
+    if (timers.timeout != null) {
+      clearTimeout(timers.timeout);
+    }
+  }
+
+  const pending = { raf: null, timeout: null };
+  const run = () => {
+    const active = composerOrderPreviewState && composerOrderPreviewState[normalized];
+    if (active) drawOrderDiffLines(active);
+  };
+  const finalize = () => { composerOrderPreviewRelayoutTimers[normalized] = null; };
+
+  const delayBase = Math.max(SLIDE_OPEN_DUR, SLIDE_CLOSE_DUR, 260) + 80;
+
+  const scheduleTrailing = () => {
+    pending.timeout = setTimeout(() => {
+      pending.timeout = null;
+      run();
+      finalize();
+    }, delayBase);
+  };
+
+  const state = composerOrderPreviewState && composerOrderPreviewState[normalized];
+  if (!state) {
+    finalize();
+    return;
+  }
+
+  if (typeof requestAnimationFrame === 'function') {
+    pending.raf = requestAnimationFrame(() => {
+      pending.raf = null;
+      run();
+      scheduleTrailing();
+    });
+  } else {
+    run();
+    scheduleTrailing();
+  }
+
+  composerOrderPreviewRelayoutTimers[normalized] = pending;
+}
+
 function ensureComposerOrderPreview(kind) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   if (!composerOrderPreviewElements) composerOrderPreviewElements = { index: null, tabs: null };
@@ -7307,6 +7357,7 @@ function buildIndexUI(root, state) {
       row.classList.toggle('is-open', next);
       btnExpand.setAttribute('aria-expanded', String(next));
       slideToggle(body, next);
+      scheduleComposerOrderPreviewRelayout('index');
     });
     btnDel.addEventListener('click', () => {
       const i = state.index.__order.indexOf(key);
@@ -7509,6 +7560,7 @@ function buildTabsUI(root, state) {
       row.classList.toggle('is-open', next);
       btnExpand.setAttribute('aria-expanded', String(next));
       slideToggle(body, next);
+      scheduleComposerOrderPreviewRelayout('tabs');
     });
     btnDel.addEventListener('click', () => {
       const i = state.tabs.__order.indexOf(tab);
@@ -7612,6 +7664,8 @@ function focusComposerEntry(kind, key) {
     try { target.focus(); } catch (_) {}
   }
   try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+
+  scheduleComposerOrderPreviewRelayout(normalized);
 }
 
 async function addComposerEntry(kind, anchor) {
