@@ -5,7 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'No local changes waiting to push';
+const CLEAN_STATUS_MESSAGE = 'No local changes';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
