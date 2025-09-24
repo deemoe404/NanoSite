@@ -4346,6 +4346,7 @@ function drawOrderDiffLines(state) {
     leftMap.forEach(el => {
       if (!el || !el.style) return;
       el.style.removeProperty('min-height');
+      el.style.removeProperty('height');
       el.style.removeProperty('margin-top');
       el.style.removeProperty('margin-bottom');
     });
@@ -4357,7 +4358,8 @@ function drawOrderDiffLines(state) {
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  const existingPathCache = (svg.__nsPathCache instanceof Map) ? svg.__nsPathCache : new Map();
+  const nextPathCache = new Map();
 
   const offsetX = rect.left;
   const offsetY = rect.top;
@@ -4395,10 +4397,10 @@ function drawOrderDiffLines(state) {
       const anchorHeight = anchorRect && typeof anchorRect.height === 'number' ? anchorRect.height : 0;
       const rowHeight = rowRect && typeof rowRect.height === 'number' ? rowRect.height : 0;
       const heightPx = Math.max(anchorHeight, rowHeight, 0);
-      if (heightPx > 0) {
-        leftEl.style.minHeight = `${heightPx}px`;
-        if (heightPx > fallbackHeight) fallbackHeight = heightPx;
-      }
+      const heightValue = `${heightPx}px`;
+      leftEl.style.height = heightValue;
+      leftEl.style.minHeight = heightValue;
+      if (heightPx > fallbackHeight) fallbackHeight = heightPx;
       if (cs) {
         leftEl.style.marginTop = cs.marginTop;
         leftEl.style.marginBottom = cs.marginBottom;
@@ -4424,8 +4426,12 @@ function drawOrderDiffLines(state) {
   if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
     leftMap.forEach(el => {
       if (!el || !el.style) return;
+      const fallbackValue = `${fallbackHeight}px`;
       if (!el.style.minHeight) {
-        el.style.minHeight = `${fallbackHeight}px`;
+        el.style.minHeight = fallbackValue;
+      }
+      if (!el.style.height) {
+        el.style.height = fallbackValue;
       }
       if (fallbackMarginTop !== '' && !el.style.marginTop) {
         el.style.marginTop = fallbackMarginTop;
@@ -4436,7 +4442,8 @@ function drawOrderDiffLines(state) {
     });
   }
 
-  layoutSegments.forEach(({ info, leftEl, rightEl, rightRect, rightRow, anchorCenter }) => {
+  layoutSegments.forEach(segment => {
+    const { info, leftEl, rightEl, rightRect, rightRow, anchorCenter } = segment;
     const lRect = leftEl.getBoundingClientRect();
     const row = rightRow && typeof rightRow.getBoundingClientRect === 'function' ? rightRow : null;
     const rowRect = row ? row.getBoundingClientRect() : null;
@@ -4480,23 +4487,50 @@ function drawOrderDiffLines(state) {
       endX = mid + 1;
     }
     const curve = Math.max(36, (endX - startX) * 0.35);
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M ${startX} ${startY} C ${startX + curve} ${startY}, ${endX - curve} ${endY}, ${endX} ${endY}`);
-    path.classList.add('composer-order-path');
-    path.dataset.status = info.status;
-    if (info.key) path.dataset.key = info.key;
-    if (info.status === 'same') {
-      path.setAttribute('stroke', '#94a3b8');
-    } else {
-      const color = ORDER_LINE_COLORS[movedIdx % ORDER_LINE_COLORS.length];
-      movedIdx += 1;
-      path.setAttribute('stroke', color);
+    const pathKey = `${info.key || ''}::${info.fromIndex ?? ''}::${info.toIndex ?? ''}`;
+    const cached = existingPathCache.get(pathKey);
+    let path = cached && cached.path ? cached.path : null;
+    if (!path || !path.isConnected) {
+      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.classList.add('composer-order-path');
     }
+
+    const status = (info && typeof info.status === 'string' && info.status) ? info.status : 'same';
+    let strokeColor = '#94a3b8';
+    if (status === 'same') {
+      strokeColor = '#94a3b8';
+    } else if (cached && cached.color) {
+      strokeColor = cached.color;
+    } else {
+      strokeColor = ORDER_LINE_COLORS[movedIdx % ORDER_LINE_COLORS.length];
+      movedIdx += 1;
+    }
+
+    path.setAttribute('d', `M ${startX} ${startY} C ${startX + curve} ${startY}, ${endX - curve} ${endY}, ${endX} ${endY}`);
+    path.dataset.status = status;
+    if (info.key) path.dataset.key = info.key;
+    else path.removeAttribute('data-key');
+    path.dataset.pathKey = pathKey;
+    path.setAttribute('stroke', strokeColor);
+    svg.appendChild(path);
+
     const key = info.key || '';
     if (!pathMap.has(key)) pathMap.set(key, []);
     pathMap.get(key).push(path);
-    svg.appendChild(path);
+
+    nextPathCache.set(pathKey, { path, color: strokeColor, key });
   });
+
+  existingPathCache.forEach((entry, cacheKey) => {
+    if (!nextPathCache.has(cacheKey)) {
+      const el = entry && entry.path;
+      if (el && el.parentNode === svg) {
+        svg.removeChild(el);
+      }
+    }
+  });
+
+  svg.__nsPathCache = nextPathCache;
 
   hoverState.pathMap = pathMap;
   if (typeof hoverState.currentKey === 'string' && hoverState.currentKey) {
@@ -4672,6 +4706,7 @@ function updateComposerOrderPreview(kind, options = {}) {
       if (!row) return;
       rightMap.set(entry.key, row);
       bindComposerOrderHover(row, entry.key);
+      observeComposerOrderRow(row, normalized);
     });
   }
 
@@ -4773,6 +4808,25 @@ function updateComposerOrderPreview(kind, options = {}) {
     requestAnimationFrame(() => drawOrderDiffLines(state));
     setTimeout(() => drawOrderDiffLines(state), 120);
   }
+}
+
+function observeComposerOrderRow(row, kind) {
+  if (!row || typeof ResizeObserver !== 'function') return;
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const existing = row.__nsOrderResize;
+  if (existing && existing.kind === normalized) return;
+  try {
+    if (existing && existing.observer) {
+      existing.observer.disconnect();
+    }
+  } catch (_) {}
+  try {
+    const observer = new ResizeObserver(() => {
+      scheduleComposerOrderPreviewRelayout(normalized);
+    });
+    observer.observe(row);
+    row.__nsOrderResize = { observer, kind: normalized };
+  } catch (_) {}
 }
 
 function setComposerOrderPreviewActiveKind(kind) {
