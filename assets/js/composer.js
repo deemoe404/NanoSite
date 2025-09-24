@@ -4371,12 +4371,22 @@ function drawOrderDiffLines(state) {
   const pathMap = new Map();
   segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
-    const rightEl = rightMap.get(info.key);
+    const rightRow = rightMap.get(info.key);
     if (!leftEl) return;
-    const rightRect = rightEl ? rightEl.getBoundingClientRect() : null;
-    const cs = (typeof window !== 'undefined' && window.getComputedStyle && rightEl)
-      ? window.getComputedStyle(rightEl)
+
+    let anchor = null;
+    if (rightRow && typeof rightRow.querySelector === 'function') {
+      anchor = rightRow.querySelector('.ci-head, .ct-head');
+    }
+    if (!anchor) anchor = rightRow || null;
+
+    const rightRect = anchor && typeof anchor.getBoundingClientRect === 'function'
+      ? anchor.getBoundingClientRect()
       : null;
+    const cs = (typeof window !== 'undefined' && window.getComputedStyle && rightRow)
+      ? window.getComputedStyle(rightRow)
+      : null;
+
     if (leftEl.style) {
       if (rightRect && typeof rightRect.height === 'number' && rightRect.height > 0) {
         const heightPx = Math.max(rightRect.height, 0);
@@ -4390,8 +4400,9 @@ function drawOrderDiffLines(state) {
         if (!fallbackMarginBottom) fallbackMarginBottom = cs.marginBottom;
       }
     }
-    if (!rightRect) return;
-    layoutSegments.push({ info, leftEl, rightEl });
+
+    if (!rightRect || !anchor) return;
+    layoutSegments.push({ info, leftEl, rightEl: anchor, rightRect });
   });
 
   if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
@@ -4409,9 +4420,10 @@ function drawOrderDiffLines(state) {
     });
   }
 
-  layoutSegments.forEach(({ info, leftEl, rightEl }) => {
+  layoutSegments.forEach(({ info, leftEl, rightEl, rightRect }) => {
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightEl.getBoundingClientRect();
+    const rRect = rightRect || (rightEl ? rightEl.getBoundingClientRect() : null);
+    if (!rRect) return;
     let startX = (lRect.right - offsetX);
     const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
     let endX = (rRect.left - offsetX);
