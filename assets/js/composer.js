@@ -4147,6 +4147,16 @@ function drawOrderDiffLines(state) {
   if (!ctx) return;
   const { container, svg, connectors, leftMap, rightMap } = ctx;
   if (!container || !svg) return;
+
+  if (leftMap && typeof leftMap.forEach === 'function') {
+    leftMap.forEach(el => {
+      if (!el || !el.style) return;
+      el.style.removeProperty('min-height');
+      el.style.removeProperty('margin-top');
+      el.style.removeProperty('margin-bottom');
+    });
+  }
+
   const rect = container.getBoundingClientRect();
   const width = container.clientWidth;
   const height = Math.max(container.scrollHeight, rect.height);
@@ -4159,13 +4169,27 @@ function drawOrderDiffLines(state) {
   const offsetY = rect.top;
   const scrollTop = container.scrollTop || 0;
 
+  const segments = Array.isArray(connectors) ? connectors : [];
   let movedIdx = 0;
-  connectors.forEach(info => {
+  segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
     const rightEl = rightMap.get(info.key);
     if (!leftEl || !rightEl) return;
+    const rightRect = rightEl.getBoundingClientRect();
+    const cs = (typeof window !== 'undefined' && window.getComputedStyle)
+      ? window.getComputedStyle(rightEl)
+      : null;
+    if (leftEl.style) {
+      if (rightRect && rightRect.height) {
+        leftEl.style.minHeight = Math.max(rightRect.height, 0) + 'px';
+      }
+      if (cs) {
+        leftEl.style.marginTop = cs.marginTop;
+        leftEl.style.marginBottom = cs.marginBottom;
+      }
+    }
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightEl.getBoundingClientRect();
+    const rRect = rightRect;
     let startX = (lRect.right - offsetX);
     const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
     let endX = (rRect.left - offsetX);

@@ -923,23 +923,21 @@
     .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
     .composer-order-meta { grid-area: meta; display: flex; flex-direction: column; gap: .4rem; align-items: stretch; min-width: 0; }
     .composer-order-meta[hidden] { display: none !important; }
-    .composer-order-inline { grid-area: inline; border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: .65rem .85rem .9rem; display: flex; flex-direction: column; gap: .45rem; position: relative; z-index: 2; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06); min-height: 0; }
+    .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .45rem; position: relative; z-index: 2; min-height: 0; }
     .composer-order-inline[hidden] { display: none !important; }
-    .composer-order-inline[data-state="changed"] { border-color: color-mix(in srgb, var(--primary) 36%, var(--border)); box-shadow: 0 10px 26px rgba(37,99,235,0.12); }
     .composer-order-inline-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
     .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
     .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
     .composer-order-inline-kind { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: color-mix(in srgb, var(--text) 58%, transparent); }
     .composer-order-inline-stats { display: flex; flex-wrap: wrap; gap: .35rem; font-size: .78rem; color: var(--muted); }
-    .composer-order-inline-body { display: flex; flex-direction: column; gap: .45rem; }
-    .composer-order-inline-list { display: flex; flex-direction: column; gap: .35rem; position: relative; z-index: 2; }
+    .composer-order-inline-body { display: flex; flex-direction: column; }
+    .composer-order-inline-list { display: flex; flex-direction: column; gap: 0; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
     .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
-    .composer-order-host[data-state="clean"] .composer-order-inline { border-style: dashed; box-shadow: none; }
     .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
     .composer-order-meta .btn-secondary { align-self: flex-start; }
-    .composer-order-inline .composer-order-item { gap: .4rem; padding: .32rem .5rem; }
+    .composer-order-inline .composer-order-item { margin: .5rem 0; }
     .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }
     .composer-order-inline .composer-order-key { font-size: .84rem; }
     .composer-order-inline .composer-order-badge { font-size: .7rem; }
