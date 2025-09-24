@@ -4227,8 +4227,6 @@ function ensureComposerOrderPreview(kind) {
   const root = host.querySelector('.composer-order-inline');
   if (!root) return null;
 
-  const footer = root.querySelector('.composer-order-inline-footer');
-
   let svg = host.querySelector('svg.composer-order-inline-lines');
   if (!svg) {
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -4237,12 +4235,13 @@ function ensureComposerOrderPreview(kind) {
     host.appendChild(svg);
   }
 
-  const statsWrap = root.querySelector('.composer-order-inline-stats');
+  const meta = document.getElementById('composerOrderInlineMeta');
+  const statsWrap = meta ? meta.querySelector('.composer-order-inline-stats') : null;
   const list = root.querySelector('.composer-order-inline-list');
   const emptyNotice = root.querySelector('.composer-order-inline-empty');
-  const kindLabel = root.querySelector('.composer-order-inline-kind');
-  const title = root.querySelector('.composer-order-inline-title');
-  const openBtn = root.querySelector('.composer-order-inline-open');
+  const kindLabel = meta ? meta.querySelector('.composer-order-inline-kind') : null;
+  const title = meta ? meta.querySelector('.composer-order-inline-title') : null;
+  const openBtn = meta ? meta.querySelector('.composer-order-inline-open') : null;
 
   if (openBtn && !openBtn.__nsBound) {
     openBtn.__nsBound = true;
@@ -4274,7 +4273,7 @@ function ensureComposerOrderPreview(kind) {
     try { window.addEventListener('resize', composerOrderPreviewResizeHandler); } catch (_) {}
   }
 
-  const preview = { host, root, footer, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title };
+  const preview = { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta };
   composerOrderPreviewElements[normalized] = preview;
   return preview;
 }
@@ -4285,11 +4284,12 @@ function updateComposerOrderPreview(kind, options = {}) {
   if (!preview) return;
   composerOrderPreviewActiveKind = normalized;
 
-  const { host, root, footer, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title } = preview;
+  const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
 
   if (title) title.textContent = 'Old order';
   if (kindLabel) kindLabel.textContent = label;
+  if (meta) meta.dataset.kind = normalized;
   if (root) {
     root.dataset.kind = normalized;
     root.setAttribute('aria-label', `Old order for ${label}`);
@@ -4360,9 +4360,9 @@ function updateComposerOrderPreview(kind, options = {}) {
       root.setAttribute('aria-hidden', 'true');
       root.dataset.state = 'clean';
     }
-    if (footer) {
-      footer.hidden = true;
-      footer.setAttribute('aria-hidden', 'true');
+    if (meta) {
+      meta.hidden = true;
+      meta.setAttribute('aria-hidden', 'true');
     }
     if (host) host.dataset.state = 'clean';
     if (svg) svg.style.display = 'none';
@@ -4375,9 +4375,9 @@ function updateComposerOrderPreview(kind, options = {}) {
     root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
     root.dataset.state = hasChanges ? 'changed' : 'clean';
   }
-  if (footer) {
-    if (options.reveal !== false) footer.hidden = false;
-    footer.setAttribute('aria-hidden', footer.hidden ? 'true' : 'false');
+  if (meta) {
+    if (options.reveal !== false) meta.hidden = false;
+    meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
   }
   if (host) host.dataset.state = hasChanges ? 'changed' : 'clean';
 

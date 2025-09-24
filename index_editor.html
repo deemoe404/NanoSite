@@ -920,14 +920,14 @@
     .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
     .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
     .composer-order-inline[hidden] { display: none !important; }
-    .composer-order-inline-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+    .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
+    .composer-order-inline-meta[hidden] { display: none !important; }
+    .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
     .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
     .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
     .composer-order-inline-kind { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: color-mix(in srgb, var(--text) 58%, transparent); }
     .composer-order-inline-stats { display: flex; flex-wrap: wrap; gap: .35rem; font-size: .78rem; color: var(--muted); }
     .composer-order-inline-body { display: flex; flex-direction: column; }
-    .composer-order-inline-footer { display: flex; flex-direction: column; gap: .4rem; margin-top: .35rem; }
-    .composer-order-inline-footer[hidden] { display: none !important; }
     .composer-order-inline-list { display: block; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
@@ -1130,6 +1130,17 @@
             <button class="btn-secondary" id="btnReview" type="button" hidden aria-hidden="true">Review</button>
           </div>
         </div>
+        <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
+          <div class="composer-order-inline-meta-head">
+            <div class="composer-order-inline-titles">
+              <h3 class="composer-order-inline-title">Old order</h3>
+              <span class="composer-order-inline-kind">index.yaml</span>
+            </div>
+            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open detailed order diff">Details</button>
+          </div>
+          <div class="composer-order-inline-stats" aria-live="polite"></div>
+        </div>
+
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
           <div class="composer-order-host" data-kind="index" id="composerIndexHost">
@@ -1137,16 +1148,6 @@
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
                 <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
-              </div>
-              <div class="composer-order-inline-footer" hidden>
-                <div class="composer-order-inline-head">
-                  <div class="composer-order-inline-titles">
-                    <h3 class="composer-order-inline-title">Old order</h3>
-                    <span class="composer-order-inline-kind">index.yaml</span>
-                  </div>
-                  <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open detailed order diff">Details</button>
-                </div>
-                <div class="composer-order-inline-stats" aria-live="polite"></div>
               </div>
             </div>
             <div class="composer-order-main">
@@ -1158,16 +1159,6 @@
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
                 <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
-              </div>
-              <div class="composer-order-inline-footer" hidden>
-                <div class="composer-order-inline-head">
-                  <div class="composer-order-inline-titles">
-                    <h3 class="composer-order-inline-title">Old order</h3>
-                    <span class="composer-order-inline-kind">tabs.yaml</span>
-                  </div>
-                  <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="tabs" aria-label="Open detailed order diff">Details</button>
-                </div>
-                <div class="composer-order-inline-stats" aria-live="polite"></div>
               </div>
             </div>
             <div class="composer-order-main">
