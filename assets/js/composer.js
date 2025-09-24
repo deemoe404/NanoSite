@@ -111,12 +111,13 @@ function ensureToastRoot() {
     root.setAttribute('aria-live', 'polite');
     root.setAttribute('aria-atomic', 'true');
     root.style.position = 'fixed';
-    root.style.left = '50%';
+    root.style.right = '28px';
     root.style.bottom = '28px';
-    root.style.transform = 'translateX(-50%)';
+    root.style.left = 'auto';
+    root.style.transform = 'none';
     root.style.display = 'flex';
     root.style.flexDirection = 'column';
-    root.style.alignItems = 'center';
+    root.style.alignItems = 'flex-end';
     root.style.gap = '.55rem';
     root.style.zIndex = '10000';
     root.style.pointerEvents = 'none';
