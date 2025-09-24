@@ -4227,7 +4227,7 @@ function ensureComposerOrderPreview(kind) {
   const root = host.querySelector('.composer-order-inline');
   if (!root) return null;
 
-  const meta = host.querySelector('.composer-order-meta');
+  const footer = root.querySelector('.composer-order-inline-footer');
 
   let svg = host.querySelector('svg.composer-order-inline-lines');
   if (!svg) {
@@ -4237,12 +4237,12 @@ function ensureComposerOrderPreview(kind) {
     host.appendChild(svg);
   }
 
-  const statsWrap = host.querySelector('.composer-order-inline-stats');
+  const statsWrap = root.querySelector('.composer-order-inline-stats');
   const list = root.querySelector('.composer-order-inline-list');
   const emptyNotice = root.querySelector('.composer-order-inline-empty');
-  const kindLabel = host.querySelector('.composer-order-inline-kind');
-  const title = host.querySelector('.composer-order-inline-title');
-  const openBtn = host.querySelector('.composer-order-inline-open');
+  const kindLabel = root.querySelector('.composer-order-inline-kind');
+  const title = root.querySelector('.composer-order-inline-title');
+  const openBtn = root.querySelector('.composer-order-inline-open');
 
   if (openBtn && !openBtn.__nsBound) {
     openBtn.__nsBound = true;
@@ -4274,7 +4274,7 @@ function ensureComposerOrderPreview(kind) {
     try { window.addEventListener('resize', composerOrderPreviewResizeHandler); } catch (_) {}
   }
 
-  const preview = { host, root, meta, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title };
+  const preview = { host, root, footer, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title };
   composerOrderPreviewElements[normalized] = preview;
   return preview;
 }
@@ -4285,7 +4285,7 @@ function updateComposerOrderPreview(kind, options = {}) {
   if (!preview) return;
   composerOrderPreviewActiveKind = normalized;
 
-  const { host, root, meta, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title } = preview;
+  const { host, root, footer, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title } = preview;
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
 
   if (title) title.textContent = 'Old order';
@@ -4360,9 +4360,9 @@ function updateComposerOrderPreview(kind, options = {}) {
       root.setAttribute('aria-hidden', 'true');
       root.dataset.state = 'clean';
     }
-    if (meta) {
-      meta.hidden = true;
-      meta.setAttribute('aria-hidden', 'true');
+    if (footer) {
+      footer.hidden = true;
+      footer.setAttribute('aria-hidden', 'true');
     }
     if (host) host.dataset.state = 'clean';
     if (svg) svg.style.display = 'none';
@@ -4375,9 +4375,9 @@ function updateComposerOrderPreview(kind, options = {}) {
     root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
     root.dataset.state = hasChanges ? 'changed' : 'clean';
   }
-  if (meta) {
-    if (options.reveal !== false) meta.hidden = false;
-    meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
+  if (footer) {
+    if (options.reveal !== false) footer.hidden = false;
+    footer.setAttribute('aria-hidden', footer.hidden ? 'true' : 'false');
   }
   if (host) host.dataset.state = hasChanges ? 'changed' : 'clean';
 
