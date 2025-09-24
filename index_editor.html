@@ -907,9 +907,23 @@
     }
 
     .composer-panels { min-width: 0; display: grid; gap: 1.25rem; }
-    .composer-order-host { position: relative; display: grid; grid-template-columns: clamp(150px, 24%, 220px) minmax(0, 1fr); gap: 1rem; align-items: start; min-width: 0; }
-    .composer-order-host .composer-order-main { position: relative; z-index: 2; min-width: 0; }
-    .composer-order-inline { border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: .85rem .9rem 1rem; display: flex; flex-direction: column; gap: .65rem; position: relative; z-index: 2; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06); min-height: 0; }
+    .composer-order-host {
+      position: relative;
+      display: grid;
+      grid-template-columns: clamp(150px, 24%, 220px) minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas:
+        "meta meta"
+        "inline main";
+      column-gap: clamp(1.4rem, 4vw, 2.4rem);
+      row-gap: .7rem;
+      align-items: start;
+      min-width: 0;
+    }
+    .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
+    .composer-order-meta { grid-area: meta; display: flex; flex-direction: column; gap: .4rem; align-items: stretch; min-width: 0; }
+    .composer-order-meta[hidden] { display: none !important; }
+    .composer-order-inline { grid-area: inline; border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: .65rem .85rem .9rem; display: flex; flex-direction: column; gap: .45rem; position: relative; z-index: 2; box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06); min-height: 0; }
     .composer-order-inline[hidden] { display: none !important; }
     .composer-order-inline[data-state="changed"] { border-color: color-mix(in srgb, var(--primary) 36%, var(--border)); box-shadow: 0 10px 26px rgba(37,99,235,0.12); }
     .composer-order-inline-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
@@ -921,18 +935,25 @@
     .composer-order-inline-list { display: flex; flex-direction: column; gap: .35rem; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-    .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); }
+    .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
     .composer-order-host[data-state="clean"] .composer-order-inline { border-style: dashed; box-shadow: none; }
     .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
-    .composer-order-inline button.btn-secondary { align-self: flex-start; }
+    .composer-order-meta .btn-secondary { align-self: flex-start; }
     .composer-order-inline .composer-order-item { gap: .4rem; padding: .32rem .5rem; }
     .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }
     .composer-order-inline .composer-order-key { font-size: .84rem; }
     .composer-order-inline .composer-order-badge { font-size: .7rem; }
     @media (max-width: 900px) {
       .composer-panels { gap: 1rem; }
-      .composer-order-host { grid-template-columns: minmax(0, 1fr); }
-      .composer-order-inline { order: -1; }
+      .composer-order-host {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr);
+        grid-template-areas:
+          "meta"
+          "inline"
+          "main";
+        column-gap: 0;
+      }
       .composer-order-inline-lines { display: none; }
     }
 
@@ -1110,7 +1131,7 @@
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
           <div class="composer-order-host" data-kind="index" id="composerIndexHost">
-            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
+            <div class="composer-order-meta" hidden>
               <div class="composer-order-inline-head">
                 <div class="composer-order-inline-titles">
                   <h3 class="composer-order-inline-title">Old order</h3>
@@ -1119,6 +1140,8 @@
                 <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open detailed order diff">Details</button>
               </div>
               <div class="composer-order-inline-stats" aria-live="polite"></div>
+            </div>
+            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
                 <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
@@ -1129,7 +1152,7 @@
             </div>
           </div>
           <div class="composer-order-host" data-kind="tabs" id="composerTabsHost" style="display:none;">
-            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
+            <div class="composer-order-meta" hidden>
               <div class="composer-order-inline-head">
                 <div class="composer-order-inline-titles">
                   <h3 class="composer-order-inline-title">Old order</h3>
@@ -1138,6 +1161,8 @@
                 <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="tabs" aria-label="Open detailed order diff">Details</button>
               </div>
               <div class="composer-order-inline-stats" aria-live="polite"></div>
+            </div>
+            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
                 <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
