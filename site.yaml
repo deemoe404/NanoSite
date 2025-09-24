@@ -46,7 +46,7 @@ themeOverride: true
 repo:
   owner: deemoe404
   name: NanoSite
-  branch: main
+  branch: doc
 
 # Asset warnings configurations
 assetWarnings:
