@@ -8210,7 +8210,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Minimal styles injected for composer behaviors
 (function injectComposerStyles(){
   const css = `
-  .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;}
+  .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;position:relative;filter:none;transition:transform .18s ease, filter .18s ease, border-color .18s ease;--ci-hover-tint:var(--primary);}
+  .ci-item:hover,.ci-item:focus-within{transform:translateY(-1px);filter:drop-shadow(0 12px 24px color-mix(in srgb,var(--ci-hover-tint) 32%, transparent));border-color:color-mix(in srgb,var(--ci-hover-tint) 55%, var(--border));}
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-head,.ct-head{border-bottom:none;}
   .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
@@ -8283,9 +8284,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   .badge{display:inline-flex;align-items:center;gap:.25rem;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.72rem;padding:.05rem .4rem;border-radius:999px}
   .badge-ver{ color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
   .badge-lang{}
-  .ci-item.is-dirty{border-color:color-mix(in srgb,#f97316 42%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,#f97316 18%, transparent);}
-  .ci-item[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 60%, var(--border));}
-  .ci-item[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 60%, var(--border));}
+  .ci-item.is-dirty{border-color:color-mix(in srgb,#f97316 42%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,#f97316 18%, transparent);--ci-hover-tint:#f97316;}
+  .ci-item[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 60%, var(--border));--ci-hover-tint:#16a34a;}
+  .ci-item[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 60%, var(--border));--ci-hover-tint:#dc2626;}
+  .ci-item[data-diff="modified"],.ci-item[data-diff="changed"]{--ci-hover-tint:#f59e0b;}
   .ci-diff{display:inline-flex;gap:.25rem;align-items:center;font-size:.78rem;color:color-mix(in srgb,var(--text) 68%, transparent);}
   .ci-diff-badge{display:inline-flex;align-items:center;gap:.2rem;border:1px solid color-mix(in srgb,var(--border) 70%, transparent);border-radius:999px;padding:.05rem .35rem;line-height:1;background:color-mix(in srgb,var(--text) 4%, transparent);font-size:.72rem;font-weight:600;text-transform:uppercase;color:color-mix(in srgb,var(--text) 80%, transparent);}
   .ci-diff-badge.ci-diff-badge-added{border-color:color-mix(in srgb,#16a34a 45%, var(--border));color:#166534;background:color-mix(in srgb,#16a34a 12%, transparent);}
@@ -8315,6 +8317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
   @media (prefers-reduced-motion: reduce){
     .ci-expand .caret,.ct-expand .caret{transition:none}
+    .ci-item:hover,.ci-item:focus-within{transform:none}
   }
   /* Composer Guide */
   .comp-guide{border:1px dashed var(--border);border-radius:8px;background:color-mix(in srgb, var(--text) 3%, transparent);padding:.6rem .6rem .2rem;margin:.6rem 0 .8rem}
