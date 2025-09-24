@@ -3499,15 +3499,10 @@ function renderComposerInlineSummary(target, diff, options = {}) {
     return text;
   };
 
-  const withKeySummary = (keys, baseLabel) => {
-    const summaryText = formatKeyList(keys);
-    return summaryText ? `${baseLabel}: ${summaryText}` : baseLabel;
-  };
-
   const chips = [];
-  if (addedCount) chips.push({ variant: 'added', label: withKeySummary(summary.addedKeys, `+${addedCount} added`) });
-  if (removedCount) chips.push({ variant: 'removed', label: withKeySummary(summary.removedKeys, `-${removedCount} removed`) });
-  if (modifiedCount) chips.push({ variant: 'modified', label: withKeySummary(modifiedKeys, `~${modifiedCount} modified`) });
+  if (addedCount) chips.push({ variant: 'added', label: `+${addedCount} added` });
+  if (removedCount) chips.push({ variant: 'removed', label: `-${removedCount} removed` });
+  if (modifiedCount) chips.push({ variant: 'modified', label: `~${modifiedCount} modified` });
   if (orderChanged) {
     let orderLabel = 'Order changed';
     if (orderHasStats) {
