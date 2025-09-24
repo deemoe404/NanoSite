@@ -926,7 +926,30 @@
     .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
     .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
     .composer-order-inline-kind { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: color-mix(in srgb, var(--text) 58%, transparent); }
-    .composer-order-inline-stats { display: flex; flex-wrap: wrap; gap: .35rem; font-size: .78rem; color: var(--muted); }
+    .composer-order-inline-stats { display: flex; flex-direction: column; gap: .4rem; font-size: .78rem; color: var(--muted); }
+    .composer-inline-chip-row { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .composer-inline-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      border-radius: 999px;
+      padding: .18rem .55rem;
+      border: 1px solid color-mix(in srgb, var(--text) 16%, var(--border));
+      background: color-mix(in srgb, var(--text) 4%, var(--card));
+      font-weight: 600;
+      font-size: .72rem;
+      color: color-mix(in srgb, var(--text) 70%, transparent);
+    }
+    .composer-inline-chip[data-variant="added"] { color: #166534; }
+    .composer-inline-chip[data-variant="added"] { border-color: color-mix(in srgb, #16a34a 55%, var(--border)); background: color-mix(in srgb, #16a34a 12%, transparent); }
+    .composer-inline-chip[data-variant="removed"] { color: #b91c1c; }
+    .composer-inline-chip[data-variant="removed"] { border-color: color-mix(in srgb, #dc2626 55%, var(--border)); background: color-mix(in srgb, #dc2626 12%, transparent); }
+    .composer-inline-chip[data-variant="modified"] { color: #1d4ed8; }
+    .composer-inline-chip[data-variant="modified"] { border-color: color-mix(in srgb, #2563eb 55%, var(--border)); background: color-mix(in srgb, #2563eb 12%, transparent); }
+    .composer-inline-chip[data-variant="order"] { color: #7c3aed; }
+    .composer-inline-chip[data-variant="order"] { border-color: color-mix(in srgb, #7c3aed 55%, var(--border)); background: color-mix(in srgb, #7c3aed 14%, transparent); }
+    .composer-inline-chip[data-variant="langs"] { color: color-mix(in srgb, var(--text) 60%, transparent); }
+    .composer-inline-summary-empty { font-size: .78rem; color: var(--muted); }
     .composer-order-inline-body { display: flex; flex-direction: column; }
     .composer-order-inline-list { display: block; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
@@ -1133,10 +1156,10 @@
         <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
           <div class="composer-order-inline-meta-head">
             <div class="composer-order-inline-titles">
-              <h3 class="composer-order-inline-title">Old order</h3>
+              <h3 class="composer-order-inline-title">Change summary</h3>
               <span class="composer-order-inline-kind">index.yaml</span>
             </div>
-            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open detailed order diff">Details</button>
+            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview">Review changes</button>
           </div>
           <div class="composer-order-inline-stats" aria-live="polite"></div>
         </div>
