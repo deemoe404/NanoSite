@@ -5,7 +5,7 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'No local changes waiting to push';
+const CLEAN_STATUS_MESSAGE = 'No local changes';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
 
 // --- Persisted UI state keys ---
@@ -2724,6 +2724,7 @@ function updateUnsyncedSummary() {
   const globalStatusEl = document.getElementById('global-status');
   const globalLocalStateEl = document.getElementById('globalLocalState');
   const globalArrowLabelEl = document.getElementById('globalArrowLabel');
+  const globalArrowEl = document.querySelector('.gs-arrow');
   if (summaryEntries.length) {
     if (summaryContainer) {
       teardownLocalDraftAutoscroll(summaryContainer);
@@ -2771,6 +2772,7 @@ function updateUnsyncedSummary() {
     }
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
+    if (globalArrowEl) globalArrowEl.classList.add('is-pending');
     if (globalArrowLabelEl) {
       if (count === 1) globalArrowLabelEl.textContent = '1 pending';
       else globalArrowLabelEl.textContent = `${count} pending`;
@@ -2792,6 +2794,7 @@ function updateUnsyncedSummary() {
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalArrowEl) globalArrowEl.classList.remove('is-pending');
     if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;

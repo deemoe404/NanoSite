@@ -330,7 +330,7 @@
       grid-template-columns: max-content minmax(160px, 1fr) max-content;
       align-items:stretch;
       justify-content:center;
-      column-gap:1.25rem;
+      column-gap:0;
       width:100%;
     }
     .global-status .gs-node {
@@ -413,6 +413,26 @@
       background: color-mix(in srgb, currentColor 85%, transparent);
       opacity:.55;
     }
+    @keyframes gs-arrow-flow {
+      0% { background-position: 0% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes gs-arrow-flow-vertical {
+      0% { background-position: 0% 0; }
+      100% { background-position: 0% 200%; }
+    }
+    .global-status .gs-arrow.is-pending::before {
+      background-color: color-mix(in srgb, currentColor 65%, transparent);
+      background-image: linear-gradient(90deg,
+        transparent 0%,
+        color-mix(in srgb, currentColor 65%, transparent) 25%,
+        currentColor 50%,
+        color-mix(in srgb, currentColor 65%, transparent) 75%,
+        transparent 100%);
+      background-size: 200% 100%;
+      animation: gs-arrow-flow 1.15s linear infinite;
+      opacity:.8;
+    }
     .global-status .gs-arrow::after {
       content:'';
       position:absolute;
@@ -458,6 +478,12 @@
       cursor: pointer;
       user-select: none;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .global-status .gs-arrow-bubble:hover:not(.is-busy) {
+      color: color-mix(in srgb, var(--text) 84%, transparent);
+      background: color-mix(in srgb, var(--card) 94%, var(--primary) 8%);
+      border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+      box-shadow:0 10px 22px rgba(15, 23, 42, 0.14);
     }
     .global-status .gs-arrow-bubble:focus-visible {
       outline: 2px solid color-mix(in srgb, var(--primary) 62%, transparent);
@@ -518,6 +544,16 @@
         width:2px;
         height:auto;
         transform:none;
+      }
+      .global-status .gs-arrow.is-pending::before {
+        background-image: linear-gradient(180deg,
+          transparent 0%,
+          color-mix(in srgb, currentColor 65%, transparent) 25%,
+          currentColor 50%,
+          color-mix(in srgb, currentColor 65%, transparent) 75%,
+          transparent 100%);
+        background-size: 100% 200%;
+        animation: gs-arrow-flow-vertical 1.15s linear infinite;
       }
       .global-status .gs-arrow::after {
         top:auto;
@@ -1052,7 +1088,7 @@
                     <path d="M9 16v1.25A1.75 1.75 0 0 0 10.75 19h2.5A1.75 1.75 0 0 0 15 17.25V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </span>
-                <span class="gs-node-label">LOCAL changes</span>
+                <span class="gs-node-label">LOCAL</span>
               </div>
               <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
               <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
