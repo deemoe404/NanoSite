@@ -778,6 +778,23 @@
     @media (max-width: 640px) {
       .composer-confirm-popover { min-width: min(240px, calc(100vw - 2.5rem)); }
     }
+    .site-footer {
+      margin-top: clamp(2rem, 5vw, 3rem);
+      padding: 1.5rem 0 2rem;
+      border-top: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+      color: color-mix(in srgb, var(--muted) 90%, transparent);
+      font-size: .9rem;
+      text-align: center;
+    }
+    .site-footer a {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .site-footer a:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
     #btnDraft.is-dirty { border-color: color-mix(in srgb, #f97316 45%, var(--border)); background: color-mix(in srgb, #f97316 12%, var(--card)); color: color-mix(in srgb, #7c2d12 85%, transparent); }
     #btnDraft.is-clean { border-color: color-mix(in srgb, #16a34a 45%, var(--border)); background: color-mix(in srgb, #16a34a 10%, var(--card)); color: color-mix(in srgb, #14532d 85%, transparent); position: relative; }
     #btnDraft.is-clean::after { content: '✓'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #15803d; background: var(--card); border: 1px solid color-mix(in srgb, #16a34a 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
@@ -1174,6 +1191,9 @@
     </div>
   </div>
 
+  <footer class="site-footer">
+    <p>Crafted with ❤️ using <a href="https://nanosite.dev" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
+  </footer>
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
