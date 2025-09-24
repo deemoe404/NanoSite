@@ -69,6 +69,7 @@ let composerOrderPreviewElements = { index: null, tabs: null };
 let composerOrderPreviewState = { index: null, tabs: null };
 let composerOrderPreviewActiveKind = 'index';
 let composerOrderPreviewResizeHandler = null;
+const composerOrderPreviewRelayoutTimers = { index: null, tabs: null };
 
 function getActiveComposerFile() {
   try {
@@ -4371,12 +4372,22 @@ function drawOrderDiffLines(state) {
   const pathMap = new Map();
   segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
-    const rightEl = rightMap.get(info.key);
+    const rightRow = rightMap.get(info.key);
     if (!leftEl) return;
-    const rightRect = rightEl ? rightEl.getBoundingClientRect() : null;
-    const cs = (typeof window !== 'undefined' && window.getComputedStyle && rightEl)
-      ? window.getComputedStyle(rightEl)
+
+    let anchor = null;
+    if (rightRow && typeof rightRow.querySelector === 'function') {
+      anchor = rightRow.querySelector('.ci-head, .ct-head');
+    }
+    if (!anchor) anchor = rightRow || null;
+
+    const rightRect = anchor && typeof anchor.getBoundingClientRect === 'function'
+      ? anchor.getBoundingClientRect()
       : null;
+    const cs = (typeof window !== 'undefined' && window.getComputedStyle && rightRow)
+      ? window.getComputedStyle(rightRow)
+      : null;
+
     if (leftEl.style) {
       if (rightRect && typeof rightRect.height === 'number' && rightRect.height > 0) {
         const heightPx = Math.max(rightRect.height, 0);
@@ -4390,8 +4401,9 @@ function drawOrderDiffLines(state) {
         if (!fallbackMarginBottom) fallbackMarginBottom = cs.marginBottom;
       }
     }
-    if (!rightRect) return;
-    layoutSegments.push({ info, leftEl, rightEl });
+
+    if (!rightRect || !anchor) return;
+    layoutSegments.push({ info, leftEl, rightEl: anchor, rightRect });
   });
 
   if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
@@ -4409,9 +4421,10 @@ function drawOrderDiffLines(state) {
     });
   }
 
-  layoutSegments.forEach(({ info, leftEl, rightEl }) => {
+  layoutSegments.forEach(({ info, leftEl, rightEl, rightRect }) => {
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightEl.getBoundingClientRect();
+    const rRect = rightRect || (rightEl ? rightEl.getBoundingClientRect() : null);
+    if (!rRect) return;
     let startX = (lRect.right - offsetX);
     const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
     let endX = (rRect.left - offsetX);
@@ -4446,6 +4459,55 @@ function drawOrderDiffLines(state) {
   } else {
     applyComposerOrderHover(container, '');
   }
+}
+
+function scheduleComposerOrderPreviewRelayout(kind) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const timers = composerOrderPreviewRelayoutTimers[normalized];
+  if (timers) {
+    if (typeof cancelAnimationFrame === 'function' && typeof timers.raf === 'number') {
+      try { cancelAnimationFrame(timers.raf); } catch (_) {}
+    }
+    if (timers.timeout != null) {
+      clearTimeout(timers.timeout);
+    }
+  }
+
+  const pending = { raf: null, timeout: null };
+  const run = () => {
+    const active = composerOrderPreviewState && composerOrderPreviewState[normalized];
+    if (active) drawOrderDiffLines(active);
+  };
+  const finalize = () => { composerOrderPreviewRelayoutTimers[normalized] = null; };
+
+  const delayBase = Math.max(SLIDE_OPEN_DUR, SLIDE_CLOSE_DUR, 260) + 80;
+
+  const scheduleTrailing = () => {
+    pending.timeout = setTimeout(() => {
+      pending.timeout = null;
+      run();
+      finalize();
+    }, delayBase);
+  };
+
+  const state = composerOrderPreviewState && composerOrderPreviewState[normalized];
+  if (!state) {
+    finalize();
+    return;
+  }
+
+  if (typeof requestAnimationFrame === 'function') {
+    pending.raf = requestAnimationFrame(() => {
+      pending.raf = null;
+      run();
+      scheduleTrailing();
+    });
+  } else {
+    run();
+    scheduleTrailing();
+  }
+
+  composerOrderPreviewRelayoutTimers[normalized] = pending;
 }
 
 function ensureComposerOrderPreview(kind) {
@@ -7295,6 +7357,7 @@ function buildIndexUI(root, state) {
       row.classList.toggle('is-open', next);
       btnExpand.setAttribute('aria-expanded', String(next));
       slideToggle(body, next);
+      scheduleComposerOrderPreviewRelayout('index');
     });
     btnDel.addEventListener('click', () => {
       const i = state.index.__order.indexOf(key);
@@ -7497,6 +7560,7 @@ function buildTabsUI(root, state) {
       row.classList.toggle('is-open', next);
       btnExpand.setAttribute('aria-expanded', String(next));
       slideToggle(body, next);
+      scheduleComposerOrderPreviewRelayout('tabs');
     });
     btnDel.addEventListener('click', () => {
       const i = state.tabs.__order.indexOf(tab);
@@ -7600,6 +7664,8 @@ function focusComposerEntry(kind, key) {
     try { target.focus(); } catch (_) {}
   }
   try { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+
+  scheduleComposerOrderPreviewRelayout(normalized);
 }
 
 async function addComposerEntry(kind, anchor) {
