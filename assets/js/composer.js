@@ -126,6 +126,50 @@ function ensureToastRoot() {
   return root;
 }
 
+function prepareToastStackAnimation(container, excluded) {
+  if (!container) return null;
+  const items = Array.from(container.children || [])
+    .filter((child) => child !== excluded && child.dataset && child.dataset.dismissed !== 'true');
+  if (!items.length) return null;
+
+  const initialRects = new Map();
+  for (const item of items) {
+    try {
+      initialRects.set(item, item.getBoundingClientRect());
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  return () => {
+    if (!items.length) return;
+    requestAnimationFrame(() => {
+      for (const item of items) {
+        const first = initialRects.get(item);
+        if (!first) continue;
+        let last;
+        try {
+          last = item.getBoundingClientRect();
+        } catch (_) {
+          continue;
+        }
+        const deltaY = first.top - last.top;
+        if (Math.abs(deltaY) < 0.5) continue;
+        try {
+          item.style.willChange = 'transform';
+          item.style.transform = `translateY(${deltaY}px)`;
+          requestAnimationFrame(() => {
+            item.style.transform = 'translateY(0)';
+            setTimeout(() => { item.style.willChange = ''; }, 360);
+          });
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    });
+  };
+}
+
 function showToast(kind, text, options = {}) {
   try {
     const message = safeString(text);
@@ -165,10 +209,14 @@ function showToast(kind, text, options = {}) {
     const dismiss = () => {
       if (el.dataset.dismissed === 'true') return;
       el.dataset.dismissed = 'true';
+      const animateStack = prepareToastStackAnimation(root, el);
       el.style.opacity = '0';
       el.style.transform = 'translateY(12px)';
       setTimeout(() => {
         try { el.remove(); } catch (_) {}
+        if (typeof animateStack === 'function') {
+          try { animateStack(); } catch (_) {}
+        }
       }, 320);
     };
 
