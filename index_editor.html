@@ -915,7 +915,7 @@
       grid-template-areas:
         "meta meta"
         "inline main";
-      column-gap: clamp(1.4rem, 4vw, 2.4rem);
+      column-gap: clamp(2rem, 5vw, 3.2rem);
       row-gap: .7rem;
       align-items: start;
       min-width: 0;
@@ -931,7 +931,7 @@
     .composer-order-inline-kind { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: color-mix(in srgb, var(--text) 58%, transparent); }
     .composer-order-inline-stats { display: flex; flex-wrap: wrap; gap: .35rem; font-size: .78rem; color: var(--muted); }
     .composer-order-inline-body { display: flex; flex-direction: column; }
-    .composer-order-inline-list { display: flex; flex-direction: column; gap: 0; position: relative; z-index: 2; }
+    .composer-order-inline-list { display: block; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
     .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
