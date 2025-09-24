@@ -2724,6 +2724,8 @@ function updateUnsyncedSummary() {
   const globalStatusEl = document.getElementById('global-status');
   const globalLocalStateEl = document.getElementById('globalLocalState');
   const globalArrowLabelEl = document.getElementById('globalArrowLabel');
+  const globalArrowEl = document.querySelector('.gs-arrow');
+  const globalArrowBubbleEl = document.querySelector('.gs-arrow-bubble');
   if (summaryEntries.length) {
     if (summaryContainer) {
       teardownLocalDraftAutoscroll(summaryContainer);
@@ -2771,10 +2773,9 @@ function updateUnsyncedSummary() {
     }
     const count = summaryEntries.length;
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
-    if (globalArrowLabelEl) {
-      if (count === 1) globalArrowLabelEl.textContent = '1 pending';
-      else globalArrowLabelEl.textContent = `${count} pending`;
-    }
+    if (globalArrowEl) globalArrowEl.classList.add('is-pending');
+    if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'UPLOAD';
+    if (globalArrowBubbleEl) globalArrowBubbleEl.textContent = 'UPLOAD';
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = '';
       globalLocalStateEl.hidden = true;
@@ -2792,7 +2793,9 @@ function updateUnsyncedSummary() {
       summaryContainer.style.removeProperty('--gs-drafts-collapsed-height');
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
+    if (globalArrowEl) globalArrowEl.classList.remove('is-pending');
     if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
+    if (globalArrowBubbleEl) globalArrowBubbleEl.textContent = 'Synced';
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;
       globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
@@ -3445,7 +3448,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       bubble.removeAttribute('aria-busy');
       bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
       const pendingCount = computeUnsyncedSummary().length;
-      if (pendingCount) bubble.textContent = pendingCount === 1 ? '1 pending' : `${pendingCount} pending`;
+      if (pendingCount) bubble.textContent = 'UPLOAD';
       else bubble.textContent = 'Synced';
     }
   }
@@ -3490,6 +3493,28 @@ function attachGlobalStatusCommitHandler() {
       handleGlobalBubbleActivation(event);
     }
   });
+  const restoreHoverLabel = () => {
+    if (!bubble.dataset) return;
+    const original = bubble.dataset.hoverLabel;
+    if (bubble.classList.contains('is-busy')) {
+      delete bubble.dataset.hoverLabel;
+      return;
+    }
+    if (original != null) {
+      bubble.textContent = original;
+    }
+    delete bubble.dataset.hoverLabel;
+  };
+  bubble.addEventListener('pointerenter', () => {
+    if (bubble.classList.contains('is-busy')) return;
+    if (!bubble.dataset.hoverLabel) {
+      bubble.dataset.hoverLabel = bubble.textContent || '';
+    }
+    bubble.textContent = 'UPLOAD';
+  });
+  bubble.addEventListener('pointerleave', restoreHoverLabel);
+  bubble.addEventListener('pointercancel', restoreHoverLabel);
+  bubble.addEventListener('blur', restoreHoverLabel);
 }
 
 function computeOrderDiffDetails(kind) {
