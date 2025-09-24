@@ -3459,6 +3459,132 @@ function renderOrderStatsChips(target, stats, options = {}) {
   });
 }
 
+function renderComposerInlineSummary(target, diff, options = {}) {
+  if (!target) return;
+  target.innerHTML = '';
+
+  const summary = (diff && typeof diff === 'object') ? diff : null;
+  if (!summary || !summary.hasChanges) {
+    const empty = document.createElement('span');
+    empty.className = 'composer-inline-summary-empty';
+    empty.textContent = 'No local changes yet.';
+    target.appendChild(empty);
+    return;
+  }
+
+  const diffKeys = summary.keys || {};
+  const modifiedKeys = Object.keys(diffKeys).filter(key => {
+    const info = diffKeys[key];
+    if (!info) return false;
+    return info.state === 'modified'
+      || (Array.isArray(info.addedLangs) && info.addedLangs.length)
+      || (Array.isArray(info.removedLangs) && info.removedLangs.length);
+  });
+
+  const addedCount = Array.isArray(summary.addedKeys) ? summary.addedKeys.length : 0;
+  const removedCount = Array.isArray(summary.removedKeys) ? summary.removedKeys.length : 0;
+  const modifiedCount = modifiedKeys.length;
+  const orderStats = options.orderStats || { moved: 0, added: 0, removed: 0 };
+  const orderChanged = !!summary.orderChanged;
+  const orderHasStats = !!(orderStats && (orderStats.moved || orderStats.added || orderStats.removed));
+
+  const chips = [];
+  if (addedCount) chips.push({ variant: 'added', label: `+${addedCount} added` });
+  if (removedCount) chips.push({ variant: 'removed', label: `-${removedCount} removed` });
+  if (modifiedCount) chips.push({ variant: 'modified', label: `~${modifiedCount} modified` });
+  if (orderChanged) {
+    let orderLabel = 'Order changed';
+    if (orderHasStats) {
+      const parts = [];
+      if (orderStats.moved) parts.push(`${orderStats.moved} moved`);
+      if (orderStats.added) parts.push(`+${orderStats.added} new`);
+      if (orderStats.removed) parts.push(`-${orderStats.removed} removed`);
+      if (parts.length) orderLabel = `Order: ${parts.join(', ')}`;
+    }
+    chips.push({ variant: 'order', label: orderLabel });
+  }
+
+  if (chips.length) {
+    const chipRow = document.createElement('div');
+    chipRow.className = 'composer-inline-chip-row';
+    chips.forEach(chipInfo => {
+      const chip = document.createElement('span');
+      chip.className = 'composer-inline-chip';
+      chip.dataset.variant = chipInfo.variant;
+      chip.textContent = chipInfo.label;
+      chipRow.appendChild(chip);
+    });
+    target.appendChild(chipRow);
+  }
+
+  const detailWrap = document.createElement('div');
+  detailWrap.className = 'composer-inline-details';
+
+  const formatKeyList = (keys) => {
+    if (!Array.isArray(keys) || !keys.length) return '';
+    const clean = keys.filter(key => key != null && key !== '');
+    if (!clean.length) return '';
+    const max = Math.max(1, options.maxKeys || 3);
+    const shown = clean.slice(0, max);
+    let text = shown.join(', ');
+    if (clean.length > shown.length) text += ` +${clean.length - shown.length} more`;
+    return text;
+  };
+
+  const appendDetail = (variant, label, value) => {
+    let text = '';
+    if (Array.isArray(value)) text = formatKeyList(value);
+    else if (typeof value === 'number') text = String(value);
+    else if (typeof value === 'string') text = value;
+    if (!text) return;
+    const row = document.createElement('div');
+    row.className = 'composer-inline-detail';
+    if (variant) row.dataset.variant = variant;
+    const labelEl = document.createElement('span');
+    labelEl.className = 'composer-inline-detail-label';
+    labelEl.textContent = `${label}:`;
+    const valueEl = document.createElement('span');
+    valueEl.className = 'composer-inline-detail-value';
+    valueEl.textContent = text;
+    row.appendChild(labelEl);
+    row.appendChild(valueEl);
+    detailWrap.appendChild(row);
+  };
+
+  appendDetail('added', 'Added', summary.addedKeys);
+  appendDetail('removed', 'Removed', summary.removedKeys);
+  appendDetail('modified', 'Modified', modifiedKeys);
+
+  if (orderChanged) {
+    const parts = [];
+    if (orderStats.moved) parts.push(`${orderStats.moved} moved`);
+    if (orderStats.added) parts.push(`+${orderStats.added} new`);
+    if (orderStats.removed) parts.push(`-${orderStats.removed} removed`);
+    appendDetail('order', 'Order', parts.length ? parts.join(', ') : 'changed');
+  }
+
+  const langSet = new Set();
+  Object.values(diffKeys).forEach(info => {
+    if (!info) return;
+    Object.keys(info.langs || {}).forEach(lang => langSet.add(String(lang || '').toUpperCase()));
+    (info.addedLangs || []).forEach(lang => langSet.add(String(lang || '').toUpperCase()));
+    (info.removedLangs || []).forEach(lang => langSet.add(String(lang || '').toUpperCase()));
+  });
+  if (langSet.size) {
+    const langs = Array.from(langSet).filter(Boolean).sort();
+    appendDetail('langs', 'Languages', langs.join(', '));
+  }
+
+  if (detailWrap.children.length) target.appendChild(detailWrap);
+
+  if (!chips.length && !detailWrap.children.length) {
+    const empty = document.createElement('span');
+    empty.className = 'composer-inline-summary-empty';
+    empty.textContent = 'Changes detected.';
+    target.appendChild(empty);
+  }
+}
+
 function openComposerDiffModal(kind, initialTab = 'overview') {
   try {
     const modal = ensureComposerDiffModal();
@@ -4247,7 +4373,7 @@ function ensureComposerOrderPreview(kind) {
     openBtn.__nsBound = true;
     openBtn.addEventListener('click', () => {
       const target = openBtn.dataset && openBtn.dataset.kind ? openBtn.dataset.kind : normalized;
-      openOrderDiffModal(target);
+      openComposerDiffModal(target, 'overview');
     });
   }
 
@@ -4287,7 +4413,7 @@ function updateComposerOrderPreview(kind, options = {}) {
   const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
 
-  if (title) title.textContent = 'Old order';
+  if (title) title.textContent = 'Change summary';
   if (kindLabel) kindLabel.textContent = label;
   if (meta) meta.dataset.kind = normalized;
   if (root) {
@@ -4297,14 +4423,20 @@ function updateComposerOrderPreview(kind, options = {}) {
   if (host) host.dataset.kind = normalized;
   if (openBtn) {
     openBtn.dataset.kind = normalized;
-    openBtn.setAttribute('aria-label', `Open detailed order diff for ${label}`);
+    openBtn.setAttribute('aria-label', `Open change overview for ${label}`);
   }
+
+  const diff = composerDiffCache[normalized] || recomputeDiff(normalized);
 
   const details = computeOrderDiffDetails(normalized) || {};
   const beforeEntries = Array.isArray(details.beforeEntries) ? details.beforeEntries : [];
   const afterEntries = Array.isArray(details.afterEntries) ? details.afterEntries : [];
   const connectors = Array.isArray(details.connectors) ? details.connectors : [];
   const stats = details.stats || { moved: 0, added: 0, removed: 0 };
+
+  if (statsWrap) {
+    renderComposerInlineSummary(statsWrap, diff, { orderStats: stats });
+  }
 
   if (list) {
     list.innerHTML = '';
@@ -4333,17 +4465,15 @@ function updateComposerOrderPreview(kind, options = {}) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
   }
 
-  renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No order changes yet' });
-
   const hasBaseline = leftMap.size > 0;
-  const hasChanges = (stats.moved || stats.added || stats.removed) > 0;
-  const shouldShow = hasChanges;
+  const hasOrderChanges = (stats.moved || stats.added || stats.removed) > 0;
+  const hasDiffChanges = !!(diff && diff.hasChanges);
 
   if (emptyNotice) {
     if (!hasBaseline) {
-      emptyNotice.hidden = !shouldShow;
-      emptyNotice.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
-      if (shouldShow && stats.added && !hasBaseline) {
+      emptyNotice.hidden = !hasOrderChanges;
+      emptyNotice.setAttribute('aria-hidden', hasOrderChanges ? 'false' : 'true');
+      if (hasOrderChanges && stats.added && !hasBaseline) {
         emptyNotice.textContent = 'All current items are new compared with the baseline.';
       } else {
         emptyNotice.textContent = 'No entries to compare yet.';
@@ -4354,7 +4484,7 @@ function updateComposerOrderPreview(kind, options = {}) {
     }
   }
 
-  if (!shouldShow) {
+  if (!hasDiffChanges) {
     if (root) {
       root.hidden = true;
       root.setAttribute('aria-hidden', 'true');
@@ -4370,18 +4500,26 @@ function updateComposerOrderPreview(kind, options = {}) {
     return;
   }
 
-  if (root) {
-    if (options.reveal !== false) root.hidden = false;
-    root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
-    root.dataset.state = hasChanges ? 'changed' : 'clean';
-  }
   if (meta) {
     if (options.reveal !== false) meta.hidden = false;
     meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
   }
-  if (host) host.dataset.state = hasChanges ? 'changed' : 'clean';
 
-  const state = (svg && (leftMap.size || connectors.length))
+  if (host) host.dataset.state = hasDiffChanges ? 'changed' : 'clean';
+
+  if (root) {
+    if (hasOrderChanges) {
+      if (options.reveal !== false) root.hidden = false;
+      root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
+      root.dataset.state = 'changed';
+    } else {
+      root.hidden = true;
+      root.setAttribute('aria-hidden', 'true');
+      root.dataset.state = 'clean';
+    }
+  }
+
+  const state = hasOrderChanges && svg && (leftMap.size || connectors.length)
     ? { container: host, svg, connectors, leftMap, rightMap }
     : null;
   composerOrderPreviewState[normalized] = state;
