@@ -906,6 +906,59 @@
       body { padding: .75rem; }
     }
 
+    .composer-panels { min-width: 0; display: grid; gap: 1.25rem; }
+    .composer-order-host {
+      position: relative;
+      display: grid;
+      grid-template-columns: clamp(150px, 24%, 220px) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "inline main";
+      column-gap: clamp(2rem, 5vw, 3.2rem);
+      align-items: start;
+      min-width: 0;
+    }
+    .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
+    .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
+    .composer-order-inline[hidden] { display: none !important; }
+    .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
+    .composer-order-inline-meta[hidden] { display: none !important; }
+    .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+    .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+    .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
+    .composer-order-inline-kind { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: color-mix(in srgb, var(--text) 58%, transparent); }
+    .composer-order-inline-stats { display: flex; flex-wrap: wrap; gap: .35rem; font-size: .78rem; color: var(--muted); }
+    .composer-order-inline-body { display: flex; flex-direction: column; }
+    .composer-order-inline-list { display: block; position: relative; z-index: 2; }
+    .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
+    .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
+    .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
+    .composer-order-inline .composer-order-item { margin: .5rem 0; }
+    .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }
+    .composer-order-inline .composer-order-key {
+      font-size: .84rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      word-break: normal;
+    }
+    .composer-order-inline .composer-order-badge {
+      font-size: .7rem;
+      white-space: nowrap;
+    }
+    @media (max-width: 900px) {
+      .composer-panels { gap: 1rem; }
+      .composer-order-host {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas:
+          "inline"
+          "main";
+        column-gap: 0;
+      }
+      .composer-order-inline-lines { display: none; }
+    }
+
     /* Back-to-top button */
     .back-to-top { position: fixed; right: 1rem; bottom: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease, transform .18s ease, background-color .18s ease; z-index: 999; }
     .back-to-top:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
@@ -1077,9 +1130,42 @@
             <button class="btn-secondary" id="btnReview" type="button" hidden aria-hidden="true">Review</button>
           </div>
         </div>
+        <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
+          <div class="composer-order-inline-meta-head">
+            <div class="composer-order-inline-titles">
+              <h3 class="composer-order-inline-title">Old order</h3>
+              <span class="composer-order-inline-kind">index.yaml</span>
+            </div>
+            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open detailed order diff">Details</button>
+          </div>
+          <div class="composer-order-inline-stats" aria-live="polite"></div>
+        </div>
+
         <!-- Composer Lists -->
-        <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
-        <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+        <div class="composer-panels" id="composerPanels">
+          <div class="composer-order-host" data-kind="index" id="composerIndexHost">
+            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
+              <div class="composer-order-inline-body">
+                <div class="composer-order-inline-list" role="list"></div>
+                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+              </div>
+            </div>
+            <div class="composer-order-main">
+              <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
+            </div>
+          </div>
+          <div class="composer-order-host" data-kind="tabs" id="composerTabsHost" style="display:none;">
+            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
+              <div class="composer-order-inline-body">
+                <div class="composer-order-inline-list" role="list"></div>
+                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+              </div>
+            </div>
+            <div class="composer-order-main">
+              <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
 
         <!-- YAML preview/export area -->
         <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">

@@ -65,6 +65,10 @@ let composerAutoSaveTimers = { index: null, tabs: null };
 let composerDiffModal = null;
 let composerOrderState = null;
 let composerDiffResizeHandler = null;
+let composerOrderPreviewElements = { index: null, tabs: null };
+let composerOrderPreviewState = { index: null, tabs: null };
+let composerOrderPreviewActiveKind = 'index';
+let composerOrderPreviewResizeHandler = null;
 
 function getActiveComposerFile() {
   try {
@@ -3434,6 +3438,27 @@ function computeOrderDiffDetails(kind) {
   return { beforeEntries, afterEntries, connectors, stats };
 }
 
+function renderOrderStatsChips(target, stats, options = {}) {
+  if (!target) return;
+  const safeStats = stats || { moved: 0, added: 0, removed: 0 };
+  const emptyLabel = options.emptyLabel || 'No direct moves; changes come from additions/removals';
+  const pieces = [];
+  if (safeStats.moved) pieces.push({ label: `Moved ${safeStats.moved}`, status: 'moved' });
+  if (safeStats.added) pieces.push({ label: `+${safeStats.added} new`, status: 'added' });
+  if (safeStats.removed) pieces.push({ label: `-${safeStats.removed} removed`, status: 'removed' });
+  target.innerHTML = '';
+  if (!pieces.length) {
+    pieces.push({ label: emptyLabel, status: 'neutral' });
+  }
+  pieces.forEach(info => {
+    const chip = document.createElement('span');
+    chip.className = 'composer-order-chip';
+    chip.dataset.status = info.status;
+    chip.textContent = info.label;
+    target.appendChild(chip);
+  });
+}
+
 function openComposerDiffModal(kind, initialTab = 'overview') {
   try {
     const modal = ensureComposerDiffModal();
@@ -3461,7 +3486,9 @@ function buildOrderDiffItem(entry, side) {
 
   const keyEl = document.createElement('span');
   keyEl.className = 'composer-order-key';
-  keyEl.textContent = entry.key || '(empty)';
+  const keyText = entry.key || '(empty)';
+  keyEl.textContent = keyText;
+  keyEl.title = keyText;
   item.appendChild(keyEl);
 
   const badgeEl = document.createElement('span');
@@ -4002,22 +4029,6 @@ function ensureComposerDiffModal() {
     });
   }
 
-  function updateOrderStats(stats) {
-    statsWrap.innerHTML = '';
-    const pieces = [];
-    if (stats.moved) pieces.push({ label: `Moved ${stats.moved}`, status: 'moved' });
-    if (stats.added) pieces.push({ label: `+${stats.added} new`, status: 'added' });
-    if (stats.removed) pieces.push({ label: `-${stats.removed} removed`, status: 'removed' });
-    if (!pieces.length) pieces.push({ label: 'No direct moves; changes come from additions/removals', status: 'neutral' });
-    pieces.forEach(info => {
-      const chip = document.createElement('span');
-      chip.className = 'composer-order-chip';
-      chip.dataset.status = info.status;
-      chip.textContent = info.label;
-      statsWrap.appendChild(chip);
-    });
-  }
-
   function renderOrder(kind) {
     const label = kind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
     title.textContent = `Changes — ${label}`;
@@ -4054,7 +4065,7 @@ function ensureComposerDiffModal() {
     }
     viz.classList.toggle('is-empty', !hasItems);
 
-    updateOrderStats(stats);
+    renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No direct moves; changes come from additions/removals' });
 
     composerOrderState = hasItems
       ? { container: viz, svg, connectors, leftMap, rightMap }
@@ -4132,10 +4143,22 @@ function ensureComposerDiffModal() {
   return composerDiffModal;
 }
 
-function drawOrderDiffLines() {
-  if (!composerOrderState) return;
-  const { container, svg, connectors, leftMap, rightMap } = composerOrderState;
+function drawOrderDiffLines(state) {
+  let ctx = state;
+  if (!ctx || typeof ctx !== 'object' || !ctx.container) ctx = composerOrderState;
+  if (!ctx) return;
+  const { container, svg, connectors, leftMap, rightMap } = ctx;
   if (!container || !svg) return;
+
+  if (leftMap && typeof leftMap.forEach === 'function') {
+    leftMap.forEach(el => {
+      if (!el || !el.style) return;
+      el.style.removeProperty('min-height');
+      el.style.removeProperty('margin-top');
+      el.style.removeProperty('margin-bottom');
+    });
+  }
+
   const rect = container.getBoundingClientRect();
   const width = container.clientWidth;
   const height = Math.max(container.scrollHeight, rect.height);
@@ -4148,13 +4171,27 @@ function drawOrderDiffLines() {
   const offsetY = rect.top;
   const scrollTop = container.scrollTop || 0;
 
+  const segments = Array.isArray(connectors) ? connectors : [];
   let movedIdx = 0;
-  connectors.forEach(info => {
+  segments.forEach(info => {
     const leftEl = leftMap.get(info.key);
     const rightEl = rightMap.get(info.key);
     if (!leftEl || !rightEl) return;
+    const rightRect = rightEl.getBoundingClientRect();
+    const cs = (typeof window !== 'undefined' && window.getComputedStyle)
+      ? window.getComputedStyle(rightEl)
+      : null;
+    if (leftEl.style) {
+      if (rightRect && rightRect.height) {
+        leftEl.style.minHeight = Math.max(rightRect.height, 0) + 'px';
+      }
+      if (cs) {
+        leftEl.style.marginTop = cs.marginTop;
+        leftEl.style.marginBottom = cs.marginBottom;
+      }
+    }
     const lRect = leftEl.getBoundingClientRect();
-    const rRect = rightEl.getBoundingClientRect();
+    const rRect = rightRect;
     let startX = (lRect.right - offsetX);
     const startY = (lRect.top - offsetY) + (lRect.height / 2) + scrollTop;
     let endX = (rRect.left - offsetX);
@@ -4178,6 +4215,192 @@ function drawOrderDiffLines() {
     }
     svg.appendChild(path);
   });
+}
+
+function ensureComposerOrderPreview(kind) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  if (!composerOrderPreviewElements) composerOrderPreviewElements = { index: null, tabs: null };
+  if (composerOrderPreviewElements[normalized]) return composerOrderPreviewElements[normalized];
+
+  const host = document.querySelector(`.composer-order-host[data-kind="${normalized}"]`);
+  if (!host) return null;
+  const root = host.querySelector('.composer-order-inline');
+  if (!root) return null;
+
+  let svg = host.querySelector('svg.composer-order-inline-lines');
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('composer-order-lines', 'composer-order-inline-lines');
+    svg.setAttribute('aria-hidden', 'true');
+    host.appendChild(svg);
+  }
+
+  const meta = document.getElementById('composerOrderInlineMeta');
+  const statsWrap = meta ? meta.querySelector('.composer-order-inline-stats') : null;
+  const list = root.querySelector('.composer-order-inline-list');
+  const emptyNotice = root.querySelector('.composer-order-inline-empty');
+  const kindLabel = meta ? meta.querySelector('.composer-order-inline-kind') : null;
+  const title = meta ? meta.querySelector('.composer-order-inline-title') : null;
+  const openBtn = meta ? meta.querySelector('.composer-order-inline-open') : null;
+
+  if (openBtn && !openBtn.__nsBound) {
+    openBtn.__nsBound = true;
+    openBtn.addEventListener('click', () => {
+      const target = openBtn.dataset && openBtn.dataset.kind ? openBtn.dataset.kind : normalized;
+      openOrderDiffModal(target);
+    });
+  }
+
+  if (typeof ResizeObserver === 'function' && !host.__nsOrderResizeObserver) {
+    try {
+      const ro = new ResizeObserver(() => {
+        const state = composerOrderPreviewState && composerOrderPreviewState[normalized];
+        if (state) drawOrderDiffLines(state);
+      });
+      ro.observe(host);
+      host.__nsOrderResizeObserver = ro;
+    } catch (_) {}
+  }
+
+  if (!composerOrderPreviewResizeHandler) {
+    composerOrderPreviewResizeHandler = () => {
+      if (!composerOrderPreviewState) return;
+      ['index', 'tabs'].forEach(key => {
+        const state = composerOrderPreviewState[key];
+        if (state) drawOrderDiffLines(state);
+      });
+    };
+    try { window.addEventListener('resize', composerOrderPreviewResizeHandler); } catch (_) {}
+  }
+
+  const preview = { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta };
+  composerOrderPreviewElements[normalized] = preview;
+  return preview;
+}
+
+function updateComposerOrderPreview(kind, options = {}) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  const preview = ensureComposerOrderPreview(normalized);
+  if (!preview) return;
+  composerOrderPreviewActiveKind = normalized;
+
+  const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
+  const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+
+  if (title) title.textContent = 'Old order';
+  if (kindLabel) kindLabel.textContent = label;
+  if (meta) meta.dataset.kind = normalized;
+  if (root) {
+    root.dataset.kind = normalized;
+    root.setAttribute('aria-label', `Old order for ${label}`);
+  }
+  if (host) host.dataset.kind = normalized;
+  if (openBtn) {
+    openBtn.dataset.kind = normalized;
+    openBtn.setAttribute('aria-label', `Open detailed order diff for ${label}`);
+  }
+
+  const details = computeOrderDiffDetails(normalized) || {};
+  const beforeEntries = Array.isArray(details.beforeEntries) ? details.beforeEntries : [];
+  const afterEntries = Array.isArray(details.afterEntries) ? details.afterEntries : [];
+  const connectors = Array.isArray(details.connectors) ? details.connectors : [];
+  const stats = details.stats || { moved: 0, added: 0, removed: 0 };
+
+  if (list) {
+    list.innerHTML = '';
+  }
+
+  const leftMap = new Map();
+  beforeEntries.forEach(entry => {
+    const item = buildOrderDiffItem(entry, 'before');
+    item.classList.add('composer-order-inline-item');
+    leftMap.set(entry.key, item);
+    if (list) list.appendChild(item);
+  });
+
+  const main = host ? host.querySelector('.composer-order-main') : null;
+  const rightMap = new Map();
+  if (main) {
+    const selector = normalized === 'tabs' ? '.ct-item' : '.ci-item';
+    afterEntries.forEach(entry => {
+      if (!entry || !entry.key) return;
+      const row = main.querySelector(`${selector}[data-key="${cssEscape(entry.key)}"]`);
+      if (row) rightMap.set(entry.key, row);
+    });
+  }
+
+  if (svg) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+  }
+
+  renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No order changes yet' });
+
+  const hasBaseline = leftMap.size > 0;
+  const hasChanges = (stats.moved || stats.added || stats.removed) > 0;
+  const shouldShow = hasChanges;
+
+  if (emptyNotice) {
+    if (!hasBaseline) {
+      emptyNotice.hidden = !shouldShow;
+      emptyNotice.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+      if (shouldShow && stats.added && !hasBaseline) {
+        emptyNotice.textContent = 'All current items are new compared with the baseline.';
+      } else {
+        emptyNotice.textContent = 'No entries to compare yet.';
+      }
+    } else {
+      emptyNotice.hidden = true;
+      emptyNotice.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  if (!shouldShow) {
+    if (root) {
+      root.hidden = true;
+      root.setAttribute('aria-hidden', 'true');
+      root.dataset.state = 'clean';
+    }
+    if (meta) {
+      meta.hidden = true;
+      meta.setAttribute('aria-hidden', 'true');
+    }
+    if (host) host.dataset.state = 'clean';
+    if (svg) svg.style.display = 'none';
+    composerOrderPreviewState[normalized] = null;
+    return;
+  }
+
+  if (root) {
+    if (options.reveal !== false) root.hidden = false;
+    root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
+    root.dataset.state = hasChanges ? 'changed' : 'clean';
+  }
+  if (meta) {
+    if (options.reveal !== false) meta.hidden = false;
+    meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
+  }
+  if (host) host.dataset.state = hasChanges ? 'changed' : 'clean';
+
+  const state = (svg && (leftMap.size || connectors.length))
+    ? { container: host, svg, connectors, leftMap, rightMap }
+    : null;
+  composerOrderPreviewState[normalized] = state;
+  if (svg) svg.style.display = state ? '' : 'none';
+  if (state) {
+    drawOrderDiffLines(state);
+    requestAnimationFrame(() => drawOrderDiffLines(state));
+    setTimeout(() => drawOrderDiffLines(state), 120);
+  }
+}
+
+function setComposerOrderPreviewActiveKind(kind) {
+  const normalized = kind === 'tabs' ? 'tabs' : 'index';
+  if (composerOrderPreviewActiveKind === normalized) {
+    updateComposerOrderPreview(normalized);
+    return;
+  }
+  composerOrderPreviewActiveKind = normalized;
+  updateComposerOrderPreview(normalized);
 }
 
 
@@ -4233,6 +4456,7 @@ function notifyComposerChange(kind, options = {}) {
   if (!options.skipAutoSave) scheduleAutoDraft(kind);
 
   updateUnsyncedSummary();
+  if (composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -6062,6 +6286,14 @@ function getInitialComposerFile() {
 
 function applyComposerFile(name) {
   const isIndex = name !== 'tabs';
+  try {
+    const hostIndex = document.getElementById('composerIndexHost');
+    if (hostIndex) hostIndex.style.display = isIndex ? '' : 'none';
+  } catch (_) {}
+  try {
+    const hostTabs = document.getElementById('composerTabsHost');
+    if (hostTabs) hostTabs.style.display = isIndex ? 'none' : '';
+  } catch (_) {}
   try { $('#composerIndex').style.display = isIndex ? 'block' : 'none'; } catch (_) {}
   try { $('#composerTabs').style.display = isIndex ? 'none' : 'block'; } catch (_) {}
   try {
@@ -6079,6 +6311,7 @@ function applyComposerFile(name) {
     else document.documentElement.removeAttribute('data-init-cfile');
   } catch (_) {}
 
+  try { setComposerOrderPreviewActiveKind(isIndex ? 'index' : 'tabs'); } catch (_) {}
   try { updateUnsyncedSummary(); } catch (_) {}
 
 }
@@ -6801,6 +7034,10 @@ function buildIndexUI(root, state) {
     state.index.__order = newOrder;
     markDirty();
   });
+
+  try {
+    if (composerOrderPreviewActiveKind === 'index') updateComposerOrderPreview('index');
+  } catch (_) {}
 }
 
 function buildTabsUI(root, state) {
@@ -6999,6 +7236,10 @@ function buildTabsUI(root, state) {
     state.tabs.__order = newOrder;
     markDirty();
   });
+
+  try {
+    if (composerOrderPreviewActiveKind === 'tabs') updateComposerOrderPreview('tabs');
+  } catch (_) {}
 }
 
 function getDefaultComposerLanguage() {
