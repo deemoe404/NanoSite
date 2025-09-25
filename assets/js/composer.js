@@ -2298,16 +2298,12 @@ function collectDynamicMarkdownDraftStates() {
 }
 
 function getDraftIndicatorMessage(state) {
-  switch (state) {
-    case 'conflict':
-      return 'Local draft conflicts with remote file';
-    case 'dirty':
-      return 'Unsaved changes pending in editor';
-    case 'saved':
-      return 'Local draft saved in browser';
-    default:
-      return '';
-  }
+  if (!state) return '';
+  const suffix = `markdown.draftIndicator.${state}`;
+  const value = tComposer(suffix);
+  const fallbackKey = `editor.composer.${suffix}`;
+  if (!value || value === fallbackKey) return '';
+  return value;
 }
 
 function updateComposerDraftContainerState(container) {
@@ -2322,6 +2318,10 @@ function updateComposerDraftContainerState(container) {
   }
   if (childState) container.setAttribute('data-child-draft', childState);
   else container.removeAttribute('data-child-draft');
+}
+
+function updateComposerMarkdownDraftContainerState(container) {
+  updateComposerDraftContainerState(container);
 }
 
 function applyComposerDraftIndicatorState(el, state) {

@@ -457,6 +457,11 @@ const translations = {
             reload: 'Discard local markdown changes (remote snapshot will be reloaded).'
           }
         },
+        draftIndicator: {
+          conflict: 'Local draft conflicts with remote file.',
+          dirty: 'Unsaved changes pending in editor.',
+          saved: 'Local draft saved in browser.'
+        },
         currentFile: 'current file',
         fileFallback: 'markdown file',
         openBeforeEditor: 'Enter a markdown location before opening the editor.',
@@ -933,6 +938,11 @@ const translations = {
             reload: '丢弃本地 Markdown 更改（将重新加载远程快照）。'
           }
         },
+        draftIndicator: {
+          conflict: '本地草稿与远程文件存在冲突。',
+          dirty: '编辑器中有未保存的更改。',
+          saved: '本地草稿已保存在浏览器中。'
+        },
         currentFile: '当前文件',
         fileFallback: 'Markdown 文件',
         openBeforeEditor: '请输入 Markdown 路径后再打开编辑器。',
@@ -1408,6 +1418,11 @@ const translations = {
             noFile: 'ローカル変更を破棄する前に Markdown ファイルを開いてください。',
             reload: 'Markdown のローカル変更を破棄し（リモートスナップショットを再読み込みします）。'
           }
+        },
+        draftIndicator: {
+          conflict: 'ローカルの下書きがリモートファイルと競合しています。',
+          dirty: 'エディターに未保存の変更があります。',
+          saved: 'ローカルの下書きはブラウザーに保存されています。'
         },
         currentFile: '現在のファイル',
         fileFallback: 'Markdown ファイル',
