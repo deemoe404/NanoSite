@@ -398,11 +398,11 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:0 2.2rem;
+      padding:0 2.6rem;
       width:100%;
       --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
-      --gs-arrow-head: 22px;
-      --gs-arrow-thickness: 8px;
+      --gs-arrow-thickness: 7px;
+      --gs-arrow-node-size: 16px;
       color: var(--gs-arrow-color);
       isolation:isolate;
       z-index:2;
@@ -410,15 +410,13 @@
     .global-status .gs-arrow::before {
       content:'';
       position:absolute;
-      left:0;
-      right:calc(var(--gs-arrow-head) * -0.35);
+      left:calc(var(--gs-arrow-node-size) * 0.5);
+      right:calc(var(--gs-arrow-node-size) * 0.5);
       top:50%;
       transform:translateY(-50%);
       height:var(--gs-arrow-thickness);
-      background: color-mix(in srgb, currentColor 80%, transparent);
+      background: color-mix(in srgb, currentColor 82%, transparent);
       border-radius:var(--gs-arrow-thickness);
-      clip-path:polygon(0 0, calc(100% - var(--gs-arrow-head)) 0, 100% 50%, calc(100% - var(--gs-arrow-head)) 100%, 0 100%);
-      opacity:.82;
       box-shadow:0 4px 14px rgba(15, 23, 42, 0.08);
     }
     @keyframes gs-arrow-flow {
@@ -431,22 +429,21 @@
     }
     .global-status .gs-arrow.is-pending::before {
       background-image: linear-gradient(90deg,
-        transparent 0%,
-        color-mix(in srgb, currentColor 65%, transparent) 25%,
-        currentColor 50%,
-        color-mix(in srgb, currentColor 65%, transparent) 75%,
-        transparent 100%);
-      background-size:200% 100%;
-      animation: gs-arrow-flow 1.15s linear infinite;
-      opacity:.9;
+        color-mix(in srgb, currentColor 22%, var(--card) 78%) 0%,
+        color-mix(in srgb, currentColor 68%, var(--card) 12%) 18%,
+        color-mix(in srgb, currentColor 92%, black 12%) 50%,
+        color-mix(in srgb, currentColor 68%, var(--card) 12%) 82%,
+        color-mix(in srgb, currentColor 22%, var(--card) 78%) 100%);
+      background-size:260% 100%;
+      animation: gs-arrow-flow 1s linear infinite;
+      opacity:1;
     }
-    .global-status .gs-arrow-tail {
+    .global-status .gs-arrow-tail,
+    .global-status .gs-arrow-head {
       position:absolute;
-      left:0;
       top:50%;
-      transform:translate(-50%, -50%);
-      width:12px;
-      height:12px;
+      width:var(--gs-arrow-node-size);
+      height:var(--gs-arrow-node-size);
       border-radius:999px;
       border:2px solid currentColor;
       background: color-mix(in srgb, var(--card) 92%, transparent);
@@ -454,6 +451,8 @@
       pointer-events:none;
       z-index:3;
     }
+    .global-status .gs-arrow-tail { left:0; transform:translate(-50%, -50%); }
+    .global-status .gs-arrow-head { right:0; transform:translate(50%, -50%); }
     .global-status .gs-arrow-bubble {
       position:relative;
       z-index:4;
@@ -531,33 +530,37 @@
       }
       .global-status .gs-arrow {
         padding:1.5rem 0 .5rem;
-        --gs-arrow-head: 22px;
-        --gs-arrow-thickness: 8px;
+        --gs-arrow-thickness: 7px;
       }
       .global-status .gs-arrow::before {
         left:50%;
         right:auto;
-        top:0;
-        bottom:calc(var(--gs-arrow-head) * -0.35);
+        top:calc(var(--gs-arrow-node-size) * 0.5);
+        bottom:calc(var(--gs-arrow-node-size) * 0.5);
         width:var(--gs-arrow-thickness);
         height:auto;
         transform:translateX(-50%);
-        clip-path:polygon(0 0, 100% 0, 100% calc(100% - var(--gs-arrow-head)), 50% 100%, 0 calc(100% - var(--gs-arrow-head)));
       }
       .global-status .gs-arrow.is-pending::before {
         background-image: linear-gradient(180deg,
-          transparent 0%,
-          color-mix(in srgb, currentColor 65%, transparent) 25%,
-          currentColor 50%,
-          color-mix(in srgb, currentColor 65%, transparent) 75%,
-          transparent 100%);
-        background-size: 100% 200%;
-        animation: gs-arrow-flow-vertical 1.15s linear infinite;
+          color-mix(in srgb, currentColor 22%, var(--card) 78%) 0%,
+          color-mix(in srgb, currentColor 68%, var(--card) 12%) 20%,
+          color-mix(in srgb, currentColor 92%, black 12%) 50%,
+          color-mix(in srgb, currentColor 68%, var(--card) 12%) 80%,
+          color-mix(in srgb, currentColor 22%, var(--card) 78%) 100%);
+        background-size: 100% 260%;
+        animation: gs-arrow-flow-vertical 1s linear infinite;
       }
-      .global-status .gs-arrow-tail {
-        top:0;
+      .global-status .gs-arrow-tail,
+      .global-status .gs-arrow-head {
         left:50%;
+        right:auto;
         transform:translate(-50%, -50%);
+      }
+      .global-status .gs-arrow-head {
+        top:auto;
+        bottom:0;
+        transform:translate(-50%, 50%);
       }
       .global-status .gs-arrow-bubble {
         margin:.4rem auto 0;
@@ -1082,6 +1085,7 @@
             <span class="gs-arrow" aria-hidden="true">
               <span class="gs-arrow-tail"></span>
               <span class="gs-arrow-bubble" id="globalArrowLabel">Synced</span>
+              <span class="gs-arrow-head"></span>
             </span>
             <div class="gs-node gs-node-remote">
               <div class="gs-node-header">
