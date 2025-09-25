@@ -1,12 +1,19 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
+import { t } from './i18n.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'No local changes';
+const CLEAN_STATUS_MESSAGE_KEY = 'editor.status.clean';
+const STATUS_UPLOAD_KEY = 'editor.status.upload';
+const STATUS_SYNCED_KEY = 'editor.status.synced';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
+
+const getCleanStatusMessage = () => t(CLEAN_STATUS_MESSAGE_KEY);
+const getUploadLabel = () => t(STATUS_UPLOAD_KEY);
+const getSyncedLabel = () => t(STATUS_SYNCED_KEY);
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
@@ -3379,7 +3386,7 @@ function updateUnsyncedSummary() {
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalArrowEl) globalArrowEl.classList.add('is-pending');
     if (globalArrowLabelEl) {
-      globalArrowLabelEl.textContent = 'UPLOAD';
+      globalArrowLabelEl.textContent = getUploadLabel();
     }
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = '';
@@ -3399,10 +3406,10 @@ function updateUnsyncedSummary() {
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalArrowEl) globalArrowEl.classList.remove('is-pending');
-    if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
+    if (globalArrowLabelEl) globalArrowLabelEl.textContent = getSyncedLabel();
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;
-      globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
+      globalLocalStateEl.textContent = getCleanStatusMessage();
     }
     updateReviewButton([]);
   }
@@ -4179,8 +4186,8 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       bubble.removeAttribute('aria-busy');
       bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
       const pendingCount = computeUnsyncedSummary().length;
-      if (pendingCount) bubble.textContent = 'UPLOAD';
-      else bubble.textContent = 'Synced';
+      if (pendingCount) bubble.textContent = getUploadLabel();
+      else bubble.textContent = getSyncedLabel();
     }
   }
 }
@@ -4190,7 +4197,7 @@ async function handleGlobalBubbleActivation(event) {
   if (gitHubCommitInFlight) return;
   const summary = computeUnsyncedSummary();
   if (!summary.length) {
-    showToast('info', 'No local changes to commit.');
+    showToast('info', t('editor.composer.noLocalChangesToCommit'));
     return;
   }
   const repo = window.__ns_site_repo || {};
@@ -4309,7 +4316,7 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   if (!summary || !summary.hasChanges) {
     const empty = document.createElement('span');
     empty.className = 'composer-inline-summary-empty';
-    empty.textContent = 'No local changes yet.';
+    empty.textContent = t('editor.composer.noLocalChangesYet');
     target.appendChild(empty);
     return;
   }

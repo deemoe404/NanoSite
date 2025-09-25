@@ -322,7 +322,42 @@
     /* Grouped list styles */
     /* Ensure main editor can use full width */
     .editor-main { min-width: 0; overflow: visible; position: relative; }
-    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
+    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; flex-wrap: wrap; }
+    .editor-lang-switcher {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: .3rem;
+      min-width: 0;
+      padding: .25rem .5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    .editor-lang-switcher label {
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: color-mix(in srgb, var(--muted) 85%, transparent);
+    }
+    .editor-lang-switcher select {
+      appearance: none;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+      color: var(--text);
+      border-radius: 8px;
+      padding: .3rem .65rem;
+      font-size: .9rem;
+      line-height: 1.4;
+      cursor: pointer;
+      min-width: 120px;
+    }
+    .editor-lang-switcher select:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 48%, transparent);
+      outline-offset: 2px;
+    }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
     .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
@@ -1127,13 +1162,17 @@
 <body>
   <div class="editor-page">
     <div class="page-titlebar">
-      <nav class="mode-switch" role="tablist" aria-label="Mode switch">
-        <button class="mode-tab is-active" data-mode="composer" data-tab-label="Composer" role="tab" aria-controls="mode-composer" aria-selected="true" aria-label="Composer">
-          Composer
+      <div class="editor-lang-switcher" id="editorLangSwitcher">
+        <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
+        <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
+      </div>
+      <nav class="mode-switch" role="tablist" aria-label="Mode switch" data-i18n-aria-label="editor.nav.modeSwitchAria">
+        <button class="mode-tab is-active" data-mode="composer" data-tab-label="Composer" data-i18n-data-tab-label="editor.modes.composer" role="tab" aria-controls="mode-composer" aria-selected="true" aria-label="Composer" data-i18n-aria-label="editor.modes.composer">
+          <span class="mode-tab-text" data-i18n="editor.modes.composer">Composer</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
-        <button class="mode-tab" data-mode="editor" data-tab-label="Editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor">
-          Editor
+        <button class="mode-tab" data-mode="editor" data-tab-label="Editor" data-i18n-data-tab-label="editor.modes.editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor" data-i18n-aria-label="editor.modes.editor">
+          <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
       </nav>
@@ -1149,14 +1188,14 @@
                     <path d="M9 16v1.25A1.75 1.75 0 0 0 10.75 19h2.5A1.75 1.75 0 0 0 15 17.25V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </span>
-                <span class="gs-node-label">LOCAL</span>
+                <span class="gs-node-label" data-i18n="editor.status.localLabel">LOCAL</span>
               </div>
-              <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
+              <span class="gs-node-state" id="globalLocalState" data-i18n="editor.status.checkingDrafts">Checking drafts…</span>
               <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
             </div>
             <span class="gs-arrow" aria-hidden="true">
               <span class="gs-arrow-tail"></span>
-              <span class="gs-arrow-bubble" id="globalArrowLabel">Synced</span>
+              <span class="gs-arrow-bubble" id="globalArrowLabel" data-i18n="editor.status.synced">Synced</span>
               <span class="gs-arrow-head"></span>
             </span>
             <div class="gs-node gs-node-remote">
@@ -1166,10 +1205,10 @@
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
                   </svg>
                 </span>
-                <span class="gs-node-label">GitHub</span>
+                <span class="gs-node-label" data-i18n="editor.status.remoteLabel">GitHub</span>
               </div>
-              <span class="gs-repo" id="globalStatusRepo">Loading GitHub settings…</span>
-              <span class="gs-message" id="globalStatusMessage">Checking connection…</span>
+              <span class="gs-repo" id="globalStatusRepo" data-i18n="editor.status.loadingRepo">Loading GitHub settings…</span>
+              <span class="gs-message" id="globalStatusMessage" data-i18n="editor.status.checkingConnection">Checking connection…</span>
             </div>
           </div>
         </div>
@@ -1179,58 +1218,58 @@
     <!-- Editor Mode -->
     <div class="editor-layout is-empty" id="mode-editor">
       <section class="box editor-main">
-        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" hidden aria-hidden="true"></nav>
+        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" data-i18n-aria-label="editor.nav.dynamicTabsAria" hidden aria-hidden="true"></nav>
         <div class="toolbar">
           <div class="left-actions">
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
-            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting">
-              <span class="vt-label">Wrap:</span>
-              <a href="#" class="vt-btn" data-wrap="on" role="button">on</a>
+            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting" data-i18n-aria-label="editor.toolbar.wrapAria">
+              <span class="vt-label" data-i18n="editor.toolbar.wrap">Wrap:</span>
+              <a href="#" class="vt-btn" data-wrap="on" role="button" data-i18n="editor.toolbar.wrapOn">on</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn active" data-wrap="off" role="button">off</a>
+              <a href="#" class="vt-btn active" data-wrap="off" role="button" data-i18n="editor.toolbar.wrapOff">off</a>
             </div>
-            <div class="view-toggle" aria-label="View switch">
-              <span class="vt-label">View:</span>
-              <a href="#" class="vt-btn active" data-view="edit">Editor</a>
+            <div class="view-toggle" aria-label="View switch" data-i18n-aria-label="editor.toolbar.viewAria">
+              <span class="vt-label" data-i18n="editor.toolbar.view">View:</span>
+              <a href="#" class="vt-btn active" data-view="edit" data-i18n="editor.toolbar.viewEdit">Editor</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-view="preview">Preview</a>
+              <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
             </div>
             <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
-              <span class="btn-label">Discard</span>
+              <span class="btn-label" data-i18n="editor.toolbar.discard">Discard</span>
             </button>
           </div>
         </div>
 
-        <div class="editor-tools" id="editorToolbar" aria-label="Editor tools">
-          <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts">
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled>Bold</button>
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled>Italic</button>
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled>Strike</button>
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled>Heading</button>
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled>Quote</button>
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled>Code</button>
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled>Code Block</button>
+        <div class="editor-tools" id="editorToolbar" aria-label="Editor tools" data-i18n-aria-label="editor.editorTools.aria">
+          <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts" data-i18n-aria-label="editor.editorTools.formatGroupAria">
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled data-i18n="editor.editorTools.bold" data-i18n-title="editor.editorTools.bold" data-i18n-aria-label="editor.editorTools.bold">Bold</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled data-i18n="editor.editorTools.italic" data-i18n-title="editor.editorTools.italic" data-i18n-aria-label="editor.editorTools.italic">Italic</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled data-i18n="editor.editorTools.strike" data-i18n-title="editor.editorTools.strike" data-i18n-aria-label="editor.editorTools.strike">Strike</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled data-i18n="editor.editorTools.heading" data-i18n-title="editor.editorTools.heading" data-i18n-aria-label="editor.editorTools.heading">Heading</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled data-i18n="editor.editorTools.quote" data-i18n-title="editor.editorTools.quote" data-i18n-aria-label="editor.editorTools.quote">Quote</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled data-i18n="editor.editorTools.code" data-i18n-title="editor.editorTools.code" data-i18n-aria-label="editor.editorTools.code">Code</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled data-i18n="editor.editorTools.codeBlock" data-i18n-title="editor.editorTools.codeBlock" data-i18n-aria-label="editor.editorTools.codeBlock">Code Block</button>
           </div>
           <div class="editor-tools-right">
-            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false">Article Card</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false" data-i18n="editor.editorTools.articleCard" data-i18n-title="editor.editorTools.insertCardTitle">Article Card</button>
             <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertImage">
-              <span class="btn-label">Insert Image</span>
+              <span class="btn-label" data-i18n="editor.editorTools.insertImage">Insert Image</span>
             </button>
             <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
           </div>
-          <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card">
+          <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card" data-i18n-aria-label="editor.editorTools.cardDialogAria">
             <div class="card-picker-search">
-              <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles">
+              <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles" data-i18n-placeholder="editor.editorTools.cardSearch" data-i18n-aria-label="editor.editorTools.cardSearch">
             </div>
             <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
-            <div class="card-picker-empty" id="cardPickerEmpty" hidden>No matching articles</div>
+            <div class="card-picker-empty" id="cardPickerEmpty" hidden data-i18n="editor.editorTools.cardEmpty">No matching articles</div>
           </div>
         </div>
 
         <div id="editor-wrap">
-          <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source"></textarea>
+          <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source" data-i18n-placeholder="editor.editorPlaceholder" data-i18n-aria-label="editor.editorTextareaAria"></textarea>
         </div>
 
         <div id="preview-wrap" style="display:none;">
@@ -1241,8 +1280,8 @@
 
       <div class="editor-empty-state" id="editorEmptyState" role="status" aria-live="polite">
         <div class="empty-body">
-          <h2>No editor is currently open</h2>
-          <p>Open Markdown from the Composer to start editing.</p>
+          <h2 data-i18n="editor.empty.title">No editor is currently open</h2>
+          <p data-i18n="editor.empty.body">Open Markdown from the Composer to start editing.</p>
         </div>
       </div>
     </div>
@@ -1252,27 +1291,27 @@
       <section class="box editor-main" style="grid-column: 1 / -1;">
         <div class="toolbar">
           <div class="left-actions">
-            <div class="view-toggle" aria-label="File switch">
-              <span class="vt-label">File:</span>
-              <a href="#" class="vt-btn active" data-cfile="index">Articles</a>
+            <div class="view-toggle" aria-label="File switch" data-i18n-aria-label="editor.composer.fileSwitchAria">
+              <span class="vt-label" data-i18n="editor.composer.fileLabel">File:</span>
+              <a href="#" class="vt-btn active" data-cfile="index" data-i18n="editor.composer.fileArticles">Articles</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-cfile="tabs">Pages</a>
+              <a href="#" class="vt-btn" data-cfile="tabs" data-i18n="editor.composer.filePages">Pages</a>
             </div>
           </div>
           <div class="right-actions">
-            <button class="btn-secondary" id="btnAddItem">Add Post Entry</button>
-            <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot">Refresh</button>
+            <button class="btn-secondary" id="btnAddItem" data-i18n="editor.composer.addPost">Add Post Entry</button>
+            <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot" data-i18n="editor.composer.refresh" data-i18n-title="editor.composer.refreshTitle">Refresh</button>
 
-            <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>
+            <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
           </div>
         </div>
         <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
           <div class="composer-order-inline-meta-head">
             <div class="composer-order-inline-titles">
-              <h3 class="composer-order-inline-title">Change summary</h3>
+              <h3 class="composer-order-inline-title" data-i18n="editor.composer.changeSummary">Change summary</h3>
               <span class="composer-order-inline-kind">index.yaml</span>
             </div>
-            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview">Review changes</button>
+            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview" data-i18n="editor.composer.reviewChanges" data-i18n-aria-label="editor.composer.reviewChanges">Review changes</button>
           </div>
           <div class="composer-order-inline-stats" aria-live="polite"></div>
         </div>
@@ -1280,25 +1319,25 @@
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
           <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost">
-            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
+            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" data-i18n-aria-label="editor.composer.indexInlineAria" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
-                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+                <div class="composer-order-inline-empty" aria-hidden="false" data-i18n="editor.composer.inlineEmpty">No entries to compare yet.</div>
               </div>
             </div>
             <div class="composer-order-main">
-              <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
+              <div id="composerIndex" aria-label="index.yaml editor" data-i18n-aria-label="editor.composer.indexEditorAria" style="display:block;"></div>
             </div>
           </div>
           <div class="composer-order-host" data-kind="tabs" data-inline-active="false" id="composerTabsHost" style="display:none;">
-            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
+            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" data-i18n-aria-label="editor.composer.tabsInlineAria" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
-                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+                <div class="composer-order-inline-empty" aria-hidden="false" data-i18n="editor.composer.inlineEmpty">No entries to compare yet.</div>
               </div>
             </div>
             <div class="composer-order-main">
-              <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+              <div id="composerTabs" aria-label="tabs.yaml editor" data-i18n-aria-label="editor.composer.tabsEditorAria" style="display:none;"></div>
             </div>
           </div>
         </div>
@@ -1312,8 +1351,9 @@
   </div>
 
   <footer class="site-footer">
-    <p>Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
+    <p data-i18n-html="editor.footerNote">Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
   </footer>
+  <script type="module" src="assets/js/editor-boot.js"></script>
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
   <script type="module" src="assets/js/editor-github.js"></script>

@@ -101,6 +101,83 @@ const translations = {
     titles: {
       allPosts: 'All Posts',
       search: (q) => `Search: ${q}`
+    },
+    editor: {
+      pageTitle: 'Markdown Editor - NanoSite',
+      languageLabel: 'Language',
+      nav: {
+        modeSwitchAria: 'Mode switch',
+        dynamicTabsAria: 'Open editor tabs'
+      },
+      modes: {
+        composer: 'Composer',
+        editor: 'Editor'
+      },
+      status: {
+        localLabel: 'LOCAL',
+        checkingDrafts: 'Checking drafts…',
+        synced: 'Synced',
+        upload: 'UPLOAD',
+        remoteLabel: 'GitHub',
+        loadingRepo: 'Loading GitHub settings…',
+        checkingConnection: 'Checking connection…',
+        clean: 'No local changes'
+      },
+      toolbar: {
+        wrap: 'Wrap:',
+        wrapOn: 'on',
+        wrapOff: 'off',
+        view: 'View:',
+        viewEdit: 'Editor',
+        viewPreview: 'Preview',
+        discard: 'Discard',
+        wrapAria: 'Wrap setting',
+        viewAria: 'View switch'
+      },
+      editorTools: {
+        aria: 'Editor tools',
+        formatGroupAria: 'Formatting shortcuts',
+        bold: 'Bold',
+        italic: 'Italic',
+        strike: 'Strikethrough',
+        heading: 'Heading',
+        quote: 'Quote',
+        code: 'Inline code',
+        codeBlock: 'Code Block',
+        articleCard: 'Article Card',
+        insertCardTitle: 'Insert article card',
+        insertImage: 'Insert Image',
+        cardDialogAria: 'Insert article card',
+        cardSearch: 'Search articles…',
+        cardEmpty: 'No matching articles'
+      },
+      editorPlaceholder: '# Hello NanoSite\n\nStart typing Markdown…',
+      editorTextareaAria: 'Markdown source',
+      empty: {
+        title: 'No editor is currently open',
+        body: 'Open Markdown from the Composer to start editing.'
+      },
+      composer: {
+        fileSwitchAria: 'File switch',
+        fileLabel: 'File:',
+        fileArticles: 'Articles',
+        filePages: 'Pages',
+        addPost: 'Add Post Entry',
+        refresh: 'Refresh',
+        refreshTitle: 'Fetch latest remote snapshot',
+        discard: 'Discard',
+        discardTitle: 'Discard local draft and reload remote file',
+        changeSummary: 'Change summary',
+        reviewChanges: 'Review changes',
+        inlineEmpty: 'No entries to compare yet.',
+        indexInlineAria: 'Old order for index.yaml',
+        indexEditorAria: 'index.yaml editor',
+        tabsInlineAria: 'Old order for tabs.yaml',
+        tabsEditorAria: 'tabs.yaml editor',
+        noLocalChangesToCommit: 'No local changes to commit.',
+        noLocalChangesYet: 'No local changes yet.'
+      },
+      footerNote: 'Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.'
     }
   },
   zh: {
@@ -178,6 +255,83 @@ const translations = {
     titles: {
       allPosts: '全部文章',
       search: (q) => `搜索：${q}`
+    },
+    editor: {
+      pageTitle: 'Markdown 编辑器 - NanoSite',
+      languageLabel: '语言',
+      nav: {
+        modeSwitchAria: '模式切换',
+        dynamicTabsAria: '打开编辑器标签'
+      },
+      modes: {
+        composer: '编排器',
+        editor: '编辑器'
+      },
+      status: {
+        localLabel: '本地',
+        checkingDrafts: '正在检查草稿…',
+        synced: '已同步',
+        upload: '上传',
+        remoteLabel: 'GitHub',
+        loadingRepo: '正在加载 GitHub 设置…',
+        checkingConnection: '正在检查连接…',
+        clean: '没有本地更改'
+      },
+      toolbar: {
+        wrap: '换行：',
+        wrapOn: '开',
+        wrapOff: '关',
+        view: '视图：',
+        viewEdit: '编辑',
+        viewPreview: '预览',
+        discard: '丢弃',
+        wrapAria: '换行设置',
+        viewAria: '视图切换'
+      },
+      editorTools: {
+        aria: '编辑器工具',
+        formatGroupAria: '格式快捷键',
+        bold: '加粗',
+        italic: '斜体',
+        strike: '删除线',
+        heading: '标题',
+        quote: '引用',
+        code: '行内代码',
+        codeBlock: '代码块',
+        articleCard: '文章卡片',
+        insertCardTitle: '插入文章卡片',
+        insertImage: '插入图片',
+        cardDialogAria: '插入文章卡片',
+        cardSearch: '搜索文章…',
+        cardEmpty: '没有匹配的文章'
+      },
+      editorPlaceholder: '# 你好，NanoSite\n\n开始撰写 Markdown…',
+      editorTextareaAria: 'Markdown 源',
+      empty: {
+        title: '当前没有打开编辑器',
+        body: '从编排器打开 Markdown 以开始编辑。'
+      },
+      composer: {
+        fileSwitchAria: '文件切换',
+        fileLabel: '文件：',
+        fileArticles: '文章',
+        filePages: '页面',
+        addPost: '添加文章条目',
+        refresh: '刷新',
+        refreshTitle: '获取最新远程快照',
+        discard: '丢弃',
+        discardTitle: '丢弃本地草稿并重新加载远程文件',
+        changeSummary: '更改摘要',
+        reviewChanges: '查看更改',
+        inlineEmpty: '暂无可比较的条目。',
+        indexInlineAria: 'index.yaml 的旧顺序',
+        indexEditorAria: 'index.yaml 编辑器',
+        tabsInlineAria: 'tabs.yaml 的旧顺序',
+        tabsEditorAria: 'tabs.yaml 编辑器',
+        noLocalChangesToCommit: '没有本地更改可提交。',
+        noLocalChangesYet: '暂时没有本地更改。'
+      },
+      footerNote: '由 ❤️ 打造，基于 <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>。保持灵感，持续创作。'
     }
   },
   ja: {
@@ -255,6 +409,83 @@ const translations = {
     titles: {
       allPosts: 'すべての記事',
       search: (q) => `検索: ${q}`
+    },
+    editor: {
+      pageTitle: 'Markdown エディター - NanoSite',
+      languageLabel: '言語',
+      nav: {
+        modeSwitchAria: 'モード切り替え',
+        dynamicTabsAria: 'エディタータブを開く'
+      },
+      modes: {
+        composer: 'コンポーザー',
+        editor: 'エディター'
+      },
+      status: {
+        localLabel: 'ローカル',
+        checkingDrafts: '下書きを確認中…',
+        synced: '同期済み',
+        upload: 'アップロード',
+        remoteLabel: 'GitHub',
+        loadingRepo: 'GitHub 設定を読み込み中…',
+        checkingConnection: '接続を確認しています…',
+        clean: 'ローカルの変更はありません'
+      },
+      toolbar: {
+        wrap: '折り返し:',
+        wrapOn: 'オン',
+        wrapOff: 'オフ',
+        view: '表示:',
+        viewEdit: '編集',
+        viewPreview: 'プレビュー',
+        discard: '破棄',
+        wrapAria: '折り返し設定',
+        viewAria: '表示切り替え'
+      },
+      editorTools: {
+        aria: 'エディターツール',
+        formatGroupAria: '書式設定ショートカット',
+        bold: '太字',
+        italic: '斜体',
+        strike: '取り消し線',
+        heading: '見出し',
+        quote: '引用',
+        code: 'インラインコード',
+        codeBlock: 'コードブロック',
+        articleCard: '記事カード',
+        insertCardTitle: '記事カードを挿入',
+        insertImage: '画像を挿入',
+        cardDialogAria: '記事カードを挿入',
+        cardSearch: '記事を検索…',
+        cardEmpty: '一致する記事がありません'
+      },
+      editorPlaceholder: '# こんにちは、NanoSite\n\nMarkdown を入力しましょう…',
+      editorTextareaAria: 'Markdown ソース',
+      empty: {
+        title: '開いているエディターはありません',
+        body: 'コンポーザーから Markdown を開いて編集を開始してください。'
+      },
+      composer: {
+        fileSwitchAria: 'ファイル切り替え',
+        fileLabel: 'ファイル:',
+        fileArticles: '記事',
+        filePages: 'ページ',
+        addPost: '記事を追加',
+        refresh: '更新',
+        refreshTitle: '最新のリモートスナップショットを取得',
+        discard: '破棄',
+        discardTitle: 'ローカル下書きを破棄してリモートファイルを再読み込み',
+        changeSummary: '変更サマリー',
+        reviewChanges: '変更を確認',
+        inlineEmpty: '比較できる項目がまだありません。',
+        indexInlineAria: 'index.yaml の旧順序',
+        indexEditorAria: 'index.yaml エディター',
+        tabsInlineAria: 'tabs.yaml の旧順序',
+        tabsEditorAria: 'tabs.yaml エディター',
+        noLocalChangesToCommit: 'コミットするローカルの変更はありません。',
+        noLocalChangesYet: '現在ローカルの変更はありません。'
+      },
+      footerNote: '❤️ を込めて <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a> で作りました。インスピレーションを保ち、創作を続けましょう。'
     }
   }
   // Additional languages can be added here
