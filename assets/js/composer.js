@@ -1766,6 +1766,27 @@ function getMarkdownAssetBucket(path) {
   return markdownAssetStore.get(norm) || null;
 }
 
+function broadcastMarkdownAssetPreview(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return;
+  const bucket = getMarkdownAssetBucket(norm);
+  const assets = bucket && bucket.size
+    ? Array.from(bucket.values()).map(asset => ({
+      path: asset.path,
+      relativePath: asset.relativePath,
+      base64: asset.base64,
+      mime: asset.mime
+    }))
+    : [];
+  try {
+    window.dispatchEvent(new CustomEvent('ns-editor-asset-preview', {
+      detail: { markdownPath: norm, assets }
+    }));
+  } catch (_) {
+    /* ignore */
+  }
+}
+
 function normalizeAssetDescriptor(asset, markdownPath) {
   if (!asset) return null;
   const commitPath = normalizeRelPath(asset.path || asset.commitPath || '');
@@ -1803,6 +1824,7 @@ function importMarkdownAssetsForPath(path, assets = []) {
       if (normalized) bucket.set(normalized.path, normalized);
     });
   }
+  broadcastMarkdownAssetPreview(path);
   return bucket;
 }
 
@@ -1841,6 +1863,7 @@ function clearMarkdownAssetsForPath(path) {
   if (bucket) bucket.clear();
   markdownAssetStore.delete(norm);
   updateMarkdownDraftStoreAssets(norm, []);
+  broadcastMarkdownAssetPreview(norm);
 }
 
 function removeMarkdownAsset(path, assetPath) {
@@ -1852,6 +1875,7 @@ function removeMarkdownAsset(path, assetPath) {
   bucket.delete(assetKey);
   if (!bucket.size) markdownAssetStore.delete(norm);
   updateMarkdownDraftStoreAssets(norm, exportMarkdownAssetBucket(norm));
+  broadcastMarkdownAssetPreview(norm);
 }
 
 function listMarkdownAssets(path) {
@@ -1913,6 +1937,7 @@ function handleEditorAssetAdded(event) {
   const bucket = ensureMarkdownAssetBucket(markdownPath);
   bucket.set(descriptor.path, descriptor);
   updateMarkdownDraftStoreAssets(markdownPath, exportMarkdownAssetBucket(markdownPath));
+  broadcastMarkdownAssetPreview(markdownPath);
   const tab = findDynamicTabByPath(markdownPath);
   if (tab) {
     tab.pendingAssets = bucket;
