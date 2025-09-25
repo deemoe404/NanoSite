@@ -648,7 +648,8 @@ function showToast(kind, text, options = {}) {
       textSpan.style.textAlign = 'left';
       const actionEl = document.createElement(action.href ? 'a' : 'button');
       actionEl.className = 'toast-action';
-      actionEl.textContent = safeString(action.label) || 'Open';
+      const defaultLabel = t('editor.toast.openAction');
+      actionEl.textContent = safeString(action.label) || defaultLabel;
       if (action.href) {
         actionEl.href = action.href;
         actionEl.target = action.target || '_blank';
@@ -686,7 +687,7 @@ function showToast(kind, text, options = {}) {
       const closeButton = document.createElement('button');
       closeButton.type = 'button';
       closeButton.className = 'toast-close';
-      closeButton.setAttribute('aria-label', 'Close notification');
+      closeButton.setAttribute('aria-label', t('editor.toast.closeAria'));
       closeButton.textContent = '\u00D7';
       closeButton.style.flex = '0 0 auto';
       closeButton.style.marginLeft = '.5rem';
@@ -936,11 +937,11 @@ function handlePopupBlocked(href, options = {}) {
   try {
     console.warn('Popup blocked while opening GitHub window', href);
   } catch (_) {}
-  const message = safeString(options.message) || 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.';
+  const message = safeString(options.message) || t('editor.toasts.popupBlocked');
   const kind = safeString(options.kind) || 'warn';
   const duration = typeof options.duration === 'number' ? Math.max(1600, options.duration) : 9000;
   const actionHref = safeString(options.actionHref || href);
-  const actionLabel = safeString(options.actionLabel) || 'Open GitHub';
+  const actionLabel = safeString(options.actionLabel) || t('editor.toasts.openGithubAction');
   const onRetry = typeof options.onRetry === 'function' ? options.onRetry : null;
 
   showToast(kind, message, {
@@ -1004,10 +1005,10 @@ function startRemoteSyncWatcher(config = {}) {
     try { activeSyncWatcher.cancel('replaced'); } catch (_) {}
   }
 
-  const overlayTitle = config.title || 'Waiting for GitHub…';
+  const overlayTitle = config.title || t('editor.composer.remoteWatcher.waitingForGitHub');
   const overlayMessage = config.message || '';
-  const overlayStatus = config.initialStatus || 'Preparing…';
-  const cancelLabel = config.cancelLabel || 'Stop waiting';
+  const overlayStatus = config.initialStatus || t('editor.composer.remoteWatcher.preparing');
+  const cancelLabel = config.cancelLabel || t('editor.composer.remoteWatcher.stopWaiting');
   const cancelable = config.cancelable !== false;
 
   showSyncOverlay({ title: overlayTitle, message: overlayMessage, status: overlayStatus, cancelLabel, cancelable });
@@ -1050,7 +1051,7 @@ function startRemoteSyncWatcher(config = {}) {
       if (aborted) return;
       const msg = (typeof config.onErrorStatus === 'function')
         ? config.onErrorStatus(err, attempts)
-        : 'Remote check failed. Retrying…';
+        : t('editor.composer.remoteWatcher.remoteCheckFailedRetry');
       setSyncOverlayStatus(msg);
       scheduleNext(config.errorDelay || 6000);
       return;
@@ -1093,7 +1094,7 @@ async function fetchMarkdownRemoteSnapshot(tab) {
   try {
     res = await fetch(url, { cache: 'no-store' });
   } catch (err) {
-    return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+    return { state: 'error', status: 0, message: err && err.message ? err.message : t('editor.composer.remoteWatcher.networkError') };
   }
 
   const checkedAt = Date.now();
@@ -1126,8 +1127,8 @@ function applyMarkdownRemoteSnapshot(tab, snapshot) {
   const stateLabel = snapshot && snapshot.state === 'missing' ? 'missing' : 'existing';
   const statusCode = snapshot && snapshot.status;
   const statusMessage = snapshot && snapshot.state === 'missing'
-    ? 'File not found on server'
-    : 'Remote snapshot updated';
+    ? t('editor.composer.remoteWatcher.fileNotFoundOnServer')
+    : t('editor.composer.remoteWatcher.remoteSnapshotUpdated');
 
   setDynamicTabStatus(tab, {
     state: stateLabel,
@@ -1160,8 +1161,8 @@ function startMarkdownSyncWatcher(tab, options = {}) {
   const label = options.label || tab.label || basenameFromPath(tab.path) || tab.path;
   const isCreate = !!options.isCreate;
   const message = isCreate
-    ? `Waiting for GitHub to create ${label}`
-    : `Waiting for GitHub to update ${label}`;
+    ? t('editor.composer.remoteWatcher.waitingForCreate', { label })
+    : t('editor.composer.remoteWatcher.waitingForUpdate', { label });
 
   const previousStatus = tab.fileStatus && typeof tab.fileStatus === 'object'
     ? { ...tab.fileStatus }
@@ -1170,45 +1171,47 @@ function startMarkdownSyncWatcher(tab, options = {}) {
   setDynamicTabStatus(tab, {
     state: 'checking',
     checkedAt: Date.now(),
-    message: 'Waiting for GitHub commit…'
+    message: t('editor.composer.remoteWatcher.waitingForCommitStatus')
   });
   updateMarkdownPushButton(tab);
 
   startRemoteSyncWatcher({
-    title: 'Checking remote changes…',
+    title: t('editor.composer.remoteWatcher.checkingRemoteChanges'),
     message,
-    initialStatus: 'Waiting for commit…',
-    cancelLabel: 'Stop waiting',
+    initialStatus: t('editor.composer.remoteWatcher.waitingForCommit'),
+    cancelLabel: t('editor.composer.remoteWatcher.stopWaiting'),
     fetch: async ({ attempts }) => {
       const snapshot = await fetchMarkdownRemoteSnapshot(tab);
       if (!snapshot) {
-        return { done: false, statusMessage: 'Waiting for remote response…', retryDelay: 5000 };
+        return { done: false, statusMessage: t('editor.composer.remoteWatcher.waitingForRemoteResponse'), retryDelay: 5000 };
       }
       if (snapshot.state === 'error') {
-        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        const msg = snapshot.message
+          ? t('editor.composer.remoteWatcher.errorWithDetail', { message: snapshot.message })
+          : t('editor.composer.remoteWatcher.remoteCheckFailedRetry');
         return { done: false, statusMessage: msg, retryDelay: 6000 };
       }
       if (snapshot.state === 'missing') {
         const done = expectedSignature === computeTextSignature('');
         const statusMessage = isCreate
-          ? 'Remote file not found yet…'
-          : 'Remote file still missing…';
+          ? t('editor.composer.remoteWatcher.remoteFileNotFoundYet')
+          : t('editor.composer.remoteWatcher.remoteFileStillMissing');
         return { done, data: snapshot, statusMessage, retryDelay: 5600 };
       }
       const matches = snapshot.signature === expectedSignature;
       if (matches) {
-        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+        return { done: true, data: snapshot, statusMessage: t('editor.composer.remoteWatcher.updateDetectedRefreshing') };
       }
       const waitingStatus = attempts >= 3
-        ? 'Remote file still differs from local content. Waiting…'
-        : 'Remote file exists but content differs. Waiting…';
+        ? t('editor.composer.remoteWatcher.remoteFileDiffersWaiting')
+        : t('editor.composer.remoteWatcher.remoteFileExistsDiffersWaiting');
       const response = {
         done: false,
         statusMessage: waitingStatus,
         retryDelay: 5200
       };
       if (attempts === 3) {
-        response.message = 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.';
+        response.message = t('editor.composer.remoteWatcher.mismatchAdvice');
       }
       return response;
     },
@@ -1216,9 +1219,9 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       if (result && result.data) {
         applyMarkdownRemoteSnapshot(tab, result.data);
         if (result.mismatch) {
-          showToast('warn', 'Remote markdown differs from the local draft. Review the changes before continuing.', { duration: 4200 });
+          showToast('warn', t('editor.toasts.remoteMarkdownMismatch'), { duration: 4200 });
         } else {
-          showToast('success', 'Markdown synchronized with GitHub.');
+          showToast('success', t('editor.toasts.markdownSynced'));
         }
       }
       updateMarkdownPushButton(tab);
@@ -1231,11 +1234,11 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       setDynamicTabStatus(tab, {
         ...fallbackStatus,
         checkedAt: Date.now(),
-        message: 'Remote check canceled'
+        message: t('editor.composer.remoteWatcher.remoteCheckCanceled')
       });
       updateMarkdownPushButton(tab);
       updateMarkdownDiscardButton(tab);
-      showToast('info', 'Remote check canceled. Use Refresh after your commit is ready.');
+      showToast('info', t('editor.toasts.remoteCheckCanceledUseRefresh'));
     }
   });
 }
@@ -1251,7 +1254,7 @@ async function fetchComposerRemoteSnapshot(kind) {
     try {
       res = await fetch(url, { cache: 'no-store' });
     } catch (err) {
-      return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+      return { state: 'error', status: 0, message: err && err.message ? err.message : t('editor.composer.remoteWatcher.networkError') };
     }
     lastStatus = res.status;
     if (res.status === 404) continue;
@@ -1282,7 +1285,8 @@ function applyComposerRemoteSnapshot(kind, snapshot) {
     catch (_) { parsed = null; }
   }
   if (!parsed || typeof parsed !== 'object') {
-    showToast('warn', `Fetched ${safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml'} but failed to parse YAML.`, { duration: 4200 });
+    const targetLabel = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+    showToast('warn', t('editor.toasts.yamlParseFailed', { label: targetLabel }), { duration: 4200 });
     return;
   }
   const prepared = safeKind === 'tabs' ? prepareTabsState(parsed || {}) : prepareIndexState(parsed || {});
@@ -1295,39 +1299,41 @@ function startComposerSyncWatcher(kind, options = {}) {
   const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
   const expectedText = options.expectedText != null ? String(options.expectedText) : '';
   const expectedSignature = computeTextSignature(expectedText);
-  const message = options.message || `Waiting for ${label} to update on GitHub…`;
+  const message = options.message || t('editor.composer.remoteWatcher.waitingForLabel', { label });
 
   startRemoteSyncWatcher({
-    title: options.title || 'Waiting for GitHub…',
+    title: options.title || t('editor.composer.remoteWatcher.waitingForGitHub'),
     message,
-    initialStatus: options.initialStatus || 'Waiting for commit…',
-    cancelLabel: options.cancelLabel || 'Stop waiting',
+    initialStatus: options.initialStatus || t('editor.composer.remoteWatcher.waitingForCommit'),
+    cancelLabel: options.cancelLabel || t('editor.composer.remoteWatcher.stopWaiting'),
     fetch: async ({ attempts }) => {
       const snapshot = await fetchComposerRemoteSnapshot(safeKind);
       if (!snapshot) {
-        return { done: false, statusMessage: 'Waiting for remote…', retryDelay: 5200 };
+        return { done: false, statusMessage: t('editor.composer.remoteWatcher.waitingForRemote'), retryDelay: 5200 };
       }
       if (snapshot.state === 'missing') {
-        return { done: false, statusMessage: `${label} not found on remote yet…`, retryDelay: 5600 };
+        return { done: false, statusMessage: t('editor.composer.remoteWatcher.yamlNotFoundYet', { label }), retryDelay: 5600 };
       }
       if (snapshot.state === 'error') {
-        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        const msg = snapshot.message
+          ? t('editor.composer.remoteWatcher.errorWithDetail', { message: snapshot.message })
+          : t('editor.composer.remoteWatcher.remoteCheckFailedRetry');
         return { done: false, statusMessage: msg, retryDelay: 6200 };
       }
       const matches = snapshot.signature === expectedSignature;
       if (matches) {
-        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+        return { done: true, data: snapshot, statusMessage: t('editor.composer.remoteWatcher.updateDetectedRefreshing') };
       }
       const waitingStatus = attempts >= 3
-        ? 'Remote YAML still differs from the local snapshot. Waiting…'
-        : 'Remote YAML updated but content differs. Waiting…';
+        ? t('editor.composer.remoteWatcher.remoteYamlDiffersWaiting')
+        : t('editor.composer.remoteWatcher.remoteYamlExistsDiffersWaiting');
       const response = {
         done: false,
         statusMessage: waitingStatus,
         retryDelay: 5400
       };
       if (attempts === 3) {
-        response.message = 'If the commit was different from your draft, cancel and click Refresh to pull it in.';
+        response.message = t('editor.composer.remoteWatcher.yamlMismatchAdvice');
       }
       return response;
     },
@@ -1335,7 +1341,7 @@ function startComposerSyncWatcher(kind, options = {}) {
       if (result && result.data) {
         applyComposerRemoteSnapshot(safeKind, result.data);
         if (result.mismatch) {
-          showToast('warn', `${label} was updated differently on GitHub. Review the highlighted differences.`, { duration: 4600 });
+          showToast('warn', t('editor.toasts.yamlUpdatedDifferently', { label }), { duration: 4600 });
         } else {
           clearDraftStorage(safeKind);
           updateUnsyncedSummary();
@@ -1349,12 +1355,12 @@ function startComposerSyncWatcher(kind, options = {}) {
           if (modal && typeof modal.close === 'function' && matchesKind && isOpen) {
             try { modal.close(); } catch (_) {}
           }
-          showToast('success', `${label} synchronized with GitHub.`);
+          showToast('success', t('editor.toasts.yamlSynced', { label }));
         }
       }
     },
     onCancel: () => {
-      showToast('info', 'Remote check canceled. Click Refresh when your commit is ready.');
+      showToast('info', t('editor.toasts.remoteCheckCanceledClickRefresh'));
     }
   });
 }

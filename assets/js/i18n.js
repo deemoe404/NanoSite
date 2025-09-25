@@ -134,6 +134,21 @@ const translations = {
         wrapAria: 'Wrap setting',
         viewAria: 'View switch'
       },
+      toast: {
+        openAction: 'Open',
+        closeAria: 'Close notification'
+      },
+      toasts: {
+        remoteMarkdownMismatch: 'Remote markdown differs from the local draft. Review the changes before continuing.',
+        markdownSynced: 'Markdown synchronized with GitHub.',
+        remoteCheckCanceledUseRefresh: 'Remote check canceled. Use Refresh after your commit is ready.',
+        yamlParseFailed: ({ label }) => `Fetched ${label} but failed to parse YAML.`,
+        yamlUpdatedDifferently: ({ label }) => `${label} was updated differently on GitHub. Review the highlighted differences.`,
+        yamlSynced: ({ label }) => `${label} synchronized with GitHub.`,
+        remoteCheckCanceledClickRefresh: 'Remote check canceled. Click Refresh when your commit is ready.',
+        popupBlocked: 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.',
+        openGithubAction: 'Open GitHub'
+      },
       editorTools: {
         aria: 'Editor tools',
         formatGroupAria: 'Formatting shortcuts',
@@ -176,6 +191,35 @@ const translations = {
         tabsEditorAria: 'tabs.yaml editor',
         noLocalChangesToCommit: 'No local changes to commit.',
         noLocalChangesYet: 'No local changes yet.'
+      },
+      remoteWatcher: {
+        waitingForCreate: ({ label }) => `Waiting for GitHub to create ${label}`,
+        waitingForUpdate: ({ label }) => `Waiting for GitHub to update ${label}`,
+        waitingForCommitStatus: 'Waiting for GitHub commit…',
+        checkingRemoteChanges: 'Checking remote changes…',
+        waitingForCommit: 'Waiting for commit…',
+        stopWaiting: 'Stop waiting',
+        waitingForRemoteResponse: 'Waiting for remote response…',
+        remoteCheckFailedRetry: 'Remote check failed. Retrying…',
+        remoteFileNotFoundYet: 'Remote file not found yet…',
+        remoteFileStillMissing: 'Remote file still missing…',
+        updateDetectedRefreshing: 'Update detected. Refreshing…',
+        remoteFileDiffersWaiting: 'Remote file still differs from local content. Waiting…',
+        remoteFileExistsDiffersWaiting: 'Remote file exists but content differs. Waiting…',
+        mismatchAdvice: 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.',
+        remoteCheckCanceled: 'Remote check canceled',
+        errorWithDetail: ({ message }) => `Error: ${message}`,
+        networkError: 'Network error',
+        fileNotFoundOnServer: 'File not found on server',
+        remoteSnapshotUpdated: 'Remote snapshot updated',
+        waitingForGitHub: 'Waiting for GitHub…',
+        preparing: 'Preparing…',
+        waitingForLabel: ({ label }) => `Waiting for ${label} to update on GitHub…`,
+        waitingForRemote: 'Waiting for remote…',
+        yamlNotFoundYet: ({ label }) => `${label} not found on remote yet…`,
+        remoteYamlDiffersWaiting: 'Remote YAML still differs from the local snapshot. Waiting…',
+        remoteYamlExistsDiffersWaiting: 'Remote YAML updated but content differs. Waiting…',
+        yamlMismatchAdvice: 'If the commit was different from your draft, cancel and click Refresh to pull it in.'
       },
       footerNote: 'Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.'
     }
@@ -288,6 +332,21 @@ const translations = {
         wrapAria: '换行设置',
         viewAria: '视图切换'
       },
+      toast: {
+        openAction: '打开',
+        closeAria: '关闭通知'
+      },
+      toasts: {
+        remoteMarkdownMismatch: '远程 Markdown 与本地草稿不同。继续前请检查差异。',
+        markdownSynced: 'Markdown 已与 GitHub 同步。',
+        remoteCheckCanceledUseRefresh: '远程检查已取消。提交准备好后请点击“刷新”。',
+        yamlParseFailed: ({ label }) => `已获取 ${label}，但无法解析 YAML。`,
+        yamlUpdatedDifferently: ({ label }) => `${label} 在 GitHub 上的更新不同。请检查高亮的差异。`,
+        yamlSynced: ({ label }) => `${label} 已与 GitHub 同步。`,
+        remoteCheckCanceledClickRefresh: '远程检查已取消。提交准备好后请点击“刷新”。',
+        popupBlocked: '浏览器阻止了 GitHub 窗口。请允许此站点的弹出窗口后重试。',
+        openGithubAction: '打开 GitHub'
+      },
       editorTools: {
         aria: '编辑器工具',
         formatGroupAria: '格式快捷键',
@@ -331,8 +390,37 @@ const translations = {
         noLocalChangesToCommit: '没有本地更改可提交。',
         noLocalChangesYet: '暂时没有本地更改。'
       },
+      remoteWatcher: {
+        waitingForCreate: ({ label }) => `正在等待 GitHub 创建 ${label}`,
+        waitingForUpdate: ({ label }) => `正在等待 GitHub 更新 ${label}`,
+        waitingForCommitStatus: '正在等待 GitHub 提交…',
+        checkingRemoteChanges: '正在检查远程更改…',
+        waitingForCommit: '正在等待提交…',
+        stopWaiting: '停止等待',
+        waitingForRemoteResponse: '正在等待远程响应…',
+        remoteCheckFailedRetry: '远程检查失败，正在重试…',
+        remoteFileNotFoundYet: '远程文件尚未找到…',
+        remoteFileStillMissing: '远程文件仍缺失…',
+        updateDetectedRefreshing: '检测到更新，正在刷新…',
+        remoteFileDiffersWaiting: '远程文件内容与本地仍不一致，继续等待…',
+        remoteFileExistsDiffersWaiting: '远程文件已存在但内容不同，继续等待…',
+        mismatchAdvice: '如果你的 GitHub 提交确实不同，请取消并使用“刷新”查看。',
+        remoteCheckCanceled: '远程检查已取消',
+        errorWithDetail: ({ message }) => `错误：${message}`,
+        networkError: '网络错误',
+        fileNotFoundOnServer: '服务器上未找到文件',
+        remoteSnapshotUpdated: '远程快照已更新',
+        waitingForGitHub: '正在等待 GitHub…',
+        preparing: '正在准备…',
+        waitingForLabel: ({ label }) => `正在等待 ${label} 在 GitHub 上更新…`,
+        waitingForRemote: '正在等待远程…',
+        yamlNotFoundYet: ({ label }) => `${label} 在远程尚未找到…`,
+        remoteYamlDiffersWaiting: '远程 YAML 与本地快照仍不一致，继续等待…',
+        remoteYamlExistsDiffersWaiting: '远程 YAML 已更新但内容不同，继续等待…',
+        yamlMismatchAdvice: '如果提交与草稿不同，请取消并点击“刷新”以拉取。'
+      },
       footerNote: '由 ❤️ 打造，基于 <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>。保持灵感，持续创作。'
-    }
+    },
   },
   ja: {
     ui: {
@@ -428,7 +516,7 @@ const translations = {
         upload: 'アップロード',
         remoteLabel: 'GitHub',
         loadingRepo: 'GitHub 設定を読み込み中…',
-        checkingConnection: '接続を確認しています…',
+        checkingConnection: '接続を確認中…',
         clean: 'ローカルの変更はありません'
       },
       toolbar: {
@@ -440,11 +528,26 @@ const translations = {
         viewPreview: 'プレビュー',
         discard: '破棄',
         wrapAria: '折り返し設定',
-        viewAria: '表示切り替え'
+        viewAria: '表示の切り替え'
+      },
+      toast: {
+        openAction: '開く',
+        closeAria: '通知を閉じる'
+      },
+      toasts: {
+        remoteMarkdownMismatch: 'リモートの Markdown がローカルの下書きと異なります。続行する前に差分を確認してください。',
+        markdownSynced: 'Markdown を GitHub と同期しました。',
+        remoteCheckCanceledUseRefresh: 'リモートチェックをキャンセルしました。コミットの準備ができたら「更新」をクリックしてください。',
+        yamlParseFailed: ({ label }) => `${label} を取得しましたが、YAML を解析できませんでした。`,
+        yamlUpdatedDifferently: ({ label }) => `${label} は GitHub 上で異なる更新が行われています。ハイライトされた差分を確認してください。`,
+        yamlSynced: ({ label }) => `${label} を GitHub と同期しました。`,
+        remoteCheckCanceledClickRefresh: 'リモートチェックをキャンセルしました。コミットの準備ができたら「更新」をクリックしてください。',
+        popupBlocked: 'ブラウザが GitHub ウィンドウをブロックしました。このサイトのポップアップを許可してから再試行してください。',
+        openGithubAction: 'GitHub を開く'
       },
       editorTools: {
-        aria: 'エディターツール',
-        formatGroupAria: '書式設定ショートカット',
+        aria: 'エディターのツール',
+        formatGroupAria: '書式ショートカット',
         bold: '太字',
         italic: '斜体',
         strike: '取り消し線',
@@ -457,12 +560,12 @@ const translations = {
         insertImage: '画像を挿入',
         cardDialogAria: '記事カードを挿入',
         cardSearch: '記事を検索…',
-        cardEmpty: '一致する記事がありません'
+        cardEmpty: '該当する記事はありません'
       },
-      editorPlaceholder: '# こんにちは、NanoSite\n\nMarkdown を入力しましょう…',
+      editorPlaceholder: '# こんにちは、NanoSite\n\nMarkdown の入力を始めましょう…',
       editorTextareaAria: 'Markdown ソース',
       empty: {
-        title: '開いているエディターはありません',
+        title: '現在開いているエディターはありません',
         body: 'コンポーザーから Markdown を開いて編集を開始してください。'
       },
       composer: {
@@ -470,23 +573,52 @@ const translations = {
         fileLabel: 'ファイル:',
         fileArticles: '記事',
         filePages: 'ページ',
-        addPost: '記事を追加',
+        addPost: '記事エントリーを追加',
         refresh: '更新',
         refreshTitle: '最新のリモートスナップショットを取得',
         discard: '破棄',
-        discardTitle: 'ローカル下書きを破棄してリモートファイルを再読み込み',
-        changeSummary: '変更サマリー',
+        discardTitle: 'ローカルの下書きを破棄してリモートを再読み込み',
+        changeSummary: '変更の概要',
         reviewChanges: '変更を確認',
-        inlineEmpty: '比較できる項目がまだありません。',
+        inlineEmpty: '比較できるエントリーはまだありません。',
         indexInlineAria: 'index.yaml の旧順序',
         indexEditorAria: 'index.yaml エディター',
         tabsInlineAria: 'tabs.yaml の旧順序',
         tabsEditorAria: 'tabs.yaml エディター',
         noLocalChangesToCommit: 'コミットするローカルの変更はありません。',
-        noLocalChangesYet: '現在ローカルの変更はありません。'
+        noLocalChangesYet: 'ローカルの変更はまだありません。'
       },
-      footerNote: '❤️ を込めて <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a> で作りました。インスピレーションを保ち、創作を続けましょう。'
-    }
+      remoteWatcher: {
+        waitingForCreate: ({ label }) => `GitHub で ${label} が作成されるのを待機しています`,
+        waitingForUpdate: ({ label }) => `GitHub で ${label} が更新されるのを待機しています`,
+        waitingForCommitStatus: 'GitHub のコミットを待機中…',
+        checkingRemoteChanges: 'リモートの変更を確認中…',
+        waitingForCommit: 'コミットを待機中…',
+        stopWaiting: '待機を停止',
+        waitingForRemoteResponse: 'リモートの応答を待機しています…',
+        remoteCheckFailedRetry: 'リモートチェックに失敗しました。再試行します…',
+        remoteFileNotFoundYet: 'リモートファイルがまだ見つかりません…',
+        remoteFileStillMissing: 'リモートファイルがまだ存在しません…',
+        updateDetectedRefreshing: '更新を検出しました。再読み込みしています…',
+        remoteFileDiffersWaiting: 'リモートファイルがローカル内容とまだ一致しません。待機中…',
+        remoteFileExistsDiffersWaiting: 'リモートファイルは存在しますが内容が異なります。待機中…',
+        mismatchAdvice: 'GitHub のコミットが意図的に異なる場合はキャンセルし、「更新」で内容を確認してください。',
+        remoteCheckCanceled: 'リモートチェックをキャンセルしました',
+        errorWithDetail: ({ message }) => `エラー: ${message}`,
+        networkError: 'ネットワークエラー',
+        fileNotFoundOnServer: 'サーバーでファイルが見つかりません',
+        remoteSnapshotUpdated: 'リモートスナップショットを更新しました',
+        waitingForGitHub: 'GitHub を待機中…',
+        preparing: '準備中…',
+        waitingForLabel: ({ label }) => `GitHub で ${label} の更新を待機しています…`,
+        waitingForRemote: 'リモートを待機中…',
+        yamlNotFoundYet: ({ label }) => `リモートで ${label} がまだ見つかりません…`,
+        remoteYamlDiffersWaiting: 'リモート YAML がローカルのスナップショットとまだ一致しません。待機中…',
+        remoteYamlExistsDiffersWaiting: 'リモート YAML は更新されていますが内容が異なります。待機中…',
+        yamlMismatchAdvice: 'コミット内容が下書きと異なる場合はキャンセルし、「更新」をクリックして取得してください。'
+      },
+      footerNote: '❤️ で作られた <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a> を使って創作を楽しみましょう。'
+    },
   }
   // Additional languages can be added here
 };
