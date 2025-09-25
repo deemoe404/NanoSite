@@ -321,7 +321,7 @@
     .current-file[data-dirty="1"] .cf-line-main { color: color-mix(in srgb, #f97316 78%, var(--text)); }
     /* Grouped list styles */
     /* Ensure main editor can use full width */
-    .editor-main { min-width: 0; overflow: visible; }
+    .editor-main { min-width: 0; overflow: visible; position: relative; }
     .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
@@ -732,10 +732,26 @@
     .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
+    .btn-secondary.btn-compact { padding:.3rem .65rem; height:2rem; font-size:.85rem; font-weight:600; }
     .btn-secondary[hidden] { display:none !important; }
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
+    .editor-tools { display:flex; align-items:center; justify-content:space-between; gap:.65rem; flex-wrap:wrap; margin-bottom:.75rem; position:relative; }
+    .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+    .editor-tool-btn { white-space:nowrap; }
+    .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
+    .editor-card-popover { position:absolute; top:calc(100% + .5rem); right:0; min-width:260px; max-width:min(420px, calc(100vw - 2.5rem)); padding:.75rem; border-radius:.85rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:var(--shadow), 0 18px 38px rgba(15, 23, 42, 0.18); z-index:1200; display:none; }
+    .editor-card-popover.is-visible { display:block; }
+    .card-picker-search input { width:100%; border-radius:.65rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); padding:.45rem .7rem; font-size:.92rem; color:var(--text); transition:border-color .18s ease, box-shadow .18s ease; }
+    .card-picker-search input::placeholder { color:color-mix(in srgb, var(--muted) 78%, transparent); }
+    .card-picker-search input:focus { outline:2px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset:1px; border-color:color-mix(in srgb, var(--primary) 42%, var(--border)); box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
+    .card-picker-list { margin-top:.6rem; max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:.35rem; }
+    .card-picker-item { display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; width:100%; padding:.45rem .55rem; border-radius:.65rem; border:1px solid transparent; background:transparent; color:var(--text); cursor:pointer; font-size:.92rem; text-align:left; transition:background .16s ease, border-color .16s ease; }
+    .card-picker-item:hover, .card-picker-item:focus { background:color-mix(in srgb, var(--text) 6%, transparent); border-color:color-mix(in srgb, var(--primary) 35%, var(--border)); outline:none; }
+    .card-picker-item-title { font-weight:600; }
+    .card-picker-item-meta { font-size:.78rem; color:var(--muted); }
+    .card-picker-empty { margin-top:.5rem; text-align:center; font-size:.85rem; color:var(--muted); }
     .composer-confirm-popover {
       position: absolute;
       inset: auto auto;
@@ -1168,10 +1184,6 @@
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
-            <button type="button" class="btn-secondary" id="btnInsertImage">
-              <span class="btn-label">Insert Image</span>
-            </button>
-            <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
             <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting">
               <span class="vt-label">Wrap:</span>
               <a href="#" class="vt-btn" data-wrap="on" role="button">on</a>
@@ -1187,6 +1199,32 @@
             <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
               <span class="btn-label">Discard</span>
             </button>
+          </div>
+        </div>
+
+        <div class="editor-tools" id="editorToolbar" aria-label="Editor tools">
+          <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts">
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled>Bold</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled>Italic</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled>Strike</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled>Heading</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled>Quote</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled>Code</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled>Code Block</button>
+          </div>
+          <div class="editor-tools-right">
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false">Article Card</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertImage">
+              <span class="btn-label">Insert Image</span>
+            </button>
+            <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
+          </div>
+          <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card">
+            <div class="card-picker-search">
+              <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles">
+            </div>
+            <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
+            <div class="card-picker-empty" id="cardPickerEmpty" hidden>No matching articles</div>
           </div>
         </div>
 
