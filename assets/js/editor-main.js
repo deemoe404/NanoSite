@@ -765,6 +765,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateFormattingToolbarState = () => {
     const textarea = getEditorTextarea();
     const selection = lastSelectionRange || { start: 0, end: 0 };
+    const caretOnEmptyLine = isCaretOnEmptyLine(textarea, selection);
     const hasSelection = selection.end > selection.start;
     formattingButtons.forEach(btn => {
       if (!btn || !btn.el) return;
@@ -780,8 +781,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (cardButton) {
       const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
-      cardButton.disabled = !hasEntries;
-      if (hasEntries) cardButton.removeAttribute('aria-disabled');
+      const allowCardInsertion = hasEntries && caretOnEmptyLine;
+      cardButton.disabled = !allowCardInsertion;
+      if (allowCardInsertion) cardButton.removeAttribute('aria-disabled');
       else cardButton.setAttribute('aria-disabled', 'true');
       applyButtonTooltipState(cardButton, !!cardButton.disabled);
     }
@@ -1132,7 +1134,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const handleCardContextUpdate = () => {
     updateFormattingToolbarState();
     const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
-    if (!hasEntries && cardPopoverOpen) {
+    const textarea = getEditorTextarea();
+    const selection = lastSelectionRange || { start: 0, end: 0 };
+    const allowCardInsertion = hasEntries && isCaretOnEmptyLine(textarea, selection);
+    if ((!hasEntries || !allowCardInsertion) && cardPopoverOpen) {
       closeCardPopover();
       return;
     }
@@ -1150,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnFmtQuote: 'Select lines or place the caret on an empty line, then click Quote to prepend "> ".',
     btnFmtCode: 'No text is selected. Select text first, then click Code to wrap it in backticks.',
     btnFmtCodeBlock: 'Select lines or place the caret on an empty line, then click Code Block to wrap them in ``` fences.',
-    btnInsertCard: 'No articles are available yet. Wait for the index to load or add entries in index.yaml, then insert a card.'
+    btnInsertCard: 'Place the caret on an empty line, then click to insert an article card. If no articles appear, wait for the index to load or add entries in index.yaml.'
   };
 
   if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINTS.btnInsertCard);
