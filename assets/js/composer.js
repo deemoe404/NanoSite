@@ -5035,6 +5035,10 @@ function updateComposerOrderPreview(kind, options = {}) {
   const primaryList = normalized === 'tabs' ? document.getElementById('ctList') : document.getElementById('ciList');
   const primaryListRectBefore = captureElementRect(primaryList);
   let listAnimationScheduled = false;
+  const collapseImmediately = !!options.collapseImmediately
+    || !!(composerViewTransition
+      && composerViewTransition.panels
+      && composerViewTransition.panels.classList.contains('is-hidden'));
   const adjustViewportBy = (deltaY) => {
     if (!deltaY || !Number.isFinite(deltaY)) return;
     try {
@@ -5191,7 +5195,7 @@ function updateComposerOrderPreview(kind, options = {}) {
 
   if (!hasDiffChanges) {
     if (meta) {
-      animateComposerInlineVisibility(meta, false);
+      animateComposerInlineVisibility(meta, false, collapseImmediately ? { immediate: true } : undefined);
     }
     if (host) host.dataset.state = 'clean';
 
@@ -5205,7 +5209,10 @@ function updateComposerOrderPreview(kind, options = {}) {
 
     if (root) {
       root.dataset.state = 'clean';
-      animateComposerInlineVisibility(root, false, { onFinish: finalizeCollapse });
+      const collapseOptions = collapseImmediately
+        ? { onFinish: finalizeCollapse, immediate: true }
+        : { onFinish: finalizeCollapse };
+      animateComposerInlineVisibility(root, false, collapseOptions);
     } else {
       finalizeCollapse();
     }
@@ -5247,7 +5254,10 @@ function updateComposerOrderPreview(kind, options = {}) {
     };
     if (root) {
       root.dataset.state = hasOrderChanges ? 'changed' : 'clean';
-      animateComposerInlineVisibility(root, false, { onFinish: finalizeCollapse });
+      const collapseOptions = collapseImmediately
+        ? { onFinish: finalizeCollapse, immediate: true }
+        : { onFinish: finalizeCollapse };
+      animateComposerInlineVisibility(root, false, collapseOptions);
     } else {
       finalizeCollapse();
     }
