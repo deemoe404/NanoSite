@@ -14,6 +14,8 @@ const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6'
 const getCleanStatusMessage = () => t(CLEAN_STATUS_MESSAGE_KEY);
 const getUploadLabel = () => t(STATUS_UPLOAD_KEY);
 const getSyncedLabel = () => t(STATUS_SYNCED_KEY);
+const tComposer = (suffix, params) => t(`editor.composer.${suffix}`, params);
+const tComposerDiff = (suffix, params) => t(`editor.composer.diff.${suffix}`, params);
 const getMarkdownPushLabel = (kind) => {
   const key = MARKDOWN_PUSH_LABEL_KEYS[kind] || MARKDOWN_PUSH_LABEL_KEYS.default;
   return t(key);
@@ -4329,11 +4331,11 @@ function computeOrderDiffDetails(kind) {
 function renderOrderStatsChips(target, stats, options = {}) {
   if (!target) return;
   const safeStats = stats || { moved: 0, added: 0, removed: 0 };
-  const emptyLabel = options.emptyLabel || 'No direct moves; changes come from additions/removals';
+  const emptyLabel = options.emptyLabel || tComposerDiff('orderStats.empty');
   const pieces = [];
-  if (safeStats.moved) pieces.push({ label: `Moved ${safeStats.moved}`, status: 'moved' });
-  if (safeStats.added) pieces.push({ label: `+${safeStats.added} new`, status: 'added' });
-  if (safeStats.removed) pieces.push({ label: `-${safeStats.removed} removed`, status: 'removed' });
+  if (safeStats.moved) pieces.push({ label: tComposerDiff('orderStats.moved', { count: safeStats.moved }), status: 'moved' });
+  if (safeStats.added) pieces.push({ label: tComposerDiff('orderStats.added', { count: safeStats.added }), status: 'added' });
+  if (safeStats.removed) pieces.push({ label: tComposerDiff('orderStats.removed', { count: safeStats.removed }), status: 'removed' });
   target.innerHTML = '';
   if (!pieces.length) {
     pieces.push({ label: emptyLabel, status: 'neutral' });
@@ -4383,22 +4385,27 @@ function renderComposerInlineSummary(target, diff, options = {}) {
     const max = Math.max(1, options.maxKeys || 3);
     const shown = clean.slice(0, max);
     let text = shown.join(', ');
-    if (clean.length > shown.length) text += ` +${clean.length - shown.length} more`;
+    if (clean.length > shown.length) {
+      const moreCount = clean.length - shown.length;
+      text += ` ${tComposerDiff('lists.more', { count: moreCount })}`;
+    }
     return text;
   };
 
   const chips = [];
-  if (addedCount) chips.push({ variant: 'added', label: `+${addedCount} added` });
-  if (removedCount) chips.push({ variant: 'removed', label: `-${removedCount} removed` });
-  if (modifiedCount) chips.push({ variant: 'modified', label: `~${modifiedCount} modified` });
+  if (addedCount) chips.push({ variant: 'added', label: tComposerDiff('inlineChips.added', { count: addedCount }) });
+  if (removedCount) chips.push({ variant: 'removed', label: tComposerDiff('inlineChips.removed', { count: removedCount }) });
+  if (modifiedCount) chips.push({ variant: 'modified', label: tComposerDiff('inlineChips.modified', { count: modifiedCount }) });
   if (orderChanged) {
-    let orderLabel = 'Order changed';
+    let orderLabel = tComposerDiff('inlineChips.orderChanged');
     if (orderHasStats) {
       const parts = [];
-      if (orderStats.moved) parts.push(`${orderStats.moved} moved`);
-      if (orderStats.added) parts.push(`+${orderStats.added} new`);
-      if (orderStats.removed) parts.push(`-${orderStats.removed} removed`);
-      if (parts.length) orderLabel = `Order: ${parts.join(', ')}`;
+      if (orderStats.moved) parts.push(tComposerDiff('inlineChips.orderParts.moved', { count: orderStats.moved }));
+      if (orderStats.added) parts.push(tComposerDiff('inlineChips.orderParts.added', { count: orderStats.added }));
+      if (orderStats.removed) parts.push(tComposerDiff('inlineChips.orderParts.removed', { count: orderStats.removed }));
+      if (parts.length) {
+        orderLabel = tComposerDiff('inlineChips.orderSummary', { parts: parts.join(', ') });
+      }
     }
     chips.push({ variant: 'order', label: orderLabel });
   }
@@ -4425,7 +4432,7 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   if (langSet.size) {
     const langs = Array.from(langSet).filter(Boolean).sort();
     const summary = formatKeyList(langs);
-    if (summary) addChip({ variant: 'langs', label: `Langs: ${summary}` });
+    if (summary) addChip({ variant: 'langs', label: tComposerDiff('inlineChips.langs', { summary }) });
   }
 
   if (chipRow.children.length) target.appendChild(chipRow);
@@ -4433,7 +4440,7 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   if (!chipRow.children.length) {
     const empty = document.createElement('span');
     empty.className = 'composer-inline-summary-empty';
-    empty.textContent = 'Changes detected.';
+    empty.textContent = tComposerDiff('inlineChips.none');
     target.appendChild(empty);
   }
 }
@@ -4545,7 +4552,7 @@ function buildOrderDiffItem(entry, side) {
 
   const keyEl = document.createElement('span');
   keyEl.className = 'composer-order-key';
-  const keyText = entry.key || '(empty)';
+  const keyText = entry.key || tComposerDiff('order.emptyKey');
   keyEl.textContent = keyText;
   keyEl.title = keyText;
   item.appendChild(keyEl);
@@ -4554,12 +4561,15 @@ function buildOrderDiffItem(entry, side) {
   badgeEl.className = 'composer-order-badge';
   let badgeText = '';
   if (entry.status === 'moved') {
-    if (side === 'before') badgeText = `→ #${(entry.toIndex == null ? entry.index : entry.toIndex) + 1}`;
-    else badgeText = `from #${(entry.fromIndex == null ? entry.index : entry.fromIndex) + 1}`;
+    if (side === 'before') {
+      badgeText = tComposerDiff('order.badges.to', { index: (entry.toIndex == null ? entry.index : entry.toIndex) + 1 });
+    } else {
+      badgeText = tComposerDiff('order.badges.from', { index: (entry.fromIndex == null ? entry.index : entry.fromIndex) + 1 });
+    }
   } else if (entry.status === 'removed') {
-    badgeText = 'Removed';
+    badgeText = tComposerDiff('order.badges.removed');
   } else if (entry.status === 'added') {
-    badgeText = 'New';
+    badgeText = tComposerDiff('order.badges.added');
   }
   if (badgeText) {
     badgeEl.textContent = badgeText;
@@ -4588,15 +4598,15 @@ function ensureComposerDiffModal() {
   head.className = 'composer-order-head';
   const title = document.createElement('h2');
   title.id = 'composerOrderTitle';
-  title.textContent = 'Changes';
+  title.textContent = tComposerDiff('heading');
   const subtitle = document.createElement('p');
   subtitle.className = 'composer-order-subtitle';
-  subtitle.textContent = 'Review differences compared to the remote baseline.';
+  subtitle.textContent = tComposerDiff('subtitle.default');
   const closeBtn = document.createElement('button');
   closeBtn.className = 'ns-modal-close btn-secondary composer-order-close';
   closeBtn.type = 'button';
-  closeBtn.setAttribute('aria-label', 'Close');
-  closeBtn.textContent = 'Close';
+  closeBtn.setAttribute('aria-label', tComposerDiff('close'));
+  closeBtn.textContent = tComposerDiff('close');
   head.appendChild(title);
   head.appendChild(subtitle);
   head.appendChild(closeBtn);
@@ -4606,10 +4616,12 @@ function ensureComposerDiffModal() {
   tabsWrap.setAttribute('role', 'tablist');
 
   const tabDefs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'entries', label: 'Entries' },
-    { id: 'order', label: 'Order' }
+    { id: 'overview', labelKey: 'tabs.overview' },
+    { id: 'entries', labelKey: 'tabs.entries' },
+    { id: 'order', labelKey: 'tabs.order' }
   ];
+  const tabDefsById = new Map();
+  tabDefs.forEach(def => { tabDefsById.set(def.id, def); });
   const tabButtons = new Map();
   const tabPanels = new Map();
 
@@ -4640,7 +4652,8 @@ function ensureComposerDiffModal() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'composer-diff-tab';
-    btn.textContent = tab.label;
+    btn.textContent = tComposerDiff(tab.labelKey);
+    btn.dataset.i18nKey = tab.labelKey;
     btn.dataset.tab = tab.id;
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
@@ -4697,7 +4710,7 @@ function ensureComposerDiffModal() {
   beforeCol.className = 'composer-order-column composer-order-before';
   const beforeTitle = document.createElement('div');
   beforeTitle.className = 'composer-order-column-title';
-  beforeTitle.textContent = 'Remote';
+  beforeTitle.textContent = tComposerDiff('order.remoteTitle');
   const beforeList = document.createElement('div');
   beforeList.className = 'composer-order-list';
   beforeCol.appendChild(beforeTitle);
@@ -4707,7 +4720,7 @@ function ensureComposerDiffModal() {
   afterCol.className = 'composer-order-column composer-order-after';
   const afterTitle = document.createElement('div');
   afterTitle.className = 'composer-order-column-title';
-  afterTitle.textContent = 'Current';
+  afterTitle.textContent = tComposerDiff('order.currentTitle');
   const afterList = document.createElement('div');
   afterList.className = 'composer-order-list';
   afterCol.appendChild(afterTitle);
@@ -4715,7 +4728,7 @@ function ensureComposerDiffModal() {
 
   const emptyNotice = document.createElement('div');
   emptyNotice.className = 'composer-order-empty';
-  emptyNotice.textContent = 'No items to compare yet.';
+  emptyNotice.textContent = tComposerDiff('order.empty');
 
   columns.appendChild(beforeCol);
   columns.appendChild(afterCol);
@@ -4740,10 +4753,10 @@ function ensureComposerDiffModal() {
   let activeKind = 'index';
   let activeDiff = null;
 
-  const subtitleText = {
-    overview: 'Review a quick summary of the unsynced changes.',
-    entries: 'Inspect added, removed, and modified entries.',
-    order: 'Remote baseline (left) · 当前顺序 (right)'
+  const subtitleKeys = {
+    overview: 'subtitle.overview',
+    entries: 'subtitle.entries',
+    order: 'subtitle.order'
   };
 
   function prefersReducedMotion() {
@@ -4788,7 +4801,8 @@ function ensureComposerDiffModal() {
   }
 
   function updateSubtitle(tabId) {
-    subtitle.textContent = subtitleText[tabId] || subtitleText.overview;
+    const key = subtitleKeys[tabId] || subtitleKeys.overview;
+    subtitle.textContent = tComposerDiff(key);
   }
 
   function setActiveTab(tabId) {
@@ -4828,7 +4842,7 @@ function ensureComposerDiffModal() {
     if (!diff) {
       const empty = document.createElement('p');
       empty.className = 'composer-diff-empty';
-      empty.textContent = 'No changes detected for this file.';
+      empty.textContent = tComposerDiff('overview.empty');
       viewOverview.appendChild(empty);
       return;
     }
@@ -4841,10 +4855,10 @@ function ensureComposerDiffModal() {
       return info.state === 'modified' || (info.addedLangs && info.addedLangs.length) || (info.removedLangs && info.removedLangs.length);
     });
     const statDefs = [
-      { id: 'added', label: 'Added', value: diff.addedKeys.length },
-      { id: 'removed', label: 'Removed', value: diff.removedKeys.length },
-      { id: 'modified', label: 'Modified', value: modifiedKeys.length },
-      { id: 'order', label: 'Order', value: diff.orderChanged ? 'Changed' : 'Unchanged', state: diff.orderChanged ? 'changed' : 'clean' }
+      { id: 'added', label: tComposerDiff('overview.stats.added'), value: diff.addedKeys.length },
+      { id: 'removed', label: tComposerDiff('overview.stats.removed'), value: diff.removedKeys.length },
+      { id: 'modified', label: tComposerDiff('overview.stats.modified'), value: modifiedKeys.length },
+      { id: 'order', label: tComposerDiff('overview.stats.order'), value: diff.orderChanged ? tComposerDiff('overview.stats.changed') : tComposerDiff('overview.stats.unchanged'), state: diff.orderChanged ? 'changed' : 'clean' }
     ];
     statDefs.forEach(def => {
       const card = document.createElement('div');
@@ -4854,7 +4868,7 @@ function ensureComposerDiffModal() {
       if (def.state) card.dataset.state = def.state;
       const valueEl = document.createElement('div');
       valueEl.className = 'composer-diff-stat-value';
-      valueEl.textContent = String(def.value);
+      valueEl.textContent = typeof def.value === 'number' ? String(def.value) : def.value;
       const labelEl = document.createElement('div');
       labelEl.className = 'composer-diff-stat-label';
       labelEl.textContent = def.label;
@@ -4885,16 +4899,16 @@ function ensureComposerDiffModal() {
       if (keys.length > max) {
         const more = document.createElement('li');
         more.className = 'composer-diff-key-more';
-        more.textContent = `+${keys.length - max} more`;
+        more.textContent = tComposerDiff('lists.more', { count: keys.length - max });
         list.appendChild(more);
       }
       block.appendChild(h3);
       block.appendChild(list);
       blocks.appendChild(block);
     }
-    appendKeyBlock('Added entries', diff.addedKeys);
-    appendKeyBlock('Removed entries', diff.removedKeys);
-    appendKeyBlock('Modified entries', modifiedKeys);
+    appendKeyBlock(tComposerDiff('overview.blocks.added'), diff.addedKeys);
+    appendKeyBlock(tComposerDiff('overview.blocks.removed'), diff.removedKeys);
+    appendKeyBlock(tComposerDiff('overview.blocks.modified'), modifiedKeys);
     if (blocks.children.length) viewOverview.appendChild(blocks);
 
     const langSet = new Set();
@@ -4907,7 +4921,7 @@ function ensureComposerDiffModal() {
     if (langSet.size) {
       const p = document.createElement('p');
       p.className = 'composer-diff-overview-langs';
-      p.textContent = `Languages impacted: ${Array.from(langSet).sort().join(', ')}`;
+      p.textContent = tComposerDiff('overview.languagesImpacted', { languages: Array.from(langSet).sort().join(', ') });
       viewOverview.appendChild(p);
     }
   }
@@ -4935,7 +4949,7 @@ function ensureComposerDiffModal() {
       const snapshot = describeEntrySnapshot(kind, key, sectionType === 'added' ? 'current' : 'baseline');
       const langs = snapshot ? Object.keys(snapshot || {}).filter(lang => lang !== '__order') : [];
       if (!langs.length) {
-        push('No language content recorded.');
+        push(tComposerDiff('entries.noLanguageContent'));
       } else {
         langs.forEach(lang => {
           const label = lang.toUpperCase();
@@ -4944,14 +4958,18 @@ function ensureComposerDiffModal() {
             let count = 0;
             if (Array.isArray(value)) count = value.length;
             else if (value != null && value !== '') count = 1;
-            push(`${label}: ${count ? `${count} value${count === 1 ? '' : 's'}` : 'empty entry'}`);
+            const summary = count
+              ? tComposerDiff('entries.snapshot.indexValue', { count })
+              : tComposerDiff('entries.snapshot.emptyEntry');
+            push(tComposerDiff('entries.summary', { lang: label, summary }));
           } else {
             const value = snapshot[lang] || { title: '', location: '' };
             const parts = [];
-            if (value.title) parts.push(`title “${truncateText(value.title, 32)}”`);
-            if (value.location) parts.push(`location ${truncateText(value.location, 40)}`);
-            if (!parts.length) parts.push('empty entry');
-            push(`${label}: ${parts.join(', ')}`);
+            if (value.title) parts.push(tComposerDiff('entries.snapshot.tabTitle', { title: truncateText(value.title, 32) }));
+            if (value.location) parts.push(tComposerDiff('entries.snapshot.tabLocation', { location: truncateText(value.location, 40) }));
+            if (!parts.length) parts.push(tComposerDiff('entries.snapshot.emptyEntry'));
+            const joined = parts.join(tComposerDiff('entries.join.comma'));
+            push(tComposerDiff('entries.summary', { lang: label, summary: joined }));
           }
         });
       }
@@ -4968,16 +4986,16 @@ function ensureComposerDiffModal() {
         const detail = (info.langs || {})[lang];
         const label = lang.toUpperCase();
         if (!detail) {
-          if (addedLangs.has(lang)) push(`${label}: added`);
-          else if (removedLangs.has(lang)) push(`${label}: removed`);
+          if (addedLangs.has(lang)) push(tComposerDiff('entries.state.added', { lang: label }));
+          else if (removedLangs.has(lang)) push(tComposerDiff('entries.state.removed', { lang: label }));
           return;
         }
         if (detail.state === 'added') {
-          push(`${label}: added`);
+          push(tComposerDiff('entries.state.added', { lang: label }));
           return;
         }
         if (detail.state === 'removed') {
-          push(`${label}: removed`);
+          push(tComposerDiff('entries.state.removed', { lang: label }));
           return;
         }
         if (detail.state === 'modified') {
@@ -4993,18 +5011,22 @@ function ensureComposerDiffModal() {
             });
             const removedCount = (versions.removed || []).length;
             const parts = [];
-            if (versions.kindChanged) parts.push('type changed');
-            if (addedCount) parts.push(`+${addedCount} new`);
-            if (removedCount) parts.push(`-${removedCount} removed`);
-            if (changedCount) parts.push(`${changedCount} updated`);
-            if (versions.orderChanged || movedCount) parts.push('reordered');
-            if (!parts.length) parts.push('content updated');
-            push(`${label}: ${parts.join(', ')}`);
+            if (versions.kindChanged) parts.push(tComposerDiff('entries.parts.typeChanged'));
+            if (addedCount) parts.push(tComposerDiff('entries.parts.addedCount', { count: addedCount }));
+            if (removedCount) parts.push(tComposerDiff('entries.parts.removedCount', { count: removedCount }));
+            if (changedCount) parts.push(tComposerDiff('entries.parts.updatedCount', { count: changedCount }));
+            if (versions.orderChanged || movedCount) parts.push(tComposerDiff('entries.parts.reordered'));
+            if (!parts.length) parts.push(tComposerDiff('entries.parts.contentUpdated'));
+            const joined = parts.join(tComposerDiff('entries.join.comma'));
+            push(tComposerDiff('entries.summary', { lang: label, summary: joined }));
           } else {
             const changeFields = [];
-            if (detail.titleChanged) changeFields.push('title');
-            if (detail.locationChanged) changeFields.push('location');
-            push(`${label}: updated ${changeFields.length ? changeFields.join(' & ') : 'content'}`);
+            if (detail.titleChanged) changeFields.push(tComposerDiff('entries.fields.title'));
+            if (detail.locationChanged) changeFields.push(tComposerDiff('entries.fields.location'));
+            const fieldSummary = changeFields.length
+              ? changeFields.join(tComposerDiff('entries.join.and'))
+              : tComposerDiff('entries.fields.content');
+            push(tComposerDiff('entries.state.updatedFields', { lang: label, fields: fieldSummary }));
           }
         }
       });
@@ -5017,15 +5039,15 @@ function ensureComposerDiffModal() {
     if (!diff) {
       const empty = document.createElement('p');
       empty.className = 'composer-diff-empty';
-      empty.textContent = 'No content differences detected.';
+      empty.textContent = tComposerDiff('entries.empty');
       viewEntries.appendChild(empty);
       return;
     }
     const diffKeys = diff.keys || {};
     const sections = [
-      { type: 'added', title: 'Added entries', keys: diff.addedKeys || [] },
-      { type: 'removed', title: 'Removed entries', keys: diff.removedKeys || [] },
-      { type: 'modified', title: 'Modified entries', keys: Object.keys(diffKeys).filter(key => {
+      { type: 'added', title: tComposerDiff('entries.sections.added'), keys: diff.addedKeys || [] },
+      { type: 'removed', title: tComposerDiff('entries.sections.removed'), keys: diff.removedKeys || [] },
+      { type: 'modified', title: tComposerDiff('entries.sections.modified'), keys: Object.keys(diffKeys).filter(key => {
         const info = diffKeys[key];
         if (!info) return false;
         return info.state === 'modified' || (info.addedLangs && info.addedLangs.length) || (info.removedLangs && info.removedLangs.length);
@@ -5035,7 +5057,7 @@ function ensureComposerDiffModal() {
     if (!hasData) {
       const empty = document.createElement('p');
       empty.className = 'composer-diff-empty';
-      empty.textContent = 'Only ordering changed for this file.';
+      empty.textContent = tComposerDiff('entries.orderOnly');
       viewEntries.appendChild(empty);
       return;
     }
@@ -5075,7 +5097,7 @@ function ensureComposerDiffModal() {
 
   function renderOrder(kind) {
     const label = kind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
-    title.textContent = `Changes — ${label}`;
+    title.textContent = tComposerDiff('title', { label });
     const details = computeOrderDiffDetails(kind);
     const { beforeEntries, afterEntries, connectors, stats } = details;
 
@@ -5120,7 +5142,7 @@ function ensureComposerDiffModal() {
     }
     viz.classList.toggle('is-empty', !hasItems);
 
-    renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No direct moves; changes come from additions/removals' });
+    renderOrderStatsChips(statsWrap, stats, { emptyLabel: tComposerDiff('orderStats.empty') });
 
     composerOrderState = hasItems
       ? { container: viz, svg, connectors, leftMap, rightMap }
@@ -5152,7 +5174,7 @@ function ensureComposerDiffModal() {
     const safeKind = kind === 'tabs' ? 'tabs' : 'index';
     activeKind = safeKind;
     const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
-    title.textContent = `Changes — ${label}`;
+    title.textContent = tComposerDiff('title', { label });
     activeDiff = composerDiffCache[safeKind] || recomputeDiff(safeKind);
     renderOverview(safeKind, activeDiff);
     renderEntries(safeKind, activeDiff);
@@ -5197,6 +5219,26 @@ function ensureComposerDiffModal() {
     emptyNotice,
     tabsWrap
   };
+
+  const refreshLocale = () => {
+    title.textContent = tComposerDiff('heading');
+    subtitle.textContent = tComposerDiff(subtitleKeys[activeTab] || subtitleKeys.overview);
+    closeBtn.textContent = tComposerDiff('close');
+    closeBtn.setAttribute('aria-label', tComposerDiff('close'));
+    if (beforeTitle) beforeTitle.textContent = tComposerDiff('order.remoteTitle');
+    if (afterTitle) afterTitle.textContent = tComposerDiff('order.currentTitle');
+    if (emptyNotice) emptyNotice.textContent = tComposerDiff('order.empty');
+    tabButtons.forEach((btn, id) => {
+      const def = tabDefsById.get(id);
+      if (!btn || !def) return;
+      btn.textContent = tComposerDiff(def.labelKey);
+    });
+  };
+  if (!modal.__nsLangBound) {
+    modal.__nsLangBound = true;
+    document.addEventListener('ns-editor-language-applied', refreshLocale);
+  }
+
   return composerDiffModal;
 }
 
@@ -5563,17 +5605,17 @@ function updateComposerOrderPreview(kind, options = {}) {
     host.dataset.inlineActive = value ? 'true' : 'false';
   };
 
-  if (title) title.textContent = 'Change summary';
+  if (title) title.textContent = tComposerDiff('inline.title');
   if (kindLabel) kindLabel.textContent = label;
   if (meta) meta.dataset.kind = normalized;
   if (root) {
     root.dataset.kind = normalized;
-    root.setAttribute('aria-label', `Old order for ${label}`);
+    root.setAttribute('aria-label', tComposerDiff('inline.ariaOrder', { label }));
   }
   if (host) host.dataset.kind = normalized;
   if (openBtn) {
     openBtn.dataset.kind = normalized;
-    openBtn.setAttribute('aria-label', `Open change overview for ${label}`);
+    openBtn.setAttribute('aria-label', tComposerDiff('inline.openAria', { label }));
   }
 
   const diff = composerDiffCache[normalized] || recomputeDiff(normalized);
@@ -5642,9 +5684,9 @@ function updateComposerOrderPreview(kind, options = {}) {
       emptyNotice.hidden = !hasOrderChanges;
       emptyNotice.setAttribute('aria-hidden', hasOrderChanges ? 'false' : 'true');
       if (hasOrderChanges && stats.added && !hasBaseline) {
-        emptyNotice.textContent = 'All current items are new compared with the baseline.';
+        emptyNotice.textContent = tComposerDiff('order.inlineAllNew');
       } else {
-        emptyNotice.textContent = 'No entries to compare yet.';
+        emptyNotice.textContent = tComposer('inlineEmpty');
       }
     } else {
       emptyNotice.hidden = true;

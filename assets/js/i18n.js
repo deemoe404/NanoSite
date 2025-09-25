@@ -220,6 +220,119 @@ const translations = {
           loadingConfig: 'Loading config…',
           restoredDraft: ({ label }) => `Restored local draft for ${label}`
         },
+        diff: {
+          heading: 'Changes',
+          title: ({ label }) => `Changes — ${label}`,
+          close: 'Close',
+          subtitle: {
+            default: 'Review differences compared to the remote baseline.',
+            overview: 'Review a quick summary of the unsynced changes.',
+            entries: 'Inspect added, removed, and modified entries.',
+            order: 'Remote baseline (left) · Current order (right)'
+          },
+          tabs: {
+            overview: 'Overview',
+            entries: 'Entries',
+            order: 'Order'
+          },
+          order: {
+            remoteTitle: 'Remote',
+            currentTitle: 'Current',
+            empty: 'No items to compare yet.',
+            inlineAllNew: 'All current items are new compared with the baseline.',
+            emptyKey: '(empty)',
+            badges: {
+              to: ({ index }) => `→ #${index}`,
+              from: ({ index }) => `from #${index}`,
+              removed: 'Removed',
+              added: 'New'
+            }
+          },
+          orderStats: {
+            empty: 'No direct moves; changes come from additions/removals',
+            moved: ({ count }) => `Moved ${count}`,
+            added: ({ count }) => `+${count} new`,
+            removed: ({ count }) => `-${count} removed`
+          },
+          lists: {
+            more: ({ count }) => `+${count} more`
+          },
+          inlineChips: {
+            added: ({ count }) => `+${count} added`,
+            removed: ({ count }) => `-${count} removed`,
+            modified: ({ count }) => `~${count} modified`,
+            orderChanged: 'Order changed',
+            orderParts: {
+              moved: ({ count }) => `${count} moved`,
+              added: ({ count }) => `+${count} new`,
+              removed: ({ count }) => `-${count} removed`
+            },
+            orderSummary: ({ parts }) => `Order: ${parts}`,
+            langs: ({ summary }) => `Langs: ${summary}`,
+            none: 'Changes detected.'
+          },
+          inline: {
+            title: 'Change summary',
+            ariaOrder: ({ label }) => `Old order for ${label}`,
+            openAria: ({ label }) => `Open change overview for ${label}`
+          },
+          overview: {
+            empty: 'No changes detected for this file.',
+            stats: {
+              added: 'Added',
+              removed: 'Removed',
+              modified: 'Modified',
+              order: 'Order',
+              changed: 'Changed',
+              unchanged: 'Unchanged'
+            },
+            blocks: {
+              added: 'Added entries',
+              removed: 'Removed entries',
+              modified: 'Modified entries'
+            },
+            languagesImpacted: ({ languages }) => `Languages impacted: ${languages}`
+          },
+          entries: {
+            noLanguageContent: 'No language content recorded.',
+            snapshot: {
+              indexValue: ({ count }) => `${count} value${count === 1 ? '' : 's'}`,
+              emptyEntry: 'empty entry',
+              tabTitle: ({ title }) => `title “${title}”`,
+              tabLocation: ({ location }) => `location ${location}`
+            },
+            summary: ({ lang, summary }) => `${lang}: ${summary}`,
+            state: {
+              added: ({ lang }) => `${lang}: added`,
+              removed: ({ lang }) => `${lang}: removed`,
+              updatedFields: ({ lang, fields }) => `${lang}: updated ${fields}`
+            },
+            parts: {
+              typeChanged: 'type changed',
+              addedCount: ({ count }) => `+${count} new`,
+              removedCount: ({ count }) => `-${count} removed`,
+              updatedCount: ({ count }) => `${count} updated`,
+              reordered: 'reordered',
+              contentUpdated: 'content updated'
+            },
+            join: {
+              comma: ', ',
+              and: ' & '
+            },
+            fields: {
+              title: 'title',
+              location: 'location',
+              content: 'content'
+            },
+            empty: 'No content differences detected.',
+            sections: {
+              added: 'Added entries',
+              removed: 'Removed entries',
+              modified: 'Modified entries'
+            },
+            orderOnly: 'Only ordering changed for this file.'
+          }
+        },
         github: {
           modal: {
             title: 'Synchronize with GitHub',
@@ -541,6 +654,119 @@ const translations = {
           loadingConfig: '正在加载配置…',
           restoredDraft: ({ label }) => `已恢复 ${label} 的本地草稿`
         },
+        diff: {
+          heading: '更改',
+          title: ({ label }) => `更改 — ${label}`,
+          close: '关闭',
+          subtitle: {
+            default: '查看与远程基线的差异。',
+            overview: '查看未同步更改的摘要。',
+            entries: '查看新增、删除和修改的条目。',
+            order: '远程基线（左）· 当前顺序（右）'
+          },
+          tabs: {
+            overview: '概览',
+            entries: '条目',
+            order: '顺序'
+          },
+          order: {
+            remoteTitle: '远程',
+            currentTitle: '当前',
+            empty: '暂无可比较的条目。',
+            inlineAllNew: '当前所有条目相较基线均为新增内容。',
+            emptyKey: '（空）',
+            badges: {
+              to: ({ index }) => `→ #${index}`,
+              from: ({ index }) => `来自 #${index}`,
+              removed: '已移除',
+              added: '新条目'
+            }
+          },
+          orderStats: {
+            empty: '无直接移动；更改来自新增或删除',
+            moved: ({ count }) => `移动 ${count}`,
+            added: ({ count }) => `+${count} 新增`,
+            removed: ({ count }) => `-${count} 已移除`
+          },
+          lists: {
+            more: ({ count }) => `+${count} 更多`
+          },
+          inlineChips: {
+            added: ({ count }) => `+${count} 新增`,
+            removed: ({ count }) => `-${count} 已移除`,
+            modified: ({ count }) => `~${count} 已修改`,
+            orderChanged: '顺序已更改',
+            orderParts: {
+              moved: ({ count }) => `${count} 项移动`,
+              added: ({ count }) => `+${count} 新增`,
+              removed: ({ count }) => `-${count} 已移除`
+            },
+            orderSummary: ({ parts }) => `顺序：${parts}`,
+            langs: ({ summary }) => `语言：${summary}`,
+            none: '检测到更改。'
+          },
+          inline: {
+            title: '更改摘要',
+            ariaOrder: ({ label }) => `${label} 的旧顺序`,
+            openAria: ({ label }) => `打开 ${label} 的更改概览`
+          },
+          overview: {
+            empty: '该文件没有检测到更改。',
+            stats: {
+              added: '新增',
+              removed: '已移除',
+              modified: '已修改',
+              order: '顺序',
+              changed: '已更改',
+              unchanged: '未更改'
+            },
+            blocks: {
+              added: '新增条目',
+              removed: '已移除的条目',
+              modified: '已修改的条目'
+            },
+            languagesImpacted: ({ languages }) => `受影响的语言：${languages}`
+          },
+          entries: {
+            noLanguageContent: '未记录任何语言内容。',
+            snapshot: {
+              indexValue: ({ count }) => `${count} 个值`,
+              emptyEntry: '空条目',
+              tabTitle: ({ title }) => `标题 “${title}”`,
+              tabLocation: ({ location }) => `位置 ${location}`
+            },
+            summary: ({ lang, summary }) => `${lang}：${summary}`,
+            state: {
+              added: ({ lang }) => `${lang}：已新增`,
+              removed: ({ lang }) => `${lang}：已移除`,
+              updatedFields: ({ lang, fields }) => `${lang}：已更新 ${fields}`
+            },
+            parts: {
+              typeChanged: '类型已更改',
+              addedCount: ({ count }) => `+${count} 新增`,
+              removedCount: ({ count }) => `-${count} 已移除`,
+              updatedCount: ({ count }) => `${count} 项已更新`,
+              reordered: '顺序已调整',
+              contentUpdated: '内容已更新'
+            },
+            join: {
+              comma: '、',
+              and: ' 和 '
+            },
+            fields: {
+              title: '标题',
+              location: '位置',
+              content: '内容'
+            },
+            empty: '没有检测到内容差异。',
+            sections: {
+              added: '新增条目',
+              removed: '已移除的条目',
+              modified: '已修改的条目'
+            },
+            orderOnly: '该文件仅更改了顺序。'
+          }
+        },
         github: {
           modal: {
             title: '与 GitHub 同步',
@@ -861,6 +1087,119 @@ const translations = {
         statusMessages: {
           loadingConfig: '設定を読み込み中…',
           restoredDraft: ({ label }) => `${label} のローカル下書きを復元しました`
+        },
+        diff: {
+          heading: '変更',
+          title: ({ label }) => `変更 — ${label}`,
+          close: '閉じる',
+          subtitle: {
+            default: 'リモートのベースラインとの差分を確認します。',
+            overview: '未同期の変更内容をざっと確認します。',
+            entries: '追加・削除・変更されたエントリを確認します。',
+            order: 'リモートの基準（左）・現在の順序（右）'
+          },
+          tabs: {
+            overview: '概要',
+            entries: 'エントリ',
+            order: '順序'
+          },
+          order: {
+            remoteTitle: 'リモート',
+            currentTitle: '現在',
+            empty: '比較できる項目がありません。',
+            inlineAllNew: '現在の項目はすべて基準と比べて新規のものです。',
+            emptyKey: '（空）',
+            badges: {
+              to: ({ index }) => `→ #${index}`,
+              from: ({ index }) => `#${index} から`,
+              removed: '削除済み',
+              added: '新規'
+            }
+          },
+          orderStats: {
+            empty: '直接の移動はありません（追加または削除による変更）',
+            moved: ({ count }) => `${count} 件移動`,
+            added: ({ count }) => `+${count} 件追加`,
+            removed: ({ count }) => `-${count} 件削除`
+          },
+          lists: {
+            more: ({ count }) => `他 ${count} 件`
+          },
+          inlineChips: {
+            added: ({ count }) => `+${count} 件追加`,
+            removed: ({ count }) => `-${count} 件削除`,
+            modified: ({ count }) => `~${count} 件変更`,
+            orderChanged: '順序が変更されました',
+            orderParts: {
+              moved: ({ count }) => `${count} 件移動`,
+              added: ({ count }) => `+${count} 件追加`,
+              removed: ({ count }) => `-${count} 件削除`
+            },
+            orderSummary: ({ parts }) => `順序: ${parts}`,
+            langs: ({ summary }) => `言語: ${summary}`,
+            none: '変更が検出されました。'
+          },
+          inline: {
+            title: '変更サマリー',
+            ariaOrder: ({ label }) => `${label} の旧順序`,
+            openAria: ({ label }) => `${label} の変更概要を開く`
+          },
+          overview: {
+            empty: 'このファイルには変更が見つかりませんでした。',
+            stats: {
+              added: '追加',
+              removed: '削除',
+              modified: '変更',
+              order: '順序',
+              changed: '変更あり',
+              unchanged: '変更なし'
+            },
+            blocks: {
+              added: '追加されたエントリ',
+              removed: '削除されたエントリ',
+              modified: '変更されたエントリ'
+            },
+            languagesImpacted: ({ languages }) => `影響を受けた言語: ${languages}`
+          },
+          entries: {
+            noLanguageContent: '言語別の内容は記録されていません。',
+            snapshot: {
+              indexValue: ({ count }) => `${count} 件の値`,
+              emptyEntry: '空のエントリ',
+              tabTitle: ({ title }) => `タイトル「${title}」`,
+              tabLocation: ({ location }) => `場所 ${location}`
+            },
+            summary: ({ lang, summary }) => `${lang}: ${summary}`,
+            state: {
+              added: ({ lang }) => `${lang}: 追加済み`,
+              removed: ({ lang }) => `${lang}: 削除済み`,
+              updatedFields: ({ lang, fields }) => `${lang}: ${fields} を更新`
+            },
+            parts: {
+              typeChanged: '種類が変更されました',
+              addedCount: ({ count }) => `+${count} 件追加`,
+              removedCount: ({ count }) => `-${count} 件削除`,
+              updatedCount: ({ count }) => `${count} 件更新`,
+              reordered: '並び替え済み',
+              contentUpdated: '内容を更新'
+            },
+            join: {
+              comma: '、',
+              and: ' と '
+            },
+            fields: {
+              title: 'タイトル',
+              location: '場所',
+              content: '内容'
+            },
+            empty: '内容の差分は見つかりませんでした。',
+            sections: {
+              added: '追加されたエントリ',
+              removed: '削除されたエントリ',
+              modified: '変更されたエントリ'
+            },
+            orderOnly: 'このファイルでは順序のみが変更されました。'
+          }
         },
         github: {
           modal: {
