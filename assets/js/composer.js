@@ -4798,7 +4798,8 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
         rect,
         isMain: el.classList && el.classList.contains('composer-order-main'),
         originalWillChange: el.style.willChange,
-        originalTransformOrigin: el.style.transformOrigin
+        originalTransformOrigin: el.style.transformOrigin,
+        originalClipPath: el.style.clipPath
       });
       el.style.willChange = 'transform';
     } catch (_) {
@@ -4814,7 +4815,7 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
   return (options = {}) => {
     const collapseInline = options && options.collapseInline === true;
     for (const frame of frames) {
-      const { el, rect, originalWillChange, originalTransformOrigin, isMain } = frame;
+      const { el, rect, originalWillChange, originalTransformOrigin, originalClipPath, isMain } = frame;
       if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') {
         if (el) el.style.willChange = originalWillChange || '';
         continue;
@@ -4838,6 +4839,12 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
       const needsMove = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
       const needsScale = allowScale && (Math.abs(scaleX - 1) > 0.02 || Math.abs(scaleY - 1) > 0.02);
 
+      const widthDelta = collapseInline && isMain ? last.width - rect.width : 0;
+      const roundedClipDelta = widthDelta > 0.5 ? Math.round(widthDelta * 1000) / 1000 : 0;
+      const needsClip = collapseInline && isMain && roundedClipDelta > 0;
+      const clipFrom = needsClip ? `inset(0px ${roundedClipDelta}px 0px 0px)` : null;
+      const clipTo = needsClip ? 'inset(0px 0px 0px 0px)' : null;
+
       if (!needsMove && !needsScale) {
         el.style.willChange = originalWillChange || '';
         continue;
@@ -4853,16 +4860,24 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
         el.style.willChange = originalWillChange || '';
         if (originalTransformOrigin) el.style.transformOrigin = originalTransformOrigin;
         else el.style.transformOrigin = '';
+        if (needsClip) {
+          if (originalClipPath) el.style.clipPath = originalClipPath;
+          else el.style.clipPath = '';
+        }
       };
 
       if (typeof el.animate === 'function') {
-        const animation = el.animate(
-          [
-            { transform: fromTransform, transformOrigin: 'top left' },
-            { transform: toTransform, transformOrigin: 'top left' }
-          ],
-          { duration, easing, fill: 'both' }
-        );
+        const keyframes = [
+          { transform: fromTransform, transformOrigin: 'top left' },
+          { transform: toTransform, transformOrigin: 'top left' }
+        ];
+        if (needsClip) {
+          el.style.willChange = 'transform, clip-path';
+          el.style.clipPath = clipFrom;
+          keyframes[0].clipPath = clipFrom;
+          keyframes[1].clipPath = clipTo;
+        }
+        const animation = el.animate(keyframes, { duration, easing, fill: 'both' });
         animation.addEventListener('finish', cleanup, { once: true });
         animation.addEventListener('cancel', cleanup, { once: true });
       } else {
@@ -4871,14 +4886,21 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
         el.style.transition = 'none';
         el.style.transformOrigin = 'top left';
         el.style.transform = fromTransform;
+        if (needsClip) {
+          el.style.willChange = 'transform, clip-path';
+          el.style.clipPath = clipFrom;
+        }
         const frame = typeof requestAnimationFrame === 'function'
           ? requestAnimationFrame
           : (cb) => setTimeout(cb, 16);
         frame(() => {
-          el.style.transition = previousTransition
-            ? `${previousTransition}, transform ${duration}ms ${easing}`
-            : `transform ${duration}ms ${easing}`;
+          const transitions = [];
+          if (previousTransition) transitions.push(previousTransition);
+          transitions.push(`transform ${duration}ms ${easing}`);
+          if (needsClip) transitions.push(`clip-path ${duration}ms ${easing}`);
+          el.style.transition = transitions.join(', ');
           el.style.transform = toTransform;
+          if (needsClip) el.style.clipPath = clipTo;
           setTimeout(() => {
             el.style.transition = previousTransition || '';
             el.style.transformOrigin = previousTransformOrigin || '';
