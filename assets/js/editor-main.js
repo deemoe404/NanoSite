@@ -877,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
       start = lineStart;
       end = lineEnd;
     }
-    if (end <= start) return;
+    if (end < start) return;
     const blockStart = value.lastIndexOf('\n', start - 1) + 1;
     let blockEnd = value.indexOf('\n', end);
     if (blockEnd === -1) blockEnd = value.length;
