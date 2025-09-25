@@ -202,6 +202,7 @@ const translations = {
         fileArticles: 'Articles',
         filePages: 'Pages',
         addPost: 'Add Post Entry',
+        addTab: 'Add Tab Entry',
         refresh: 'Refresh',
         refreshTitle: 'Fetch latest remote snapshot',
         discard: 'Discard',
@@ -214,7 +215,45 @@ const translations = {
         tabsInlineAria: 'Old order for tabs.yaml',
         tabsEditorAria: 'tabs.yaml editor',
         noLocalChangesToCommit: 'No local changes to commit.',
-        noLocalChangesYet: 'No local changes yet.'
+        noLocalChangesYet: 'No local changes yet.',
+        statusMessages: {
+          loadingConfig: 'Loading config…',
+          restoredDraft: ({ label }) => `Restored local draft for ${label}`
+        },
+        github: {
+          modal: {
+            title: 'Synchronize with GitHub',
+            subtitle: 'Provide a Fine-grained Personal Access Token with repository contents access.',
+            summaryTitle: 'The following files will be committed:',
+            tokenLabel: 'Fine-grained Personal Access Token',
+            helpHtml: 'Create a token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> with access to the repository\'s contents. The token is stored for this browser session only.',
+            forget: 'Forget token',
+            submit: 'Commit changes',
+            errorRequired: 'Enter a Fine-grained Personal Access Token to continue.'
+          }
+        }
+      },
+      github: {
+        status: {
+          arrowWarn: 'Check repo',
+          arrowDefault: 'Status',
+          loadingRepo: 'Loading GitHub settings…',
+          readingConfig: 'Reading site.yaml for GitHub connection details…',
+          repoNotConfigured: 'GitHub repository not configured',
+          repoConfigHint: 'Add repo.owner and repo.name to site.yaml to enable pushing your drafts.',
+          checkingRepo: 'Checking repository access…',
+          rateLimited: 'GitHub rate limit hit. Try again later.',
+          repoNotFound: 'Repository not found on GitHub.',
+          networkError: 'Could not reach GitHub. Check your connection.',
+          repoCheckFailed: 'Repository check failed.',
+          repoConnectedDefault: ({ branch }) => `Repository connected · Default branch “${branch}”`,
+          checkingBranch: 'Checking branch access…',
+          branchNotFound: 'Branch not found on GitHub.',
+          branchCheckFailed: 'Branch check failed.',
+          repoConnected: 'Repository connected',
+          configUnavailable: 'GitHub configuration unavailable',
+          readFailed: 'Failed to read site.yaml.'
+        }
       },
       dialogs: {
         cancel: 'Cancel',
@@ -484,6 +523,7 @@ const translations = {
         fileArticles: '文章',
         filePages: '页面',
         addPost: '添加文章条目',
+        addTab: '添加标签条目',
         refresh: '刷新',
         refreshTitle: '获取最新远程快照',
         discard: '丢弃',
@@ -496,7 +536,45 @@ const translations = {
         tabsInlineAria: 'tabs.yaml 的旧顺序',
         tabsEditorAria: 'tabs.yaml 编辑器',
         noLocalChangesToCommit: '没有本地更改可提交。',
-        noLocalChangesYet: '暂时没有本地更改。'
+        noLocalChangesYet: '暂时没有本地更改。',
+        statusMessages: {
+          loadingConfig: '正在加载配置…',
+          restoredDraft: ({ label }) => `已恢复 ${label} 的本地草稿`
+        },
+        github: {
+          modal: {
+            title: '与 GitHub 同步',
+            subtitle: '请提供具备仓库内容访问权限的精细化个人访问令牌。',
+            summaryTitle: '将提交以下文件：',
+            tokenLabel: '精细化个人访问令牌',
+            helpHtml: '请在 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> 创建一个具有仓库内容访问权限的令牌。该令牌仅在当前浏览器会话中存储。',
+            forget: '忘记令牌',
+            submit: '提交更改',
+            errorRequired: '请输入精细化个人访问令牌以继续。'
+          }
+        }
+      },
+      github: {
+        status: {
+          arrowWarn: '检查仓库',
+          arrowDefault: '状态',
+          loadingRepo: '正在加载 GitHub 设置…',
+          readingConfig: '正在读取 site.yaml 中的 GitHub 连接配置…',
+          repoNotConfigured: '尚未配置 GitHub 仓库',
+          repoConfigHint: '请在 site.yaml 中配置 repo.owner 和 repo.name，以启用草稿推送。',
+          checkingRepo: '正在检查仓库访问权限…',
+          rateLimited: '已触发 GitHub 速率限制，请稍后再试。',
+          repoNotFound: '在 GitHub 上未找到该仓库。',
+          networkError: '无法连接到 GitHub，请检查网络。',
+          repoCheckFailed: '仓库检查失败。',
+          repoConnectedDefault: ({ branch }) => `仓库已连接 · 默认分支“${branch}”`,
+          checkingBranch: '正在检查分支访问权限…',
+          branchNotFound: '在 GitHub 上未找到该分支。',
+          branchCheckFailed: '分支检查失败。',
+          repoConnected: '仓库已连接',
+          configUnavailable: '无法获取 GitHub 配置',
+          readFailed: '读取 site.yaml 失败。'
+        }
       },
       dialogs: {
         cancel: '取消',
@@ -766,6 +844,7 @@ const translations = {
         fileArticles: '記事',
         filePages: 'ページ',
         addPost: '記事エントリーを追加',
+        addTab: 'タブ項目を追加',
         refresh: '更新',
         refreshTitle: '最新のリモートスナップショットを取得',
         discard: '破棄',
@@ -778,7 +857,45 @@ const translations = {
         tabsInlineAria: 'tabs.yaml の旧順序',
         tabsEditorAria: 'tabs.yaml エディター',
         noLocalChangesToCommit: 'コミットするローカルの変更はありません。',
-        noLocalChangesYet: 'ローカルの変更はまだありません。'
+        noLocalChangesYet: 'ローカルの変更はまだありません。',
+        statusMessages: {
+          loadingConfig: '設定を読み込み中…',
+          restoredDraft: ({ label }) => `${label} のローカル下書きを復元しました`
+        },
+        github: {
+          modal: {
+            title: 'GitHub と同期',
+            subtitle: 'リポジトリの内容にアクセスできるファイングレインド Personal Access Token を入力してください。',
+            summaryTitle: '以下のファイルがコミットされます:',
+            tokenLabel: 'ファイングレインド Personal Access Token',
+            helpHtml: '<a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> でリポジトリ内容にアクセスできるトークンを作成してください。このトークンはこのブラウザセッションにのみ保存されます。',
+            forget: 'トークンを削除',
+            submit: '変更をコミット',
+            errorRequired: '続行するにはファイングレインド Personal Access Token を入力してください。'
+          }
+        }
+      },
+      github: {
+        status: {
+          arrowWarn: 'リポジトリを確認',
+          arrowDefault: 'ステータス',
+          loadingRepo: 'GitHub 設定を読み込み中…',
+          readingConfig: 'site.yaml から GitHub 接続設定を読み込んでいます…',
+          repoNotConfigured: 'GitHub リポジトリが設定されていません',
+          repoConfigHint: 'site.yaml に repo.owner と repo.name を設定し、下書きのプッシュを有効にしてください。',
+          checkingRepo: 'リポジトリへのアクセスを確認しています…',
+          rateLimited: 'GitHub のレート制限に達しました。しばらくしてから再試行してください。',
+          repoNotFound: 'GitHub にリポジトリが見つかりませんでした。',
+          networkError: 'GitHub に接続できません。ネットワークを確認してください。',
+          repoCheckFailed: 'リポジトリの確認に失敗しました。',
+          repoConnectedDefault: ({ branch }) => `リポジトリに接続しました · 既定ブランチ「${branch}」`,
+          checkingBranch: 'ブランチへのアクセスを確認しています…',
+          branchNotFound: 'GitHub にブランチが見つかりませんでした。',
+          branchCheckFailed: 'ブランチの確認に失敗しました。',
+          repoConnected: 'リポジトリに接続しました',
+          configUnavailable: 'GitHub 設定を取得できません',
+          readFailed: 'site.yaml の読み込みに失敗しました。'
+        }
       },
       dialogs: {
         cancel: 'キャンセル',

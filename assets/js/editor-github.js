@@ -1,4 +1,5 @@
 import { fetchConfigWithYamlFallback } from './yaml.js';
+import { t } from './i18n.js';
 
 function setStatus(state, repoText, messageText) {
   const box = document.getElementById('global-status');
@@ -11,15 +12,15 @@ function setStatus(state, repoText, messageText) {
   if (repoEl) repoEl.textContent = repoText ? String(repoText) : '';
   if (messageEl) messageEl.textContent = messageText ? String(messageText) : '';
   if (arrowLabelEl && box && !box.hasAttribute('data-dirty')) {
-    if (state === 'ok') arrowLabelEl.textContent = 'Synced';
-    else if (state === 'warn') arrowLabelEl.textContent = 'Check repo';
-    else if (state === 'err') arrowLabelEl.textContent = 'Error';
-    else arrowLabelEl.textContent = 'Status';
+    if (state === 'ok') arrowLabelEl.textContent = t('editor.status.synced');
+    else if (state === 'warn') arrowLabelEl.textContent = t('editor.github.status.arrowWarn');
+    else if (state === 'err') arrowLabelEl.textContent = t('ui.error');
+    else arrowLabelEl.textContent = t('editor.github.status.arrowDefault');
   }
 }
 
 function describeRepo(owner, repo, branch) {
-  if (!owner || !repo) return 'GitHub repository not configured';
+  if (!owner || !repo) return t('editor.github.status.repoNotConfigured');
   const base = `@${owner}/${repo}`;
   return branch ? `${base} (${branch})` : base;
 }
@@ -51,7 +52,11 @@ async function fetchBranchExists(owner, repo, branch) {
 
 async function initGithubStatus() {
   try {
-    setStatus('warn', 'Loading GitHub settings…', 'Reading site.yaml for GitHub connection details…');
+    setStatus(
+      'warn',
+      t('editor.github.status.loadingRepo'),
+      t('editor.github.status.readingConfig')
+    );
     const cfg = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
     const repo = (cfg && cfg.repo) || {};
     const owner = String(repo.owner || '').trim();
@@ -61,24 +66,44 @@ async function initGithubStatus() {
     if (!owner || !name) {
       setStatus(
         'warn',
-        'GitHub repository not configured',
-        'Add repo.owner and repo.name to site.yaml to enable pushing your drafts.'
+        t('editor.github.status.repoNotConfigured'),
+        t('editor.github.status.repoConfigHint')
       );
       return;
     }
 
     // Checking repository
-    setStatus('warn', describeRepo(owner, name, branch || ''), 'Checking repository access…');
+    setStatus(
+      'warn',
+      describeRepo(owner, name, branch || ''),
+      t('editor.github.status.checkingRepo')
+    );
     const repoInfo = await fetchRepoExists(owner, name);
     if (!repoInfo.ok) {
       if (repoInfo.reason === 'rate_limited') {
-        setStatus('err', describeRepo(owner, name, branch || ''), 'GitHub rate limit hit. Try again later.');
+        setStatus(
+          'err',
+          describeRepo(owner, name, branch || ''),
+          t('editor.github.status.rateLimited')
+        );
       } else if (repoInfo.reason === 'not_found') {
-        setStatus('err', describeRepo(owner, name, branch || ''), 'Repository not found on GitHub.');
+        setStatus(
+          'err',
+          describeRepo(owner, name, branch || ''),
+          t('editor.github.status.repoNotFound')
+        );
       } else if (repoInfo.reason === 'network') {
-        setStatus('err', describeRepo(owner, name, branch || ''), 'Could not reach GitHub. Check your connection.');
+        setStatus(
+          'err',
+          describeRepo(owner, name, branch || ''),
+          t('editor.github.status.networkError')
+        );
       } else {
-        setStatus('err', describeRepo(owner, name, branch || ''), 'Repository check failed.');
+        setStatus(
+          'err',
+          describeRepo(owner, name, branch || ''),
+          t('editor.github.status.repoCheckFailed')
+        );
       }
       return;
     }
@@ -89,25 +114,38 @@ async function initGithubStatus() {
       setStatus(
         'ok',
         describeRepo(owner, name, defaultBranch),
-        `Repository connected · Default branch “${defaultBranch}”`
+        t('editor.github.status.repoConnectedDefault', { branch: defaultBranch })
       );
       return;
     }
 
     // Checking branch
-    setStatus('warn', describeRepo(owner, name, branch), 'Checking branch access…');
+    setStatus(
+      'warn',
+      describeRepo(owner, name, branch),
+      t('editor.github.status.checkingBranch')
+    );
     const b = await fetchBranchExists(owner, name, branch);
     if (!b.ok) {
-      if (b.reason === 'rate_limited') setStatus('err', describeRepo(owner, name, branch), 'GitHub rate limit hit. Try again later.');
-      else if (b.reason === 'not_found') setStatus('err', describeRepo(owner, name, branch), 'Branch not found on GitHub.');
-      else if (b.reason === 'network') setStatus('err', describeRepo(owner, name, branch), 'Could not reach GitHub. Check your connection.');
-      else setStatus('err', describeRepo(owner, name, branch), 'Branch check failed.');
+      if (b.reason === 'rate_limited') {
+        setStatus('err', describeRepo(owner, name, branch), t('editor.github.status.rateLimited'));
+      } else if (b.reason === 'not_found') {
+        setStatus('err', describeRepo(owner, name, branch), t('editor.github.status.branchNotFound'));
+      } else if (b.reason === 'network') {
+        setStatus('err', describeRepo(owner, name, branch), t('editor.github.status.networkError'));
+      } else {
+        setStatus('err', describeRepo(owner, name, branch), t('editor.github.status.branchCheckFailed'));
+      }
       return;
     }
 
-    setStatus('ok', describeRepo(owner, name, branch), 'Repository connected');
+    setStatus('ok', describeRepo(owner, name, branch), t('editor.github.status.repoConnected'));
   } catch (e) {
-    setStatus('err', 'GitHub configuration unavailable', 'Failed to read site.yaml.');
+    setStatus(
+      'err',
+      t('editor.github.status.configUnavailable'),
+      t('editor.github.status.readFailed')
+    );
   }
 }
 

@@ -3677,17 +3677,18 @@ function promptForFineGrainedToken(summaryEntries = []) {
     headLeft.className = 'comp-head-left';
     const title = document.createElement('strong');
     title.id = 'nsGithubTokenTitle';
-    title.textContent = 'Synchronize with GitHub';
+    title.textContent = t('editor.composer.github.modal.title');
     const subtitle = document.createElement('span');
     subtitle.className = 'muted';
-    subtitle.textContent = 'Provide a Fine-grained Personal Access Token with repository contents access.';
+    subtitle.textContent = t('editor.composer.github.modal.subtitle');
     headLeft.appendChild(title);
     headLeft.appendChild(subtitle);
     const btnClose = document.createElement('button');
     btnClose.type = 'button';
     btnClose.className = 'ns-modal-close btn-secondary';
-    btnClose.textContent = 'Cancel';
-    btnClose.setAttribute('aria-label', 'Cancel');
+    const cancelLabel = t('editor.dialogs.cancel');
+    btnClose.textContent = cancelLabel;
+    btnClose.setAttribute('aria-label', cancelLabel);
     head.appendChild(headLeft);
     head.appendChild(btnClose);
     dialog.appendChild(head);
@@ -3700,7 +3701,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     summaryBlock.style.margin = '.25rem 0 1rem';
     if (Array.isArray(summaryEntries) && summaryEntries.length) {
       const info = document.createElement('p');
-      info.textContent = 'The following files will be committed:';
+      info.textContent = t('editor.composer.github.modal.summaryTitle');
       summaryBlock.appendChild(info);
       const list = document.createElement('ul');
       list.style.margin = '.4rem 0 0';
@@ -3717,7 +3718,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const tokenField = document.createElement('label');
     tokenField.style.display = 'block';
     tokenField.style.marginBottom = '.75rem';
-    tokenField.textContent = 'Fine-grained Personal Access Token';
+    tokenField.textContent = t('editor.composer.github.modal.tokenLabel');
     const input = document.createElement('input');
     input.type = 'password';
     input.autocomplete = 'off';
@@ -3739,7 +3740,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const help = document.createElement('p');
     help.className = 'muted';
     help.style.fontSize = '.85rem';
-    help.innerHTML = 'Create a token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> with access to the repository\'s contents. The token is stored for this browser session only.';
+    help.innerHTML = t('editor.composer.github.modal.helpHtml');
     form.appendChild(help);
 
     const errorText = document.createElement('p');
@@ -3759,14 +3760,14 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const btnForget = document.createElement('button');
     btnForget.type = 'button';
     btnForget.className = 'btn-secondary';
-    btnForget.textContent = 'Forget token';
+    btnForget.textContent = t('editor.composer.github.modal.forget');
     if (!cached) btnForget.hidden = true;
     footer.appendChild(btnForget);
 
     const btnSubmit = document.createElement('button');
     btnSubmit.type = 'submit';
     btnSubmit.className = 'btn-primary';
-    btnSubmit.textContent = 'Commit changes';
+    btnSubmit.textContent = t('editor.composer.github.modal.submit');
     footer.appendChild(btnSubmit);
 
     form.appendChild(footer);
@@ -3851,7 +3852,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
       const value = String(input.value || '').trim();
       if (!value) {
-        showError('Enter a Fine-grained Personal Access Token to continue.');
+        showError(t('editor.composer.github.modal.errorRequired'));
         try { input.focus({ preventScroll: true }); }
         catch (_) { input.focus(); }
         return;
@@ -7712,7 +7713,11 @@ function applyComposerFile(name, options = {}) {
     } catch (_) {}
     try {
       const btn = $('#btnAddItem');
-      if (btn) btn.textContent = isIndex ? 'Add Post Entry' : 'Add Tab Entry';
+      if (btn) {
+        const key = isIndex ? 'editor.composer.addPost' : 'editor.composer.addTab';
+        btn.setAttribute('data-i18n', key);
+        btn.textContent = t(key);
+      }
     } catch (_) {}
   };
 
@@ -9420,7 +9425,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (_) {}
 
   const state = { index: {}, tabs: {} };
-  showStatus('Loading config…');
+  showStatus(t('editor.composer.statusMessages.loadingConfig'));
   try {
     const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
     const root = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
@@ -9454,7 +9459,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (restoredDrafts.length) {
     const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : 'index.yaml')).join(' & ');
-    showStatus(`Restored local draft for ${label}`);
+    showStatus(t('editor.composer.statusMessages.restoredDraft', { label }));
     setTimeout(() => { showStatus(''); }, 1800);
   } else {
     showStatus('');
