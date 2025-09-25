@@ -3796,6 +3796,64 @@ function promptForFineGrainedToken(summaryEntries = []) {
 
 async function waitForRemotePropagation(files = []) {
   if (!Array.isArray(files) || !files.length) return { canceled: false };
+
+  const normalizedRoot = (() => {
+    try {
+      const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g, '/').replace(/^\/+|\/+$/g, '');
+      return root;
+    } catch (_) {
+      return 'wwwroot';
+    }
+  })();
+
+  const toLivePath = (path) => {
+    const clean = String(path || '').replace(/\\+/g, '/').replace(/^\/+/, '');
+    if (!clean) return '';
+    if (normalizedRoot && clean.startsWith(`${normalizedRoot}/`)) {
+      return clean.slice(normalizedRoot.length + 1);
+    }
+    if (normalizedRoot && clean === normalizedRoot) return '';
+    return clean;
+  };
+
+  const arrayBufferToBase64 = (buffer) => {
+    if (!buffer) return '';
+    try {
+      const bytes = new Uint8Array(buffer);
+      const chunk = 0x8000;
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += chunk) {
+        const slice = bytes.subarray(i, i + chunk);
+        binary += String.fromCharCode.apply(null, slice);
+      }
+      return btoa(binary);
+    } catch (_) {
+      try {
+        return btoa(String.fromCharCode.apply(null, new Uint8Array(buffer)));
+      } catch (err) {
+        console.error('Failed to encode array buffer to base64', err);
+        return '';
+      }
+    }
+  };
+
+  const buildCheckPaths = (file) => {
+    const paths = [];
+    const commitPath = String(file.path || '').replace(/\\+/g, '/').replace(/^\/+/, '');
+    const livePath = toLivePath(commitPath);
+    if (file.assetRelativePath && file.markdownPath) {
+      const base = String(file.markdownPath || '').replace(/\\+/g, '/').replace(/^\/+/, '');
+      const idx = base.lastIndexOf('/');
+      const baseDir = idx >= 0 ? base.slice(0, idx + 1) : '';
+      const rel = String(file.assetRelativePath || '').replace(/\\+/g, '/').replace(/^\/+/, '');
+      const combined = `${baseDir}${rel}`.replace(/\/+/g, '/').replace(/^\/+/, '');
+      if (combined && !paths.includes(combined)) paths.push(combined);
+    }
+    if (livePath && !paths.includes(livePath)) paths.push(livePath);
+    if (commitPath && !paths.includes(commitPath)) paths.push(commitPath);
+    return paths;
+  };
+
   const unique = [];
   const seen = new Set();
   files.forEach((file) => {
@@ -3805,6 +3863,7 @@ async function waitForRemotePropagation(files = []) {
     seen.add(normalized);
     unique.push({ ...file, path: normalized });
   });
+
   const checkIntervalMs = 30000;
   const countdownStepMs = 1000;
   const maxAttempts = 10;
@@ -3820,25 +3879,44 @@ async function waitForRemotePropagation(files = []) {
 
   for (const file of unique) {
     if (canceled || timedOut) break;
-    const expected = normalizeMarkdownContent(file.content || '');
     const displayLabel = String(file.label || file.path || '').trim() || file.path;
+    const expectedText = normalizeMarkdownContent(file.content || '');
+    const expectedBase64 = typeof file.base64 === 'string'
+      ? file.base64.replace(/\s+/g, '')
+      : '';
+    const candidates = buildCheckPaths(file);
     let attempt = 0;
     let confirmed = false;
     while (!canceled && attempt < maxAttempts) {
       attempt += 1;
       setSyncOverlayStatus(`Checking ${displayLabel} (attempt ${attempt})…`);
       let ok = false;
-      try {
-        const url = `${file.path}?ts=${Date.now()}`;
-        const resp = await fetch(url, { cache: 'no-store' });
-        if (resp.ok) {
-          const text = normalizeMarkdownContent(await resp.text());
-          ok = (text === expected);
-        } else {
+      for (const path of candidates) {
+        if (!path) continue;
+        try {
+          const url = `${path}?ts=${Date.now()}`;
+          const resp = await fetch(url, { cache: 'no-store' });
+          if (!resp.ok) {
+            ok = false;
+            continue;
+          }
+          if (file.binary) {
+            const buffer = await resp.arrayBuffer();
+            const remoteBase64 = arrayBufferToBase64(buffer);
+            if (remoteBase64 && expectedBase64 && remoteBase64 === expectedBase64) {
+              ok = true;
+              break;
+            }
+          } else {
+            const text = normalizeMarkdownContent(await resp.text());
+            if (text === expectedText) {
+              ok = true;
+              break;
+            }
+          }
+        } catch (_) {
           ok = false;
         }
-      } catch (_) {
-        ok = false;
       }
       if (canceled) break;
       if (ok) {
