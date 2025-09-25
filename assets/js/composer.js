@@ -1,12 +1,37 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
+import { t } from './i18n.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
-const CLEAN_STATUS_MESSAGE = 'No local changes';
+const CLEAN_STATUS_MESSAGE_KEY = 'editor.status.clean';
+const STATUS_UPLOAD_KEY = 'editor.status.upload';
+const STATUS_SYNCED_KEY = 'editor.status.synced';
 const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6', '#f59e0b', '#22d3ee'];
+
+const getCleanStatusMessage = () => t(CLEAN_STATUS_MESSAGE_KEY);
+const getUploadLabel = () => t(STATUS_UPLOAD_KEY);
+const getSyncedLabel = () => t(STATUS_SYNCED_KEY);
+const tComposer = (suffix, params) => t(`editor.composer.${suffix}`, params);
+const tComposerDiff = (suffix, params) => t(`editor.composer.diff.${suffix}`, params);
+const tComposerLang = (suffix, params) => t(`editor.composer.languages.${suffix}`, params);
+const tComposerEntryRow = (suffix, params) => t(`editor.composer.entryRow.${suffix}`, params);
+const getMarkdownPushLabel = (kind) => {
+  const key = MARKDOWN_PUSH_LABEL_KEYS[kind] || MARKDOWN_PUSH_LABEL_KEYS.default;
+  return t(key);
+};
+const getMarkdownPushTooltip = (kind) => {
+  const key = MARKDOWN_PUSH_TOOLTIP_KEYS[kind] || MARKDOWN_PUSH_TOOLTIP_KEYS.default;
+  return t(key);
+};
+const getMarkdownDiscardLabel = () => t(MARKDOWN_DISCARD_LABEL_KEY);
+const getMarkdownDiscardBusyLabel = () => t(MARKDOWN_DISCARD_BUSY_KEY);
+const getMarkdownDiscardTooltip = (kind) => {
+  const key = MARKDOWN_DISCARD_TOOLTIP_KEYS[kind] || MARKDOWN_DISCARD_TOOLTIP_KEYS.default;
+  return t(key);
+};
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
@@ -46,13 +71,31 @@ const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 // Track pending binary assets associated with markdown drafts
 const markdownAssetStore = new Map();
 
-const MARKDOWN_PUSH_LABELS = {
-  default: 'Synchronize',
-  create: 'Create on GitHub',
-  update: 'Synchronize'
+const MARKDOWN_PUSH_LABEL_KEYS = {
+  default: 'editor.composer.markdown.push.labelDefault',
+  create: 'editor.composer.markdown.push.labelCreate',
+  update: 'editor.composer.markdown.push.labelUpdate'
 };
 
-const MARKDOWN_DISCARD_LABEL = 'Discard';
+const MARKDOWN_PUSH_TOOLTIP_KEYS = {
+  default: 'editor.composer.markdown.push.tooltips.default',
+  noRepo: 'editor.composer.markdown.push.tooltips.noRepo',
+  noFile: 'editor.composer.markdown.push.tooltips.noFile',
+  error: 'editor.composer.markdown.push.tooltips.error',
+  checking: 'editor.composer.markdown.push.tooltips.checking',
+  loading: 'editor.composer.markdown.push.tooltips.loading',
+  create: 'editor.composer.markdown.push.tooltips.create',
+  update: 'editor.composer.markdown.push.tooltips.update'
+};
+
+const MARKDOWN_DISCARD_LABEL_KEY = 'editor.composer.markdown.discard.label';
+const MARKDOWN_DISCARD_BUSY_KEY = 'editor.composer.markdown.discard.busy';
+
+const MARKDOWN_DISCARD_TOOLTIP_KEYS = {
+  default: 'editor.composer.markdown.discard.tooltips.default',
+  noFile: 'editor.composer.markdown.discard.tooltips.noFile',
+  reload: 'editor.composer.markdown.discard.tooltips.reload'
+};
 const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
 let markdownPushButton = null;
@@ -641,7 +684,8 @@ function showToast(kind, text, options = {}) {
       textSpan.style.textAlign = 'left';
       const actionEl = document.createElement(action.href ? 'a' : 'button');
       actionEl.className = 'toast-action';
-      actionEl.textContent = safeString(action.label) || 'Open';
+      const defaultLabel = t('editor.toast.openAction');
+      actionEl.textContent = safeString(action.label) || defaultLabel;
       if (action.href) {
         actionEl.href = action.href;
         actionEl.target = action.target || '_blank';
@@ -679,7 +723,7 @@ function showToast(kind, text, options = {}) {
       const closeButton = document.createElement('button');
       closeButton.type = 'button';
       closeButton.className = 'toast-close';
-      closeButton.setAttribute('aria-label', 'Close notification');
+      closeButton.setAttribute('aria-label', t('editor.toast.closeAria'));
       closeButton.textContent = '\u00D7';
       closeButton.style.flex = '0 0 auto';
       closeButton.style.marginLeft = '.5rem';
@@ -929,11 +973,11 @@ function handlePopupBlocked(href, options = {}) {
   try {
     console.warn('Popup blocked while opening GitHub window', href);
   } catch (_) {}
-  const message = safeString(options.message) || 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.';
+  const message = safeString(options.message) || t('editor.toasts.popupBlocked');
   const kind = safeString(options.kind) || 'warn';
   const duration = typeof options.duration === 'number' ? Math.max(1600, options.duration) : 9000;
   const actionHref = safeString(options.actionHref || href);
-  const actionLabel = safeString(options.actionLabel) || 'Open GitHub';
+  const actionLabel = safeString(options.actionLabel) || t('editor.toasts.openGithubAction');
   const onRetry = typeof options.onRetry === 'function' ? options.onRetry : null;
 
   showToast(kind, message, {
@@ -997,10 +1041,10 @@ function startRemoteSyncWatcher(config = {}) {
     try { activeSyncWatcher.cancel('replaced'); } catch (_) {}
   }
 
-  const overlayTitle = config.title || 'Waiting for GitHub…';
+  const overlayTitle = config.title || t('editor.composer.remoteWatcher.waitingForGitHub');
   const overlayMessage = config.message || '';
-  const overlayStatus = config.initialStatus || 'Preparing…';
-  const cancelLabel = config.cancelLabel || 'Stop waiting';
+  const overlayStatus = config.initialStatus || t('editor.composer.remoteWatcher.preparing');
+  const cancelLabel = config.cancelLabel || t('editor.composer.remoteWatcher.stopWaiting');
   const cancelable = config.cancelable !== false;
 
   showSyncOverlay({ title: overlayTitle, message: overlayMessage, status: overlayStatus, cancelLabel, cancelable });
@@ -1043,7 +1087,7 @@ function startRemoteSyncWatcher(config = {}) {
       if (aborted) return;
       const msg = (typeof config.onErrorStatus === 'function')
         ? config.onErrorStatus(err, attempts)
-        : 'Remote check failed. Retrying…';
+        : t('editor.composer.remoteWatcher.remoteCheckFailedRetry');
       setSyncOverlayStatus(msg);
       scheduleNext(config.errorDelay || 6000);
       return;
@@ -1086,7 +1130,7 @@ async function fetchMarkdownRemoteSnapshot(tab) {
   try {
     res = await fetch(url, { cache: 'no-store' });
   } catch (err) {
-    return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+    return { state: 'error', status: 0, message: err && err.message ? err.message : t('editor.composer.remoteWatcher.networkError') };
   }
 
   const checkedAt = Date.now();
@@ -1119,8 +1163,8 @@ function applyMarkdownRemoteSnapshot(tab, snapshot) {
   const stateLabel = snapshot && snapshot.state === 'missing' ? 'missing' : 'existing';
   const statusCode = snapshot && snapshot.status;
   const statusMessage = snapshot && snapshot.state === 'missing'
-    ? 'File not found on server'
-    : 'Remote snapshot updated';
+    ? t('editor.composer.remoteWatcher.fileNotFoundOnServer')
+    : t('editor.composer.remoteWatcher.remoteSnapshotUpdated');
 
   setDynamicTabStatus(tab, {
     state: stateLabel,
@@ -1153,8 +1197,8 @@ function startMarkdownSyncWatcher(tab, options = {}) {
   const label = options.label || tab.label || basenameFromPath(tab.path) || tab.path;
   const isCreate = !!options.isCreate;
   const message = isCreate
-    ? `Waiting for GitHub to create ${label}`
-    : `Waiting for GitHub to update ${label}`;
+    ? t('editor.composer.remoteWatcher.waitingForCreate', { label })
+    : t('editor.composer.remoteWatcher.waitingForUpdate', { label });
 
   const previousStatus = tab.fileStatus && typeof tab.fileStatus === 'object'
     ? { ...tab.fileStatus }
@@ -1163,45 +1207,47 @@ function startMarkdownSyncWatcher(tab, options = {}) {
   setDynamicTabStatus(tab, {
     state: 'checking',
     checkedAt: Date.now(),
-    message: 'Waiting for GitHub commit…'
+    message: t('editor.composer.remoteWatcher.waitingForCommitStatus')
   });
   updateMarkdownPushButton(tab);
 
   startRemoteSyncWatcher({
-    title: 'Checking remote changes…',
+    title: t('editor.composer.remoteWatcher.checkingRemoteChanges'),
     message,
-    initialStatus: 'Waiting for commit…',
-    cancelLabel: 'Stop waiting',
+    initialStatus: t('editor.composer.remoteWatcher.waitingForCommit'),
+    cancelLabel: t('editor.composer.remoteWatcher.stopWaiting'),
     fetch: async ({ attempts }) => {
       const snapshot = await fetchMarkdownRemoteSnapshot(tab);
       if (!snapshot) {
-        return { done: false, statusMessage: 'Waiting for remote response…', retryDelay: 5000 };
+        return { done: false, statusMessage: t('editor.composer.remoteWatcher.waitingForRemoteResponse'), retryDelay: 5000 };
       }
       if (snapshot.state === 'error') {
-        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        const msg = snapshot.message
+          ? t('editor.composer.remoteWatcher.errorWithDetail', { message: snapshot.message })
+          : t('editor.composer.remoteWatcher.remoteCheckFailedRetry');
         return { done: false, statusMessage: msg, retryDelay: 6000 };
       }
       if (snapshot.state === 'missing') {
         const done = expectedSignature === computeTextSignature('');
         const statusMessage = isCreate
-          ? 'Remote file not found yet…'
-          : 'Remote file still missing…';
+          ? t('editor.composer.remoteWatcher.remoteFileNotFoundYet')
+          : t('editor.composer.remoteWatcher.remoteFileStillMissing');
         return { done, data: snapshot, statusMessage, retryDelay: 5600 };
       }
       const matches = snapshot.signature === expectedSignature;
       if (matches) {
-        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+        return { done: true, data: snapshot, statusMessage: t('editor.composer.remoteWatcher.updateDetectedRefreshing') };
       }
       const waitingStatus = attempts >= 3
-        ? 'Remote file still differs from local content. Waiting…'
-        : 'Remote file exists but content differs. Waiting…';
+        ? t('editor.composer.remoteWatcher.remoteFileDiffersWaiting')
+        : t('editor.composer.remoteWatcher.remoteFileExistsDiffersWaiting');
       const response = {
         done: false,
         statusMessage: waitingStatus,
         retryDelay: 5200
       };
       if (attempts === 3) {
-        response.message = 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.';
+        response.message = t('editor.composer.remoteWatcher.mismatchAdvice');
       }
       return response;
     },
@@ -1209,9 +1255,9 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       if (result && result.data) {
         applyMarkdownRemoteSnapshot(tab, result.data);
         if (result.mismatch) {
-          showToast('warn', 'Remote markdown differs from the local draft. Review the changes before continuing.', { duration: 4200 });
+          showToast('warn', t('editor.toasts.remoteMarkdownMismatch'), { duration: 4200 });
         } else {
-          showToast('success', 'Markdown synchronized with GitHub.');
+          showToast('success', t('editor.toasts.markdownSynced'));
         }
       }
       updateMarkdownPushButton(tab);
@@ -1224,11 +1270,11 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       setDynamicTabStatus(tab, {
         ...fallbackStatus,
         checkedAt: Date.now(),
-        message: 'Remote check canceled'
+        message: t('editor.composer.remoteWatcher.remoteCheckCanceled')
       });
       updateMarkdownPushButton(tab);
       updateMarkdownDiscardButton(tab);
-      showToast('info', 'Remote check canceled. Use Refresh after your commit is ready.');
+      showToast('info', t('editor.toasts.remoteCheckCanceledUseRefresh'));
     }
   });
 }
@@ -1244,7 +1290,7 @@ async function fetchComposerRemoteSnapshot(kind) {
     try {
       res = await fetch(url, { cache: 'no-store' });
     } catch (err) {
-      return { state: 'error', status: 0, message: err && err.message ? err.message : 'Network error' };
+      return { state: 'error', status: 0, message: err && err.message ? err.message : t('editor.composer.remoteWatcher.networkError') };
     }
     lastStatus = res.status;
     if (res.status === 404) continue;
@@ -1275,7 +1321,8 @@ function applyComposerRemoteSnapshot(kind, snapshot) {
     catch (_) { parsed = null; }
   }
   if (!parsed || typeof parsed !== 'object') {
-    showToast('warn', `Fetched ${safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml'} but failed to parse YAML.`, { duration: 4200 });
+    const targetLabel = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+    showToast('warn', t('editor.toasts.yamlParseFailed', { label: targetLabel }), { duration: 4200 });
     return;
   }
   const prepared = safeKind === 'tabs' ? prepareTabsState(parsed || {}) : prepareIndexState(parsed || {});
@@ -1288,39 +1335,41 @@ function startComposerSyncWatcher(kind, options = {}) {
   const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
   const expectedText = options.expectedText != null ? String(options.expectedText) : '';
   const expectedSignature = computeTextSignature(expectedText);
-  const message = options.message || `Waiting for ${label} to update on GitHub…`;
+  const message = options.message || t('editor.composer.remoteWatcher.waitingForLabel', { label });
 
   startRemoteSyncWatcher({
-    title: options.title || 'Waiting for GitHub…',
+    title: options.title || t('editor.composer.remoteWatcher.waitingForGitHub'),
     message,
-    initialStatus: options.initialStatus || 'Waiting for commit…',
-    cancelLabel: options.cancelLabel || 'Stop waiting',
+    initialStatus: options.initialStatus || t('editor.composer.remoteWatcher.waitingForCommit'),
+    cancelLabel: options.cancelLabel || t('editor.composer.remoteWatcher.stopWaiting'),
     fetch: async ({ attempts }) => {
       const snapshot = await fetchComposerRemoteSnapshot(safeKind);
       if (!snapshot) {
-        return { done: false, statusMessage: 'Waiting for remote…', retryDelay: 5200 };
+        return { done: false, statusMessage: t('editor.composer.remoteWatcher.waitingForRemote'), retryDelay: 5200 };
       }
       if (snapshot.state === 'missing') {
-        return { done: false, statusMessage: `${label} not found on remote yet…`, retryDelay: 5600 };
+        return { done: false, statusMessage: t('editor.composer.remoteWatcher.yamlNotFoundYet', { label }), retryDelay: 5600 };
       }
       if (snapshot.state === 'error') {
-        const msg = snapshot.message ? `Error: ${snapshot.message}` : 'Remote check failed. Retrying…';
+        const msg = snapshot.message
+          ? t('editor.composer.remoteWatcher.errorWithDetail', { message: snapshot.message })
+          : t('editor.composer.remoteWatcher.remoteCheckFailedRetry');
         return { done: false, statusMessage: msg, retryDelay: 6200 };
       }
       const matches = snapshot.signature === expectedSignature;
       if (matches) {
-        return { done: true, data: snapshot, statusMessage: 'Update detected. Refreshing…' };
+        return { done: true, data: snapshot, statusMessage: t('editor.composer.remoteWatcher.updateDetectedRefreshing') };
       }
       const waitingStatus = attempts >= 3
-        ? 'Remote YAML still differs from the local snapshot. Waiting…'
-        : 'Remote YAML updated but content differs. Waiting…';
+        ? t('editor.composer.remoteWatcher.remoteYamlDiffersWaiting')
+        : t('editor.composer.remoteWatcher.remoteYamlExistsDiffersWaiting');
       const response = {
         done: false,
         statusMessage: waitingStatus,
         retryDelay: 5400
       };
       if (attempts === 3) {
-        response.message = 'If the commit was different from your draft, cancel and click Refresh to pull it in.';
+        response.message = t('editor.composer.remoteWatcher.yamlMismatchAdvice');
       }
       return response;
     },
@@ -1328,7 +1377,7 @@ function startComposerSyncWatcher(kind, options = {}) {
       if (result && result.data) {
         applyComposerRemoteSnapshot(safeKind, result.data);
         if (result.mismatch) {
-          showToast('warn', `${label} was updated differently on GitHub. Review the highlighted differences.`, { duration: 4600 });
+          showToast('warn', t('editor.toasts.yamlUpdatedDifferently', { label }), { duration: 4600 });
         } else {
           clearDraftStorage(safeKind);
           updateUnsyncedSummary();
@@ -1342,12 +1391,12 @@ function startComposerSyncWatcher(kind, options = {}) {
           if (modal && typeof modal.close === 'function' && matchesKind && isOpen) {
             try { modal.close(); } catch (_) {}
           }
-          showToast('success', `${label} synchronized with GitHub.`);
+          showToast('success', t('editor.toasts.yamlSynced', { label }));
         }
       }
     },
     onCancel: () => {
-      showToast('info', 'Remote check canceled. Click Refresh when your commit is ready.');
+      showToast('info', t('editor.toasts.remoteCheckCanceledClickRefresh'));
     }
   });
 }
@@ -1916,7 +1965,7 @@ function handleEditorAssetAdded(event) {
   const detail = event.detail;
   const markdownPath = normalizeRelPath(detail.markdownPath || '');
   if (!markdownPath) {
-    showToast('warn', 'Open a markdown file before inserting images.');
+    showToast('warn', t('editor.toasts.markdownOpenBeforeInsert'));
     return;
   }
   const commitPath = normalizeRelPath(detail.commitPath || detail.assetPath || '');
@@ -1945,7 +1994,7 @@ function handleEditorAssetAdded(event) {
     catch (_) {}
   }
   const relLabel = descriptor.relativePath || descriptor.path;
-  if (!detail.silent) showToast('success', `Attached ${relLabel}`);
+  if (!detail.silent) showToast('success', t('editor.toasts.assetAttached', { label: relLabel }));
   try { updateUnsyncedSummary(); }
   catch (_) {}
 }
@@ -2249,16 +2298,12 @@ function collectDynamicMarkdownDraftStates() {
 }
 
 function getDraftIndicatorMessage(state) {
-  switch (state) {
-    case 'conflict':
-      return 'Local draft conflicts with remote file';
-    case 'dirty':
-      return 'Unsaved changes pending in editor';
-    case 'saved':
-      return 'Local draft saved in browser';
-    default:
-      return '';
-  }
+  if (!state) return '';
+  const suffix = `markdown.draftIndicator.${state}`;
+  const value = tComposer(suffix);
+  const fallbackKey = `editor.composer.${suffix}`;
+  if (!value || value === fallbackKey) return '';
+  return value;
 }
 
 function updateComposerDraftContainerState(container) {
@@ -2273,6 +2318,10 @@ function updateComposerDraftContainerState(container) {
   }
   if (childState) container.setAttribute('data-child-draft', childState);
   else container.removeAttribute('data-child-draft');
+}
+
+function updateComposerMarkdownDraftContainerState(container) {
+  updateComposerDraftContainerState(container);
 }
 
 function applyComposerDraftIndicatorState(el, state) {
@@ -2464,7 +2513,7 @@ function applyIndexDiffMarkers(diff) {
           : [];
         if (removed.length) {
           removedBox.hidden = false;
-          removedBox.textContent = `Removed: ${removed.join(', ')}`;
+          removedBox.textContent = tComposerLang('removedVersions', { versions: removed.join(', ') });
         } else {
           removedBox.hidden = true;
           removedBox.textContent = '';
@@ -3379,7 +3428,7 @@ function updateUnsyncedSummary() {
     if (globalStatusEl) globalStatusEl.setAttribute('data-dirty', '1');
     if (globalArrowEl) globalArrowEl.classList.add('is-pending');
     if (globalArrowLabelEl) {
-      globalArrowLabelEl.textContent = 'UPLOAD';
+      globalArrowLabelEl.textContent = getUploadLabel();
     }
     if (globalLocalStateEl) {
       globalLocalStateEl.textContent = '';
@@ -3399,10 +3448,10 @@ function updateUnsyncedSummary() {
     }
     if (globalStatusEl) globalStatusEl.removeAttribute('data-dirty');
     if (globalArrowEl) globalArrowEl.classList.remove('is-pending');
-    if (globalArrowLabelEl) globalArrowLabelEl.textContent = 'Synced';
+    if (globalArrowLabelEl) globalArrowLabelEl.textContent = getSyncedLabel();
     if (globalLocalStateEl) {
       globalLocalStateEl.hidden = false;
-      globalLocalStateEl.textContent = CLEAN_STATUS_MESSAGE;
+      globalLocalStateEl.textContent = getCleanStatusMessage();
     }
     updateReviewButton([]);
   }
@@ -3632,17 +3681,18 @@ function promptForFineGrainedToken(summaryEntries = []) {
     headLeft.className = 'comp-head-left';
     const title = document.createElement('strong');
     title.id = 'nsGithubTokenTitle';
-    title.textContent = 'Synchronize with GitHub';
+    title.textContent = t('editor.composer.github.modal.title');
     const subtitle = document.createElement('span');
     subtitle.className = 'muted';
-    subtitle.textContent = 'Provide a Fine-grained Personal Access Token with repository contents access.';
+    subtitle.textContent = t('editor.composer.github.modal.subtitle');
     headLeft.appendChild(title);
     headLeft.appendChild(subtitle);
     const btnClose = document.createElement('button');
     btnClose.type = 'button';
     btnClose.className = 'ns-modal-close btn-secondary';
-    btnClose.textContent = 'Cancel';
-    btnClose.setAttribute('aria-label', 'Cancel');
+    const cancelLabel = t('editor.dialogs.cancel');
+    btnClose.textContent = cancelLabel;
+    btnClose.setAttribute('aria-label', cancelLabel);
     head.appendChild(headLeft);
     head.appendChild(btnClose);
     dialog.appendChild(head);
@@ -3655,7 +3705,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     summaryBlock.style.margin = '.25rem 0 1rem';
     if (Array.isArray(summaryEntries) && summaryEntries.length) {
       const info = document.createElement('p');
-      info.textContent = 'The following files will be committed:';
+      info.textContent = t('editor.composer.github.modal.summaryTitle');
       summaryBlock.appendChild(info);
       const list = document.createElement('ul');
       list.style.margin = '.4rem 0 0';
@@ -3672,7 +3722,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const tokenField = document.createElement('label');
     tokenField.style.display = 'block';
     tokenField.style.marginBottom = '.75rem';
-    tokenField.textContent = 'Fine-grained Personal Access Token';
+    tokenField.textContent = t('editor.composer.github.modal.tokenLabel');
     const input = document.createElement('input');
     input.type = 'password';
     input.autocomplete = 'off';
@@ -3694,7 +3744,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const help = document.createElement('p');
     help.className = 'muted';
     help.style.fontSize = '.85rem';
-    help.innerHTML = 'Create a token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> with access to the repository\'s contents. The token is stored for this browser session only.';
+    help.innerHTML = t('editor.composer.github.modal.helpHtml');
     form.appendChild(help);
 
     const errorText = document.createElement('p');
@@ -3714,14 +3764,14 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const btnForget = document.createElement('button');
     btnForget.type = 'button';
     btnForget.className = 'btn-secondary';
-    btnForget.textContent = 'Forget token';
+    btnForget.textContent = t('editor.composer.github.modal.forget');
     if (!cached) btnForget.hidden = true;
     footer.appendChild(btnForget);
 
     const btnSubmit = document.createElement('button');
     btnSubmit.type = 'submit';
     btnSubmit.className = 'btn-primary';
-    btnSubmit.textContent = 'Commit changes';
+    btnSubmit.textContent = t('editor.composer.github.modal.submit');
     footer.appendChild(btnSubmit);
 
     form.appendChild(footer);
@@ -3806,7 +3856,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
       const value = String(input.value || '').trim();
       if (!value) {
-        showError('Enter a Fine-grained Personal Access Token to continue.');
+        showError(t('editor.composer.github.modal.errorRequired'));
         try { input.focus({ preventScroll: true }); }
         catch (_) { input.focus(); }
         return;
@@ -4087,7 +4137,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
     const { files } = gatherLocalChangesForCommit();
     if (!files.length) {
       hideSyncOverlay();
-      showToast('info', 'No pending changes to commit.');
+      showToast('info', t('editor.toasts.noPendingChanges'));
       return;
     }
 
@@ -4148,18 +4198,18 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
 
     hideSyncOverlay();
     if (propagationResult && propagationResult.canceled) {
-      showToast('info', 'Stopped waiting for the live site. Your commit is already on GitHub, but it may take a few minutes to appear.');
+      showToast('info', t('editor.toasts.siteWaitStopped'));
     } else if (propagationResult && propagationResult.timedOut) {
-      showToast('warning', 'Committed files to GitHub, but the live site did not update in time. Check the deploy status manually.');
+      showToast('warning', t('editor.toasts.siteWaitTimedOut'));
     } else {
-      showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
+      showToast('success', t('editor.toasts.commitSuccess', { count: fileCount }));
     }
   } catch (err) {
     hideSyncOverlay();
-    let message = err && err.message ? err.message : 'GitHub commit failed.';
+    let message = err && err.message ? err.message : t('editor.toasts.githubCommitFailed');
     if (err && err.status === 401) {
       clearCachedFineGrainedToken();
-      message = 'GitHub rejected the access token. Enter a new Fine-grained Personal Access Token.';
+      message = t('editor.toasts.githubTokenRejected');
     }
     console.error('NanoSite GitHub commit failed', err);
     showToast('error', message, { duration: 5200 });
@@ -4179,8 +4229,8 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       bubble.removeAttribute('aria-busy');
       bubble.setAttribute('aria-label', 'Synchronize drafts to GitHub');
       const pendingCount = computeUnsyncedSummary().length;
-      if (pendingCount) bubble.textContent = 'UPLOAD';
-      else bubble.textContent = 'Synced';
+      if (pendingCount) bubble.textContent = getUploadLabel();
+      else bubble.textContent = getSyncedLabel();
     }
   }
 }
@@ -4190,14 +4240,14 @@ async function handleGlobalBubbleActivation(event) {
   if (gitHubCommitInFlight) return;
   const summary = computeUnsyncedSummary();
   if (!summary.length) {
-    showToast('info', 'No local changes to commit.');
+    showToast('info', t('editor.composer.noLocalChangesToCommit'));
     return;
   }
   const repo = window.__ns_site_repo || {};
   const owner = String(repo.owner || '').trim();
   const name = String(repo.name || '').trim();
   if (!owner || !name) {
-    showToast('error', 'Configure repo.owner and repo.name in site.yaml to enable GitHub synchronization.');
+    showToast('error', t('editor.toasts.repoOwnerMissing'));
     return;
   }
   try {
@@ -4283,11 +4333,11 @@ function computeOrderDiffDetails(kind) {
 function renderOrderStatsChips(target, stats, options = {}) {
   if (!target) return;
   const safeStats = stats || { moved: 0, added: 0, removed: 0 };
-  const emptyLabel = options.emptyLabel || 'No direct moves; changes come from additions/removals';
+  const emptyLabel = options.emptyLabel || tComposerDiff('orderStats.empty');
   const pieces = [];
-  if (safeStats.moved) pieces.push({ label: `Moved ${safeStats.moved}`, status: 'moved' });
-  if (safeStats.added) pieces.push({ label: `+${safeStats.added} new`, status: 'added' });
-  if (safeStats.removed) pieces.push({ label: `-${safeStats.removed} removed`, status: 'removed' });
+  if (safeStats.moved) pieces.push({ label: tComposerDiff('orderStats.moved', { count: safeStats.moved }), status: 'moved' });
+  if (safeStats.added) pieces.push({ label: tComposerDiff('orderStats.added', { count: safeStats.added }), status: 'added' });
+  if (safeStats.removed) pieces.push({ label: tComposerDiff('orderStats.removed', { count: safeStats.removed }), status: 'removed' });
   target.innerHTML = '';
   if (!pieces.length) {
     pieces.push({ label: emptyLabel, status: 'neutral' });
@@ -4309,7 +4359,7 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   if (!summary || !summary.hasChanges) {
     const empty = document.createElement('span');
     empty.className = 'composer-inline-summary-empty';
-    empty.textContent = 'No local changes yet.';
+    empty.textContent = t('editor.composer.noLocalChangesYet');
     target.appendChild(empty);
     return;
   }
@@ -4337,22 +4387,27 @@ function renderComposerInlineSummary(target, diff, options = {}) {
     const max = Math.max(1, options.maxKeys || 3);
     const shown = clean.slice(0, max);
     let text = shown.join(', ');
-    if (clean.length > shown.length) text += ` +${clean.length - shown.length} more`;
+    if (clean.length > shown.length) {
+      const moreCount = clean.length - shown.length;
+      text += ` ${tComposerDiff('lists.more', { count: moreCount })}`;
+    }
     return text;
   };
 
   const chips = [];
-  if (addedCount) chips.push({ variant: 'added', label: `+${addedCount} added` });
-  if (removedCount) chips.push({ variant: 'removed', label: `-${removedCount} removed` });
-  if (modifiedCount) chips.push({ variant: 'modified', label: `~${modifiedCount} modified` });
+  if (addedCount) chips.push({ variant: 'added', label: tComposerDiff('inlineChips.added', { count: addedCount }) });
+  if (removedCount) chips.push({ variant: 'removed', label: tComposerDiff('inlineChips.removed', { count: removedCount }) });
+  if (modifiedCount) chips.push({ variant: 'modified', label: tComposerDiff('inlineChips.modified', { count: modifiedCount }) });
   if (orderChanged) {
-    let orderLabel = 'Order changed';
+    let orderLabel = tComposerDiff('inlineChips.orderChanged');
     if (orderHasStats) {
       const parts = [];
-      if (orderStats.moved) parts.push(`${orderStats.moved} moved`);
-      if (orderStats.added) parts.push(`+${orderStats.added} new`);
-      if (orderStats.removed) parts.push(`-${orderStats.removed} removed`);
-      if (parts.length) orderLabel = `Order: ${parts.join(', ')}`;
+      if (orderStats.moved) parts.push(tComposerDiff('inlineChips.orderParts.moved', { count: orderStats.moved }));
+      if (orderStats.added) parts.push(tComposerDiff('inlineChips.orderParts.added', { count: orderStats.added }));
+      if (orderStats.removed) parts.push(tComposerDiff('inlineChips.orderParts.removed', { count: orderStats.removed }));
+      if (parts.length) {
+        orderLabel = tComposerDiff('inlineChips.orderSummary', { parts: parts.join(', ') });
+      }
     }
     chips.push({ variant: 'order', label: orderLabel });
   }
@@ -4379,7 +4434,7 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   if (langSet.size) {
     const langs = Array.from(langSet).filter(Boolean).sort();
     const summary = formatKeyList(langs);
-    if (summary) addChip({ variant: 'langs', label: `Langs: ${summary}` });
+    if (summary) addChip({ variant: 'langs', label: tComposerDiff('inlineChips.langs', { summary }) });
   }
 
   if (chipRow.children.length) target.appendChild(chipRow);
@@ -4387,7 +4442,7 @@ function renderComposerInlineSummary(target, diff, options = {}) {
   if (!chipRow.children.length) {
     const empty = document.createElement('span');
     empty.className = 'composer-inline-summary-empty';
-    empty.textContent = 'Changes detected.';
+    empty.textContent = tComposerDiff('inlineChips.none');
     target.appendChild(empty);
   }
 }
@@ -4499,7 +4554,7 @@ function buildOrderDiffItem(entry, side) {
 
   const keyEl = document.createElement('span');
   keyEl.className = 'composer-order-key';
-  const keyText = entry.key || '(empty)';
+  const keyText = entry.key || tComposerDiff('order.emptyKey');
   keyEl.textContent = keyText;
   keyEl.title = keyText;
   item.appendChild(keyEl);
@@ -4508,12 +4563,15 @@ function buildOrderDiffItem(entry, side) {
   badgeEl.className = 'composer-order-badge';
   let badgeText = '';
   if (entry.status === 'moved') {
-    if (side === 'before') badgeText = `→ #${(entry.toIndex == null ? entry.index : entry.toIndex) + 1}`;
-    else badgeText = `from #${(entry.fromIndex == null ? entry.index : entry.fromIndex) + 1}`;
+    if (side === 'before') {
+      badgeText = tComposerDiff('order.badges.to', { index: (entry.toIndex == null ? entry.index : entry.toIndex) + 1 });
+    } else {
+      badgeText = tComposerDiff('order.badges.from', { index: (entry.fromIndex == null ? entry.index : entry.fromIndex) + 1 });
+    }
   } else if (entry.status === 'removed') {
-    badgeText = 'Removed';
+    badgeText = tComposerDiff('order.badges.removed');
   } else if (entry.status === 'added') {
-    badgeText = 'New';
+    badgeText = tComposerDiff('order.badges.added');
   }
   if (badgeText) {
     badgeEl.textContent = badgeText;
@@ -4542,15 +4600,15 @@ function ensureComposerDiffModal() {
   head.className = 'composer-order-head';
   const title = document.createElement('h2');
   title.id = 'composerOrderTitle';
-  title.textContent = 'Changes';
+  title.textContent = tComposerDiff('heading');
   const subtitle = document.createElement('p');
   subtitle.className = 'composer-order-subtitle';
-  subtitle.textContent = 'Review differences compared to the remote baseline.';
+  subtitle.textContent = tComposerDiff('subtitle.default');
   const closeBtn = document.createElement('button');
   closeBtn.className = 'ns-modal-close btn-secondary composer-order-close';
   closeBtn.type = 'button';
-  closeBtn.setAttribute('aria-label', 'Close');
-  closeBtn.textContent = 'Close';
+  closeBtn.setAttribute('aria-label', tComposerDiff('close'));
+  closeBtn.textContent = tComposerDiff('close');
   head.appendChild(title);
   head.appendChild(subtitle);
   head.appendChild(closeBtn);
@@ -4560,10 +4618,12 @@ function ensureComposerDiffModal() {
   tabsWrap.setAttribute('role', 'tablist');
 
   const tabDefs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'entries', label: 'Entries' },
-    { id: 'order', label: 'Order' }
+    { id: 'overview', labelKey: 'tabs.overview' },
+    { id: 'entries', labelKey: 'tabs.entries' },
+    { id: 'order', labelKey: 'tabs.order' }
   ];
+  const tabDefsById = new Map();
+  tabDefs.forEach(def => { tabDefsById.set(def.id, def); });
   const tabButtons = new Map();
   const tabPanels = new Map();
 
@@ -4594,7 +4654,8 @@ function ensureComposerDiffModal() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'composer-diff-tab';
-    btn.textContent = tab.label;
+    btn.textContent = tComposerDiff(tab.labelKey);
+    btn.dataset.i18nKey = tab.labelKey;
     btn.dataset.tab = tab.id;
     btn.setAttribute('role', 'tab');
     btn.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
@@ -4651,7 +4712,7 @@ function ensureComposerDiffModal() {
   beforeCol.className = 'composer-order-column composer-order-before';
   const beforeTitle = document.createElement('div');
   beforeTitle.className = 'composer-order-column-title';
-  beforeTitle.textContent = 'Remote';
+  beforeTitle.textContent = tComposerDiff('order.remoteTitle');
   const beforeList = document.createElement('div');
   beforeList.className = 'composer-order-list';
   beforeCol.appendChild(beforeTitle);
@@ -4661,7 +4722,7 @@ function ensureComposerDiffModal() {
   afterCol.className = 'composer-order-column composer-order-after';
   const afterTitle = document.createElement('div');
   afterTitle.className = 'composer-order-column-title';
-  afterTitle.textContent = 'Current';
+  afterTitle.textContent = tComposerDiff('order.currentTitle');
   const afterList = document.createElement('div');
   afterList.className = 'composer-order-list';
   afterCol.appendChild(afterTitle);
@@ -4669,7 +4730,7 @@ function ensureComposerDiffModal() {
 
   const emptyNotice = document.createElement('div');
   emptyNotice.className = 'composer-order-empty';
-  emptyNotice.textContent = 'No items to compare yet.';
+  emptyNotice.textContent = tComposerDiff('order.empty');
 
   columns.appendChild(beforeCol);
   columns.appendChild(afterCol);
@@ -4694,10 +4755,10 @@ function ensureComposerDiffModal() {
   let activeKind = 'index';
   let activeDiff = null;
 
-  const subtitleText = {
-    overview: 'Review a quick summary of the unsynced changes.',
-    entries: 'Inspect added, removed, and modified entries.',
-    order: 'Remote baseline (left) · 当前顺序 (right)'
+  const subtitleKeys = {
+    overview: 'subtitle.overview',
+    entries: 'subtitle.entries',
+    order: 'subtitle.order'
   };
 
   function prefersReducedMotion() {
@@ -4742,7 +4803,8 @@ function ensureComposerDiffModal() {
   }
 
   function updateSubtitle(tabId) {
-    subtitle.textContent = subtitleText[tabId] || subtitleText.overview;
+    const key = subtitleKeys[tabId] || subtitleKeys.overview;
+    subtitle.textContent = tComposerDiff(key);
   }
 
   function setActiveTab(tabId) {
@@ -4782,7 +4844,7 @@ function ensureComposerDiffModal() {
     if (!diff) {
       const empty = document.createElement('p');
       empty.className = 'composer-diff-empty';
-      empty.textContent = 'No changes detected for this file.';
+      empty.textContent = tComposerDiff('overview.empty');
       viewOverview.appendChild(empty);
       return;
     }
@@ -4795,10 +4857,10 @@ function ensureComposerDiffModal() {
       return info.state === 'modified' || (info.addedLangs && info.addedLangs.length) || (info.removedLangs && info.removedLangs.length);
     });
     const statDefs = [
-      { id: 'added', label: 'Added', value: diff.addedKeys.length },
-      { id: 'removed', label: 'Removed', value: diff.removedKeys.length },
-      { id: 'modified', label: 'Modified', value: modifiedKeys.length },
-      { id: 'order', label: 'Order', value: diff.orderChanged ? 'Changed' : 'Unchanged', state: diff.orderChanged ? 'changed' : 'clean' }
+      { id: 'added', label: tComposerDiff('overview.stats.added'), value: diff.addedKeys.length },
+      { id: 'removed', label: tComposerDiff('overview.stats.removed'), value: diff.removedKeys.length },
+      { id: 'modified', label: tComposerDiff('overview.stats.modified'), value: modifiedKeys.length },
+      { id: 'order', label: tComposerDiff('overview.stats.order'), value: diff.orderChanged ? tComposerDiff('overview.stats.changed') : tComposerDiff('overview.stats.unchanged'), state: diff.orderChanged ? 'changed' : 'clean' }
     ];
     statDefs.forEach(def => {
       const card = document.createElement('div');
@@ -4808,7 +4870,7 @@ function ensureComposerDiffModal() {
       if (def.state) card.dataset.state = def.state;
       const valueEl = document.createElement('div');
       valueEl.className = 'composer-diff-stat-value';
-      valueEl.textContent = String(def.value);
+      valueEl.textContent = typeof def.value === 'number' ? String(def.value) : def.value;
       const labelEl = document.createElement('div');
       labelEl.className = 'composer-diff-stat-label';
       labelEl.textContent = def.label;
@@ -4839,16 +4901,16 @@ function ensureComposerDiffModal() {
       if (keys.length > max) {
         const more = document.createElement('li');
         more.className = 'composer-diff-key-more';
-        more.textContent = `+${keys.length - max} more`;
+        more.textContent = tComposerDiff('lists.more', { count: keys.length - max });
         list.appendChild(more);
       }
       block.appendChild(h3);
       block.appendChild(list);
       blocks.appendChild(block);
     }
-    appendKeyBlock('Added entries', diff.addedKeys);
-    appendKeyBlock('Removed entries', diff.removedKeys);
-    appendKeyBlock('Modified entries', modifiedKeys);
+    appendKeyBlock(tComposerDiff('overview.blocks.added'), diff.addedKeys);
+    appendKeyBlock(tComposerDiff('overview.blocks.removed'), diff.removedKeys);
+    appendKeyBlock(tComposerDiff('overview.blocks.modified'), modifiedKeys);
     if (blocks.children.length) viewOverview.appendChild(blocks);
 
     const langSet = new Set();
@@ -4861,7 +4923,7 @@ function ensureComposerDiffModal() {
     if (langSet.size) {
       const p = document.createElement('p');
       p.className = 'composer-diff-overview-langs';
-      p.textContent = `Languages impacted: ${Array.from(langSet).sort().join(', ')}`;
+      p.textContent = tComposerDiff('overview.languagesImpacted', { languages: Array.from(langSet).sort().join(', ') });
       viewOverview.appendChild(p);
     }
   }
@@ -4889,7 +4951,7 @@ function ensureComposerDiffModal() {
       const snapshot = describeEntrySnapshot(kind, key, sectionType === 'added' ? 'current' : 'baseline');
       const langs = snapshot ? Object.keys(snapshot || {}).filter(lang => lang !== '__order') : [];
       if (!langs.length) {
-        push('No language content recorded.');
+        push(tComposerDiff('entries.noLanguageContent'));
       } else {
         langs.forEach(lang => {
           const label = lang.toUpperCase();
@@ -4898,14 +4960,18 @@ function ensureComposerDiffModal() {
             let count = 0;
             if (Array.isArray(value)) count = value.length;
             else if (value != null && value !== '') count = 1;
-            push(`${label}: ${count ? `${count} value${count === 1 ? '' : 's'}` : 'empty entry'}`);
+            const summary = count
+              ? tComposerDiff('entries.snapshot.indexValue', { count })
+              : tComposerDiff('entries.snapshot.emptyEntry');
+            push(tComposerDiff('entries.summary', { lang: label, summary }));
           } else {
             const value = snapshot[lang] || { title: '', location: '' };
             const parts = [];
-            if (value.title) parts.push(`title “${truncateText(value.title, 32)}”`);
-            if (value.location) parts.push(`location ${truncateText(value.location, 40)}`);
-            if (!parts.length) parts.push('empty entry');
-            push(`${label}: ${parts.join(', ')}`);
+            if (value.title) parts.push(tComposerDiff('entries.snapshot.tabTitle', { title: truncateText(value.title, 32) }));
+            if (value.location) parts.push(tComposerDiff('entries.snapshot.tabLocation', { location: truncateText(value.location, 40) }));
+            if (!parts.length) parts.push(tComposerDiff('entries.snapshot.emptyEntry'));
+            const joined = parts.join(tComposerDiff('entries.join.comma'));
+            push(tComposerDiff('entries.summary', { lang: label, summary: joined }));
           }
         });
       }
@@ -4922,16 +4988,16 @@ function ensureComposerDiffModal() {
         const detail = (info.langs || {})[lang];
         const label = lang.toUpperCase();
         if (!detail) {
-          if (addedLangs.has(lang)) push(`${label}: added`);
-          else if (removedLangs.has(lang)) push(`${label}: removed`);
+          if (addedLangs.has(lang)) push(tComposerDiff('entries.state.added', { lang: label }));
+          else if (removedLangs.has(lang)) push(tComposerDiff('entries.state.removed', { lang: label }));
           return;
         }
         if (detail.state === 'added') {
-          push(`${label}: added`);
+          push(tComposerDiff('entries.state.added', { lang: label }));
           return;
         }
         if (detail.state === 'removed') {
-          push(`${label}: removed`);
+          push(tComposerDiff('entries.state.removed', { lang: label }));
           return;
         }
         if (detail.state === 'modified') {
@@ -4947,18 +5013,22 @@ function ensureComposerDiffModal() {
             });
             const removedCount = (versions.removed || []).length;
             const parts = [];
-            if (versions.kindChanged) parts.push('type changed');
-            if (addedCount) parts.push(`+${addedCount} new`);
-            if (removedCount) parts.push(`-${removedCount} removed`);
-            if (changedCount) parts.push(`${changedCount} updated`);
-            if (versions.orderChanged || movedCount) parts.push('reordered');
-            if (!parts.length) parts.push('content updated');
-            push(`${label}: ${parts.join(', ')}`);
+            if (versions.kindChanged) parts.push(tComposerDiff('entries.parts.typeChanged'));
+            if (addedCount) parts.push(tComposerDiff('entries.parts.addedCount', { count: addedCount }));
+            if (removedCount) parts.push(tComposerDiff('entries.parts.removedCount', { count: removedCount }));
+            if (changedCount) parts.push(tComposerDiff('entries.parts.updatedCount', { count: changedCount }));
+            if (versions.orderChanged || movedCount) parts.push(tComposerDiff('entries.parts.reordered'));
+            if (!parts.length) parts.push(tComposerDiff('entries.parts.contentUpdated'));
+            const joined = parts.join(tComposerDiff('entries.join.comma'));
+            push(tComposerDiff('entries.summary', { lang: label, summary: joined }));
           } else {
             const changeFields = [];
-            if (detail.titleChanged) changeFields.push('title');
-            if (detail.locationChanged) changeFields.push('location');
-            push(`${label}: updated ${changeFields.length ? changeFields.join(' & ') : 'content'}`);
+            if (detail.titleChanged) changeFields.push(tComposerDiff('entries.fields.title'));
+            if (detail.locationChanged) changeFields.push(tComposerDiff('entries.fields.location'));
+            const fieldSummary = changeFields.length
+              ? changeFields.join(tComposerDiff('entries.join.and'))
+              : tComposerDiff('entries.fields.content');
+            push(tComposerDiff('entries.state.updatedFields', { lang: label, fields: fieldSummary }));
           }
         }
       });
@@ -4971,15 +5041,15 @@ function ensureComposerDiffModal() {
     if (!diff) {
       const empty = document.createElement('p');
       empty.className = 'composer-diff-empty';
-      empty.textContent = 'No content differences detected.';
+      empty.textContent = tComposerDiff('entries.empty');
       viewEntries.appendChild(empty);
       return;
     }
     const diffKeys = diff.keys || {};
     const sections = [
-      { type: 'added', title: 'Added entries', keys: diff.addedKeys || [] },
-      { type: 'removed', title: 'Removed entries', keys: diff.removedKeys || [] },
-      { type: 'modified', title: 'Modified entries', keys: Object.keys(diffKeys).filter(key => {
+      { type: 'added', title: tComposerDiff('entries.sections.added'), keys: diff.addedKeys || [] },
+      { type: 'removed', title: tComposerDiff('entries.sections.removed'), keys: diff.removedKeys || [] },
+      { type: 'modified', title: tComposerDiff('entries.sections.modified'), keys: Object.keys(diffKeys).filter(key => {
         const info = diffKeys[key];
         if (!info) return false;
         return info.state === 'modified' || (info.addedLangs && info.addedLangs.length) || (info.removedLangs && info.removedLangs.length);
@@ -4989,7 +5059,7 @@ function ensureComposerDiffModal() {
     if (!hasData) {
       const empty = document.createElement('p');
       empty.className = 'composer-diff-empty';
-      empty.textContent = 'Only ordering changed for this file.';
+      empty.textContent = tComposerDiff('entries.orderOnly');
       viewEntries.appendChild(empty);
       return;
     }
@@ -5029,7 +5099,7 @@ function ensureComposerDiffModal() {
 
   function renderOrder(kind) {
     const label = kind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
-    title.textContent = `Changes — ${label}`;
+    title.textContent = tComposerDiff('title', { label });
     const details = computeOrderDiffDetails(kind);
     const { beforeEntries, afterEntries, connectors, stats } = details;
 
@@ -5074,7 +5144,7 @@ function ensureComposerDiffModal() {
     }
     viz.classList.toggle('is-empty', !hasItems);
 
-    renderOrderStatsChips(statsWrap, stats, { emptyLabel: 'No direct moves; changes come from additions/removals' });
+    renderOrderStatsChips(statsWrap, stats, { emptyLabel: tComposerDiff('orderStats.empty') });
 
     composerOrderState = hasItems
       ? { container: viz, svg, connectors, leftMap, rightMap }
@@ -5106,7 +5176,7 @@ function ensureComposerDiffModal() {
     const safeKind = kind === 'tabs' ? 'tabs' : 'index';
     activeKind = safeKind;
     const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
-    title.textContent = `Changes — ${label}`;
+    title.textContent = tComposerDiff('title', { label });
     activeDiff = composerDiffCache[safeKind] || recomputeDiff(safeKind);
     renderOverview(safeKind, activeDiff);
     renderEntries(safeKind, activeDiff);
@@ -5151,6 +5221,26 @@ function ensureComposerDiffModal() {
     emptyNotice,
     tabsWrap
   };
+
+  const refreshLocale = () => {
+    title.textContent = tComposerDiff('heading');
+    subtitle.textContent = tComposerDiff(subtitleKeys[activeTab] || subtitleKeys.overview);
+    closeBtn.textContent = tComposerDiff('close');
+    closeBtn.setAttribute('aria-label', tComposerDiff('close'));
+    if (beforeTitle) beforeTitle.textContent = tComposerDiff('order.remoteTitle');
+    if (afterTitle) afterTitle.textContent = tComposerDiff('order.currentTitle');
+    if (emptyNotice) emptyNotice.textContent = tComposerDiff('order.empty');
+    tabButtons.forEach((btn, id) => {
+      const def = tabDefsById.get(id);
+      if (!btn || !def) return;
+      btn.textContent = tComposerDiff(def.labelKey);
+    });
+  };
+  if (!modal.__nsLangBound) {
+    modal.__nsLangBound = true;
+    document.addEventListener('ns-editor-language-applied', refreshLocale);
+  }
+
   return composerDiffModal;
 }
 
@@ -5517,17 +5607,17 @@ function updateComposerOrderPreview(kind, options = {}) {
     host.dataset.inlineActive = value ? 'true' : 'false';
   };
 
-  if (title) title.textContent = 'Change summary';
+  if (title) title.textContent = tComposerDiff('inline.title');
   if (kindLabel) kindLabel.textContent = label;
   if (meta) meta.dataset.kind = normalized;
   if (root) {
     root.dataset.kind = normalized;
-    root.setAttribute('aria-label', `Old order for ${label}`);
+    root.setAttribute('aria-label', tComposerDiff('inline.ariaOrder', { label }));
   }
   if (host) host.dataset.kind = normalized;
   if (openBtn) {
     openBtn.dataset.kind = normalized;
-    openBtn.setAttribute('aria-label', `Open change overview for ${label}`);
+    openBtn.setAttribute('aria-label', tComposerDiff('inline.openAria', { label }));
   }
 
   const diff = composerDiffCache[normalized] || recomputeDiff(normalized);
@@ -5596,9 +5686,9 @@ function updateComposerOrderPreview(kind, options = {}) {
       emptyNotice.hidden = !hasOrderChanges;
       emptyNotice.setAttribute('aria-hidden', hasOrderChanges ? 'false' : 'true');
       if (hasOrderChanges && stats.added && !hasBaseline) {
-        emptyNotice.textContent = 'All current items are new compared with the baseline.';
+        emptyNotice.textContent = tComposerDiff('order.inlineAllNew');
       } else {
-        emptyNotice.textContent = 'No entries to compare yet.';
+        emptyNotice.textContent = tComposer('inlineEmpty');
       }
     } else {
       emptyNotice.hidden = true;
@@ -5868,14 +5958,14 @@ async function handleComposerRefresh(btn) {
     button.disabled = false;
     button.classList.remove('is-busy');
     button.removeAttribute('aria-busy');
-    button.textContent = 'Refresh';
+    button.textContent = t('editor.composer.refresh');
   };
   try {
     if (button) {
       button.disabled = true;
       button.classList.add('is-busy');
       button.setAttribute('aria-busy', 'true');
-      button.textContent = 'Refreshing…';
+      button.textContent = t('editor.composer.refreshing');
     }
     const contentRoot = getContentRootSafe();
     const remote = await fetchConfigWithYamlFallback([
@@ -5891,19 +5981,23 @@ async function handleComposerRefresh(btn) {
       setStateSlice(target, deepClone(prepared));
       if (target === 'tabs') rebuildTabsUI();
       else rebuildIndexUI();
-      showStatus(`${target === 'tabs' ? 'tabs' : 'index'}.yaml refreshed from remote`);
+      showStatus(
+        t('editor.composer.statusMessages.refreshSuccess', {
+          name: `${target === 'tabs' ? 'tabs' : 'index'}.yaml`
+        })
+      );
     } else {
       notifyComposerChange(target, { skipAutoSave: true });
       const baselineSignatureAfter = computeBaselineSignature(target);
       if (baselineSignatureAfter !== baselineSignatureBefore) {
-        showStatus('Remote snapshot updated. Highlights now include remote differences.');
+        showStatus(t('editor.composer.statusMessages.remoteUpdated'));
       } else {
-        showStatus('Remote snapshot unchanged.');
+        showStatus(t('editor.composer.statusMessages.remoteUnchanged'));
       }
     }
   } catch (err) {
     console.error('Refresh failed', err);
-    showStatus('Failed to refresh remote snapshot');
+    showStatus(t('editor.composer.statusMessages.refreshFailed'));
   } finally {
     resetButton();
     setTimeout(() => { showStatus(''); }, 2000);
@@ -5953,7 +6047,7 @@ function ensureComposerAddEntryPromptElements() {
   const hint = document.createElement('div');
   hint.className = 'composer-key-hint';
   hint.id = 'composerAddEntryPromptHint';
-  hint.textContent = 'Use only English letters and numbers.';
+  hint.textContent = t('editor.composer.addEntryPrompt.hint');
   fieldWrap.appendChild(hint);
 
   const error = document.createElement('div');
@@ -5973,18 +6067,18 @@ function ensureComposerAddEntryPromptElements() {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary composer-confirm-cancel';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('editor.composer.dialogs.cancel');
 
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn-secondary composer-confirm-confirm';
-  confirmBtn.textContent = 'Add Entry';
+  confirmBtn.textContent = t('editor.composer.addEntryPrompt.confirm');
 
   actions.append(cancelBtn, confirmBtn);
   popover.appendChild(actions);
 
   document.body.appendChild(popover);
-  addEntryPromptElements = { popover, label, input, error, cancelBtn, confirmBtn };
+  addEntryPromptElements = { popover, label, input, hint, error, cancelBtn, confirmBtn };
   return addEntryPromptElements;
 }
 
@@ -5992,16 +6086,27 @@ function showComposerAddEntryPrompt(anchor, options) {
   const elements = ensureComposerAddEntryPromptElements();
   if (!elements) return Promise.resolve({ confirmed: false, value: '' });
 
-  const { popover, label, input, error, cancelBtn, confirmBtn } = elements;
-  const typeLabel = options && options.typeLabel ? String(options.typeLabel) : 'entry';
-  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Add Entry';
-  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
-  const placeholder = options && options.placeholder ? String(options.placeholder) : 'Entry key';
+  const { popover, label, input, hint, error, cancelBtn, confirmBtn } = elements;
+  const typeLabel = options && options.typeLabel
+    ? String(options.typeLabel)
+    : t('editor.composer.addEntryPrompt.defaultType');
+  const confirmLabel = options && options.confirmLabel
+    ? String(options.confirmLabel)
+    : t('editor.composer.addEntryPrompt.confirm');
+  const cancelLabel = options && options.cancelLabel
+    ? String(options.cancelLabel)
+    : t('editor.composer.dialogs.cancel');
+  const placeholder = options && options.placeholder
+    ? String(options.placeholder)
+    : t('editor.composer.addEntryPrompt.placeholder');
   const existingKeys = options && options.existingKeys ? new Set(options.existingKeys) : new Set();
 
-  label.textContent = options && options.message ? String(options.message) : `Enter a new ${typeLabel} key:`;
+  label.textContent = options && options.message
+    ? String(options.message)
+    : t('editor.composer.addEntryPrompt.message', { label: typeLabel });
   cancelBtn.textContent = cancelLabel;
   confirmBtn.textContent = confirmLabel;
+  hint.textContent = t('editor.composer.addEntryPrompt.hint');
   input.value = options && options.initialValue ? String(options.initialValue).trim() : '';
   input.placeholder = placeholder;
   input.setAttribute('aria-invalid', 'false');
@@ -6040,17 +6145,17 @@ function showComposerAddEntryPrompt(anchor, options) {
     const raw = input.value || '';
     const value = raw.trim();
     if (!value) {
-      setError('Key cannot be empty.');
+      setError(t('editor.composer.addEntryPrompt.errorEmpty'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
     if (!/^[A-Za-z0-9_-]+$/.test(value)) {
-      setError('Key must contain only English letters, numbers, underscores, or hyphens.');
+      setError(t('editor.composer.addEntryPrompt.errorInvalid'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
     if (existingKeys.has(value)) {
-      setError('That key already exists. Choose a different key.');
+      setError(t('editor.composer.addEntryPrompt.errorDuplicate'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
@@ -6280,12 +6385,12 @@ function ensureComposerDiscardConfirmElements() {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary composer-confirm-cancel';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('editor.composer.dialogs.cancel');
 
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn-secondary composer-confirm-confirm';
-  confirmBtn.textContent = 'Confirm';
+  confirmBtn.textContent = t('editor.composer.dialogs.confirm');
 
   actions.append(cancelBtn, confirmBtn);
   popover.appendChild(actions);
@@ -6299,8 +6404,12 @@ function showComposerDiscardConfirm(anchor, messageText, options) {
   const elements = ensureComposerDiscardConfirmElements();
   if (!elements) return Promise.resolve(true);
   const { popover, message, cancelBtn, confirmBtn } = elements;
-  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Confirm';
-  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
+  const confirmLabel = options && options.confirmLabel
+    ? String(options.confirmLabel)
+    : t('editor.composer.dialogs.confirm');
+  const cancelLabel = options && options.cancelLabel
+    ? String(options.cancelLabel)
+    : t('editor.composer.dialogs.cancel');
 
   message.textContent = String(messageText || '');
   cancelBtn.textContent = cancelLabel;
@@ -6505,10 +6614,10 @@ async function handleComposerDiscard(btn) {
     return;
   }
 
-  const promptMessage = `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`;
+  const promptMessage = t('editor.composer.discardConfirm.messageReload', { label });
   let proceed = true;
   try {
-    proceed = await showComposerDiscardConfirm(btn, promptMessage, { confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
+    proceed = await showComposerDiscardConfirm(btn, promptMessage);
   } catch (err) {
     console.warn('Custom discard prompt failed, falling back to native confirm', err);
     try {
@@ -6527,7 +6636,7 @@ async function handleComposerDiscard(btn) {
     button.disabled = false;
     button.classList.remove('is-busy');
     button.removeAttribute('aria-busy');
-    button.textContent = 'Discard';
+    button.textContent = t('editor.composer.discardConfirm.discard');
   };
 
   try {
@@ -6535,7 +6644,7 @@ async function handleComposerDiscard(btn) {
       button.disabled = true;
       button.classList.add('is-busy');
       button.setAttribute('aria-busy', 'true');
-      button.textContent = 'Discarding…';
+      button.textContent = t('editor.composer.discardConfirm.discarding');
     }
 
     let prepared = null;
@@ -6574,13 +6683,13 @@ async function handleComposerDiscard(btn) {
     clearDraftStorage(target);
 
     const msg = fetchedFresh
-      ? `Discarded local changes; loaded fresh ${label}`
-      : `Discarded local changes; restored ${label} from cached snapshot`;
+      ? t('editor.composer.discardConfirm.successFresh', { label })
+      : t('editor.composer.discardConfirm.successCached', { label });
     showStatus(msg);
     setTimeout(() => { showStatus(''); }, 2000);
   } catch (err) {
     console.error('Discard failed', err);
-    showStatus('Failed to discard local changes');
+    showStatus(t('editor.composer.discardConfirm.failed'));
     setTimeout(() => { showStatus(''); }, 2000);
   } finally {
     resetButton();
@@ -6816,29 +6925,31 @@ function updateMarkdownPushButton(tab) {
     ? String(active.fileStatus.state)
     : '';
 
-  let label = MARKDOWN_PUSH_LABELS.default;
-  if (state === 'missing') label = MARKDOWN_PUSH_LABELS.create;
-  else if (state) label = MARKDOWN_PUSH_LABELS.update;
-  else if (active && active.path) label = MARKDOWN_PUSH_LABELS.update;
+  let label = getMarkdownPushLabel('default');
+  if (state === 'missing') label = getMarkdownPushLabel('create');
+  else if (state) label = getMarkdownPushLabel('update');
+  else if (active && active.path) label = getMarkdownPushLabel('update');
 
   let disabled = false;
   let tooltip = '';
 
   if (!hasRepo) {
     disabled = true;
-    tooltip = 'Configure repo in site.yaml to enable GitHub push.';
+    tooltip = getMarkdownPushTooltip('noRepo');
   } else if (!active || !active.path) {
     disabled = true;
-    tooltip = 'Open a markdown file to enable GitHub push.';
+    tooltip = getMarkdownPushTooltip('noFile');
   } else if (state === 'error') {
     disabled = true;
-    tooltip = 'Resolve file load error before pushing to GitHub.';
+    tooltip = getMarkdownPushTooltip('error');
   } else if (!active.loaded) {
-    tooltip = active.pending ? 'Checking remote version…' : 'Loading remote snapshot…';
+    tooltip = active.pending
+      ? getMarkdownPushTooltip('checking')
+      : getMarkdownPushTooltip('loading');
   } else {
     tooltip = state === 'missing'
-      ? 'Copy draft and create this file on GitHub.'
-      : 'Copy draft and update this file on GitHub.';
+      ? getMarkdownPushTooltip('create')
+      : getMarkdownPushTooltip('update');
   }
 
   const busy = btn.classList.contains('is-busy');
@@ -6870,7 +6981,7 @@ function updateMarkdownDiscardButton(tab) {
   const hasLocalChanges = !!(active && active.path && active.mode === currentMode && (dirty || hasDraftContent));
 
   if (!hasLocalChanges) {
-    if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+    if (!hasBusy) setButtonLabel(btn, getMarkdownDiscardLabel());
     try { btn.classList.remove('is-busy'); } catch (_) {}
     btn.hidden = true;
     btn.setAttribute('aria-hidden', 'true');
@@ -6878,7 +6989,7 @@ function updateMarkdownDiscardButton(tab) {
     btn.setAttribute('aria-disabled', 'true');
     btn.removeAttribute('aria-busy');
     btn.removeAttribute('title');
-    btn.setAttribute('aria-label', MARKDOWN_DISCARD_LABEL);
+    btn.setAttribute('aria-label', getMarkdownDiscardLabel());
     return;
   }
 
@@ -6887,28 +6998,28 @@ function updateMarkdownDiscardButton(tab) {
   btn.removeAttribute('aria-busy');
 
   let disabled = false;
-  let tooltip = 'Discard local markdown changes and restore the last loaded version.';
+  let tooltip = getMarkdownDiscardTooltip('default');
 
   if (!active || !active.path) {
     disabled = true;
-    tooltip = 'Open a markdown file to discard local changes.';
+    tooltip = getMarkdownDiscardTooltip('noFile');
   } else if (!active.loaded && !active.pending) {
-    tooltip = 'Discard local markdown changes (remote snapshot will be reloaded).';
+    tooltip = getMarkdownDiscardTooltip('reload');
   }
 
   if (hasBusy) disabled = true;
 
   btn.disabled = disabled;
   btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-  if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+  if (!hasBusy) setButtonLabel(btn, getMarkdownDiscardLabel());
   if (tooltip) btn.title = tooltip;
   else btn.removeAttribute('title');
-  btn.setAttribute('aria-label', tooltip || MARKDOWN_DISCARD_LABEL);
+  btn.setAttribute('aria-label', tooltip || getMarkdownDiscardLabel());
 }
 
 async function openMarkdownPushOnGitHub(tab) {
   if (!tab || !tab.path) {
-    showToast('info', 'Open a markdown file before pushing to GitHub.');
+    showToast('info', t('editor.toasts.markdownOpenBeforePush'));
     return;
   }
 
@@ -6916,7 +7027,7 @@ async function openMarkdownPushOnGitHub(tab) {
   const owner = String(repo.owner || '').trim();
   const name = String(repo.name || '').trim();
   if (!owner || !name) {
-    showToast('info', 'Configure repo in site.yaml to enable GitHub push.');
+    showToast('info', t('editor.toasts.repoConfigMissing'));
     return;
   }
 
@@ -6924,7 +7035,7 @@ async function openMarkdownPushOnGitHub(tab) {
   const root = getContentRootSafe();
   const rel = normalizeRelPath(tab.path);
   if (!rel) {
-    showToast('error', 'Invalid markdown path.');
+    showToast('error', t('editor.toasts.invalidMarkdownPath'));
     return;
   }
 
@@ -6939,14 +7050,14 @@ async function openMarkdownPushOnGitHub(tab) {
   } catch (err) {
     closePopupWindow(popup);
     console.error('Failed to prepare markdown before pushing to GitHub', err);
-    showToast('error', 'Unable to load the latest markdown before pushing.');
+    showToast('error', t('editor.toasts.unableLoadLatestMarkdown'));
     updateMarkdownPushButton(tab);
     return;
   }
 
   if (!tab.loaded) {
     closePopupWindow(popup);
-    showToast('error', 'Markdown file is not ready to push yet.');
+    showToast('error', t('editor.toasts.markdownNotReady'));
     return;
   }
 
@@ -6975,7 +7086,7 @@ async function openMarkdownPushOnGitHub(tab) {
 
   if (!href) {
     closePopupWindow(popup);
-    showToast('error', 'Unable to resolve GitHub URL for this file.');
+    showToast('error', t('editor.toasts.unableResolveGithubFile'));
     return;
   }
 
@@ -6990,17 +7101,17 @@ async function openMarkdownPushOnGitHub(tab) {
 
   const expectedSignature = computeTextSignature(tab.content != null ? String(tab.content) : '');
   const successMessage = isCreate
-    ? 'Markdown copied. GitHub will open to create this file.'
-    : 'Markdown copied. GitHub will open to update this file.';
+    ? t('editor.composer.markdown.toastCopiedCreate')
+    : t('editor.composer.markdown.toastCopiedUpdate');
   const blockedMessage = isCreate
-    ? 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.'
-    : 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.';
+    ? t('editor.composer.markdown.blockedCreate')
+    : t('editor.composer.markdown.blockedUpdate');
 
   const startWatcher = () => {
     startMarkdownSyncWatcher(tab, {
       expectedSignature,
       isCreate,
-      label: filename || tab.path || 'markdown file'
+      label: filename || tab.path || t('editor.composer.markdown.fileFallback')
     });
   };
 
@@ -7012,7 +7123,7 @@ async function openMarkdownPushOnGitHub(tab) {
     closePopupWindow(popup);
     handlePopupBlocked(href, {
       message: blockedMessage,
-      actionLabel: 'Open GitHub',
+      actionLabel: t('editor.toasts.openGithubAction'),
       onRetry: () => {
         showToast('info', successMessage);
         startWatcher();
@@ -7026,7 +7137,7 @@ async function openMarkdownPushOnGitHub(tab) {
 async function discardMarkdownLocalChanges(tab, anchor) {
   const active = (tab && tab.path) ? tab : getActiveDynamicTab();
   if (!active || !active.path) {
-    showToast('info', 'Open a markdown file before discarding local changes.');
+    showToast('info', t('editor.toasts.markdownOpenBeforeDiscard'));
     updateMarkdownDiscardButton(null);
     return;
   }
@@ -7035,19 +7146,22 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   const hasDraftContent = !!(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
   const dirty = !!active.isDirty;
   if (!dirty && !hasDraftContent) {
-    showToast('info', 'No local markdown changes to discard.');
+    showToast('info', t('editor.toasts.noLocalMarkdownChanges'));
     updateMarkdownDiscardButton(active);
     return;
   }
 
-  const label = active.path || 'current file';
+  const label = active.path || t('editor.composer.markdown.currentFile');
   const trigger = anchor && typeof anchor.closest === 'function' ? anchor.closest('button') : anchor;
   const control = trigger || markdownDiscardButton;
-  const promptMessage = `Discard local changes for ${label}? This action cannot be undone.`;
+  const promptMessage = t('editor.composer.discardConfirm.messageSimple', { label });
 
   let proceed = true;
   try {
-    proceed = await showComposerDiscardConfirm(control, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+    proceed = await showComposerDiscardConfirm(control, promptMessage, {
+      confirmLabel: t('editor.composer.discardConfirm.discard'),
+      cancelLabel: t('editor.composer.dialogs.cancel')
+    });
   } catch (err) {
     console.warn('Markdown discard prompt failed, falling back to native confirm', err);
     try {
@@ -7061,7 +7175,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   if (!proceed) return;
 
   const button = control || markdownDiscardButton;
-  const originalLabel = getButtonLabel(button) || MARKDOWN_DISCARD_LABEL;
+  const originalLabel = getButtonLabel(button) || getMarkdownDiscardLabel();
   const setBusyState = (busy, text) => {
     if (!button) return;
     if (busy) {
@@ -7079,7 +7193,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
     }
   };
 
-  setBusyState(true, 'Discarding…');
+  setBusyState(true, getMarkdownDiscardBusyLabel());
 
   try {
     if (active.pending) {
@@ -7111,12 +7225,12 @@ async function discardMarkdownLocalChanges(tab, anchor) {
       updateDynamicTabDirtyState(active, { autoSave: false });
     }
 
-    showToast('success', `Discarded local changes for ${label}.`);
+    showToast('success', t('editor.toasts.discardSuccess', { label }));
   } catch (err) {
     console.error('Failed to discard markdown changes', err);
-    showToast('error', 'Failed to discard local markdown changes.');
+    showToast('error', t('editor.toasts.discardFailed'));
   } finally {
-    setBusyState(false, originalLabel || MARKDOWN_DISCARD_LABEL);
+    setBusyState(false, originalLabel || getMarkdownDiscardLabel());
     updateMarkdownDiscardButton(active);
     updateMarkdownPushButton(active);
   }
@@ -7647,7 +7761,11 @@ function applyComposerFile(name, options = {}) {
     } catch (_) {}
     try {
       const btn = $('#btnAddItem');
-      if (btn) btn.textContent = isIndex ? 'Add Post Entry' : 'Add Tab Entry';
+      if (btn) {
+        const key = isIndex ? 'editor.composer.addPost' : 'editor.composer.addTab';
+        btn.setAttribute('data-i18n', key);
+        btn.textContent = t(key);
+      }
     } catch (_) {}
   };
 
@@ -8234,15 +8352,20 @@ function buildIndexUI(root, state) {
     row.className = 'ci-item';
     row.setAttribute('data-key', key);
     row.setAttribute('draggable', 'true');
+    const langCount = Object.keys(entry).length;
+    const langCountText = tComposerLang('count', { count: langCount });
+    const detailsLabel = tComposerEntryRow('details');
+    const deleteLabel = tComposerEntryRow('delete');
+    const gripHint = tComposerEntryRow('gripHint');
     row.innerHTML = `
       <div class="ci-head">
-        <span class="ci-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
-        <strong class="ci-key">${key}</strong>
-        <span class="ci-meta">${Object.keys(entry).length} lang</span>
+        <span class="ci-grip" title="${escapeHtml(gripHint)}" aria-hidden="true">⋮⋮</span>
+        <strong class="ci-key">${escapeHtml(key)}</strong>
+        <span class="ci-meta">${escapeHtml(langCountText)}</span>
         <span class="ci-diff" aria-live="polite"></span>
         <span class="ci-actions">
-          <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
-          <button class="btn-secondary ci-del">Delete</button>
+          <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>${escapeHtml(detailsLabel)}</button>
+          <button class="btn-secondary ci-del">${escapeHtml(deleteLabel)}</button>
         </span>
       </div>
       <div class="ci-body"><div class="ci-body-inner"></div></div>
@@ -8253,6 +8376,11 @@ function buildIndexUI(root, state) {
     const bodyInner = $('.ci-body-inner', row);
     const btnExpand = $('.ci-expand', row);
     const btnDel = $('.ci-del', row);
+    if (btnExpand) btnExpand.setAttribute('title', detailsLabel);
+    if (btnDel) {
+      btnDel.setAttribute('title', deleteLabel);
+      btnDel.setAttribute('aria-label', deleteLabel);
+    }
 
     body.dataset.open = '0';
     body.style.display = 'none';
@@ -8260,6 +8388,14 @@ function buildIndexUI(root, state) {
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
+      const addVersionLabel = tComposerLang('addVersion');
+      const removeLangLabel = tComposerLang('removeLanguage');
+      const pathPlaceholder = tComposerLang('placeholders.indexPath');
+      const editLabel = tComposerLang('actions.edit');
+      const openLabel = tComposerLang('actions.open');
+      const moveUpLabel = tComposerLang('actions.moveUp');
+      const moveDownLabel = tComposerLang('actions.moveDown');
+      const removeLabel = tComposerLang('actions.remove');
       langs.forEach(lang => {
         const block = document.createElement('div');
         block.className = 'ci-lang';
@@ -8269,10 +8405,10 @@ function buildIndexUI(root, state) {
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
         block.innerHTML = `
           <div class="ci-lang-head">
-            <strong>${lang.toUpperCase()}</strong>
+            <strong>${escapeHtml(lang.toUpperCase())}</strong>
             <span class="ci-lang-actions">
-              <button class="btn-secondary ci-lang-addver">+ Version</button>
-              <button class="btn-secondary ci-lang-del">Remove Lang</button>
+              <button type="button" class="btn-secondary ci-lang-addver">${escapeHtml(addVersionLabel)}</button>
+              <button type="button" class="btn-secondary ci-lang-del">${escapeHtml(removeLangLabel)}</button>
             </span>
           </div>
           <div class="ci-ver-list"></div>
@@ -8326,49 +8462,49 @@ function buildIndexUI(root, state) {
           verList.innerHTML = '';
           arr.forEach((p, i) => {
             const id = verIds[i] || (verIds[i] = Math.random().toString(36).slice(2));
-          const row = document.createElement('div');
-          row.className = 'ci-ver-item';
-          row.setAttribute('data-id', id);
-          row.dataset.lang = lang;
-          row.dataset.index = String(i);
-          row.dataset.value = p || '';
-          const normalizedPath = normalizeRelPath(p);
-          if (normalizedPath) row.dataset.mdPath = normalizedPath;
-          else delete row.dataset.mdPath;
-          row.innerHTML = `
-            <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
-            <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
-            <span class="ci-ver-actions">
-              <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
-              <button class="btn-secondary ci-up" title="Move up">↑</button>
-                <button class="btn-secondary ci-down" title="Move down">↓</button>
-                <button class="btn-secondary ci-remove" title="Remove">✕</button>
+            const row = document.createElement('div');
+            row.className = 'ci-ver-item';
+            row.setAttribute('data-id', id);
+            row.dataset.lang = lang;
+            row.dataset.index = String(i);
+            row.dataset.value = p || '';
+            const normalizedPath = normalizeRelPath(p);
+            if (normalizedPath) row.dataset.mdPath = normalizedPath;
+            else delete row.dataset.mdPath;
+            row.innerHTML = `
+              <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
+              <input class="ci-path" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(p || '')}" />
+              <span class="ci-ver-actions">
+                <button type="button" class="btn-secondary ci-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
+                <button type="button" class="btn-secondary ci-up" title="${escapeHtml(moveUpLabel)}" aria-label="${escapeHtml(moveUpLabel)}"><span aria-hidden="true">↑</span></button>
+                <button type="button" class="btn-secondary ci-down" title="${escapeHtml(moveDownLabel)}" aria-label="${escapeHtml(moveDownLabel)}"><span aria-hidden="true">↓</span></button>
+                <button type="button" class="btn-secondary ci-remove" title="${escapeHtml(removeLabel)}" aria-label="${escapeHtml(removeLabel)}"><span aria-hidden="true">✕</span></button>
               </span>
             `;
-          const up = $('.ci-up', row);
-          const down = $('.ci-down', row);
-          // Disable ↑ for first, ↓ for last
-          if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
-          if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
-          updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
+            const up = $('.ci-up', row);
+            const down = $('.ci-down', row);
+            // Disable ↑ for first, ↓ for last
+            if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
+            if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+            updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
 
-          $('.ci-path', row).addEventListener('input', (e) => {
-            const prevPath = row.dataset.mdPath || '';
-            arr[i] = e.target.value;
-            entry[lang] = arr.slice();
-            row.dataset.value = arr[i] || '';
-            const nextPath = normalizeRelPath(arr[i]);
-            if (nextPath) row.dataset.mdPath = nextPath;
-            else delete row.dataset.mdPath;
-            updateComposerMarkdownDraftIndicators({ element: row });
-            if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
-            if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
-            markDirty();
-          });
+            $('.ci-path', row).addEventListener('input', (e) => {
+              const prevPath = row.dataset.mdPath || '';
+              arr[i] = e.target.value;
+              entry[lang] = arr.slice();
+              row.dataset.value = arr[i] || '';
+              const nextPath = normalizeRelPath(arr[i]);
+              if (nextPath) row.dataset.mdPath = nextPath;
+              else delete row.dataset.mdPath;
+              updateComposerMarkdownDraftIndicators({ element: row });
+              if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
+              if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
+              markDirty();
+            });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
               if (!rel) {
-                alert('Enter a markdown path before opening the editor.');
+                alert(tComposer('markdown.openBeforeEditor'));
                 return;
               }
               openMarkdownInEditor(rel);
@@ -8396,15 +8532,15 @@ function buildIndexUI(root, state) {
               arr.splice(i, 1);
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
-        renderVers(prev);
-        markDirty();
-      });
-      verList.appendChild(row);
-    });
-    animateFrom(prevRects);
-    updateComposerDraftContainerState(verList.closest('.ci-item'));
-  };
-  renderVers();
+              renderVers(prev);
+              markDirty();
+            });
+            verList.appendChild(row);
+          });
+          animateFrom(prevRects);
+          updateComposerMarkdownDraftContainerState(verList.closest('.ci-item'));
+        };
+        renderVers();
         $('.ci-lang-addver', block).addEventListener('click', () => {
           const prev = snapRects();
           arr.push('');
@@ -8415,7 +8551,8 @@ function buildIndexUI(root, state) {
         });
         $('.ci-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
-          row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
+          const meta = row.querySelector('.ci-meta');
+          if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
           markDirty();
         });
@@ -8426,16 +8563,21 @@ function buildIndexUI(root, state) {
       const supportedLangs = PREFERRED_LANG_ORDER.slice();
       const available = supportedLangs.filter(l => !entry[l]);
       if (available.length > 0) {
+        const addLangLabel = tComposerLang('addLanguage');
         const addLangWrap = document.createElement('div');
         addLangWrap.className = 'ci-add-lang has-menu';
         addLangWrap.innerHTML = `
-          <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">+ Add Language</button>
+          <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ci-lang-menu ns-menu" role="listbox" hidden>
             ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${displayLangName(l)}</button>`).join('')}
           </div>
         `;
         const btn = $('.ci-add-lang-btn', addLangWrap);
         const menu = $('.ci-lang-menu', addLangWrap);
+        if (btn) {
+          btn.setAttribute('title', addLangLabel);
+          btn.setAttribute('aria-label', addLangLabel);
+        }
         function closeMenu(){
           if (menu.hidden) return;
           // animate out, then hide
@@ -8475,7 +8617,8 @@ function buildIndexUI(root, state) {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
             entry[code] = [''];
-            row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
+            const meta = row.querySelector('.ci-meta');
+            if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
             markDirty();
@@ -8529,15 +8672,20 @@ function buildTabsUI(root, state) {
     row.className = 'ct-item';
     row.setAttribute('data-key', tab);
     row.setAttribute('draggable', 'true');
+    const langCount = Object.keys(entry).length;
+    const langCountText = tComposerLang('count', { count: langCount });
+    const detailsLabel = tComposerEntryRow('details');
+    const deleteLabel = tComposerEntryRow('delete');
+    const gripHint = tComposerEntryRow('gripHint');
     row.innerHTML = `
       <div class="ct-head">
-        <span class="ct-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
-        <strong class="ct-key">${tab}</strong>
-        <span class="ct-meta">${Object.keys(entry).length} lang</span>
+        <span class="ct-grip" title="${escapeHtml(gripHint)}" aria-hidden="true">⋮⋮</span>
+        <strong class="ct-key">${escapeHtml(tab)}</strong>
+        <span class="ct-meta">${escapeHtml(langCountText)}</span>
         <span class="ct-diff" aria-live="polite"></span>
         <span class="ct-actions">
-          <button class="btn-secondary ct-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
-          <button class="btn-secondary ct-del">Delete</button>
+          <button class="btn-secondary ct-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>${escapeHtml(detailsLabel)}</button>
+          <button class="btn-secondary ct-del">${escapeHtml(deleteLabel)}</button>
         </span>
       </div>
       <div class="ct-body"><div class="ct-body-inner"></div></div>
@@ -8548,6 +8696,11 @@ function buildTabsUI(root, state) {
     const bodyInner = $('.ct-body-inner', row);
     const btnExpand = $('.ct-expand', row);
     const btnDel = $('.ct-del', row);
+    if (btnExpand) btnExpand.setAttribute('title', detailsLabel);
+    if (btnDel) {
+      btnDel.setAttribute('title', deleteLabel);
+      btnDel.setAttribute('aria-label', deleteLabel);
+    }
 
     body.dataset.open = '0';
     body.style.display = 'none';
@@ -8555,12 +8708,19 @@ function buildTabsUI(root, state) {
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
+      const titleLabel = tComposerLang('fields.title');
+      const locationLabel = tComposerLang('fields.location');
+      const pathPlaceholder = tComposerLang('placeholders.tabPath');
+      const editLabel = tComposerLang('actions.edit');
+      const openLabel = tComposerLang('actions.open');
+      const removeLangLabel = tComposerLang('removeLanguage');
+      const addLangLabel = tComposerLang('addLanguage');
       langs.forEach(lang => {
         const v = entry[lang] || { title: '', location: '' };
         const flag = langFlag(lang);
         const langLabel = displayLangName(lang);
-        const safeLabel = String(langLabel || '').replace(/"/g, '&quot;');
-        const flagSpan = flag ? `<span class="ct-lang-flag" aria-hidden="true">${flag}</span>` : '';
+        const safeLabel = escapeHtml(langLabel || '');
+        const flagSpan = flag ? `<span class="ct-lang-flag" aria-hidden="true">${escapeHtml(flag)}</span>` : '';
         const block = document.createElement('div');
         block.className = 'ct-lang';
         block.dataset.lang = lang;
@@ -8571,14 +8731,14 @@ function buildTabsUI(root, state) {
           <div class="ct-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
             <span class="ct-draft-indicator" aria-hidden="true" hidden></span>
             ${flagSpan}
-            <span class="ct-lang-code" aria-hidden="true">${lang.toUpperCase()}</span>
+            <span class="ct-lang-code" aria-hidden="true">${escapeHtml(lang.toUpperCase())}</span>
           </div>
           <div class="ct-lang-main">
-            <label class="ct-field ct-field-title">Title <input class="ct-title" type="text" value="${v.title || ''}" /></label>
-            <label class="ct-field ct-field-location">Location <input class="ct-loc" type="text" placeholder="tab/.../file.md" value="${v.location || ''}" /></label>
+            <label class="ct-field ct-field-title"><span class="ct-field-label">${escapeHtml(titleLabel)}</span> <input class="ct-title" type="text" value="${escapeHtml(v.title || '')}" /></label>
+            <label class="ct-field ct-field-location"><span class="ct-field-label">${escapeHtml(locationLabel)}</span> <input class="ct-loc" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(v.location || '')}" /></label>
             <div class="ct-lang-actions">
-              <button type="button" class="btn-secondary ct-edit">Edit</button>
-              <button type="button" class="btn-secondary ct-lang-del">Remove Lang</button>
+              <button type="button" class="btn-secondary ct-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
+              <button type="button" class="btn-secondary ct-lang-del">${escapeHtml(removeLangLabel)}</button>
             </div>
           </div>
         `;
@@ -8591,6 +8751,11 @@ function buildTabsUI(root, state) {
         if (locInput) {
           locInput.dataset.lang = lang;
           locInput.dataset.field = 'location';
+        }
+        const langRemoveBtn = $('.ct-lang-del', block);
+        if (langRemoveBtn) {
+          langRemoveBtn.setAttribute('title', removeLangLabel);
+          langRemoveBtn.setAttribute('aria-label', removeLangLabel);
         }
         updateComposerMarkdownDraftIndicators({ element: block, path: initialPath });
         titleInput.addEventListener('input', (e) => {
@@ -8613,14 +8778,15 @@ function buildTabsUI(root, state) {
         $('.ct-edit', block).addEventListener('click', () => {
           const rel = normalizeRelPath(locInput.value);
           if (!rel) {
-            alert('Enter a markdown location before opening the editor.');
+            alert(tComposer('markdown.openBeforeEditor'));
             return;
           }
           openMarkdownInEditor(rel);
         });
         $('.ct-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
-          row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
+          const meta = row.querySelector('.ct-meta');
+          if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
           markDirty();
         });
@@ -8634,13 +8800,17 @@ function buildTabsUI(root, state) {
         const addLangWrap = document.createElement('div');
         addLangWrap.className = 'ct-add-lang has-menu';
         addLangWrap.innerHTML = `
-          <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">+ Add Language</button>
+          <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ct-lang-menu ns-menu" role="listbox" hidden>
             ${available.map(l => `<button type=\"button\" role=\"option\" class=\"ns-menu-item\" data-lang=\"${l}\">${displayLangName(l)}</button>`).join('')}
           </div>
         `;
         const btn = $('.ct-add-lang-btn', addLangWrap);
         const menu = $('.ct-lang-menu', addLangWrap);
+        if (btn) {
+          btn.setAttribute('title', addLangLabel);
+          btn.setAttribute('aria-label', addLangLabel);
+        }
         function closeMenu(){
           if (menu.hidden) return;
           const finish = () => {
@@ -8678,7 +8848,8 @@ function buildTabsUI(root, state) {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
             entry[code] = { title: '', location: '' };
-            row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
+            const meta = row.querySelector('.ct-meta');
+            if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
             markDirty();
@@ -8754,11 +8925,11 @@ async function promptComposerEntryKey(kind, anchor) {
     });
   } catch (_) {}
 
-  const typeLabel = normalized === 'tabs' ? 'tab' : 'post';
-  const typeTitle = typeLabel === 'tab' ? 'Tab' : 'Post';
-  const confirmLabel = `Add ${typeTitle} Entry`;
-  const placeholder = `${typeTitle} key`;
-  const message = `Enter a new ${typeLabel} key (letters and numbers only):`;
+  const typeKey = normalized === 'tabs' ? 'tab' : 'post';
+  const typeLabel = t(`editor.composer.entryKinds.${typeKey}.label`);
+  const confirmLabel = t(`editor.composer.entryKinds.${typeKey}.confirm`);
+  const placeholder = t(`editor.composer.entryKinds.${typeKey}.placeholder`);
+  const message = t(`editor.composer.entryKinds.${typeKey}.message`);
 
   try {
     const result = await showComposerAddEntryPrompt(anchor, {
@@ -9162,7 +9333,7 @@ function bindComposerUI(state) {
       modal.addEventListener('mousedown', (e)=>{ if (e.target === modal) close(); });
       modal.addEventListener('keydown', (e)=>{ if ((e.key||'').toLowerCase()==='escape') close(); });
       btnVerify.addEventListener('click', async ()=>{
-        btnVerify.disabled = true; btnVerify.textContent = 'Verifying…';
+        btnVerify.disabled = true; btnVerify.textContent = t('editor.composer.verifying');
         try {
           const normalizedTarget = normalizeTarget(targetKind) || (getActiveComposerFile() === 'tabs' ? 'tabs' : 'index');
           // Also copy YAML snapshot here to leverage the user gesture
@@ -9174,7 +9345,7 @@ function bindComposerUI(state) {
           if (!now.length){ close(); await afterAllGood(normalizedTarget); }
           else { renderList(now); /* no toast: inline red banner shows status */ }
         } finally {
-          try { btnVerify.disabled = false; btnVerify.textContent = 'Verify'; } catch(_) {}
+          try { btnVerify.disabled = false; btnVerify.textContent = t('editor.composer.verify'); } catch(_) {}
         }
       });
 
@@ -9195,7 +9366,7 @@ function bindComposerUI(state) {
       const popup = preparePopupWindow();
       if (norm(cur) === norm(desired)) {
         closePopupWindow(popup);
-        showToast('success', `${baseName}.yaml is up to date`);
+        showToast('success', t('editor.toasts.yamlUpToDate', { name: `${baseName}.yaml` }));
         try {
           const snapshot = await fetchComposerRemoteSnapshot(target);
           if (snapshot && snapshot.state === 'existing') {
@@ -9217,18 +9388,18 @@ function bindComposerUI(state) {
         else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `${baseName}.yaml`);
         if (!href) {
           closePopupWindow(popup);
-          showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
+          showToast('error', t('editor.toasts.unableResolveYamlSync'));
           return;
         }
         const successMessage = cur
-          ? `${baseName}.yaml copied. GitHub will open so you can paste the update.`
-          : `${baseName}.yaml copied. GitHub will open so you can create the file.`;
-        const blockedMessage = `${baseName}.yaml copied. Click “Open GitHub” if the new tab did not appear.`;
+          ? t('editor.composer.yaml.toastCopiedUpdate', { name: `${baseName}.yaml` })
+          : t('editor.composer.yaml.toastCopiedCreate', { name: `${baseName}.yaml` });
+        const blockedMessage = t('editor.composer.yaml.blocked', { name: `${baseName}.yaml` });
 
         const startWatcher = () => {
           startComposerSyncWatcher(target, {
             expectedText: desired,
-            message: `Waiting for GitHub to apply ${baseName}.yaml changes…`
+            message: t('editor.composer.remoteWatcher.waitingForLabel', { label: `${baseName}.yaml` })
           });
         };
 
@@ -9240,7 +9411,7 @@ function bindComposerUI(state) {
           closePopupWindow(popup);
           handlePopupBlocked(href, {
             message: blockedMessage,
-            actionLabel: 'Open GitHub',
+            actionLabel: t('editor.toasts.openGithubAction'),
             onRetry: () => {
               showToast('info', successMessage);
               startWatcher();
@@ -9249,7 +9420,7 @@ function bindComposerUI(state) {
         }
       } else {
         closePopupWindow(popup);
-        showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
+        showToast('info', t('editor.toasts.yamlCopiedNoRepo'));
       }
     }
 
@@ -9257,7 +9428,8 @@ function bindComposerUI(state) {
         // Perform first pass; if any missing, show modal list; otherwise go to YAML check
         try {
           btn.disabled = true;
-          if (btnLabel) btnLabel.textContent = 'Verifying…'; else btn.textContent = 'Verifying…';
+          if (btnLabel) btnLabel.textContent = t('editor.composer.verifying');
+          else btn.textContent = t('editor.composer.verifying');
         } catch(_) {}
       try {
         const targetKind = resolveTargetKind(btn);
@@ -9274,7 +9446,9 @@ function bindComposerUI(state) {
         try {
           btn.disabled = false;
           // Restore original label
-          if (btnLabel) btnLabel.textContent = 'Synchronize'; else btn.textContent = 'Synchronize';
+          const restoreLabel = getMarkdownPushLabel('default');
+          if (btnLabel) btnLabel.textContent = restoreLabel;
+          else btn.textContent = restoreLabel;
         } catch(_) {}
       }
       });
@@ -9301,12 +9475,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
       const active = getActiveDynamicTab();
       if (!active) {
-        showToast('info', 'Open a markdown file before pushing to GitHub.');
+        showToast('info', t('editor.toasts.markdownOpenBeforePush'));
         return;
       }
 
       const button = markdownPushButton;
-      const originalLabel = getButtonLabel(button) || MARKDOWN_PUSH_LABELS.default;
+      const originalLabel = getButtonLabel(button) || getMarkdownPushLabel('default');
       const setBusyState = (busy, text) => {
         if (!button) return;
         if (busy) {
@@ -9324,7 +9498,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       };
 
-      setBusyState(true, 'Preparing…');
+      setBusyState(true, t('editor.composer.remoteWatcher.preparing'));
       try {
         await openMarkdownPushOnGitHub(active);
       } finally {
@@ -9352,7 +9526,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (_) {}
 
   const state = { index: {}, tabs: {} };
-  showStatus('Loading config…');
+  showStatus(t('editor.composer.statusMessages.loadingConfig'));
   try {
     const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
     const root = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
@@ -9386,7 +9560,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (restoredDrafts.length) {
     const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : 'index.yaml')).join(' & ');
-    showStatus(`Restored local draft for ${label}`);
+    showStatus(t('editor.composer.statusMessages.restoredDraft', { label }));
     setTimeout(() => { showStatus(''); }, 1800);
   } else {
     showStatus('');
