@@ -420,12 +420,12 @@
       box-shadow:0 4px 14px rgba(15, 23, 42, 0.08);
     }
     @keyframes gs-arrow-flow {
-      0% { background-position: 0% 0; }
-      100% { background-position: 200% 0; }
+      0% { background-position: 200% 0; }
+      100% { background-position: 0% 0; }
     }
     @keyframes gs-arrow-flow-vertical {
-      0% { background-position: 0% 0; }
-      100% { background-position: 0% 200%; }
+      0% { background-position: 0% 200%; }
+      100% { background-position: 0% 0; }
     }
     .global-status .gs-arrow.is-pending::before {
       background-image: linear-gradient(90deg,
@@ -435,7 +435,7 @@
         color-mix(in srgb, currentColor 68%, var(--card) 12%) 82%,
         color-mix(in srgb, currentColor 22%, var(--card) 78%) 100%);
       background-size:260% 100%;
-      animation: gs-arrow-flow 1s linear infinite;
+      animation: gs-arrow-flow 2s linear infinite;
       opacity:1;
     }
     .global-status .gs-arrow-tail,
@@ -549,7 +549,7 @@
           color-mix(in srgb, currentColor 68%, var(--card) 12%) 80%,
           color-mix(in srgb, currentColor 22%, var(--card) 78%) 100%);
         background-size: 100% 260%;
-        animation: gs-arrow-flow-vertical 1s linear infinite;
+        animation: gs-arrow-flow-vertical 2s linear infinite;
       }
       .global-status .gs-arrow-tail,
       .global-status .gs-arrow-head {
