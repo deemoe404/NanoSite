@@ -70,6 +70,8 @@ let composerOrderPreviewState = { index: null, tabs: null };
 let composerOrderPreviewActiveKind = 'index';
 let composerOrderPreviewResizeHandler = null;
 const composerOrderPreviewRelayoutTimers = { index: null, tabs: null };
+let activeComposerFile = 'index';
+let composerViewTransition = null;
 
 let composerReduceMotionQuery = null;
 const composerInlineVisibilityAnimations = new WeakMap();
@@ -327,13 +329,7 @@ function animateComposerListTransition(list, previousRect) {
 }
 
 function getActiveComposerFile() {
-  try {
-    const a = document.querySelector('a.vt-btn[data-cfile].active');
-    const name = a && a.dataset && a.dataset.cfile;
-    return name === 'tabs' ? 'tabs' : 'index';
-  } catch (_) {
-    return 'index';
-  }
+  return activeComposerFile === 'tabs' ? 'tabs' : 'index';
 }
 
 function deepClone(value) {
@@ -7120,42 +7116,161 @@ function getInitialComposerFile() {
   return 'index';
 }
 
-function applyComposerFile(name) {
-  const isIndex = name !== 'tabs';
-  try {
-    const hostIndex = document.getElementById('composerIndexHost');
-    if (hostIndex) hostIndex.style.display = isIndex ? '' : 'none';
-  } catch (_) {}
-  try {
-    const hostTabs = document.getElementById('composerTabsHost');
-    if (hostTabs) hostTabs.style.display = isIndex ? 'none' : '';
-  } catch (_) {}
-  try { $('#composerIndex').style.display = isIndex ? 'block' : 'none'; } catch (_) {}
-  try { $('#composerTabs').style.display = isIndex ? 'none' : 'block'; } catch (_) {}
-  try {
-    $$('a.vt-btn[data-cfile]').forEach(a => {
-      a.classList.toggle('active', a.dataset.cfile === (isIndex ? 'index' : 'tabs'));
+function cancelComposerViewTransition() {
+  if (!composerViewTransition) return;
+  const { panels, cleanup } = composerViewTransition;
+  if (typeof cleanup === 'function') {
+    try { cleanup(); } catch (_) {}
+  }
+  if (panels) {
+    panels.classList.remove('is-hidden');
+    panels.classList.remove('is-transitioning');
+  }
+  composerViewTransition = null;
+}
+
+function applyComposerFile(name, options = {}) {
+  const target = name === 'tabs' ? 'tabs' : 'index';
+  const force = !!options.force;
+  const immediate = !!options.immediate;
+  if (!force && activeComposerFile === target) {
+    if (immediate) cancelComposerViewTransition();
+    return;
+  }
+
+  const panels = document.getElementById('composerPanels');
+  const reduceMotion = immediate || composerPrefersReducedMotion();
+
+  activeComposerFile = target;
+
+  const updateToggleUi = () => {
+    const isIndex = activeComposerFile !== 'tabs';
+    try {
+      $$('a.vt-btn[data-cfile]').forEach(a => {
+        a.classList.toggle('active', a.dataset.cfile === (isIndex ? 'index' : 'tabs'));
+      });
+    } catch (_) {}
+    try {
+      const btn = $('#btnAddItem');
+      if (btn) btn.textContent = isIndex ? 'Add Post Entry' : 'Add Tab Entry';
+    } catch (_) {}
+  };
+
+  updateToggleUi();
+
+  const applyState = () => {
+    const isIndex = activeComposerFile !== 'tabs';
+    try {
+      const hostIndex = document.getElementById('composerIndexHost');
+      if (hostIndex) hostIndex.style.display = isIndex ? '' : 'none';
+    } catch (_) {}
+    try {
+      const hostTabs = document.getElementById('composerTabsHost');
+      if (hostTabs) hostTabs.style.display = isIndex ? 'none' : '';
+    } catch (_) {}
+    try { $('#composerIndex').style.display = isIndex ? 'block' : 'none'; } catch (_) {}
+    try { $('#composerTabs').style.display = isIndex ? 'none' : 'block'; } catch (_) {}
+    // Sync preload attribute to avoid CSS forcing the wrong sub-file
+    try {
+      if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
+      else document.documentElement.removeAttribute('data-init-cfile');
+    } catch (_) {}
+
+    try { setComposerOrderPreviewActiveKind(activeComposerFile); } catch (_) {}
+    try { updateUnsyncedSummary(); } catch (_) {}
+  };
+
+  if (!panels || reduceMotion) {
+    cancelComposerViewTransition();
+    applyState();
+    if (panels) {
+      panels.classList.remove('is-hidden');
+      panels.classList.remove('is-transitioning');
+    }
+    return;
+  }
+
+  cancelComposerViewTransition();
+
+  const duration = 200;
+  const state = { panels };
+  composerViewTransition = state;
+  let switched = false;
+  let finished = false;
+  let timerOut = null;
+  let timerIn = null;
+
+  const clearTimerOut = () => {
+    if (timerOut != null) {
+      clearTimeout(timerOut);
+      timerOut = null;
+    }
+  };
+
+  const clearTimerIn = () => {
+    if (timerIn != null) {
+      clearTimeout(timerIn);
+      timerIn = null;
+    }
+  };
+
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimerIn();
+    panels.classList.remove('is-transitioning');
+    panels.classList.remove('is-hidden');
+    panels.removeEventListener('transitionend', handleFadeOut);
+    panels.removeEventListener('transitionend', handleFadeIn);
+    composerViewTransition = null;
+  };
+
+  const handleFadeIn = (event) => {
+    if (event && (event.target !== panels || event.propertyName !== 'opacity')) return;
+    clearTimerIn();
+    finish();
+  };
+
+  const startFadeIn = () => {
+    if (switched) return;
+    switched = true;
+    panels.removeEventListener('transitionend', handleFadeOut);
+    clearTimerOut();
+    applyState();
+    requestAnimationFrame(() => {
+      if (finished) return;
+      panels.addEventListener('transitionend', handleFadeIn);
+      panels.classList.remove('is-hidden');
+      timerIn = window.setTimeout(() => handleFadeIn({ target: panels, propertyName: 'opacity' }), duration + 80);
     });
-  } catch (_) {}
-  try {
-    const btn = $('#btnAddItem');
-    if (btn) btn.textContent = isIndex ? 'Add Post Entry' : 'Add Tab Entry';
-  } catch (_) {}
-  // Sync preload attribute to avoid CSS forcing the wrong sub-file
-  try {
-    if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
-    else document.documentElement.removeAttribute('data-init-cfile');
-  } catch (_) {}
+  };
 
-  try { setComposerOrderPreviewActiveKind(isIndex ? 'index' : 'tabs'); } catch (_) {}
-  try { updateUnsyncedSummary(); } catch (_) {}
+  const handleFadeOut = (event) => {
+    if (event && (event.target !== panels || event.propertyName !== 'opacity')) return;
+    startFadeIn();
+  };
 
+  state.cleanup = () => {
+    clearTimerOut();
+    clearTimerIn();
+    panels.removeEventListener('transitionend', handleFadeOut);
+    panels.removeEventListener('transitionend', handleFadeIn);
+  };
+
+  panels.addEventListener('transitionend', handleFadeOut);
+  panels.classList.add('is-transitioning');
+
+  requestAnimationFrame(() => {
+    if (finished) return;
+    panels.classList.add('is-hidden');
+    timerOut = window.setTimeout(() => startFadeIn(), duration + 80);
+  });
 }
 
 // Apply initial state as early as possible to avoid flash on reload
 (() => {
   try { applyMode('composer'); } catch (_) {}
-  try { applyComposerFile(getInitialComposerFile()); } catch (_) {}
+  try { applyComposerFile(getInitialComposerFile(), { immediate: true, force: true }); } catch (_) {}
   try { updateDynamicTabsGroupState(); } catch (_) {}
 })();
 
@@ -8255,13 +8370,13 @@ function bindComposerUI(state) {
 
   // File switch (index.yaml <-> tabs.yaml)
   const links = $$('a.vt-btn[data-cfile]');
-  const setFile = (name) => {
-    applyComposerFile(name);
+  const setFile = (name, options = {}) => {
+    applyComposerFile(name, options);
     try { localStorage.setItem(LS_KEYS.cfile, (name === 'tabs') ? 'tabs' : 'index'); } catch (_) {}
   };
   links.forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setFile(a.dataset.cfile); }));
   // Respect persisted selection on load
-  setFile(getInitialComposerFile());
+  setFile(getInitialComposerFile(), { immediate: true });
 
   // ----- Composer: New Post Wizard -----
   // Legacy wizard removed in favor of inline add buttons.

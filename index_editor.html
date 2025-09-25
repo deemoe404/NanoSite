@@ -44,6 +44,7 @@
         --composer-inline-duration-out: 200ms;
         --composer-inline-ease: linear;
       }
+      .composer-panels { transition: none; }
     }
     /* Widen the editor page and reduce side padding */
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
@@ -964,7 +965,9 @@
       .editor-page { padding: .75rem; }
     }
 
-    .composer-panels { min-width: 0; display: grid; gap: 1.25rem; }
+    .composer-panels { min-width: 0; display: grid; gap: 1.25rem; opacity: 1; transition: opacity 200ms ease; }
+    .composer-panels.is-transitioning { pointer-events: none; }
+    .composer-panels.is-hidden { opacity: 0; }
     .composer-order-host {
       position: relative;
       display: grid;
