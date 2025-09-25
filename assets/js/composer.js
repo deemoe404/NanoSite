@@ -4698,11 +4698,17 @@ function scheduleComposerOrderPreviewRelayout(kind) {
   composerOrderPreviewRelayoutTimers[normalized] = pending;
 }
 
-function animateComposerInlineVisibility(el, show) {
+function animateComposerInlineVisibility(el, show, options = {}) {
   if (!el) return;
   const visibleClass = 'is-visible';
   const animatingClass = 'is-animating';
   const maxDuration = 520;
+  const {
+    beforeHidden,
+    afterHidden,
+    beforeShown,
+    afterShown
+  } = options || {};
 
   const clearExisting = () => {
     if (el.__nsComposerInlineTransitionHandler) {
@@ -4720,7 +4726,13 @@ function animateComposerInlineVisibility(el, show) {
   if (show) {
     if (!el.hidden && el.classList.contains(visibleClass)) {
       el.setAttribute('aria-hidden', 'false');
+      if (typeof afterShown === 'function') {
+        try { afterShown(); } catch (_) {}
+      }
       return;
+    }
+    if (typeof beforeShown === 'function') {
+      try { beforeShown(); } catch (_) {}
     }
     el.hidden = false;
     el.setAttribute('aria-hidden', 'false');
@@ -4729,9 +4741,15 @@ function animateComposerInlineVisibility(el, show) {
     try { void el.offsetWidth; } catch (_) {}
     el.classList.add(visibleClass);
 
+    let finished = false;
     const finish = () => {
+      if (finished) return;
+      finished = true;
       clearExisting();
       el.classList.remove(animatingClass);
+      if (typeof afterShown === 'function') {
+        try { afterShown(); } catch (_) {}
+      }
     };
 
     const handler = evt => {
@@ -4747,6 +4765,9 @@ function animateComposerInlineVisibility(el, show) {
 
   if (el.hidden && !el.classList.contains(visibleClass)) {
     el.setAttribute('aria-hidden', 'true');
+    if (typeof afterHidden === 'function') {
+      try { afterHidden(null); } catch (_) {}
+    }
     return;
   }
 
@@ -4754,10 +4775,27 @@ function animateComposerInlineVisibility(el, show) {
   el.classList.remove(visibleClass);
   el.setAttribute('aria-hidden', 'true');
 
+  let finished = false;
+  let prepared = false;
+  let preparedValue = null;
   const finish = () => {
+    if (finished) return;
+    finished = true;
     clearExisting();
+    if (!prepared && typeof beforeHidden === 'function') {
+      prepared = true;
+      try { preparedValue = beforeHidden(); }
+      catch (_) { preparedValue = null; }
+    }
     el.hidden = true;
     el.classList.remove(animatingClass);
+    if (typeof afterHidden === 'function') {
+      try { afterHidden(preparedValue); }
+      catch (_) {}
+    } else if (typeof preparedValue === 'function') {
+      try { preparedValue(); }
+      catch (_) {}
+    }
   };
 
   const handler = evt => {
@@ -4981,6 +5019,25 @@ function updateComposerOrderPreview(kind, options = {}) {
 
   const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
   let layoutTransition = host ? prepareComposerOrderLayoutAnimation({ host, meta }) : null;
+  const buildCollapseHideOptions = () => {
+    if (!host) return null;
+    let ran = false;
+    return {
+      beforeHidden: () => {
+        if (!host) return null;
+        try { return prepareComposerOrderLayoutAnimation({ host, meta }); }
+        catch (_) { return null; }
+      },
+      afterHidden: (runner) => {
+        if (ran) return;
+        ran = true;
+        if (typeof runner === 'function') {
+          try { runner({ collapseInline: true, phase: 'collapse-final' }); }
+          catch (_) {}
+        }
+      }
+    };
+  };
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
 
   if (title) title.textContent = 'Change summary';
@@ -5071,12 +5128,14 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (!hasDiffChanges) {
+    const inlineHideOptions = buildCollapseHideOptions() || {};
+    const metaHideOptions = buildCollapseHideOptions() || {};
     if (root) {
-      animateComposerInlineVisibility(root, false);
+      animateComposerInlineVisibility(root, false, inlineHideOptions);
       root.dataset.state = 'clean';
     }
     if (meta) {
-      animateComposerInlineVisibility(meta, false);
+      animateComposerInlineVisibility(meta, false, metaHideOptions);
     }
     if (host) host.dataset.state = 'clean';
     if (svg) svg.style.display = 'none';
@@ -5108,7 +5167,8 @@ function updateComposerOrderPreview(kind, options = {}) {
       else root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
       root.dataset.state = 'changed';
     } else {
-      animateComposerInlineVisibility(root, false);
+      const inlineHideOptions = buildCollapseHideOptions() || {};
+      animateComposerInlineVisibility(root, false, inlineHideOptions);
       root.dataset.state = 'clean';
     }
   }
