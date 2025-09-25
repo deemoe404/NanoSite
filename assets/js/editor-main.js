@@ -763,11 +763,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const updateFormattingToolbarState = () => {
-    const hasSelection = lastSelectionRange && (lastSelectionRange.end > lastSelectionRange.start);
+    const textarea = getEditorTextarea();
+    const selection = lastSelectionRange || { start: 0, end: 0 };
+    const hasSelection = selection.end > selection.start;
     formattingButtons.forEach(btn => {
       if (!btn || !btn.el) return;
-      const requiresSelection = btn.requiresSelection !== false;
-      if (requiresSelection) btn.el.disabled = !hasSelection;
+      let enabled = false;
+      if (typeof btn.isEnabled === 'function') {
+        enabled = !!btn.isEnabled(selection, textarea);
+      } else {
+        const requiresSelection = btn.requiresSelection !== false;
+        enabled = requiresSelection ? hasSelection : true;
+      }
+      btn.el.disabled = !enabled;
       applyButtonTooltipState(btn.el, !!btn.el.disabled);
     });
     if (cardButton) {
@@ -786,6 +794,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let end = textarea.selectionEnd ?? start;
     if (end < start) { const tmp = start; start = end; end = tmp; }
     return { start, end };
+  };
+
+  const isCaretOnEmptyLine = (textarea, selection) => {
+    if (!textarea || !selection) return false;
+    const { start, end } = selection;
+    if (end !== start) return false;
+    const value = textarea.value || '';
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', start);
+    if (lineEnd === -1) lineEnd = value.length;
+    const line = value.slice(lineStart, lineEnd);
+    return line.trim().length === 0;
   };
 
   const recordSelection = () => {
@@ -846,9 +866,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const textarea = restoreSelection();
     if (!textarea) return;
     const normalizedPrefix = String(prefix ?? '');
-    const { start, end } = getNormalizedSelection();
-    if (end <= start) return;
+    const selection = getNormalizedSelection();
+    let { start, end } = selection;
     const value = textarea.value || '';
+    if (end <= start) {
+      if (!isCaretOnEmptyLine(textarea, selection)) return;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = value.length;
+      start = lineStart;
+      end = lineEnd;
+    }
+    if (end <= start) return;
     const blockStart = value.lastIndexOf('\n', start - 1) + 1;
     let blockEnd = value.indexOf('\n', end);
     if (blockEnd === -1) blockEnd = value.length;
@@ -885,9 +914,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const applyCodeBlockFormat = () => {
     const textarea = restoreSelection();
     if (!textarea) return;
-    const { start, end } = getNormalizedSelection();
-    if (end <= start) return;
+    const selection = getNormalizedSelection();
+    let { start, end } = selection;
     const value = textarea.value || '';
+    if (end <= start) {
+      if (!isCaretOnEmptyLine(textarea, selection)) return;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = value.length;
+      const beforeChar = lineStart > 0 ? value.charAt(lineStart - 1) : '';
+      const afterChar = lineEnd < value.length ? value.charAt(lineEnd) : '';
+      const prefix = beforeChar && beforeChar !== '\n' ? '\n' : '';
+      const suffix = afterChar && afterChar !== '\n' ? '\n' : '';
+      const block = '```\n\n```';
+      textarea.setSelectionRange(lineStart, lineEnd);
+      textarea.setRangeText(`${prefix}${block}${suffix}`, lineStart, lineEnd, 'end');
+      const caretPos = lineStart + prefix.length + 4;
+      textarea.setSelectionRange(caretPos, caretPos);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      recordSelection();
+      return;
+    }
     const selected = value.slice(start, end);
     const before = value.slice(0, start);
     const after = value.slice(end);
@@ -1088,23 +1135,29 @@ document.addEventListener('DOMContentLoaded', () => {
     btnFmtBold: 'No text is selected. Select text first, then click Bold to surround it with ** **.',
     btnFmtItalic: 'No text is selected. Select text first, then click Italic to surround it with * *.',
     btnFmtStrike: 'No text is selected. Select text first, then click Strikethrough to surround it with ~~ ~~.',
-    btnFmtHeading: 'No lines are selected. Highlight the lines you want, then click Heading to prepend "# ".',
-    btnFmtQuote: 'No lines are selected. Highlight the lines you want, then click Quote to prepend "> ".',
+    btnFmtHeading: 'Select lines or place the caret on an empty line, then click Heading to prepend "# ".',
+    btnFmtQuote: 'Select lines or place the caret on an empty line, then click Quote to prepend "> ".',
     btnFmtCode: 'No text is selected. Select text first, then click Code to wrap it in backticks.',
-    btnFmtCodeBlock: 'No lines are selected. Highlight the lines you want, then click Code Block to wrap them in ``` fences.',
+    btnFmtCodeBlock: 'Select lines or place the caret on an empty line, then click Code Block to wrap them in ``` fences.',
     btnInsertCard: 'No articles are available yet. Wait for the index to load or add entries in index.yaml, then insert a card.'
   };
 
   if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINTS.btnInsertCard);
 
+  const selectionOrEmptyLineEnabled = (selection, textarea) => {
+    if (!selection) return false;
+    if (selection.end > selection.start) return true;
+    return isCaretOnEmptyLine(textarea, selection);
+  };
+
   const formattingActions = [
     { id: 'btnFmtBold', handler: () => applyInlineFormat('**', '**') },
     { id: 'btnFmtItalic', handler: () => applyInlineFormat('*', '*') },
     { id: 'btnFmtStrike', handler: () => applyInlineFormat('~~', '~~') },
-    { id: 'btnFmtHeading', handler: () => toggleLinePrefix('# ') },
-    { id: 'btnFmtQuote', handler: () => toggleLinePrefix('> ') },
+    { id: 'btnFmtHeading', handler: () => toggleLinePrefix('# '), isEnabled: selectionOrEmptyLineEnabled },
+    { id: 'btnFmtQuote', handler: () => toggleLinePrefix('> '), isEnabled: selectionOrEmptyLineEnabled },
     { id: 'btnFmtCode', handler: () => applyInlineFormat('`', '`') },
-    { id: 'btnFmtCodeBlock', handler: () => applyCodeBlockFormat() }
+    { id: 'btnFmtCodeBlock', handler: () => applyCodeBlockFormat(), isEnabled: selectionOrEmptyLineEnabled }
   ];
 
   formattingButtons = formattingActions.map(action => {
@@ -1115,7 +1168,8 @@ document.addEventListener('DOMContentLoaded', () => {
       event.preventDefault();
       action.handler();
     });
-    return { ...action, el, requiresSelection: true };
+    const requiresSelection = action.requiresSelection !== undefined ? action.requiresSelection : true;
+    return { ...action, el, requiresSelection };
   }).filter(Boolean);
 
   const selectionTarget = getEditorTextarea();
