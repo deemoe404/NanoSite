@@ -5039,49 +5039,6 @@ function updateComposerOrderPreview(kind, options = {}) {
     || !!(composerViewTransition
       && composerViewTransition.panels
       && composerViewTransition.panels.classList.contains('is-hidden'));
-  const adjustViewportBy = (deltaY) => {
-    if (!deltaY || !Number.isFinite(deltaY)) return;
-    try {
-      if (typeof window !== 'undefined' && typeof window.scrollBy === 'function') {
-        window.scrollBy(0, deltaY);
-        return;
-      }
-    } catch (_) {}
-    try {
-      if (typeof document !== 'undefined') {
-        const scroller = document.scrollingElement || document.documentElement || document.body;
-        if (scroller && typeof scroller.scrollTop === 'number') {
-          scroller.scrollTop += deltaY;
-          return;
-        }
-      }
-    } catch (_) {}
-    try {
-      if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
-        const currentX = (typeof window.scrollX === 'number') ? window.scrollX : window.pageXOffset || 0;
-        const currentY = (typeof window.scrollY === 'number') ? window.scrollY : window.pageYOffset || 0;
-        window.scrollTo(currentX, currentY + deltaY);
-      }
-    } catch (_) {}
-  };
-
-  const stabilizePrimaryListViewport = (nextRect) => {
-    if (!primaryList || !primaryListRectBefore || !nextRect) return null;
-    if (typeof window !== 'undefined') {
-      const viewportHeight = typeof window.innerHeight === 'number' ? window.innerHeight : 0;
-      if (viewportHeight > 0) {
-        const beforeTop = primaryListRectBefore.top;
-        const beforeBottom = beforeTop + (primaryListRectBefore.height || 0);
-        const wasVisible = beforeBottom > 0 && beforeTop < viewportHeight;
-        if (!wasVisible) return null;
-      }
-    }
-    const delta = nextRect.top - primaryListRectBefore.top;
-    if (Math.abs(delta) < 0.75) return null;
-    adjustViewportBy(-delta);
-    return captureElementRect(primaryList) || nextRect;
-  };
-
   const runListAnimation = (opts = {}) => {
     if (listAnimationScheduled) return;
     listAnimationScheduled = true;
@@ -5089,15 +5046,14 @@ function updateComposerOrderPreview(kind, options = {}) {
     const originalOnMeasured = typeof opts.onMeasured === 'function' ? opts.onMeasured : null;
     const config = { ...opts };
     config.onMeasured = (rect) => {
-      const stabilizedRect = stabilizePrimaryListViewport(rect) || rect;
       if (originalOnMeasured) {
         try {
-          const result = originalOnMeasured(stabilizedRect);
+          const result = originalOnMeasured(rect);
           if (result && typeof result === 'object') return result;
         }
         catch (_) {}
       }
-      return stabilizedRect;
+      return rect;
     };
     animateComposerListTransition(primaryList, primaryListRectBefore, config);
   };
