@@ -43,6 +43,9 @@ function updateDynamicTabsGroupState() {
 const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
 const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 
+// Track pending binary assets associated with markdown drafts
+const markdownAssetStore = new Map();
+
 const MARKDOWN_PUSH_LABELS = {
   default: 'Synchronize',
   create: 'Create on GitHub',
@@ -1746,6 +1749,189 @@ function computeTextSignature(text) {
   return `${normalized.length}:${hash.toString(16)}`;
 }
 
+function ensureMarkdownAssetBucket(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return null;
+  let bucket = markdownAssetStore.get(norm);
+  if (!bucket) {
+    bucket = new Map();
+    markdownAssetStore.set(norm, bucket);
+  }
+  return bucket;
+}
+
+function getMarkdownAssetBucket(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return null;
+  return markdownAssetStore.get(norm) || null;
+}
+
+function normalizeAssetDescriptor(asset, markdownPath) {
+  if (!asset) return null;
+  const commitPath = normalizeRelPath(asset.path || asset.commitPath || '');
+  const markdown = normalizeRelPath(markdownPath || asset.markdownPath || '');
+  const base64 = typeof asset.base64 === 'string' ? asset.base64.trim() : '';
+  if (!commitPath || !markdown || !base64) return null;
+  const relativePath = asset.relativePath ? String(asset.relativePath).replace(/[\\]/g, '/') : '';
+  const mime = asset.mime ? String(asset.mime) : '';
+  const sizeRaw = Number(asset.size);
+  const size = Number.isFinite(sizeRaw) ? sizeRaw : 0;
+  const fileName = asset.fileName ? String(asset.fileName) : '';
+  const originalName = asset.originalName ? String(asset.originalName) : '';
+  const addedAtRaw = Number(asset.addedAt);
+  const addedAt = Number.isFinite(addedAtRaw) ? addedAtRaw : Date.now();
+  return {
+    path: commitPath,
+    relativePath: relativePath || commitPath,
+    base64,
+    mime,
+    size,
+    fileName,
+    originalName,
+    addedAt,
+    markdownPath: markdown
+  };
+}
+
+function importMarkdownAssetsForPath(path, assets = []) {
+  const bucket = ensureMarkdownAssetBucket(path);
+  if (!bucket) return null;
+  bucket.clear();
+  if (Array.isArray(assets)) {
+    assets.forEach((entry) => {
+      const normalized = normalizeAssetDescriptor(entry, path);
+      if (normalized) bucket.set(normalized.path, normalized);
+    });
+  }
+  return bucket;
+}
+
+function exportMarkdownAssetBucket(path) {
+  const bucket = getMarkdownAssetBucket(path);
+  if (!bucket || !bucket.size) return [];
+  return Array.from(bucket.values()).map((asset) => ({
+    path: asset.path,
+    relativePath: asset.relativePath,
+    base64: asset.base64,
+    mime: asset.mime,
+    size: asset.size,
+    fileName: asset.fileName,
+    originalName: asset.originalName,
+    addedAt: asset.addedAt
+  }));
+}
+
+function updateMarkdownDraftStoreAssets(path, assets = []) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return;
+  const store = readMarkdownDraftStore();
+  const entry = store[norm];
+  if (!entry || typeof entry !== 'object') return;
+  const list = Array.isArray(assets) ? assets.filter(item => item && item.path && item.base64) : [];
+  if (list.length) entry.assets = list;
+  else delete entry.assets;
+  store[norm] = entry;
+  writeMarkdownDraftStore(store);
+}
+
+function clearMarkdownAssetsForPath(path) {
+  const norm = normalizeRelPath(path);
+  if (!norm) return;
+  const bucket = markdownAssetStore.get(norm);
+  if (bucket) bucket.clear();
+  markdownAssetStore.delete(norm);
+  updateMarkdownDraftStoreAssets(norm, []);
+}
+
+function removeMarkdownAsset(path, assetPath) {
+  const norm = normalizeRelPath(path);
+  const assetKey = normalizeRelPath(assetPath);
+  if (!norm || !assetKey) return;
+  const bucket = markdownAssetStore.get(norm);
+  if (!bucket || !bucket.has(assetKey)) return;
+  bucket.delete(assetKey);
+  if (!bucket.size) markdownAssetStore.delete(norm);
+  updateMarkdownDraftStoreAssets(norm, exportMarkdownAssetBucket(norm));
+}
+
+function listMarkdownAssets(path) {
+  const bucket = getMarkdownAssetBucket(path);
+  if (!bucket || !bucket.size) return [];
+  return Array.from(bucket.values());
+}
+
+function countMarkdownAssets(path) {
+  const bucket = getMarkdownAssetBucket(path);
+  if (bucket && bucket.size) return bucket.size;
+  const entry = getMarkdownDraftEntry(path);
+  if (entry && Array.isArray(entry.assets)) return entry.assets.length;
+  return 0;
+}
+
+function isAssetReferencedInContent(content, asset) {
+  if (!asset || !asset.relativePath) return false;
+  const text = String(content || '');
+  if (!text) return false;
+  const rel = asset.relativePath;
+  if (text.includes(rel)) return true;
+  if (!rel.startsWith('./') && text.includes(`./${rel}`)) return true;
+  return false;
+}
+
+function handleEditorToastEvent(event) {
+  if (!event || !event.detail) return;
+  const detail = event.detail;
+  const message = detail && detail.message ? String(detail.message) : '';
+  if (!message) return;
+  const kind = detail && detail.kind ? String(detail.kind) : 'info';
+  showToast(kind, message);
+}
+
+function handleEditorAssetAdded(event) {
+  if (!event || !event.detail) return;
+  const detail = event.detail;
+  const markdownPath = normalizeRelPath(detail.markdownPath || '');
+  if (!markdownPath) {
+    showToast('warn', 'Open a markdown file before inserting images.');
+    return;
+  }
+  const commitPath = normalizeRelPath(detail.commitPath || detail.assetPath || '');
+  const base64 = typeof detail.base64 === 'string' ? detail.base64.trim() : '';
+  if (!commitPath || !base64) return;
+  const descriptor = normalizeAssetDescriptor({
+    path: commitPath,
+    relativePath: detail.relativePath || '',
+    base64,
+    mime: detail.mime || '',
+    size: detail.size,
+    fileName: detail.fileName || '',
+    originalName: detail.originalName || '',
+    addedAt: Date.now(),
+    markdownPath
+  }, markdownPath);
+  if (!descriptor) return;
+  const bucket = ensureMarkdownAssetBucket(markdownPath);
+  bucket.set(descriptor.path, descriptor);
+  updateMarkdownDraftStoreAssets(markdownPath, exportMarkdownAssetBucket(markdownPath));
+  const tab = findDynamicTabByPath(markdownPath);
+  if (tab) {
+    tab.pendingAssets = bucket;
+    try { scheduleMarkdownDraftSave(tab); }
+    catch (_) {}
+  }
+  const relLabel = descriptor.relativePath || descriptor.path;
+  if (!detail.silent) showToast('success', `Attached ${relLabel}`);
+  try { updateUnsyncedSummary(); }
+  catch (_) {}
+}
+
+try {
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('ns-editor-toast', handleEditorToastEvent);
+    window.addEventListener('ns-editor-asset-added', handleEditorAssetAdded);
+  }
+} catch (_) {}
+
 function readMarkdownDraftStore() {
   try {
     const raw = localStorage.getItem(MARKDOWN_DRAFT_STORAGE_KEY);
@@ -1778,23 +1964,41 @@ function getMarkdownDraftEntry(path) {
   const content = entry.content != null ? normalizeMarkdownContent(entry.content) : '';
   const savedAt = Number(entry.savedAt);
   const remoteSignature = entry.remoteSignature ? String(entry.remoteSignature) : '';
+  const assets = Array.isArray(entry.assets)
+    ? entry.assets.map(item => normalizeAssetDescriptor(item, norm)).filter(Boolean)
+    : [];
   return {
     path: norm,
     content,
     savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
-    remoteSignature
+    remoteSignature,
+    assets
   };
 }
 
-function saveMarkdownDraftEntry(path, content, remoteSignature = '') {
+function saveMarkdownDraftEntry(path, content, remoteSignature = '', assets = []) {
   const norm = normalizeRelPath(path);
   if (!norm) return null;
   const text = normalizeMarkdownContent(content);
   const store = readMarkdownDraftStore();
   const savedAt = Date.now();
-  store[norm] = { content: text, savedAt, remoteSignature: String(remoteSignature || '') };
+  const assetList = Array.isArray(assets)
+    ? assets.map(item => normalizeAssetDescriptor(item, norm)).filter(Boolean)
+    : [];
+  store[norm] = {
+    content: text,
+    savedAt,
+    remoteSignature: String(remoteSignature || ''),
+    assets: assetList
+  };
   writeMarkdownDraftStore(store);
-  return { path: norm, content: text, savedAt, remoteSignature: String(remoteSignature || '') };
+  return {
+    path: norm,
+    content: text,
+    savedAt,
+    remoteSignature: String(remoteSignature || ''),
+    assets: assetList
+  };
 }
 
 function clearMarkdownDraftEntry(path) {
@@ -1805,6 +2009,7 @@ function clearMarkdownDraftEntry(path) {
     delete store[norm];
     writeMarkdownDraftStore(store);
   }
+  clearMarkdownAssetsForPath(norm);
 }
 
 function restoreMarkdownDraftForTab(tab) {
@@ -1817,15 +2022,18 @@ function restoreMarkdownDraftForTab(tab) {
     tab.draftConflict = false;
     return false;
   }
+  const assetsBucket = importMarkdownAssetsForPath(tab.path, entry.assets || []);
   tab.localDraft = {
     content: entry.content,
     savedAt: entry.savedAt,
     remoteSignature: entry.remoteSignature || '',
-    manual: !!entry.manual
+    manual: !!entry.manual,
+    assets: exportMarkdownAssetBucket(tab.path)
   };
   tab.content = entry.content;
   tab.draftConflict = false;
   tab.isDirty = true;
+  tab.pendingAssets = assetsBucket || ensureMarkdownAssetBucket(tab.path);
   updateDynamicTabDirtyState(tab, { autoSave: false });
   return true;
 }
@@ -1842,13 +2050,15 @@ function saveMarkdownDraftForTab(tab, options = {}) {
     try { updateUnsyncedSummary(); } catch (_) {}
     return null;
   }
-  const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig);
+  const assets = exportMarkdownAssetBucket(tab.path);
+  const saved = saveMarkdownDraftEntry(tab.path, text, remoteSig, assets);
   if (saved) {
     tab.localDraft = {
       content: saved.content,
       savedAt: saved.savedAt,
       remoteSignature: saved.remoteSignature,
-      manual: !!options.markManual
+      manual: !!options.markManual,
+      assets: saved.assets || []
     };
     updateComposerMarkdownDraftIndicators({ path: tab.path });
     try { updateUnsyncedSummary(); } catch (_) {}
@@ -1870,6 +2080,7 @@ function clearMarkdownDraftForTab(tab) {
   tab.localDraft = null;
   tab.draftConflict = false;
   tab.isDirty = false;
+  tab.pendingAssets = ensureMarkdownAssetBucket(tab.path);
   if (tab.button) {
     try { tab.button.removeAttribute('data-dirty'); }
     catch (_) {}
@@ -2317,12 +2528,15 @@ function collectUnsyncedMarkdownEntries() {
     if (tab.draftConflict) state = 'conflict';
     else if (hasDirtyChanges) state = 'dirty';
     else if (hasDraftContent) state = 'saved';
-    entries.push({
+    const entry = {
       kind: 'markdown',
       label: path,
       path,
       state,
-    });
+    };
+    const assetCount = countMarkdownAssets(path);
+    if (assetCount) entry.assetCount = assetCount;
+    entries.push(entry);
     seen.add(path);
   });
 
@@ -2335,12 +2549,16 @@ function collectUnsyncedMarkdownEntries() {
       if (!entry || typeof entry !== 'object') return;
       const content = entry.content != null ? normalizeMarkdownContent(entry.content) : '';
       if (!content) return;
-      entries.push({
+      importMarkdownAssetsForPath(path, entry.assets || []);
+      const item = {
         kind: 'markdown',
         label: path,
         path,
         state: 'saved',
-      });
+      };
+      const assetCount = countMarkdownAssets(path);
+      if (assetCount) item.assetCount = assetCount;
+      entries.push(item);
       seen.add(path);
     });
   }
@@ -3275,6 +3493,37 @@ function gatherLocalChangesForCommit() {
         markdownPath: rel,
         state: entry.state || ''
       });
+
+      const assets = listMarkdownAssets(rel);
+      if (assets.length) {
+        const normalizedText = normalizeMarkdownContent(text);
+        const unusedAssets = [];
+        assets.forEach((asset) => {
+          if (!asset || !asset.path || !asset.base64) return;
+          const commitPath = `${rootPrefix}${asset.path}`.replace(/\\+/g, '/');
+          if (!isAssetReferencedInContent(normalizedText, asset)) {
+            unusedAssets.push(asset.path);
+            return;
+          }
+          addFile({
+            kind: 'asset',
+            label: asset.relativePath || asset.path,
+            path: commitPath,
+            base64: asset.base64,
+            binary: true,
+            mime: asset.mime || 'application/octet-stream',
+            size: Number.isFinite(asset.size) ? asset.size : 0,
+            markdownPath: rel,
+            assetPath: asset.path,
+            assetRelativePath: asset.relativePath || ''
+          });
+        });
+        if (unusedAssets.length) {
+          unusedAssets.forEach((assetPath) => {
+            removeMarkdownAsset(rel, assetPath);
+          });
+        }
+      }
     });
   }
 
@@ -3326,7 +3575,10 @@ function describeSummaryEntry(entry) {
   const base = entry.label || entry.path || entry.kind || '';
   if (entry.kind === 'markdown') {
     const status = entry.state ? ` (${entry.state})` : '';
-    return `${base}${status}`;
+    const assetLabel = entry.assetCount
+      ? ` – ${entry.assetCount} image${entry.assetCount === 1 ? '' : 's'}`
+      : '';
+    return `${base}${status}${assetLabel}`;
   }
   if (entry.kind === 'index' || entry.kind === 'tabs') {
     const bits = [];
@@ -3647,7 +3899,7 @@ function applyLocalPostCommitState(files = []) {
         tab.remoteSignature = commitSignature;
         tab.loaded = true;
         if (hasNewerLocalContent) {
-          const saved = saveMarkdownDraftEntry(norm, tab.content, tab.remoteSignature);
+          const saved = saveMarkdownDraftEntry(norm, tab.content, tab.remoteSignature, exportMarkdownAssetBucket(norm));
           if (saved) {
             tab.localDraft = { ...saved, manual: !!(tab.localDraft && tab.localDraft.manual) };
           } else if (tab.localDraft) {
@@ -3661,6 +3913,7 @@ function applyLocalPostCommitState(files = []) {
           });
         } else {
           clearMarkdownDraftEntry(norm);
+          clearMarkdownAssetsForPath(norm);
           tab.content = text;
           tab.localDraft = null;
           tab.draftConflict = false;
@@ -3674,8 +3927,19 @@ function applyLocalPostCommitState(files = []) {
         }
       } else {
         clearMarkdownDraftEntry(norm);
+        clearMarkdownAssetsForPath(norm);
       }
       updateComposerMarkdownDraftIndicators({ path: norm });
+    }
+    else if (file.kind === 'asset') {
+      const norm = normalizeRelPath(file.markdownPath || '');
+      if (!norm) return;
+      const assetPath = normalizeRelPath(file.assetPath || '');
+      if (assetPath) removeMarkdownAsset(norm, assetPath);
+      else if (file.path) {
+        const withoutRoot = file.path.replace(/^\/?(?:wwwroot\/)?/, '');
+        removeMarkdownAsset(norm, normalizeRelPath(withoutRoot));
+      }
     }
   });
   updateUnsyncedSummary();
@@ -3743,10 +4007,13 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
     if (!expectedHeadOid) throw new Error('Unable to resolve the branch head on GitHub.');
 
     setSyncOverlayStatus('Encoding files…');
-    const additions = files.map((file) => ({
-      path: String(file.path || '').replace(/^\/+/, ''),
-      contents: encodeContentToBase64(file.content || '')
-    }));
+    const additions = files.map((file) => {
+      const path = String(file.path || '').replace(/^\/+/, '');
+      if (file.base64) {
+        return { path, contents: String(file.base64) };
+      }
+      return { path, contents: encodeContentToBase64(file.content || '') };
+    });
 
     const commitMutation = `
       mutation($input: CreateCommitOnBranchInput!) {
@@ -6940,7 +7207,8 @@ function getOrCreateDynamicMode(path) {
     localDraft: null,
     draftConflict: false,
     markdownDraftTimer: null,
-    isDirty: false
+    isDirty: false,
+    pendingAssets: ensureMarkdownAssetBucket(normalized)
   };
   restoreMarkdownDraftForTab(data);
   dynamicEditorTabs.set(modeId, data);
