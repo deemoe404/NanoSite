@@ -4796,6 +4796,7 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
       frames.push({
         el,
         rect,
+        isMain: el.classList && el.classList.contains('composer-order-main'),
         originalWillChange: el.style.willChange,
         originalTransformOrigin: el.style.transformOrigin
       });
@@ -4810,9 +4811,10 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
   const easing = 'cubic-bezier(0.22, 1, 0.32, 1)';
   const duration = 560;
 
-  return () => {
+  return (options = {}) => {
+    const collapseInline = options && options.collapseInline === true;
     for (const frame of frames) {
-      const { el, rect, originalWillChange, originalTransformOrigin } = frame;
+      const { el, rect, originalWillChange, originalTransformOrigin, isMain } = frame;
       if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') {
         if (el) el.style.willChange = originalWillChange || '';
         continue;
@@ -4826,17 +4828,25 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
       }
       const deltaX = rect.left - last.left;
       const deltaY = rect.top - last.top;
-      const scaleX = last.width > 1 ? Math.max(Math.min(rect.width / last.width, 3), 0.25) : 1;
-      const scaleY = last.height > 1 ? Math.max(Math.min(rect.height / last.height, 3), 0.25) : 1;
+      let scaleX = last.width > 1 ? Math.max(Math.min(rect.width / last.width, 3), 0.25) : 1;
+      let scaleY = last.height > 1 ? Math.max(Math.min(rect.height / last.height, 3), 0.25) : 1;
+      const allowScale = !(collapseInline && isMain);
+      if (!allowScale) {
+        scaleX = 1;
+        scaleY = 1;
+      }
       const needsMove = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
-      const needsScale = Math.abs(scaleX - 1) > 0.02 || Math.abs(scaleY - 1) > 0.02;
+      const needsScale = allowScale && (Math.abs(scaleX - 1) > 0.02 || Math.abs(scaleY - 1) > 0.02);
 
       if (!needsMove && !needsScale) {
         el.style.willChange = originalWillChange || '';
         continue;
       }
 
-      const fromTransform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+      const fromTransform = needsScale
+        ? `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`
+        : `translate(${deltaX}px, ${deltaY}px)`;
+      const toTransform = needsScale ? 'translate(0, 0) scale(1, 1)' : 'translate(0, 0)';
 
       const cleanup = () => {
         el.style.transform = '';
@@ -4849,7 +4859,7 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
         const animation = el.animate(
           [
             { transform: fromTransform, transformOrigin: 'top left' },
-            { transform: 'translate(0, 0) scale(1, 1)', transformOrigin: 'top left' }
+            { transform: toTransform, transformOrigin: 'top left' }
           ],
           { duration, easing, fill: 'both' }
         );
@@ -4868,7 +4878,7 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
           el.style.transition = previousTransition
             ? `${previousTransition}, transform ${duration}ms ${easing}`
             : `transform ${duration}ms ${easing}`;
-          el.style.transform = 'translate(0, 0) scale(1, 1)';
+          el.style.transform = toTransform;
           setTimeout(() => {
             el.style.transition = previousTransition || '';
             el.style.transformOrigin = previousTransformOrigin || '';
@@ -5057,7 +5067,7 @@ function updateComposerOrderPreview(kind, options = {}) {
     }
     composerOrderPreviewState[normalized] = null;
     if (layoutTransition) {
-      layoutTransition();
+      layoutTransition({ collapseInline: true });
       layoutTransition = null;
     }
     return;
@@ -5103,7 +5113,8 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (layoutTransition) {
-    layoutTransition();
+    const collapseInline = !hasOrderChanges;
+    layoutTransition({ collapseInline });
     layoutTransition = null;
   }
 }
