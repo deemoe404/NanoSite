@@ -5250,6 +5250,10 @@ function drawOrderDiffLines(state) {
   if (fallbackHeight > 0 && leftMap && typeof leftMap.forEach === 'function') {
     leftMap.forEach(el => {
       if (!el || !el.style) return;
+      const status = (el.dataset && typeof el.dataset.status === 'string')
+        ? el.dataset.status
+        : '';
+      if (status === 'removed') return;
       const fallbackValue = `${fallbackHeight}px`;
       if (!el.style.minHeight) {
         el.style.minHeight = fallbackValue;
