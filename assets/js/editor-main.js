@@ -733,6 +733,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let suppressSelectionTracking = false;
   let formattingButtons = [];
   let cardPopoverOpen = false;
+  let cardPopoverClosing = false;
+  let cardPopoverCloseTimer = null;
+  let cardPopoverTransitionHandler = null;
 
   function applyButtonTooltipState(button, disabled) {
     if (!button) return;
@@ -1070,22 +1073,57 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cardPopoverOpen) positionCardPopover(cardButton);
   };
 
-  const closeCardPopover = () => {
-    if (!cardPopoverOpen) return;
-    cardPopoverOpen = false;
+  const clearCardPopoverCloseWatcher = () => {
+    if (cardPopoverCloseTimer) {
+      clearTimeout(cardPopoverCloseTimer);
+      cardPopoverCloseTimer = null;
+    }
+    if (cardPopover && cardPopoverTransitionHandler) {
+      cardPopover.removeEventListener('transitionend', cardPopoverTransitionHandler);
+    }
+    cardPopoverTransitionHandler = null;
+  };
+
+  const finalizeCardPopoverClose = () => {
+    clearCardPopoverCloseWatcher();
+    cardPopoverClosing = false;
     if (cardPopover) {
       cardPopover.classList.remove('is-visible');
+      cardPopover.classList.remove('is-closing');
       cardPopover.setAttribute('aria-hidden', 'true');
       cardPopover.setAttribute('hidden', '');
       cardPopover.style.left = '';
       cardPopover.style.right = '';
       cardPopover.style.top = '';
     }
+  };
+
+  const closeCardPopover = () => {
+    if (!cardPopoverOpen && !cardPopoverClosing) return;
+    cardPopoverOpen = false;
+    cardPopoverClosing = true;
     if (cardButton) cardButton.setAttribute('aria-expanded', 'false');
     document.removeEventListener('mousedown', handleCardOutsideClick, true);
     document.removeEventListener('keydown', handleCardKeydown, true);
     window.removeEventListener('resize', handleCardRelayout, true);
     window.removeEventListener('scroll', handleCardRelayout, true);
+    if (!cardPopover) {
+      finalizeCardPopoverClose();
+      if (cardSearchInput) cardSearchInput.value = '';
+      return;
+    }
+    clearCardPopoverCloseWatcher();
+    cardPopover.setAttribute('aria-hidden', 'true');
+    cardPopover.classList.remove('is-visible');
+    cardPopover.classList.add('is-closing');
+    const handleTransitionEnd = (event) => {
+      if (event.target !== cardPopover) return;
+      if (event.propertyName && event.propertyName !== 'opacity') return;
+      finalizeCardPopoverClose();
+    };
+    cardPopoverTransitionHandler = handleTransitionEnd;
+    cardPopover.addEventListener('transitionend', handleTransitionEnd);
+    cardPopoverCloseTimer = window.setTimeout(finalizeCardPopoverClose, 360);
     if (cardSearchInput) cardSearchInput.value = '';
   };
 
@@ -1095,8 +1133,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!hasEntries) return;
     renderCardPickerList('');
     if (cardSearchInput) cardSearchInput.value = '';
+    clearCardPopoverCloseWatcher();
+    cardPopoverClosing = false;
     cardPopover.removeAttribute('hidden');
     cardPopover.setAttribute('aria-hidden', 'false');
+    cardPopover.classList.remove('is-closing');
     cardPopover.classList.add('is-visible');
     cardButton.setAttribute('aria-expanded', 'true');
     cardPopoverOpen = true;

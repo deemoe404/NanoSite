@@ -741,8 +741,9 @@
     .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
     .editor-tool-btn { white-space:nowrap; }
     .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
-    .editor-card-popover { position:absolute; top:calc(100% + .5rem); right:0; min-width:260px; max-width:min(420px, calc(100vw - 2.5rem)); padding:.75rem; border-radius:.85rem; border:1px solid color-mix(in srgb, var(--border) 75%, var(--text) 12%); background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--card) 82%, transparent), 0 12px 28px rgba(15, 23, 42, 0.16), 0 22px 46px rgba(15, 23, 42, 0.12); z-index:1200; display:none; }
-    .editor-card-popover.is-visible { display:block; }
+    .editor-card-popover { position:absolute; top:calc(100% + .5rem); right:0; min-width:260px; max-width:min(420px, calc(100vw - 2.5rem)); padding:.75rem; border-radius:.85rem; border:1px solid color-mix(in srgb, var(--border) 75%, var(--text) 12%); background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--card) 82%, transparent), 0 12px 28px rgba(15, 23, 42, 0.16), 0 22px 46px rgba(15, 23, 42, 0.12); z-index:1200; opacity:0; transform:translate3d(0, -10px, 0) scale(.98); pointer-events:none; transition:opacity .24s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)), transform .24s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)); will-change:opacity, transform; }
+    .editor-card-popover.is-visible { opacity:1; transform:translate3d(0, 0, 0) scale(1); pointer-events:auto; }
+    .editor-card-popover.is-closing { pointer-events:none; }
     .card-picker-search input { width:100%; border-radius:.65rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); padding:.45rem .7rem; font-size:.92rem; color:var(--text); transition:border-color .18s ease, box-shadow .18s ease; }
     .card-picker-search input::placeholder { color:color-mix(in srgb, var(--muted) 78%, transparent); }
     .card-picker-search input:focus { outline:2px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset:1px; border-color:color-mix(in srgb, var(--primary) 42%, var(--border)); box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
