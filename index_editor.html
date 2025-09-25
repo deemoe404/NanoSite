@@ -33,6 +33,18 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html { height: 100%; }
+    :root {
+      --composer-inline-ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --composer-inline-duration-in: 480ms;
+      --composer-inline-duration-out: 380ms;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :root {
+        --composer-inline-duration-in: 240ms;
+        --composer-inline-duration-out: 200ms;
+        --composer-inline-ease: linear;
+      }
+    }
     /* Widen the editor page and reduce side padding */
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
     .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; }
@@ -962,12 +974,42 @@
       column-gap: clamp(2rem, 5vw, 3.2rem);
       align-items: start;
       min-width: 0;
+      transition: grid-template-columns var(--composer-inline-duration-in) var(--composer-inline-ease), column-gap var(--composer-inline-duration-in) var(--composer-inline-ease);
+      will-change: grid-template-columns, column-gap;
     }
     .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
     .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
     .composer-order-inline[hidden] { display: none !important; }
     .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
     .composer-order-inline-meta[hidden] { display: none !important; }
+    .composer-order-inline,
+    .composer-order-inline-meta {
+      transform-origin: top left;
+      will-change: opacity, transform;
+    }
+    .composer-order-inline[data-anim-state],
+    .composer-order-inline-meta[data-anim-state] {
+      animation-timing-function: var(--composer-inline-ease);
+      animation-fill-mode: both;
+    }
+    .composer-order-inline[data-anim-state="enter"],
+    .composer-order-inline-meta[data-anim-state="enter"] {
+      animation-name: composerInlineEnter;
+      animation-duration: var(--composer-inline-duration-in);
+    }
+    .composer-order-inline[data-anim-state="exit"],
+    .composer-order-inline-meta[data-anim-state="exit"] {
+      animation-name: composerInlineExit;
+      animation-duration: var(--composer-inline-duration-out);
+    }
+    @keyframes composerInlineEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes composerInlineExit {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
     .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
     .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
     .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
@@ -998,11 +1040,30 @@
     .composer-inline-summary-empty { font-size: .78rem; color: var(--muted); }
     .composer-order-inline-body { display: flex; flex-direction: column; }
     .composer-order-inline-list { display: block; position: relative; z-index: 2; }
+    #ciList {
+      position: relative;
+      transform-origin: top left;
+      will-change: transform;
+    }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .18s ease; }
     .composer-order-inline-lines.is-hovering { opacity: 1; }
-    .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
-    .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
+    .composer-order-host[data-inline-active="false"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
+    .composer-order-host[data-inline-active="false"] .composer-order-inline-lines { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .composer-order-inline[data-anim-state],
+      .composer-order-inline-meta[data-anim-state] {
+        animation: none !important;
+      }
+      .composer-order-host {
+        transition: none !important;
+      }
+      #ciList {
+        transition: none !important;
+        animation: none !important;
+        will-change: auto;
+      }
+    }
     .composer-order-inline .composer-order-item {
       margin: .5rem 0;
       min-height: 2.5rem;
@@ -1211,7 +1272,7 @@
 
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
-          <div class="composer-order-host" data-kind="index" id="composerIndexHost">
+          <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost">
             <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
@@ -1222,7 +1283,7 @@
               <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
             </div>
           </div>
-          <div class="composer-order-host" data-kind="tabs" id="composerTabsHost" style="display:none;">
+          <div class="composer-order-host" data-kind="tabs" data-inline-active="false" id="composerTabsHost" style="display:none;">
             <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>

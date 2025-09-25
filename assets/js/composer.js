@@ -71,6 +71,261 @@ let composerOrderPreviewActiveKind = 'index';
 let composerOrderPreviewResizeHandler = null;
 const composerOrderPreviewRelayoutTimers = { index: null, tabs: null };
 
+let composerReduceMotionQuery = null;
+const composerInlineVisibilityAnimations = new WeakMap();
+const composerInlineVisibilityFallbacks = new WeakMap();
+const composerListTransitions = new WeakMap();
+
+function composerPrefersReducedMotion() {
+  try {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    if (!composerReduceMotionQuery) composerReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    return !!composerReduceMotionQuery.matches;
+  } catch (_) {
+    return false;
+  }
+}
+
+function parseCssDuration(value, fallback) {
+  const defaultValue = typeof fallback === 'number' ? fallback : 0;
+  if (value == null) return defaultValue;
+  const trimmed = String(value).trim();
+  if (!trimmed) return defaultValue;
+  const unit = trimmed.endsWith('ms') ? 'ms' : (trimmed.endsWith('s') ? 's' : '');
+  const numeric = parseFloat(trimmed);
+  if (Number.isNaN(numeric)) return defaultValue;
+  if (unit === 's') return numeric * 1000;
+  return numeric;
+}
+
+function getComposerInlineAnimConfig() {
+  const defaults = { durationIn: 480, durationOut: 380, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' };
+  if (typeof window === 'undefined' || typeof document === 'undefined') return defaults;
+  try {
+    const styles = getComputedStyle(document.documentElement);
+    const durationIn = parseCssDuration(styles.getPropertyValue('--composer-inline-duration-in'), defaults.durationIn);
+    const durationOut = parseCssDuration(styles.getPropertyValue('--composer-inline-duration-out'), defaults.durationOut);
+    const easing = (styles.getPropertyValue('--composer-inline-ease') || '').trim() || defaults.easing;
+    return { durationIn, durationOut, easing };
+  } catch (_) {
+    return defaults;
+  }
+}
+
+function cancelInlineVisibilityAnimation(element) {
+  if (!element) return;
+  const active = composerInlineVisibilityAnimations.get(element);
+  if (active && typeof active.cancel === 'function') {
+    try { active.cancel(); } catch (_) {}
+  }
+  if (active) composerInlineVisibilityAnimations.delete(element);
+  const fallback = composerInlineVisibilityFallbacks.get(element);
+  if (fallback != null) {
+    clearTimeout(fallback);
+    composerInlineVisibilityFallbacks.delete(element);
+  }
+  if (element.dataset && element.dataset.animState && !element.hidden) delete element.dataset.animState;
+}
+
+function animateComposerInlineVisibility(element, show, options = {}) {
+  if (!element) return;
+  const reduceMotion = composerPrefersReducedMotion();
+  const config = getComposerInlineAnimConfig();
+  const duration = show ? config.durationIn : config.durationOut;
+  const immediate = !!options.immediate || reduceMotion || duration <= 0;
+  const force = !!options.force;
+  const onFinish = typeof options.onFinish === 'function' ? options.onFinish : null;
+  const finish = () => { if (onFinish) { try { onFinish(); } catch (_) {} } };
+
+  if (!force) {
+    if (show && !element.hidden) {
+      element.setAttribute('aria-hidden', 'false');
+      if (element.dataset && element.dataset.animState) delete element.dataset.animState;
+      finish();
+      return;
+    }
+    if (!show && element.hidden) {
+      element.setAttribute('aria-hidden', 'true');
+      if (element.dataset && element.dataset.animState) delete element.dataset.animState;
+      finish();
+      return;
+    }
+  }
+
+  cancelInlineVisibilityAnimation(element);
+
+  if (immediate) {
+    element.hidden = !show;
+    element.setAttribute('aria-hidden', show ? 'false' : 'true');
+    if (element.dataset && element.dataset.animState) delete element.dataset.animState;
+    finish();
+    return;
+  }
+
+  const keyframesIn = [
+    { opacity: 0, transform: 'translateY(12px)' },
+    { opacity: 1, transform: 'translateY(0)' }
+  ];
+  const keyframesOut = [
+    { opacity: 1, transform: 'translateY(0)' },
+    { opacity: 0, transform: 'translateY(-10px)' }
+  ];
+
+  const runFallback = () => {
+    if (show) {
+      element.hidden = false;
+      element.setAttribute('aria-hidden', 'false');
+      if (element.dataset) element.dataset.animState = 'enter';
+    } else if (element.dataset) {
+      element.dataset.animState = 'exit';
+    }
+    const timer = window.setTimeout(() => {
+      if (!show) {
+        element.hidden = true;
+        element.setAttribute('aria-hidden', 'true');
+      } else {
+        element.setAttribute('aria-hidden', 'false');
+      }
+      if (element.dataset && element.dataset.animState) delete element.dataset.animState;
+      composerInlineVisibilityFallbacks.delete(element);
+      finish();
+    }, duration);
+    composerInlineVisibilityFallbacks.set(element, timer);
+  };
+
+  if (typeof element.animate === 'function') {
+    try {
+      if (show) {
+        element.hidden = false;
+        element.setAttribute('aria-hidden', 'false');
+        if (element.dataset) element.dataset.animState = 'enter';
+        const animation = element.animate(keyframesIn, { duration, easing: config.easing, fill: 'both' });
+        composerInlineVisibilityAnimations.set(element, animation);
+        const finalize = () => {
+          const active = composerInlineVisibilityAnimations.get(element);
+          if (active !== animation) return;
+          composerInlineVisibilityAnimations.delete(element);
+          if (element.dataset && element.dataset.animState === 'enter') delete element.dataset.animState;
+          finish();
+        };
+        animation.finished.then(finalize).catch(finalize);
+        animation.addEventListener('cancel', finalize, { once: true });
+        return;
+      }
+      if (element.dataset) element.dataset.animState = 'exit';
+      const animation = element.animate(keyframesOut, { duration, easing: config.easing, fill: 'both' });
+      composerInlineVisibilityAnimations.set(element, animation);
+      const finalize = () => {
+        const active = composerInlineVisibilityAnimations.get(element);
+        if (active !== animation) return;
+        composerInlineVisibilityAnimations.delete(element);
+        element.hidden = true;
+        element.setAttribute('aria-hidden', 'true');
+        if (element.dataset && element.dataset.animState === 'exit') delete element.dataset.animState;
+        finish();
+      };
+      animation.finished.then(finalize).catch(finalize);
+      animation.addEventListener('cancel', finalize, { once: true });
+      return;
+    } catch (_) {
+      cancelInlineVisibilityAnimation(element);
+    }
+  }
+
+  runFallback();
+}
+
+function captureElementRect(element) {
+  if (!element || typeof element.getBoundingClientRect !== 'function') return null;
+  try {
+    const rect = element.getBoundingClientRect();
+    return rect ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height } : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function cancelListTransition(list) {
+  if (!list) return;
+  const active = composerListTransitions.get(list);
+  if (!active) return;
+  composerListTransitions.delete(list);
+  if (active.animation && typeof active.animation.cancel === 'function') {
+    try { active.animation.cancel(); } catch (_) {}
+  }
+  if (active.timer != null) clearTimeout(active.timer);
+  if (active.restoreTransition != null) list.style.transition = active.restoreTransition;
+  list.style.transform = 'none';
+  list.style.filter = 'none';
+  if (list.style.opacity && list.style.opacity !== '1') list.style.opacity = '';
+  delete list.dataset.animating;
+}
+
+function animateComposerListTransition(list, previousRect) {
+  if (!list || !previousRect || composerPrefersReducedMotion()) return;
+  cancelListTransition(list);
+  requestAnimationFrame(() => {
+    if (!list.isConnected) return;
+    const nextRect = captureElementRect(list);
+    if (!nextRect) return;
+    const dx = previousRect.left - nextRect.left;
+    const dy = previousRect.top - nextRect.top;
+    const sx = nextRect.width ? previousRect.width / nextRect.width : 1;
+    const sy = nextRect.height ? previousRect.height / nextRect.height : 1;
+    const transforms = [];
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) transforms.push(`translate(${dx}px, ${dy}px)`);
+    if (Math.abs(sx - 1) > 0.02 || Math.abs(sy - 1) > 0.02) transforms.push(`scale(${sx}, ${sy})`);
+    if (!transforms.length) return;
+    const { durationIn, easing } = getComposerInlineAnimConfig();
+    if (durationIn <= 0) return;
+    const keyframes = [
+      { transform: transforms.join(' '), filter: 'brightness(0.96)', opacity: 0.98 },
+      { transform: 'none', filter: 'none', opacity: 1 }
+    ];
+    list.dataset.animating = 'true';
+    if (typeof list.animate === 'function') {
+      let animation = null;
+      try {
+        animation = list.animate(keyframes, { duration: durationIn, easing, fill: 'both' });
+      } catch (_) {
+        animation = null;
+      }
+      if (animation) {
+        composerListTransitions.set(list, { animation });
+        const finalize = () => {
+          const active = composerListTransitions.get(list);
+          if (!active || active.animation !== animation) return;
+          composerListTransitions.delete(list);
+          delete list.dataset.animating;
+        };
+        animation.finished.then(finalize).catch(finalize);
+        animation.addEventListener('cancel', finalize, { once: true });
+        return;
+      }
+    }
+    const previousTransition = list.style.transition;
+    const transformsValue = transforms.join(' ');
+    list.style.transition = 'none';
+    list.style.transform = transformsValue;
+    list.style.filter = 'brightness(0.96)';
+    list.style.opacity = '0.98';
+    requestAnimationFrame(() => {
+      list.style.transition = `transform ${durationIn}ms ${easing}, filter ${durationIn}ms ${easing}, opacity ${durationIn}ms ${easing}`;
+      list.style.transform = 'none';
+      list.style.filter = 'none';
+      list.style.opacity = '';
+    });
+    const timer = window.setTimeout(() => {
+      const active = composerListTransitions.get(list);
+      if (!active || active.timer !== timer) return;
+      list.style.transition = previousTransition;
+      composerListTransitions.delete(list);
+      delete list.dataset.animating;
+    }, durationIn + 40);
+    composerListTransitions.set(list, { timer, restoreTransition: previousTransition });
+  });
+}
+
 function getActiveComposerFile() {
   try {
     const a = document.querySelector('a.vt-btn[data-cfile].active');
@@ -4767,6 +5022,20 @@ function updateComposerOrderPreview(kind, options = {}) {
 
   const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const allowReveal = options.reveal !== false;
+  const primaryList = normalized === 'tabs' ? document.getElementById('ctList') : document.getElementById('ciList');
+  const primaryListRectBefore = captureElementRect(primaryList);
+  let listAnimationScheduled = false;
+  const runListAnimation = () => {
+    if (listAnimationScheduled) return;
+    listAnimationScheduled = true;
+    if (!primaryList || !primaryListRectBefore) return;
+    animateComposerListTransition(primaryList, primaryListRectBefore);
+  };
+  const applyInlineActive = (value) => {
+    if (!host) return;
+    host.dataset.inlineActive = value ? 'true' : 'false';
+  };
 
   if (title) title.textContent = 'Change summary';
   if (kindLabel) kindLabel.textContent = label;
@@ -4856,16 +5125,26 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (!hasDiffChanges) {
-    if (root) {
-      root.hidden = true;
-      root.setAttribute('aria-hidden', 'true');
-      root.dataset.state = 'clean';
-    }
     if (meta) {
-      meta.hidden = true;
-      meta.setAttribute('aria-hidden', 'true');
+      animateComposerInlineVisibility(meta, false);
     }
     if (host) host.dataset.state = 'clean';
+
+    let collapseApplied = false;
+    const finalizeCollapse = () => {
+      if (collapseApplied) return;
+      collapseApplied = true;
+      applyInlineActive(false);
+      runListAnimation();
+    };
+
+    if (root) {
+      root.dataset.state = 'clean';
+      animateComposerInlineVisibility(root, false, { onFinish: finalizeCollapse });
+    } else {
+      finalizeCollapse();
+    }
+
     if (svg) svg.style.display = 'none';
     if (host) {
       const hoverState = host.__nsOrderHoverState || {};
@@ -4879,21 +5158,33 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (meta) {
-    if (options.reveal !== false) meta.hidden = false;
-    meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
+    if (allowReveal) animateComposerInlineVisibility(meta, true);
+    else meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
   }
 
-  if (host) host.dataset.state = hasDiffChanges ? 'changed' : 'clean';
+  if (host) host.dataset.state = 'changed';
 
-  if (root) {
-    if (hasOrderChanges) {
-      if (options.reveal !== false) root.hidden = false;
-      root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
+  const inlineShouldShow = hasOrderChanges && allowReveal;
+  if (inlineShouldShow) {
+    applyInlineActive(true);
+    if (root) {
       root.dataset.state = 'changed';
+      animateComposerInlineVisibility(root, true);
+    }
+    runListAnimation();
+  } else {
+    let collapseApplied = false;
+    const finalizeCollapse = () => {
+      if (collapseApplied) return;
+      collapseApplied = true;
+      applyInlineActive(false);
+      runListAnimation();
+    };
+    if (root) {
+      root.dataset.state = hasOrderChanges ? 'changed' : 'clean';
+      animateComposerInlineVisibility(root, false, { onFinish: finalizeCollapse });
     } else {
-      root.hidden = true;
-      root.setAttribute('aria-hidden', 'true');
-      root.dataset.state = 'clean';
+      finalizeCollapse();
     }
   }
 
@@ -6901,8 +7192,8 @@ async function nsCopyToClipboard(text) {
 
 // Smooth expand/collapse for details panels
 const __activeAnims = new WeakMap();
-const SLIDE_OPEN_DUR = 320;   // slower, smoother
-const SLIDE_CLOSE_DUR = 280;  // slightly faster than open
+const SLIDE_OPEN_DUR = 420;   // slower, smoother
+const SLIDE_CLOSE_DUR = 360;  // slightly faster than open
 
 function parsePx(value) {
   const n = parseFloat(value);
@@ -7137,6 +7428,8 @@ function makeDragList(container, onReorder) {
   let dragging = null;
   let placeholder = null;
   let offsetX = 0, offsetY = 0;
+  let dragOriginParent = null;
+  let dragOriginNext = null;
 
   // Utility: snapshot and animate siblings (ignore the dragged element)
   const snapshotRects = () => {
@@ -7158,12 +7451,12 @@ function makeDragList(container, onReorder) {
           el.animate([
             { transform: `translate(${dx}px, ${dy}px)` },
             { transform: 'translate(0, 0)' }
-          ], { duration: 240, easing: 'ease', composite: 'replace' });
+          ], { duration: 360, easing: 'ease', composite: 'replace' });
         } catch (_) {
           el.style.transition = 'none';
           el.style.transform = `translate(${dx}px, ${dy}px)`;
           requestAnimationFrame(() => {
-            el.style.transition = 'transform 240ms ease';
+            el.style.transition = 'transform 360ms ease';
             el.style.transform = '';
             const clear = () => { el.style.transition = ''; el.removeEventListener('transitionend', clear); };
             el.addEventListener('transitionend', clear);
@@ -7193,29 +7486,46 @@ function makeDragList(container, onReorder) {
     e.preventDefault();
 
     dragging = li;
-    const r = li.getBoundingClientRect();
-    offsetX = e.clientX - r.left;
-    offsetY = e.clientY - r.top;
+    cancelListTransition(container);
+    container.style.transform = 'none';
+    container.style.filter = 'none';
+    if (container.style.opacity && container.style.opacity !== '1') container.style.opacity = '';
 
-    // placeholder keeps layout
+    const initialRect = li.getBoundingClientRect();
+    const styles = window.getComputedStyle(li);
+
+    dragOriginParent = li.parentNode;
+    dragOriginNext = li.nextSibling;
+
+    // placeholder keeps layout while dragged element floats
     placeholder = document.createElement('div');
     placeholder.className = 'drag-placeholder';
-    placeholder.style.height = r.height + 'px';
-    placeholder.style.margin = getComputedStyle(li).margin;
-    li.parentNode.insertBefore(placeholder, li.nextSibling);
+    placeholder.style.height = initialRect.height + 'px';
+    placeholder.style.margin = styles.margin;
+    dragOriginParent.insertBefore(placeholder, dragOriginNext);
+
+    li.dataset.nsDragPrevMargin = styles.margin;
+    li.dataset.nsDragPrevTransform = li.style.transform || '';
+    li.style.margin = '0';
+    li.style.transform = 'none';
+
+    const rect = li.getBoundingClientRect();
+    offsetX = e.pageX - (rect.left + window.scrollX);
+    offsetY = e.pageY - (rect.top + window.scrollY);
 
     // elevate original element and follow pointer
-    li.style.width = r.width + 'px';
-    li.style.height = r.height + 'px';
-    li.style.position = 'fixed';
-    li.style.left = (e.clientX - offsetX) + 'px';
-    li.style.top = (e.clientY - offsetY) + 'px';
+    li.style.width = rect.width + 'px';
+    li.style.height = rect.height + 'px';
+    li.style.position = 'absolute';
+    li.style.left = (rect.left + window.scrollX) + 'px';
+    li.style.top = (rect.top + window.scrollY) + 'px';
     li.style.zIndex = '2147483646';
     li.style.pointerEvents = 'none';
     li.style.willChange = 'transform, top, left';
     li.classList.add('dragging');
     container.classList.add('is-dragging-list');
     document.body.classList.add('ns-noselect');
+    document.body.appendChild(li);
 
     try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
     window.addEventListener('pointermove', onPointerMove);
@@ -7224,8 +7534,8 @@ function makeDragList(container, onReorder) {
 
   const onPointerMove = (e) => {
     if (!dragging) return;
-    dragging.style.left = (e.clientX - offsetX) + 'px';
-    dragging.style.top = (e.clientY - offsetY) + 'px';
+    dragging.style.left = (e.pageX - offsetX) + 'px';
+    dragging.style.top = (e.pageY - offsetY) + 'px';
 
     const prev = snapshotRects();
     const after = getAfterByY(container, e.clientY);
@@ -7244,9 +7554,13 @@ function makeDragList(container, onReorder) {
     const dy = origin.top - target.top;
 
     // place the element where the placeholder sits in DOM order
-    placeholder.parentNode.insertBefore(dragging, placeholder);
-    placeholder.remove();
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(dragging, placeholder);
+      placeholder.remove();
+    }
     placeholder = null;
+    dragOriginParent = null;
+    dragOriginNext = null;
 
     // reset positioning to re-enter normal flow
     dragging.style.position = '';
@@ -7257,6 +7571,10 @@ function makeDragList(container, onReorder) {
     dragging.style.zIndex = '';
     dragging.style.pointerEvents = '';
     dragging.style.willChange = '';
+    dragging.style.margin = dragging.dataset.nsDragPrevMargin || '';
+    dragging.style.transform = dragging.dataset.nsDragPrevTransform || '';
+    delete dragging.dataset.nsDragPrevMargin;
+    delete dragging.dataset.nsDragPrevTransform;
     dragging.classList.remove('dragging');
 
     // animate the snap from origin -> target (FLIP on the dragged element)
@@ -7264,13 +7582,13 @@ function makeDragList(container, onReorder) {
       dragging.animate([
         { transform: `translate(${dx}px, ${dy}px)` },
         { transform: 'translate(0, 0)' }
-      ], { duration: 240, easing: 'ease' });
+      ], { duration: 360, easing: 'ease' });
     } catch (_) {
       // Fallback: CSS transition
       dragging.style.transition = 'none';
       dragging.style.transform = `translate(${dx}px, ${dy}px)`;
       requestAnimationFrame(() => {
-        dragging.style.transition = 'transform 240ms ease';
+        dragging.style.transition = 'transform 360ms ease';
         dragging.style.transform = '';
         const clear = () => { dragging.style.transition = ''; dragging.removeEventListener('transitionend', clear); };
         dragging.addEventListener('transitionend', clear);
@@ -7379,12 +7697,12 @@ function buildIndexUI(root, state) {
                 el.animate([
                   { transform: `translate(${dx}px, ${dy}px)` },
                   { transform: 'translate(0, 0)' }
-                ], { duration: 240, easing: 'ease', composite: 'replace' });
+                ], { duration: 360, easing: 'ease', composite: 'replace' });
               } catch (_) {
                 el.style.transition = 'none';
                 el.style.transform = `translate(${dx}px, ${dy}px)`;
                 requestAnimationFrame(() => {
-                  el.style.transition = 'transform 240ms ease';
+                  el.style.transition = 'transform 360ms ease';
                   el.style.transform = '';
                   const clear = () => { el.style.transition = ''; el.removeEventListener('transitionend', clear); };
                   el.addEventListener('transitionend', clear);
