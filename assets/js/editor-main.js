@@ -288,6 +288,8 @@ function renderPreview(mdText) {
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('mdInput');
   const editor = createHiEditor(ta, 'markdown', false);
+  const imageButton = document.getElementById('btnInsertImage');
+  const imageInput = document.getElementById('editorImageInput');
   const wrapToggle = document.getElementById('wrapToggle');
   const wrapToggleButtons = wrapToggle ? Array.from(wrapToggle.querySelectorAll('[data-wrap]')) : [];
   const editorLayoutEl = document.getElementById('mode-editor');
@@ -445,6 +447,232 @@ document.addEventListener('DOMContentLoaded', () => {
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
   let currentFileInfo = { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
   let currentFileElRef = null;
+
+  const getEditorTextarea = () => {
+    if (editor && editor.textarea) return editor.textarea;
+    return ta;
+  };
+
+  const getCurrentMarkdownPath = () => {
+    if (currentFileInfo && currentFileInfo.path) return String(currentFileInfo.path);
+    return '';
+  };
+
+  const emitEditorToast = (kind, message) => {
+    const text = message == null ? '' : String(message);
+    if (!text) return;
+    try {
+      window.dispatchEvent(new CustomEvent('ns-editor-toast', { detail: { kind: kind || 'info', message: text } }));
+    } catch (_) {}
+  };
+
+  const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error('No file provided.'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const result = reader.result;
+        if (typeof result !== 'string') {
+          reject(new Error('Unexpected file data.'));
+          return;
+        }
+        const comma = result.indexOf(',');
+        const base64 = comma >= 0 ? result.slice(comma + 1) : result;
+        if (!base64) {
+          reject(new Error('Image data is empty.'));
+          return;
+        }
+        resolve(base64);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => {
+      reject(reader.error || new Error('Failed to read image.'));
+    };
+    try {
+      reader.readAsDataURL(file);
+    } catch (err) {
+      reject(err);
+    }
+  });
+
+  const slugifyAssetBase = (value) => {
+    const input = String(value == null ? '' : value).toLowerCase();
+    const cleaned = input.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return cleaned ? cleaned.slice(0, 48) : 'image';
+  };
+
+  const inferAssetExtension = (file) => {
+    if (!file) return '.png';
+    const name = typeof file.name === 'string' ? file.name : '';
+    const extMatch = name.match(/\.([a-zA-Z0-9]+)$/);
+    let ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
+    const normalize = (value) => (value && value.startsWith('.') ? value : `.${value || ''}`);
+    const type = (file.type || '').toLowerCase();
+    const typeMap = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'image/svg+xml': '.svg',
+      'image/avif': '.avif',
+      'image/bmp': '.bmp',
+      'image/heic': '.heic',
+      'image/heif': '.heif'
+    };
+    if (!ext && typeMap[type]) ext = typeMap[type];
+    if (!ext && type.includes('jpeg')) ext = '.jpg';
+    if (!ext && type.includes('png')) ext = '.png';
+    if (!ext) ext = '.png';
+    ext = normalize(ext.toLowerCase());
+    return ext.replace(/[^.a-z0-9]/g, '') || '.png';
+  };
+
+  const buildAssetFileMeta = (file) => {
+    const original = file && typeof file.name === 'string' ? file.name : '';
+    const dot = original.lastIndexOf('.');
+    const baseRaw = dot > 0 ? original.slice(0, dot) : original;
+    const slug = slugifyAssetBase(baseRaw);
+    const ext = inferAssetExtension(file);
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).slice(2, 6);
+    const fileName = `${slug}-${timestamp}${random ? `-${random}` : ''}${ext}`;
+    const altText = baseRaw && baseRaw.trim() ? baseRaw.trim() : slug.replace(/-/g, ' ').trim();
+    return { fileName, altText: altText || slug };
+  };
+
+  const computeAssetPaths = (markdownPath, fileName) => {
+    const normalized = String(markdownPath || '').replace(/[\\]/g, '/').replace(/^\/+/, '');
+    const idx = normalized.lastIndexOf('/');
+    const dir = idx >= 0 ? normalized.slice(0, idx) : '';
+    const assetDir = dir ? `${dir}/assets` : 'assets';
+    const commitPath = `${assetDir}/${fileName}`.replace(/\/+/g, '/');
+    const relativePath = `assets/${fileName}`;
+    return { commitPath, relativePath };
+  };
+
+  const insertImageMarkdown = (relativePath, altText) => {
+    const target = getEditorTextarea();
+    const content = getValue();
+    const start = target && Number.isFinite(target.selectionStart) ? target.selectionStart : content.length;
+    const end = target && Number.isFinite(target.selectionEnd) ? target.selectionEnd : start;
+    const before = content.slice(0, start);
+    const after = content.slice(end);
+    const alt = altText == null ? '' : String(altText);
+    let prefix = '';
+    if (before && !/\n$/.test(before)) prefix = '\n\n';
+    let suffix = '';
+    if (after) suffix = /^\n/.test(after) ? '' : '\n\n';
+    else suffix = '\n';
+    const core = `![${alt}](${relativePath})`;
+    const snippet = `${prefix}${core}${suffix}`;
+    const next = `${before}${snippet}${after}`;
+    const altStart = before.length + prefix.length + 2;
+    const altEnd = altStart + alt.length;
+    const afterIndex = before.length + snippet.length;
+    setValue(next, { notify: true });
+    return { altStart, altEnd, afterIndex };
+  };
+
+  const isImageFile = (file) => {
+    if (!file) return false;
+    if (file.type) return file.type.startsWith('image/');
+    const name = typeof file.name === 'string' ? file.name : '';
+    return /\.(?:png|jpe?g|gif|bmp|webp|svg|avif|heic|heif)$/i.test(name);
+  };
+
+  const containsImageFile = (dataTransfer) => {
+    if (!dataTransfer) return false;
+    const files = dataTransfer.files;
+    if (files && files.length) {
+      for (let i = 0; i < files.length; i += 1) {
+        if (isImageFile(files[i])) return true;
+      }
+    }
+    if (dataTransfer.items && dataTransfer.items.length) {
+      for (let i = 0; i < dataTransfer.items.length; i += 1) {
+        const item = dataTransfer.items[i];
+        if (item && item.kind === 'file') {
+          try {
+            const file = item.getAsFile();
+            if (isImageFile(file)) return true;
+          } catch (_) { /* ignore */ }
+        }
+      }
+    }
+    return false;
+  };
+
+  const handleImageFiles = async (fileList, options = {}) => {
+    const markdownPath = getCurrentMarkdownPath();
+    if (!markdownPath) {
+      emitEditorToast('warn', 'Open a markdown file before inserting images.');
+      return;
+    }
+    const files = Array.from(fileList || []).filter(isImageFile);
+    if (!files.length) {
+      if (fileList && fileList.length) emitEditorToast('warn', 'Only image files can be inserted.');
+      return;
+    }
+
+    const textarea = getEditorTextarea();
+    let lastSelection = null;
+
+    for (let i = 0; i < files.length; i += 1) {
+      const file = files[i];
+      if (lastSelection && textarea) {
+        try { textarea.setSelectionRange(lastSelection.afterIndex, lastSelection.afterIndex); }
+        catch (_) {}
+      }
+      let base64;
+      try {
+        base64 = await readFileAsBase64(file);
+      } catch (err) {
+        console.error('Failed to read image for insertion', err);
+        emitEditorToast('error', err && err.message ? err.message : 'Failed to read image file.');
+        continue;
+      }
+
+      const meta = buildAssetFileMeta(file);
+      const paths = computeAssetPaths(markdownPath, meta.fileName);
+      const selection = insertImageMarkdown(paths.relativePath, meta.altText);
+      lastSelection = selection;
+
+      if (textarea) {
+        try {
+          textarea.focus();
+          textarea.setSelectionRange(selection.altStart, selection.altEnd);
+        } catch (_) {}
+      }
+
+      try {
+        window.dispatchEvent(new CustomEvent('ns-editor-asset-added', {
+          detail: {
+            markdownPath,
+            fileName: meta.fileName,
+            commitPath: paths.commitPath,
+            relativePath: paths.relativePath,
+            base64,
+            mime: file.type || '',
+            size: file.size || 0,
+            originalName: file.name || '',
+            altText: meta.altText,
+            source: options.source || 'picker',
+            silent: true
+          }
+        }));
+      } catch (err) {
+        console.error('Failed to dispatch asset-added event', err);
+      }
+
+      emitEditorToast('success', `Inserted ${paths.relativePath}`);
+    }
+  };
 
   const ensureCurrentFileElement = () => {
     if (currentFileElRef && document.body.contains(currentFileElRef)) return currentFileElRef;
@@ -684,6 +912,57 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   setBaseDir('');
+
+  if (imageButton) {
+    imageButton.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      if (!getCurrentMarkdownPath()) {
+        emitEditorToast('warn', 'Open a markdown file before inserting images.');
+        return;
+      }
+      if (imageInput) {
+        try { imageInput.click(); }
+        catch (_) {
+          try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+          catch (__) {}
+        }
+      }
+    });
+  }
+
+  if (imageInput) {
+    imageInput.addEventListener('change', () => {
+      const files = imageInput.files;
+      if (files && files.length) {
+        handleImageFiles(files, { source: 'picker' }).catch((err) => {
+          console.error('Image insertion failed', err);
+        });
+      }
+      imageInput.value = '';
+    });
+  }
+
+  const markdownTextarea = getEditorTextarea();
+  if (markdownTextarea) {
+    markdownTextarea.addEventListener('dragover', (event) => {
+      if (!event || !event.dataTransfer) return;
+      if (!containsImageFile(event.dataTransfer)) return;
+      event.preventDefault();
+      try { event.dataTransfer.dropEffect = 'copy'; }
+      catch (_) {}
+    });
+    markdownTextarea.addEventListener('drop', (event) => {
+      if (!event || !event.dataTransfer) return;
+      if (!containsImageFile(event.dataTransfer)) return;
+      event.preventDefault();
+      const files = event.dataTransfer.files;
+      if (files && files.length) {
+        handleImageFiles(files, { source: 'drop' }).catch((err) => {
+          console.error('Image drop failed', err);
+        });
+      }
+    });
+  }
 
   // View toggle
   document.querySelectorAll('.vt-btn[data-view]').forEach(a => {
