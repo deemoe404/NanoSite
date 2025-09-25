@@ -32,22 +32,41 @@
   <link rel="stylesheet" id="theme-pack">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
+    html { height: 100%; }
+    :root {
+      --composer-inline-ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --composer-inline-duration-in: 480ms;
+      --composer-inline-duration-out: 380ms;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :root {
+        --composer-inline-duration-in: 240ms;
+        --composer-inline-duration-out: 200ms;
+        --composer-inline-ease: linear;
+      }
+      .composer-panels { transition: none; }
+    }
     /* Widen the editor page and reduce side padding */
-    body { padding: 0.75rem 1rem; max-width: min(95vw, 1200px); margin: 0 auto; }
-    .editor-page { display: block; }
-    /* Two-column layout: sidebar + editor */
-    .editor-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 1rem; align-items: start; }
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
+    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; }
+    /* Editor layout */
+    .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
+    .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
-    .editor-layout.is-dynamic .editor-sidebar { display: none !important; }
-    .editor-sidebar { position: relative; }
-    .editor-sidebar .sidebar-title { font-size: 1rem; font-weight: 700; margin: 0 0 .5rem; }
-    /* Sidebar tabs for switching between Posts and Tabs */
-    .sidebar-tabs { display: inline-flex; gap: .4rem; margin: .35rem 0 .6rem; }
-    .sidebar-tab { border: 1px solid var(--border); background: var(--card); color: var(--text); border-radius: 999px; padding: .25rem .6rem; font-size: .88rem; cursor: pointer; }
-    .sidebar-tab.is-active { background: color-mix(in srgb, var(--primary) 12%, var(--card)); border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }
+    .editor-layout.is-empty .editor-main { display: none; }
+    .editor-empty-state { display: none; grid-column: 1 / -1; align-self: center; justify-self: center; align-items: center; justify-content: center; text-align: center; padding: clamp(1.75rem, 2vw + 1.2rem, 2.25rem) clamp(1.5rem, 2.8vw + 1rem, 2.75rem); border-radius: 14px; border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent); background: color-mix(in srgb, var(--card) 96%, transparent); color: var(--muted); width: min(100%, 520px); box-shadow: 0 20px 36px rgba(15, 23, 42, 0.08); margin-top: clamp(1.5rem, 3vw + 0.5rem, 2.75rem); }
+    .editor-layout.is-empty .editor-empty-state { display: flex; }
+    .editor-empty-state .empty-body { display: flex; flex-direction: column; gap: .85rem; align-items: center; justify-content: center; }
+    .editor-empty-state h2 { margin: 0; font-size: 1.4rem; font-weight: 700; color: var(--text); }
+    .editor-empty-state p { margin: 0; font-size: 1rem; line-height: 1.6; }
+    @media (max-width: 600px) {
+      .editor-empty-state { padding: clamp(1.5rem, 6vw + .75rem, 1.9rem) clamp(1.25rem, 5vw + .85rem, 2.1rem); width: min(100%, 460px); }
+      .editor-empty-state h2 { font-size: 1.25rem; }
+      .editor-empty-state p { font-size: .95rem; }
+    }
     /* Top mode switch (Editor / Composer): bigger, nav-like */
     .mode-switch {
       display: inline-flex;
@@ -286,20 +305,6 @@
       max-width: 100%;
     }
     .mode-switch-editor[hidden] { display: none !important; }
-    .editor-sidebar .group-title { display:none; }
-    .editor-sidebar .file-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; /* no inner scroll */ max-height: none; overflow: visible; }
-    .editor-sidebar .file-item { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem .6rem; border-bottom: 1px solid var(--border); cursor: pointer; }
-    .editor-sidebar .file-item:last-child { border-bottom: 0; }
-    .editor-sidebar .file-item:hover { background: color-mix(in srgb, var(--text) 4%, transparent); }
-    .editor-sidebar .file-item.is-active { background: color-mix(in srgb, var(--primary) 10%, transparent); }
-    .editor-sidebar .file-main { display: inline-flex; flex-direction: column; gap: .125rem; min-width: 0; }
-    .editor-sidebar .file-label { font-size: .92rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .editor-sidebar .file-path { font-size: .78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .editor-sidebar .search { margin: 0 0 .5rem; }
-    .editor-sidebar .search input { width: 100%; height: 2.25rem; padding: .4rem .6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--text); }
-    .editor-sidebar .search input:focus { outline: none; box-shadow: 0 0 0 .12rem color-mix(in srgb, var(--primary) 35%, transparent); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); }
-    .editor-sidebar .status { margin-top: .4rem; font-size: .78rem; color: var(--muted); }
-    .editor-sidebar .lists { display: block; }
     .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
     .current-file .cf-line-main { font-weight: 600; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
     .current-file .cf-line-main .cf-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -315,20 +320,6 @@
     .current-file[data-file-state="error"] .cf-line-main { color: color-mix(in srgb, #dc2626 80%, var(--text)); }
     .current-file[data-dirty="1"] .cf-line-main { color: color-mix(in srgb, #f97316 78%, var(--text)); }
     /* Grouped list styles */
-    .editor-sidebar .file-group { border-bottom: 1px solid var(--border); }
-    .editor-sidebar .file-group:last-child { border-bottom: 0; }
-    .editor-sidebar .file-group-header { font-size: .95rem; font-weight: 700; color: var(--text); padding: .5rem .6rem; cursor: pointer; list-style: none; display:flex; align-items:center; gap:.5rem; }
-    .editor-sidebar .file-group-title { flex: 1; min-width: 0; }
-    .editor-sidebar .summary-badges { display:inline-flex; gap:.35rem; align-items:center; }
-    .editor-sidebar .badge { display:inline-flex; align-items:center; gap:.25rem; border:1px solid var(--border); background: var(--card); color: var(--muted); font-size:.72rem; padding:.05rem .4rem; border-radius:999px; }
-    .editor-sidebar .badge-ver { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
-    .editor-sidebar .badge-lang { }
-    .editor-sidebar details.file-group > summary::-webkit-details-marker { display: none; }
-    .editor-sidebar details.file-group[open] > summary::after { content: '▾'; float: right; color: var(--muted); }
-    .editor-sidebar details.file-group:not([open]) > summary::after { content: '▸'; float: right; color: var(--muted); }
-    .editor-sidebar .file-sublist { list-style: none; margin: 0; padding: 0 0 .25rem 0; }
-    .editor-sidebar .file-subgroup { padding-top: .25rem; }
-    .editor-sidebar .file-subheader { font-size: .8rem; font-weight: 600; color: var(--muted); padding: .25rem .6rem; text-transform: uppercase; }
     /* Ensure main editor can use full width */
     .editor-main { min-width: 0; overflow: visible; }
     .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
@@ -343,6 +334,10 @@
       gap:.7rem;
       color: var(--muted);
       font-size:.92rem;
+      --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent);
+      --gs-arrow-thickness: 7px;
+      --gs-arrow-node-size: 16px;
+      --gs-arrow-flow-duration: 2.8s;
     }
     .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
     .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
@@ -352,8 +347,9 @@
       grid-template-columns: max-content minmax(160px, 1fr) max-content;
       align-items:stretch;
       justify-content:center;
-      column-gap:1.25rem;
+      column-gap:0;
       width:100%;
+      position:relative;
     }
     .global-status .gs-node {
       display:flex;
@@ -366,6 +362,8 @@
       padding:.95rem 1rem;
       min-width:0;
       position:relative;
+      z-index:2;
+      overflow:visible;
     }
     @media (min-width: 521px) {
       .global-status .gs-node-remote,
@@ -419,50 +417,82 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:0 2.2rem;
+      padding:0 2.6rem;
       width:100%;
-      --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
+      --gs-flow-start: translate3d(-130%, -50%, 0);
+      --gs-flow-end: translate3d(130%, -50%, 0);
       color: var(--gs-arrow-color);
+      isolation:isolate;
+      z-index:1;
     }
-    .global-status .gs-arrow::before {
-      content:'';
-      position:absolute;
-      left:0;
-      right:0;
-      top:50%;
-      transform:translateY(-50%);
-      height:2px;
-      background: color-mix(in srgb, currentColor 85%, transparent);
-      opacity:.55;
-    }
+    .global-status .gs-arrow::before,
     .global-status .gs-arrow::after {
       content:'';
       position:absolute;
+      left:calc(var(--gs-arrow-node-size) * -0.5);
+      right:calc(var(--gs-arrow-node-size) * -0.5);
       top:50%;
-      right:0;
-      transform:translate(50%, -50%);
-      width:18px;
-      height:18px;
-      background: currentColor;
-      clip-path: polygon(0 0, 100% 50%, 0 100%);
-      opacity:.75;
+      height:var(--gs-arrow-thickness);
+      border-radius:var(--gs-arrow-thickness);
+      pointer-events:none;
     }
-    .global-status .gs-arrow-tail {
+    .global-status .gs-arrow::before {
+      transform:translateY(-50%);
+      background: color-mix(in srgb, var(--gs-arrow-color) 82%, transparent);
+      box-shadow:0 4px 14px rgba(15, 23, 42, 0.08);
+      z-index:-1;
+    }
+    .global-status .gs-arrow::after {
+      transform:var(--gs-flow-start);
+      background-image: linear-gradient(90deg,
+        color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 0%,
+        color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 24%,
+        color-mix(in srgb, var(--gs-arrow-color) 98%, black 8%) 50%,
+        color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 76%,
+        color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 100%);
+      filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gs-arrow-color) 46%, transparent));
+      opacity:0;
+      will-change: transform, opacity;
+      z-index:1;
+    }
+    @keyframes gs-arrow-flow-pass {
+      0% { transform: var(--gs-flow-start); opacity: 0; }
+      12% { opacity: 1; }
+      88% { opacity: 1; }
+      100% { transform: var(--gs-flow-end); opacity: 0; }
+    }
+    .global-status .gs-arrow.is-pending::after {
+      opacity:1;
+      animation: gs-arrow-flow-pass var(--gs-arrow-flow-duration) linear infinite;
+    }
+    .global-status .gs-arrow-tail,
+    .global-status .gs-arrow-head {
+      display:none;
+    }
+    .global-status .gs-node::before {
+      content:'';
       position:absolute;
-      left:0;
       top:50%;
-      transform:translate(-50%, -50%);
-      width:12px;
-      height:12px;
+      width:var(--gs-arrow-node-size);
+      height:var(--gs-arrow-node-size);
       border-radius:999px;
-      border:2px solid currentColor;
+      border:2px solid var(--gs-arrow-color);
       background: color-mix(in srgb, var(--card) 92%, transparent);
       box-shadow:0 2px 8px rgba(15, 23, 42, 0.08);
       pointer-events:none;
+      z-index:3;
+    }
+    .global-status .gs-node-local::before {
+      left:100%;
+      transform:translate(-50%, -50%);
+    }
+    .global-status .gs-node-remote::before {
+      left:0;
+      transform:translate(-50%, -50%);
     }
     .global-status .gs-arrow-bubble {
       position:relative;
-      z-index:1;
+      z-index:4;
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -481,6 +511,12 @@
       user-select: none;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
     }
+    .global-status .gs-arrow-bubble:hover:not(.is-busy) {
+      color: color-mix(in srgb, var(--text) 84%, transparent);
+      background: color-mix(in srgb, var(--card) 94%, var(--primary) 8%);
+      border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
+      box-shadow:0 10px 22px rgba(15, 23, 42, 0.14);
+    }
     .global-status .gs-arrow-bubble:focus-visible {
       outline: 2px solid color-mix(in srgb, var(--primary) 62%, transparent);
       outline-offset: 2px;
@@ -494,19 +530,19 @@
     .global-status[data-state="warn"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #f59e0b 24%, transparent); border-color:color-mix(in srgb, #f59e0b 42%, transparent); }
     .global-status[data-state="err"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #dc2626 26%, transparent); border-color:color-mix(in srgb, #dc2626 46%, transparent); }
     .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #1f883d 22%, transparent); border-color:color-mix(in srgb, #1f883d 42%, transparent); }
-    .global-status[data-dirty="1"] .gs-arrow { --gs-arrow-color: color-mix(in srgb, #f97316 75%, var(--text) 10%); }
+    .global-status[data-dirty="1"] { --gs-arrow-color: color-mix(in srgb, #f97316 75%, var(--text) 10%); }
     .global-status[data-dirty="1"] .gs-arrow-bubble {
       color: color-mix(in srgb, #9a3412 70%, transparent);
       background: color-mix(in srgb, #fed7aa 55%, var(--card) 60%);
       border-color: color-mix(in srgb, #fb923c 40%, var(--border));
     }
-    .global-status:not([data-dirty="1"]) .gs-arrow { --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent); }
+    .global-status:not([data-dirty="1"]) { --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent); }
     .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-arrow-bubble {
       color: color-mix(in srgb, #166534 74%, transparent);
       background: color-mix(in srgb, #dcfce7 60%, var(--card) 65%);
       border-color: color-mix(in srgb, #22c55e 32%, var(--border));
     }
-    .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow {
+    .global-status[data-state="warn"]:not([data-dirty="1"]) {
       --gs-arrow-color: color-mix(in srgb, #f59e0b 68%, var(--text) 10%);
     }
     .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow-bubble {
@@ -514,7 +550,7 @@
       background: color-mix(in srgb, #fef3c7 60%, var(--card) 68%);
       border-color: color-mix(in srgb, #f59e0b 38%, var(--border));
     }
-    .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow {
+    .global-status[data-state="err"]:not([data-dirty="1"]) {
       --gs-arrow-color: color-mix(in srgb, #ef4444 70%, var(--text) 12%);
     }
     .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow-bubble {
@@ -531,32 +567,36 @@
       }
       .global-status .gs-arrow {
         padding:1.5rem 0 .5rem;
+        --gs-flow-start: translate3d(-50%, -130%, 0);
+        --gs-flow-end: translate3d(-50%, 130%, 0);
       }
-      .global-status .gs-arrow::before {
+      .global-status .gs-arrow::before,
+      .global-status .gs-arrow::after {
         left:50%;
         right:auto;
-        top:0;
-        bottom:0;
-        width:2px;
+        top:calc(var(--gs-arrow-node-size) * -0.5);
+        bottom:calc(var(--gs-arrow-node-size) * -0.5);
+        width:var(--gs-arrow-thickness);
         height:auto;
-        transform:none;
+      }
+      .global-status .gs-arrow::before {
+        transform:translateX(-50%);
       }
       .global-status .gs-arrow::after {
-        top:auto;
-        bottom:0;
-        right:50%;
-        transform:translate(50%, 50%);
-        width:0;
-        height:0;
-        background:none;
-        clip-path:none;
-        border-left:8px solid transparent;
-        border-right:8px solid transparent;
-        border-top:10px solid currentColor;
+        background-image: linear-gradient(180deg,
+          color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 0%,
+          color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 26%,
+          color-mix(in srgb, var(--gs-arrow-color) 98%, black 8%) 50%,
+          color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 74%,
+          color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 100%);
       }
-      .global-status .gs-arrow-tail {
-        top:0;
+      .global-status .gs-node::before {
         left:50%;
+        top:100%;
+        transform:translate(-50%, -50%);
+      }
+      .global-status .gs-node-remote::before {
+        top:0;
         transform:translate(-50%, -50%);
       }
       .global-status .gs-arrow-bubble {
@@ -801,44 +841,30 @@
     @media (max-width: 640px) {
       .composer-confirm-popover { min-width: min(240px, calc(100vw - 2.5rem)); }
     }
+    .site-footer {
+      flex: 0 0 auto;
+      margin: clamp(2rem, 5vw, 3rem) auto 0;
+      padding: 1.5rem 1rem 2rem;
+      width: min(95vw, 1200px);
+      border-top: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+      color: color-mix(in srgb, var(--muted) 90%, transparent);
+      font-size: .9rem;
+      text-align: center;
+    }
+    .site-footer a {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .site-footer a:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
     #btnDraft.is-dirty { border-color: color-mix(in srgb, #f97316 45%, var(--border)); background: color-mix(in srgb, #f97316 12%, var(--card)); color: color-mix(in srgb, #7c2d12 85%, transparent); }
     #btnDraft.is-clean { border-color: color-mix(in srgb, #16a34a 45%, var(--border)); background: color-mix(in srgb, #16a34a 10%, var(--card)); color: color-mix(in srgb, #14532d 85%, transparent); position: relative; }
     #btnDraft.is-clean::after { content: '✓'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #15803d; background: var(--card); border: 1px solid color-mix(in srgb, #16a34a 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
     #btnDraft.is-stale { position: relative; }
     #btnDraft.is-stale::after { content: '\26A0'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #dc2626; background: var(--card); border: 1px solid color-mix(in srgb, #dc2626 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
-    /* Make the GitHub sync button GitHub-green with icon (override theme packs with !important) */
-    button#btnVerify.btn-secondary {
-      background:#428646 !important;  /*66 134 70*/
-      color:#ffffff !important;
-      border:1px solid #3d7741 !important;  /*61 119 65*/
-      border-radius:8px !important;
-    }
-    button#btnVerify.btn-secondary:hover { background:#3d7741 !important; }
-    button#btnVerify.btn-secondary:active { background:#298e46 !important; }
-    button#btnVerify.btn-secondary:focus-visible { outline:2px solid #2ea44f66; outline-offset:2px; }
-    button#btnPushMarkdown.btn-secondary {
-      background:#428646 !important;
-      color:#ffffff !important;
-      border:1px solid #3d7741 !important;
-      border-radius:8px !important;
-    }
-    button#btnPushMarkdown.btn-secondary:hover { background:#3d7741 !important; }
-    button#btnPushMarkdown.btn-secondary:active { background:#298e46 !important; }
-    button#btnPushMarkdown.btn-secondary:focus-visible { outline:2px solid #2ea44f66; outline-offset:2px; }
-    button#btnPushMarkdown.btn-secondary:disabled {
-      opacity:.6;
-      cursor:not-allowed;
-      color:rgba(255,255,255,.85) !important;
-    }
-    button#btnPushMarkdown.btn-secondary svg {
-      width:16px;
-      height:16px;
-      flex:0 0 auto;
-    }
-    button#btnPushMarkdown.btn-secondary .btn-label {
-      font-weight:600;
-      white-space:nowrap;
-    }
     button#btnDiscard.btn-secondary {
       background:#e15b5b !important;
       color:#3f1010 !important;
@@ -903,7 +929,146 @@
     .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
 
     @media (max-width: 640px) {
-      body { padding: .75rem; }
+      .editor-page { padding: .75rem; }
+    }
+
+    .composer-panels { min-width: 0; display: grid; gap: 1.25rem; opacity: 1; transition: opacity 200ms ease; }
+    .composer-panels.is-transitioning { pointer-events: none; }
+    .composer-panels.is-hidden { opacity: 0; }
+    .composer-order-host {
+      position: relative;
+      display: grid;
+      grid-template-columns: clamp(150px, 24%, 220px) minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      grid-template-areas: "inline main";
+      column-gap: clamp(2rem, 5vw, 3.2rem);
+      align-items: start;
+      min-width: 0;
+      transition: grid-template-columns var(--composer-inline-duration-in) var(--composer-inline-ease), column-gap var(--composer-inline-duration-in) var(--composer-inline-ease);
+      will-change: grid-template-columns, column-gap;
+    }
+    .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
+    .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
+    .composer-order-inline[hidden] { display: none !important; }
+    .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
+    .composer-order-inline-meta[hidden] { display: none !important; }
+    .composer-order-inline,
+    .composer-order-inline-meta {
+      transform-origin: top left;
+      will-change: opacity, transform;
+    }
+    .composer-order-inline[data-anim-state],
+    .composer-order-inline-meta[data-anim-state] {
+      animation-timing-function: var(--composer-inline-ease);
+      animation-fill-mode: both;
+    }
+    .composer-order-inline[data-anim-state="enter"],
+    .composer-order-inline-meta[data-anim-state="enter"] {
+      animation-name: composerInlineEnter;
+      animation-duration: var(--composer-inline-duration-in);
+    }
+    .composer-order-inline[data-anim-state="exit"],
+    .composer-order-inline-meta[data-anim-state="exit"] {
+      animation-name: composerInlineExit;
+      animation-duration: var(--composer-inline-duration-out);
+    }
+    @keyframes composerInlineEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes composerInlineExit {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+    .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+    .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+    .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
+    .composer-order-inline-kind { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: color-mix(in srgb, var(--text) 58%, transparent); }
+    .composer-order-inline-stats { display: flex; flex-direction: column; gap: .4rem; font-size: .78rem; color: var(--muted); }
+    .composer-inline-chip-row { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .composer-inline-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      border-radius: 999px;
+      padding: .18rem .55rem;
+      border: 1px solid color-mix(in srgb, var(--text) 16%, var(--border));
+      background: color-mix(in srgb, var(--text) 4%, var(--card));
+      font-weight: 600;
+      font-size: .72rem;
+      color: color-mix(in srgb, var(--text) 70%, transparent);
+    }
+    .composer-inline-chip[data-variant="added"] { color: #166534; }
+    .composer-inline-chip[data-variant="added"] { border-color: color-mix(in srgb, #16a34a 55%, var(--border)); background: color-mix(in srgb, #16a34a 12%, transparent); }
+    .composer-inline-chip[data-variant="removed"] { color: #b91c1c; }
+    .composer-inline-chip[data-variant="removed"] { border-color: color-mix(in srgb, #dc2626 55%, var(--border)); background: color-mix(in srgb, #dc2626 12%, transparent); }
+    .composer-inline-chip[data-variant="modified"] { color: #1d4ed8; }
+    .composer-inline-chip[data-variant="modified"] { border-color: color-mix(in srgb, #2563eb 55%, var(--border)); background: color-mix(in srgb, #2563eb 12%, transparent); }
+    .composer-inline-chip[data-variant="order"] { color: #7c3aed; }
+    .composer-inline-chip[data-variant="order"] { border-color: color-mix(in srgb, #7c3aed 55%, var(--border)); background: color-mix(in srgb, #7c3aed 14%, transparent); }
+    .composer-inline-chip[data-variant="langs"] { color: color-mix(in srgb, var(--text) 60%, transparent); }
+    .composer-inline-summary-empty { font-size: .78rem; color: var(--muted); }
+    .composer-order-inline-body { display: flex; flex-direction: column; }
+    .composer-order-inline-list { display: block; position: relative; z-index: 2; }
+    #ciList {
+      position: relative;
+      transform-origin: top left;
+      will-change: transform;
+    }
+    .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
+    .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .18s ease; }
+    .composer-order-inline-lines.is-hovering { opacity: 1; }
+    .composer-order-host[data-inline-active="false"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
+    .composer-order-host[data-inline-active="false"] .composer-order-inline-lines { display: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .composer-order-inline[data-anim-state],
+      .composer-order-inline-meta[data-anim-state] {
+        animation: none !important;
+      }
+      .composer-order-host {
+        transition: none !important;
+      }
+      #ciList {
+        transition: none !important;
+        animation: none !important;
+        will-change: auto;
+      }
+    }
+    .composer-order-inline .composer-order-item {
+      margin: .5rem 0;
+      min-height: 2.5rem;
+      display: flex;
+      align-items: center;
+    }
+    .composer-order-inline .composer-order-inline-item {
+      overflow: hidden;
+      height: auto;
+      transition: height .28s ease, margin .28s ease;
+      will-change: height, margin;
+    }
+    .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }
+    .composer-order-inline .composer-order-key {
+      font-size: .84rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      word-break: normal;
+    }
+    .composer-order-inline .composer-order-badge {
+      font-size: .7rem;
+      white-space: nowrap;
+    }
+    @media (max-width: 900px) {
+      .composer-panels { gap: 1rem; }
+      .composer-order-host {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-areas:
+          "inline"
+          "main";
+        column-gap: 0;
+      }
+      .composer-order-inline-lines { display: none; }
     }
 
     /* Back-to-top button */
@@ -967,7 +1132,7 @@
                     <path d="M9 16v1.25A1.75 1.75 0 0 0 10.75 19h2.5A1.75 1.75 0 0 0 15 17.25V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </span>
-                <span class="gs-node-label">LOCAL changes</span>
+                <span class="gs-node-label">LOCAL</span>
               </div>
               <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
               <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
@@ -975,6 +1140,7 @@
             <span class="gs-arrow" aria-hidden="true">
               <span class="gs-arrow-tail"></span>
               <span class="gs-arrow-bubble" id="globalArrowLabel">Synced</span>
+              <span class="gs-arrow-head"></span>
             </span>
             <div class="gs-node gs-node-remote">
               <div class="gs-node-header">
@@ -994,27 +1160,7 @@
     </div>
 
     <!-- Editor Mode -->
-    <div class="editor-layout" id="mode-editor">
-      <aside class="editor-sidebar" aria-label="Articles sidebar">
-        <div class="sidebar-title">Articles</div>
-        <div class="sidebar-tabs" role="tablist">
-          <button class="sidebar-tab is-active" data-target="index" role="tab" aria-selected="true">Posts</button>
-          <button class="sidebar-tab" data-target="tabs" role="tab" aria-selected="false">Tabs</button>
-        </div>
-        <div class="search"><input id="fileSearch" type="search" placeholder="Search by title or path"></div>
-        <div class="lists">
-          <div class="list-group" id="groupIndex" data-group="index">
-            <div class="group-title">Index</div>
-            <ul class="file-list" id="listIndex"></ul>
-          </div>
-          <div class="list-group" id="groupTabs" data-group="tabs" hidden>
-            <div class="group-title">Tabs</div>
-            <ul class="file-list" id="listTabs"></ul>
-          </div>
-        </div>
-        <div class="status" id="sidebarStatus"></div>
-      </aside>
-
+    <div class="editor-layout is-empty" id="mode-editor">
       <section class="box editor-main">
         <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" hidden aria-hidden="true"></nav>
         <div class="toolbar">
@@ -1022,6 +1168,10 @@
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
+            <button type="button" class="btn-secondary" id="btnInsertImage">
+              <span class="btn-label">Insert Image</span>
+            </button>
+            <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
             <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting">
               <span class="vt-label">Wrap:</span>
               <a href="#" class="vt-btn" data-wrap="on" role="button">on</a>
@@ -1037,12 +1187,6 @@
             <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
               <span class="btn-label">Discard</span>
             </button>
-            <button type="button" class="btn-secondary" id="btnPushMarkdown" disabled>
-              <svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
-              </svg>
-              <span class="btn-label">Synchronize</span>
-            </button>
           </div>
         </div>
 
@@ -1055,6 +1199,13 @@
           <div id="mainview"></div>
         </div>
       </section>
+
+      <div class="editor-empty-state" id="editorEmptyState" role="status" aria-live="polite">
+        <div class="empty-body">
+          <h2>No editor is currently open</h2>
+          <p>Open Markdown from the Composer to start editing.</p>
+        </div>
+      </div>
     </div>
 
     <!-- Composer Mode -->
@@ -1064,9 +1215,9 @@
           <div class="left-actions">
             <div class="view-toggle" aria-label="File switch">
               <span class="vt-label">File:</span>
-              <a href="#" class="vt-btn active" data-cfile="index">index.yaml</a>
+              <a href="#" class="vt-btn active" data-cfile="index">Articles</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-cfile="tabs">tabs.yaml</a>
+              <a href="#" class="vt-btn" data-cfile="tabs">Pages</a>
             </div>
           </div>
           <div class="right-actions">
@@ -1074,12 +1225,44 @@
             <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot">Refresh</button>
 
             <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>
-            <button class="btn-secondary" id="btnReview" type="button" hidden aria-hidden="true">Review</button>
           </div>
         </div>
+        <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
+          <div class="composer-order-inline-meta-head">
+            <div class="composer-order-inline-titles">
+              <h3 class="composer-order-inline-title">Change summary</h3>
+              <span class="composer-order-inline-kind">index.yaml</span>
+            </div>
+            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview">Review changes</button>
+          </div>
+          <div class="composer-order-inline-stats" aria-live="polite"></div>
+        </div>
+
         <!-- Composer Lists -->
-        <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
-        <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+        <div class="composer-panels" id="composerPanels">
+          <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost">
+            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
+              <div class="composer-order-inline-body">
+                <div class="composer-order-inline-list" role="list"></div>
+                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+              </div>
+            </div>
+            <div class="composer-order-main">
+              <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
+            </div>
+          </div>
+          <div class="composer-order-host" data-kind="tabs" data-inline-active="false" id="composerTabsHost" style="display:none;">
+            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
+              <div class="composer-order-inline-body">
+                <div class="composer-order-inline-list" role="list"></div>
+                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+              </div>
+            </div>
+            <div class="composer-order-main">
+              <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
 
         <!-- YAML preview/export area -->
         <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
@@ -1089,6 +1272,9 @@
     </div>
   </div>
 
+  <footer class="site-footer">
+    <p>Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
+  </footer>
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
