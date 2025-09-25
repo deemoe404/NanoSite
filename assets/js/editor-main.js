@@ -868,9 +868,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const normalizedPrefix = String(prefix ?? '');
     const selection = getNormalizedSelection();
     let { start, end } = selection;
+    const wasCollapsed = end <= start;
+    const wasCaretOnEmptyLine = wasCollapsed && isCaretOnEmptyLine(textarea, selection);
     const value = textarea.value || '';
     if (end <= start) {
-      if (!isCaretOnEmptyLine(textarea, selection)) return;
+      if (!wasCaretOnEmptyLine) return;
       const lineStart = value.lastIndexOf('\n', start - 1) + 1;
       let lineEnd = value.indexOf('\n', start);
       if (lineEnd === -1) lineEnd = value.length;
@@ -906,7 +908,16 @@ document.addEventListener('DOMContentLoaded', () => {
     textarea.setSelectionRange(blockStart, blockEnd);
     textarea.setRangeText(replacement, blockStart, blockEnd, 'end');
     const newEnd = blockStart + replacement.length;
-    textarea.setSelectionRange(blockStart, newEnd);
+    if (wasCaretOnEmptyLine && wasCollapsed && !shouldRemove) {
+      const firstLine = replacement.split('\n', 1)[0] || '';
+      const indentMatch = firstLine.match(/^\s*/);
+      const indentLength = indentMatch ? indentMatch[0].length : 0;
+      const caretOffset = indentLength + normalizedPrefix.length;
+      const caretPos = blockStart + caretOffset;
+      textarea.setSelectionRange(caretPos, caretPos);
+    } else {
+      textarea.setSelectionRange(blockStart, newEnd);
+    }
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     recordSelection();
   };
