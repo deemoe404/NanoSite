@@ -1135,13 +1135,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cardSearchInput) cardSearchInput.value = '';
     clearCardPopoverCloseWatcher();
     cardPopoverClosing = false;
+    cardPopover.classList.remove('is-visible');
+    cardPopover.classList.remove('is-closing');
     cardPopover.removeAttribute('hidden');
     cardPopover.setAttribute('aria-hidden', 'false');
-    cardPopover.classList.remove('is-closing');
+    positionCardPopover(cardButton);
+    void cardPopover.offsetWidth;
     cardPopover.classList.add('is-visible');
     cardButton.setAttribute('aria-expanded', 'true');
     cardPopoverOpen = true;
-    positionCardPopover(cardButton);
     setTimeout(() => {
       if (cardSearchInput) {
         try { cardSearchInput.focus(); }
