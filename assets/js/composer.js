@@ -4772,7 +4772,13 @@ function animateComposerInlineVisibility(el, show) {
 
 function prepareComposerOrderLayoutAnimation(context = {}) {
   const host = context.host;
-  if (!host || typeof requestAnimationFrame !== 'function') return null;
+  if (!host) return null;
+
+  let reduceMotion = false;
+  try {
+    reduceMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch (_) {}
+  if (reduceMotion) return null;
 
   const meta = context.meta && context.meta.isConnected ? context.meta : null;
   const inline = host.querySelector('.composer-order-inline');
@@ -4780,14 +4786,19 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
   const targets = [];
   if (main) targets.push(main);
   if (inline && !inline.hidden) targets.push(inline);
-  if (meta) targets.push(meta);
+  if (meta && !meta.hidden) targets.push(meta);
 
   const frames = [];
   for (const el of targets) {
     if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') continue;
     try {
       const rect = el.getBoundingClientRect();
-      frames.push({ el, rect });
+      frames.push({
+        el,
+        rect,
+        originalWillChange: el.style.willChange,
+        originalTransformOrigin: el.style.transformOrigin
+      });
       el.style.willChange = 'transform';
     } catch (_) {
       /* ignore */
@@ -4796,69 +4807,76 @@ function prepareComposerOrderLayoutAnimation(context = {}) {
 
   if (!frames.length) return null;
 
-  const easing = 'cubic-bezier(0.16, 1, 0.3, 1)';
-  const duration = 520;
+  const easing = 'cubic-bezier(0.22, 1, 0.32, 1)';
+  const duration = 560;
 
   return () => {
-    requestAnimationFrame(() => {
-      for (const frame of frames) {
-        const { el, rect } = frame;
-        if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') {
-          if (el) el.style.willChange = '';
-          continue;
-        }
-        let last;
-        try {
-          last = el.getBoundingClientRect();
-        } catch (_) {
-          el.style.willChange = '';
-          continue;
-        }
-        const deltaX = rect.left - last.left;
-        const deltaY = rect.top - last.top;
-        const scaleX = last.width > 1 ? Math.max(Math.min(rect.width / last.width, 3), 0.25) : 1;
-        const scaleY = last.height > 1 ? Math.max(Math.min(rect.height / last.height, 3), 0.25) : 1;
-        const needsMove = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
-        const needsScale = Math.abs(scaleX - 1) > 0.05 || Math.abs(scaleY - 1) > 0.05;
+    for (const frame of frames) {
+      const { el, rect, originalWillChange, originalTransformOrigin } = frame;
+      if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') {
+        if (el) el.style.willChange = originalWillChange || '';
+        continue;
+      }
+      let last;
+      try {
+        last = el.getBoundingClientRect();
+      } catch (_) {
+        el.style.willChange = originalWillChange || '';
+        continue;
+      }
+      const deltaX = rect.left - last.left;
+      const deltaY = rect.top - last.top;
+      const scaleX = last.width > 1 ? Math.max(Math.min(rect.width / last.width, 3), 0.25) : 1;
+      const scaleY = last.height > 1 ? Math.max(Math.min(rect.height / last.height, 3), 0.25) : 1;
+      const needsMove = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
+      const needsScale = Math.abs(scaleX - 1) > 0.02 || Math.abs(scaleY - 1) > 0.02;
 
-        if (!needsMove && !needsScale) {
-          el.style.willChange = '';
-          continue;
-        }
+      if (!needsMove && !needsScale) {
+        el.style.willChange = originalWillChange || '';
+        continue;
+      }
 
-        const fromTransform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+      const fromTransform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
 
-        const cleanup = () => {
-          el.style.transform = '';
-          el.style.willChange = '';
-        };
+      const cleanup = () => {
+        el.style.transform = '';
+        el.style.willChange = originalWillChange || '';
+        if (originalTransformOrigin) el.style.transformOrigin = originalTransformOrigin;
+        else el.style.transformOrigin = '';
+      };
 
-        if (typeof el.animate === 'function') {
-          const animation = el.animate(
-            [
-              { transform: fromTransform },
-              { transform: 'translate(0, 0) scale(1, 1)' }
-            ],
-            { duration, easing, fill: 'both' }
-          );
-          animation.addEventListener('finish', cleanup, { once: true });
-          animation.addEventListener('cancel', cleanup, { once: true });
-        } else {
-          const previousTransition = el.style.transition;
+      if (typeof el.animate === 'function') {
+        const animation = el.animate(
+          [
+            { transform: fromTransform, transformOrigin: 'top left' },
+            { transform: 'translate(0, 0) scale(1, 1)', transformOrigin: 'top left' }
+          ],
+          { duration, easing, fill: 'both' }
+        );
+        animation.addEventListener('finish', cleanup, { once: true });
+        animation.addEventListener('cancel', cleanup, { once: true });
+      } else {
+        const previousTransition = el.style.transition;
+        const previousTransformOrigin = el.style.transformOrigin;
+        el.style.transition = 'none';
+        el.style.transformOrigin = 'top left';
+        el.style.transform = fromTransform;
+        const frame = typeof requestAnimationFrame === 'function'
+          ? requestAnimationFrame
+          : (cb) => setTimeout(cb, 16);
+        frame(() => {
           el.style.transition = previousTransition
             ? `${previousTransition}, transform ${duration}ms ${easing}`
             : `transform ${duration}ms ${easing}`;
-          el.style.transform = fromTransform;
-          requestAnimationFrame(() => {
-            el.style.transform = 'translate(0, 0) scale(1, 1)';
-            setTimeout(() => {
-              el.style.transition = previousTransition;
-              cleanup();
-            }, duration + 80);
-          });
-        }
+          el.style.transform = 'translate(0, 0) scale(1, 1)';
+          setTimeout(() => {
+            el.style.transition = previousTransition || '';
+            el.style.transformOrigin = previousTransformOrigin || '';
+            cleanup();
+          }, duration + 80);
+        });
       }
-    });
+    }
   };
 }
 
@@ -7308,6 +7326,9 @@ function makeDragList(container, onReorder) {
   let dragging = null;
   let placeholder = null;
   let offsetX = 0, offsetY = 0;
+  let dragParent = null;
+  let dragPlaceholderSibling = null;
+  let dragOriginalInlineStyles = null;
 
   // Utility: snapshot and animate siblings (ignore the dragged element)
   const snapshotRects = () => {
@@ -7372,12 +7393,30 @@ function makeDragList(container, onReorder) {
     placeholder = document.createElement('div');
     placeholder.className = 'drag-placeholder';
     placeholder.style.height = r.height + 'px';
-    placeholder.style.margin = getComputedStyle(li).margin;
+    const computed = getComputedStyle(li);
+    placeholder.style.margin = computed.margin;
+
+    dragParent = li.parentNode;
+    dragPlaceholderSibling = placeholder;
+    dragOriginalInlineStyles = {
+      position: li.style.position,
+      left: li.style.left,
+      top: li.style.top,
+      width: li.style.width,
+      height: li.style.height,
+      zIndex: li.style.zIndex,
+      pointerEvents: li.style.pointerEvents,
+      willChange: li.style.willChange,
+      margin: li.style.margin
+    };
+
     li.parentNode.insertBefore(placeholder, li.nextSibling);
+    document.body.appendChild(li);
 
     // elevate original element and follow pointer
     li.style.width = r.width + 'px';
     li.style.height = r.height + 'px';
+    li.style.margin = '0';
     li.style.position = 'fixed';
     li.style.left = (e.clientX - offsetX) + 'px';
     li.style.top = (e.clientY - offsetY) + 'px';
@@ -7415,19 +7454,28 @@ function makeDragList(container, onReorder) {
     const dy = origin.top - target.top;
 
     // place the element where the placeholder sits in DOM order
-    placeholder.parentNode.insertBefore(dragging, placeholder);
+    if (placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(dragging, placeholder);
+    } else if (dragParent) {
+      dragParent.insertBefore(dragging, dragPlaceholderSibling);
+    }
     placeholder.remove();
     placeholder = null;
+    dragParent = null;
+    dragPlaceholderSibling = null;
 
     // reset positioning to re-enter normal flow
-    dragging.style.position = '';
-    dragging.style.left = '';
-    dragging.style.top = '';
-    dragging.style.width = '';
-    dragging.style.height = '';
-    dragging.style.zIndex = '';
-    dragging.style.pointerEvents = '';
-    dragging.style.willChange = '';
+    const restore = dragOriginalInlineStyles || {};
+    dragging.style.position = restore.position || '';
+    dragging.style.left = restore.left || '';
+    dragging.style.top = restore.top || '';
+    dragging.style.width = restore.width || '';
+    dragging.style.height = restore.height || '';
+    dragging.style.zIndex = restore.zIndex || '';
+    dragging.style.pointerEvents = restore.pointerEvents || '';
+    dragging.style.willChange = restore.willChange || '';
+    dragging.style.margin = restore.margin || '';
+    dragOriginalInlineStyles = null;
     dragging.classList.remove('dragging');
 
     // animate the snap from origin -> target (FLIP on the dragged element)
