@@ -105,6 +105,8 @@ const translations = {
     editor: {
       pageTitle: 'Markdown Editor - NanoSite',
       languageLabel: 'Language',
+      verifying: 'Verifying…',
+      verify: 'Verify',
       nav: {
         modeSwitchAria: 'Mode switch',
         dynamicTabsAria: 'Open editor tabs'
@@ -147,7 +149,29 @@ const translations = {
         yamlSynced: ({ label }) => `${label} synchronized with GitHub.`,
         remoteCheckCanceledClickRefresh: 'Remote check canceled. Click Refresh when your commit is ready.',
         popupBlocked: 'Your browser blocked the GitHub window. Allow pop-ups for this site and try again.',
-        openGithubAction: 'Open GitHub'
+        openGithubAction: 'Open GitHub',
+        markdownOpenBeforeInsert: 'Open a markdown file before inserting images.',
+        assetAttached: ({ label }) => `Attached ${label}`,
+        noPendingChanges: 'No pending changes to commit.',
+        siteWaitStopped: 'Stopped waiting for the live site. Your commit is already on GitHub, but it may take a few minutes to appear.',
+        siteWaitTimedOut: 'Committed files to GitHub, but the live site did not update in time. Check the deploy status manually.',
+        commitSuccess: ({ count }) => `Committed ${count} ${count === 1 ? 'file' : 'files'} to GitHub.`,
+        githubCommitFailed: 'GitHub commit failed.',
+        githubTokenRejected: 'GitHub rejected the access token. Enter a new Fine-grained Personal Access Token.',
+        repoOwnerMissing: 'Configure repo.owner and repo.name in site.yaml to enable GitHub synchronization.',
+        markdownOpenBeforePush: 'Open a markdown file before pushing to GitHub.',
+        repoConfigMissing: 'Configure repo in site.yaml to enable GitHub push.',
+        invalidMarkdownPath: 'Invalid markdown path.',
+        unableLoadLatestMarkdown: 'Unable to load the latest markdown before pushing.',
+        markdownNotReady: 'Markdown file is not ready to push yet.',
+        unableResolveGithubFile: 'Unable to resolve GitHub URL for this file.',
+        markdownOpenBeforeDiscard: 'Open a markdown file before discarding local changes.',
+        noLocalMarkdownChanges: 'No local markdown changes to discard.',
+        discardSuccess: ({ label }) => `Discarded local changes for ${label}.`,
+        discardFailed: 'Failed to discard local markdown changes.',
+        unableResolveYamlSync: 'Unable to resolve GitHub URL for YAML synchronization.',
+        yamlUpToDate: ({ name }) => `${name} is up to date.`,
+        yamlCopiedNoRepo: 'YAML copied. Configure repo in site.yaml to open GitHub.'
       },
       editorTools: {
         aria: 'Editor tools',
@@ -191,6 +215,66 @@ const translations = {
         tabsEditorAria: 'tabs.yaml editor',
         noLocalChangesToCommit: 'No local changes to commit.',
         noLocalChangesYet: 'No local changes yet.'
+      },
+      dialogs: {
+        cancel: 'Cancel',
+        confirm: 'Confirm'
+      },
+      addEntryPrompt: {
+        hint: 'Use only English letters and numbers.',
+        confirm: 'Add Entry',
+        defaultType: 'entry',
+        placeholder: 'Entry key',
+        message: ({ label }) => `Enter a new ${label} key:`,
+        errorEmpty: 'Key cannot be empty.',
+        errorInvalid: 'Key must contain only English letters, numbers, underscores, or hyphens.',
+        errorDuplicate: 'That key already exists. Choose a different key.'
+      },
+      discardConfirm: {
+        messageReload: ({ label }) => `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`,
+        messageSimple: ({ label }) => `Discard local changes for ${label}? This action cannot be undone.`,
+        discard: 'Discard',
+        discarding: 'Discarding…',
+        successFresh: ({ label }) => `Discarded local changes; loaded fresh ${label}`,
+        successCached: ({ label }) => `Discarded local changes; restored ${label} from cached snapshot`,
+        failed: 'Failed to discard local changes'
+      },
+      markdown: {
+        push: {
+          labelDefault: 'Synchronize',
+          labelCreate: 'Create on GitHub',
+          labelUpdate: 'Synchronize',
+          tooltips: {
+            default: 'Copy draft to GitHub.',
+            noRepo: 'Configure repo in site.yaml to enable GitHub push.',
+            noFile: 'Open a markdown file to enable GitHub push.',
+            error: 'Resolve file load error before pushing to GitHub.',
+            checking: 'Checking remote version…',
+            loading: 'Loading remote snapshot…',
+            create: 'Copy draft and create this file on GitHub.',
+            update: 'Copy draft and update this file on GitHub.'
+          }
+        },
+        discard: {
+          label: 'Discard',
+          busy: 'Discarding…',
+          tooltips: {
+            default: 'Discard local markdown changes and restore the last loaded version.',
+            noFile: 'Open a markdown file to discard local changes.',
+            reload: 'Discard local markdown changes (remote snapshot will be reloaded).'
+          }
+        },
+        currentFile: 'current file',
+        fileFallback: 'markdown file',
+        toastCopiedCreate: 'Markdown copied. GitHub will open to create this file.',
+        toastCopiedUpdate: 'Markdown copied. GitHub will open to update this file.',
+        blockedCreate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.',
+        blockedUpdate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.'
+      },
+      yaml: {
+        toastCopiedUpdate: ({ name }) => `${name} copied. GitHub will open so you can paste the update.`,
+        toastCopiedCreate: ({ name }) => `${name} copied. GitHub will open so you can create the file.`,
+        blocked: ({ name }) => `${name} copied. Click “Open GitHub” if the new tab did not appear.`
       },
       remoteWatcher: {
         waitingForCreate: ({ label }) => `Waiting for GitHub to create ${label}`,
@@ -303,6 +387,8 @@ const translations = {
     editor: {
       pageTitle: 'Markdown 编辑器 - NanoSite',
       languageLabel: '语言',
+      verifying: '正在验证…',
+      verify: '验证',
       nav: {
         modeSwitchAria: '模式切换',
         dynamicTabsAria: '打开编辑器标签'
@@ -345,7 +431,29 @@ const translations = {
         yamlSynced: ({ label }) => `${label} 已与 GitHub 同步。`,
         remoteCheckCanceledClickRefresh: '远程检查已取消。提交准备好后请点击“刷新”。',
         popupBlocked: '浏览器阻止了 GitHub 窗口。请允许此站点的弹出窗口后重试。',
-        openGithubAction: '打开 GitHub'
+        openGithubAction: '打开 GitHub',
+        markdownOpenBeforeInsert: '请先打开一个 Markdown 文件再插入图片。',
+        assetAttached: ({ label }) => `已附加 ${label}`,
+        noPendingChanges: '没有待提交的更改。',
+        siteWaitStopped: '已停止等待线上站点。提交已在 GitHub 上，但显示可能还需要几分钟。',
+        siteWaitTimedOut: '已将文件提交到 GitHub，但线上站点未及时更新。请手动检查部署状态。',
+        commitSuccess: ({ count }) => `已将 ${count} 个文件提交到 GitHub。`,
+        githubCommitFailed: '提交到 GitHub 失败。',
+        githubTokenRejected: 'GitHub 拒绝了访问令牌。请输入新的细粒度个人访问令牌。',
+        repoOwnerMissing: '请在 site.yaml 中配置 repo.owner 和 repo.name 以启用 GitHub 同步。',
+        markdownOpenBeforePush: '请先打开一个 Markdown 文件再推送到 GitHub。',
+        repoConfigMissing: '请在 site.yaml 中配置仓库信息以启用 GitHub 推送。',
+        invalidMarkdownPath: '无效的 Markdown 路径。',
+        unableLoadLatestMarkdown: '在推送前无法加载最新的 Markdown。',
+        markdownNotReady: 'Markdown 文件尚未准备好推送。',
+        unableResolveGithubFile: '无法解析此文件的 GitHub 链接。',
+        markdownOpenBeforeDiscard: '请先打开一个 Markdown 文件再丢弃本地更改。',
+        noLocalMarkdownChanges: '没有可丢弃的本地 Markdown 更改。',
+        discardSuccess: ({ label }) => `已丢弃 ${label} 的本地更改。`,
+        discardFailed: '丢弃本地 Markdown 更改失败。',
+        unableResolveYamlSync: '无法解析用于 YAML 同步的 GitHub 链接。',
+        yamlUpToDate: ({ name }) => `${name} 已是最新。`,
+        yamlCopiedNoRepo: '已复制 YAML。请在 site.yaml 中配置仓库以打开 GitHub。'
       },
       editorTools: {
         aria: '编辑器工具',
@@ -389,6 +497,66 @@ const translations = {
         tabsEditorAria: 'tabs.yaml 编辑器',
         noLocalChangesToCommit: '没有本地更改可提交。',
         noLocalChangesYet: '暂时没有本地更改。'
+      },
+      dialogs: {
+        cancel: '取消',
+        confirm: '确认'
+      },
+      addEntryPrompt: {
+        hint: '仅使用英文字母和数字。',
+        confirm: '添加条目',
+        defaultType: '条目',
+        placeholder: '条目键名',
+        message: ({ label }) => `请输入新的 ${label} 键名：`,
+        errorEmpty: '键名不能为空。',
+        errorInvalid: '键名只能包含英文字母、数字、下划线或连字符。',
+        errorDuplicate: '该键名已存在，请使用其他键名。'
+      },
+      discardConfirm: {
+        messageReload: ({ label }) => `丢弃 ${label} 的本地更改并重新加载远程文件？此操作无法撤销。`,
+        messageSimple: ({ label }) => `丢弃 ${label} 的本地更改？此操作无法撤销。`,
+        discard: '丢弃',
+        discarding: '正在丢弃…',
+        successFresh: ({ label }) => `已丢弃本地更改；已加载最新的 ${label}`,
+        successCached: ({ label }) => `已丢弃本地更改；已从缓存快照恢复 ${label}`,
+        failed: '丢弃本地更改失败。'
+      },
+      markdown: {
+        push: {
+          labelDefault: '同步',
+          labelCreate: '在 GitHub 上创建',
+          labelUpdate: '同步',
+          tooltips: {
+            default: '复制草稿到 GitHub。',
+            noRepo: '请在 site.yaml 中配置仓库以启用 GitHub 推送。',
+            noFile: '请先打开一个 Markdown 文件以启用 GitHub 推送。',
+            error: '推送前请先解决文件加载错误。',
+            checking: '正在检查远程版本…',
+            loading: '正在加载远程快照…',
+            create: '复制草稿并在 GitHub 上创建该文件。',
+            update: '复制草稿并在 GitHub 上更新该文件。'
+          }
+        },
+        discard: {
+          label: '丢弃',
+          busy: '正在丢弃…',
+          tooltips: {
+            default: '丢弃本地 Markdown 更改并恢复上次加载的版本。',
+            noFile: '请先打开一个 Markdown 文件再丢弃本地更改。',
+            reload: '丢弃本地 Markdown 更改（将重新加载远程快照）。'
+          }
+        },
+        currentFile: '当前文件',
+        fileFallback: 'Markdown 文件',
+        toastCopiedCreate: '已复制 Markdown。GitHub 将打开以创建该文件。',
+        toastCopiedUpdate: '已复制 Markdown。GitHub 将打开以更新该文件。',
+        blockedCreate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以创建该文件。',
+        blockedUpdate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以更新该文件。'
+      },
+      yaml: {
+        toastCopiedUpdate: ({ name }) => `已复制 ${name}。GitHub 将打开以粘贴更新。`,
+        toastCopiedCreate: ({ name }) => `已复制 ${name}。GitHub 将打开以创建该文件。`,
+        blocked: ({ name }) => `已复制 ${name}。如未打开新标签页，请点击“打开 GitHub”。`
       },
       remoteWatcher: {
         waitingForCreate: ({ label }) => `正在等待 GitHub 创建 ${label}`,
@@ -501,6 +669,8 @@ const translations = {
     editor: {
       pageTitle: 'Markdown エディター - NanoSite',
       languageLabel: '言語',
+      verifying: '検証中…',
+      verify: '検証',
       nav: {
         modeSwitchAria: 'モード切り替え',
         dynamicTabsAria: 'エディタータブを開く'
@@ -543,7 +713,29 @@ const translations = {
         yamlSynced: ({ label }) => `${label} を GitHub と同期しました。`,
         remoteCheckCanceledClickRefresh: 'リモートチェックをキャンセルしました。コミットの準備ができたら「更新」をクリックしてください。',
         popupBlocked: 'ブラウザが GitHub ウィンドウをブロックしました。このサイトのポップアップを許可してから再試行してください。',
-        openGithubAction: 'GitHub を開く'
+        openGithubAction: 'GitHub を開く',
+        markdownOpenBeforeInsert: '画像を挿入する前に Markdown ファイルを開いてください。',
+        assetAttached: ({ label }) => `${label} を添付しました`,
+        noPendingChanges: 'コミットする変更はありません。',
+        siteWaitStopped: 'ライブサイトの更新待機を停止しました。コミットは GitHub にありますが、反映まで数分かかる場合があります。',
+        siteWaitTimedOut: 'GitHub にファイルをコミットしましたが、ライブサイトが時間内に更新されませんでした。デプロイ状況を手動で確認してください。',
+        commitSuccess: ({ count }) => `${count} 件のファイルを GitHub にコミットしました。`,
+        githubCommitFailed: 'GitHub へのコミットに失敗しました。',
+        githubTokenRejected: 'GitHub がアクセストークンを拒否しました。新しい細分化されたパーソナルアクセストークンを入力してください。',
+        repoOwnerMissing: 'GitHub 同期を有効にするには site.yaml の repo.owner と repo.name を設定してください。',
+        markdownOpenBeforePush: 'GitHub にプッシュする前に Markdown ファイルを開いてください。',
+        repoConfigMissing: 'GitHub プッシュを有効にするには site.yaml にリポジトリ情報を設定してください。',
+        invalidMarkdownPath: '無効な Markdown パスです。',
+        unableLoadLatestMarkdown: 'プッシュ前に最新の Markdown を読み込めませんでした。',
+        markdownNotReady: 'Markdown ファイルはまだプッシュできる状態ではありません。',
+        unableResolveGithubFile: 'このファイルの GitHub URL を解決できません。',
+        markdownOpenBeforeDiscard: 'ローカル変更を破棄する前に Markdown ファイルを開いてください。',
+        noLocalMarkdownChanges: '破棄できる Markdown のローカル変更はありません。',
+        discardSuccess: ({ label }) => `${label} のローカル変更を破棄しました。`,
+        discardFailed: 'Markdown のローカル変更を破棄できませんでした。',
+        unableResolveYamlSync: 'YAML 同期用の GitHub URL を解決できません。',
+        yamlUpToDate: ({ name }) => `${name} は最新です。`,
+        yamlCopiedNoRepo: 'YAML をコピーしました。GitHub を開くには site.yaml でリポジトリを設定してください。'
       },
       editorTools: {
         aria: 'エディターのツール',
@@ -587,6 +779,66 @@ const translations = {
         tabsEditorAria: 'tabs.yaml エディター',
         noLocalChangesToCommit: 'コミットするローカルの変更はありません。',
         noLocalChangesYet: 'ローカルの変更はまだありません。'
+      },
+      dialogs: {
+        cancel: 'キャンセル',
+        confirm: '確認'
+      },
+      addEntryPrompt: {
+        hint: '英数字のみを使用してください。',
+        confirm: 'エントリーを追加',
+        defaultType: 'エントリー',
+        placeholder: 'エントリーキー',
+        message: ({ label }) => `新しい ${label} のキーを入力してください：`,
+        errorEmpty: 'キーは必須です。',
+        errorInvalid: 'キーには英数字、アンダースコア、ハイフンのみ使用できます。',
+        errorDuplicate: 'そのキーは既に存在します。別のキーを選んでください。'
+      },
+      discardConfirm: {
+        messageReload: ({ label }) => `${label} のローカル変更を破棄してリモートファイルを再読み込みしますか？この操作は取り消せません。`,
+        messageSimple: ({ label }) => `${label} のローカル変更を破棄しますか？この操作は取り消せません。`,
+        discard: '破棄',
+        discarding: '破棄中…',
+        successFresh: ({ label }) => `ローカル変更を破棄し、最新の ${label} を読み込みました`,
+        successCached: ({ label }) => `ローカル変更を破棄し、キャッシュの ${label} を復元しました`,
+        failed: 'ローカル変更を破棄できませんでした。'
+      },
+      markdown: {
+        push: {
+          labelDefault: '同期',
+          labelCreate: 'GitHub で作成',
+          labelUpdate: '同期',
+          tooltips: {
+            default: 'ドラフトを GitHub にコピーします。',
+            noRepo: 'GitHub プッシュを有効にするには site.yaml でリポジトリを設定してください。',
+            noFile: 'GitHub にプッシュする前に Markdown ファイルを開いてください。',
+            error: 'プッシュする前にファイル読み込みエラーを解決してください。',
+            checking: 'リモート版を確認中…',
+            loading: 'リモートスナップショットを読み込み中…',
+            create: 'ドラフトをコピーして GitHub でこのファイルを作成します。',
+            update: 'ドラフトをコピーして GitHub でこのファイルを更新します。'
+          }
+        },
+        discard: {
+          label: '破棄',
+          busy: '破棄中…',
+          tooltips: {
+            default: 'Markdown のローカル変更を破棄し、最後に読み込んだ版を復元します。',
+            noFile: 'ローカル変更を破棄する前に Markdown ファイルを開いてください。',
+            reload: 'Markdown のローカル変更を破棄し（リモートスナップショットを再読み込みします）。'
+          }
+        },
+        currentFile: '現在のファイル',
+        fileFallback: 'Markdown ファイル',
+        toastCopiedCreate: 'Markdown をコピーしました。GitHub が開いてこのファイルを作成します。',
+        toastCopiedUpdate: 'Markdown をコピーしました。GitHub が開いてこのファイルを更新します。',
+        blockedCreate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして作成してください。',
+        blockedUpdate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして更新してください。'
+      },
+      yaml: {
+        toastCopiedUpdate: ({ name }) => `${name} をコピーしました。GitHub が開いて更新内容を貼り付けられます。`,
+        toastCopiedCreate: ({ name }) => `${name} をコピーしました。GitHub が開いてファイルを作成できます。`,
+        blocked: ({ name }) => `${name} をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックしてください。`
       },
       remoteWatcher: {
         waitingForCreate: ({ label }) => `GitHub で ${label} が作成されるのを待機しています`,

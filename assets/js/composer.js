@@ -14,6 +14,20 @@ const ORDER_LINE_COLORS = ['#2563eb', '#ec4899', '#f97316', '#10b981', '#8b5cf6'
 const getCleanStatusMessage = () => t(CLEAN_STATUS_MESSAGE_KEY);
 const getUploadLabel = () => t(STATUS_UPLOAD_KEY);
 const getSyncedLabel = () => t(STATUS_SYNCED_KEY);
+const getMarkdownPushLabel = (kind) => {
+  const key = MARKDOWN_PUSH_LABEL_KEYS[kind] || MARKDOWN_PUSH_LABEL_KEYS.default;
+  return t(key);
+};
+const getMarkdownPushTooltip = (kind) => {
+  const key = MARKDOWN_PUSH_TOOLTIP_KEYS[kind] || MARKDOWN_PUSH_TOOLTIP_KEYS.default;
+  return t(key);
+};
+const getMarkdownDiscardLabel = () => t(MARKDOWN_DISCARD_LABEL_KEY);
+const getMarkdownDiscardBusyLabel = () => t(MARKDOWN_DISCARD_BUSY_KEY);
+const getMarkdownDiscardTooltip = (kind) => {
+  const key = MARKDOWN_DISCARD_TOOLTIP_KEYS[kind] || MARKDOWN_DISCARD_TOOLTIP_KEYS.default;
+  return t(key);
+};
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
@@ -53,13 +67,31 @@ const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 // Track pending binary assets associated with markdown drafts
 const markdownAssetStore = new Map();
 
-const MARKDOWN_PUSH_LABELS = {
-  default: 'Synchronize',
-  create: 'Create on GitHub',
-  update: 'Synchronize'
+const MARKDOWN_PUSH_LABEL_KEYS = {
+  default: 'editor.composer.markdown.push.labelDefault',
+  create: 'editor.composer.markdown.push.labelCreate',
+  update: 'editor.composer.markdown.push.labelUpdate'
 };
 
-const MARKDOWN_DISCARD_LABEL = 'Discard';
+const MARKDOWN_PUSH_TOOLTIP_KEYS = {
+  default: 'editor.composer.markdown.push.tooltips.default',
+  noRepo: 'editor.composer.markdown.push.tooltips.noRepo',
+  noFile: 'editor.composer.markdown.push.tooltips.noFile',
+  error: 'editor.composer.markdown.push.tooltips.error',
+  checking: 'editor.composer.markdown.push.tooltips.checking',
+  loading: 'editor.composer.markdown.push.tooltips.loading',
+  create: 'editor.composer.markdown.push.tooltips.create',
+  update: 'editor.composer.markdown.push.tooltips.update'
+};
+
+const MARKDOWN_DISCARD_LABEL_KEY = 'editor.composer.markdown.discard.label';
+const MARKDOWN_DISCARD_BUSY_KEY = 'editor.composer.markdown.discard.busy';
+
+const MARKDOWN_DISCARD_TOOLTIP_KEYS = {
+  default: 'editor.composer.markdown.discard.tooltips.default',
+  noFile: 'editor.composer.markdown.discard.tooltips.noFile',
+  reload: 'editor.composer.markdown.discard.tooltips.reload'
+};
 const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
 let markdownPushButton = null;
@@ -1929,7 +1961,7 @@ function handleEditorAssetAdded(event) {
   const detail = event.detail;
   const markdownPath = normalizeRelPath(detail.markdownPath || '');
   if (!markdownPath) {
-    showToast('warn', 'Open a markdown file before inserting images.');
+    showToast('warn', t('editor.toasts.markdownOpenBeforeInsert'));
     return;
   }
   const commitPath = normalizeRelPath(detail.commitPath || detail.assetPath || '');
@@ -1958,7 +1990,7 @@ function handleEditorAssetAdded(event) {
     catch (_) {}
   }
   const relLabel = descriptor.relativePath || descriptor.path;
-  if (!detail.silent) showToast('success', `Attached ${relLabel}`);
+  if (!detail.silent) showToast('success', t('editor.toasts.assetAttached', { label: relLabel }));
   try { updateUnsyncedSummary(); }
   catch (_) {}
 }
@@ -4100,7 +4132,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
     const { files } = gatherLocalChangesForCommit();
     if (!files.length) {
       hideSyncOverlay();
-      showToast('info', 'No pending changes to commit.');
+      showToast('info', t('editor.toasts.noPendingChanges'));
       return;
     }
 
@@ -4161,18 +4193,18 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
 
     hideSyncOverlay();
     if (propagationResult && propagationResult.canceled) {
-      showToast('info', 'Stopped waiting for the live site. Your commit is already on GitHub, but it may take a few minutes to appear.');
+      showToast('info', t('editor.toasts.siteWaitStopped'));
     } else if (propagationResult && propagationResult.timedOut) {
-      showToast('warning', 'Committed files to GitHub, but the live site did not update in time. Check the deploy status manually.');
+      showToast('warning', t('editor.toasts.siteWaitTimedOut'));
     } else {
-      showToast('success', `Committed ${fileCount} ${fileCount === 1 ? 'file' : 'files'} to GitHub.`);
+      showToast('success', t('editor.toasts.commitSuccess', { count: fileCount }));
     }
   } catch (err) {
     hideSyncOverlay();
-    let message = err && err.message ? err.message : 'GitHub commit failed.';
+    let message = err && err.message ? err.message : t('editor.toasts.githubCommitFailed');
     if (err && err.status === 401) {
       clearCachedFineGrainedToken();
-      message = 'GitHub rejected the access token. Enter a new Fine-grained Personal Access Token.';
+      message = t('editor.toasts.githubTokenRejected');
     }
     console.error('NanoSite GitHub commit failed', err);
     showToast('error', message, { duration: 5200 });
@@ -4210,7 +4242,7 @@ async function handleGlobalBubbleActivation(event) {
   const owner = String(repo.owner || '').trim();
   const name = String(repo.name || '').trim();
   if (!owner || !name) {
-    showToast('error', 'Configure repo.owner and repo.name in site.yaml to enable GitHub synchronization.');
+    showToast('error', t('editor.toasts.repoOwnerMissing'));
     return;
   }
   try {
@@ -5966,7 +5998,7 @@ function ensureComposerAddEntryPromptElements() {
   const hint = document.createElement('div');
   hint.className = 'composer-key-hint';
   hint.id = 'composerAddEntryPromptHint';
-  hint.textContent = 'Use only English letters and numbers.';
+  hint.textContent = t('editor.composer.addEntryPrompt.hint');
   fieldWrap.appendChild(hint);
 
   const error = document.createElement('div');
@@ -5986,18 +6018,18 @@ function ensureComposerAddEntryPromptElements() {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary composer-confirm-cancel';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('editor.composer.dialogs.cancel');
 
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn-secondary composer-confirm-confirm';
-  confirmBtn.textContent = 'Add Entry';
+  confirmBtn.textContent = t('editor.composer.addEntryPrompt.confirm');
 
   actions.append(cancelBtn, confirmBtn);
   popover.appendChild(actions);
 
   document.body.appendChild(popover);
-  addEntryPromptElements = { popover, label, input, error, cancelBtn, confirmBtn };
+  addEntryPromptElements = { popover, label, input, hint, error, cancelBtn, confirmBtn };
   return addEntryPromptElements;
 }
 
@@ -6005,16 +6037,27 @@ function showComposerAddEntryPrompt(anchor, options) {
   const elements = ensureComposerAddEntryPromptElements();
   if (!elements) return Promise.resolve({ confirmed: false, value: '' });
 
-  const { popover, label, input, error, cancelBtn, confirmBtn } = elements;
-  const typeLabel = options && options.typeLabel ? String(options.typeLabel) : 'entry';
-  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Add Entry';
-  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
-  const placeholder = options && options.placeholder ? String(options.placeholder) : 'Entry key';
+  const { popover, label, input, hint, error, cancelBtn, confirmBtn } = elements;
+  const typeLabel = options && options.typeLabel
+    ? String(options.typeLabel)
+    : t('editor.composer.addEntryPrompt.defaultType');
+  const confirmLabel = options && options.confirmLabel
+    ? String(options.confirmLabel)
+    : t('editor.composer.addEntryPrompt.confirm');
+  const cancelLabel = options && options.cancelLabel
+    ? String(options.cancelLabel)
+    : t('editor.composer.dialogs.cancel');
+  const placeholder = options && options.placeholder
+    ? String(options.placeholder)
+    : t('editor.composer.addEntryPrompt.placeholder');
   const existingKeys = options && options.existingKeys ? new Set(options.existingKeys) : new Set();
 
-  label.textContent = options && options.message ? String(options.message) : `Enter a new ${typeLabel} key:`;
+  label.textContent = options && options.message
+    ? String(options.message)
+    : t('editor.composer.addEntryPrompt.message', { label: typeLabel });
   cancelBtn.textContent = cancelLabel;
   confirmBtn.textContent = confirmLabel;
+  hint.textContent = t('editor.composer.addEntryPrompt.hint');
   input.value = options && options.initialValue ? String(options.initialValue).trim() : '';
   input.placeholder = placeholder;
   input.setAttribute('aria-invalid', 'false');
@@ -6053,17 +6096,17 @@ function showComposerAddEntryPrompt(anchor, options) {
     const raw = input.value || '';
     const value = raw.trim();
     if (!value) {
-      setError('Key cannot be empty.');
+      setError(t('editor.composer.addEntryPrompt.errorEmpty'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
     if (!/^[A-Za-z0-9_-]+$/.test(value)) {
-      setError('Key must contain only English letters, numbers, underscores, or hyphens.');
+      setError(t('editor.composer.addEntryPrompt.errorInvalid'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
     if (existingKeys.has(value)) {
-      setError('That key already exists. Choose a different key.');
+      setError(t('editor.composer.addEntryPrompt.errorDuplicate'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
       return null;
     }
@@ -6293,12 +6336,12 @@ function ensureComposerDiscardConfirmElements() {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'btn-secondary composer-confirm-cancel';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('editor.composer.dialogs.cancel');
 
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.className = 'btn-secondary composer-confirm-confirm';
-  confirmBtn.textContent = 'Confirm';
+  confirmBtn.textContent = t('editor.composer.dialogs.confirm');
 
   actions.append(cancelBtn, confirmBtn);
   popover.appendChild(actions);
@@ -6312,8 +6355,12 @@ function showComposerDiscardConfirm(anchor, messageText, options) {
   const elements = ensureComposerDiscardConfirmElements();
   if (!elements) return Promise.resolve(true);
   const { popover, message, cancelBtn, confirmBtn } = elements;
-  const confirmLabel = options && options.confirmLabel ? String(options.confirmLabel) : 'Confirm';
-  const cancelLabel = options && options.cancelLabel ? String(options.cancelLabel) : 'Cancel';
+  const confirmLabel = options && options.confirmLabel
+    ? String(options.confirmLabel)
+    : t('editor.composer.dialogs.confirm');
+  const cancelLabel = options && options.cancelLabel
+    ? String(options.cancelLabel)
+    : t('editor.composer.dialogs.cancel');
 
   message.textContent = String(messageText || '');
   cancelBtn.textContent = cancelLabel;
@@ -6518,10 +6565,10 @@ async function handleComposerDiscard(btn) {
     return;
   }
 
-  const promptMessage = `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`;
+  const promptMessage = t('editor.composer.discardConfirm.messageReload', { label });
   let proceed = true;
   try {
-    proceed = await showComposerDiscardConfirm(btn, promptMessage, { confirmLabel: 'Confirm', cancelLabel: 'Cancel' });
+    proceed = await showComposerDiscardConfirm(btn, promptMessage);
   } catch (err) {
     console.warn('Custom discard prompt failed, falling back to native confirm', err);
     try {
@@ -6540,7 +6587,7 @@ async function handleComposerDiscard(btn) {
     button.disabled = false;
     button.classList.remove('is-busy');
     button.removeAttribute('aria-busy');
-    button.textContent = 'Discard';
+    button.textContent = t('editor.composer.discardConfirm.discard');
   };
 
   try {
@@ -6548,7 +6595,7 @@ async function handleComposerDiscard(btn) {
       button.disabled = true;
       button.classList.add('is-busy');
       button.setAttribute('aria-busy', 'true');
-      button.textContent = 'Discarding…';
+      button.textContent = t('editor.composer.discardConfirm.discarding');
     }
 
     let prepared = null;
@@ -6587,13 +6634,13 @@ async function handleComposerDiscard(btn) {
     clearDraftStorage(target);
 
     const msg = fetchedFresh
-      ? `Discarded local changes; loaded fresh ${label}`
-      : `Discarded local changes; restored ${label} from cached snapshot`;
+      ? t('editor.composer.discardConfirm.successFresh', { label })
+      : t('editor.composer.discardConfirm.successCached', { label });
     showStatus(msg);
     setTimeout(() => { showStatus(''); }, 2000);
   } catch (err) {
     console.error('Discard failed', err);
-    showStatus('Failed to discard local changes');
+    showStatus(t('editor.composer.discardConfirm.failed'));
     setTimeout(() => { showStatus(''); }, 2000);
   } finally {
     resetButton();
@@ -6829,29 +6876,31 @@ function updateMarkdownPushButton(tab) {
     ? String(active.fileStatus.state)
     : '';
 
-  let label = MARKDOWN_PUSH_LABELS.default;
-  if (state === 'missing') label = MARKDOWN_PUSH_LABELS.create;
-  else if (state) label = MARKDOWN_PUSH_LABELS.update;
-  else if (active && active.path) label = MARKDOWN_PUSH_LABELS.update;
+  let label = getMarkdownPushLabel('default');
+  if (state === 'missing') label = getMarkdownPushLabel('create');
+  else if (state) label = getMarkdownPushLabel('update');
+  else if (active && active.path) label = getMarkdownPushLabel('update');
 
   let disabled = false;
   let tooltip = '';
 
   if (!hasRepo) {
     disabled = true;
-    tooltip = 'Configure repo in site.yaml to enable GitHub push.';
+    tooltip = getMarkdownPushTooltip('noRepo');
   } else if (!active || !active.path) {
     disabled = true;
-    tooltip = 'Open a markdown file to enable GitHub push.';
+    tooltip = getMarkdownPushTooltip('noFile');
   } else if (state === 'error') {
     disabled = true;
-    tooltip = 'Resolve file load error before pushing to GitHub.';
+    tooltip = getMarkdownPushTooltip('error');
   } else if (!active.loaded) {
-    tooltip = active.pending ? 'Checking remote version…' : 'Loading remote snapshot…';
+    tooltip = active.pending
+      ? getMarkdownPushTooltip('checking')
+      : getMarkdownPushTooltip('loading');
   } else {
     tooltip = state === 'missing'
-      ? 'Copy draft and create this file on GitHub.'
-      : 'Copy draft and update this file on GitHub.';
+      ? getMarkdownPushTooltip('create')
+      : getMarkdownPushTooltip('update');
   }
 
   const busy = btn.classList.contains('is-busy');
@@ -6883,7 +6932,7 @@ function updateMarkdownDiscardButton(tab) {
   const hasLocalChanges = !!(active && active.path && active.mode === currentMode && (dirty || hasDraftContent));
 
   if (!hasLocalChanges) {
-    if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+    if (!hasBusy) setButtonLabel(btn, getMarkdownDiscardLabel());
     try { btn.classList.remove('is-busy'); } catch (_) {}
     btn.hidden = true;
     btn.setAttribute('aria-hidden', 'true');
@@ -6891,7 +6940,7 @@ function updateMarkdownDiscardButton(tab) {
     btn.setAttribute('aria-disabled', 'true');
     btn.removeAttribute('aria-busy');
     btn.removeAttribute('title');
-    btn.setAttribute('aria-label', MARKDOWN_DISCARD_LABEL);
+    btn.setAttribute('aria-label', getMarkdownDiscardLabel());
     return;
   }
 
@@ -6900,28 +6949,28 @@ function updateMarkdownDiscardButton(tab) {
   btn.removeAttribute('aria-busy');
 
   let disabled = false;
-  let tooltip = 'Discard local markdown changes and restore the last loaded version.';
+  let tooltip = getMarkdownDiscardTooltip('default');
 
   if (!active || !active.path) {
     disabled = true;
-    tooltip = 'Open a markdown file to discard local changes.';
+    tooltip = getMarkdownDiscardTooltip('noFile');
   } else if (!active.loaded && !active.pending) {
-    tooltip = 'Discard local markdown changes (remote snapshot will be reloaded).';
+    tooltip = getMarkdownDiscardTooltip('reload');
   }
 
   if (hasBusy) disabled = true;
 
   btn.disabled = disabled;
   btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
-  if (!hasBusy) setButtonLabel(btn, MARKDOWN_DISCARD_LABEL);
+  if (!hasBusy) setButtonLabel(btn, getMarkdownDiscardLabel());
   if (tooltip) btn.title = tooltip;
   else btn.removeAttribute('title');
-  btn.setAttribute('aria-label', tooltip || MARKDOWN_DISCARD_LABEL);
+  btn.setAttribute('aria-label', tooltip || getMarkdownDiscardLabel());
 }
 
 async function openMarkdownPushOnGitHub(tab) {
   if (!tab || !tab.path) {
-    showToast('info', 'Open a markdown file before pushing to GitHub.');
+    showToast('info', t('editor.toasts.markdownOpenBeforePush'));
     return;
   }
 
@@ -6929,7 +6978,7 @@ async function openMarkdownPushOnGitHub(tab) {
   const owner = String(repo.owner || '').trim();
   const name = String(repo.name || '').trim();
   if (!owner || !name) {
-    showToast('info', 'Configure repo in site.yaml to enable GitHub push.');
+    showToast('info', t('editor.toasts.repoConfigMissing'));
     return;
   }
 
@@ -6937,7 +6986,7 @@ async function openMarkdownPushOnGitHub(tab) {
   const root = getContentRootSafe();
   const rel = normalizeRelPath(tab.path);
   if (!rel) {
-    showToast('error', 'Invalid markdown path.');
+    showToast('error', t('editor.toasts.invalidMarkdownPath'));
     return;
   }
 
@@ -6952,14 +7001,14 @@ async function openMarkdownPushOnGitHub(tab) {
   } catch (err) {
     closePopupWindow(popup);
     console.error('Failed to prepare markdown before pushing to GitHub', err);
-    showToast('error', 'Unable to load the latest markdown before pushing.');
+    showToast('error', t('editor.toasts.unableLoadLatestMarkdown'));
     updateMarkdownPushButton(tab);
     return;
   }
 
   if (!tab.loaded) {
     closePopupWindow(popup);
-    showToast('error', 'Markdown file is not ready to push yet.');
+    showToast('error', t('editor.toasts.markdownNotReady'));
     return;
   }
 
@@ -6988,7 +7037,7 @@ async function openMarkdownPushOnGitHub(tab) {
 
   if (!href) {
     closePopupWindow(popup);
-    showToast('error', 'Unable to resolve GitHub URL for this file.');
+    showToast('error', t('editor.toasts.unableResolveGithubFile'));
     return;
   }
 
@@ -7003,17 +7052,17 @@ async function openMarkdownPushOnGitHub(tab) {
 
   const expectedSignature = computeTextSignature(tab.content != null ? String(tab.content) : '');
   const successMessage = isCreate
-    ? 'Markdown copied. GitHub will open to create this file.'
-    : 'Markdown copied. GitHub will open to update this file.';
+    ? t('editor.composer.markdown.toastCopiedCreate')
+    : t('editor.composer.markdown.toastCopiedUpdate');
   const blockedMessage = isCreate
-    ? 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.'
-    : 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.';
+    ? t('editor.composer.markdown.blockedCreate')
+    : t('editor.composer.markdown.blockedUpdate');
 
   const startWatcher = () => {
     startMarkdownSyncWatcher(tab, {
       expectedSignature,
       isCreate,
-      label: filename || tab.path || 'markdown file'
+      label: filename || tab.path || t('editor.composer.markdown.fileFallback')
     });
   };
 
@@ -7025,7 +7074,7 @@ async function openMarkdownPushOnGitHub(tab) {
     closePopupWindow(popup);
     handlePopupBlocked(href, {
       message: blockedMessage,
-      actionLabel: 'Open GitHub',
+      actionLabel: t('editor.toasts.openGithubAction'),
       onRetry: () => {
         showToast('info', successMessage);
         startWatcher();
@@ -7039,7 +7088,7 @@ async function openMarkdownPushOnGitHub(tab) {
 async function discardMarkdownLocalChanges(tab, anchor) {
   const active = (tab && tab.path) ? tab : getActiveDynamicTab();
   if (!active || !active.path) {
-    showToast('info', 'Open a markdown file before discarding local changes.');
+    showToast('info', t('editor.toasts.markdownOpenBeforeDiscard'));
     updateMarkdownDiscardButton(null);
     return;
   }
@@ -7048,19 +7097,22 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   const hasDraftContent = !!(active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
   const dirty = !!active.isDirty;
   if (!dirty && !hasDraftContent) {
-    showToast('info', 'No local markdown changes to discard.');
+    showToast('info', t('editor.toasts.noLocalMarkdownChanges'));
     updateMarkdownDiscardButton(active);
     return;
   }
 
-  const label = active.path || 'current file';
+  const label = active.path || t('editor.composer.markdown.currentFile');
   const trigger = anchor && typeof anchor.closest === 'function' ? anchor.closest('button') : anchor;
   const control = trigger || markdownDiscardButton;
-  const promptMessage = `Discard local changes for ${label}? This action cannot be undone.`;
+  const promptMessage = t('editor.composer.discardConfirm.messageSimple', { label });
 
   let proceed = true;
   try {
-    proceed = await showComposerDiscardConfirm(control, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+    proceed = await showComposerDiscardConfirm(control, promptMessage, {
+      confirmLabel: t('editor.composer.discardConfirm.discard'),
+      cancelLabel: t('editor.composer.dialogs.cancel')
+    });
   } catch (err) {
     console.warn('Markdown discard prompt failed, falling back to native confirm', err);
     try {
@@ -7074,7 +7126,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   if (!proceed) return;
 
   const button = control || markdownDiscardButton;
-  const originalLabel = getButtonLabel(button) || MARKDOWN_DISCARD_LABEL;
+  const originalLabel = getButtonLabel(button) || getMarkdownDiscardLabel();
   const setBusyState = (busy, text) => {
     if (!button) return;
     if (busy) {
@@ -7092,7 +7144,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
     }
   };
 
-  setBusyState(true, 'Discarding…');
+  setBusyState(true, getMarkdownDiscardBusyLabel());
 
   try {
     if (active.pending) {
@@ -7124,12 +7176,12 @@ async function discardMarkdownLocalChanges(tab, anchor) {
       updateDynamicTabDirtyState(active, { autoSave: false });
     }
 
-    showToast('success', `Discarded local changes for ${label}.`);
+    showToast('success', t('editor.toasts.discardSuccess', { label }));
   } catch (err) {
     console.error('Failed to discard markdown changes', err);
-    showToast('error', 'Failed to discard local markdown changes.');
+    showToast('error', t('editor.toasts.discardFailed'));
   } finally {
-    setBusyState(false, originalLabel || MARKDOWN_DISCARD_LABEL);
+    setBusyState(false, originalLabel || getMarkdownDiscardLabel());
     updateMarkdownDiscardButton(active);
     updateMarkdownPushButton(active);
   }
@@ -9175,7 +9227,7 @@ function bindComposerUI(state) {
       modal.addEventListener('mousedown', (e)=>{ if (e.target === modal) close(); });
       modal.addEventListener('keydown', (e)=>{ if ((e.key||'').toLowerCase()==='escape') close(); });
       btnVerify.addEventListener('click', async ()=>{
-        btnVerify.disabled = true; btnVerify.textContent = 'Verifying…';
+        btnVerify.disabled = true; btnVerify.textContent = t('editor.composer.verifying');
         try {
           const normalizedTarget = normalizeTarget(targetKind) || (getActiveComposerFile() === 'tabs' ? 'tabs' : 'index');
           // Also copy YAML snapshot here to leverage the user gesture
@@ -9187,7 +9239,7 @@ function bindComposerUI(state) {
           if (!now.length){ close(); await afterAllGood(normalizedTarget); }
           else { renderList(now); /* no toast: inline red banner shows status */ }
         } finally {
-          try { btnVerify.disabled = false; btnVerify.textContent = 'Verify'; } catch(_) {}
+          try { btnVerify.disabled = false; btnVerify.textContent = t('editor.composer.verify'); } catch(_) {}
         }
       });
 
@@ -9208,7 +9260,7 @@ function bindComposerUI(state) {
       const popup = preparePopupWindow();
       if (norm(cur) === norm(desired)) {
         closePopupWindow(popup);
-        showToast('success', `${baseName}.yaml is up to date`);
+        showToast('success', t('editor.toasts.yamlUpToDate', { name: `${baseName}.yaml` }));
         try {
           const snapshot = await fetchComposerRemoteSnapshot(target);
           if (snapshot && snapshot.state === 'existing') {
@@ -9230,18 +9282,18 @@ function bindComposerUI(state) {
         else href = buildGhNewLink(owner, name, branch, `${contentRoot}`, `${baseName}.yaml`);
         if (!href) {
           closePopupWindow(popup);
-          showToast('error', 'Unable to resolve GitHub URL for YAML synchronization.');
+          showToast('error', t('editor.toasts.unableResolveYamlSync'));
           return;
         }
         const successMessage = cur
-          ? `${baseName}.yaml copied. GitHub will open so you can paste the update.`
-          : `${baseName}.yaml copied. GitHub will open so you can create the file.`;
-        const blockedMessage = `${baseName}.yaml copied. Click “Open GitHub” if the new tab did not appear.`;
+          ? t('editor.composer.yaml.toastCopiedUpdate', { name: `${baseName}.yaml` })
+          : t('editor.composer.yaml.toastCopiedCreate', { name: `${baseName}.yaml` });
+        const blockedMessage = t('editor.composer.yaml.blocked', { name: `${baseName}.yaml` });
 
         const startWatcher = () => {
           startComposerSyncWatcher(target, {
             expectedText: desired,
-            message: `Waiting for GitHub to apply ${baseName}.yaml changes…`
+            message: t('editor.composer.remoteWatcher.waitingForLabel', { label: `${baseName}.yaml` })
           });
         };
 
@@ -9253,7 +9305,7 @@ function bindComposerUI(state) {
           closePopupWindow(popup);
           handlePopupBlocked(href, {
             message: blockedMessage,
-            actionLabel: 'Open GitHub',
+            actionLabel: t('editor.toasts.openGithubAction'),
             onRetry: () => {
               showToast('info', successMessage);
               startWatcher();
@@ -9262,7 +9314,7 @@ function bindComposerUI(state) {
         }
       } else {
         closePopupWindow(popup);
-        showToast('info', 'YAML copied. Configure repo in site.yaml to open GitHub.');
+        showToast('info', t('editor.toasts.yamlCopiedNoRepo'));
       }
     }
 
@@ -9270,7 +9322,8 @@ function bindComposerUI(state) {
         // Perform first pass; if any missing, show modal list; otherwise go to YAML check
         try {
           btn.disabled = true;
-          if (btnLabel) btnLabel.textContent = 'Verifying…'; else btn.textContent = 'Verifying…';
+          if (btnLabel) btnLabel.textContent = t('editor.composer.verifying');
+          else btn.textContent = t('editor.composer.verifying');
         } catch(_) {}
       try {
         const targetKind = resolveTargetKind(btn);
@@ -9287,7 +9340,9 @@ function bindComposerUI(state) {
         try {
           btn.disabled = false;
           // Restore original label
-          if (btnLabel) btnLabel.textContent = 'Synchronize'; else btn.textContent = 'Synchronize';
+          const restoreLabel = getMarkdownPushLabel('default');
+          if (btnLabel) btnLabel.textContent = restoreLabel;
+          else btn.textContent = restoreLabel;
         } catch(_) {}
       }
       });
@@ -9314,12 +9369,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
       const active = getActiveDynamicTab();
       if (!active) {
-        showToast('info', 'Open a markdown file before pushing to GitHub.');
+        showToast('info', t('editor.toasts.markdownOpenBeforePush'));
         return;
       }
 
       const button = markdownPushButton;
-      const originalLabel = getButtonLabel(button) || MARKDOWN_PUSH_LABELS.default;
+      const originalLabel = getButtonLabel(button) || getMarkdownPushLabel('default');
       const setBusyState = (busy, text) => {
         if (!button) return;
         if (busy) {
@@ -9337,7 +9392,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       };
 
-      setBusyState(true, 'Preparing…');
+      setBusyState(true, t('editor.composer.remoteWatcher.preparing'));
       try {
         await openMarkdownPushOnGitHub(active);
       } finally {
