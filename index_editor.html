@@ -403,40 +403,52 @@
       --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
       --gs-arrow-thickness: 7px;
       --gs-arrow-node-size: 16px;
+      --gs-arrow-flow-duration: 2.8s;
+      --gs-flow-start: translate3d(-130%, -50%, 0);
+      --gs-flow-end: translate3d(130%, -50%, 0);
       color: var(--gs-arrow-color);
       isolation:isolate;
       z-index:2;
     }
-    .global-status .gs-arrow::before {
+    .global-status .gs-arrow::before,
+    .global-status .gs-arrow::after {
       content:'';
       position:absolute;
       left:calc(var(--gs-arrow-node-size) * 0.5);
       right:calc(var(--gs-arrow-node-size) * 0.5);
       top:50%;
-      transform:translateY(-50%);
       height:var(--gs-arrow-thickness);
-      background: color-mix(in srgb, currentColor 82%, transparent);
       border-radius:var(--gs-arrow-thickness);
+      pointer-events:none;
+    }
+    .global-status .gs-arrow::before {
+      transform:translateY(-50%);
+      background: color-mix(in srgb, currentColor 82%, transparent);
       box-shadow:0 4px 14px rgba(15, 23, 42, 0.08);
+      z-index:1;
     }
-    @keyframes gs-arrow-flow {
-      0% { background-position: 140% 0; }
-      100% { background-position: -80% 0; }
-    }
-    @keyframes gs-arrow-flow-vertical {
-      0% { background-position: 0 140%; }
-      100% { background-position: 0 -80%; }
-    }
-    .global-status .gs-arrow.is-pending::before {
+    .global-status .gs-arrow::after {
+      transform:var(--gs-flow-start);
       background-image: linear-gradient(90deg,
-        color-mix(in srgb, currentColor 22%, var(--card) 78%) 0%,
-        color-mix(in srgb, currentColor 68%, var(--card) 12%) 18%,
-        color-mix(in srgb, currentColor 92%, black 12%) 50%,
-        color-mix(in srgb, currentColor 68%, var(--card) 12%) 82%,
-        color-mix(in srgb, currentColor 22%, var(--card) 78%) 100%);
-      background-size:320% 100%;
-      animation: gs-arrow-flow 2.4s linear infinite;
+        color-mix(in srgb, currentColor 18%, var(--card) 78%) 0%,
+        color-mix(in srgb, currentColor 68%, var(--card) 12%) 24%,
+        color-mix(in srgb, currentColor 98%, black 8%) 50%,
+        color-mix(in srgb, currentColor 68%, var(--card) 12%) 76%,
+        color-mix(in srgb, currentColor 18%, var(--card) 78%) 100%);
+      filter: drop-shadow(0 0 8px color-mix(in srgb, currentColor 46%, transparent));
+      opacity:0;
+      will-change: transform, opacity;
+      z-index:2;
+    }
+    @keyframes gs-arrow-flow-pass {
+      0% { transform: var(--gs-flow-start); opacity: 0; }
+      12% { opacity: 1; }
+      88% { opacity: 1; }
+      100% { transform: var(--gs-flow-end); opacity: 0; }
+    }
+    .global-status .gs-arrow.is-pending::after {
       opacity:1;
+      animation: gs-arrow-flow-pass var(--gs-arrow-flow-duration) linear infinite;
     }
     .global-status .gs-arrow-tail,
     .global-status .gs-arrow-head {
@@ -531,25 +543,28 @@
       .global-status .gs-arrow {
         padding:1.5rem 0 .5rem;
         --gs-arrow-thickness: 7px;
+        --gs-flow-start: translate3d(-50%, -130%, 0);
+        --gs-flow-end: translate3d(-50%, 130%, 0);
       }
-      .global-status .gs-arrow::before {
+      .global-status .gs-arrow::before,
+      .global-status .gs-arrow::after {
         left:50%;
         right:auto;
         top:calc(var(--gs-arrow-node-size) * 0.5);
         bottom:calc(var(--gs-arrow-node-size) * 0.5);
         width:var(--gs-arrow-thickness);
         height:auto;
+      }
+      .global-status .gs-arrow::before {
         transform:translateX(-50%);
       }
-      .global-status .gs-arrow.is-pending::before {
+      .global-status .gs-arrow::after {
         background-image: linear-gradient(180deg,
-          color-mix(in srgb, currentColor 22%, var(--card) 78%) 0%,
-          color-mix(in srgb, currentColor 68%, var(--card) 12%) 20%,
-          color-mix(in srgb, currentColor 92%, black 12%) 50%,
-          color-mix(in srgb, currentColor 68%, var(--card) 12%) 80%,
-          color-mix(in srgb, currentColor 22%, var(--card) 78%) 100%);
-        background-size: 100% 320%;
-        animation: gs-arrow-flow-vertical 2.4s linear infinite;
+          color-mix(in srgb, currentColor 18%, var(--card) 78%) 0%,
+          color-mix(in srgb, currentColor 68%, var(--card) 12%) 26%,
+          color-mix(in srgb, currentColor 98%, black 8%) 50%,
+          color-mix(in srgb, currentColor 68%, var(--card) 12%) 74%,
+          color-mix(in srgb, currentColor 18%, var(--card) 78%) 100%);
       }
       .global-status .gs-arrow-tail,
       .global-status .gs-arrow-head {
