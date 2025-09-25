@@ -344,6 +344,7 @@
       padding:.95rem 1rem;
       min-width:0;
       position:relative;
+      z-index:0;
     }
     @media (min-width: 521px) {
       .global-status .gs-node-remote,
@@ -400,18 +401,25 @@
       padding:0 2.2rem;
       width:100%;
       --gs-arrow-color: color-mix(in srgb, var(--muted) 70%, transparent);
+      --gs-arrow-head: 22px;
+      --gs-arrow-thickness: 8px;
       color: var(--gs-arrow-color);
+      isolation:isolate;
+      z-index:2;
     }
     .global-status .gs-arrow::before {
       content:'';
       position:absolute;
       left:0;
-      right:0;
+      right:calc(var(--gs-arrow-head) * -0.35);
       top:50%;
       transform:translateY(-50%);
-      height:2px;
-      background: color-mix(in srgb, currentColor 85%, transparent);
-      opacity:.55;
+      height:var(--gs-arrow-thickness);
+      background: color-mix(in srgb, currentColor 80%, transparent);
+      border-radius:var(--gs-arrow-thickness);
+      clip-path:polygon(0 0, calc(100% - var(--gs-arrow-head)) 0, 100% 50%, calc(100% - var(--gs-arrow-head)) 100%, 0 100%);
+      opacity:.82;
+      box-shadow:0 4px 14px rgba(15, 23, 42, 0.08);
     }
     @keyframes gs-arrow-flow {
       0% { background-position: 0% 0; }
@@ -422,28 +430,15 @@
       100% { background-position: 0% 200%; }
     }
     .global-status .gs-arrow.is-pending::before {
-      background-color: color-mix(in srgb, currentColor 65%, transparent);
       background-image: linear-gradient(90deg,
         transparent 0%,
         color-mix(in srgb, currentColor 65%, transparent) 25%,
         currentColor 50%,
         color-mix(in srgb, currentColor 65%, transparent) 75%,
         transparent 100%);
-      background-size: 200% 100%;
+      background-size:200% 100%;
       animation: gs-arrow-flow 1.15s linear infinite;
-      opacity:.8;
-    }
-    .global-status .gs-arrow::after {
-      content:'';
-      position:absolute;
-      top:50%;
-      right:0;
-      transform:translate(50%, -50%);
-      width:18px;
-      height:18px;
-      background: currentColor;
-      clip-path: polygon(0 0, 100% 50%, 0 100%);
-      opacity:.75;
+      opacity:.9;
     }
     .global-status .gs-arrow-tail {
       position:absolute;
@@ -457,10 +452,11 @@
       background: color-mix(in srgb, var(--card) 92%, transparent);
       box-shadow:0 2px 8px rgba(15, 23, 42, 0.08);
       pointer-events:none;
+      z-index:3;
     }
     .global-status .gs-arrow-bubble {
       position:relative;
-      z-index:1;
+      z-index:4;
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -535,15 +531,18 @@
       }
       .global-status .gs-arrow {
         padding:1.5rem 0 .5rem;
+        --gs-arrow-head: 22px;
+        --gs-arrow-thickness: 8px;
       }
       .global-status .gs-arrow::before {
         left:50%;
         right:auto;
         top:0;
-        bottom:0;
-        width:2px;
+        bottom:calc(var(--gs-arrow-head) * -0.35);
+        width:var(--gs-arrow-thickness);
         height:auto;
-        transform:none;
+        transform:translateX(-50%);
+        clip-path:polygon(0 0, 100% 0, 100% calc(100% - var(--gs-arrow-head)), 50% 100%, 0 calc(100% - var(--gs-arrow-head)));
       }
       .global-status .gs-arrow.is-pending::before {
         background-image: linear-gradient(180deg,
@@ -554,19 +553,6 @@
           transparent 100%);
         background-size: 100% 200%;
         animation: gs-arrow-flow-vertical 1.15s linear infinite;
-      }
-      .global-status .gs-arrow::after {
-        top:auto;
-        bottom:0;
-        right:50%;
-        transform:translate(50%, 50%);
-        width:0;
-        height:0;
-        background:none;
-        clip-path:none;
-        border-left:8px solid transparent;
-        border-right:8px solid transparent;
-        border-top:10px solid currentColor;
       }
       .global-status .gs-arrow-tail {
         top:0;
