@@ -733,18 +733,48 @@ document.addEventListener('DOMContentLoaded', () => {
   let formattingButtons = [];
   let cardPopoverOpen = false;
 
+  function applyButtonTooltipState(button, disabled) {
+    if (!button) return;
+    const baseTitle = (() => {
+      if (!button.dataset.enabledTitle) {
+        const current = button.getAttribute('title') || button.textContent || '';
+        if (current) button.dataset.enabledTitle = current;
+        else button.dataset.enabledTitle = '';
+      }
+      return button.dataset.enabledTitle || '';
+    })();
+    const disabledHint = button.dataset.disabledHint || '';
+    if (disabled) {
+      if (disabledHint) button.setAttribute('title', disabledHint);
+      else if (baseTitle) button.setAttribute('title', baseTitle);
+      button.setAttribute('data-disabled', 'true');
+    } else {
+      if (baseTitle) button.setAttribute('title', baseTitle);
+      else button.removeAttribute('title');
+      button.removeAttribute('data-disabled');
+    }
+  }
+
+  function registerButtonTooltip(button, disabledHint) {
+    if (!button) return;
+    if (disabledHint) button.dataset.disabledHint = disabledHint;
+    applyButtonTooltipState(button, !!button.disabled);
+  }
+
   const updateFormattingToolbarState = () => {
     const hasSelection = lastSelectionRange && (lastSelectionRange.end > lastSelectionRange.start);
     formattingButtons.forEach(btn => {
       if (!btn || !btn.el) return;
       const requiresSelection = btn.requiresSelection !== false;
       if (requiresSelection) btn.el.disabled = !hasSelection;
+      applyButtonTooltipState(btn.el, !!btn.el.disabled);
     });
     if (cardButton) {
       const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
       cardButton.disabled = !hasEntries;
       if (hasEntries) cardButton.removeAttribute('aria-disabled');
       else cardButton.setAttribute('aria-disabled', 'true');
+      applyButtonTooltipState(cardButton, !!cardButton.disabled);
     }
   };
 
@@ -1047,6 +1077,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const BUTTON_DISABLED_HINTS = {
+    btnFmtBold: 'No text is selected. Select text first, then click Bold to surround it with ** **.',
+    btnFmtItalic: 'No text is selected. Select text first, then click Italic to surround it with * *.',
+    btnFmtStrike: 'No text is selected. Select text first, then click Strikethrough to surround it with ~~ ~~.',
+    btnFmtHeading: 'No lines are selected. Highlight the lines you want, then click Heading to prepend "# ".',
+    btnFmtQuote: 'No lines are selected. Highlight the lines you want, then click Quote to prepend "> ".',
+    btnFmtCode: 'No text is selected. Select text first, then click Code to wrap it in backticks.',
+    btnFmtCodeBlock: 'No lines are selected. Highlight the lines you want, then click Code Block to wrap them in ``` fences.',
+    btnInsertCard: 'No articles are available yet. Wait for the index to load or add entries in index.yaml, then insert a card.'
+  };
+
+  if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINTS.btnInsertCard);
+
   const formattingActions = [
     { id: 'btnFmtBold', handler: () => applyInlineFormat('**', '**') },
     { id: 'btnFmtItalic', handler: () => applyInlineFormat('*', '*') },
@@ -1060,6 +1103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   formattingButtons = formattingActions.map(action => {
     const el = document.getElementById(action.id);
     if (!el) return null;
+    registerButtonTooltip(el, BUTTON_DISABLED_HINTS[action.id]);
     el.addEventListener('click', (event) => {
       event.preventDefault();
       action.handler();
