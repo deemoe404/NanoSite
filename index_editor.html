@@ -737,7 +737,7 @@
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
-    .editor-tools { display:flex; align-items:center; justify-content:space-between; gap:.65rem; flex-wrap:wrap; margin-bottom:.75rem; position:relative; }
+    .editor-tools { display:flex; align-items:center; justify-content:space-between; gap:.65rem; flex-wrap:wrap; margin-bottom:.75rem; position:sticky; top:clamp(.5rem, 1.5vw, 1.15rem); z-index:110; background:color-mix(in srgb, var(--card) 96%, transparent); padding-top:.35rem; padding-bottom:.35rem; }
     .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
     .editor-tool-btn { white-space:nowrap; }
     .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
