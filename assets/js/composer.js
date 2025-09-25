@@ -77,6 +77,7 @@ let composerReduceMotionQuery = null;
 const composerInlineVisibilityAnimations = new WeakMap();
 const composerInlineVisibilityFallbacks = new WeakMap();
 const composerListTransitions = new WeakMap();
+const composerOrderMainTransitions = new WeakMap();
 
 function composerPrefersReducedMotion() {
   try {
@@ -339,6 +340,103 @@ function animateComposerListTransition(list, previousRect, options = {}) {
 
   if (immediate) run();
   else requestAnimationFrame(run);
+}
+
+function cancelComposerOrderMainTransition(main) {
+  if (!main) return;
+  const active = composerOrderMainTransitions.get(main);
+  if (!active) return;
+  composerOrderMainTransitions.delete(main);
+  if (active.animation && typeof active.animation.cancel === 'function') {
+    try { active.animation.cancel(); } catch (_) {}
+  }
+  if (active.timer != null) clearTimeout(active.timer);
+  if (active.restoreTransition != null) main.style.transition = active.restoreTransition;
+  main.style.transform = 'none';
+  main.style.filter = 'none';
+  if (main.style.opacity && main.style.opacity !== '1') main.style.opacity = '';
+  delete main.dataset.orderMainAnimating;
+}
+
+function animateComposerOrderMainReset(host, previousRect, options = {}) {
+  if (!host || !previousRect) return;
+  const main = host.querySelector('.composer-order-main');
+  if (!main || !main.isConnected) return;
+  cancelComposerOrderMainTransition(main);
+
+  const reduceMotion = composerPrefersReducedMotion();
+  const { durationOut, easing } = getComposerInlineAnimConfig();
+  const duration = typeof durationOut === 'number' ? durationOut : 0;
+  const immediate = !!options.immediate || reduceMotion || duration <= 0;
+  if (immediate) return;
+
+  const run = () => {
+    if (!main.isConnected) return;
+    const nextRect = captureElementRect(main);
+    if (!nextRect) return;
+
+    const dx = previousRect.left - nextRect.left;
+    const dy = previousRect.top - nextRect.top;
+    const sx = nextRect.width ? previousRect.width / nextRect.width : 1;
+    const sy = nextRect.height ? previousRect.height / nextRect.height : 1;
+
+    const transforms = [];
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) transforms.push(`translate(${dx}px, ${dy}px)`);
+    if (Math.abs(sx - 1) > 0.02 || Math.abs(sy - 1) > 0.02) transforms.push(`scale(${sx}, ${sy})`);
+    if (!transforms.length) return;
+
+    const keyframes = [
+      { transform: transforms.join(' '), filter: 'brightness(0.97)', opacity: 0.99 },
+      { transform: 'none', filter: 'none', opacity: 1 }
+    ];
+
+    main.dataset.orderMainAnimating = 'true';
+
+    if (typeof main.animate === 'function') {
+      let animation = null;
+      try {
+        animation = main.animate(keyframes, { duration, easing, fill: 'both' });
+      } catch (_) {
+        animation = null;
+      }
+      if (animation) {
+        composerOrderMainTransitions.set(main, { animation });
+        const finalize = () => {
+          const active = composerOrderMainTransitions.get(main);
+          if (!active || active.animation !== animation) return;
+          composerOrderMainTransitions.delete(main);
+          delete main.dataset.orderMainAnimating;
+        };
+        animation.finished.then(finalize).catch(finalize);
+        animation.addEventListener('cancel', finalize, { once: true });
+        return;
+      }
+    }
+
+    const previousTransition = main.style.transition;
+    const transformsValue = transforms.join(' ');
+    main.style.transition = 'none';
+    main.style.transform = transformsValue;
+    main.style.filter = 'brightness(0.97)';
+    main.style.opacity = '0.99';
+    requestAnimationFrame(() => {
+      if (!main.isConnected) return;
+      main.style.transition = `transform ${duration}ms ${easing}, filter ${duration}ms ${easing}, opacity ${duration}ms ${easing}`;
+      main.style.transform = 'none';
+      main.style.filter = 'none';
+      main.style.opacity = '';
+    });
+    const timer = window.setTimeout(() => {
+      const active = composerOrderMainTransitions.get(main);
+      if (!active || active.timer !== timer) return;
+      main.style.transition = previousTransition;
+      composerOrderMainTransitions.delete(main);
+      delete main.dataset.orderMainAnimating;
+    }, duration + 40);
+    composerOrderMainTransitions.set(main, { timer, restoreTransition: previousTransition });
+  };
+
+  requestAnimationFrame(run);
 }
 
 function getActiveComposerFile() {
@@ -5100,6 +5198,8 @@ function updateComposerOrderPreview(kind, options = {}) {
   });
 
   const main = host ? host.querySelector('.composer-order-main') : null;
+  if (main) cancelComposerOrderMainTransition(main);
+  const mainRectBefore = main ? captureElementRect(main) : null;
   const rightMap = new Map();
   if (main) {
     const selector = normalized === 'tabs' ? '.ct-item' : '.ci-item';
@@ -5160,6 +5260,7 @@ function updateComposerOrderPreview(kind, options = {}) {
       if (collapseApplied) return;
       collapseApplied = true;
       applyInlineActive(false);
+      animateComposerOrderMainReset(host, mainRectBefore, { immediate: collapseImmediately });
       runListAnimation({ immediate: true });
     };
 
@@ -5206,6 +5307,7 @@ function updateComposerOrderPreview(kind, options = {}) {
       if (collapseApplied) return;
       collapseApplied = true;
       applyInlineActive(false);
+      animateComposerOrderMainReset(host, mainRectBefore, { immediate: collapseImmediately });
       runListAnimation({ immediate: true });
     };
     if (root) {
