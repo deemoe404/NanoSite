@@ -1801,8 +1801,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusEl = document.getElementById('sidebarStatus');
     const currentFileEl = document.getElementById('currentFile');
     const searchInput = document.getElementById('fileSearch');
-    if (!listIndex || !listTabs) return;
-
     let currentActive = null;
     let contentRoot = 'wwwroot';
     // Track current markdown base directory for resolving relative assets
@@ -2029,6 +2027,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderGroupedIndex = (ul, data) => {
+      if (!ul) return;
       ul.innerHTML = '';
       const frag = document.createDocumentFragment();
       try {
@@ -2093,6 +2092,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderGroupedTabs = (ul, data) => {
+      if (!ul) return;
       ul.innerHTML = '';
       const frag = document.createDocumentFragment();
       try {
