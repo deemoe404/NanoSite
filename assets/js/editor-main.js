@@ -1539,6 +1539,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const resolveRelativeTimeLocales = () => {
+    const lang = normalizeLangKey(getCurrentLang());
+    if (!lang) return null;
+    if (lang === 'zh') return ['zh-CN', 'zh', 'en'];
+    if (lang === 'ja') return ['ja-JP', 'ja', 'en'];
+    if (lang === 'en') return ['en'];
+    if (/^[a-z]{2}(?:-[a-z0-9-]+)?$/i.test(lang)) return [lang, 'en'];
+    return null;
+  };
+
   const formatRelativeTime = (ms) => {
     if (!Number.isFinite(ms)) return '';
     const diff = Date.now() - ms;
@@ -1550,9 +1560,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const week = 7 * day;
     const month = 30 * day;
     const year = 365 * day;
+    const locales = resolveRelativeTimeLocales();
     const rtf = (() => {
-      try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); }
-      catch (_) { return null; }
+      try {
+        if (locales && locales.length) return new Intl.RelativeTimeFormat(locales, { numeric: 'auto' });
+        return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+      } catch (_) {
+        try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); }
+        catch (__) { return null; }
+      }
     })();
     const format = (value, unit) => {
       if (rtf) {
@@ -1563,7 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const plural = Math.abs(value) === 1 ? '' : 's';
       return value < 0 ? `${Math.abs(value)} ${label}${plural} from now` : `${Math.abs(value)} ${label}${plural} ago`;
     };
-    if (sec < 45) return 'just now';
+    if (sec < 45) return t('editor.currentFile.draft.justNow');
     if (sec < 90) return format(diff < 0 ? 1 : -1, 'minute');
     if (sec < 45 * minute) return format(Math.round(diff / (1000 * minute) * -1), 'minute');
     if (sec < 90 * minute) return format(diff < 0 ? 1 : -1, 'hour');

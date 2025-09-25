@@ -138,6 +138,7 @@ const translations = {
           lastChecked: ({ time }) => `Last checked: ${time}`
         },
         draft: {
+          justNow: 'just now',
           savedHtml: ({ time }) => `Local draft saved ${time}`,
           saved: 'Local draft saved',
           savedConflictHtml: ({ time }) => `Local draft saved ${time} (remote updated)`,
@@ -247,6 +248,10 @@ const translations = {
         tabsEditorAria: 'tabs.yaml editor',
         noLocalChangesToCommit: 'No local changes to commit.',
         noLocalChangesYet: 'No local changes yet.',
+        dialogs: {
+          cancel: 'Cancel',
+          confirm: 'Confirm'
+        },
         statusMessages: {
           loadingConfig: 'Loading config…',
           restoredDraft: ({ label }) => `Restored local draft for ${label}`,
@@ -654,6 +659,7 @@ const translations = {
           lastChecked: ({ time }) => `上次检查：${time}`
         },
         draft: {
+          justNow: '刚刚',
           savedHtml: ({ time }) => `本地草稿已于${time}保存`,
           saved: '本地草稿已保存',
           savedConflictHtml: ({ time }) => `本地草稿已于${time}保存（远端已更新）`,
@@ -763,6 +769,10 @@ const translations = {
         tabsEditorAria: 'tabs.yaml 编辑器',
         noLocalChangesToCommit: '没有本地更改可提交。',
         noLocalChangesYet: '暂时没有本地更改。',
+        dialogs: {
+          cancel: '取消',
+          confirm: '确认'
+        },
         statusMessages: {
           loadingConfig: '正在加载配置…',
           restoredDraft: ({ label }) => `已恢复 ${label} 的本地草稿`,
@@ -1170,6 +1180,7 @@ const translations = {
           lastChecked: ({ time }) => `最終確認: ${time}`
         },
         draft: {
+          justNow: 'たった今',
           savedHtml: ({ time }) => `ローカル下書きを${time}に保存しました`,
           saved: 'ローカル下書きを保存しました',
           savedConflictHtml: ({ time }) => `ローカル下書きを${time}に保存しました（リモート更新あり）`,
@@ -1279,6 +1290,10 @@ const translations = {
         tabsEditorAria: 'tabs.yaml エディター',
         noLocalChangesToCommit: 'コミットするローカルの変更はありません。',
         noLocalChangesYet: 'ローカルの変更はまだありません。',
+        dialogs: {
+          cancel: 'キャンセル',
+          confirm: '確認'
+        },
         statusMessages: {
           loadingConfig: '設定を読み込み中…',
           restoredDraft: ({ label }) => `${label} のローカル下書きを復元しました`,
