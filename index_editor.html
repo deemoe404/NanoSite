@@ -962,8 +962,14 @@
       column-gap: clamp(2rem, 5vw, 3.2rem);
       align-items: start;
       min-width: 0;
+      transition: grid-template-columns .52s cubic-bezier(0.16, 1, 0.3, 1), column-gap .52s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
+    .composer-order-host .composer-order-main {
+      grid-area: main;
+      position: relative;
+      z-index: 2;
+      min-width: 0;
+    }
     .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
     .composer-order-inline[hidden] { display: none !important; }
     .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
@@ -972,7 +978,7 @@
     .composer-order-inline-meta {
       opacity: 0;
       transform: translateY(-6px);
-      transition: opacity .24s ease, transform .24s ease;
+      transition: opacity .42s cubic-bezier(0.16, 1, 0.3, 1), transform .42s cubic-bezier(0.16, 1, 0.3, 1);
       will-change: opacity, transform;
     }
     .composer-order-inline.is-visible,
@@ -991,6 +997,9 @@
         transition-duration: 0.01ms;
         transition-delay: 0.01ms;
         transform: none;
+      }
+      .composer-order-host {
+        transition-duration: 0.01ms;
       }
     }
     .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
@@ -1024,7 +1033,7 @@
     .composer-order-inline-body { display: flex; flex-direction: column; }
     .composer-order-inline-list { display: block; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
-    .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .18s ease; }
+    .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .32s cubic-bezier(0.16, 1, 0.3, 1); }
     .composer-order-inline-lines.is-hovering { opacity: 1; }
     .composer-order-host[data-state="clean"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; column-gap: 0; }
     .composer-order-host[data-state="clean"] .composer-order-inline-lines { display: none; }
@@ -1037,7 +1046,7 @@
     .composer-order-inline .composer-order-inline-item {
       overflow: hidden;
       height: auto;
-      transition: height .28s ease, margin .28s ease;
+      transition: height .4s cubic-bezier(0.16, 1, 0.3, 1), margin .4s cubic-bezier(0.16, 1, 0.3, 1);
       will-change: height, margin;
     }
     .composer-order-inline .composer-order-index { min-width: 1.7rem; font-size: .78rem; }

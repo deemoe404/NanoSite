@@ -4702,7 +4702,7 @@ function animateComposerInlineVisibility(el, show) {
   if (!el) return;
   const visibleClass = 'is-visible';
   const animatingClass = 'is-animating';
-  const maxDuration = 360;
+  const maxDuration = 520;
 
   const clearExisting = () => {
     if (el.__nsComposerInlineTransitionHandler) {
@@ -4768,6 +4768,98 @@ function animateComposerInlineVisibility(el, show) {
   el.__nsComposerInlineTransitionHandler = handler;
   el.addEventListener('transitionend', handler);
   el.__nsComposerInlineTransitionTimer = setTimeout(finish, maxDuration);
+}
+
+function prepareComposerOrderLayoutAnimation(context = {}) {
+  const host = context.host;
+  if (!host || typeof requestAnimationFrame !== 'function') return null;
+
+  const meta = context.meta && context.meta.isConnected ? context.meta : null;
+  const inline = host.querySelector('.composer-order-inline');
+  const main = host.querySelector('.composer-order-main');
+  const targets = [];
+  if (main) targets.push(main);
+  if (inline && !inline.hidden) targets.push(inline);
+  if (meta) targets.push(meta);
+
+  const frames = [];
+  for (const el of targets) {
+    if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') continue;
+    try {
+      const rect = el.getBoundingClientRect();
+      frames.push({ el, rect });
+      el.style.willChange = 'transform';
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  if (!frames.length) return null;
+
+  const easing = 'cubic-bezier(0.16, 1, 0.3, 1)';
+  const duration = 520;
+
+  return () => {
+    requestAnimationFrame(() => {
+      for (const frame of frames) {
+        const { el, rect } = frame;
+        if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') {
+          if (el) el.style.willChange = '';
+          continue;
+        }
+        let last;
+        try {
+          last = el.getBoundingClientRect();
+        } catch (_) {
+          el.style.willChange = '';
+          continue;
+        }
+        const deltaX = rect.left - last.left;
+        const deltaY = rect.top - last.top;
+        const scaleX = last.width > 1 ? Math.max(Math.min(rect.width / last.width, 3), 0.25) : 1;
+        const scaleY = last.height > 1 ? Math.max(Math.min(rect.height / last.height, 3), 0.25) : 1;
+        const needsMove = Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5;
+        const needsScale = Math.abs(scaleX - 1) > 0.05 || Math.abs(scaleY - 1) > 0.05;
+
+        if (!needsMove && !needsScale) {
+          el.style.willChange = '';
+          continue;
+        }
+
+        const fromTransform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+
+        const cleanup = () => {
+          el.style.transform = '';
+          el.style.willChange = '';
+        };
+
+        if (typeof el.animate === 'function') {
+          const animation = el.animate(
+            [
+              { transform: fromTransform },
+              { transform: 'translate(0, 0) scale(1, 1)' }
+            ],
+            { duration, easing, fill: 'both' }
+          );
+          animation.addEventListener('finish', cleanup, { once: true });
+          animation.addEventListener('cancel', cleanup, { once: true });
+        } else {
+          const previousTransition = el.style.transition;
+          el.style.transition = previousTransition
+            ? `${previousTransition}, transform ${duration}ms ${easing}`
+            : `transform ${duration}ms ${easing}`;
+          el.style.transform = fromTransform;
+          requestAnimationFrame(() => {
+            el.style.transform = 'translate(0, 0) scale(1, 1)';
+            setTimeout(() => {
+              el.style.transition = previousTransition;
+              cleanup();
+            }, duration + 80);
+          });
+        }
+      }
+    });
+  };
 }
 
 function ensureComposerOrderPreview(kind) {
@@ -4838,6 +4930,7 @@ function updateComposerOrderPreview(kind, options = {}) {
   composerOrderPreviewActiveKind = normalized;
 
   const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
+  let layoutTransition = host ? prepareComposerOrderLayoutAnimation({ host, meta }) : null;
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
 
   if (title) title.textContent = 'Change summary';
@@ -4945,6 +5038,10 @@ function updateComposerOrderPreview(kind, options = {}) {
       applyComposerOrderHover(host, '');
     }
     composerOrderPreviewState[normalized] = null;
+    if (layoutTransition) {
+      layoutTransition();
+      layoutTransition = null;
+    }
     return;
   }
 
@@ -4985,6 +5082,11 @@ function updateComposerOrderPreview(kind, options = {}) {
     drawOrderDiffLines(state);
     requestAnimationFrame(() => drawOrderDiffLines(state));
     setTimeout(() => drawOrderDiffLines(state), 120);
+  }
+
+  if (layoutTransition) {
+    layoutTransition();
+    layoutTransition = null;
   }
 }
 
