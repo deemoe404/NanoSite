@@ -390,7 +390,102 @@ const translations = {
             submit: 'Commit changes',
             errorRequired: 'Enter a Fine-grained Personal Access Token to continue.'
           }
-        }
+        },
+        dialogs: {
+          cancel: 'Cancel',
+          confirm: 'Confirm'
+        },
+        addEntryPrompt: {
+          hint: 'Use only English letters and numbers.',
+          confirm: 'Add Entry',
+          defaultType: 'entry',
+          placeholder: 'Entry key',
+          message: ({ label }) => `Enter a new ${label} key:`,
+          errorEmpty: 'Key cannot be empty.',
+          errorInvalid: 'Key must contain only English letters, numbers, underscores, or hyphens.',
+          errorDuplicate: 'That key already exists. Choose a different key.'
+        },
+        discardConfirm: {
+          messageReload: ({ label }) => `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`,
+          messageSimple: ({ label }) => `Discard local changes for ${label}? This action cannot be undone.`,
+          discard: 'Discard',
+          discarding: 'Discarding…',
+          successFresh: ({ label }) => `Discarded local changes; loaded fresh ${label}`,
+          successCached: ({ label }) => `Discarded local changes; restored ${label} from cached snapshot`,
+          failed: 'Failed to discard local changes'
+        },
+        markdown: {
+          push: {
+            labelDefault: 'Synchronize',
+            labelCreate: 'Create on GitHub',
+            labelUpdate: 'Synchronize',
+            tooltips: {
+              default: 'Copy draft to GitHub.',
+              noRepo: 'Configure repo in site.yaml to enable GitHub push.',
+              noFile: 'Open a markdown file to enable GitHub push.',
+              error: 'Resolve file load error before pushing to GitHub.',
+              checking: 'Checking remote version…',
+              loading: 'Loading remote snapshot…',
+              create: 'Copy draft and create this file on GitHub.',
+              update: 'Copy draft and update this file on GitHub.'
+            }
+          },
+          discard: {
+            label: 'Discard',
+            busy: 'Discarding…',
+            tooltips: {
+              default: 'Discard local markdown changes and restore the last loaded version.',
+              noFile: 'Open a markdown file to discard local changes.',
+              reload: 'Discard local markdown changes (remote snapshot will be reloaded).'
+            }
+          },
+          draftIndicator: {
+            conflict: 'Local draft conflicts with remote file.',
+            dirty: 'Unsaved changes pending in editor.',
+            saved: 'Local draft saved in browser.'
+          },
+          currentFile: 'current file',
+          fileFallback: 'markdown file',
+          openBeforeEditor: 'Enter a markdown location before opening the editor.',
+          toastCopiedCreate: 'Markdown copied. GitHub will open to create this file.',
+          toastCopiedUpdate: 'Markdown copied. GitHub will open to update this file.',
+          blockedCreate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.',
+          blockedUpdate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.'
+        },
+        yaml: {
+          toastCopiedUpdate: ({ name }) => `${name} copied. GitHub will open so you can paste the update.`,
+          toastCopiedCreate: ({ name }) => `${name} copied. GitHub will open so you can create the file.`,
+          blocked: ({ name }) => `${name} copied. Click “Open GitHub” if the new tab did not appear.`
+        },
+        remoteWatcher: {
+          waitingForCreate: ({ label }) => `Waiting for GitHub to create ${label}`,
+          waitingForUpdate: ({ label }) => `Waiting for GitHub to update ${label}`,
+          waitingForCommitStatus: 'Waiting for GitHub commit…',
+          checkingRemoteChanges: 'Checking remote changes…',
+          waitingForCommit: 'Waiting for commit…',
+          stopWaiting: 'Stop waiting',
+          waitingForRemoteResponse: 'Waiting for remote response…',
+          remoteCheckFailedRetry: 'Remote check failed. Retrying…',
+          remoteFileNotFoundYet: 'Remote file not found yet…',
+          remoteFileStillMissing: 'Remote file still missing…',
+          updateDetectedRefreshing: 'Update detected. Refreshing…',
+          remoteFileDiffersWaiting: 'Remote file still differs from local content. Waiting…',
+          remoteFileExistsDiffersWaiting: 'Remote file exists but content differs. Waiting…',
+          mismatchAdvice: 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.',
+          remoteCheckCanceled: 'Remote check canceled',
+          errorWithDetail: ({ message }) => `Error: ${message}`,
+          networkError: 'Network error',
+          fileNotFoundOnServer: 'File not found on server',
+          remoteSnapshotUpdated: 'Remote snapshot updated',
+          waitingForGitHub: 'Waiting for GitHub…',
+          preparing: 'Preparing…',
+          waitingForLabel: ({ label }) => `Waiting for ${label} to update on GitHub…`,
+          waitingForRemote: 'Waiting for remote…',
+          yamlNotFoundYet: ({ label }) => `${label} not found on remote yet…`,
+          remoteYamlDiffersWaiting: 'Remote YAML still differs from the local snapshot. Waiting…',
+          remoteYamlExistsDiffersWaiting: 'Remote YAML updated but content differs. Waiting…',
+          yamlMismatchAdvice: 'If the commit was different from your draft, cancel and click Refresh to pull it in.'
+        },
       },
       github: {
         status: {
@@ -413,101 +508,6 @@ const translations = {
           configUnavailable: 'GitHub configuration unavailable',
           readFailed: 'Failed to read site.yaml.'
         }
-      },
-      dialogs: {
-        cancel: 'Cancel',
-        confirm: 'Confirm'
-      },
-      addEntryPrompt: {
-        hint: 'Use only English letters and numbers.',
-        confirm: 'Add Entry',
-        defaultType: 'entry',
-        placeholder: 'Entry key',
-        message: ({ label }) => `Enter a new ${label} key:`,
-        errorEmpty: 'Key cannot be empty.',
-        errorInvalid: 'Key must contain only English letters, numbers, underscores, or hyphens.',
-        errorDuplicate: 'That key already exists. Choose a different key.'
-      },
-      discardConfirm: {
-        messageReload: ({ label }) => `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`,
-        messageSimple: ({ label }) => `Discard local changes for ${label}? This action cannot be undone.`,
-        discard: 'Discard',
-        discarding: 'Discarding…',
-        successFresh: ({ label }) => `Discarded local changes; loaded fresh ${label}`,
-        successCached: ({ label }) => `Discarded local changes; restored ${label} from cached snapshot`,
-        failed: 'Failed to discard local changes'
-      },
-      markdown: {
-        push: {
-          labelDefault: 'Synchronize',
-          labelCreate: 'Create on GitHub',
-          labelUpdate: 'Synchronize',
-          tooltips: {
-            default: 'Copy draft to GitHub.',
-            noRepo: 'Configure repo in site.yaml to enable GitHub push.',
-            noFile: 'Open a markdown file to enable GitHub push.',
-            error: 'Resolve file load error before pushing to GitHub.',
-            checking: 'Checking remote version…',
-            loading: 'Loading remote snapshot…',
-            create: 'Copy draft and create this file on GitHub.',
-            update: 'Copy draft and update this file on GitHub.'
-          }
-        },
-        discard: {
-          label: 'Discard',
-          busy: 'Discarding…',
-          tooltips: {
-            default: 'Discard local markdown changes and restore the last loaded version.',
-            noFile: 'Open a markdown file to discard local changes.',
-            reload: 'Discard local markdown changes (remote snapshot will be reloaded).'
-          }
-        },
-        draftIndicator: {
-          conflict: 'Local draft conflicts with remote file.',
-          dirty: 'Unsaved changes pending in editor.',
-          saved: 'Local draft saved in browser.'
-        },
-        currentFile: 'current file',
-        fileFallback: 'markdown file',
-        openBeforeEditor: 'Enter a markdown location before opening the editor.',
-        toastCopiedCreate: 'Markdown copied. GitHub will open to create this file.',
-        toastCopiedUpdate: 'Markdown copied. GitHub will open to update this file.',
-        blockedCreate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.',
-        blockedUpdate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can update this file.'
-      },
-      yaml: {
-        toastCopiedUpdate: ({ name }) => `${name} copied. GitHub will open so you can paste the update.`,
-        toastCopiedCreate: ({ name }) => `${name} copied. GitHub will open so you can create the file.`,
-        blocked: ({ name }) => `${name} copied. Click “Open GitHub” if the new tab did not appear.`
-      },
-      remoteWatcher: {
-        waitingForCreate: ({ label }) => `Waiting for GitHub to create ${label}`,
-        waitingForUpdate: ({ label }) => `Waiting for GitHub to update ${label}`,
-        waitingForCommitStatus: 'Waiting for GitHub commit…',
-        checkingRemoteChanges: 'Checking remote changes…',
-        waitingForCommit: 'Waiting for commit…',
-        stopWaiting: 'Stop waiting',
-        waitingForRemoteResponse: 'Waiting for remote response…',
-        remoteCheckFailedRetry: 'Remote check failed. Retrying…',
-        remoteFileNotFoundYet: 'Remote file not found yet…',
-        remoteFileStillMissing: 'Remote file still missing…',
-        updateDetectedRefreshing: 'Update detected. Refreshing…',
-        remoteFileDiffersWaiting: 'Remote file still differs from local content. Waiting…',
-        remoteFileExistsDiffersWaiting: 'Remote file exists but content differs. Waiting…',
-        mismatchAdvice: 'If your GitHub commit intentionally differs, cancel and use Refresh to review it.',
-        remoteCheckCanceled: 'Remote check canceled',
-        errorWithDetail: ({ message }) => `Error: ${message}`,
-        networkError: 'Network error',
-        fileNotFoundOnServer: 'File not found on server',
-        remoteSnapshotUpdated: 'Remote snapshot updated',
-        waitingForGitHub: 'Waiting for GitHub…',
-        preparing: 'Preparing…',
-        waitingForLabel: ({ label }) => `Waiting for ${label} to update on GitHub…`,
-        waitingForRemote: 'Waiting for remote…',
-        yamlNotFoundYet: ({ label }) => `${label} not found on remote yet…`,
-        remoteYamlDiffersWaiting: 'Remote YAML still differs from the local snapshot. Waiting…',
-        remoteYamlExistsDiffersWaiting: 'Remote YAML updated but content differs. Waiting…',
-        yamlMismatchAdvice: 'If the commit was different from your draft, cancel and click Refresh to pull it in.'
       },
       footerNote: 'Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.'
     }
@@ -876,7 +876,102 @@ const translations = {
             submit: '提交更改',
             errorRequired: '请输入精细化个人访问令牌以继续。'
           }
-        }
+        },
+        dialogs: {
+          cancel: '取消',
+          confirm: '确认'
+        },
+        addEntryPrompt: {
+          hint: '仅使用英文字母和数字。',
+          confirm: '添加条目',
+          defaultType: '条目',
+          placeholder: '条目键名',
+          message: ({ label }) => `请输入新的 ${label} 键名：`,
+          errorEmpty: '键名不能为空。',
+          errorInvalid: '键名只能包含英文字母、数字、下划线或连字符。',
+          errorDuplicate: '该键名已存在，请使用其他键名。'
+        },
+        discardConfirm: {
+          messageReload: ({ label }) => `丢弃 ${label} 的本地更改并重新加载远程文件？此操作无法撤销。`,
+          messageSimple: ({ label }) => `丢弃 ${label} 的本地更改？此操作无法撤销。`,
+          discard: '丢弃',
+          discarding: '正在丢弃…',
+          successFresh: ({ label }) => `已丢弃本地更改；已加载最新的 ${label}`,
+          successCached: ({ label }) => `已丢弃本地更改；已从缓存快照恢复 ${label}`,
+          failed: '丢弃本地更改失败。'
+        },
+        markdown: {
+          push: {
+            labelDefault: '同步',
+            labelCreate: '在 GitHub 上创建',
+            labelUpdate: '同步',
+            tooltips: {
+              default: '复制草稿到 GitHub。',
+              noRepo: '请在 site.yaml 中配置仓库以启用 GitHub 推送。',
+              noFile: '请先打开一个 Markdown 文件以启用 GitHub 推送。',
+              error: '推送前请先解决文件加载错误。',
+              checking: '正在检查远程版本…',
+              loading: '正在加载远程快照…',
+              create: '复制草稿并在 GitHub 上创建该文件。',
+              update: '复制草稿并在 GitHub 上更新该文件。'
+            }
+          },
+          discard: {
+            label: '丢弃',
+            busy: '正在丢弃…',
+            tooltips: {
+              default: '丢弃本地 Markdown 更改并恢复上次加载的版本。',
+              noFile: '请先打开一个 Markdown 文件再丢弃本地更改。',
+              reload: '丢弃本地 Markdown 更改（将重新加载远程快照）。'
+            }
+          },
+          draftIndicator: {
+            conflict: '本地草稿与远程文件存在冲突。',
+            dirty: '编辑器中有未保存的更改。',
+            saved: '本地草稿已保存在浏览器中。'
+          },
+          currentFile: '当前文件',
+          fileFallback: 'Markdown 文件',
+          openBeforeEditor: '请输入 Markdown 路径后再打开编辑器。',
+          toastCopiedCreate: '已复制 Markdown。GitHub 将打开以创建该文件。',
+          toastCopiedUpdate: '已复制 Markdown。GitHub 将打开以更新该文件。',
+          blockedCreate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以创建该文件。',
+          blockedUpdate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以更新该文件。'
+        },
+        yaml: {
+          toastCopiedUpdate: ({ name }) => `已复制 ${name}。GitHub 将打开以粘贴更新。`,
+          toastCopiedCreate: ({ name }) => `已复制 ${name}。GitHub 将打开以创建该文件。`,
+          blocked: ({ name }) => `已复制 ${name}。如未打开新标签页，请点击“打开 GitHub”。`
+        },
+        remoteWatcher: {
+          waitingForCreate: ({ label }) => `正在等待 GitHub 创建 ${label}`,
+          waitingForUpdate: ({ label }) => `正在等待 GitHub 更新 ${label}`,
+          waitingForCommitStatus: '正在等待 GitHub 提交…',
+          checkingRemoteChanges: '正在检查远程更改…',
+          waitingForCommit: '正在等待提交…',
+          stopWaiting: '停止等待',
+          waitingForRemoteResponse: '正在等待远程响应…',
+          remoteCheckFailedRetry: '远程检查失败，正在重试…',
+          remoteFileNotFoundYet: '远程文件尚未找到…',
+          remoteFileStillMissing: '远程文件仍缺失…',
+          updateDetectedRefreshing: '检测到更新，正在刷新…',
+          remoteFileDiffersWaiting: '远程文件内容与本地仍不一致，继续等待…',
+          remoteFileExistsDiffersWaiting: '远程文件已存在但内容不同，继续等待…',
+          mismatchAdvice: '如果你的 GitHub 提交确实不同，请取消并使用“刷新”查看。',
+          remoteCheckCanceled: '远程检查已取消',
+          errorWithDetail: ({ message }) => `错误：${message}`,
+          networkError: '网络错误',
+          fileNotFoundOnServer: '服务器上未找到文件',
+          remoteSnapshotUpdated: '远程快照已更新',
+          waitingForGitHub: '正在等待 GitHub…',
+          preparing: '正在准备…',
+          waitingForLabel: ({ label }) => `正在等待 ${label} 在 GitHub 上更新…`,
+          waitingForRemote: '正在等待远程…',
+          yamlNotFoundYet: ({ label }) => `${label} 在远程尚未找到…`,
+          remoteYamlDiffersWaiting: '远程 YAML 与本地快照仍不一致，继续等待…',
+          remoteYamlExistsDiffersWaiting: '远程 YAML 已更新但内容不同，继续等待…',
+          yamlMismatchAdvice: '如果提交与草稿不同，请取消并点击“刷新”以拉取。'
+        },
       },
       github: {
         status: {
@@ -899,101 +994,6 @@ const translations = {
           configUnavailable: '无法获取 GitHub 配置',
           readFailed: '读取 site.yaml 失败。'
         }
-      },
-      dialogs: {
-        cancel: '取消',
-        confirm: '确认'
-      },
-      addEntryPrompt: {
-        hint: '仅使用英文字母和数字。',
-        confirm: '添加条目',
-        defaultType: '条目',
-        placeholder: '条目键名',
-        message: ({ label }) => `请输入新的 ${label} 键名：`,
-        errorEmpty: '键名不能为空。',
-        errorInvalid: '键名只能包含英文字母、数字、下划线或连字符。',
-        errorDuplicate: '该键名已存在，请使用其他键名。'
-      },
-      discardConfirm: {
-        messageReload: ({ label }) => `丢弃 ${label} 的本地更改并重新加载远程文件？此操作无法撤销。`,
-        messageSimple: ({ label }) => `丢弃 ${label} 的本地更改？此操作无法撤销。`,
-        discard: '丢弃',
-        discarding: '正在丢弃…',
-        successFresh: ({ label }) => `已丢弃本地更改；已加载最新的 ${label}`,
-        successCached: ({ label }) => `已丢弃本地更改；已从缓存快照恢复 ${label}`,
-        failed: '丢弃本地更改失败。'
-      },
-      markdown: {
-        push: {
-          labelDefault: '同步',
-          labelCreate: '在 GitHub 上创建',
-          labelUpdate: '同步',
-          tooltips: {
-            default: '复制草稿到 GitHub。',
-            noRepo: '请在 site.yaml 中配置仓库以启用 GitHub 推送。',
-            noFile: '请先打开一个 Markdown 文件以启用 GitHub 推送。',
-            error: '推送前请先解决文件加载错误。',
-            checking: '正在检查远程版本…',
-            loading: '正在加载远程快照…',
-            create: '复制草稿并在 GitHub 上创建该文件。',
-            update: '复制草稿并在 GitHub 上更新该文件。'
-          }
-        },
-        discard: {
-          label: '丢弃',
-          busy: '正在丢弃…',
-          tooltips: {
-            default: '丢弃本地 Markdown 更改并恢复上次加载的版本。',
-            noFile: '请先打开一个 Markdown 文件再丢弃本地更改。',
-            reload: '丢弃本地 Markdown 更改（将重新加载远程快照）。'
-          }
-        },
-        draftIndicator: {
-          conflict: '本地草稿与远程文件存在冲突。',
-          dirty: '编辑器中有未保存的更改。',
-          saved: '本地草稿已保存在浏览器中。'
-        },
-        currentFile: '当前文件',
-        fileFallback: 'Markdown 文件',
-        openBeforeEditor: '请输入 Markdown 路径后再打开编辑器。',
-        toastCopiedCreate: '已复制 Markdown。GitHub 将打开以创建该文件。',
-        toastCopiedUpdate: '已复制 Markdown。GitHub 将打开以更新该文件。',
-        blockedCreate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以创建该文件。',
-        blockedUpdate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以更新该文件。'
-      },
-      yaml: {
-        toastCopiedUpdate: ({ name }) => `已复制 ${name}。GitHub 将打开以粘贴更新。`,
-        toastCopiedCreate: ({ name }) => `已复制 ${name}。GitHub 将打开以创建该文件。`,
-        blocked: ({ name }) => `已复制 ${name}。如未打开新标签页，请点击“打开 GitHub”。`
-      },
-      remoteWatcher: {
-        waitingForCreate: ({ label }) => `正在等待 GitHub 创建 ${label}`,
-        waitingForUpdate: ({ label }) => `正在等待 GitHub 更新 ${label}`,
-        waitingForCommitStatus: '正在等待 GitHub 提交…',
-        checkingRemoteChanges: '正在检查远程更改…',
-        waitingForCommit: '正在等待提交…',
-        stopWaiting: '停止等待',
-        waitingForRemoteResponse: '正在等待远程响应…',
-        remoteCheckFailedRetry: '远程检查失败，正在重试…',
-        remoteFileNotFoundYet: '远程文件尚未找到…',
-        remoteFileStillMissing: '远程文件仍缺失…',
-        updateDetectedRefreshing: '检测到更新，正在刷新…',
-        remoteFileDiffersWaiting: '远程文件内容与本地仍不一致，继续等待…',
-        remoteFileExistsDiffersWaiting: '远程文件已存在但内容不同，继续等待…',
-        mismatchAdvice: '如果你的 GitHub 提交确实不同，请取消并使用“刷新”查看。',
-        remoteCheckCanceled: '远程检查已取消',
-        errorWithDetail: ({ message }) => `错误：${message}`,
-        networkError: '网络错误',
-        fileNotFoundOnServer: '服务器上未找到文件',
-        remoteSnapshotUpdated: '远程快照已更新',
-        waitingForGitHub: '正在等待 GitHub…',
-        preparing: '正在准备…',
-        waitingForLabel: ({ label }) => `正在等待 ${label} 在 GitHub 上更新…`,
-        waitingForRemote: '正在等待远程…',
-        yamlNotFoundYet: ({ label }) => `${label} 在远程尚未找到…`,
-        remoteYamlDiffersWaiting: '远程 YAML 与本地快照仍不一致，继续等待…',
-        remoteYamlExistsDiffersWaiting: '远程 YAML 已更新但内容不同，继续等待…',
-        yamlMismatchAdvice: '如果提交与草稿不同，请取消并点击“刷新”以拉取。'
       },
       footerNote: '由 ❤️ 打造，基于 <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>。保持灵感，持续创作。'
     },
@@ -1362,7 +1362,102 @@ const translations = {
             submit: '変更をコミット',
             errorRequired: '続行するにはファイングレインド Personal Access Token を入力してください。'
           }
-        }
+        },
+        dialogs: {
+          cancel: 'キャンセル',
+          confirm: '確認'
+        },
+        addEntryPrompt: {
+          hint: '英数字のみを使用してください。',
+          confirm: 'エントリーを追加',
+          defaultType: 'エントリー',
+          placeholder: 'エントリーキー',
+          message: ({ label }) => `新しい ${label} のキーを入力してください：`,
+          errorEmpty: 'キーは必須です。',
+          errorInvalid: 'キーには英数字、アンダースコア、ハイフンのみ使用できます。',
+          errorDuplicate: 'そのキーは既に存在します。別のキーを選んでください。'
+        },
+        discardConfirm: {
+          messageReload: ({ label }) => `${label} のローカル変更を破棄してリモートファイルを再読み込みしますか？この操作は取り消せません。`,
+          messageSimple: ({ label }) => `${label} のローカル変更を破棄しますか？この操作は取り消せません。`,
+          discard: '破棄',
+          discarding: '破棄中…',
+          successFresh: ({ label }) => `ローカル変更を破棄し、最新の ${label} を読み込みました`,
+          successCached: ({ label }) => `ローカル変更を破棄し、キャッシュの ${label} を復元しました`,
+          failed: 'ローカル変更を破棄できませんでした。'
+        },
+        markdown: {
+          push: {
+            labelDefault: '同期',
+            labelCreate: 'GitHub で作成',
+            labelUpdate: '同期',
+            tooltips: {
+              default: 'ドラフトを GitHub にコピーします。',
+              noRepo: 'GitHub プッシュを有効にするには site.yaml でリポジトリを設定してください。',
+              noFile: 'GitHub にプッシュする前に Markdown ファイルを開いてください。',
+              error: 'プッシュする前にファイル読み込みエラーを解決してください。',
+              checking: 'リモート版を確認中…',
+              loading: 'リモートスナップショットを読み込み中…',
+              create: 'ドラフトをコピーして GitHub でこのファイルを作成します。',
+              update: 'ドラフトをコピーして GitHub でこのファイルを更新します。'
+            }
+          },
+          discard: {
+            label: '破棄',
+            busy: '破棄中…',
+            tooltips: {
+              default: 'Markdown のローカル変更を破棄し、最後に読み込んだ版を復元します。',
+              noFile: 'ローカル変更を破棄する前に Markdown ファイルを開いてください。',
+              reload: 'Markdown のローカル変更を破棄し（リモートスナップショットを再読み込みします）。'
+            }
+          },
+          draftIndicator: {
+            conflict: 'ローカルの下書きがリモートファイルと競合しています。',
+            dirty: 'エディターに未保存の変更があります。',
+            saved: 'ローカルの下書きはブラウザーに保存されています。'
+          },
+          currentFile: '現在のファイル',
+          fileFallback: 'Markdown ファイル',
+          openBeforeEditor: 'エディターを開く前に Markdown の場所を入力してください。',
+          toastCopiedCreate: 'Markdown をコピーしました。GitHub が開いてこのファイルを作成します。',
+          toastCopiedUpdate: 'Markdown をコピーしました。GitHub が開いてこのファイルを更新します。',
+          blockedCreate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして作成してください。',
+          blockedUpdate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして更新してください。'
+        },
+        yaml: {
+          toastCopiedUpdate: ({ name }) => `${name} をコピーしました。GitHub が開いて更新内容を貼り付けられます。`,
+          toastCopiedCreate: ({ name }) => `${name} をコピーしました。GitHub が開いてファイルを作成できます。`,
+          blocked: ({ name }) => `${name} をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックしてください。`
+        },
+        remoteWatcher: {
+          waitingForCreate: ({ label }) => `GitHub で ${label} が作成されるのを待機しています`,
+          waitingForUpdate: ({ label }) => `GitHub で ${label} が更新されるのを待機しています`,
+          waitingForCommitStatus: 'GitHub のコミットを待機中…',
+          checkingRemoteChanges: 'リモートの変更を確認中…',
+          waitingForCommit: 'コミットを待機中…',
+          stopWaiting: '待機を停止',
+          waitingForRemoteResponse: 'リモートの応答を待機しています…',
+          remoteCheckFailedRetry: 'リモートチェックに失敗しました。再試行します…',
+          remoteFileNotFoundYet: 'リモートファイルがまだ見つかりません…',
+          remoteFileStillMissing: 'リモートファイルがまだ存在しません…',
+          updateDetectedRefreshing: '更新を検出しました。再読み込みしています…',
+          remoteFileDiffersWaiting: 'リモートファイルがローカル内容とまだ一致しません。待機中…',
+          remoteFileExistsDiffersWaiting: 'リモートファイルは存在しますが内容が異なります。待機中…',
+          mismatchAdvice: 'GitHub のコミットが意図的に異なる場合はキャンセルし、「更新」で内容を確認してください。',
+          remoteCheckCanceled: 'リモートチェックをキャンセルしました',
+          errorWithDetail: ({ message }) => `エラー: ${message}`,
+          networkError: 'ネットワークエラー',
+          fileNotFoundOnServer: 'サーバーでファイルが見つかりません',
+          remoteSnapshotUpdated: 'リモートスナップショットを更新しました',
+          waitingForGitHub: 'GitHub を待機中…',
+          preparing: '準備中…',
+          waitingForLabel: ({ label }) => `GitHub で ${label} の更新を待機しています…`,
+          waitingForRemote: 'リモートを待機中…',
+          yamlNotFoundYet: ({ label }) => `リモートで ${label} がまだ見つかりません…`,
+          remoteYamlDiffersWaiting: 'リモート YAML がローカルのスナップショットとまだ一致しません。待機中…',
+          remoteYamlExistsDiffersWaiting: 'リモート YAML は更新されていますが内容が異なります。待機中…',
+          yamlMismatchAdvice: 'コミット内容が下書きと異なる場合はキャンセルし、「更新」をクリックして取得してください。'
+        },
       },
       github: {
         status: {
@@ -1385,101 +1480,6 @@ const translations = {
           configUnavailable: 'GitHub 設定を取得できません',
           readFailed: 'site.yaml の読み込みに失敗しました。'
         }
-      },
-      dialogs: {
-        cancel: 'キャンセル',
-        confirm: '確認'
-      },
-      addEntryPrompt: {
-        hint: '英数字のみを使用してください。',
-        confirm: 'エントリーを追加',
-        defaultType: 'エントリー',
-        placeholder: 'エントリーキー',
-        message: ({ label }) => `新しい ${label} のキーを入力してください：`,
-        errorEmpty: 'キーは必須です。',
-        errorInvalid: 'キーには英数字、アンダースコア、ハイフンのみ使用できます。',
-        errorDuplicate: 'そのキーは既に存在します。別のキーを選んでください。'
-      },
-      discardConfirm: {
-        messageReload: ({ label }) => `${label} のローカル変更を破棄してリモートファイルを再読み込みしますか？この操作は取り消せません。`,
-        messageSimple: ({ label }) => `${label} のローカル変更を破棄しますか？この操作は取り消せません。`,
-        discard: '破棄',
-        discarding: '破棄中…',
-        successFresh: ({ label }) => `ローカル変更を破棄し、最新の ${label} を読み込みました`,
-        successCached: ({ label }) => `ローカル変更を破棄し、キャッシュの ${label} を復元しました`,
-        failed: 'ローカル変更を破棄できませんでした。'
-      },
-      markdown: {
-        push: {
-          labelDefault: '同期',
-          labelCreate: 'GitHub で作成',
-          labelUpdate: '同期',
-          tooltips: {
-            default: 'ドラフトを GitHub にコピーします。',
-            noRepo: 'GitHub プッシュを有効にするには site.yaml でリポジトリを設定してください。',
-            noFile: 'GitHub にプッシュする前に Markdown ファイルを開いてください。',
-            error: 'プッシュする前にファイル読み込みエラーを解決してください。',
-            checking: 'リモート版を確認中…',
-            loading: 'リモートスナップショットを読み込み中…',
-            create: 'ドラフトをコピーして GitHub でこのファイルを作成します。',
-            update: 'ドラフトをコピーして GitHub でこのファイルを更新します。'
-          }
-        },
-        discard: {
-          label: '破棄',
-          busy: '破棄中…',
-          tooltips: {
-            default: 'Markdown のローカル変更を破棄し、最後に読み込んだ版を復元します。',
-            noFile: 'ローカル変更を破棄する前に Markdown ファイルを開いてください。',
-            reload: 'Markdown のローカル変更を破棄し（リモートスナップショットを再読み込みします）。'
-          }
-        },
-        draftIndicator: {
-          conflict: 'ローカルの下書きがリモートファイルと競合しています。',
-          dirty: 'エディターに未保存の変更があります。',
-          saved: 'ローカルの下書きはブラウザーに保存されています。'
-        },
-        currentFile: '現在のファイル',
-        fileFallback: 'Markdown ファイル',
-        openBeforeEditor: 'エディターを開く前に Markdown の場所を入力してください。',
-        toastCopiedCreate: 'Markdown をコピーしました。GitHub が開いてこのファイルを作成します。',
-        toastCopiedUpdate: 'Markdown をコピーしました。GitHub が開いてこのファイルを更新します。',
-        blockedCreate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして作成してください。',
-        blockedUpdate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして更新してください。'
-      },
-      yaml: {
-        toastCopiedUpdate: ({ name }) => `${name} をコピーしました。GitHub が開いて更新内容を貼り付けられます。`,
-        toastCopiedCreate: ({ name }) => `${name} をコピーしました。GitHub が開いてファイルを作成できます。`,
-        blocked: ({ name }) => `${name} をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックしてください。`
-      },
-      remoteWatcher: {
-        waitingForCreate: ({ label }) => `GitHub で ${label} が作成されるのを待機しています`,
-        waitingForUpdate: ({ label }) => `GitHub で ${label} が更新されるのを待機しています`,
-        waitingForCommitStatus: 'GitHub のコミットを待機中…',
-        checkingRemoteChanges: 'リモートの変更を確認中…',
-        waitingForCommit: 'コミットを待機中…',
-        stopWaiting: '待機を停止',
-        waitingForRemoteResponse: 'リモートの応答を待機しています…',
-        remoteCheckFailedRetry: 'リモートチェックに失敗しました。再試行します…',
-        remoteFileNotFoundYet: 'リモートファイルがまだ見つかりません…',
-        remoteFileStillMissing: 'リモートファイルがまだ存在しません…',
-        updateDetectedRefreshing: '更新を検出しました。再読み込みしています…',
-        remoteFileDiffersWaiting: 'リモートファイルがローカル内容とまだ一致しません。待機中…',
-        remoteFileExistsDiffersWaiting: 'リモートファイルは存在しますが内容が異なります。待機中…',
-        mismatchAdvice: 'GitHub のコミットが意図的に異なる場合はキャンセルし、「更新」で内容を確認してください。',
-        remoteCheckCanceled: 'リモートチェックをキャンセルしました',
-        errorWithDetail: ({ message }) => `エラー: ${message}`,
-        networkError: 'ネットワークエラー',
-        fileNotFoundOnServer: 'サーバーでファイルが見つかりません',
-        remoteSnapshotUpdated: 'リモートスナップショットを更新しました',
-        waitingForGitHub: 'GitHub を待機中…',
-        preparing: '準備中…',
-        waitingForLabel: ({ label }) => `GitHub で ${label} の更新を待機しています…`,
-        waitingForRemote: 'リモートを待機中…',
-        yamlNotFoundYet: ({ label }) => `リモートで ${label} がまだ見つかりません…`,
-        remoteYamlDiffersWaiting: 'リモート YAML がローカルのスナップショットとまだ一致しません。待機中…',
-        remoteYamlExistsDiffersWaiting: 'リモート YAML は更新されていますが内容が異なります。待機中…',
-        yamlMismatchAdvice: 'コミット内容が下書きと異なる場合はキャンセルし、「更新」をクリックして取得してください。'
       },
       footerNote: '❤️ で作られた <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a> を使って創作を楽しみましょう。'
     },
