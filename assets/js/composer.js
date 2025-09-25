@@ -4698,6 +4698,78 @@ function scheduleComposerOrderPreviewRelayout(kind) {
   composerOrderPreviewRelayoutTimers[normalized] = pending;
 }
 
+function animateComposerInlineVisibility(el, show) {
+  if (!el) return;
+  const visibleClass = 'is-visible';
+  const animatingClass = 'is-animating';
+  const maxDuration = 360;
+
+  const clearExisting = () => {
+    if (el.__nsComposerInlineTransitionHandler) {
+      el.removeEventListener('transitionend', el.__nsComposerInlineTransitionHandler);
+      el.__nsComposerInlineTransitionHandler = null;
+    }
+    if (el.__nsComposerInlineTransitionTimer) {
+      clearTimeout(el.__nsComposerInlineTransitionTimer);
+      el.__nsComposerInlineTransitionTimer = null;
+    }
+  };
+
+  clearExisting();
+
+  if (show) {
+    if (!el.hidden && el.classList.contains(visibleClass)) {
+      el.setAttribute('aria-hidden', 'false');
+      return;
+    }
+    el.hidden = false;
+    el.setAttribute('aria-hidden', 'false');
+    el.classList.add(animatingClass);
+    el.classList.remove(visibleClass);
+    try { void el.offsetWidth; } catch (_) {}
+    el.classList.add(visibleClass);
+
+    const finish = () => {
+      clearExisting();
+      el.classList.remove(animatingClass);
+    };
+
+    const handler = evt => {
+      if (evt && evt.target !== el) return;
+      finish();
+    };
+
+    el.__nsComposerInlineTransitionHandler = handler;
+    el.addEventListener('transitionend', handler);
+    el.__nsComposerInlineTransitionTimer = setTimeout(finish, maxDuration);
+    return;
+  }
+
+  if (el.hidden && !el.classList.contains(visibleClass)) {
+    el.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  el.classList.add(animatingClass);
+  el.classList.remove(visibleClass);
+  el.setAttribute('aria-hidden', 'true');
+
+  const finish = () => {
+    clearExisting();
+    el.hidden = true;
+    el.classList.remove(animatingClass);
+  };
+
+  const handler = evt => {
+    if (evt && evt.target !== el) return;
+    finish();
+  };
+
+  el.__nsComposerInlineTransitionHandler = handler;
+  el.addEventListener('transitionend', handler);
+  el.__nsComposerInlineTransitionTimer = setTimeout(finish, maxDuration);
+}
+
 function ensureComposerOrderPreview(kind) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   if (!composerOrderPreviewElements) composerOrderPreviewElements = { index: null, tabs: null };
@@ -4857,13 +4929,11 @@ function updateComposerOrderPreview(kind, options = {}) {
 
   if (!hasDiffChanges) {
     if (root) {
-      root.hidden = true;
-      root.setAttribute('aria-hidden', 'true');
+      animateComposerInlineVisibility(root, false);
       root.dataset.state = 'clean';
     }
     if (meta) {
-      meta.hidden = true;
-      meta.setAttribute('aria-hidden', 'true');
+      animateComposerInlineVisibility(meta, false);
     }
     if (host) host.dataset.state = 'clean';
     if (svg) svg.style.display = 'none';
@@ -4879,20 +4949,19 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (meta) {
-    if (options.reveal !== false) meta.hidden = false;
-    meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
+    if (options.reveal !== false) animateComposerInlineVisibility(meta, true);
+    else meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
   }
 
   if (host) host.dataset.state = hasDiffChanges ? 'changed' : 'clean';
 
   if (root) {
     if (hasOrderChanges) {
-      if (options.reveal !== false) root.hidden = false;
-      root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
+      if (options.reveal !== false) animateComposerInlineVisibility(root, true);
+      else root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
       root.dataset.state = 'changed';
     } else {
-      root.hidden = true;
-      root.setAttribute('aria-hidden', 'true');
+      animateComposerInlineVisibility(root, false);
       root.dataset.state = 'clean';
     }
   }

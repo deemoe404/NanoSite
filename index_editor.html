@@ -968,6 +968,31 @@
     .composer-order-inline[hidden] { display: none !important; }
     .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
     .composer-order-inline-meta[hidden] { display: none !important; }
+    .composer-order-inline,
+    .composer-order-inline-meta {
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity .24s ease, transform .24s ease;
+      will-change: opacity, transform;
+    }
+    .composer-order-inline.is-visible,
+    .composer-order-inline-meta.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .composer-order-inline.is-animating,
+    .composer-order-inline-meta.is-animating {
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .composer-order-inline,
+      .composer-order-inline-meta {
+        opacity: 1;
+        transition-duration: 0.01ms;
+        transition-delay: 0.01ms;
+        transform: none;
+      }
+    }
     .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
     .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
     .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
