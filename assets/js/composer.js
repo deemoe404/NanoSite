@@ -3690,7 +3690,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const btnClose = document.createElement('button');
     btnClose.type = 'button';
     btnClose.className = 'ns-modal-close btn-secondary';
-    const cancelLabel = t('editor.dialogs.cancel');
+    const cancelLabel = t('editor.composer.dialogs.cancel');
     btnClose.textContent = cancelLabel;
     btnClose.setAttribute('aria-label', cancelLabel);
     head.appendChild(headLeft);
