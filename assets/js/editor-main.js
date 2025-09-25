@@ -365,6 +365,8 @@ let editorAllowedLocations = null;
 let editorLocationAliasMap = new Map();
 let editorPostsByLocationTitle = {};
 let linkCardReady = false;
+let editorPostPickerEntries = [];
+const editorLinkCardContextListeners = new Set();
 
 function rebuildLinkCardContext(posts, rawIndex) {
   try {
@@ -403,8 +405,9 @@ function rebuildLinkCardContext(posts, rawIndex) {
     const alias = new Map();
     const reserved = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
     const currentLang = normalizeLangKey((getCurrentLang && getCurrentLang()) || 'en');
+    const pickerEntries = new Map();
     if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
-      for (const entry of Object.values(rawIndex)) {
+      for (const [entryKey, entry] of Object.entries(rawIndex)) {
         if (!entry || typeof entry !== 'object') continue;
         const variants = [];
         for (const [key, val] of Object.entries(entry)) {
@@ -437,6 +440,16 @@ function rebuildLinkCardContext(posts, rawIndex) {
         variants.forEach(v => {
           if (v.location && v.location !== canonical) alias.set(v.location, canonical);
         });
+        const displayTitle = byLocation[canonical] || entry.title || entryKey;
+        const aliasLocations = variants
+          .map(v => v.location)
+          .filter(loc => loc && loc !== canonical);
+        pickerEntries.set(canonical, {
+          key: entryKey,
+          title: displayTitle || entryKey,
+          location: canonical,
+          aliases: aliasLocations
+        });
       }
     }
 
@@ -444,6 +457,29 @@ function rebuildLinkCardContext(posts, rawIndex) {
     editorPostsByLocationTitle = byLocation;
     editorLocationAliasMap = alias;
     editorPostsIndexCache = posts || {};
+    editorPostPickerEntries = Array.from(pickerEntries.values()).map(item => {
+      const tokens = new Set();
+      if (item.key) tokens.add(String(item.key));
+      if (item.title) tokens.add(String(item.title));
+      if (item.location) tokens.add(String(item.location));
+      (item.aliases || []).forEach(loc => { if (loc) tokens.add(String(loc)); });
+      return {
+        key: item.key,
+        title: item.title,
+        location: item.location,
+        aliases: item.aliases || [],
+        search: Array.from(tokens).map(t => t.toLowerCase()).join(' ')
+      };
+    }).sort((a, b) => {
+      const at = (a.title || '').toLowerCase();
+      const bt = (b.title || '').toLowerCase();
+      if (at === bt) return (a.key || '').localeCompare(b.key || '');
+      return at.localeCompare(bt);
+    });
+    editorLinkCardContextListeners.forEach(fn => {
+      try { fn(editorPostPickerEntries); }
+      catch (_) { /* noop */ }
+    });
     linkCardReady = true;
   } catch (_) {
     editorAllowedLocations = editorAllowedLocations || new Set();
@@ -507,6 +543,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const editor = createHiEditor(ta, 'markdown', false);
   const imageButton = document.getElementById('btnInsertImage');
   const imageInput = document.getElementById('editorImageInput');
+  const editorToolbarEl = document.getElementById('editorToolbar');
+  const cardButton = document.getElementById('btnInsertCard');
+  const cardPopover = document.getElementById('editorCardPicker');
+  const cardSearchInput = document.getElementById('cardPickerSearch');
+  const cardListEl = document.getElementById('cardPickerList');
+  const cardEmptyEl = document.getElementById('cardPickerEmpty');
   const wrapToggle = document.getElementById('wrapToggle');
   const wrapToggleButtons = wrapToggle ? Array.from(wrapToggle.querySelectorAll('[data-wrap]')) : [];
   const editorLayoutEl = document.getElementById('mode-editor');
@@ -686,6 +728,541 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editor && editor.textarea) return editor.textarea;
     return ta;
   };
+
+  let lastSelectionRange = { start: 0, end: 0 };
+  let suppressSelectionTracking = false;
+  let formattingButtons = [];
+  let cardPopoverOpen = false;
+  let cardPopoverClosing = false;
+  let cardPopoverCloseTimer = null;
+  let cardPopoverTransitionHandler = null;
+
+  function applyButtonTooltipState(button, disabled) {
+    if (!button) return;
+    const baseTitle = (() => {
+      if (!button.dataset.enabledTitle) {
+        const current = button.getAttribute('title') || button.textContent || '';
+        if (current) button.dataset.enabledTitle = current;
+        else button.dataset.enabledTitle = '';
+      }
+      return button.dataset.enabledTitle || '';
+    })();
+    const disabledHint = button.dataset.disabledHint || '';
+    if (disabled) {
+      if (disabledHint) button.setAttribute('title', disabledHint);
+      else if (baseTitle) button.setAttribute('title', baseTitle);
+      button.setAttribute('data-disabled', 'true');
+    } else {
+      if (baseTitle) button.setAttribute('title', baseTitle);
+      else button.removeAttribute('title');
+      button.removeAttribute('data-disabled');
+    }
+  }
+
+  function registerButtonTooltip(button, disabledHint) {
+    if (!button) return;
+    if (disabledHint) button.dataset.disabledHint = disabledHint;
+    applyButtonTooltipState(button, !!button.disabled);
+  }
+
+  const updateFormattingToolbarState = () => {
+    const textarea = getEditorTextarea();
+    const selection = lastSelectionRange || { start: 0, end: 0 };
+    const caretOnEmptyLine = isCaretOnEmptyLine(textarea, selection);
+    const hasSelection = selection.end > selection.start;
+    formattingButtons.forEach(btn => {
+      if (!btn || !btn.el) return;
+      let enabled = false;
+      if (typeof btn.isEnabled === 'function') {
+        enabled = !!btn.isEnabled(selection, textarea);
+      } else {
+        const requiresSelection = btn.requiresSelection !== false;
+        enabled = requiresSelection ? hasSelection : true;
+      }
+      btn.el.disabled = !enabled;
+      applyButtonTooltipState(btn.el, !!btn.el.disabled);
+    });
+    if (cardButton) {
+      const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
+      const allowCardInsertion = hasEntries && caretOnEmptyLine;
+      cardButton.disabled = !allowCardInsertion;
+      if (allowCardInsertion) cardButton.removeAttribute('aria-disabled');
+      else cardButton.setAttribute('aria-disabled', 'true');
+      applyButtonTooltipState(cardButton, !!cardButton.disabled);
+    }
+  };
+
+  const getNormalizedSelection = () => {
+    const textarea = getEditorTextarea();
+    if (!textarea) return { start: 0, end: 0 };
+    let start = textarea.selectionStart ?? 0;
+    let end = textarea.selectionEnd ?? start;
+    if (end < start) { const tmp = start; start = end; end = tmp; }
+    return { start, end };
+  };
+
+  const isCaretOnEmptyLine = (textarea, selection) => {
+    if (!textarea || !selection) return false;
+    const { start, end } = selection;
+    if (end !== start) return false;
+    const value = textarea.value || '';
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', start);
+    if (lineEnd === -1) lineEnd = value.length;
+    const line = value.slice(lineStart, lineEnd);
+    return line.trim().length === 0;
+  };
+
+  const recordSelection = () => {
+    if (suppressSelectionTracking) return;
+    const textarea = getEditorTextarea();
+    if (!textarea) return;
+    lastSelectionRange = getNormalizedSelection();
+    updateFormattingToolbarState();
+  };
+
+  const restoreSelection = () => {
+    const textarea = getEditorTextarea();
+    if (!textarea) return null;
+    suppressSelectionTracking = true;
+    try {
+      try { textarea.focus(); }
+      catch (_) {}
+      if (lastSelectionRange) {
+        const { start, end } = lastSelectionRange;
+        if (typeof start === 'number' && typeof end === 'number') {
+          try { textarea.setSelectionRange(start, end); }
+          catch (_) {}
+        }
+      }
+    } finally {
+      suppressSelectionTracking = false;
+    }
+    return textarea;
+  };
+
+  const applyInlineFormat = (prefix, suffix) => {
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const { start, end } = getNormalizedSelection();
+    if (end <= start) return;
+    const value = textarea.value || '';
+    const selected = value.slice(start, end);
+    const startTag = String(prefix ?? '');
+    const endTag = String(suffix ?? '');
+    let replacement;
+    if (
+      selected.startsWith(startTag)
+      && selected.endsWith(endTag)
+      && selected.length >= startTag.length + endTag.length
+    ) {
+      replacement = selected.slice(startTag.length, selected.length - endTag.length);
+    } else {
+      replacement = `${startTag}${selected}${endTag}`;
+    }
+    textarea.setRangeText(replacement, start, end, 'end');
+    const newEnd = start + replacement.length;
+    textarea.setSelectionRange(start, newEnd);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const toggleLinePrefix = (prefix) => {
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const normalizedPrefix = String(prefix ?? '');
+    const selection = getNormalizedSelection();
+    let { start, end } = selection;
+    const wasCollapsed = end <= start;
+    const wasCaretOnEmptyLine = wasCollapsed && isCaretOnEmptyLine(textarea, selection);
+    const value = textarea.value || '';
+    if (end <= start) {
+      if (!wasCaretOnEmptyLine) return;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = value.length;
+      start = lineStart;
+      end = lineEnd;
+    }
+    if (end < start) return;
+    const blockStart = value.lastIndexOf('\n', start - 1) + 1;
+    let blockEnd = value.indexOf('\n', end);
+    if (blockEnd === -1) blockEnd = value.length;
+    const block = value.slice(blockStart, blockEnd);
+    const lines = block.split('\n');
+    const shouldRemove = lines.every(line => {
+      const indentMatch = line.match(/^\s*/);
+      const indent = indentMatch ? indentMatch[0] : '';
+      return line.slice(indent.length).startsWith(normalizedPrefix);
+    });
+    const updated = lines.map(line => {
+      const indentMatch = line.match(/^\s*/);
+      const indent = indentMatch ? indentMatch[0] : '';
+      const content = line.slice(indent.length);
+      if (shouldRemove) {
+        if (content.startsWith(normalizedPrefix)) {
+          return indent + content.slice(normalizedPrefix.length);
+        }
+        return line;
+      }
+      if (content.startsWith(normalizedPrefix)) return line;
+      if (!content) return indent + normalizedPrefix;
+      return indent + normalizedPrefix + content;
+    });
+    const replacement = updated.join('\n');
+    textarea.setSelectionRange(blockStart, blockEnd);
+    textarea.setRangeText(replacement, blockStart, blockEnd, 'end');
+    const newEnd = blockStart + replacement.length;
+    if (wasCaretOnEmptyLine && wasCollapsed && !shouldRemove) {
+      const firstLine = replacement.split('\n', 1)[0] || '';
+      const indentMatch = firstLine.match(/^\s*/);
+      const indentLength = indentMatch ? indentMatch[0].length : 0;
+      const caretOffset = indentLength + normalizedPrefix.length;
+      const caretPos = blockStart + caretOffset;
+      textarea.setSelectionRange(caretPos, caretPos);
+    } else {
+      textarea.setSelectionRange(blockStart, newEnd);
+    }
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const applyCodeBlockFormat = () => {
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const selection = getNormalizedSelection();
+    let { start, end } = selection;
+    const value = textarea.value || '';
+    if (end <= start) {
+      if (!isCaretOnEmptyLine(textarea, selection)) return;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = value.length;
+      const beforeChar = lineStart > 0 ? value.charAt(lineStart - 1) : '';
+      const afterChar = lineEnd < value.length ? value.charAt(lineEnd) : '';
+      const prefix = beforeChar && beforeChar !== '\n' ? '\n' : '';
+      const suffix = afterChar && afterChar !== '\n' ? '\n' : '';
+      const block = '```\n\n```';
+      textarea.setSelectionRange(lineStart, lineEnd);
+      textarea.setRangeText(`${prefix}${block}${suffix}`, lineStart, lineEnd, 'end');
+      const caretPos = lineStart + prefix.length + 4;
+      textarea.setSelectionRange(caretPos, caretPos);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      recordSelection();
+      return;
+    }
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    let block = `\`\`\`\n${selected}\n\`\`\``;
+    let prefixAdded = false;
+    let suffixAdded = false;
+    if (start > 0 && !before.endsWith('\n')) {
+      block = `\n${block}`;
+      prefixAdded = true;
+    }
+    if (after && !after.startsWith('\n')) {
+      block = `${block}\n`;
+      suffixAdded = true;
+    }
+    textarea.setRangeText(block, start, end, 'end');
+    const selectionStart = start + (prefixAdded ? 1 : 0);
+    const selectionEnd = start + block.length - (suffixAdded ? 1 : 0);
+    textarea.setSelectionRange(selectionStart, Math.max(selectionStart, selectionEnd));
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const insertCardLink = (entry) => {
+    if (!entry || !entry.location) return;
+    const location = String(entry.location).trim();
+    if (!location) return;
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const value = textarea.value || '';
+    const { start, end } = getNormalizedSelection();
+    const safeStart = Math.max(0, Math.min(start, value.length));
+    const safeEnd = Math.max(0, Math.min(end, value.length));
+    const hasSelection = safeEnd > safeStart;
+    const fallbackLabel = entry.key || entry.title || location;
+    let linkLabel = fallbackLabel;
+    if (hasSelection) {
+      const selected = value.slice(safeStart, safeEnd);
+      if (selected.trim()) linkLabel = selected;
+    }
+    const linkMarkdown = `[${linkLabel}](?id=${location})`;
+    let insertText = linkMarkdown;
+    let selectionStart = safeStart;
+    let selectionEnd = safeStart + linkMarkdown.length;
+    if (!hasSelection) {
+      const before = value.slice(0, safeStart);
+      const after = value.slice(safeStart);
+      const needsLeading = safeStart > 0 && !before.endsWith('\n');
+      const needsTrailing = after && !after.startsWith('\n');
+      const leading = needsLeading ? '\n' : '';
+      const trailing = needsTrailing ? '\n' : '';
+      insertText = `${leading}${linkMarkdown}${trailing}`;
+      selectionStart = safeStart + leading.length;
+      selectionEnd = selectionStart + linkMarkdown.length;
+    }
+    textarea.setSelectionRange(safeStart, safeEnd);
+    textarea.setRangeText(insertText, safeStart, safeEnd, 'end');
+    textarea.setSelectionRange(selectionStart, selectionEnd);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const renderCardPickerList = (term = '') => {
+    if (!cardListEl) return;
+    const query = String(term || '').trim().toLowerCase();
+    cardListEl.innerHTML = '';
+    const entries = (Array.isArray(editorPostPickerEntries) ? editorPostPickerEntries : [])
+      .filter(entry => {
+        if (!query) return true;
+        return typeof entry.search === 'string' ? entry.search.includes(query) : false;
+      });
+    if (!entries.length) {
+      if (cardEmptyEl) cardEmptyEl.removeAttribute('hidden');
+      return;
+    }
+    if (cardEmptyEl) cardEmptyEl.setAttribute('hidden', '');
+    const frag = document.createDocumentFragment();
+    entries.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'card-picker-item';
+      btn.setAttribute('role', 'option');
+      const titleEl = document.createElement('span');
+      titleEl.className = 'card-picker-item-title';
+      titleEl.textContent = entry.title || entry.key || entry.location;
+      const metaEl = document.createElement('span');
+      metaEl.className = 'card-picker-item-meta';
+      if (entry.key && entry.key !== titleEl.textContent) {
+        metaEl.textContent = `${entry.key} · ${entry.location}`;
+      } else {
+        metaEl.textContent = entry.location;
+      }
+      btn.append(titleEl, metaEl);
+      btn.addEventListener('click', () => {
+        insertCardLink(entry);
+        closeCardPopover();
+      });
+      frag.appendChild(btn);
+    });
+    cardListEl.appendChild(frag);
+    cardListEl.scrollTop = 0;
+  };
+
+  const positionCardPopover = (anchor) => {
+    if (!cardPopover || !editorToolbarEl || !anchor) return;
+    const toolbarRect = editorToolbarEl.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const top = Math.max(0, anchorRect.bottom - toolbarRect.top + 6);
+    let left = anchorRect.left - toolbarRect.left;
+    cardPopover.style.top = `${top}px`;
+    cardPopover.style.right = 'auto';
+    cardPopover.style.left = `${Math.max(0, left)}px`;
+    const popWidth = cardPopover.offsetWidth || 0;
+    const maxLeft = Math.max(0, toolbarRect.width - popWidth);
+    if (left > maxLeft) {
+      cardPopover.style.left = `${maxLeft}px`;
+    }
+  };
+
+  const handleCardRelayout = () => {
+    if (cardPopoverOpen) positionCardPopover(cardButton);
+  };
+
+  const clearCardPopoverCloseWatcher = () => {
+    if (cardPopoverCloseTimer) {
+      clearTimeout(cardPopoverCloseTimer);
+      cardPopoverCloseTimer = null;
+    }
+    if (cardPopover && cardPopoverTransitionHandler) {
+      cardPopover.removeEventListener('transitionend', cardPopoverTransitionHandler);
+    }
+    cardPopoverTransitionHandler = null;
+  };
+
+  const finalizeCardPopoverClose = () => {
+    clearCardPopoverCloseWatcher();
+    cardPopoverClosing = false;
+    if (cardPopover) {
+      cardPopover.classList.remove('is-visible');
+      cardPopover.classList.remove('is-closing');
+      cardPopover.setAttribute('aria-hidden', 'true');
+      cardPopover.setAttribute('hidden', '');
+      cardPopover.style.left = '';
+      cardPopover.style.right = '';
+      cardPopover.style.top = '';
+    }
+  };
+
+  const closeCardPopover = () => {
+    if (!cardPopoverOpen && !cardPopoverClosing) return;
+    cardPopoverOpen = false;
+    cardPopoverClosing = true;
+    if (cardButton) cardButton.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('mousedown', handleCardOutsideClick, true);
+    document.removeEventListener('keydown', handleCardKeydown, true);
+    window.removeEventListener('resize', handleCardRelayout, true);
+    window.removeEventListener('scroll', handleCardRelayout, true);
+    if (!cardPopover) {
+      finalizeCardPopoverClose();
+      if (cardSearchInput) cardSearchInput.value = '';
+      return;
+    }
+    clearCardPopoverCloseWatcher();
+    cardPopover.setAttribute('aria-hidden', 'true');
+    cardPopover.classList.remove('is-visible');
+    cardPopover.classList.add('is-closing');
+    const handleTransitionEnd = (event) => {
+      if (event.target !== cardPopover) return;
+      if (event.propertyName && event.propertyName !== 'opacity') return;
+      finalizeCardPopoverClose();
+    };
+    cardPopoverTransitionHandler = handleTransitionEnd;
+    cardPopover.addEventListener('transitionend', handleTransitionEnd);
+    cardPopoverCloseTimer = window.setTimeout(finalizeCardPopoverClose, 360);
+    if (cardSearchInput) cardSearchInput.value = '';
+  };
+
+  const openCardPopover = () => {
+    if (!cardButton || !cardPopover) return;
+    const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
+    if (!hasEntries) return;
+    renderCardPickerList('');
+    if (cardSearchInput) cardSearchInput.value = '';
+    clearCardPopoverCloseWatcher();
+    cardPopoverClosing = false;
+    cardPopover.classList.remove('is-visible');
+    cardPopover.classList.remove('is-closing');
+    cardPopover.removeAttribute('hidden');
+    cardPopover.setAttribute('aria-hidden', 'false');
+    positionCardPopover(cardButton);
+    void cardPopover.offsetWidth;
+    cardPopover.classList.add('is-visible');
+    cardButton.setAttribute('aria-expanded', 'true');
+    cardPopoverOpen = true;
+    setTimeout(() => {
+      if (cardSearchInput) {
+        try { cardSearchInput.focus(); }
+        catch (_) {}
+      }
+    }, 0);
+    document.addEventListener('mousedown', handleCardOutsideClick, true);
+    document.addEventListener('keydown', handleCardKeydown, true);
+    window.addEventListener('resize', handleCardRelayout, true);
+    window.addEventListener('scroll', handleCardRelayout, true);
+  };
+
+  function handleCardOutsideClick(event) {
+    if (!cardPopoverOpen) return;
+    const target = event.target;
+    if (!cardPopover) return;
+    if (cardPopover.contains(target)) return;
+    if (cardButton && cardButton.contains(target)) return;
+    closeCardPopover();
+  }
+
+  function handleCardKeydown(event) {
+    if (!cardPopoverOpen) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeCardPopover();
+      restoreSelection();
+    }
+  }
+
+  const handleCardContextUpdate = () => {
+    updateFormattingToolbarState();
+    const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
+    const textarea = getEditorTextarea();
+    const selection = lastSelectionRange || { start: 0, end: 0 };
+    const allowCardInsertion = hasEntries && isCaretOnEmptyLine(textarea, selection);
+    if ((!hasEntries || !allowCardInsertion) && cardPopoverOpen) {
+      closeCardPopover();
+      return;
+    }
+    if (cardPopoverOpen) {
+      renderCardPickerList(cardSearchInput ? cardSearchInput.value : '');
+      positionCardPopover(cardButton);
+    }
+  };
+
+  const BUTTON_DISABLED_HINTS = {
+    btnFmtBold: 'No text is selected. Select text first, then click Bold to surround it with ** **.',
+    btnFmtItalic: 'No text is selected. Select text first, then click Italic to surround it with * *.',
+    btnFmtStrike: 'No text is selected. Select text first, then click Strikethrough to surround it with ~~ ~~.',
+    btnFmtHeading: 'Select lines or place the caret on an empty line, then click Heading to prepend "# ".',
+    btnFmtQuote: 'Select lines or place the caret on an empty line, then click Quote to prepend "> ".',
+    btnFmtCode: 'No text is selected. Select text first, then click Code to wrap it in backticks.',
+    btnFmtCodeBlock: 'Select lines or place the caret on an empty line, then click Code Block to wrap them in ``` fences.',
+    btnInsertCard: 'Place the caret on an empty line, then click to insert an article card. If no articles appear, wait for the index to load or add entries in index.yaml.'
+  };
+
+  if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINTS.btnInsertCard);
+
+  const selectionOrEmptyLineEnabled = (selection, textarea) => {
+    if (!selection) return false;
+    if (selection.end > selection.start) return true;
+    return isCaretOnEmptyLine(textarea, selection);
+  };
+
+  const formattingActions = [
+    { id: 'btnFmtBold', handler: () => applyInlineFormat('**', '**') },
+    { id: 'btnFmtItalic', handler: () => applyInlineFormat('*', '*') },
+    { id: 'btnFmtStrike', handler: () => applyInlineFormat('~~', '~~') },
+    { id: 'btnFmtHeading', handler: () => toggleLinePrefix('# '), isEnabled: selectionOrEmptyLineEnabled },
+    { id: 'btnFmtQuote', handler: () => toggleLinePrefix('> '), isEnabled: selectionOrEmptyLineEnabled },
+    { id: 'btnFmtCode', handler: () => applyInlineFormat('`', '`') },
+    { id: 'btnFmtCodeBlock', handler: () => applyCodeBlockFormat(), isEnabled: selectionOrEmptyLineEnabled }
+  ];
+
+  formattingButtons = formattingActions.map(action => {
+    const el = document.getElementById(action.id);
+    if (!el) return null;
+    registerButtonTooltip(el, BUTTON_DISABLED_HINTS[action.id]);
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      action.handler();
+    });
+    const requiresSelection = action.requiresSelection !== undefined ? action.requiresSelection : true;
+    return { ...action, el, requiresSelection };
+  }).filter(Boolean);
+
+  const selectionTarget = getEditorTextarea();
+  if (selectionTarget) {
+    ['select', 'keyup', 'mouseup', 'input'].forEach(evt => {
+      selectionTarget.addEventListener(evt, recordSelection);
+    });
+    selectionTarget.addEventListener('focus', recordSelection);
+  }
+  recordSelection();
+
+  if (cardSearchInput) {
+    cardSearchInput.addEventListener('input', () => {
+      renderCardPickerList(cardSearchInput.value);
+    });
+    cardSearchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const first = cardListEl ? cardListEl.querySelector('.card-picker-item') : null;
+        if (first) first.click();
+      }
+    });
+  }
+
+  if (cardButton) {
+    cardButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (cardPopoverOpen) closeCardPopover();
+      else openCardPopover();
+    });
+  }
+
+  editorLinkCardContextListeners.add(handleCardContextUpdate);
+  handleCardContextUpdate();
 
   const getCurrentMarkdownPath = () => {
     if (currentFileInfo && currentFileInfo.path) return String(currentFileInfo.path);
@@ -1272,8 +1849,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusEl = document.getElementById('sidebarStatus');
     const currentFileEl = document.getElementById('currentFile');
     const searchInput = document.getElementById('fileSearch');
-    if (!listIndex || !listTabs) return;
-
     let currentActive = null;
     let contentRoot = 'wwwroot';
     // Track current markdown base directory for resolving relative assets
@@ -1500,6 +2075,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderGroupedIndex = (ul, data) => {
+      if (!ul) return;
       ul.innerHTML = '';
       const frag = document.createDocumentFragment();
       try {
@@ -1564,6 +2140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderGroupedTabs = (ul, data) => {
+      if (!ul) return;
       ul.innerHTML = '';
       const frag = document.createDocumentFragment();
       try {
