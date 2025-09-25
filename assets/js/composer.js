@@ -199,6 +199,511 @@ function prepareToastStackAnimation(container, excluded) {
   };
 }
 
+// --- Motion helpers for composer UI ---
+const MOTION_DEFAULTS = { sm: 160, md: 220, lg: 300 };
+const MOTION_EASING = {
+  standard: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+  emphasized: 'cubic-bezier(0.22, 1, 0.36, 1)'
+};
+const motionTokenCache = new Map();
+const reduceMotionQuery = (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+
+function readMotionToken(name, fallback) {
+  if (motionTokenCache.has(name)) return motionTokenCache.get(name);
+  let value = fallback;
+  try {
+    if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function' && typeof document !== 'undefined') {
+      const css = window.getComputedStyle(document.documentElement).getPropertyValue(name);
+      const parsed = parseFloat(css);
+      if (!Number.isNaN(parsed)) value = parsed;
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  motionTokenCache.set(name, value);
+  return value;
+}
+
+function getMotionDurationToken(key) {
+  const fallback = MOTION_DEFAULTS[key] || 200;
+  return readMotionToken(`--motion-${key}`, fallback);
+}
+
+function composerPrefersReducedMotion() {
+  try {
+    return !!(reduceMotionQuery && reduceMotionQuery.matches);
+  } catch (_) {
+    return false;
+  }
+}
+
+function isMotionDebug() {
+  try {
+    return !!(document && document.documentElement && document.documentElement.hasAttribute('data-debug-motion'));
+  } catch (_) {
+    return false;
+  }
+}
+
+function motionDebugLog(label, detail) {
+  if (!isMotionDebug()) return;
+  try {
+    console.log('[MotionDebug]', label, detail || {});
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function describeMotionElement(el) {
+  if (!el) return 'element';
+  try {
+    const id = el.id ? `#${el.id}` : '';
+    const classes = el.className ? String(el.className).trim().replace(/\s+/g, '.') : '';
+    return `${(el.tagName || 'element').toLowerCase()}${id || (classes ? `.${classes}` : '')}`;
+  } catch (_) {
+    return 'element';
+  }
+}
+
+const inlineMotionState = new WeakMap();
+
+/**
+ * Enter/exit state machine for composer inline summary blocks.
+ */
+function setComposerInlineVisibility(el, show, options = {}) {
+  if (!el) return;
+  const target = !!show;
+  const reduce = composerPrefersReducedMotion();
+  const delay = target && typeof options.delay === 'number' ? Math.max(0, options.delay) : 0;
+  const immediate = !!options.immediate;
+  const debug = isMotionDebug();
+  const state = inlineMotionState.get(el) || { enterTimeout: null, exitTimeout: null };
+  inlineMotionState.set(el, state);
+
+  if (state.enterTimeout) {
+    clearTimeout(state.enterTimeout);
+    state.enterTimeout = null;
+  }
+  if (state.exitTimeout) {
+    clearTimeout(state.exitTimeout);
+    state.exitTimeout = null;
+  }
+
+  const finalize = (nextState) => {
+    el.dataset.motionState = nextState;
+    if (nextState === 'hidden') el.setAttribute('aria-hidden', 'true');
+    else el.setAttribute('aria-hidden', 'false');
+    el.style.willChange = 'auto';
+    el.style.removeProperty('--motion-delay');
+    if (debug) {
+      try { el.removeAttribute('data-motion-debug'); } catch (_) {}
+    }
+  };
+
+  if (target) {
+    const current = el.dataset.motionState;
+    if (current === 'entering' || current === 'entered') {
+      el.setAttribute('aria-hidden', 'false');
+      return;
+    }
+    el.setAttribute('aria-hidden', 'false');
+    if (reduce || immediate) {
+      finalize('entered');
+      return;
+    }
+    if (delay) el.style.setProperty('--motion-delay', `${delay}ms`);
+    else el.style.removeProperty('--motion-delay');
+    el.dataset.motionState = 'entering';
+    el.style.willChange = 'transform, opacity';
+    if (debug) {
+      try { el.setAttribute('data-motion-debug', 'enter'); } catch (_) {}
+    }
+    const started = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    const onEnd = (event) => {
+      if (event && event.target !== el) return;
+      if (event && event.propertyName && event.propertyName !== 'opacity') return;
+      el.removeEventListener('transitionend', onEnd);
+      finalize('entered');
+      const ended = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+      motionDebugLog('composer-inline enter', { element: describeMotionElement(el), duration: Math.round(ended - started) });
+    };
+    el.addEventListener('transitionend', onEnd, { once: true });
+    state.enterTimeout = setTimeout(() => {
+      onEnd({ target: el, propertyName: 'opacity' });
+    }, getMotionDurationToken('md') + delay + 60);
+  } else {
+    const current = el.dataset.motionState;
+    if (current === 'hidden') {
+      el.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    if (reduce || immediate) {
+      finalize('hidden');
+      return;
+    }
+    el.dataset.motionState = 'exiting';
+    el.style.removeProperty('--motion-delay');
+    el.style.willChange = 'transform, opacity';
+    el.setAttribute('aria-hidden', 'true');
+    if (debug) {
+      try { el.setAttribute('data-motion-debug', 'exit'); } catch (_) {}
+    }
+    const started = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    const onEnd = (event) => {
+      if (event && event.target !== el) return;
+      if (event && event.propertyName && event.propertyName !== 'opacity') return;
+      el.removeEventListener('transitionend', onEnd);
+      finalize('hidden');
+      const ended = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+      motionDebugLog('composer-inline exit', { element: describeMotionElement(el), duration: Math.round(ended - started) });
+    };
+    el.addEventListener('transitionend', onEnd, { once: true });
+    state.exitTimeout = setTimeout(() => {
+      onEnd({ target: el, propertyName: 'opacity' });
+    }, getMotionDurationToken('sm') + 60);
+  }
+}
+
+const listMotionStateMap = new WeakMap();
+
+function ensureListMotion(list) {
+  if (!list) return null;
+  let state = listMotionStateMap.get(list);
+  if (state) return state;
+  state = { resizeObserver: null, suppressResize: false, animatingHeight: false, lastHeight: null };
+  if (typeof ResizeObserver === 'function') {
+    try {
+      const observer = new ResizeObserver((entries) => {
+        if (!entries || !entries.length) return;
+        if (state.suppressResize || state.animatingHeight) return;
+        const entry = entries[0];
+        const newHeight = (entry && entry.contentRect && typeof entry.contentRect.height === 'number')
+          ? entry.contentRect.height
+          : (() => { try { return list.getBoundingClientRect().height; } catch (_) { return null; } })();
+        if (newHeight == null) return;
+        if (state.lastHeight == null) {
+          state.lastHeight = newHeight;
+          return;
+        }
+        const diff = Math.abs(newHeight - state.lastHeight);
+        if (diff < 12) {
+          state.lastHeight = newHeight;
+          return;
+        }
+        motionDebugLog('ciList resize', { from: Math.round(state.lastHeight), to: Math.round(newHeight) });
+        animateListHeight(list, state.lastHeight, newHeight, state, 'resize');
+      });
+      observer.observe(list);
+      state.resizeObserver = observer;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  try {
+    state.lastHeight = list.getBoundingClientRect().height;
+  } catch (_) {
+    state.lastHeight = null;
+  }
+  listMotionStateMap.set(list, state);
+  return state;
+}
+
+function snapshotListForMotion(list) {
+  if (!list) return null;
+  const items = [];
+  const itemMap = new Map();
+  let containerRect = null;
+  try { containerRect = list.getBoundingClientRect(); }
+  catch (_) { containerRect = { top: 0, left: 0, height: 0 }; }
+  const scrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
+  const scrollX = typeof window !== 'undefined' ? (window.scrollX || window.pageXOffset || 0) : 0;
+  const children = Array.from(list.querySelectorAll(':scope > .ci-item'));
+  children.forEach(child => {
+    const key = child && child.getAttribute ? child.getAttribute('data-key') : null;
+    if (!key) return;
+    let rect;
+    try { rect = child.getBoundingClientRect(); }
+    catch (_) { rect = null; }
+    if (!rect) return;
+    let clone = null;
+    try { clone = child.cloneNode(true); } catch (_) { clone = null; }
+    if (clone) {
+      clone.setAttribute('data-motion-ghost', 'true');
+      clone.setAttribute('aria-hidden', 'true');
+      clone.style.pointerEvents = 'none';
+      clone.style.margin = '0';
+      clone.style.transition = 'none';
+      clone.style.opacity = '1';
+      clone.style.transform = 'none';
+      try {
+        clone.querySelectorAll('button, [href], input, select, textarea').forEach(node => {
+          node.setAttribute('tabindex', '-1');
+          node.setAttribute('aria-hidden', 'true');
+        });
+      } catch (_) {}
+    }
+    const info = {
+      key,
+      width: rect.width,
+      height: rect.height,
+      top: rect.top + scrollY,
+      left: rect.left + scrollX,
+      clone
+    };
+    items.push(info);
+    itemMap.set(key, info);
+  });
+  return {
+    items,
+    itemMap,
+    height: containerRect ? containerRect.height : 0,
+    containerTop: (containerRect ? containerRect.top : 0) + scrollY,
+    containerLeft: (containerRect ? containerRect.left : 0) + scrollX
+  };
+}
+
+function animateListHeight(list, from, to, state, label) {
+  if (!list || from == null || to == null) {
+    if (state) state.lastHeight = to;
+    return;
+  }
+  const reduce = composerPrefersReducedMotion();
+  const delta = Math.abs(to - from);
+  if (delta < 1) {
+    if (state) state.lastHeight = to;
+    return;
+  }
+  if (reduce) {
+    list.style.removeProperty('height');
+    list.style.removeProperty('transition');
+    list.style.removeProperty('overflow');
+    if (state) state.lastHeight = to;
+    return;
+  }
+  const duration = Math.min(320, Math.max(160, Math.round(delta * 0.8)));
+  if (state) {
+    state.suppressResize = true;
+    state.animatingHeight = true;
+  }
+  motionDebugLog('ciList height', { from: Math.round(from), to: Math.round(to), duration, label });
+  const started = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+  list.dataset.motionHeight = 'animating';
+  list.style.overflow = 'hidden';
+  list.style.height = `${from}px`;
+  list.style.transition = 'none';
+  requestAnimationFrame(() => {
+    list.style.transition = `height ${duration}ms ${MOTION_EASING.standard}`;
+    list.style.height = `${to}px`;
+  });
+  let finished = false;
+  const cleanup = () => {
+    if (finished) return;
+    finished = true;
+    try { list.removeEventListener('transitionend', onEnd); } catch (_) {}
+    list.style.removeProperty('height');
+    list.style.removeProperty('transition');
+    list.style.removeProperty('overflow');
+    delete list.dataset.motionHeight;
+    if (state) {
+      state.suppressResize = false;
+      state.animatingHeight = false;
+      state.lastHeight = to;
+    }
+    const ended = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : Date.now();
+    motionDebugLog('ciList height end', { label, duration: Math.round(ended - started) });
+  };
+  const onEnd = (event) => {
+    if (event && event.target !== list) return;
+    if (event && event.propertyName && event.propertyName !== 'height') return;
+    cleanup();
+  };
+  list.addEventListener('transitionend', onEnd);
+  setTimeout(cleanup, duration + 80);
+}
+
+function playListMotion(list, snapshot) {
+  if (!list || !snapshot) return;
+  const state = ensureListMotion(list);
+  const reduce = composerPrefersReducedMotion();
+  const scrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
+  const scrollX = typeof window !== 'undefined' ? (window.scrollX || window.pageXOffset || 0) : 0;
+  let listRect;
+  try { listRect = list.getBoundingClientRect(); }
+  catch (_) { listRect = { top: 0, left: 0, height: 0 }; }
+  const newHeight = listRect ? listRect.height : 0;
+
+  if (!reduce && snapshot.height != null) animateListHeight(list, snapshot.height, newHeight, state, 'diff');
+  else if (state) state.lastHeight = newHeight;
+
+  const newChildren = Array.from(list.querySelectorAll(':scope > .ci-item'));
+  const newMap = new Map();
+  newChildren.forEach(child => {
+    const key = child && child.getAttribute ? child.getAttribute('data-key') : null;
+    if (!key) return;
+    let rect;
+    try { rect = child.getBoundingClientRect(); }
+    catch (_) { rect = null; }
+    if (!rect) return;
+    newMap.set(key, { element: child, rect });
+  });
+
+  newMap.forEach((entry, key) => {
+    const el = entry.element;
+    const prev = snapshot.itemMap ? snapshot.itemMap.get(key) : null;
+    if (!el) return;
+    if (reduce) {
+      if (!prev) {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 120ms ease';
+        requestAnimationFrame(() => { el.style.opacity = ''; });
+        const onEnd = () => {
+          el.style.transition = '';
+          el.removeEventListener('transitionend', onEnd);
+        };
+        el.addEventListener('transitionend', onEnd, { once: true });
+      }
+      return;
+    }
+    if (prev) {
+      const dx = prev.left - (entry.rect.left + scrollX);
+      const dy = prev.top - (entry.rect.top + scrollY);
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        const distance = Math.hypot(dx, dy);
+        const duration = Math.min(320, Math.max(160, Math.round(distance * 0.6)));
+        el.dataset.motionAnimating = 'reorder';
+        el.style.willChange = 'transform';
+        motionDebugLog('ciList reorder', { key, dx: Math.round(dx), dy: Math.round(dy), duration });
+        if (typeof el.animate === 'function') {
+          const animation = el.animate(
+            [
+              { transform: `translate(${dx}px, ${dy}px)` },
+              { transform: 'translate(0, 0)' }
+            ],
+            { duration, easing: MOTION_EASING.standard, fill: 'both' }
+          );
+          const cleanup = () => {
+            el.style.willChange = 'auto';
+            el.removeAttribute('data-motion-animating');
+          };
+          animation.addEventListener('finish', cleanup, { once: true });
+          animation.addEventListener('cancel', cleanup, { once: true });
+        } else {
+          el.style.transition = 'none';
+          el.style.transform = `translate(${dx}px, ${dy}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = `transform ${duration}ms ${MOTION_EASING.standard}`;
+            el.style.transform = 'translate(0, 0)';
+          });
+          const cleanup = () => {
+            el.style.transition = '';
+            el.style.transform = '';
+            el.style.willChange = 'auto';
+            el.removeAttribute('data-motion-animating');
+            el.removeEventListener('transitionend', onTransition);
+          };
+          const onTransition = (event) => {
+            if (event.target !== el || event.propertyName !== 'transform') return;
+            cleanup();
+          };
+          el.addEventListener('transitionend', onTransition);
+        }
+      }
+    } else {
+      const enterDuration = getMotionDurationToken('md');
+      el.dataset.motionAnimating = 'enter';
+      el.style.willChange = 'transform, opacity';
+      motionDebugLog('ciList enter', { key });
+      if (typeof el.animate === 'function') {
+        const animation = el.animate(
+          [
+            { opacity: 0, transform: 'translateY(6px) scale(.98)' },
+            { opacity: 1, transform: 'translateY(0) scale(1)' }
+          ],
+          { duration: enterDuration, easing: MOTION_EASING.emphasized, fill: 'both' }
+        );
+        const cleanup = () => {
+          el.style.opacity = '';
+          el.style.transform = '';
+          el.style.willChange = 'auto';
+          el.removeAttribute('data-motion-animating');
+        };
+        animation.addEventListener('finish', cleanup, { once: true });
+        animation.addEventListener('cancel', cleanup, { once: true });
+      } else {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(6px) scale(.98)';
+        el.style.transition = `opacity ${enterDuration}ms ${MOTION_EASING.emphasized}, transform ${enterDuration}ms ${MOTION_EASING.emphasized}`;
+        requestAnimationFrame(() => {
+          el.style.opacity = '';
+          el.style.transform = '';
+        });
+        const cleanup = () => {
+          el.style.transition = '';
+          el.style.willChange = 'auto';
+          el.removeAttribute('data-motion-animating');
+        };
+        const onEnd = (event) => {
+          if (event.target !== el) return;
+          if (event.propertyName === 'opacity' || event.propertyName === 'transform') {
+            el.removeEventListener('transitionend', onEnd);
+            cleanup();
+          }
+        };
+        el.addEventListener('transitionend', onEnd);
+      }
+    }
+  });
+
+  if (!reduce && Array.isArray(snapshot.items)) {
+    const containerTop = (listRect ? listRect.top : 0) + scrollY;
+    const containerLeft = (listRect ? listRect.left : 0) + scrollX;
+    const exitDuration = getMotionDurationToken('sm');
+    snapshot.items.forEach(item => {
+      if (!item || !item.key) return;
+      if (newMap.has(item.key)) return;
+      if (!item.clone) return;
+      const ghost = item.clone;
+      ghost.style.position = 'absolute';
+      ghost.style.top = `${item.top - containerTop}px`;
+      ghost.style.left = `${item.left - containerLeft}px`;
+      ghost.style.width = `${item.width}px`;
+      ghost.style.height = `${item.height}px`;
+      ghost.style.zIndex = '3';
+      ghost.style.opacity = '1';
+      ghost.style.transform = 'translateY(0) scale(1)';
+      list.appendChild(ghost);
+      motionDebugLog('ciList exit', { key: item.key });
+      if (typeof ghost.animate === 'function') {
+        const animation = ghost.animate(
+          [
+            { opacity: 1, transform: 'translateY(0) scale(1)' },
+            { opacity: 0, transform: 'translateY(-6px) scale(.98)' }
+          ],
+          { duration: exitDuration, easing: MOTION_EASING.standard, fill: 'forwards' }
+        );
+        const cleanup = () => { try { ghost.remove(); } catch (_) {} };
+        animation.addEventListener('finish', cleanup, { once: true });
+        animation.addEventListener('cancel', cleanup, { once: true });
+      } else {
+        ghost.style.transition = `opacity ${exitDuration}ms ${MOTION_EASING.standard}, transform ${exitDuration}ms ${MOTION_EASING.standard}`;
+        requestAnimationFrame(() => {
+          ghost.style.opacity = '0';
+          ghost.style.transform = 'translateY(-6px) scale(.98)';
+        });
+        const cleanup = () => { try { ghost.remove(); } catch (_) {} };
+        ghost.addEventListener('transitionend', cleanup, { once: true });
+      }
+    });
+  }
+
+  if (state && !state.animatingHeight) {
+    state.lastHeight = newHeight;
+    state.suppressResize = false;
+  }
+}
+
 function showToast(kind, text, options = {}) {
   try {
     const message = safeString(text);
@@ -4857,13 +5362,11 @@ function updateComposerOrderPreview(kind, options = {}) {
 
   if (!hasDiffChanges) {
     if (root) {
-      root.hidden = true;
-      root.setAttribute('aria-hidden', 'true');
+      setComposerInlineVisibility(root, false);
       root.dataset.state = 'clean';
     }
     if (meta) {
-      meta.hidden = true;
-      meta.setAttribute('aria-hidden', 'true');
+      setComposerInlineVisibility(meta, false);
     }
     if (host) host.dataset.state = 'clean';
     if (svg) svg.style.display = 'none';
@@ -4879,22 +5382,19 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (meta) {
-    if (options.reveal !== false) meta.hidden = false;
-    meta.setAttribute('aria-hidden', meta.hidden ? 'true' : 'false');
+    const shouldShowMeta = options.reveal !== false;
+    setComposerInlineVisibility(meta, shouldShowMeta, { immediate: options.reveal === false });
   }
 
   if (host) host.dataset.state = hasDiffChanges ? 'changed' : 'clean';
 
   if (root) {
-    if (hasOrderChanges) {
-      if (options.reveal !== false) root.hidden = false;
-      root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
-      root.dataset.state = 'changed';
-    } else {
-      root.hidden = true;
-      root.setAttribute('aria-hidden', 'true');
-      root.dataset.state = 'clean';
-    }
+    const shouldShowInline = hasOrderChanges && options.reveal !== false;
+    setComposerInlineVisibility(root, shouldShowInline, {
+      delay: shouldShowInline ? 48 : 0,
+      immediate: options.reveal === false && !shouldShowInline
+    });
+    root.dataset.state = hasOrderChanges ? 'changed' : 'clean';
   }
 
   const state = hasOrderChanges && svg && (leftMap.size || connectors.length)
@@ -5007,10 +5507,14 @@ function notifyComposerChange(kind, options = {}) {
 function rebuildIndexUI(preserveOpen = true) {
   const root = document.getElementById('composerIndex');
   if (!root) return;
+  const previousList = root.querySelector('#ciList');
+  const motionSnapshot = previousList ? snapshotListForMotion(previousList) : null;
   const openKeys = preserveOpen
     ? Array.from(root.querySelectorAll('.ci-item.is-open')).map(el => el.getAttribute('data-key')).filter(Boolean)
     : [];
   buildIndexUI(root, activeComposerState);
+  const list = root.querySelector('#ciList');
+  if (list) ensureListMotion(list);
   openKeys.forEach(key => {
     if (!key) return;
     const row = root.querySelector(`.ci-item[data-key="${cssEscape(key)}"]`);
@@ -5027,6 +5531,14 @@ function rebuildIndexUI(preserveOpen = true) {
   });
   notifyComposerChange('index', { skipAutoSave: true });
   updateComposerMarkdownDraftIndicators();
+  if (list && motionSnapshot) {
+    requestAnimationFrame(() => playListMotion(list, motionSnapshot));
+  } else if (list) {
+    const state = ensureListMotion(list);
+    if (state && state.lastHeight == null) {
+      try { state.lastHeight = list.getBoundingClientRect().height; } catch (_) {}
+    }
+  }
 }
 
 function rebuildTabsUI(preserveOpen = true) {
@@ -7296,6 +7808,7 @@ function buildIndexUI(root, state) {
   const list = document.createElement('div');
   list.id = 'ciList';
   root.appendChild(list);
+  ensureListMotion(list);
 
   const markDirty = () => { try { notifyComposerChange('index'); } catch (_) {}; };
 

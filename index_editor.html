@@ -33,6 +33,14 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html { height: 100%; }
+    /* Motion tokens for editor/composer transitions */
+    :root {
+      --motion-sm: 160ms;
+      --motion-md: 220ms;
+      --motion-lg: 300ms;
+      --ease-standard: cubic-bezier(.2, .8, .2, 1);
+      --ease-emphasized: cubic-bezier(.22, 1, .36, 1);
+    }
     /* Widen the editor page and reduce side padding */
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
     .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; }
@@ -965,9 +973,44 @@
     }
     .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
     .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
-    .composer-order-inline[hidden] { display: none !important; }
     .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
-    .composer-order-inline-meta[hidden] { display: none !important; }
+    /* Inline order preview: enter/exit state machine */
+    .composer-order-inline,
+    .composer-order-inline-meta {
+      opacity: 0;
+      transform: translateY(6px) scale(.98);
+      transition-property: transform, opacity;
+      transition-duration: var(--motion-sm);
+      transition-timing-function: var(--ease-standard);
+      transition-delay: var(--motion-delay, 0ms);
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    .composer-order-inline[data-motion-state="entering"],
+    .composer-order-inline[data-motion-state="entered"],
+    .composer-order-inline-meta[data-motion-state="entering"],
+    .composer-order-inline-meta[data-motion-state="entered"] {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      transition-duration: var(--motion-md);
+      transition-timing-function: var(--ease-emphasized);
+      pointer-events: auto;
+    }
+    .composer-order-inline[data-motion-state="exiting"],
+    .composer-order-inline-meta[data-motion-state="exiting"] {
+      opacity: 0;
+      transform: translateY(6px) scale(.98);
+      transition-duration: var(--motion-sm);
+      transition-timing-function: var(--ease-standard);
+      pointer-events: none;
+    }
+    .composer-order-inline[data-motion-state="hidden"],
+    .composer-order-inline-meta[data-motion-state="hidden"] {
+      display: none;
+      opacity: 0;
+      transform: translateY(6px) scale(.98);
+      pointer-events: none;
+    }
     .composer-order-inline-meta-head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
     .composer-order-inline-titles { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
     .composer-order-inline-title { margin: 0; font-size: .96rem; font-weight: 700; color: var(--text); }
@@ -997,6 +1040,7 @@
     .composer-inline-chip[data-variant="langs"] { color: color-mix(in srgb, var(--text) 60%, transparent); }
     .composer-inline-summary-empty { font-size: .78rem; color: var(--muted); }
     .composer-order-inline-body { display: flex; flex-direction: column; }
+    /* Motion target for FLIP transitions */
     .composer-order-inline-list { display: block; position: relative; z-index: 2; }
     .composer-order-inline-empty { font-size: .85rem; color: var(--muted); border: 1px dashed color-mix(in srgb, var(--border) 85%, transparent); border-radius: 8px; padding: .75rem; text-align: center; }
     .composer-order-inline-lines { position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .18s ease; }
@@ -1026,6 +1070,36 @@
     .composer-order-inline .composer-order-badge {
       font-size: .7rem;
       white-space: nowrap;
+    }
+    /* Composer inline + list motion debug overlays */
+    html[data-debug-motion] .composer-order-inline,
+    html[data-debug-motion] .composer-order-inline-meta { outline: 1px dashed color-mix(in srgb, var(--primary) 55%, transparent); }
+    html[data-debug-motion] #ciList { outline: 1px dashed color-mix(in srgb, #22d3ee 45%, transparent); }
+    html[data-debug-motion] #ciList [data-motion-animating] { outline: 1px solid color-mix(in srgb, #22d3ee 75%, transparent); }
+    html[data-debug-motion] #ciList [data-motion-ghost] { outline: 1px solid color-mix(in srgb, #ef4444 70%, transparent); }
+    #ciList { position: relative; }
+    #ciList[data-motion-height="animating"] { overflow: hidden; }
+    @media (prefers-reduced-motion: reduce) {
+      .composer-order-inline,
+      .composer-order-inline-meta {
+        transition-property: opacity !important;
+        transition-duration: 120ms !important;
+        transition-timing-function: ease !important;
+        transform: none !important;
+      }
+      .composer-order-inline[data-motion-state="exiting"],
+      .composer-order-inline[data-motion-state="hidden"],
+      .composer-order-inline-meta[data-motion-state="exiting"],
+      .composer-order-inline-meta[data-motion-state="hidden"] {
+        opacity: 0;
+      }
+      .composer-order-inline[data-motion-state="entering"],
+      .composer-order-inline[data-motion-state="entered"],
+      .composer-order-inline-meta[data-motion-state="entering"],
+      .composer-order-inline-meta[data-motion-state="entered"] {
+        opacity: 1;
+        transform: none;
+      }
     }
     @media (max-width: 900px) {
       .composer-panels { gap: 1rem; }
@@ -1198,7 +1272,7 @@
             <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>
           </div>
         </div>
-        <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
+        <div class="composer-order-inline-meta" id="composerOrderInlineMeta" data-motion-state="hidden" aria-hidden="true">
           <div class="composer-order-inline-meta-head">
             <div class="composer-order-inline-titles">
               <h3 class="composer-order-inline-title">Change summary</h3>
@@ -1212,7 +1286,7 @@
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
           <div class="composer-order-host" data-kind="index" id="composerIndexHost">
-            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
+            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" data-motion-state="hidden" aria-hidden="true">
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
                 <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
@@ -1223,7 +1297,7 @@
             </div>
           </div>
           <div class="composer-order-host" data-kind="tabs" id="composerTabsHost" style="display:none;">
-            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
+            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" data-motion-state="hidden" aria-hidden="true">
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
                 <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
