@@ -730,6 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   let lastSelectionRange = { start: 0, end: 0 };
+  let suppressSelectionTracking = false;
   let formattingButtons = [];
   let cardPopoverOpen = false;
 
@@ -788,6 +789,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const recordSelection = () => {
+    if (suppressSelectionTracking) return;
     const textarea = getEditorTextarea();
     if (!textarea) return;
     lastSelectionRange = getNormalizedSelection();
@@ -797,14 +799,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const restoreSelection = () => {
     const textarea = getEditorTextarea();
     if (!textarea) return null;
-    try { textarea.focus(); }
-    catch (_) {}
-    if (lastSelectionRange) {
-      const { start, end } = lastSelectionRange;
-      if (typeof start === 'number' && typeof end === 'number') {
-        try { textarea.setSelectionRange(start, end); }
-        catch (_) {}
+    suppressSelectionTracking = true;
+    try {
+      try { textarea.focus(); }
+      catch (_) {}
+      if (lastSelectionRange) {
+        const { start, end } = lastSelectionRange;
+        if (typeof start === 'number' && typeof end === 'number') {
+          try { textarea.setSelectionRange(start, end); }
+          catch (_) {}
+        }
       }
+    } finally {
+      suppressSelectionTracking = false;
     }
     return textarea;
   };
