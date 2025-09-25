@@ -267,11 +267,19 @@ function animateComposerListTransition(list, previousRect, options = {}) {
   if (!list || !previousRect || composerPrefersReducedMotion()) return;
   const immediate = !!options.immediate;
   const forceFallback = immediate || !!options.forceFallback;
+  const onMeasured = typeof options.onMeasured === 'function' ? options.onMeasured : null;
   cancelListTransition(list);
   const run = () => {
     if (!list.isConnected) return;
-    const nextRect = captureElementRect(list);
+    let nextRect = captureElementRect(list);
     if (!nextRect) return;
+    if (onMeasured) {
+      try {
+        const override = onMeasured(nextRect);
+        if (override && typeof override === 'object') nextRect = override;
+      }
+      catch (_) {}
+    }
     const dx = previousRect.left - nextRect.left;
     const dy = previousRect.top - nextRect.top;
     const sx = nextRect.width ? previousRect.width / nextRect.width : 1;
@@ -5027,11 +5035,67 @@ function updateComposerOrderPreview(kind, options = {}) {
   const primaryList = normalized === 'tabs' ? document.getElementById('ctList') : document.getElementById('ciList');
   const primaryListRectBefore = captureElementRect(primaryList);
   let listAnimationScheduled = false;
+  const adjustViewportBy = (deltaY) => {
+    if (!deltaY || !Number.isFinite(deltaY)) return;
+    try {
+      if (typeof window !== 'undefined' && typeof window.scrollBy === 'function') {
+        window.scrollBy(0, deltaY);
+        return;
+      }
+    } catch (_) {}
+    try {
+      if (typeof document !== 'undefined') {
+        const scroller = document.scrollingElement || document.documentElement || document.body;
+        if (scroller && typeof scroller.scrollTop === 'number') {
+          scroller.scrollTop += deltaY;
+          return;
+        }
+      }
+    } catch (_) {}
+    try {
+      if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+        const currentX = (typeof window.scrollX === 'number') ? window.scrollX : window.pageXOffset || 0;
+        const currentY = (typeof window.scrollY === 'number') ? window.scrollY : window.pageYOffset || 0;
+        window.scrollTo(currentX, currentY + deltaY);
+      }
+    } catch (_) {}
+  };
+
+  const stabilizePrimaryListViewport = (nextRect) => {
+    if (!primaryList || !primaryListRectBefore || !nextRect) return null;
+    if (typeof window !== 'undefined') {
+      const viewportHeight = typeof window.innerHeight === 'number' ? window.innerHeight : 0;
+      if (viewportHeight > 0) {
+        const beforeTop = primaryListRectBefore.top;
+        const beforeBottom = beforeTop + (primaryListRectBefore.height || 0);
+        const wasVisible = beforeBottom > 0 && beforeTop < viewportHeight;
+        if (!wasVisible) return null;
+      }
+    }
+    const delta = nextRect.top - primaryListRectBefore.top;
+    if (Math.abs(delta) < 0.75) return null;
+    adjustViewportBy(-delta);
+    return captureElementRect(primaryList) || nextRect;
+  };
+
   const runListAnimation = (opts = {}) => {
     if (listAnimationScheduled) return;
     listAnimationScheduled = true;
     if (!primaryList || !primaryListRectBefore) return;
-    animateComposerListTransition(primaryList, primaryListRectBefore, opts);
+    const originalOnMeasured = typeof opts.onMeasured === 'function' ? opts.onMeasured : null;
+    const config = { ...opts };
+    config.onMeasured = (rect) => {
+      const stabilizedRect = stabilizePrimaryListViewport(rect) || rect;
+      if (originalOnMeasured) {
+        try {
+          const result = originalOnMeasured(stabilizedRect);
+          if (result && typeof result === 'object') return result;
+        }
+        catch (_) {}
+      }
+      return stabilizedRect;
+    };
+    animateComposerListTransition(primaryList, primaryListRectBefore, config);
   };
   const applyInlineActive = (value) => {
     if (!host) return;
