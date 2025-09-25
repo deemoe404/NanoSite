@@ -5018,26 +5018,14 @@ function updateComposerOrderPreview(kind, options = {}) {
   composerOrderPreviewActiveKind = normalized;
 
   const { host, root, list, statsWrap, emptyNotice, svg, kindLabel, openBtn, title, meta } = preview;
-  let layoutTransition = host ? prepareComposerOrderLayoutAnimation({ host, meta }) : null;
-  const buildCollapseHideOptions = () => {
-    if (!host) return null;
-    let ran = false;
-    return {
-      beforeHidden: () => {
-        if (!host) return null;
-        try { return prepareComposerOrderLayoutAnimation({ host, meta }); }
-        catch (_) { return null; }
-      },
-      afterHidden: (runner) => {
-        if (ran) return;
-        ran = true;
-        if (typeof runner === 'function') {
-          try { runner({ collapseInline: true, phase: 'collapse-final' }); }
-          catch (_) {}
-        }
-      }
-    };
+  let layoutTransitionRunner = host ? prepareComposerOrderLayoutAnimation({ host, meta }) : null;
+  const runLayoutTransition = (options = {}) => {
+    if (!layoutTransitionRunner) return;
+    try { layoutTransitionRunner(options || {}); }
+    catch (_) {}
+    layoutTransitionRunner = null;
   };
+  let deferLayoutTransition = false;
   const label = normalized === 'tabs' ? 'tabs.yaml' : 'index.yaml';
 
   if (title) title.textContent = 'Change summary';
@@ -5128,13 +5116,19 @@ function updateComposerOrderPreview(kind, options = {}) {
   }
 
   if (!hasDiffChanges) {
-    const inlineHideOptions = buildCollapseHideOptions() || {};
-    const metaHideOptions = buildCollapseHideOptions() || {};
     if (root) {
+      const inlineHideOptions = {
+        afterHidden: () => runLayoutTransition({ collapseInline: true, source: 'inline-clean' })
+      };
+      deferLayoutTransition = true;
       animateComposerInlineVisibility(root, false, inlineHideOptions);
       root.dataset.state = 'clean';
     }
     if (meta) {
+      const metaHideOptions = {
+        afterHidden: () => runLayoutTransition({ collapseInline: true, source: 'meta-clean' })
+      };
+      deferLayoutTransition = true;
       animateComposerInlineVisibility(meta, false, metaHideOptions);
     }
     if (host) host.dataset.state = 'clean';
@@ -5147,9 +5141,8 @@ function updateComposerOrderPreview(kind, options = {}) {
       applyComposerOrderHover(host, '');
     }
     composerOrderPreviewState[normalized] = null;
-    if (layoutTransition) {
-      layoutTransition({ collapseInline: true });
-      layoutTransition = null;
+    if (!deferLayoutTransition) {
+      runLayoutTransition({ collapseInline: true, source: 'clean-exit' });
     }
     return;
   }
@@ -5167,7 +5160,10 @@ function updateComposerOrderPreview(kind, options = {}) {
       else root.setAttribute('aria-hidden', root.hidden ? 'true' : 'false');
       root.dataset.state = 'changed';
     } else {
-      const inlineHideOptions = buildCollapseHideOptions() || {};
+      const inlineHideOptions = {
+        afterHidden: () => runLayoutTransition({ collapseInline: true, source: 'inline-collapse' })
+      };
+      deferLayoutTransition = true;
       animateComposerInlineVisibility(root, false, inlineHideOptions);
       root.dataset.state = 'clean';
     }
@@ -5194,10 +5190,9 @@ function updateComposerOrderPreview(kind, options = {}) {
     setTimeout(() => drawOrderDiffLines(state), 120);
   }
 
-  if (layoutTransition) {
-    const collapseInline = !hasOrderChanges;
-    layoutTransition({ collapseInline });
-    layoutTransition = null;
+  const collapseInline = !hasOrderChanges;
+  if (!deferLayoutTransition) {
+    runLayoutTransition({ collapseInline, source: 'immediate' });
   }
 }
 
