@@ -713,11 +713,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const STATUS_LABELS = {
-    checking: 'Checking file…',
-    existing: 'Existing file',
-    missing: 'New file',
-    error: 'Failed to load file'
+  const STATUS_LABEL_KEYS = {
+    checking: 'editor.currentFile.status.checking',
+    existing: 'editor.currentFile.status.existing',
+    missing: 'editor.currentFile.status.missing',
+    error: 'editor.currentFile.status.error'
   };
 
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
@@ -737,9 +737,19 @@ document.addEventListener('DOMContentLoaded', () => {
   let cardPopoverCloseTimer = null;
   let cardPopoverTransitionHandler = null;
 
+  const tooltipButtons = new Set();
+
   function applyButtonTooltipState(button, disabled) {
     if (!button) return;
     const baseTitle = (() => {
+      const titleKey = button.dataset.enabledTitleKey || button.getAttribute('data-i18n-title');
+      if (titleKey) {
+        const translated = t(titleKey);
+        if (translated != null) {
+          button.dataset.enabledTitle = translated;
+          return translated;
+        }
+      }
       if (!button.dataset.enabledTitle) {
         const current = button.getAttribute('title') || button.textContent || '';
         if (current) button.dataset.enabledTitle = current;
@@ -747,7 +757,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return button.dataset.enabledTitle || '';
     })();
-    const disabledHint = button.dataset.disabledHint || '';
+    const hintKey = button.dataset.disabledHintKey;
+    const disabledHint = (() => {
+      if (hintKey) {
+        const translatedHint = t(hintKey);
+        if (translatedHint != null) {
+          button.dataset.disabledHint = translatedHint;
+          return translatedHint;
+        }
+        button.dataset.disabledHint = '';
+        return '';
+      }
+      return button.dataset.disabledHint || '';
+    })();
     if (disabled) {
       if (disabledHint) button.setAttribute('title', disabledHint);
       else if (baseTitle) button.setAttribute('title', baseTitle);
@@ -759,9 +781,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function registerButtonTooltip(button, disabledHint) {
+  function registerButtonTooltip(button, disabledHintKey) {
     if (!button) return;
-    if (disabledHint) button.dataset.disabledHint = disabledHint;
+    if (disabledHintKey) button.dataset.disabledHintKey = disabledHintKey;
+    const titleKey = button.getAttribute('data-i18n-title');
+    if (titleKey) button.dataset.enabledTitleKey = titleKey;
+    tooltipButtons.add(button);
     applyButtonTooltipState(button, !!button.disabled);
   }
 
@@ -1190,18 +1215,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const BUTTON_DISABLED_HINTS = {
-    btnFmtBold: 'No text is selected. Select text first, then click Bold to surround it with ** **.',
-    btnFmtItalic: 'No text is selected. Select text first, then click Italic to surround it with * *.',
-    btnFmtStrike: 'No text is selected. Select text first, then click Strikethrough to surround it with ~~ ~~.',
-    btnFmtHeading: 'Select lines or place the caret on an empty line, then click Heading to prepend "# ".',
-    btnFmtQuote: 'Select lines or place the caret on an empty line, then click Quote to prepend "> ".',
-    btnFmtCode: 'No text is selected. Select text first, then click Code to wrap it in backticks.',
-    btnFmtCodeBlock: 'Select lines or place the caret on an empty line, then click Code Block to wrap them in ``` fences.',
-    btnInsertCard: 'Place the caret on an empty line, then click to insert an article card. If no articles appear, wait for the index to load or add entries in index.yaml.'
+  const BUTTON_DISABLED_HINT_KEYS = {
+    btnFmtBold: 'editor.editorTools.hints.bold',
+    btnFmtItalic: 'editor.editorTools.hints.italic',
+    btnFmtStrike: 'editor.editorTools.hints.strike',
+    btnFmtHeading: 'editor.editorTools.hints.heading',
+    btnFmtQuote: 'editor.editorTools.hints.quote',
+    btnFmtCode: 'editor.editorTools.hints.code',
+    btnFmtCodeBlock: 'editor.editorTools.hints.codeBlock',
+    btnInsertCard: 'editor.editorTools.hints.insertCard'
   };
 
-  if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINTS.btnInsertCard);
+  if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINT_KEYS.btnInsertCard);
 
   const selectionOrEmptyLineEnabled = (selection, textarea) => {
     if (!selection) return false;
@@ -1222,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
   formattingButtons = formattingActions.map(action => {
     const el = document.getElementById(action.id);
     if (!el) return null;
-    registerButtonTooltip(el, BUTTON_DISABLED_HINTS[action.id]);
+    registerButtonTooltip(el, BUTTON_DISABLED_HINT_KEYS[action.id]);
     el.addEventListener('click', (event) => {
       event.preventDefault();
       action.handler();
@@ -1239,6 +1264,11 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionTarget.addEventListener('focus', recordSelection);
   }
   recordSelection();
+
+  document.addEventListener('ns-editor-language-applied', () => {
+    tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
+    renderCurrentFileIndicator();
+  });
 
   if (cardSearchInput) {
     cardSearchInput.addEventListener('input', () => {
@@ -1607,7 +1637,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const describeStatusLabel = (status) => {
     if (!status || !status.state) return '';
-    const base = STATUS_LABELS[status.state] || status.state;
+    const key = STATUS_LABEL_KEYS[status.state];
+    const base = key ? t(key) : status.state;
     if (status.state === 'error') {
       const detail = [];
       if (status.message) detail.push(String(status.message));
@@ -1622,13 +1653,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (status.state === 'checking') {
       if (Number.isFinite(status.checkedAt)) {
         const ts = formatStatusTimestamp(status.checkedAt);
-        return ts ? `Checking… started ${ts}` : 'Checking…';
+        return ts
+          ? t('editor.currentFile.meta.checkingStarted', { time: ts })
+          : t('editor.currentFile.meta.checking');
       }
-      return 'Checking…';
+      return t('editor.currentFile.meta.checking');
     }
     if (Number.isFinite(status.checkedAt)) {
       const ts = formatStatusTimestamp(status.checkedAt);
-      return ts ? `Last checked: ${ts}` : '';
+      return ts ? t('editor.currentFile.meta.lastChecked', { time: ts }) : '';
     }
     return '';
   };
@@ -1669,11 +1702,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (Number.isFinite(draft.savedAt)) {
         const rel = formatRelativeTime(draft.savedAt);
         draftLabel = draft.conflict
-          ? (rel ? `Local draft saved ${escapeHtml(rel)} (remote updated)` : 'Local draft (remote updated)')
-          : (rel ? `Local draft saved ${escapeHtml(rel)}` : 'Local draft saved');
+          ? (rel
+            ? t('editor.currentFile.draft.savedConflictHtml', { time: escapeHtml(rel) })
+            : t('editor.currentFile.draft.conflict'))
+          : (rel
+            ? t('editor.currentFile.draft.savedHtml', { time: escapeHtml(rel) })
+            : t('editor.currentFile.draft.saved'));
       } else {
-        draftLabel = draft.conflict ? 'Local draft (remote updated)' : 'Local draft available';
+        draftLabel = draft.conflict
+          ? t('editor.currentFile.draft.conflict')
+          : t('editor.currentFile.draft.available');
       }
+      if (!draftLabel) draftLabel = '';
       metaPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
     }
     const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';

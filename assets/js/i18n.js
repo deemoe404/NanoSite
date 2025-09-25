@@ -125,6 +125,26 @@ const translations = {
         checkingConnection: 'Checking connection…',
         clean: 'No local changes'
       },
+      currentFile: {
+        status: {
+          checking: 'Checking file…',
+          existing: 'Existing file',
+          missing: 'New file',
+          error: 'Failed to load file'
+        },
+        meta: {
+          checking: 'Checking…',
+          checkingStarted: ({ time }) => `Checking… started ${time}`,
+          lastChecked: ({ time }) => `Last checked: ${time}`
+        },
+        draft: {
+          savedHtml: ({ time }) => `Local draft saved ${time}`,
+          saved: 'Local draft saved',
+          savedConflictHtml: ({ time }) => `Local draft saved ${time} (remote updated)`,
+          conflict: 'Local draft (remote updated)',
+          available: 'Local draft available'
+        }
+      },
       toolbar: {
         wrap: 'Wrap:',
         wrapOn: 'on',
@@ -188,7 +208,17 @@ const translations = {
         insertImage: 'Insert Image',
         cardDialogAria: 'Insert article card',
         cardSearch: 'Search articles…',
-        cardEmpty: 'No matching articles'
+        cardEmpty: 'No matching articles',
+        hints: {
+          bold: 'No text is selected. Select text first, then click Bold to surround it with ** **.',
+          italic: 'No text is selected. Select text first, then click Italic to surround it with * *.',
+          strike: 'No text is selected. Select text first, then click Strikethrough to surround it with ~~ ~~.',
+          heading: 'Select lines or place the caret on an empty line, then click Heading to prepend "# ".',
+          quote: 'Select lines or place the caret on an empty line, then click Quote to prepend "> ".',
+          code: 'No text is selected. Select text first, then click Code to wrap it in backticks.',
+          codeBlock: 'Select lines or place the caret on an empty line, then click Code Block to wrap them in ``` fences.',
+          insertCard: 'Place the caret on an empty line, then click to insert an article card. If no articles appear, wait for the index to load or add entries in index.yaml.'
+        }
       },
       editorPlaceholder: '# Hello NanoSite\n\nStart typing Markdown…',
       editorTextareaAria: 'Markdown source',
@@ -611,6 +641,26 @@ const translations = {
         checkingConnection: '正在检查连接…',
         clean: '没有本地更改'
       },
+      currentFile: {
+        status: {
+          checking: '正在检查文件…',
+          existing: '已存在的文件',
+          missing: '新文件',
+          error: '无法加载文件'
+        },
+        meta: {
+          checking: '正在检查…',
+          checkingStarted: ({ time }) => `正在检查… 开始于${time}`,
+          lastChecked: ({ time }) => `上次检查：${time}`
+        },
+        draft: {
+          savedHtml: ({ time }) => `本地草稿已于${time}保存`,
+          saved: '本地草稿已保存',
+          savedConflictHtml: ({ time }) => `本地草稿已于${time}保存（远端已更新）`,
+          conflict: '本地草稿（远端已更新）',
+          available: '本地草稿可用'
+        }
+      },
       toolbar: {
         wrap: '换行：',
         wrapOn: '开',
@@ -674,7 +724,17 @@ const translations = {
         insertImage: '插入图片',
         cardDialogAria: '插入文章卡片',
         cardSearch: '搜索文章…',
-        cardEmpty: '没有匹配的文章'
+        cardEmpty: '没有匹配的文章',
+        hints: {
+          bold: '未选择文本。先选中文本，再点击“加粗”以用 ** ** 包裹。',
+          italic: '未选择文本。先选中文本，再点击“斜体”以用 * * 包裹。',
+          strike: '未选择文本。先选中文本，再点击“删除线”以用 ~~ ~~ 包裹。',
+          heading: '选中行或将光标放在空行上，然后点击“标题”在前面加上“# ”。',
+          quote: '选中行或将光标放在空行上，然后点击“引用”在前面加上“> ”。',
+          code: '未选择文本。先选中文本，再点击“行内代码”以用反引号包裹。',
+          codeBlock: '选中行或将光标放在空行上，然后点击“代码块”以用 ``` 包裹。',
+          insertCard: '将光标放在空行上，然后点击以插入文章卡片。若没有文章，请等待索引加载或在 index.yaml 中添加条目。'
+        }
       },
       editorPlaceholder: '# 你好，NanoSite\n\n开始撰写 Markdown…',
       editorTextareaAria: 'Markdown 源',
@@ -1097,6 +1157,26 @@ const translations = {
         checkingConnection: '接続を確認中…',
         clean: 'ローカルの変更はありません'
       },
+      currentFile: {
+        status: {
+          checking: 'ファイルを確認しています…',
+          existing: '既存のファイル',
+          missing: '新しいファイル',
+          error: 'ファイルを読み込めませんでした'
+        },
+        meta: {
+          checking: '確認中…',
+          checkingStarted: ({ time }) => `確認中…（開始: ${time}）`,
+          lastChecked: ({ time }) => `最終確認: ${time}`
+        },
+        draft: {
+          savedHtml: ({ time }) => `ローカル下書きを${time}に保存しました`,
+          saved: 'ローカル下書きを保存しました',
+          savedConflictHtml: ({ time }) => `ローカル下書きを${time}に保存しました（リモート更新あり）`,
+          conflict: 'ローカル下書き（リモート更新あり）',
+          available: 'ローカル下書きが利用可能です'
+        }
+      },
       toolbar: {
         wrap: '折り返し:',
         wrapOn: 'オン',
@@ -1160,7 +1240,17 @@ const translations = {
         insertImage: '画像を挿入',
         cardDialogAria: '記事カードを挿入',
         cardSearch: '記事を検索…',
-        cardEmpty: '該当する記事はありません'
+        cardEmpty: '該当する記事はありません',
+        hints: {
+          bold: 'テキストが選択されていません。先にテキストを選択してから「太字」をクリックし、** ** で囲んでください。',
+          italic: 'テキストが選択されていません。先にテキストを選択してから「斜体」をクリックし、* * で囲んでください。',
+          strike: 'テキストが選択されていません。先にテキストを選択してから「取り消し線」をクリックし、~~ ~~ で囲んでください。',
+          heading: '行を選択するか、キャレットを空行に置いてから「見出し」をクリックし、先頭に「# 」を追加します。',
+          quote: '行を選択するか、キャレットを空行に置いてから「引用」をクリックし、先頭に「> 」を追加します。',
+          code: 'テキストが選択されていません。先にテキストを選択してから「コード」をクリックし、バッククォートで囲んでください。',
+          codeBlock: '行を選択するか、キャレットを空行に置いてから「コードブロック」をクリックし、``` で囲みます。',
+          insertCard: 'キャレットを空行に置いてからクリックして記事カードを挿入します。記事が表示されない場合は、インデックスの読み込みを待つか index.yaml に項目を追加してください。'
+        }
       },
       editorPlaceholder: '# こんにちは、NanoSite\n\nMarkdown の入力を始めましょう…',
       editorTextareaAria: 'Markdown ソース',
