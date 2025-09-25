@@ -263,10 +263,12 @@ function cancelListTransition(list) {
   delete list.dataset.animating;
 }
 
-function animateComposerListTransition(list, previousRect) {
+function animateComposerListTransition(list, previousRect, options = {}) {
   if (!list || !previousRect || composerPrefersReducedMotion()) return;
+  const immediate = !!options.immediate;
+  const forceFallback = immediate || !!options.forceFallback;
   cancelListTransition(list);
-  requestAnimationFrame(() => {
+  const run = () => {
     if (!list.isConnected) return;
     const nextRect = captureElementRect(list);
     if (!nextRect) return;
@@ -285,7 +287,7 @@ function animateComposerListTransition(list, previousRect) {
       { transform: 'none', filter: 'none', opacity: 1 }
     ];
     list.dataset.animating = 'true';
-    if (typeof list.animate === 'function') {
+    if (!forceFallback && typeof list.animate === 'function') {
       let animation = null;
       try {
         animation = list.animate(keyframes, { duration: durationIn, easing, fill: 'both' });
@@ -325,7 +327,10 @@ function animateComposerListTransition(list, previousRect) {
       delete list.dataset.animating;
     }, durationIn + 40);
     composerListTransitions.set(list, { timer, restoreTransition: previousTransition });
-  });
+  };
+
+  if (immediate) run();
+  else requestAnimationFrame(run);
 }
 
 function getActiveComposerFile() {
@@ -5022,11 +5027,11 @@ function updateComposerOrderPreview(kind, options = {}) {
   const primaryList = normalized === 'tabs' ? document.getElementById('ctList') : document.getElementById('ciList');
   const primaryListRectBefore = captureElementRect(primaryList);
   let listAnimationScheduled = false;
-  const runListAnimation = () => {
+  const runListAnimation = (opts = {}) => {
     if (listAnimationScheduled) return;
     listAnimationScheduled = true;
     if (!primaryList || !primaryListRectBefore) return;
-    animateComposerListTransition(primaryList, primaryListRectBefore);
+    animateComposerListTransition(primaryList, primaryListRectBefore, opts);
   };
   const applyInlineActive = (value) => {
     if (!host) return;
@@ -5131,7 +5136,7 @@ function updateComposerOrderPreview(kind, options = {}) {
       if (collapseApplied) return;
       collapseApplied = true;
       applyInlineActive(false);
-      runListAnimation();
+      runListAnimation({ immediate: true });
     };
 
     if (root) {
@@ -5174,7 +5179,7 @@ function updateComposerOrderPreview(kind, options = {}) {
       if (collapseApplied) return;
       collapseApplied = true;
       applyInlineActive(false);
-      runListAnimation();
+      runListAnimation({ immediate: true });
     };
     if (root) {
       root.dataset.state = hasOrderChanges ? 'changed' : 'clean';
