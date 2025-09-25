@@ -2671,10 +2671,6 @@ function updateReviewButton(summaryEntries = []) {
   }
 }
 
-const reduceMotionQuery = (typeof window !== 'undefined' && typeof window.matchMedia === 'function')
-  ? window.matchMedia('(prefers-reduced-motion: reduce)')
-  : null;
-
 const LOCAL_DRAFT_SCROLL_STATE_KEY = 'ns_local_draft_carousel_state_v1';
 
 function readLocalDraftCarouselState() {
