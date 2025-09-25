@@ -205,6 +205,7 @@ const translations = {
         addTab: 'Add Tab Entry',
         refresh: 'Refresh',
         refreshTitle: 'Fetch latest remote snapshot',
+        refreshing: 'Refreshing…',
         discard: 'Discard',
         discardTitle: 'Discard local draft and reload remote file',
         changeSummary: 'Change summary',
@@ -218,7 +219,11 @@ const translations = {
         noLocalChangesYet: 'No local changes yet.',
         statusMessages: {
           loadingConfig: 'Loading config…',
-          restoredDraft: ({ label }) => `Restored local draft for ${label}`
+          restoredDraft: ({ label }) => `Restored local draft for ${label}`,
+          refreshSuccess: ({ name }) => `${name} refreshed from remote`,
+          remoteUpdated: 'Remote snapshot updated. Highlights now include remote differences.',
+          remoteUnchanged: 'Remote snapshot unchanged.',
+          refreshFailed: 'Failed to refresh remote snapshot'
         },
         entryRow: {
           gripHint: 'Drag to reorder',
@@ -686,6 +691,7 @@ const translations = {
         addTab: '添加标签条目',
         refresh: '刷新',
         refreshTitle: '获取最新远程快照',
+        refreshing: '正在刷新…',
         discard: '丢弃',
         discardTitle: '丢弃本地草稿并重新加载远程文件',
         changeSummary: '更改摘要',
@@ -699,7 +705,11 @@ const translations = {
         noLocalChangesYet: '暂时没有本地更改。',
         statusMessages: {
           loadingConfig: '正在加载配置…',
-          restoredDraft: ({ label }) => `已恢复 ${label} 的本地草稿`
+          restoredDraft: ({ label }) => `已恢复 ${label} 的本地草稿`,
+          refreshSuccess: ({ name }) => `${name} 已从远程刷新`,
+          remoteUpdated: '远程快照已更新。高亮部分现在包含远程差异。',
+          remoteUnchanged: '远程快照未发生变化。',
+          refreshFailed: '刷新远程快照失败'
         },
         entryRow: {
           gripHint: '拖动以重新排序',
@@ -1167,6 +1177,7 @@ const translations = {
         addTab: 'タブ項目を追加',
         refresh: '更新',
         refreshTitle: '最新のリモートスナップショットを取得',
+        refreshing: '更新中…',
         discard: '破棄',
         discardTitle: 'ローカルの下書きを破棄してリモートを再読み込み',
         changeSummary: '変更の概要',
@@ -1180,7 +1191,11 @@ const translations = {
         noLocalChangesYet: 'ローカルの変更はまだありません。',
         statusMessages: {
           loadingConfig: '設定を読み込み中…',
-          restoredDraft: ({ label }) => `${label} のローカル下書きを復元しました`
+          restoredDraft: ({ label }) => `${label} のローカル下書きを復元しました`,
+          refreshSuccess: ({ name }) => `${name} をリモートから更新しました`,
+          remoteUpdated: 'リモートスナップショットが更新されました。ハイライトにリモートの差分が含まれます。',
+          remoteUnchanged: 'リモートスナップショットは変更されていません。',
+          refreshFailed: 'リモートスナップショットの更新に失敗しました'
         },
         entryRow: {
           gripHint: 'ドラッグして並び替え',

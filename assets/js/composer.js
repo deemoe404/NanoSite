@@ -5958,14 +5958,14 @@ async function handleComposerRefresh(btn) {
     button.disabled = false;
     button.classList.remove('is-busy');
     button.removeAttribute('aria-busy');
-    button.textContent = 'Refresh';
+    button.textContent = t('editor.composer.refresh');
   };
   try {
     if (button) {
       button.disabled = true;
       button.classList.add('is-busy');
       button.setAttribute('aria-busy', 'true');
-      button.textContent = 'Refreshing…';
+      button.textContent = t('editor.composer.refreshing');
     }
     const contentRoot = getContentRootSafe();
     const remote = await fetchConfigWithYamlFallback([
@@ -5981,19 +5981,23 @@ async function handleComposerRefresh(btn) {
       setStateSlice(target, deepClone(prepared));
       if (target === 'tabs') rebuildTabsUI();
       else rebuildIndexUI();
-      showStatus(`${target === 'tabs' ? 'tabs' : 'index'}.yaml refreshed from remote`);
+      showStatus(
+        t('editor.composer.statusMessages.refreshSuccess', {
+          name: `${target === 'tabs' ? 'tabs' : 'index'}.yaml`
+        })
+      );
     } else {
       notifyComposerChange(target, { skipAutoSave: true });
       const baselineSignatureAfter = computeBaselineSignature(target);
       if (baselineSignatureAfter !== baselineSignatureBefore) {
-        showStatus('Remote snapshot updated. Highlights now include remote differences.');
+        showStatus(t('editor.composer.statusMessages.remoteUpdated'));
       } else {
-        showStatus('Remote snapshot unchanged.');
+        showStatus(t('editor.composer.statusMessages.remoteUnchanged'));
       }
     }
   } catch (err) {
     console.error('Refresh failed', err);
-    showStatus('Failed to refresh remote snapshot');
+    showStatus(t('editor.composer.statusMessages.refreshFailed'));
   } finally {
     resetButton();
     setTimeout(() => { showStatus(''); }, 2000);
