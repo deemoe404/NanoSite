@@ -10,6 +10,222 @@ import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } f
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 
+const previewAssetBuckets = new Map();
+let previewAssetCurrentPath = '';
+
+const getContentRootPrefix = () => {
+  try {
+    const raw = String(getContentRoot() || '').trim();
+    if (!raw) return '';
+    return raw
+      .replace(/[\\]/g, '/')
+      .replace(/\/+$/, '');
+  } catch (_) {
+    return '';
+  }
+};
+
+const safePreviewMime = (mime) => {
+  try {
+    const raw = String(mime || '').trim().toLowerCase();
+    if (!raw) return 'image/png';
+    return raw.startsWith('image/') ? raw : 'image/png';
+  } catch (_) {
+    return 'image/png';
+  }
+};
+
+const makePreviewDataUrl = (base64, mime) => {
+  try {
+    const data = String(base64 || '').trim();
+    if (!data) return '';
+    const type = safePreviewMime(mime);
+    return `data:${type};base64,${data}`;
+  } catch (_) {
+    return '';
+  }
+};
+
+const normalizePreviewKey = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^(data:|blob:)/i.test(raw)) return raw;
+  let input = raw;
+  try {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(input)) {
+      const url = new URL(input, window.location.href);
+      input = url.pathname || '';
+    }
+  } catch (_) {
+    /* ignore URL parse errors */
+  }
+  return input
+    .replace(/^[?#]+/, '')
+    .replace(/[\\]/g, '/')
+    .replace(/\/+/, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/^\/+/, '');
+};
+
+const normalizePreviewPath = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const cleaned = raw.replace(/[\\]/g, '/');
+  const parts = cleaned.split('/');
+  const stack = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (stack.length) stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+  let normalized = stack.join('/');
+  const prefix = getContentRootPrefix();
+  if (prefix) {
+    if (normalized === prefix) return '';
+    if (normalized.startsWith(`${prefix}/`)) {
+      normalized = normalized.slice(prefix.length + 1);
+    }
+  }
+  return normalized;
+};
+
+const buildPreviewKeysForAsset = (asset) => {
+  const keys = new Set();
+  const commit = normalizePreviewKey(asset && (asset.path || asset.commitPath));
+  const rel = normalizePreviewKey(asset && asset.relativePath);
+  const prefix = getContentRootPrefix();
+  const join = (base, suffix) => {
+    if (!base) return suffix;
+    return `${base}/${suffix}`.replace(/\/+/, '/');
+  };
+  if (commit) {
+    keys.add(commit);
+    if (prefix) keys.add(join(prefix, commit));
+  }
+  if (rel) {
+    keys.add(rel);
+    if (prefix) keys.add(join(prefix, rel));
+  }
+  return Array.from(keys).filter(Boolean);
+};
+
+const updatePreviewAssetBucket = (path, assets) => {
+  const norm = normalizePreviewPath(path);
+  if (!norm) {
+    if (path) previewAssetBuckets.delete(norm);
+    return;
+  }
+  let bucket = previewAssetBuckets.get(norm);
+  if (!bucket) {
+    bucket = new Map();
+    previewAssetBuckets.set(norm, bucket);
+  }
+  const list = Array.isArray(assets) ? assets : [];
+  if (!list.length) {
+    bucket.clear();
+    previewAssetBuckets.delete(norm);
+    return;
+  }
+  const keep = new Set();
+  list.forEach((asset) => {
+    if (!asset) return;
+    const base64 = typeof asset.base64 === 'string' ? asset.base64.trim() : '';
+    if (!base64) return;
+    const url = makePreviewDataUrl(base64, asset.mime);
+    if (!url) return;
+    const keys = buildPreviewKeysForAsset(asset);
+    if (!keys.length) return;
+    keys.forEach((key) => {
+      if (!key) return;
+      bucket.set(key, { url, mime: safePreviewMime(asset.mime) });
+      keep.add(key);
+    });
+  });
+  Array.from(bucket.keys()).forEach((key) => {
+    if (!keep.has(key)) bucket.delete(key);
+  });
+  if (!bucket.size) previewAssetBuckets.delete(norm);
+};
+
+const lookupPreviewAsset = (bucket, key) => {
+  if (!bucket || !key) return null;
+  const direct = bucket.get(key);
+  if (direct) return direct;
+  const prefix = getContentRootPrefix();
+  if (prefix && key.startsWith(`${prefix}/`)) {
+    const trimmed = key.slice(prefix.length + 1);
+    return bucket.get(trimmed) || null;
+  }
+  return null;
+};
+
+const applyPreviewAssetOverrides = (container, markdownPath) => {
+  const normPath = normalizePreviewPath(markdownPath || previewAssetCurrentPath);
+  if (!normPath) return;
+  const bucket = previewAssetBuckets.get(normPath);
+  if (!bucket || !bucket.size) return;
+  const root = typeof container === 'string' ? document.querySelector(container) : container;
+  if (!root) return;
+
+  const rewriteAttr = (node, attr) => {
+    if (!node) return;
+    const raw = node.getAttribute(attr);
+    if (!raw) return;
+    const key = normalizePreviewKey(raw);
+    if (!key) return;
+    const asset = lookupPreviewAsset(bucket, key);
+    if (!asset || !asset.url) return;
+    if (node.getAttribute(attr) === asset.url) return;
+    node.setAttribute(attr, asset.url);
+  };
+
+  const rewriteSrcset = (node, attr) => {
+    if (!node) return;
+    const raw = node.getAttribute(attr);
+    if (!raw) return;
+    const parts = raw.split(',');
+    let changed = false;
+    const next = parts.map((part) => {
+      const seg = part.trim();
+      if (!seg) return '';
+      const bits = seg.split(/\s+/);
+      const url = bits.shift();
+      const asset = lookupPreviewAsset(bucket, normalizePreviewKey(url));
+      if (asset && asset.url) {
+        changed = true;
+        return [asset.url, ...bits].join(' ');
+      }
+      return seg;
+    });
+    if (changed) node.setAttribute(attr, next.filter(Boolean).join(', '));
+  };
+
+  root.querySelectorAll('img').forEach((img) => {
+    rewriteAttr(img, 'src');
+    rewriteAttr(img, 'data-src');
+    rewriteAttr(img, 'data-original');
+    rewriteSrcset(img, 'srcset');
+  });
+  root.querySelectorAll('source').forEach((source) => {
+    rewriteAttr(source, 'src');
+    rewriteSrcset(source, 'srcset');
+  });
+  root.querySelectorAll('video').forEach((video) => {
+    rewriteAttr(video, 'poster');
+    rewriteAttr(video, 'src');
+    rewriteSrcset(video, 'srcset');
+  });
+};
+
+const refreshPreviewAssetOverrides = () => {
+  const target = document.getElementById('mainview');
+  if (!target) return;
+  applyPreviewAssetOverrides(target, previewAssetCurrentPath);
+};
+
 const fetchMarkdownForLinkCard = (loc) => {
   try {
     const url = `${getContentRoot()}/${loc}`;
@@ -280,6 +496,7 @@ function renderPreview(mdText) {
     }); } catch (_) {}
     try { hydratePostVideos(target); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
+    try { applyPreviewAssetOverrides(target, previewAssetCurrentPath); } catch (_) {}
   } catch (_) {}
 }
 
@@ -389,6 +606,23 @@ document.addEventListener('DOMContentLoaded', () => {
       try { fn(value); } catch (_) {}
     });
   };
+
+  const handleAssetPreviewEvent = (event) => {
+    if (!event || !event.detail) return;
+    const detail = event.detail;
+    const markdownPath = normalizePreviewPath(detail.markdownPath || detail.path || '');
+    updatePreviewAssetBucket(markdownPath, detail.assets || []);
+    if (!markdownPath) {
+      refreshPreviewAssetOverrides();
+      return;
+    }
+    if (markdownPath === normalizePreviewPath(previewAssetCurrentPath)) {
+      refreshPreviewAssetOverrides();
+    }
+  };
+
+  try { window.addEventListener('ns-editor-asset-preview', handleAssetPreviewEvent); }
+  catch (_) {}
 
   const requestLayout = () => {
     try {
@@ -889,7 +1123,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const assignCurrentFileLabel = (input) => {
     currentFileInfo = normalizeCurrentFilePayload(input);
+    previewAssetCurrentPath = normalizePreviewPath(currentFileInfo.path || '');
     renderCurrentFileIndicator();
+    refreshPreviewAssetOverrides();
   };
 
   renderCurrentFileIndicator();
