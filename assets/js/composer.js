@@ -4735,7 +4735,6 @@ function ensureComposerDiffModal() {
     }
     const safeKind = kind === 'tabs' ? 'tabs' : 'index';
     activeKind = safeKind;
-    syncBtn.dataset.kind = safeKind;
     const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
     title.textContent = `Changes — ${label}`;
     activeDiff = composerDiffCache[safeKind] || recomputeDiff(safeKind);
