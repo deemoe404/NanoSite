@@ -220,6 +220,47 @@ const translations = {
           loadingConfig: 'Loading config…',
           restoredDraft: ({ label }) => `Restored local draft for ${label}`
         },
+        entryRow: {
+          gripHint: 'Drag to reorder',
+          details: 'Details',
+          delete: 'Delete'
+        },
+        languages: {
+          count: ({ count }) => `${count} ${count === 1 ? 'language' : 'languages'}`,
+          addVersion: '+ Version',
+          removeLanguage: 'Remove language',
+          addLanguage: '+ Add language',
+          removedVersions: ({ versions }) => `Removed: ${versions}`,
+          placeholders: {
+            indexPath: 'post/.../file.md',
+            tabPath: 'tab/.../file.md'
+          },
+          fields: {
+            title: 'Title',
+            location: 'Location'
+          },
+          actions: {
+            edit: 'Edit',
+            open: 'Open in editor',
+            moveUp: 'Move up',
+            moveDown: 'Move down',
+            remove: 'Remove'
+          }
+        },
+        entryKinds: {
+          post: {
+            label: 'post',
+            confirm: 'Add Post Entry',
+            placeholder: 'Post key',
+            message: 'Enter a new post key (letters and numbers only):'
+          },
+          tab: {
+            label: 'tab',
+            confirm: 'Add Tab Entry',
+            placeholder: 'Tab key',
+            message: 'Enter a new tab key (letters and numbers only):'
+          }
+        },
         diff: {
           heading: 'Changes',
           title: ({ label }) => `Changes — ${label}`,
@@ -418,6 +459,7 @@ const translations = {
         },
         currentFile: 'current file',
         fileFallback: 'markdown file',
+        openBeforeEditor: 'Enter a markdown location before opening the editor.',
         toastCopiedCreate: 'Markdown copied. GitHub will open to create this file.',
         toastCopiedUpdate: 'Markdown copied. GitHub will open to update this file.',
         blockedCreate: 'Markdown copied. Click “Open GitHub” if the new tab did not appear so you can create this file.',
@@ -654,6 +696,47 @@ const translations = {
           loadingConfig: '正在加载配置…',
           restoredDraft: ({ label }) => `已恢复 ${label} 的本地草稿`
         },
+        entryRow: {
+          gripHint: '拖动以重新排序',
+          details: '详情',
+          delete: '删除'
+        },
+        languages: {
+          count: ({ count }) => `${count} 种语言`,
+          addVersion: '+ 版本',
+          removeLanguage: '删除语言',
+          addLanguage: '+ 添加语言',
+          removedVersions: ({ versions }) => `已移除：${versions}`,
+          placeholders: {
+            indexPath: 'post/.../file.md',
+            tabPath: 'tab/.../file.md'
+          },
+          fields: {
+            title: '标题',
+            location: '路径'
+          },
+          actions: {
+            edit: '编辑',
+            open: '在编辑器中打开',
+            moveUp: '上移',
+            moveDown: '下移',
+            remove: '移除'
+          }
+        },
+        entryKinds: {
+          post: {
+            label: '文章',
+            confirm: '添加文章条目',
+            placeholder: '文章键',
+            message: '请输入新的文章键（仅限字母和数字）：'
+          },
+          tab: {
+            label: '标签页',
+            confirm: '添加标签页条目',
+            placeholder: '标签页键',
+            message: '请输入新的标签页键（仅限字母和数字）：'
+          }
+        },
         diff: {
           heading: '更改',
           title: ({ label }) => `更改 — ${label}`,
@@ -852,6 +935,7 @@ const translations = {
         },
         currentFile: '当前文件',
         fileFallback: 'Markdown 文件',
+        openBeforeEditor: '请输入 Markdown 路径后再打开编辑器。',
         toastCopiedCreate: '已复制 Markdown。GitHub 将打开以创建该文件。',
         toastCopiedUpdate: '已复制 Markdown。GitHub 将打开以更新该文件。',
         blockedCreate: '已复制 Markdown。如未打开新标签页，请点击“打开 GitHub”以创建该文件。',
@@ -1088,6 +1172,47 @@ const translations = {
           loadingConfig: '設定を読み込み中…',
           restoredDraft: ({ label }) => `${label} のローカル下書きを復元しました`
         },
+        entryRow: {
+          gripHint: 'ドラッグして並び替え',
+          details: '詳細',
+          delete: '削除'
+        },
+        languages: {
+          count: ({ count }) => `${count} 言語`,
+          addVersion: '+ バージョン',
+          removeLanguage: '言語を削除',
+          addLanguage: '+ 言語を追加',
+          removedVersions: ({ versions }) => `削除済み: ${versions}`,
+          placeholders: {
+            indexPath: 'post/.../file.md',
+            tabPath: 'tab/.../file.md'
+          },
+          fields: {
+            title: 'タイトル',
+            location: '場所'
+          },
+          actions: {
+            edit: '編集',
+            open: 'エディターで開く',
+            moveUp: '上へ移動',
+            moveDown: '下へ移動',
+            remove: '削除'
+          }
+        },
+        entryKinds: {
+          post: {
+            label: '投稿',
+            confirm: '投稿エントリを追加',
+            placeholder: '投稿キー',
+            message: '新しい投稿キーを入力してください（英数字のみ）：'
+          },
+          tab: {
+            label: 'タブ',
+            confirm: 'タブエントリを追加',
+            placeholder: 'タブキー',
+            message: '新しいタブキーを入力してください（英数字のみ）：'
+          }
+        },
         diff: {
           heading: '変更',
           title: ({ label }) => `変更 — ${label}`,
@@ -1286,6 +1411,7 @@ const translations = {
         },
         currentFile: '現在のファイル',
         fileFallback: 'Markdown ファイル',
+        openBeforeEditor: 'エディターを開く前に Markdown の場所を入力してください。',
         toastCopiedCreate: 'Markdown をコピーしました。GitHub が開いてこのファイルを作成します。',
         toastCopiedUpdate: 'Markdown をコピーしました。GitHub が開いてこのファイルを更新します。',
         blockedCreate: 'Markdown をコピーしました。新しいタブが表示されない場合は「GitHub を開く」をクリックして作成してください。',

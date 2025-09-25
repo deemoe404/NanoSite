@@ -16,6 +16,8 @@ const getUploadLabel = () => t(STATUS_UPLOAD_KEY);
 const getSyncedLabel = () => t(STATUS_SYNCED_KEY);
 const tComposer = (suffix, params) => t(`editor.composer.${suffix}`, params);
 const tComposerDiff = (suffix, params) => t(`editor.composer.diff.${suffix}`, params);
+const tComposerLang = (suffix, params) => t(`editor.composer.languages.${suffix}`, params);
+const tComposerEntryRow = (suffix, params) => t(`editor.composer.entryRow.${suffix}`, params);
 const getMarkdownPushLabel = (kind) => {
   const key = MARKDOWN_PUSH_LABEL_KEYS[kind] || MARKDOWN_PUSH_LABEL_KEYS.default;
   return t(key);
@@ -2511,7 +2513,7 @@ function applyIndexDiffMarkers(diff) {
           : [];
         if (removed.length) {
           removedBox.hidden = false;
-          removedBox.textContent = `Removed: ${removed.join(', ')}`;
+          removedBox.textContent = tComposerLang('removedVersions', { versions: removed.join(', ') });
         } else {
           removedBox.hidden = true;
           removedBox.textContent = '';
@@ -8346,15 +8348,20 @@ function buildIndexUI(root, state) {
     row.className = 'ci-item';
     row.setAttribute('data-key', key);
     row.setAttribute('draggable', 'true');
+    const langCount = Object.keys(entry).length;
+    const langCountText = tComposerLang('count', { count: langCount });
+    const detailsLabel = tComposerEntryRow('details');
+    const deleteLabel = tComposerEntryRow('delete');
+    const gripHint = tComposerEntryRow('gripHint');
     row.innerHTML = `
       <div class="ci-head">
-        <span class="ci-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
-        <strong class="ci-key">${key}</strong>
-        <span class="ci-meta">${Object.keys(entry).length} lang</span>
+        <span class="ci-grip" title="${escapeHtml(gripHint)}" aria-hidden="true">⋮⋮</span>
+        <strong class="ci-key">${escapeHtml(key)}</strong>
+        <span class="ci-meta">${escapeHtml(langCountText)}</span>
         <span class="ci-diff" aria-live="polite"></span>
         <span class="ci-actions">
-          <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
-          <button class="btn-secondary ci-del">Delete</button>
+          <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>${escapeHtml(detailsLabel)}</button>
+          <button class="btn-secondary ci-del">${escapeHtml(deleteLabel)}</button>
         </span>
       </div>
       <div class="ci-body"><div class="ci-body-inner"></div></div>
@@ -8365,6 +8372,11 @@ function buildIndexUI(root, state) {
     const bodyInner = $('.ci-body-inner', row);
     const btnExpand = $('.ci-expand', row);
     const btnDel = $('.ci-del', row);
+    if (btnExpand) btnExpand.setAttribute('title', detailsLabel);
+    if (btnDel) {
+      btnDel.setAttribute('title', deleteLabel);
+      btnDel.setAttribute('aria-label', deleteLabel);
+    }
 
     body.dataset.open = '0';
     body.style.display = 'none';
@@ -8372,6 +8384,14 @@ function buildIndexUI(root, state) {
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
+      const addVersionLabel = tComposerLang('addVersion');
+      const removeLangLabel = tComposerLang('removeLanguage');
+      const pathPlaceholder = tComposerLang('placeholders.indexPath');
+      const editLabel = tComposerLang('actions.edit');
+      const openLabel = tComposerLang('actions.open');
+      const moveUpLabel = tComposerLang('actions.moveUp');
+      const moveDownLabel = tComposerLang('actions.moveDown');
+      const removeLabel = tComposerLang('actions.remove');
       langs.forEach(lang => {
         const block = document.createElement('div');
         block.className = 'ci-lang';
@@ -8381,10 +8401,10 @@ function buildIndexUI(root, state) {
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
         block.innerHTML = `
           <div class="ci-lang-head">
-            <strong>${lang.toUpperCase()}</strong>
+            <strong>${escapeHtml(lang.toUpperCase())}</strong>
             <span class="ci-lang-actions">
-              <button class="btn-secondary ci-lang-addver">+ Version</button>
-              <button class="btn-secondary ci-lang-del">Remove Lang</button>
+              <button type="button" class="btn-secondary ci-lang-addver">${escapeHtml(addVersionLabel)}</button>
+              <button type="button" class="btn-secondary ci-lang-del">${escapeHtml(removeLangLabel)}</button>
             </span>
           </div>
           <div class="ci-ver-list"></div>
@@ -8438,49 +8458,49 @@ function buildIndexUI(root, state) {
           verList.innerHTML = '';
           arr.forEach((p, i) => {
             const id = verIds[i] || (verIds[i] = Math.random().toString(36).slice(2));
-          const row = document.createElement('div');
-          row.className = 'ci-ver-item';
-          row.setAttribute('data-id', id);
-          row.dataset.lang = lang;
-          row.dataset.index = String(i);
-          row.dataset.value = p || '';
-          const normalizedPath = normalizeRelPath(p);
-          if (normalizedPath) row.dataset.mdPath = normalizedPath;
-          else delete row.dataset.mdPath;
-          row.innerHTML = `
-            <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
-            <input class="ci-path" type="text" placeholder="post/.../file.md" value="${p || ''}" />
-            <span class="ci-ver-actions">
-              <button type="button" class="btn-secondary ci-edit" title="Open in editor">Edit</button>
-              <button class="btn-secondary ci-up" title="Move up">↑</button>
-                <button class="btn-secondary ci-down" title="Move down">↓</button>
-                <button class="btn-secondary ci-remove" title="Remove">✕</button>
+            const row = document.createElement('div');
+            row.className = 'ci-ver-item';
+            row.setAttribute('data-id', id);
+            row.dataset.lang = lang;
+            row.dataset.index = String(i);
+            row.dataset.value = p || '';
+            const normalizedPath = normalizeRelPath(p);
+            if (normalizedPath) row.dataset.mdPath = normalizedPath;
+            else delete row.dataset.mdPath;
+            row.innerHTML = `
+              <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
+              <input class="ci-path" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(p || '')}" />
+              <span class="ci-ver-actions">
+                <button type="button" class="btn-secondary ci-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
+                <button type="button" class="btn-secondary ci-up" title="${escapeHtml(moveUpLabel)}" aria-label="${escapeHtml(moveUpLabel)}"><span aria-hidden="true">↑</span></button>
+                <button type="button" class="btn-secondary ci-down" title="${escapeHtml(moveDownLabel)}" aria-label="${escapeHtml(moveDownLabel)}"><span aria-hidden="true">↓</span></button>
+                <button type="button" class="btn-secondary ci-remove" title="${escapeHtml(removeLabel)}" aria-label="${escapeHtml(removeLabel)}"><span aria-hidden="true">✕</span></button>
               </span>
             `;
-          const up = $('.ci-up', row);
-          const down = $('.ci-down', row);
-          // Disable ↑ for first, ↓ for last
-          if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
-          if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
-          updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
+            const up = $('.ci-up', row);
+            const down = $('.ci-down', row);
+            // Disable ↑ for first, ↓ for last
+            if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
+            if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
+            updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
 
-          $('.ci-path', row).addEventListener('input', (e) => {
-            const prevPath = row.dataset.mdPath || '';
-            arr[i] = e.target.value;
-            entry[lang] = arr.slice();
-            row.dataset.value = arr[i] || '';
-            const nextPath = normalizeRelPath(arr[i]);
-            if (nextPath) row.dataset.mdPath = nextPath;
-            else delete row.dataset.mdPath;
-            updateComposerMarkdownDraftIndicators({ element: row });
-            if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
-            if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
-            markDirty();
-          });
+            $('.ci-path', row).addEventListener('input', (e) => {
+              const prevPath = row.dataset.mdPath || '';
+              arr[i] = e.target.value;
+              entry[lang] = arr.slice();
+              row.dataset.value = arr[i] || '';
+              const nextPath = normalizeRelPath(arr[i]);
+              if (nextPath) row.dataset.mdPath = nextPath;
+              else delete row.dataset.mdPath;
+              updateComposerMarkdownDraftIndicators({ element: row });
+              if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
+              if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
+              markDirty();
+            });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
               if (!rel) {
-                alert('Enter a markdown path before opening the editor.');
+                alert(tComposer('markdown.openBeforeEditor'));
                 return;
               }
               openMarkdownInEditor(rel);
@@ -8508,15 +8528,15 @@ function buildIndexUI(root, state) {
               arr.splice(i, 1);
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
-        renderVers(prev);
-        markDirty();
-      });
-      verList.appendChild(row);
-    });
-    animateFrom(prevRects);
-    updateComposerDraftContainerState(verList.closest('.ci-item'));
-  };
-  renderVers();
+              renderVers(prev);
+              markDirty();
+            });
+            verList.appendChild(row);
+          });
+          animateFrom(prevRects);
+          updateComposerMarkdownDraftContainerState(verList.closest('.ci-item'));
+        };
+        renderVers();
         $('.ci-lang-addver', block).addEventListener('click', () => {
           const prev = snapRects();
           arr.push('');
@@ -8527,7 +8547,8 @@ function buildIndexUI(root, state) {
         });
         $('.ci-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
-          row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
+          const meta = row.querySelector('.ci-meta');
+          if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
           markDirty();
         });
@@ -8538,16 +8559,21 @@ function buildIndexUI(root, state) {
       const supportedLangs = PREFERRED_LANG_ORDER.slice();
       const available = supportedLangs.filter(l => !entry[l]);
       if (available.length > 0) {
+        const addLangLabel = tComposerLang('addLanguage');
         const addLangWrap = document.createElement('div');
         addLangWrap.className = 'ci-add-lang has-menu';
         addLangWrap.innerHTML = `
-          <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">+ Add Language</button>
+          <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ci-lang-menu ns-menu" role="listbox" hidden>
             ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${displayLangName(l)}</button>`).join('')}
           </div>
         `;
         const btn = $('.ci-add-lang-btn', addLangWrap);
         const menu = $('.ci-lang-menu', addLangWrap);
+        if (btn) {
+          btn.setAttribute('title', addLangLabel);
+          btn.setAttribute('aria-label', addLangLabel);
+        }
         function closeMenu(){
           if (menu.hidden) return;
           // animate out, then hide
@@ -8587,7 +8613,8 @@ function buildIndexUI(root, state) {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
             entry[code] = [''];
-            row.querySelector('.ci-meta').textContent = `${Object.keys(entry).length} lang`;
+            const meta = row.querySelector('.ci-meta');
+            if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
             markDirty();
@@ -8641,15 +8668,20 @@ function buildTabsUI(root, state) {
     row.className = 'ct-item';
     row.setAttribute('data-key', tab);
     row.setAttribute('draggable', 'true');
+    const langCount = Object.keys(entry).length;
+    const langCountText = tComposerLang('count', { count: langCount });
+    const detailsLabel = tComposerEntryRow('details');
+    const deleteLabel = tComposerEntryRow('delete');
+    const gripHint = tComposerEntryRow('gripHint');
     row.innerHTML = `
       <div class="ct-head">
-        <span class="ct-grip" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
-        <strong class="ct-key">${tab}</strong>
-        <span class="ct-meta">${Object.keys(entry).length} lang</span>
+        <span class="ct-grip" title="${escapeHtml(gripHint)}" aria-hidden="true">⋮⋮</span>
+        <strong class="ct-key">${escapeHtml(tab)}</strong>
+        <span class="ct-meta">${escapeHtml(langCountText)}</span>
         <span class="ct-diff" aria-live="polite"></span>
         <span class="ct-actions">
-          <button class="btn-secondary ct-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>Details</button>
-          <button class="btn-secondary ct-del">Delete</button>
+          <button class="btn-secondary ct-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>${escapeHtml(detailsLabel)}</button>
+          <button class="btn-secondary ct-del">${escapeHtml(deleteLabel)}</button>
         </span>
       </div>
       <div class="ct-body"><div class="ct-body-inner"></div></div>
@@ -8660,6 +8692,11 @@ function buildTabsUI(root, state) {
     const bodyInner = $('.ct-body-inner', row);
     const btnExpand = $('.ct-expand', row);
     const btnDel = $('.ct-del', row);
+    if (btnExpand) btnExpand.setAttribute('title', detailsLabel);
+    if (btnDel) {
+      btnDel.setAttribute('title', deleteLabel);
+      btnDel.setAttribute('aria-label', deleteLabel);
+    }
 
     body.dataset.open = '0';
     body.style.display = 'none';
@@ -8667,12 +8704,19 @@ function buildTabsUI(root, state) {
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
+      const titleLabel = tComposerLang('fields.title');
+      const locationLabel = tComposerLang('fields.location');
+      const pathPlaceholder = tComposerLang('placeholders.tabPath');
+      const editLabel = tComposerLang('actions.edit');
+      const openLabel = tComposerLang('actions.open');
+      const removeLangLabel = tComposerLang('removeLanguage');
+      const addLangLabel = tComposerLang('addLanguage');
       langs.forEach(lang => {
         const v = entry[lang] || { title: '', location: '' };
         const flag = langFlag(lang);
         const langLabel = displayLangName(lang);
-        const safeLabel = String(langLabel || '').replace(/"/g, '&quot;');
-        const flagSpan = flag ? `<span class="ct-lang-flag" aria-hidden="true">${flag}</span>` : '';
+        const safeLabel = escapeHtml(langLabel || '');
+        const flagSpan = flag ? `<span class="ct-lang-flag" aria-hidden="true">${escapeHtml(flag)}</span>` : '';
         const block = document.createElement('div');
         block.className = 'ct-lang';
         block.dataset.lang = lang;
@@ -8683,14 +8727,14 @@ function buildTabsUI(root, state) {
           <div class="ct-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
             <span class="ct-draft-indicator" aria-hidden="true" hidden></span>
             ${flagSpan}
-            <span class="ct-lang-code" aria-hidden="true">${lang.toUpperCase()}</span>
+            <span class="ct-lang-code" aria-hidden="true">${escapeHtml(lang.toUpperCase())}</span>
           </div>
           <div class="ct-lang-main">
-            <label class="ct-field ct-field-title">Title <input class="ct-title" type="text" value="${v.title || ''}" /></label>
-            <label class="ct-field ct-field-location">Location <input class="ct-loc" type="text" placeholder="tab/.../file.md" value="${v.location || ''}" /></label>
+            <label class="ct-field ct-field-title"><span class="ct-field-label">${escapeHtml(titleLabel)}</span> <input class="ct-title" type="text" value="${escapeHtml(v.title || '')}" /></label>
+            <label class="ct-field ct-field-location"><span class="ct-field-label">${escapeHtml(locationLabel)}</span> <input class="ct-loc" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(v.location || '')}" /></label>
             <div class="ct-lang-actions">
-              <button type="button" class="btn-secondary ct-edit">Edit</button>
-              <button type="button" class="btn-secondary ct-lang-del">Remove Lang</button>
+              <button type="button" class="btn-secondary ct-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
+              <button type="button" class="btn-secondary ct-lang-del">${escapeHtml(removeLangLabel)}</button>
             </div>
           </div>
         `;
@@ -8703,6 +8747,11 @@ function buildTabsUI(root, state) {
         if (locInput) {
           locInput.dataset.lang = lang;
           locInput.dataset.field = 'location';
+        }
+        const langRemoveBtn = $('.ct-lang-del', block);
+        if (langRemoveBtn) {
+          langRemoveBtn.setAttribute('title', removeLangLabel);
+          langRemoveBtn.setAttribute('aria-label', removeLangLabel);
         }
         updateComposerMarkdownDraftIndicators({ element: block, path: initialPath });
         titleInput.addEventListener('input', (e) => {
@@ -8725,14 +8774,15 @@ function buildTabsUI(root, state) {
         $('.ct-edit', block).addEventListener('click', () => {
           const rel = normalizeRelPath(locInput.value);
           if (!rel) {
-            alert('Enter a markdown location before opening the editor.');
+            alert(tComposer('markdown.openBeforeEditor'));
             return;
           }
           openMarkdownInEditor(rel);
         });
         $('.ct-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
-          row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
+          const meta = row.querySelector('.ct-meta');
+          if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
           markDirty();
         });
@@ -8746,13 +8796,17 @@ function buildTabsUI(root, state) {
         const addLangWrap = document.createElement('div');
         addLangWrap.className = 'ct-add-lang has-menu';
         addLangWrap.innerHTML = `
-          <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">+ Add Language</button>
+          <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ct-lang-menu ns-menu" role="listbox" hidden>
             ${available.map(l => `<button type=\"button\" role=\"option\" class=\"ns-menu-item\" data-lang=\"${l}\">${displayLangName(l)}</button>`).join('')}
           </div>
         `;
         const btn = $('.ct-add-lang-btn', addLangWrap);
         const menu = $('.ct-lang-menu', addLangWrap);
+        if (btn) {
+          btn.setAttribute('title', addLangLabel);
+          btn.setAttribute('aria-label', addLangLabel);
+        }
         function closeMenu(){
           if (menu.hidden) return;
           const finish = () => {
@@ -8790,7 +8844,8 @@ function buildTabsUI(root, state) {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
             entry[code] = { title: '', location: '' };
-            row.querySelector('.ct-meta').textContent = `${Object.keys(entry).length} lang`;
+            const meta = row.querySelector('.ct-meta');
+            if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
             markDirty();
@@ -8866,11 +8921,11 @@ async function promptComposerEntryKey(kind, anchor) {
     });
   } catch (_) {}
 
-  const typeLabel = normalized === 'tabs' ? 'tab' : 'post';
-  const typeTitle = typeLabel === 'tab' ? 'Tab' : 'Post';
-  const confirmLabel = `Add ${typeTitle} Entry`;
-  const placeholder = `${typeTitle} key`;
-  const message = `Enter a new ${typeLabel} key (letters and numbers only):`;
+  const typeKey = normalized === 'tabs' ? 'tab' : 'post';
+  const typeLabel = t(`editor.composer.entryKinds.${typeKey}.label`);
+  const confirmLabel = t(`editor.composer.entryKinds.${typeKey}.confirm`);
+  const placeholder = t(`editor.composer.entryKinds.${typeKey}.placeholder`);
+  const message = t(`editor.composer.entryKinds.${typeKey}.message`);
 
   try {
     const result = await showComposerAddEntryPrompt(anchor, {
