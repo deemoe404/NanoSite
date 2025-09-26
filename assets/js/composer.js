@@ -10868,13 +10868,71 @@ function buildSiteUI(root, state) {
       { value: 'dark', label: 'dark' }
     ]
   });
-  createTextField(themeSection, {
+  const sanitizeThemePackValue = (value) => {
+    return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  };
+  const normalizeThemePackList = (list) => {
+    const normalized = [];
+    const seen = new Set();
+    (Array.isArray(list) ? list : []).forEach((item) => {
+      if (!item) return;
+      const packValue = sanitizeThemePackValue(item.value);
+      if (!packValue || seen.has(packValue)) return;
+      seen.add(packValue);
+      normalized.push({
+        value: packValue,
+        label: safeString(item.label || item.value || packValue) || packValue
+      });
+    });
+    return normalized;
+  };
+  const applyThemePackOptions = (options) => {
+    const normalized = normalizeThemePackList(options);
+    const selectOptions = normalized.length ? normalized : normalizeThemePackList([
+      { value: 'native', label: 'Native' },
+      { value: 'github', label: 'GitHub' },
+      { value: 'apple', label: 'Apple' },
+      { value: 'openai', label: 'OpenAI' }
+    ]);
+    const current = sanitizeThemePackValue(site.themePack);
+    const seen = new Set();
+    const appendOption = (value, label) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = safeString(label || value) || value;
+      themePackSelect.appendChild(option);
+      seen.add(value);
+    };
+    themePackSelect.innerHTML = '';
+    appendOption('', t('editor.composer.site.optionInherit'));
+    selectOptions.forEach(({ value, label }) => appendOption(value, label));
+    if (current && !seen.has(current)) appendOption(current, current);
+    themePackSelect.value = current || '';
+  };
+  const themePackSelect = createSelectField(themeSection, {
     dataKey: 'themePack',
     label: t('editor.composer.site.fields.themePack'),
     description: t('editor.composer.site.fields.themePackHelp'),
-    get: () => site.themePack,
-    set: (value) => { site.themePack = value; }
+    get: () => sanitizeThemePackValue(site.themePack),
+    set: (value) => { site.themePack = value == null ? '' : sanitizeThemePackValue(value); },
+    options: []
   });
+  const fallbackThemePacks = [
+    { value: 'native', label: 'Native' },
+    { value: 'github', label: 'GitHub' },
+    { value: 'apple', label: 'Apple' },
+    { value: 'openai', label: 'OpenAI' }
+  ];
+  applyThemePackOptions(fallbackThemePacks);
+  fetch('assets/themes/packs.json')
+    .then((response) => (response && response.ok ? response.json() : Promise.reject()))
+    .then((list) => {
+      if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
+      applyThemePackOptions(list);
+    })
+    .catch(() => {
+      applyThemePackOptions(fallbackThemePacks);
+    });
   createTriStateCheckbox(themeSection, {
     dataKey: 'themeOverride',
     label: t('editor.composer.site.fields.themeOverride'),
