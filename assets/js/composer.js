@@ -7,6 +7,14 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
+const LANGUAGE_POOL_CHANGED_EVENT = 'ns-composer-language-pool-changed';
+
+function broadcastLanguagePoolChange() {
+  if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') return;
+  try {
+    document.dispatchEvent(new CustomEvent(LANGUAGE_POOL_CHANGED_EVENT));
+  } catch (_) {}
+}
 
 function normalizeLangCode(code) {
   if (!code) return '';
@@ -9167,6 +9175,7 @@ function buildIndexUI(root, state) {
           const meta = row.querySelector('.ci-meta');
           if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
+          broadcastLanguagePoolChange();
           markDirty();
         });
         bodyInner.appendChild(block);
@@ -9234,6 +9243,7 @@ function buildIndexUI(root, state) {
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
+            broadcastLanguagePoolChange();
             markDirty();
           });
         });
@@ -9401,6 +9411,7 @@ function buildTabsUI(root, state) {
           const meta = row.querySelector('.ct-meta');
           if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
+          broadcastLanguagePoolChange();
           markDirty();
         });
         bodyInner.appendChild(block);
@@ -9465,6 +9476,7 @@ function buildTabsUI(root, state) {
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
+            broadcastLanguagePoolChange();
             markDirty();
           });
         });
@@ -10365,11 +10377,152 @@ function buildSiteUI(root, state) {
     const controls = document.createElement('div');
     controls.className = 'cs-field-controls';
     field.appendChild(controls);
+    const addWrap = document.createElement('div');
+    addWrap.className = 'cs-add-lang has-menu';
+    controls.appendChild(addWrap);
+
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'btn-secondary cs-add-lang';
     addBtn.textContent = t('editor.composer.site.addLanguage');
-    controls.appendChild(addBtn);
+    addBtn.setAttribute('aria-haspopup', 'listbox');
+    addBtn.setAttribute('aria-expanded', 'false');
+    addWrap.appendChild(addBtn);
+
+    const menu = document.createElement('div');
+    menu.className = 'ns-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    addWrap.appendChild(menu);
+
+    const refreshMenu = () => {
+      const localized = ensureLocalized(key, options.ensureDefault !== false);
+      const used = new Set(Object.keys(localized || {}));
+      used.add('default');
+
+      const supportedSet = new Set();
+      const addSupported = (code) => {
+        const normalized = normalizeLangCode(code);
+        if (!normalized) return;
+        supportedSet.add(normalized);
+      };
+
+      try {
+        const availableLangs = getAvailableLangs();
+        if (Array.isArray(availableLangs)) availableLangs.forEach(addSupported);
+      } catch (_) {}
+
+      if (!supportedSet.size && Array.isArray(PREFERRED_LANG_ORDER)) {
+        PREFERRED_LANG_ORDER.forEach(addSupported);
+      }
+
+      try {
+        collectLanguageCodes().forEach(addSupported);
+      } catch (_) {}
+
+      const supported = Array.from(supportedSet);
+      supported.sort((a, b) => {
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) {
+          const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+          const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+          return pa - pb;
+        }
+        return a.localeCompare(b);
+      });
+
+      const available = supported.filter((code) => !used.has(code));
+
+      menu.innerHTML = available
+        .map((code) => `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`)
+        .join('');
+
+      if (!available.length) {
+        addBtn.setAttribute('disabled', '');
+        addWrap.classList.add('is-disabled');
+        addWrap.hidden = true;
+        addWrap.setAttribute('aria-hidden', 'true');
+        addWrap.style.display = 'none';
+        if (!menu.hidden) closeMenu();
+        return;
+      }
+
+      addBtn.removeAttribute('disabled');
+      addWrap.classList.remove('is-disabled');
+      addWrap.hidden = false;
+      addWrap.removeAttribute('aria-hidden');
+      addWrap.style.removeProperty('display');
+    };
+
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener(LANGUAGE_POOL_CHANGED_EVENT, refreshMenu);
+    }
+
+    const closeMenu = () => {
+      if (menu.hidden) return;
+      const finish = () => {
+        menu.hidden = true;
+        addBtn.classList.remove('is-open');
+        addWrap.classList.remove('is-open');
+        addBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', onDocDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        menu.classList.remove('is-closing');
+      };
+      try {
+        menu.classList.add('is-closing');
+        const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+        menu.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(finish, 180);
+      } catch (_) {
+        finish();
+      }
+    };
+
+    const openMenu = () => {
+      refreshMenu();
+      if (!menu.innerHTML.trim() || addWrap.hidden) return;
+      if (!menu.hidden) return;
+      menu.hidden = false;
+      try { menu.classList.remove('is-closing'); } catch (_) {}
+      addBtn.classList.add('is-open');
+      addWrap.classList.add('is-open');
+      addBtn.setAttribute('aria-expanded', 'true');
+      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const code = normalizeLangCode(item.getAttribute('data-lang'));
+          if (!code) return;
+          const localized = ensureLocalized(key, options.ensureDefault !== false);
+          if (Object.prototype.hasOwnProperty.call(localized, code)) return;
+          localized[code] = '';
+          markDirty();
+          closeMenu();
+          renderRows();
+          broadcastLanguagePoolChange();
+        });
+      });
+    };
+
+    const onDocDown = (event) => {
+      if (!addWrap.contains(event.target)) closeMenu();
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu();
+      }
+    };
+
+    addBtn.addEventListener('click', () => {
+      if (addBtn.hasAttribute('disabled')) return;
+      if (addBtn.classList.contains('is-open')) closeMenu();
+      else openMenu();
+    });
 
     const renderRows = () => {
       list.innerHTML = '';
@@ -10417,6 +10570,7 @@ function buildSiteUI(root, state) {
             delete localizedMap[lang];
             markDirty();
             renderRows();
+            broadcastLanguagePoolChange();
           });
           row.appendChild(removeBtn);
         }
@@ -10428,22 +10582,8 @@ function buildSiteUI(root, state) {
         empty.textContent = t('editor.composer.site.noLanguages');
         list.appendChild(empty);
       }
+      refreshMenu();
     };
-
-    addBtn.addEventListener('click', () => {
-      const code = window.prompt(t('editor.composer.site.promptLanguage'));
-      if (!code) return;
-      const lang = String(code).trim();
-      if (!lang) return;
-      const localized = ensureLocalized(key, options.ensureDefault !== false);
-      if (Object.prototype.hasOwnProperty.call(localized, lang)) {
-        alert(t('editor.composer.site.languageExists'));
-        return;
-      }
-      localized[lang] = '';
-      markDirty();
-      renderRows();
-    });
 
     renderRows();
   };
@@ -11225,7 +11365,7 @@ function rebuildSiteUI() {
   .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;transition:border-color .18s ease, background-color .18s ease}
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   /* Add Language row: compact button, keep menu aligned to trigger width */
-  .ci-add-lang,.ct-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative}
+  .ci-add-lang,.ct-add-lang,.cs-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative;flex:0 0 auto}
   .ci-add-lang .btn-secondary,.ct-add-lang .btn-secondary{justify-content:center;border-bottom:0 !important}
   .ci-add-lang input,.ct-add-lang input{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-add-lang select,.ct-add-lang select{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
@@ -11234,7 +11374,7 @@ function rebuildSiteUI() {
   /* Button when open looks attached to menu */
   .ci-add-lang .btn-secondary.is-open,.ct-add-lang .btn-secondary.is-open{border-bottom-left-radius:0;border-bottom-right-radius:0;background:color-mix(in srgb, var(--text) 5%, var(--card));border-color:color-mix(in srgb, var(--primary) 45%, var(--border));border-bottom:0 !important}
   /* Custom menu popup */
-  .ns-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:100%;min-width:0;border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
+  .ns-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:max-content;min-width:100%;max-width:min(320px,calc(100vw - 3rem));border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
   .has-menu.is-open > .ns-menu{animation: ns-menu-in 160ms ease-out both}
   @keyframes ns-menu-in{from{opacity:0; transform: translateY(-4px) scale(0.98);} to{opacity:1; transform: translateY(0) scale(1);} }
   /* Closing animation */
