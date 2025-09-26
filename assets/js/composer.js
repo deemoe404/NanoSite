@@ -10486,6 +10486,41 @@ function buildSiteUI(root, state) {
     sync();
   };
 
+  const createToggleField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('label');
+    control.className = 'cs-field-toggle';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'cs-checkbox';
+    const text = document.createElement('span');
+    text.textContent = config.checkboxLabel || config.label;
+    control.appendChild(checkbox);
+    control.appendChild(text);
+    field.appendChild(control);
+
+    const sync = () => {
+      checkbox.checked = !!config.get();
+    };
+
+    checkbox.addEventListener('change', () => {
+      config.set(checkbox.checked);
+      sync();
+      markDirty();
+    });
+
+    sync();
+    return {
+      checkbox,
+      field,
+      control
+    };
+  };
+
   const createSelectField = (section, config) => {
     const field = createField(section, {
       dataKey: config.dataKey,
@@ -10699,31 +10734,102 @@ function buildSiteUI(root, state) {
     get: () => site.pageSize,
     set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
   });
-  createSelectField(behaviorSection, {
+  const showAllPostsField = createToggleField(behaviorSection, {
     dataKey: 'showAllPosts',
     label: t('editor.composer.site.fields.showAllPosts'),
     description: t('editor.composer.site.fields.showAllPostsHelp'),
-    get: () => {
-      if (site.showAllPosts === true) return 'true';
-      if (site.showAllPosts === false) return 'false';
-      return '';
-    },
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    get: () => site.showAllPosts === true,
     set: (value) => {
-      if (value === null || value === '') site.showAllPosts = null;
-      else site.showAllPosts = value === 'true';
-    },
-    options: [
-      { value: '', label: t('editor.composer.site.optionInherit') },
-      { value: 'true', label: t('editor.composer.site.optionShow') },
-      { value: 'false', label: t('editor.composer.site.optionHide') }
-    ]
+      site.showAllPosts = !!value;
+    }
   });
-  createTextField(behaviorSection, {
-    dataKey: 'landingTab',
-    label: t('editor.composer.site.fields.landingTab'),
-    description: t('editor.composer.site.fields.landingTabHelp'),
-    get: () => site.landingTab,
-    set: (value) => { site.landingTab = value; }
+
+  const landingTabField = (() => {
+    const field = createField(behaviorSection, {
+      dataKey: 'landingTab',
+      label: t('editor.composer.site.fields.landingTab'),
+      description: t('editor.composer.site.fields.landingTabHelp')
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const select = document.createElement('select');
+    select.className = 'cs-select';
+    control.appendChild(select);
+    field.appendChild(control);
+
+    const getTabLabel = (slug) => {
+      if (!state.tabs || typeof state.tabs !== 'object') return slug;
+      const entry = state.tabs[slug];
+      if (!entry || typeof entry !== 'object') return slug;
+      const pickTitle = () => {
+        const def = entry.default;
+        if (def && typeof def === 'object' && def.title) return String(def.title).trim();
+        for (const key of Object.keys(entry)) {
+          if (key === '__order') continue;
+          const val = entry[key];
+          if (val && typeof val === 'object' && val.title) {
+            const title = String(val.title).trim();
+            if (title) return title;
+          }
+        }
+        return '';
+      };
+      const title = pickTitle();
+      if (!title) return slug;
+      if (title.toLowerCase() === String(slug).toLowerCase()) return title;
+      return `${title} (${slug})`;
+    };
+
+    const renderOptions = () => {
+      const seen = new Set();
+      const addOption = (value, label) => {
+        if (seen.has(value)) return;
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+        seen.add(value);
+      };
+
+      const current = site.landingTab || '';
+      select.innerHTML = '';
+      addOption('', t('editor.composer.site.fields.landingTabDefaultOption'));
+      const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
+      order.forEach((slug) => {
+        if (!slug) return;
+        addOption(slug, getTabLabel(slug));
+      });
+      const allowPosts = site.showAllPosts === true || current === 'posts';
+      if (allowPosts) {
+        addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
+      }
+      if (current && !seen.has(current)) addOption(current, current);
+      select.value = seen.has(current) ? current : '';
+    };
+
+    select.addEventListener('change', () => {
+      const value = select.value;
+      site.landingTab = value === '' ? '' : value;
+      markDirty();
+    });
+
+    renderOptions();
+
+    return {
+      field,
+      select,
+      renderOptions
+    };
+  })();
+
+  showAllPostsField.checkbox.addEventListener('change', () => {
+    if (site.showAllPosts !== true && site.landingTab === 'posts') {
+      site.landingTab = '';
+      landingTabField.select.value = '';
+      markDirty();
+    }
+    landingTabField.renderOptions();
   });
   createTriStateCheckbox(behaviorSection, {
     dataKey: 'cardCoverFallback',
