@@ -12548,8 +12548,8 @@ function rebuildSiteUI() {
   .cs-field-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
   .cs-field-controls-inline{flex-wrap:nowrap}
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
-  .cs-localized-list{display:flex;flex-direction:column;gap:.5rem}
-  .cs-localized-row{display:flex;flex-wrap:wrap;gap:.5rem;padding:.55rem .65rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 3%, var(--card))}
+  .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
+  .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
   .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
   .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
