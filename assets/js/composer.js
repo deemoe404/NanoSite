@@ -11535,15 +11535,10 @@ function buildSiteUI(root, state) {
   };
 
   const createTriStateCheckbox = (section, config) => {
-    const resetBtn = document.createElement('button');
-    resetBtn.type = 'button';
-    resetBtn.className = 'btn-tertiary cs-reset';
-    resetBtn.textContent = t('editor.composer.site.reset');
     const field = createField(section, {
       dataKey: config.dataKey,
       label: config.label,
-      description: config.description,
-      action: resetBtn
+      description: config.description
     });
     const head = field.__csHead || field.querySelector('.cs-field-head');
     const labelWrap = field.__csLabelWrap || head;
@@ -11561,13 +11556,6 @@ function buildSiteUI(root, state) {
     checkbox.addEventListener('change', () => {
       config.set(checkbox.checked);
       syncSwitchState(checkbox, toggle, checkbox.checked, true);
-      markDirty();
-    });
-    resetBtn.addEventListener('click', () => {
-      const hasDefault = Object.prototype.hasOwnProperty.call(config, 'defaultValue');
-      const nextValue = hasDefault ? config.defaultValue : null;
-      config.set(nextValue);
-      syncSwitchState(checkbox, toggle, nextValue, true);
       markDirty();
     });
     sync();
@@ -12577,7 +12565,6 @@ function rebuildSiteUI() {
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
-  .cs-reset{margin-left:auto}
   .cs-repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.55rem;margin-top:.3rem}
   .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-extra-list li{margin:.2rem 0}

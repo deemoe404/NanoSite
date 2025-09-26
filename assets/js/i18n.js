@@ -270,7 +270,6 @@ const translations = {
           languageExists: 'That language already exists.',
           languageDefault: 'Default',
           languageAutoOption: 'Auto-detect (browser language)',
-          reset: 'Reset override',
           addLink: 'Add link',
           removeLink: 'Remove',
           noLinks: 'No links configured.',
