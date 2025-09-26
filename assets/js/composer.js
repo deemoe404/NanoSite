@@ -10471,9 +10471,16 @@ function buildSiteUI(root, state) {
       markDirty();
     });
     resetBtn.addEventListener('click', () => {
-      config.set(null);
-      checkbox.checked = false;
-      checkbox.indeterminate = true;
+      const hasDefault = Object.prototype.hasOwnProperty.call(config, 'defaultValue');
+      const nextValue = hasDefault ? config.defaultValue : null;
+      config.set(nextValue);
+      if (nextValue === null) {
+        checkbox.checked = false;
+        checkbox.indeterminate = true;
+      } else {
+        checkbox.checked = !!nextValue;
+        checkbox.indeterminate = false;
+      }
       markDirty();
     });
     sync();
@@ -10723,6 +10730,7 @@ function buildSiteUI(root, state) {
     label: t('editor.composer.site.fields.cardCoverFallback'),
     description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
     checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: true,
     get: () => site.cardCoverFallback,
     set: (value) => { site.cardCoverFallback = value; }
   });
@@ -10731,6 +10739,7 @@ function buildSiteUI(root, state) {
     label: t('editor.composer.site.fields.errorOverlay'),
     description: t('editor.composer.site.fields.errorOverlayHelp'),
     checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: false,
     get: () => site.errorOverlay,
     set: (value) => { site.errorOverlay = value; }
   });
@@ -10765,6 +10774,7 @@ function buildSiteUI(root, state) {
     label: t('editor.composer.site.fields.themeOverride'),
     description: t('editor.composer.site.fields.themeOverrideHelp'),
     checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: true,
     get: () => site.themeOverride,
     set: (value) => { site.themeOverride = value; }
   });
@@ -10812,6 +10822,7 @@ function buildSiteUI(root, state) {
     label: t('editor.composer.site.fields.assetLargeImage'),
     description: t('editor.composer.site.fields.assetLargeImageHelp'),
     checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: false,
     get: () => warnings.largeImage.enabled,
     set: (value) => { warnings.largeImage.enabled = value; }
   });
