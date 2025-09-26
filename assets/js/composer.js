@@ -12612,7 +12612,7 @@ function rebuildSiteUI() {
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-link-list{display:flex;flex-direction:column;gap:0}
   .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.65rem 1rem;padding:.4rem 0}
-  .cs-link-row:not(.cs-link-row--with-title){padding-top:.2rem}
+  .cs-link-row + .cs-link-row{margin-top:.45rem}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
   .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
