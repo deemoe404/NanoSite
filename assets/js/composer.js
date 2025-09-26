@@ -10569,12 +10569,23 @@ function buildSiteUI(root, state) {
       }
     }
     if (focusTarget) {
+      const applyFocus = () => {
+        if (!focusTarget || typeof focusTarget.focus !== 'function') return;
+        try {
+          if (shouldScroll) {
+            try {
+              focusTarget.focus({ preventScroll: true });
+              return;
+            } catch (_) {}
+          }
+          focusTarget.focus();
+        } catch (_) {}
+      };
+
       try {
-        requestAnimationFrame(() => {
-          try { focusTarget.focus(); } catch (_) {}
-        });
+        requestAnimationFrame(applyFocus);
       } catch (_) {
-        try { focusTarget.focus(); } catch (_) {}
+        applyFocus();
       }
     }
   }
