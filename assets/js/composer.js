@@ -10484,17 +10484,22 @@ function buildSiteUI(root, state) {
   const createSection = (title, description) => {
     const section = document.createElement('section');
     section.className = 'cs-section';
-    if (title) {
-      const heading = document.createElement('h3');
-      heading.className = 'cs-section-title';
-      heading.textContent = title;
-      section.appendChild(heading);
-    }
-    if (description) {
-      const desc = document.createElement('p');
-      desc.className = 'cs-section-description';
-      desc.textContent = description;
-      section.appendChild(desc);
+    if (title || description) {
+      const head = document.createElement('div');
+      head.className = 'cs-section-head';
+      if (title) {
+        const heading = document.createElement('h3');
+        heading.className = 'cs-section-title';
+        heading.textContent = title;
+        head.appendChild(heading);
+      }
+      if (description) {
+        const desc = document.createElement('p');
+        desc.className = 'cs-section-description';
+        desc.textContent = description;
+        head.appendChild(desc);
+      }
+      section.appendChild(head);
     }
     container.appendChild(section);
     return section;
@@ -10510,7 +10515,10 @@ function buildSiteUI(root, state) {
     labelEl.className = 'cs-field-label';
     labelEl.textContent = config.label || '';
     head.appendChild(labelEl);
-    if (config.action) head.appendChild(config.action);
+    if (config.action) {
+      config.action.classList.add('cs-field-action');
+      head.appendChild(config.action);
+    }
     field.appendChild(head);
     if (config.description) {
       const desc = document.createElement('p');
@@ -10799,9 +10807,11 @@ function buildSiteUI(root, state) {
     return input;
   };
 
-  const createSwitchControl = (field, labelText) => {
+  const createSwitchControl = (field, labelText, options = {}) => {
     const controls = document.createElement('div');
     controls.className = 'cs-field-controls cs-field-controls-inline';
+    if (Array.isArray(options.classes)) controls.classList.add(...options.classes);
+    const target = options.target || field;
     const toggle = document.createElement('label');
     toggle.className = 'cs-switch';
     toggle.dataset.state = 'off';
@@ -10822,7 +10832,7 @@ function buildSiteUI(root, state) {
     toggle.appendChild(track);
     toggle.appendChild(text);
     controls.appendChild(toggle);
-    field.appendChild(controls);
+    target.appendChild(controls);
     return { controls, toggle, checkbox };
   };
 
@@ -10852,7 +10862,11 @@ function buildSiteUI(root, state) {
       description: config.description,
       action: resetBtn
     });
-    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label);
+    const head = field.querySelector('.cs-field-head');
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
+      target: head || field,
+      classes: head ? ['cs-field-head-switch'] : undefined
+    });
 
     const sync = () => {
       const value = config.get();
@@ -10880,7 +10894,11 @@ function buildSiteUI(root, state) {
       label: config.label,
       description: config.description
     });
-    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label);
+    const head = field.querySelector('.cs-field-head');
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
+      target: head || field,
+      classes: head ? ['cs-field-head-switch'] : undefined
+    });
 
     const sync = () => {
       syncSwitchState(checkbox, toggle, config.get(), false);
@@ -11824,32 +11842,33 @@ function rebuildSiteUI() {
     .composer-site-main{padding:0}
   }
 
-  .cs-root{display:flex;flex-direction:column;gap:1.2rem;padding:.2rem 0 1.2rem}
-  .cs-section{border:1px solid color-mix(in srgb,var(--border) 85%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.75rem}
+  .cs-root{display:flex;flex-direction:column;gap:1rem;padding:.2rem 0 1.1rem}
+  .cs-section{border:1px solid color-mix(in srgb,var(--border) 85%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
+  .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
   .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
-  .cs-section-description{margin:0;font-size:.88rem;color:color-mix(in srgb,var(--muted) 90%, transparent)}
-  .cs-section-title + .cs-section-description{margin-top:-.1rem}
-  .cs-field{margin:0;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:10px;padding:.65rem .75rem;display:flex;flex-direction:column;gap:.45rem;background:color-mix(in srgb,var(--text) 3%, var(--card))}
+  .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
+  .cs-field{margin:0;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:10px;padding:.55rem .65rem;display:flex;flex-direction:column;gap:.4rem;background:color-mix(in srgb,var(--text) 3%, var(--card))}
   .cs-field[data-diff="changed"]{border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 24%, transparent)}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
-  .cs-field-head{display:flex;align-items:center;gap:.5rem}
-  .cs-field-head > .btn-tertiary{margin-left:auto}
-  .cs-field-label{font-weight:600;font-size:.92rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:1 1 auto}
-  .cs-field-help{margin:0;font-size:.85rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
-  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+  .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+  .cs-field-action{margin-left:auto}
+  .cs-field-label{font-weight:600;font-size:.9rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:1 1 auto;min-width:120px}
+  .cs-field-help{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
+  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
   .cs-field-controls-inline{flex-wrap:nowrap}
+  .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.5rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.5rem;padding:.55rem .65rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 3%, var(--card))}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
   .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-  .cs-input{width:100%;min-height:2.2rem;padding:.35rem .55rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
+  .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
   .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   textarea.cs-input{min-height:4.6rem;resize:vertical}
   .cs-input-small{max-width:220px}
   .cs-empty{padding:.7rem .85rem;border:1px dashed color-mix(in srgb,var(--border) 75%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 2%, var(--card));color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-add-lang,.cs-add-link{align-self:flex-start}
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
-  .cs-select{min-width:200px;padding:.35rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-link-list{display:flex;flex-direction:column;gap:.5rem}
   .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.5rem;padding:.55rem .65rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 3%, var(--card))}
@@ -11861,7 +11880,7 @@ function rebuildSiteUI() {
   .cs-repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.55rem;margin-top:.3rem}
   .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-extra-list li{margin:.2rem 0}
-  .cs-switch{display:inline-flex;align-items:center;gap:.55rem;padding:.15rem .2rem;border-radius:999px;cursor:pointer;user-select:none;color:color-mix(in srgb,var(--text) 85%, transparent);transition:color .16s ease}
+  .cs-switch{display:inline-flex;align-items:center;gap:.45rem;padding:.12rem .2rem;border-radius:999px;cursor:pointer;user-select:none;color:color-mix(in srgb,var(--text) 85%, transparent);transition:color .16s ease}
   .cs-switch-input{position:absolute;opacity:0;width:1px;height:1px;margin:-1px;border:0;padding:0;clip:rect(0 0 0 0);clip-path:inset(50%)}
   .cs-switch-track{position:relative;display:inline-flex;align-items:center;width:2.4rem;height:1.25rem;border-radius:999px;background:color-mix(in srgb,var(--text) 8%, var(--card));border:1px solid color-mix(in srgb,var(--border) 80%, transparent);padding:0 .15rem;transition:background .16s ease,border-color .16s ease}
   .cs-switch-thumb{width:1rem;height:1rem;border-radius:999px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 1px 2px rgba(15,23,42,0.2);transform:translateX(0);transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
@@ -11870,12 +11889,15 @@ function rebuildSiteUI() {
   .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
   .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
   .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
-  .cs-switch-label{font-weight:600;font-size:.9rem}
+  .cs-switch-label{font-weight:600;font-size:.82rem}
   @media (max-width:880px){
     .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
     .cs-input-small{max-width:100%}
     .cs-link-actions{width:100%;justify-content:flex-end}
+  }
+  @media (max-width:720px){
+    .cs-section-description{text-align:left}
   }
 
   /* Modal animations */
