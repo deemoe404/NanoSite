@@ -3,9 +3,6 @@ import {
   generateSitemap,
   generateRobots,
   generateMetaTags,
-  validateSitemap,
-  validateRobots,
-  validateMeta,
   copySitemap,
   copyRobots,
   copyMetaTags,
@@ -22,19 +19,20 @@ const SEO_FILES = {
     outputId: 'sitemapOutput',
     previewId: 'sitemapPreview',
     statusId: 'seoStatus-sitemap',
+    badgeId: 'seoStatusBadge-sitemap',
+    detailsId: 'seoDetails-sitemap',
     loadBtn: 'seoLoadSitemap',
     generateBtn: 'seoGenerateSitemap',
-    validateBtn: 'seoValidateSitemap',
     copyBtn: 'seoCopySitemap',
     downloadBtn: 'seoDownloadSitemap',
     resetBtn: 'seoResetSitemap',
     generator: generateSitemap,
-    validator: validateSitemap,
     copier: copySitemap,
     downloader: downloadSitemap,
     loaded: false,
     loading: null,
-    cachedContent: ''
+    cachedContent: '',
+    liveExists: null
   },
   robots: {
     path: 'robots.txt',
@@ -42,19 +40,20 @@ const SEO_FILES = {
     outputId: 'robotsOutput',
     previewId: 'robotsPreview',
     statusId: 'seoStatus-robots',
+    badgeId: 'seoStatusBadge-robots',
+    detailsId: 'seoDetails-robots',
     loadBtn: 'seoLoadRobots',
     generateBtn: 'seoGenerateRobots',
-    validateBtn: 'seoValidateRobots',
     copyBtn: 'seoCopyRobots',
     downloadBtn: 'seoDownloadRobots',
     resetBtn: 'seoResetRobots',
     generator: generateRobots,
-    validator: validateRobots,
     copier: copyRobots,
     downloader: downloadRobots,
     loaded: false,
     loading: null,
-    cachedContent: ''
+    cachedContent: '',
+    liveExists: null
   },
   meta: {
     path: 'meta-tags.html',
@@ -62,23 +61,33 @@ const SEO_FILES = {
     outputId: 'metaOutput',
     previewId: 'metaPreview',
     statusId: 'seoStatus-meta',
+    badgeId: 'seoStatusBadge-meta',
+    detailsId: 'seoDetails-meta',
     loadBtn: 'seoLoadMeta',
     generateBtn: 'seoGenerateMeta',
-    validateBtn: 'seoValidateMeta',
     copyBtn: 'seoCopyMeta',
     downloadBtn: 'seoDownloadMeta',
     resetBtn: 'seoResetMeta',
     generator: generateMetaTags,
-    validator: validateMeta,
     copier: copyMetaTags,
     downloader: downloadMetaTags,
     loaded: false,
     loading: null,
-    cachedContent: ''
+    cachedContent: '',
+    liveExists: null
   }
 };
 
 let seoModeInitialized = false;
+
+const STATUS_BADGE_LABELS = {
+  idle: 'Not checked yet',
+  loading: 'In progress…',
+  clean: 'Up to date',
+  dirty: 'Update ready',
+  empty: 'Not published',
+  error: 'Needs attention'
+};
 
 function composerApi() {
   try {
@@ -109,41 +118,77 @@ function getDraft(kind) {
   return null;
 }
 
-function updateStatus(kind, message, state) {
+function statusBadgeText(state) {
+  return STATUS_BADGE_LABELS[state] || STATUS_BADGE_LABELS.idle;
+}
+
+function updateStatus(kind, message, state = 'idle') {
   const info = SEO_FILES[kind];
   if (!info) return;
-  const el = document.getElementById(info.statusId);
-  if (!el) return;
-  if (message != null) el.textContent = message;
-  if (state) el.dataset.state = state;
+  const statusEl = document.getElementById(info.statusId);
+  const badgeEl = info.badgeId ? document.getElementById(info.badgeId) : null;
+  const cardEl = document.querySelector(`[data-seo-kind="${kind}"]`);
+  if (statusEl && message != null) statusEl.textContent = message;
+  if (!state) return;
+  if (statusEl) statusEl.dataset.state = state;
+  if (badgeEl) {
+    badgeEl.dataset.state = state;
+    badgeEl.textContent = statusBadgeText(state);
+  }
+  if (cardEl) cardEl.dataset.state = state;
 }
 
 function refreshStatus(kind) {
   const info = SEO_FILES[kind];
   if (!info) return;
   const entry = getDraft(kind);
-  if (!entry) {
-    updateStatus(kind, 'Load current file to begin.', 'idle');
+
+  if (!info.loaded) {
+    updateStatus(kind, 'Check the live file to see if it needs an update.', 'idle');
     return;
   }
+
+  if (!entry) {
+    updateStatus(kind, 'Check the live file to see if it needs an update.', 'idle');
+    return;
+  }
+
   if (entry.dirty) {
-    const msg = entry.exists ? 'Ready to sync (updated)' : 'Ready to sync (new file)';
+    const msg = entry.exists
+      ? 'A newer version is ready. Include it in your next sync to update the live file.'
+      : 'This file is new. Sync it to publish on your site.';
     updateStatus(kind, msg, 'dirty');
     return;
   }
-  if (info.loaded) {
-    if (entry.exists && entry.original) {
-      updateStatus(kind, 'In sync with GitHub', 'clean');
-    } else {
-      updateStatus(kind, 'Not published yet', 'empty');
-    }
+
+  if (entry.exists) {
+    updateStatus(kind, 'The live file already matches the latest generated version.', 'clean');
   } else {
-    updateStatus(kind, 'Load current file to begin.', 'idle');
+    updateStatus(kind, 'This file is not on the site yet. Generate it to add it to your next sync.', 'empty');
   }
 }
 
 function refreshAllStatuses() {
   Object.keys(SEO_FILES).forEach((kind) => refreshStatus(kind));
+}
+
+function setDetailsVisibility(kind, visible) {
+  const info = SEO_FILES[kind];
+  if (!info || !info.detailsId) return;
+  const details = document.getElementById(info.detailsId);
+  if (!details) return;
+  const toggle = document.querySelector(`[data-toggle-details="${kind}"]`);
+  const show = Boolean(visible);
+  if (show) details.removeAttribute('hidden');
+  else details.setAttribute('hidden', '');
+  if (toggle) {
+    const showLabel = toggle.dataset.labelShow || toggle.textContent.trim() || 'Review details';
+    const hideLabel = toggle.dataset.labelHide || 'Hide details';
+    toggle.dataset.labelShow = showLabel;
+    toggle.dataset.labelHide = hideLabel;
+    toggle.textContent = show ? hideLabel : showLabel;
+    toggle.setAttribute('aria-expanded', String(show));
+  }
 }
 
 async function loadExisting(kind, options = {}) {
@@ -152,7 +197,7 @@ async function loadExisting(kind, options = {}) {
   if (info.loading) return info.loading;
   if (info.loaded && !options.force) return info.cachedContent;
 
-  updateStatus(kind, 'Loading current file…', 'loading');
+  updateStatus(kind, 'Checking the live file…', 'loading');
   const loader = (async () => {
     let content = '';
     let exists = false;
@@ -170,10 +215,24 @@ async function loadExisting(kind, options = {}) {
     } catch (err) {
       updateStatus(kind, `Failed to load (${err.message || 'error'})`, 'error');
       info.loaded = false;
+      info.liveExists = null;
+      const preview = document.getElementById(info.previewId);
+      if (preview) preview.textContent = 'Unable to load the live file right now. Try again in a moment.';
       throw err;
     }
 
     setBaseline(kind, content, { exists, path: info.path, label: info.label });
+
+    info.liveExists = exists;
+
+    const preview = document.getElementById(info.previewId);
+    if (preview) {
+      if (exists) {
+        preview.textContent = content || '(The live file is currently empty.)';
+      } else {
+        preview.textContent = 'We could not find this file on the live site yet.';
+      }
+    }
 
     const textarea = document.getElementById(info.outputId);
     if (textarea) textarea.value = content;
@@ -224,6 +283,19 @@ function attachButtonHandlers(kind) {
   const info = SEO_FILES[kind];
   if (!info) return;
 
+  const toggleBtn = document.querySelector(`[data-toggle-details="${kind}"]`);
+  if (toggleBtn && info.detailsId) {
+    const details = document.getElementById(info.detailsId);
+    const initiallyVisible = details ? !details.hasAttribute('hidden') : false;
+    setDetailsVisibility(kind, initiallyVisible);
+    toggleBtn.addEventListener('click', () => {
+      const detailsEl = document.getElementById(info.detailsId);
+      if (!detailsEl) return;
+      const shouldShow = detailsEl.hasAttribute('hidden');
+      setDetailsVisibility(kind, shouldShow);
+    });
+  }
+
   const loadBtn = document.getElementById(info.loadBtn);
   if (loadBtn) {
     loadBtn.addEventListener('click', () => {
@@ -238,7 +310,7 @@ function attachButtonHandlers(kind) {
         try { await loadExisting(kind); }
         catch (_) { /* swallow load errors; generation may still proceed */ }
       }
-      updateStatus(kind, 'Generating…', 'loading');
+      updateStatus(kind, 'Generating a fresh version…', 'loading');
       try {
         await info.generator();
       } catch (err) {
@@ -248,15 +320,7 @@ function attachButtonHandlers(kind) {
       const value = extractEditorValue(kind);
       setContent(kind, value, { path: info.path, label: info.label });
       info.cachedContent = value;
-      refreshStatus(kind);
-    });
-  }
-
-  const validateBtn = document.getElementById(info.validateBtn);
-  if (validateBtn) {
-    validateBtn.addEventListener('click', () => {
-      try { info.validator(); }
-      catch (_) {}
+      setDetailsVisibility(kind, true);
       refreshStatus(kind);
     });
   }
@@ -288,7 +352,7 @@ function attachButtonHandlers(kind) {
       const textarea = document.getElementById(info.outputId);
       if (textarea) textarea.value = original;
       info.cachedContent = original;
-      updateStatus(kind, 'Reverted to loaded version', entryAfter && entryAfter.exists ? 'clean' : 'empty');
+      setDetailsVisibility(kind, false);
       refreshStatus(kind);
     });
   }

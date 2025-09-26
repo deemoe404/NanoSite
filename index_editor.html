@@ -1233,28 +1233,43 @@
     [data-init-cfile="site"] #composerTabs { display: none !important; }
 
     /* SEO mode */
-    .seo-mode { display: flex; flex-direction: column; gap: 1.5rem; }
-    .seo-mode .seo-intro { display: flex; flex-direction: column; gap: .5rem; }
-    .seo-mode .seo-intro h2 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text); }
-    .seo-mode .seo-intro p { margin: 0; color: var(--muted); font-size: .98rem; line-height: 1.6; }
-    .seo-grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: stretch; }
-    .seo-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow); min-width: 0; }
-    .seo-card-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-    .seo-card-header h3 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text); }
-    .seo-status { font-size: .9rem; color: var(--muted); display: inline-flex; align-items: center; gap: .45rem; }
-    .seo-status[data-state="dirty"] { color: var(--primary); font-weight: 600; }
-    .seo-status[data-state="error"] { color: #dc2626; }
-    .seo-status[data-state="loading"] { color: var(--muted); font-style: italic; }
+    .seo-mode { display: flex; flex-direction: column; gap: 2rem; }
+    .seo-mode .seo-intro { display: flex; flex-direction: column; gap: .65rem; max-width: 760px; }
+    .seo-mode .seo-intro h2 { margin: 0; font-size: 1.55rem; font-weight: 700; color: var(--text); }
+    .seo-mode .seo-intro p { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.65; }
+    .seo-grid { display: grid; gap: 1.35rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: stretch; }
+    .seo-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow); min-width: 0; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
+    .seo-card[data-state="dirty"] { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); box-shadow: 0 16px 36px rgba(12, 84, 199, 0.15); }
+    .seo-card[data-state="clean"] { border-color: color-mix(in srgb, #16a34a 48%, var(--border)); }
+    .seo-card[data-state="error"] { border-color: color-mix(in srgb, #dc2626 55%, var(--border)); }
+    .seo-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    .seo-card-header h3 { margin: 0; font-size: 1.2rem; font-weight: 700; color: var(--text); }
+    .seo-card-header p { margin: .35rem 0 0; font-size: .95rem; color: var(--muted); line-height: 1.5; }
+    .seo-status { display: inline-flex; align-items: center; gap: .5rem; padding: .4rem .75rem; border-radius: 999px; background: color-mix(in srgb, var(--card) 88%, var(--border) 12%); color: var(--muted); font-size: .9rem; font-weight: 600; text-transform: none; }
+    .seo-status::before { content: ''; width: .6rem; height: .6rem; border-radius: 50%; background: color-mix(in srgb, var(--muted) 60%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 80%, transparent); }
+    .seo-status[data-state="dirty"] { color: var(--primary); }
+    .seo-status[data-state="dirty"]::before { background: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent); }
     .seo-status[data-state="clean"] { color: #15803d; }
+    .seo-status[data-state="clean"]::before { background: #15803d; box-shadow: 0 0 0 2px color-mix(in srgb, #16a34a 40%, transparent); }
     .seo-status[data-state="empty"] { color: #92400e; }
-    .seo-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-    .seo-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+    .seo-status[data-state="empty"]::before { background: #f59e0b; box-shadow: 0 0 0 2px color-mix(in srgb, #f97316 35%, transparent); }
+    .seo-status[data-state="error"] { color: #b91c1c; }
+    .seo-status[data-state="error"]::before { background: #dc2626; box-shadow: 0 0 0 2px color-mix(in srgb, #f87171 35%, transparent); }
+    .seo-status[data-state="loading"] { color: var(--muted); font-style: italic; }
+    .seo-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+    .seo-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; }
+    .seo-actions .btn-primary { flex: 1 1 auto; min-width: 160px; }
     .seo-actions .btn-tertiary { border-style: dashed; }
-    .seo-preview { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, transparent); max-height: 320px; overflow: auto; font-size: .9rem; line-height: 1.5; }
+    .seo-summary { margin: 0; color: color-mix(in srgb, var(--text) 80%, transparent); font-size: .96rem; line-height: 1.6; }
+    .seo-details { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); padding-top: 1.25rem; }
+    .seo-details[hidden] { display: none; }
+    .seo-detail-group { display: flex; flex-direction: column; gap: .65rem; }
+    .seo-detail-group h4 { margin: 0; font-size: .95rem; color: var(--muted); letter-spacing: .01em; text-transform: uppercase; }
+    .seo-preview { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, transparent); max-height: 280px; overflow: auto; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
     .seo-editor-wrap { position: relative; display: flex; flex-direction: column; gap: .75rem; }
     .seo-editor-wrap textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: .85rem; }
-    .seo-card-footer { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
-    .seo-mode .hi-editor { max-height: 320px; }
+    .seo-detail-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .seo-mode .hi-editor { max-height: 280px; }
     .seo-mode .hi-editor .code-scroll { min-height: 220px; }
     @media (max-width: 720px) {
       .seo-grid { grid-template-columns: 1fr; }
@@ -1395,62 +1410,104 @@
     <!-- SEO Mode -->
     <section class="box seo-mode" id="mode-seo" style="display:none;">
       <div class="seo-intro">
-        <h2>SEO tools</h2>
-        <p>Generate sitemap, robots.txt, and HTML meta tags directly from your site configuration and content. Any changes appear in the status panel and can be synchronized to GitHub with the existing workflow.</p>
+        <h2>Keep your SEO files in sync</h2>
+        <p>See whether the live sitemap, robots.txt, and meta tags already match what NanoSite can produce. If something is out of date, generate a fresh version and it will be ready for your next GitHub sync.</p>
       </div>
       <div class="seo-grid">
-        <article class="seo-card" data-seo-kind="sitemap">
+        <article class="seo-card" data-seo-kind="sitemap" data-state="idle">
           <div class="seo-card-header">
-            <h3>sitemap.xml</h3>
-            <span class="seo-status" id="seoStatus-sitemap" data-state="idle" role="status" aria-live="polite">Load current sitemap to begin.</span>
+            <div>
+              <h3>sitemap.xml</h3>
+              <p>Let search engines discover every page on your site.</p>
+            </div>
+            <span class="seo-status" id="seoStatusBadge-sitemap" data-state="idle" aria-live="polite">Not checked yet</span>
           </div>
+          <p class="seo-summary" id="seoStatus-sitemap" role="status" aria-live="polite">Check the live sitemap to see if it needs an update.</p>
           <div class="seo-actions">
-            <button type="button" class="btn-tertiary" id="seoLoadSitemap">Load current</button>
-            <button type="button" class="btn-primary" id="seoGenerateSitemap">Generate</button>
-            <button type="button" class="btn-secondary" id="seoValidateSitemap">Validate</button>
-            <button type="button" class="btn-secondary" id="seoCopySitemap">Copy</button>
-            <button type="button" class="btn-secondary" id="seoDownloadSitemap">Download</button>
+            <button type="button" class="btn-secondary" id="seoLoadSitemap">Check live file</button>
+            <button type="button" class="btn-primary" id="seoGenerateSitemap">Generate update</button>
+            <button type="button" class="btn-tertiary" data-toggle-details="sitemap" data-label-hide="Hide details" aria-expanded="false" aria-controls="seoDetails-sitemap">Review details</button>
             <button type="button" class="btn-tertiary" id="seoResetSitemap">Revert</button>
           </div>
-          <div class="seo-preview" id="sitemapPreview" aria-live="polite"></div>
-          <div class="seo-editor-wrap">
-            <textarea id="sitemapOutput" data-seo-kind="sitemap" spellcheck="false"></textarea>
+          <div class="seo-details" id="seoDetails-sitemap" hidden>
+            <div class="seo-detail-group">
+              <h4>Live file</h4>
+              <div class="seo-preview" id="sitemapPreview"></div>
+            </div>
+            <div class="seo-detail-group">
+              <h4>Proposed update</h4>
+              <div class="seo-editor-wrap">
+                <textarea id="sitemapOutput" data-seo-kind="sitemap" spellcheck="false"></textarea>
+              </div>
+              <div class="seo-detail-actions">
+                <button type="button" class="btn-secondary" id="seoCopySitemap">Copy</button>
+                <button type="button" class="btn-secondary" id="seoDownloadSitemap">Download</button>
+              </div>
+            </div>
           </div>
         </article>
-        <article class="seo-card" data-seo-kind="robots">
+        <article class="seo-card" data-seo-kind="robots" data-state="idle">
           <div class="seo-card-header">
-            <h3>robots.txt</h3>
-            <span class="seo-status" id="seoStatus-robots" data-state="idle" role="status" aria-live="polite">Load current robots.txt to begin.</span>
+            <div>
+              <h3>robots.txt</h3>
+              <p>Control which parts of your site search engines can crawl.</p>
+            </div>
+            <span class="seo-status" id="seoStatusBadge-robots" data-state="idle" aria-live="polite">Not checked yet</span>
           </div>
+          <p class="seo-summary" id="seoStatus-robots" role="status" aria-live="polite">Check the live robots.txt to confirm it matches the latest rules.</p>
           <div class="seo-actions">
-            <button type="button" class="btn-tertiary" id="seoLoadRobots">Load current</button>
-            <button type="button" class="btn-primary" id="seoGenerateRobots">Generate</button>
-            <button type="button" class="btn-secondary" id="seoValidateRobots">Validate</button>
-            <button type="button" class="btn-secondary" id="seoCopyRobots">Copy</button>
-            <button type="button" class="btn-secondary" id="seoDownloadRobots">Download</button>
+            <button type="button" class="btn-secondary" id="seoLoadRobots">Check live file</button>
+            <button type="button" class="btn-primary" id="seoGenerateRobots">Generate update</button>
+            <button type="button" class="btn-tertiary" data-toggle-details="robots" data-label-hide="Hide details" aria-expanded="false" aria-controls="seoDetails-robots">Review details</button>
             <button type="button" class="btn-tertiary" id="seoResetRobots">Revert</button>
           </div>
-          <div class="seo-preview" id="robotsPreview" aria-live="polite"></div>
-          <div class="seo-editor-wrap">
-            <textarea id="robotsOutput" data-seo-kind="robots" spellcheck="false"></textarea>
+          <div class="seo-details" id="seoDetails-robots" hidden>
+            <div class="seo-detail-group">
+              <h4>Live file</h4>
+              <div class="seo-preview" id="robotsPreview"></div>
+            </div>
+            <div class="seo-detail-group">
+              <h4>Proposed update</h4>
+              <div class="seo-editor-wrap">
+                <textarea id="robotsOutput" data-seo-kind="robots" spellcheck="false"></textarea>
+              </div>
+              <div class="seo-detail-actions">
+                <button type="button" class="btn-secondary" id="seoCopyRobots">Copy</button>
+                <button type="button" class="btn-secondary" id="seoDownloadRobots">Download</button>
+              </div>
+            </div>
           </div>
         </article>
-        <article class="seo-card" data-seo-kind="meta">
+        <article class="seo-card" data-seo-kind="meta" data-state="idle">
           <div class="seo-card-header">
-            <h3>meta-tags.html</h3>
-            <span class="seo-status" id="seoStatus-meta" data-state="idle" role="status" aria-live="polite">Load current meta tags to begin.</span>
+            <div>
+              <h3>meta-tags.html</h3>
+              <p>Keep your title, description, and sharing tags accurate.</p>
+            </div>
+            <span class="seo-status" id="seoStatusBadge-meta" data-state="idle" aria-live="polite">Not checked yet</span>
           </div>
+          <p class="seo-summary" id="seoStatus-meta" role="status" aria-live="polite">Check the live meta tags to make sure they are up to date.</p>
           <div class="seo-actions">
-            <button type="button" class="btn-tertiary" id="seoLoadMeta">Load current</button>
-            <button type="button" class="btn-primary" id="seoGenerateMeta">Generate</button>
-            <button type="button" class="btn-secondary" id="seoValidateMeta">Validate</button>
-            <button type="button" class="btn-secondary" id="seoCopyMeta">Copy</button>
-            <button type="button" class="btn-secondary" id="seoDownloadMeta">Download</button>
+            <button type="button" class="btn-secondary" id="seoLoadMeta">Check live file</button>
+            <button type="button" class="btn-primary" id="seoGenerateMeta">Generate update</button>
+            <button type="button" class="btn-tertiary" data-toggle-details="meta" data-label-hide="Hide details" aria-expanded="false" aria-controls="seoDetails-meta">Review details</button>
             <button type="button" class="btn-tertiary" id="seoResetMeta">Revert</button>
           </div>
-          <div class="seo-preview" id="metaPreview" aria-live="polite"></div>
-          <div class="seo-editor-wrap">
-            <textarea id="metaOutput" data-seo-kind="meta" spellcheck="false"></textarea>
+          <div class="seo-details" id="seoDetails-meta" hidden>
+            <div class="seo-detail-group">
+              <h4>Live file</h4>
+              <div class="seo-preview" id="metaPreview"></div>
+            </div>
+            <div class="seo-detail-group">
+              <h4>Proposed update</h4>
+              <div class="seo-editor-wrap">
+                <textarea id="metaOutput" data-seo-kind="meta" spellcheck="false"></textarea>
+              </div>
+              <div class="seo-detail-actions">
+                <button type="button" class="btn-secondary" id="seoCopyMeta">Copy</button>
+                <button type="button" class="btn-secondary" id="seoDownloadMeta">Download</button>
+              </div>
+            </div>
           </div>
         </article>
       </div>
