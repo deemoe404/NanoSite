@@ -1928,6 +1928,9 @@ function applySiteDiffMarkers(diff) {
     if (key && fields[key]) el.setAttribute('data-diff', 'changed');
     else el.removeAttribute('data-diff');
   });
+  try {
+    if (typeof root.__nsSiteNavRefresh === 'function') root.__nsSiteNavRefresh();
+  } catch (_) {}
 }
 
 function yamlScalar(value) {
@@ -10378,6 +10381,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 function buildSiteUI(root, state) {
   if (!root) return;
   root.innerHTML = '';
+  try {
+    if (typeof root.__nsSiteNavOrientationCleanup === 'function') root.__nsSiteNavOrientationCleanup();
+  } catch (_) {}
+  try { root.__nsSiteNavOrientationCleanup = null; } catch (_) {}
+  try {
+    if (typeof root.__nsSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__nsSiteNavFocusHandler);
+  } catch (_) {}
+  try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
+  try { root.__nsSiteNavRefresh = null; } catch (_) {}
+  try { root.__nsSiteNavSetActive = null; } catch (_) {}
+  try { root.__nsSiteRevealField = null; } catch (_) {}
   if (!state || typeof state !== 'object') return;
   let site = state.site;
   if (!site || typeof site !== 'object') {
@@ -10390,9 +10404,281 @@ function buildSiteUI(root, state) {
   container.className = 'cs-root';
   root.appendChild(container);
 
+  const sectionsMeta = [];
+  let activeSectionId = '';
+  const preservedActiveLabel = (() => {
+    try { return String(root.__nsSiteActiveSection || '').trim(); }
+    catch (_) { return ''; }
+  })();
+
+  const escapeFieldKey = (value) => {
+    const raw = value == null ? '' : String(value);
+    try {
+      if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(raw);
+    } catch (_) {}
+    return raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  };
+
+  const layout = document.createElement('div');
+  layout.className = 'cs-layout';
+  container.appendChild(layout);
+
+  const nav = document.createElement('nav');
+  nav.className = 'cs-nav';
+  const navLabel = (() => {
+    try {
+      const label = t('editor.composer.site.sections.navigation');
+      if (label && label !== 'editor.composer.site.sections.navigation') return label;
+    } catch (_) {}
+    return 'Site sections';
+  })();
+  nav.setAttribute('aria-label', navLabel);
+
+  const navList = document.createElement('ul');
+  navList.className = 'cs-nav-list';
+  navList.setAttribute('role', 'tablist');
+  nav.appendChild(navList);
+  layout.appendChild(nav);
+
+  const viewport = document.createElement('div');
+  viewport.className = 'cs-viewport';
+  layout.appendChild(viewport);
+
+  const navOrientationQuery = (() => {
+    try {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+      return window.matchMedia('(max-width: 920px)');
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  const updateNavOrientation = () => {
+    const horizontal = !!(navOrientationQuery && navOrientationQuery.matches);
+    navList.setAttribute('aria-orientation', horizontal ? 'horizontal' : 'vertical');
+  };
+
+  updateNavOrientation();
+  if (navOrientationQuery) {
+    const orientationHandler = () => updateNavOrientation();
+    if (typeof navOrientationQuery.addEventListener === 'function') navOrientationQuery.addEventListener('change', orientationHandler);
+    else if (typeof navOrientationQuery.addListener === 'function') navOrientationQuery.addListener(orientationHandler);
+    try {
+      root.__nsSiteNavOrientationCleanup = () => {
+        if (typeof navOrientationQuery.removeEventListener === 'function') navOrientationQuery.removeEventListener('change', orientationHandler);
+        else if (typeof navOrientationQuery.removeListener === 'function') navOrientationQuery.removeListener(orientationHandler);
+      };
+    } catch (_) {}
+  }
+
+  function focusNavAt(index) {
+    if (!sectionsMeta.length) return;
+    const len = sectionsMeta.length;
+    let next = index;
+    if (Number.isNaN(next)) next = 0;
+    if (next < 0) next = len - 1;
+    if (next >= len) next = 0;
+    const target = sectionsMeta[next];
+    if (target && target.navButton && typeof target.navButton.focus === 'function') {
+      try { target.navButton.focus(); } catch (_) {}
+    }
+  }
+
+  function setActiveSection(sectionId, options = {}) {
+    if (!sectionId || !sectionsMeta.length) return;
+    let resolved = false;
+    let focusTarget = null;
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.section || !meta.navButton) return;
+      const isActive = meta.id === sectionId;
+      if (isActive) {
+        activeSectionId = sectionId;
+        resolved = true;
+        meta.section.removeAttribute('hidden');
+        meta.section.setAttribute('aria-hidden', 'false');
+        meta.section.classList.add('is-active');
+        meta.navButton.classList.add('is-active');
+        meta.navButton.setAttribute('aria-selected', 'true');
+        meta.navButton.setAttribute('tabindex', '0');
+        navList.setAttribute('aria-activedescendant', meta.navButton.id);
+        try { root.__nsSiteActiveSection = meta.label || ''; } catch (_) {}
+        if (options.focusPanel) {
+          const focusable = meta.section.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])');
+          if (focusable && typeof focusable.focus === 'function') focusTarget = focusable;
+        }
+      } else {
+        meta.section.setAttribute('hidden', '');
+        meta.section.setAttribute('aria-hidden', 'true');
+        meta.section.classList.remove('is-active');
+        meta.navButton.classList.remove('is-active');
+        meta.navButton.setAttribute('aria-selected', 'false');
+        meta.navButton.setAttribute('tabindex', '-1');
+      }
+    });
+    if (!resolved) return;
+    if (focusTarget) {
+      try {
+        requestAnimationFrame(() => {
+          try { focusTarget.focus(); } catch (_) {}
+        });
+      } catch (_) {
+        try { focusTarget.focus(); } catch (_) {}
+      }
+    }
+  }
+
+  function refreshNavDiffState() {
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.navButton || !meta.section) return;
+      const hasDiff = !!meta.section.querySelector('[data-diff]');
+      if (hasDiff) meta.navButton.setAttribute('data-has-diff', 'true');
+      else meta.navButton.removeAttribute('data-has-diff');
+    });
+  }
+
+  const createSection = (title, description) => {
+    const section = document.createElement('section');
+    section.className = 'cs-section';
+    section.setAttribute('role', 'tabpanel');
+    section.setAttribute('aria-hidden', 'true');
+    const sectionId = `cs-section-${sectionsMeta.length + 1}`;
+    section.id = sectionId;
+    if (title || description) {
+      const head = document.createElement('div');
+      head.className = 'cs-section-head';
+      let heading = null;
+      if (title) {
+        heading = document.createElement('h3');
+        heading.className = 'cs-section-title';
+        heading.textContent = title;
+        head.appendChild(heading);
+      }
+      if (description) {
+        const desc = document.createElement('p');
+        desc.className = 'cs-section-description';
+        desc.textContent = description;
+        head.appendChild(desc);
+      }
+      section.appendChild(head);
+    }
+    viewport.appendChild(section);
+
+    const labelText = (() => {
+      if (title && String(title).trim()) return String(title).trim();
+      const fromHeading = section.querySelector('.cs-section-title');
+      return fromHeading && fromHeading.textContent ? fromHeading.textContent.trim() : `Section ${sectionsMeta.length + 1}`;
+    })();
+
+    const navItem = document.createElement('li');
+    navItem.className = 'cs-nav-item';
+    const navButton = document.createElement('button');
+    navButton.type = 'button';
+    navButton.className = 'cs-nav-button';
+    const navButtonId = `${sectionId}-tab`;
+    navButton.id = navButtonId;
+    navButton.textContent = labelText;
+    navButton.setAttribute('role', 'tab');
+    navButton.setAttribute('aria-controls', sectionId);
+    navButton.setAttribute('aria-selected', 'false');
+    navButton.setAttribute('tabindex', '-1');
+    navButton.addEventListener('click', () => setActiveSection(sectionId, { focusPanel: true }));
+    navButton.addEventListener('keydown', (event) => {
+      const key = event.key;
+      if (!key) return;
+      const currentIndex = sectionsMeta.findIndex((meta) => meta && meta.id === sectionId);
+      if (key === 'ArrowDown' || key === 'ArrowRight') {
+        event.preventDefault();
+        focusNavAt(currentIndex + 1);
+      } else if (key === 'ArrowUp' || key === 'ArrowLeft') {
+        event.preventDefault();
+        focusNavAt(currentIndex - 1);
+      } else if (key === 'Home') {
+        event.preventDefault();
+        focusNavAt(0);
+      } else if (key === 'End') {
+        event.preventDefault();
+        focusNavAt(sectionsMeta.length - 1);
+      }
+    });
+    navItem.appendChild(navButton);
+    navList.appendChild(navItem);
+
+    const meta = { id: sectionId, section, navButton, label: labelText };
+    sectionsMeta.push(meta);
+
+    const shouldRestore = preservedActiveLabel && labelText === preservedActiveLabel;
+    if (!activeSectionId || shouldRestore) {
+      setActiveSection(sectionId);
+    } else {
+      section.setAttribute('hidden', '');
+      section.setAttribute('aria-hidden', 'true');
+      navButton.setAttribute('aria-selected', 'false');
+      navButton.setAttribute('tabindex', '-1');
+    }
+
+    return section;
+  };
+
+  const revealField = (fieldKey, options = {}) => {
+    if (!fieldKey) return null;
+    const selector = `[data-field="${escapeFieldKey(fieldKey)}"]`;
+    let fieldEl = null;
+    try { fieldEl = root.querySelector(selector); }
+    catch (_) { fieldEl = null; }
+    if (!fieldEl) return null;
+    const section = typeof fieldEl.closest === 'function' ? fieldEl.closest('.cs-section') : null;
+    if (!section) return fieldEl;
+    const meta = sectionsMeta.find((item) => item.section === section);
+    if (meta) {
+      setActiveSection(meta.id, { focusPanel: false });
+      if (options.scroll !== false) {
+        try {
+          const behavior = options.behavior || 'smooth';
+          requestAnimationFrame(() => {
+            try { fieldEl.scrollIntoView({ block: 'start', behavior }); }
+            catch (_) { fieldEl.scrollIntoView(); }
+          });
+        } catch (_) {
+          try { fieldEl.scrollIntoView(); } catch (_) {}
+        }
+      }
+      if (options.focus !== false) {
+        const focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        try {
+          requestAnimationFrame(() => {
+            if (typeof focusTarget.focus === 'function') {
+              try { focusTarget.focus({ preventScroll: options.scroll !== false }); }
+              catch (_) { focusTarget.focus(); }
+            }
+          });
+        } catch (_) {
+          try { focusTarget.focus(); } catch (_) {}
+        }
+      }
+    }
+    return fieldEl;
+  };
+
+  const focusHandler = (event) => {
+    const target = event && event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    const section = target.closest('.cs-section');
+    if (!section || !section.hasAttribute('hidden')) return;
+    const meta = sectionsMeta.find((item) => item.section === section);
+    if (meta) setActiveSection(meta.id, { focusPanel: false });
+  };
+
+  try { root.addEventListener('focusin', focusHandler); } catch (_) {}
+  try { root.__nsSiteNavFocusHandler = focusHandler; } catch (_) {}
+  try { root.__nsSiteRevealField = revealField; } catch (_) {}
+
+  try { root.__nsSiteNavRefresh = refreshNavDiffState; } catch (_) {}
+  try { root.__nsSiteNavSetActive = setActiveSection; } catch (_) {}
+
   const markDirty = () => {
     setStateSlice('site', site);
     notifyComposerChange('site');
+    refreshNavDiffState();
   };
 
   const ensureLocalized = (key, ensureDefault = true) => {
@@ -10479,30 +10765,6 @@ function buildSiteUI(root, state) {
       return a.localeCompare(b);
     });
     return ordered;
-  };
-
-  const createSection = (title, description) => {
-    const section = document.createElement('section');
-    section.className = 'cs-section';
-    if (title || description) {
-      const head = document.createElement('div');
-      head.className = 'cs-section-head';
-      if (title) {
-        const heading = document.createElement('h3');
-        heading.className = 'cs-section-title';
-        heading.textContent = title;
-        head.appendChild(heading);
-      }
-      if (description) {
-        const desc = document.createElement('p');
-        desc.className = 'cs-section-description';
-        desc.textContent = description;
-        head.appendChild(desc);
-      }
-      section.appendChild(head);
-    }
-    container.appendChild(section);
-    return section;
   };
 
   const createField = (section, config) => {
@@ -11497,6 +11759,8 @@ function buildSiteUI(root, state) {
     });
     field.appendChild(list);
   }
+
+  refreshNavDiffState();
 }
 
 function rebuildSiteUI() {
@@ -11842,7 +12106,17 @@ function rebuildSiteUI() {
     .composer-site-main{padding:0}
   }
 
-  .cs-root{display:flex;flex-direction:column;gap:1rem;padding:.2rem 0 1.1rem}
+  .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
+  .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
+  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2}
+  .cs-nav-list{list-style:none;margin:0;padding:.5rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-item{width:100%}
+  .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
+  .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
+  .cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 14%, var(--card));border-color:color-mix(in srgb,var(--primary) 45%, var(--border));color:color-mix(in srgb,var(--primary) 98%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
+  .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
   .cs-section{border:1px solid color-mix(in srgb,var(--border) 85%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
   .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
@@ -11891,6 +12165,20 @@ function rebuildSiteUI() {
   .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
   .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
   .cs-switch-label{font-weight:600;font-size:.82rem}
+  @media (max-width:1024px){
+    .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
+  }
+  @media (max-width:920px){
+    .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
+    .cs-nav{position:relative;top:auto}
+    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:.4rem .45rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
+    .cs-nav-item{flex:0 0 auto}
+    .cs-nav-button{white-space:nowrap;padding:.48rem .65rem}
+  }
+  @media (max-width:720px){
+    .cs-nav-list{gap:.3rem}
+    .cs-nav-button{font-size:.86rem;padding:.45rem .6rem}
+  }
   @media (max-width:880px){
     .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
