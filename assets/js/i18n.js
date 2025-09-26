@@ -443,6 +443,8 @@ const translations = {
         discardConfirm: {
           messageReload: ({ label }) => `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`,
           messageSimple: ({ label }) => `Discard local changes for ${label}? This action cannot be undone.`,
+          closeTabMessage: ({ label }) => `Close ${label}? Closing this tab will discard local markdown changes.`,
+          closeTabFallback: 'this tab',
           discard: 'Discard',
           discarding: 'Discarding…',
           successFresh: ({ label }) => `Discarded local changes; loaded fresh ${label}`,
@@ -964,6 +966,8 @@ const translations = {
         discardConfirm: {
           messageReload: ({ label }) => `丢弃 ${label} 的本地更改并重新加载远程文件？此操作无法撤销。`,
           messageSimple: ({ label }) => `丢弃 ${label} 的本地更改？此操作无法撤销。`,
+          closeTabMessage: ({ label }) => `关闭 ${label}？关闭此标签页将放弃本地 Markdown 更改。`,
+          closeTabFallback: '此标签页',
           discard: '丢弃',
           discarding: '正在丢弃…',
           successFresh: ({ label }) => `已丢弃本地更改；已加载最新的 ${label}`,
@@ -1485,6 +1489,8 @@ const translations = {
         discardConfirm: {
           messageReload: ({ label }) => `${label} のローカル変更を破棄してリモートファイルを再読み込みしますか？この操作は取り消せません。`,
           messageSimple: ({ label }) => `${label} のローカル変更を破棄しますか？この操作は取り消せません。`,
+          closeTabMessage: ({ label }) => `${label} を閉じますか？このタブを閉じるとローカルの Markdown 変更が失われます。`,
+          closeTabFallback: 'このタブ',
           discard: '破棄',
           discarding: '破棄中…',
           successFresh: ({ label }) => `ローカル変更を破棄し、最新の ${label} を読み込みました`,
