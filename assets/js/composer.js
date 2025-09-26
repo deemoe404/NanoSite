@@ -256,10 +256,7 @@ function createCubicBezierEasing(mX1, mY1, mX2, mY2) {
   };
 }
 
-const easeOutComposerScroll = (() => {
-  const ease = createCubicBezierEasing(0.25, 0.95, 0.35, 1);
-  return (t) => ease(Math.min(1, Math.max(0, t)));
-})();
+const easeOutComposerScroll = (t) => Math.min(1, Math.max(0, t));
 
 function resolveComposerScrollDuration(duration) {
   const maxDuration = 1600;
