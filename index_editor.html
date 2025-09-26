@@ -1237,7 +1237,7 @@
     .seo-mode .seo-intro { display: flex; flex-direction: column; gap: .65rem; max-width: 760px; }
     .seo-mode .seo-intro h2 { margin: 0; font-size: 1.55rem; font-weight: 700; color: var(--text); }
     .seo-mode .seo-intro p { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.65; }
-    .seo-grid { display: grid; gap: 1.35rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: stretch; }
+    .seo-grid { display: flex; flex-direction: column; gap: 1.35rem; align-items: stretch; }
     .seo-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow); min-width: 0; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }
     .seo-card[data-state="dirty"] { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); box-shadow: 0 16px 36px rgba(12, 84, 199, 0.15); }
     .seo-card[data-state="clean"] { border-color: color-mix(in srgb, #16a34a 48%, var(--border)); }
@@ -1272,7 +1272,7 @@
     .seo-mode .hi-editor { max-height: 280px; }
     .seo-mode .hi-editor .code-scroll { min-height: 220px; }
     @media (max-width: 720px) {
-      .seo-grid { grid-template-columns: 1fr; }
+      .seo-grid { gap: 1.1rem; }
     }
   </style>
 </head>
@@ -1511,7 +1511,6 @@
           </div>
         </article>
       </div>
-      <textarea id="configOutput" hidden></textarea>
     </section>
 
     <!-- Composer Mode -->
