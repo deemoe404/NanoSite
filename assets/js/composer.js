@@ -1282,9 +1282,9 @@ function startMarkdownSyncWatcher(tab, options = {}) {
 }
 
 async function fetchComposerRemoteSnapshot(kind) {
-  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const safeKind = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   const root = getContentRootSafe();
-  const base = safeKind === 'tabs' ? 'tabs' : 'index';
+  const base = safeKind === 'tabs' ? 'tabs' : (safeKind === 'site' ? 'site' : 'index');
   const urls = [`${root}/${base}.yaml`, `${root}/${base}.yml`];
   let lastStatus = 404;
   for (const url of urls) {
@@ -1315,7 +1315,7 @@ async function fetchComposerRemoteSnapshot(kind) {
 }
 
 function applyComposerRemoteSnapshot(kind, snapshot) {
-  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const safeKind = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   if (!snapshot || snapshot.state !== 'existing') return;
   let parsed = snapshot.parsed;
   if (!parsed || typeof parsed !== 'object') {
@@ -1323,18 +1323,21 @@ function applyComposerRemoteSnapshot(kind, snapshot) {
     catch (_) { parsed = null; }
   }
   if (!parsed || typeof parsed !== 'object') {
-    const targetLabel = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+    const targetLabel = safeKind === 'tabs' ? 'tabs.yaml' : (safeKind === 'site' ? 'site.yaml' : 'index.yaml');
     showToast('warn', t('editor.toasts.yamlParseFailed', { label: targetLabel }), { duration: 4200 });
     return;
   }
-  const prepared = safeKind === 'tabs' ? prepareTabsState(parsed || {}) : prepareIndexState(parsed || {});
-  remoteBaseline[safeKind] = deepClone(prepared);
+  let prepared;
+  if (safeKind === 'tabs') prepared = prepareTabsState(parsed || {});
+  else if (safeKind === 'site') prepared = cloneSiteState(prepareSiteState(parsed || {}));
+  else prepared = prepareIndexState(parsed || {});
+  remoteBaseline[safeKind] = safeKind === 'site' ? prepared : deepClone(prepared);
   notifyComposerChange(safeKind, { skipAutoSave: true });
 }
 
 function startComposerSyncWatcher(kind, options = {}) {
-  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
-  const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const safeKind = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
+  const label = safeKind === 'tabs' ? 'tabs.yaml' : (safeKind === 'site' ? 'site.yaml' : 'index.yaml');
   const expectedText = options.expectedText != null ? String(options.expectedText) : '';
   const expectedSignature = computeTextSignature(expectedText);
   const message = options.message || t('editor.composer.remoteWatcher.waitingForLabel', { label });
