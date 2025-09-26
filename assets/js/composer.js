@@ -143,6 +143,31 @@ const composerInlineVisibilityFallbacks = new WeakMap();
 const composerListTransitions = new WeakMap();
 const composerOrderMainTransitions = new WeakMap();
 
+const SITE_FIELD_LABEL_MAP = {
+  siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
+  siteSubtitle: { i18nKey: 'editor.composer.site.fields.siteSubtitle' },
+  siteDescription: { i18nKey: 'editor.composer.site.fields.siteDescription' },
+  siteKeywords: { i18nKey: 'editor.composer.site.fields.siteKeywords' },
+  avatar: { i18nKey: 'editor.composer.site.fields.avatar' },
+  resourceURL: { i18nKey: 'editor.composer.site.fields.resourceURL' },
+  contentRoot: { i18nKey: 'editor.composer.site.fields.contentRoot' },
+  profileLinks: { i18nKey: 'editor.composer.site.fields.profileLinks' },
+  links: { i18nKey: 'editor.composer.site.fields.navLinks' },
+  contentOutdatedDays: { i18nKey: 'editor.composer.site.fields.contentOutdatedDays' },
+  cardCoverFallback: { i18nKey: 'editor.composer.site.fields.cardCoverFallback' },
+  errorOverlay: { i18nKey: 'editor.composer.site.fields.errorOverlay' },
+  pageSize: { i18nKey: 'editor.composer.site.fields.pageSize' },
+  defaultLanguage: { i18nKey: 'editor.composer.site.fields.defaultLanguage' },
+  themeMode: { i18nKey: 'editor.composer.site.fields.themeMode' },
+  themePack: { i18nKey: 'editor.composer.site.fields.themePack' },
+  themeOverride: { i18nKey: 'editor.composer.site.fields.themeOverride' },
+  showAllPosts: { i18nKey: 'editor.composer.site.fields.showAllPosts' },
+  landingTab: { i18nKey: 'editor.composer.site.fields.landingTab' },
+  repo: { i18nKey: 'editor.composer.site.fields.repo' },
+  assetWarnings: { i18nKey: 'editor.composer.site.sections.assets.title', fallback: 'Asset warnings' },
+  __extras: { i18nKey: 'editor.composer.site.fields.extras', fallback: 'Extras' }
+};
+
 function composerPrefersReducedMotion() {
   try {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
@@ -3898,7 +3923,7 @@ function buildLocalDraftSummaryItem(entry) {
   return item;
 }
 
-function updateUnsyncedSummary() {
+function updateUnsyncedSummary(options = {}) {
   const summaryContainer = document.getElementById('localDraftSummary');
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
@@ -3983,6 +4008,7 @@ function updateUnsyncedSummary() {
     updateReviewButton([]);
   }
   updateModeDirtyIndicators(summaryEntries);
+  refreshComposerInlineMeta(options);
 }
 
 function findDynamicTabByPath(path) {
@@ -5025,6 +5051,137 @@ function renderComposerInlineSummary(target, diff, options = {}) {
     empty.className = 'composer-inline-summary-empty';
     empty.textContent = tComposerDiff('inlineChips.none');
     target.appendChild(empty);
+  }
+}
+
+function getSiteFieldLabel(fieldKey) {
+  if (!fieldKey) return '';
+  const entry = SITE_FIELD_LABEL_MAP[fieldKey];
+  if (!entry) return fieldKey;
+  const key = entry.i18nKey || entry.key || entry;
+  if (typeof key === 'string' && key) {
+    try {
+      const label = t(key);
+      if (label && typeof label === 'string' && label.trim()) return label;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  if (entry && typeof entry === 'object' && entry.fallback) return entry.fallback;
+  if (typeof key === 'string' && key.trim()) return key;
+  return fieldKey;
+}
+
+function renderComposerSiteInlineSummary(target, diff) {
+  if (!target) return false;
+  target.innerHTML = '';
+
+  const summary = diff && typeof diff === 'object' ? diff : null;
+  if (!summary || !summary.hasChanges) {
+    const empty = document.createElement('span');
+    empty.className = 'composer-inline-summary-empty';
+    empty.textContent = tComposer('noLocalChangesYet');
+    target.appendChild(empty);
+    return false;
+  }
+
+  const fields = summary.fields && typeof summary.fields === 'object'
+    ? Object.keys(summary.fields).filter(Boolean)
+    : [];
+
+  const row = document.createElement('div');
+  row.className = 'composer-inline-chip-row';
+
+  const countChip = document.createElement('span');
+  countChip.className = 'composer-inline-chip';
+  countChip.dataset.variant = 'modified';
+  countChip.textContent = tComposerDiff('inlineChips.modified', { count: fields.length || 0 });
+  row.appendChild(countChip);
+
+  const labels = fields.map(getSiteFieldLabel).filter(Boolean);
+  const maxFields = 3;
+  labels.slice(0, maxFields).forEach(label => {
+    const chip = document.createElement('span');
+    chip.className = 'composer-inline-chip';
+    chip.dataset.variant = 'langs';
+    chip.textContent = label;
+    row.appendChild(chip);
+  });
+
+  if (labels.length > maxFields) {
+    const chip = document.createElement('span');
+    chip.className = 'composer-inline-chip';
+    chip.dataset.variant = 'langs';
+    chip.textContent = tComposerDiff('lists.more', { count: labels.length - maxFields });
+    row.appendChild(chip);
+  }
+
+  target.appendChild(row);
+  return true;
+}
+
+function updateComposerSiteInlineMeta(meta, options = {}) {
+  if (!meta) return;
+
+  meta.__nsSiteMetaActive = true;
+  try { meta.setAttribute('data-site-active', 'true'); } catch (_) {}
+  if (meta.dataset) meta.dataset.kind = 'site';
+
+  const title = meta.querySelector('.composer-order-inline-title');
+  if (title) title.textContent = tComposerDiff('inline.title');
+  const kindLabel = meta.querySelector('.composer-order-inline-kind');
+  if (kindLabel) kindLabel.textContent = 'site.yaml';
+
+  const openBtn = meta.querySelector('.composer-order-inline-open');
+  if (openBtn) {
+    if (!meta.__nsSiteMetaButtonState) {
+      meta.__nsSiteMetaButtonState = {
+        hidden: openBtn.hidden,
+        ariaHidden: openBtn.getAttribute('aria-hidden'),
+        display: openBtn.style.display,
+        disabled: !!openBtn.disabled
+      };
+    }
+    try { openBtn.dataset.kind = 'site'; } catch (_) {}
+    openBtn.hidden = true;
+    openBtn.disabled = true;
+    openBtn.style.display = 'none';
+    openBtn.setAttribute('aria-hidden', 'true');
+  }
+
+  const statsWrap = meta.querySelector('.composer-order-inline-stats');
+  const diff = composerDiffCache.site || recomputeDiff('site');
+  const hasChanges = !!(diff && diff.hasChanges);
+
+  if (statsWrap) renderComposerSiteInlineSummary(statsWrap, diff);
+
+  if (meta.dataset) meta.dataset.state = hasChanges ? 'changed' : 'clean';
+  animateComposerInlineVisibility(meta, hasChanges, { immediate: !!options.immediate });
+}
+
+function refreshComposerInlineMeta(options = {}) {
+  const meta = document.getElementById('composerOrderInlineMeta');
+  if (!meta) return;
+  const activeKind = getActiveComposerFile();
+  if (activeKind === 'site') {
+    updateComposerSiteInlineMeta(meta, options);
+    return;
+  }
+
+  if (meta.__nsSiteMetaActive) {
+    const stored = meta.__nsSiteMetaButtonState || null;
+    const openBtn = meta.querySelector('.composer-order-inline-open');
+    if (openBtn) {
+      openBtn.disabled = stored ? !!stored.disabled : false;
+      openBtn.hidden = stored ? !!stored.hidden : false;
+      if (stored && stored.display != null) openBtn.style.display = stored.display;
+      else openBtn.style.display = '';
+      if (stored && stored.ariaHidden != null) openBtn.setAttribute('aria-hidden', stored.ariaHidden);
+      else openBtn.removeAttribute('aria-hidden');
+    }
+    delete meta.__nsSiteMetaButtonState;
+    delete meta.__nsSiteMetaActive;
+    try { meta.removeAttribute('data-site-active'); } catch (_) {}
   }
 }
 
@@ -8409,7 +8566,8 @@ function applyComposerFile(name, options = {}) {
       if (normalized === 'site') setComposerOrderPreviewActiveKind('index');
       else setComposerOrderPreviewActiveKind(normalized);
     } catch (_) {}
-    try { updateUnsyncedSummary(); } catch (_) {}
+    const summaryOptions = normalized === 'site' ? { immediate: true } : undefined;
+    try { updateUnsyncedSummary(summaryOptions); } catch (_) {}
   };
 
   if (!panels || reduceMotion) {
