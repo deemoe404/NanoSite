@@ -11190,15 +11190,21 @@ function buildSiteUI(root, state) {
     if (config.dataKey) field.dataset.field = config.dataKey;
     const head = document.createElement('div');
     head.className = 'cs-field-head';
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'cs-field-label-wrap';
+    head.appendChild(labelWrap);
     const labelEl = document.createElement('label');
     labelEl.className = 'cs-field-label';
     labelEl.textContent = config.label || '';
-    head.appendChild(labelEl);
+    labelWrap.appendChild(labelEl);
     if (config.action) {
       config.action.classList.add('cs-field-action');
       head.appendChild(config.action);
     }
     field.appendChild(head);
+    field.__csHead = head;
+    field.__csLabel = labelEl;
+    field.__csLabelWrap = labelWrap;
     if (config.description) {
       const desc = document.createElement('p');
       desc.className = 'cs-field-help';
@@ -11541,10 +11547,12 @@ function buildSiteUI(root, state) {
       description: config.description,
       action: resetBtn
     });
-    const head = field.querySelector('.cs-field-head');
+    const head = field.__csHead || field.querySelector('.cs-field-head');
+    const labelWrap = field.__csLabelWrap || head;
+    if (labelWrap) labelWrap.classList.add('cs-field-label-with-switch');
     const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
-      target: head || field,
-      classes: head ? ['cs-field-head-switch'] : undefined
+      target: labelWrap || head || field,
+      classes: ['cs-field-head-switch']
     });
 
     const sync = () => {
@@ -11573,10 +11581,12 @@ function buildSiteUI(root, state) {
       label: config.label,
       description: config.description
     });
-    const head = field.querySelector('.cs-field-head');
+    const head = field.__csHead || field.querySelector('.cs-field-head');
+    const labelWrap = field.__csLabelWrap || head;
+    if (labelWrap) labelWrap.classList.add('cs-field-label-with-switch');
     const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
-      target: head || field,
-      classes: head ? ['cs-field-head-switch'] : undefined
+      target: labelWrap || head || field,
+      classes: ['cs-field-head-switch']
     });
 
     const sync = () => {
@@ -12542,8 +12552,10 @@ function rebuildSiteUI() {
   .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
   .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+  .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}
+  .cs-field-label-with-switch{gap:.6rem}
   .cs-field-action{margin-left:auto}
-  .cs-field-label{font-weight:600;font-size:.9rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:1 1 auto;min-width:120px}
+  .cs-field-label{font-weight:600;font-size:.9rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:0 1 auto;min-width:0}
   .cs-field-help{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
   .cs-field-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
   .cs-field-controls-inline{flex-wrap:nowrap}
