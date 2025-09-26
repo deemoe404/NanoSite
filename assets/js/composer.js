@@ -12663,15 +12663,15 @@ function rebuildSiteUI() {
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
-  .cs-repo-grid{display:flex;flex-direction:column;gap:.45rem;margin-top:.35rem}
-  .cs-repo-path{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+  .cs-repo-grid{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.35rem}
+  .cs-repo-path{display:flex;align-items:center;gap:.35rem;flex:1 1 320px;min-width:220px;flex-wrap:wrap}
   .cs-repo-field{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .55rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);transition:border-color .16s ease, box-shadow .16s ease}
   .cs-repo-field:focus-within{border-color:color-mix(in srgb,var(--primary) 50%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-repo-field .cs-repo-input{border:0;background:transparent;padding:0;min-height:1.8rem;font-size:.84rem;line-height:1.25;color:var(--text);min-width:0;width:auto}
   .cs-repo-field .cs-repo-input:focus{outline:none;box-shadow:none}
   .cs-repo-field--owner{flex:1 1 160px;min-width:140px}
   .cs-repo-field--name{flex:1 1 200px;min-width:160px}
-  .cs-repo-field--branch{align-self:flex-start;min-width:180px;max-width:260px}
+  .cs-repo-field--branch{align-self:center;min-width:180px;max-width:260px;flex:0 1 220px}
   .cs-repo-affix{font-size:.82rem;font-weight:600;color:color-mix(in srgb,var(--muted) 78%, transparent);text-transform:lowercase;letter-spacing:.04em}
   .cs-repo-divider{font-size:1.1rem;font-weight:600;color:color-mix(in srgb,var(--muted) 82%, transparent)}
   .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
