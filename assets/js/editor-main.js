@@ -10,6 +10,222 @@ import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } f
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 
+const previewAssetBuckets = new Map();
+let previewAssetCurrentPath = '';
+
+const getContentRootPrefix = () => {
+  try {
+    const raw = String(getContentRoot() || '').trim();
+    if (!raw) return '';
+    return raw
+      .replace(/[\\]/g, '/')
+      .replace(/\/+$/, '');
+  } catch (_) {
+    return '';
+  }
+};
+
+const safePreviewMime = (mime) => {
+  try {
+    const raw = String(mime || '').trim().toLowerCase();
+    if (!raw) return 'image/png';
+    return raw.startsWith('image/') ? raw : 'image/png';
+  } catch (_) {
+    return 'image/png';
+  }
+};
+
+const makePreviewDataUrl = (base64, mime) => {
+  try {
+    const data = String(base64 || '').trim();
+    if (!data) return '';
+    const type = safePreviewMime(mime);
+    return `data:${type};base64,${data}`;
+  } catch (_) {
+    return '';
+  }
+};
+
+const normalizePreviewKey = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^(data:|blob:)/i.test(raw)) return raw;
+  let input = raw;
+  try {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(input)) {
+      const url = new URL(input, window.location.href);
+      input = url.pathname || '';
+    }
+  } catch (_) {
+    /* ignore URL parse errors */
+  }
+  return input
+    .replace(/^[?#]+/, '')
+    .replace(/[\\]/g, '/')
+    .replace(/\/+/, '/')
+    .replace(/^\.\/+/, '')
+    .replace(/^\/+/, '');
+};
+
+const normalizePreviewPath = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const cleaned = raw.replace(/[\\]/g, '/');
+  const parts = cleaned.split('/');
+  const stack = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      if (stack.length) stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+  let normalized = stack.join('/');
+  const prefix = getContentRootPrefix();
+  if (prefix) {
+    if (normalized === prefix) return '';
+    if (normalized.startsWith(`${prefix}/`)) {
+      normalized = normalized.slice(prefix.length + 1);
+    }
+  }
+  return normalized;
+};
+
+const buildPreviewKeysForAsset = (asset) => {
+  const keys = new Set();
+  const commit = normalizePreviewKey(asset && (asset.path || asset.commitPath));
+  const rel = normalizePreviewKey(asset && asset.relativePath);
+  const prefix = getContentRootPrefix();
+  const join = (base, suffix) => {
+    if (!base) return suffix;
+    return `${base}/${suffix}`.replace(/\/+/, '/');
+  };
+  if (commit) {
+    keys.add(commit);
+    if (prefix) keys.add(join(prefix, commit));
+  }
+  if (rel) {
+    keys.add(rel);
+    if (prefix) keys.add(join(prefix, rel));
+  }
+  return Array.from(keys).filter(Boolean);
+};
+
+const updatePreviewAssetBucket = (path, assets) => {
+  const norm = normalizePreviewPath(path);
+  if (!norm) {
+    if (path) previewAssetBuckets.delete(norm);
+    return;
+  }
+  let bucket = previewAssetBuckets.get(norm);
+  if (!bucket) {
+    bucket = new Map();
+    previewAssetBuckets.set(norm, bucket);
+  }
+  const list = Array.isArray(assets) ? assets : [];
+  if (!list.length) {
+    bucket.clear();
+    previewAssetBuckets.delete(norm);
+    return;
+  }
+  const keep = new Set();
+  list.forEach((asset) => {
+    if (!asset) return;
+    const base64 = typeof asset.base64 === 'string' ? asset.base64.trim() : '';
+    if (!base64) return;
+    const url = makePreviewDataUrl(base64, asset.mime);
+    if (!url) return;
+    const keys = buildPreviewKeysForAsset(asset);
+    if (!keys.length) return;
+    keys.forEach((key) => {
+      if (!key) return;
+      bucket.set(key, { url, mime: safePreviewMime(asset.mime) });
+      keep.add(key);
+    });
+  });
+  Array.from(bucket.keys()).forEach((key) => {
+    if (!keep.has(key)) bucket.delete(key);
+  });
+  if (!bucket.size) previewAssetBuckets.delete(norm);
+};
+
+const lookupPreviewAsset = (bucket, key) => {
+  if (!bucket || !key) return null;
+  const direct = bucket.get(key);
+  if (direct) return direct;
+  const prefix = getContentRootPrefix();
+  if (prefix && key.startsWith(`${prefix}/`)) {
+    const trimmed = key.slice(prefix.length + 1);
+    return bucket.get(trimmed) || null;
+  }
+  return null;
+};
+
+const applyPreviewAssetOverrides = (container, markdownPath) => {
+  const normPath = normalizePreviewPath(markdownPath || previewAssetCurrentPath);
+  if (!normPath) return;
+  const bucket = previewAssetBuckets.get(normPath);
+  if (!bucket || !bucket.size) return;
+  const root = typeof container === 'string' ? document.querySelector(container) : container;
+  if (!root) return;
+
+  const rewriteAttr = (node, attr) => {
+    if (!node) return;
+    const raw = node.getAttribute(attr);
+    if (!raw) return;
+    const key = normalizePreviewKey(raw);
+    if (!key) return;
+    const asset = lookupPreviewAsset(bucket, key);
+    if (!asset || !asset.url) return;
+    if (node.getAttribute(attr) === asset.url) return;
+    node.setAttribute(attr, asset.url);
+  };
+
+  const rewriteSrcset = (node, attr) => {
+    if (!node) return;
+    const raw = node.getAttribute(attr);
+    if (!raw) return;
+    const parts = raw.split(',');
+    let changed = false;
+    const next = parts.map((part) => {
+      const seg = part.trim();
+      if (!seg) return '';
+      const bits = seg.split(/\s+/);
+      const url = bits.shift();
+      const asset = lookupPreviewAsset(bucket, normalizePreviewKey(url));
+      if (asset && asset.url) {
+        changed = true;
+        return [asset.url, ...bits].join(' ');
+      }
+      return seg;
+    });
+    if (changed) node.setAttribute(attr, next.filter(Boolean).join(', '));
+  };
+
+  root.querySelectorAll('img').forEach((img) => {
+    rewriteAttr(img, 'src');
+    rewriteAttr(img, 'data-src');
+    rewriteAttr(img, 'data-original');
+    rewriteSrcset(img, 'srcset');
+  });
+  root.querySelectorAll('source').forEach((source) => {
+    rewriteAttr(source, 'src');
+    rewriteSrcset(source, 'srcset');
+  });
+  root.querySelectorAll('video').forEach((video) => {
+    rewriteAttr(video, 'poster');
+    rewriteAttr(video, 'src');
+    rewriteSrcset(video, 'srcset');
+  });
+};
+
+const refreshPreviewAssetOverrides = () => {
+  const target = document.getElementById('mainview');
+  if (!target) return;
+  applyPreviewAssetOverrides(target, previewAssetCurrentPath);
+};
+
 const fetchMarkdownForLinkCard = (loc) => {
   try {
     const url = `${getContentRoot()}/${loc}`;
@@ -149,6 +365,8 @@ let editorAllowedLocations = null;
 let editorLocationAliasMap = new Map();
 let editorPostsByLocationTitle = {};
 let linkCardReady = false;
+let editorPostPickerEntries = [];
+const editorLinkCardContextListeners = new Set();
 
 function rebuildLinkCardContext(posts, rawIndex) {
   try {
@@ -187,8 +405,9 @@ function rebuildLinkCardContext(posts, rawIndex) {
     const alias = new Map();
     const reserved = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
     const currentLang = normalizeLangKey((getCurrentLang && getCurrentLang()) || 'en');
+    const pickerEntries = new Map();
     if (rawIndex && typeof rawIndex === 'object' && !Array.isArray(rawIndex)) {
-      for (const entry of Object.values(rawIndex)) {
+      for (const [entryKey, entry] of Object.entries(rawIndex)) {
         if (!entry || typeof entry !== 'object') continue;
         const variants = [];
         for (const [key, val] of Object.entries(entry)) {
@@ -221,6 +440,16 @@ function rebuildLinkCardContext(posts, rawIndex) {
         variants.forEach(v => {
           if (v.location && v.location !== canonical) alias.set(v.location, canonical);
         });
+        const displayTitle = byLocation[canonical] || entry.title || entryKey;
+        const aliasLocations = variants
+          .map(v => v.location)
+          .filter(loc => loc && loc !== canonical);
+        pickerEntries.set(canonical, {
+          key: entryKey,
+          title: displayTitle || entryKey,
+          location: canonical,
+          aliases: aliasLocations
+        });
       }
     }
 
@@ -228,6 +457,29 @@ function rebuildLinkCardContext(posts, rawIndex) {
     editorPostsByLocationTitle = byLocation;
     editorLocationAliasMap = alias;
     editorPostsIndexCache = posts || {};
+    editorPostPickerEntries = Array.from(pickerEntries.values()).map(item => {
+      const tokens = new Set();
+      if (item.key) tokens.add(String(item.key));
+      if (item.title) tokens.add(String(item.title));
+      if (item.location) tokens.add(String(item.location));
+      (item.aliases || []).forEach(loc => { if (loc) tokens.add(String(loc)); });
+      return {
+        key: item.key,
+        title: item.title,
+        location: item.location,
+        aliases: item.aliases || [],
+        search: Array.from(tokens).map(t => t.toLowerCase()).join(' ')
+      };
+    }).sort((a, b) => {
+      const at = (a.title || '').toLowerCase();
+      const bt = (b.title || '').toLowerCase();
+      if (at === bt) return (a.key || '').localeCompare(b.key || '');
+      return at.localeCompare(bt);
+    });
+    editorLinkCardContextListeners.forEach(fn => {
+      try { fn(editorPostPickerEntries); }
+      catch (_) { /* noop */ }
+    });
     linkCardReady = true;
   } catch (_) {
     editorAllowedLocations = editorAllowedLocations || new Set();
@@ -280,6 +532,7 @@ function renderPreview(mdText) {
     }); } catch (_) {}
     try { hydratePostVideos(target); } catch (_) {}
     try { initSyntaxHighlighting(); } catch (_) {}
+    try { applyPreviewAssetOverrides(target, previewAssetCurrentPath); } catch (_) {}
   } catch (_) {}
 }
 
@@ -290,6 +543,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const editor = createHiEditor(ta, 'markdown', false);
   const imageButton = document.getElementById('btnInsertImage');
   const imageInput = document.getElementById('editorImageInput');
+  const editorToolbarEl = document.getElementById('editorToolbar');
+  const cardButton = document.getElementById('btnInsertCard');
+  const cardPopover = document.getElementById('editorCardPicker');
+  const cardSearchInput = document.getElementById('cardPickerSearch');
+  const cardListEl = document.getElementById('cardPickerList');
+  const cardEmptyEl = document.getElementById('cardPickerEmpty');
   const wrapToggle = document.getElementById('wrapToggle');
   const wrapToggleButtons = wrapToggle ? Array.from(wrapToggle.querySelectorAll('[data-wrap]')) : [];
   const editorLayoutEl = document.getElementById('mode-editor');
@@ -390,6 +649,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const handleAssetPreviewEvent = (event) => {
+    if (!event || !event.detail) return;
+    const detail = event.detail;
+    const markdownPath = normalizePreviewPath(detail.markdownPath || detail.path || '');
+    updatePreviewAssetBucket(markdownPath, detail.assets || []);
+    if (!markdownPath) {
+      refreshPreviewAssetOverrides();
+      return;
+    }
+    if (markdownPath === normalizePreviewPath(previewAssetCurrentPath)) {
+      refreshPreviewAssetOverrides();
+    }
+  };
+
+  try { window.addEventListener('ns-editor-asset-preview', handleAssetPreviewEvent); }
+  catch (_) {}
+
   const requestLayout = () => {
     try {
       if (editor && typeof editor.refreshLayout === 'function') {
@@ -437,11 +713,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const STATUS_LABELS = {
-    checking: 'Checking file…',
-    existing: 'Existing file',
-    missing: 'New file',
-    error: 'Failed to load file'
+  const STATUS_LABEL_KEYS = {
+    checking: 'editor.currentFile.status.checking',
+    existing: 'editor.currentFile.status.existing',
+    missing: 'editor.currentFile.status.missing',
+    error: 'editor.currentFile.status.error'
   };
 
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
@@ -452,6 +728,571 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editor && editor.textarea) return editor.textarea;
     return ta;
   };
+
+  let lastSelectionRange = { start: 0, end: 0 };
+  let suppressSelectionTracking = false;
+  let formattingButtons = [];
+  let cardPopoverOpen = false;
+  let cardPopoverClosing = false;
+  let cardPopoverCloseTimer = null;
+  let cardPopoverTransitionHandler = null;
+
+  const tooltipButtons = new Set();
+
+  function applyButtonTooltipState(button, disabled) {
+    if (!button) return;
+    const baseTitle = (() => {
+      const titleKey = button.dataset.enabledTitleKey || button.getAttribute('data-i18n-title');
+      if (titleKey) {
+        const translated = t(titleKey);
+        if (translated != null) {
+          button.dataset.enabledTitle = translated;
+          return translated;
+        }
+      }
+      if (!button.dataset.enabledTitle) {
+        const current = button.getAttribute('title') || button.textContent || '';
+        if (current) button.dataset.enabledTitle = current;
+        else button.dataset.enabledTitle = '';
+      }
+      return button.dataset.enabledTitle || '';
+    })();
+    const hintKey = button.dataset.disabledHintKey;
+    const disabledHint = (() => {
+      if (hintKey) {
+        const translatedHint = t(hintKey);
+        if (translatedHint != null) {
+          button.dataset.disabledHint = translatedHint;
+          return translatedHint;
+        }
+        button.dataset.disabledHint = '';
+        return '';
+      }
+      return button.dataset.disabledHint || '';
+    })();
+    if (disabled) {
+      if (disabledHint) button.setAttribute('title', disabledHint);
+      else if (baseTitle) button.setAttribute('title', baseTitle);
+      button.setAttribute('data-disabled', 'true');
+    } else {
+      if (baseTitle) button.setAttribute('title', baseTitle);
+      else button.removeAttribute('title');
+      button.removeAttribute('data-disabled');
+    }
+  }
+
+  function registerButtonTooltip(button, disabledHintKey) {
+    if (!button) return;
+    if (disabledHintKey) button.dataset.disabledHintKey = disabledHintKey;
+    const titleKey = button.getAttribute('data-i18n-title');
+    if (titleKey) button.dataset.enabledTitleKey = titleKey;
+    tooltipButtons.add(button);
+    applyButtonTooltipState(button, !!button.disabled);
+  }
+
+  const updateFormattingToolbarState = () => {
+    const textarea = getEditorTextarea();
+    const selection = lastSelectionRange || { start: 0, end: 0 };
+    const caretOnEmptyLine = isCaretOnEmptyLine(textarea, selection);
+    const hasSelection = selection.end > selection.start;
+    formattingButtons.forEach(btn => {
+      if (!btn || !btn.el) return;
+      let enabled = false;
+      if (typeof btn.isEnabled === 'function') {
+        enabled = !!btn.isEnabled(selection, textarea);
+      } else {
+        const requiresSelection = btn.requiresSelection !== false;
+        enabled = requiresSelection ? hasSelection : true;
+      }
+      btn.el.disabled = !enabled;
+      applyButtonTooltipState(btn.el, !!btn.el.disabled);
+    });
+    if (cardButton) {
+      const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
+      const allowCardInsertion = hasEntries && caretOnEmptyLine;
+      cardButton.disabled = !allowCardInsertion;
+      if (allowCardInsertion) cardButton.removeAttribute('aria-disabled');
+      else cardButton.setAttribute('aria-disabled', 'true');
+      applyButtonTooltipState(cardButton, !!cardButton.disabled);
+    }
+  };
+
+  const getNormalizedSelection = () => {
+    const textarea = getEditorTextarea();
+    if (!textarea) return { start: 0, end: 0 };
+    let start = textarea.selectionStart ?? 0;
+    let end = textarea.selectionEnd ?? start;
+    if (end < start) { const tmp = start; start = end; end = tmp; }
+    return { start, end };
+  };
+
+  const isCaretOnEmptyLine = (textarea, selection) => {
+    if (!textarea || !selection) return false;
+    const { start, end } = selection;
+    if (end !== start) return false;
+    const value = textarea.value || '';
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', start);
+    if (lineEnd === -1) lineEnd = value.length;
+    const line = value.slice(lineStart, lineEnd);
+    return line.trim().length === 0;
+  };
+
+  const recordSelection = () => {
+    if (suppressSelectionTracking) return;
+    const textarea = getEditorTextarea();
+    if (!textarea) return;
+    lastSelectionRange = getNormalizedSelection();
+    updateFormattingToolbarState();
+  };
+
+  const restoreSelection = () => {
+    const textarea = getEditorTextarea();
+    if (!textarea) return null;
+    suppressSelectionTracking = true;
+    try {
+      try { textarea.focus(); }
+      catch (_) {}
+      if (lastSelectionRange) {
+        const { start, end } = lastSelectionRange;
+        if (typeof start === 'number' && typeof end === 'number') {
+          try { textarea.setSelectionRange(start, end); }
+          catch (_) {}
+        }
+      }
+    } finally {
+      suppressSelectionTracking = false;
+    }
+    return textarea;
+  };
+
+  const applyInlineFormat = (prefix, suffix) => {
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const { start, end } = getNormalizedSelection();
+    if (end <= start) return;
+    const value = textarea.value || '';
+    const selected = value.slice(start, end);
+    const startTag = String(prefix ?? '');
+    const endTag = String(suffix ?? '');
+    let replacement;
+    if (
+      selected.startsWith(startTag)
+      && selected.endsWith(endTag)
+      && selected.length >= startTag.length + endTag.length
+    ) {
+      replacement = selected.slice(startTag.length, selected.length - endTag.length);
+    } else {
+      replacement = `${startTag}${selected}${endTag}`;
+    }
+    textarea.setRangeText(replacement, start, end, 'end');
+    const newEnd = start + replacement.length;
+    textarea.setSelectionRange(start, newEnd);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const toggleLinePrefix = (prefix) => {
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const normalizedPrefix = String(prefix ?? '');
+    const selection = getNormalizedSelection();
+    let { start, end } = selection;
+    const wasCollapsed = end <= start;
+    const wasCaretOnEmptyLine = wasCollapsed && isCaretOnEmptyLine(textarea, selection);
+    const value = textarea.value || '';
+    if (end <= start) {
+      if (!wasCaretOnEmptyLine) return;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = value.length;
+      start = lineStart;
+      end = lineEnd;
+    }
+    if (end < start) return;
+    const blockStart = value.lastIndexOf('\n', start - 1) + 1;
+    let blockEnd = value.indexOf('\n', end);
+    if (blockEnd === -1) blockEnd = value.length;
+    const block = value.slice(blockStart, blockEnd);
+    const lines = block.split('\n');
+    const shouldRemove = lines.every(line => {
+      const indentMatch = line.match(/^\s*/);
+      const indent = indentMatch ? indentMatch[0] : '';
+      return line.slice(indent.length).startsWith(normalizedPrefix);
+    });
+    const updated = lines.map(line => {
+      const indentMatch = line.match(/^\s*/);
+      const indent = indentMatch ? indentMatch[0] : '';
+      const content = line.slice(indent.length);
+      if (shouldRemove) {
+        if (content.startsWith(normalizedPrefix)) {
+          return indent + content.slice(normalizedPrefix.length);
+        }
+        return line;
+      }
+      if (content.startsWith(normalizedPrefix)) return line;
+      if (!content) return indent + normalizedPrefix;
+      return indent + normalizedPrefix + content;
+    });
+    const replacement = updated.join('\n');
+    textarea.setSelectionRange(blockStart, blockEnd);
+    textarea.setRangeText(replacement, blockStart, blockEnd, 'end');
+    const newEnd = blockStart + replacement.length;
+    if (wasCaretOnEmptyLine && wasCollapsed && !shouldRemove) {
+      const firstLine = replacement.split('\n', 1)[0] || '';
+      const indentMatch = firstLine.match(/^\s*/);
+      const indentLength = indentMatch ? indentMatch[0].length : 0;
+      const caretOffset = indentLength + normalizedPrefix.length;
+      const caretPos = blockStart + caretOffset;
+      textarea.setSelectionRange(caretPos, caretPos);
+    } else {
+      textarea.setSelectionRange(blockStart, newEnd);
+    }
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const applyCodeBlockFormat = () => {
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const selection = getNormalizedSelection();
+    let { start, end } = selection;
+    const value = textarea.value || '';
+    if (end <= start) {
+      if (!isCaretOnEmptyLine(textarea, selection)) return;
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = value.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = value.length;
+      const beforeChar = lineStart > 0 ? value.charAt(lineStart - 1) : '';
+      const afterChar = lineEnd < value.length ? value.charAt(lineEnd) : '';
+      const prefix = beforeChar && beforeChar !== '\n' ? '\n' : '';
+      const suffix = afterChar && afterChar !== '\n' ? '\n' : '';
+      const block = '```\n\n```';
+      textarea.setSelectionRange(lineStart, lineEnd);
+      textarea.setRangeText(`${prefix}${block}${suffix}`, lineStart, lineEnd, 'end');
+      const caretPos = lineStart + prefix.length + 4;
+      textarea.setSelectionRange(caretPos, caretPos);
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      recordSelection();
+      return;
+    }
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    let block = `\`\`\`\n${selected}\n\`\`\``;
+    let prefixAdded = false;
+    let suffixAdded = false;
+    if (start > 0 && !before.endsWith('\n')) {
+      block = `\n${block}`;
+      prefixAdded = true;
+    }
+    if (after && !after.startsWith('\n')) {
+      block = `${block}\n`;
+      suffixAdded = true;
+    }
+    textarea.setRangeText(block, start, end, 'end');
+    const selectionStart = start + (prefixAdded ? 1 : 0);
+    const selectionEnd = start + block.length - (suffixAdded ? 1 : 0);
+    textarea.setSelectionRange(selectionStart, Math.max(selectionStart, selectionEnd));
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const insertCardLink = (entry) => {
+    if (!entry || !entry.location) return;
+    const location = String(entry.location).trim();
+    if (!location) return;
+    const textarea = restoreSelection();
+    if (!textarea) return;
+    const value = textarea.value || '';
+    const { start, end } = getNormalizedSelection();
+    const safeStart = Math.max(0, Math.min(start, value.length));
+    const safeEnd = Math.max(0, Math.min(end, value.length));
+    const hasSelection = safeEnd > safeStart;
+    const fallbackLabel = entry.key || entry.title || location;
+    let linkLabel = fallbackLabel;
+    if (hasSelection) {
+      const selected = value.slice(safeStart, safeEnd);
+      if (selected.trim()) linkLabel = selected;
+    }
+    const linkMarkdown = `[${linkLabel}](?id=${location})`;
+    let insertText = linkMarkdown;
+    let selectionStart = safeStart;
+    let selectionEnd = safeStart + linkMarkdown.length;
+    if (!hasSelection) {
+      const before = value.slice(0, safeStart);
+      const after = value.slice(safeStart);
+      const needsLeading = safeStart > 0 && !before.endsWith('\n');
+      const needsTrailing = after && !after.startsWith('\n');
+      const leading = needsLeading ? '\n' : '';
+      const trailing = needsTrailing ? '\n' : '';
+      insertText = `${leading}${linkMarkdown}${trailing}`;
+      selectionStart = safeStart + leading.length;
+      selectionEnd = selectionStart + linkMarkdown.length;
+    }
+    textarea.setSelectionRange(safeStart, safeEnd);
+    textarea.setRangeText(insertText, safeStart, safeEnd, 'end');
+    textarea.setSelectionRange(selectionStart, selectionEnd);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    recordSelection();
+  };
+
+  const renderCardPickerList = (term = '') => {
+    if (!cardListEl) return;
+    const query = String(term || '').trim().toLowerCase();
+    cardListEl.innerHTML = '';
+    const entries = (Array.isArray(editorPostPickerEntries) ? editorPostPickerEntries : [])
+      .filter(entry => {
+        if (!query) return true;
+        return typeof entry.search === 'string' ? entry.search.includes(query) : false;
+      });
+    if (!entries.length) {
+      if (cardEmptyEl) cardEmptyEl.removeAttribute('hidden');
+      return;
+    }
+    if (cardEmptyEl) cardEmptyEl.setAttribute('hidden', '');
+    const frag = document.createDocumentFragment();
+    entries.forEach(entry => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'card-picker-item';
+      btn.setAttribute('role', 'option');
+      const titleEl = document.createElement('span');
+      titleEl.className = 'card-picker-item-title';
+      titleEl.textContent = entry.title || entry.key || entry.location;
+      const metaEl = document.createElement('span');
+      metaEl.className = 'card-picker-item-meta';
+      if (entry.key && entry.key !== titleEl.textContent) {
+        metaEl.textContent = `${entry.key} · ${entry.location}`;
+      } else {
+        metaEl.textContent = entry.location;
+      }
+      btn.append(titleEl, metaEl);
+      btn.addEventListener('click', () => {
+        insertCardLink(entry);
+        closeCardPopover();
+      });
+      frag.appendChild(btn);
+    });
+    cardListEl.appendChild(frag);
+    cardListEl.scrollTop = 0;
+  };
+
+  const positionCardPopover = (anchor) => {
+    if (!cardPopover || !editorToolbarEl || !anchor) return;
+    const toolbarRect = editorToolbarEl.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const top = Math.max(0, anchorRect.bottom - toolbarRect.top + 6);
+    let left = anchorRect.left - toolbarRect.left;
+    cardPopover.style.top = `${top}px`;
+    cardPopover.style.right = 'auto';
+    cardPopover.style.left = `${Math.max(0, left)}px`;
+    const popWidth = cardPopover.offsetWidth || 0;
+    const maxLeft = Math.max(0, toolbarRect.width - popWidth);
+    if (left > maxLeft) {
+      cardPopover.style.left = `${maxLeft}px`;
+    }
+  };
+
+  const handleCardRelayout = () => {
+    if (cardPopoverOpen) positionCardPopover(cardButton);
+  };
+
+  const clearCardPopoverCloseWatcher = () => {
+    if (cardPopoverCloseTimer) {
+      clearTimeout(cardPopoverCloseTimer);
+      cardPopoverCloseTimer = null;
+    }
+    if (cardPopover && cardPopoverTransitionHandler) {
+      cardPopover.removeEventListener('transitionend', cardPopoverTransitionHandler);
+    }
+    cardPopoverTransitionHandler = null;
+  };
+
+  const finalizeCardPopoverClose = () => {
+    clearCardPopoverCloseWatcher();
+    cardPopoverClosing = false;
+    if (cardPopover) {
+      cardPopover.classList.remove('is-visible');
+      cardPopover.classList.remove('is-closing');
+      cardPopover.setAttribute('aria-hidden', 'true');
+      cardPopover.setAttribute('hidden', '');
+      cardPopover.style.left = '';
+      cardPopover.style.right = '';
+      cardPopover.style.top = '';
+    }
+  };
+
+  const closeCardPopover = () => {
+    if (!cardPopoverOpen && !cardPopoverClosing) return;
+    cardPopoverOpen = false;
+    cardPopoverClosing = true;
+    if (cardButton) cardButton.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('mousedown', handleCardOutsideClick, true);
+    document.removeEventListener('keydown', handleCardKeydown, true);
+    window.removeEventListener('resize', handleCardRelayout, true);
+    window.removeEventListener('scroll', handleCardRelayout, true);
+    if (!cardPopover) {
+      finalizeCardPopoverClose();
+      if (cardSearchInput) cardSearchInput.value = '';
+      return;
+    }
+    clearCardPopoverCloseWatcher();
+    cardPopover.setAttribute('aria-hidden', 'true');
+    cardPopover.classList.remove('is-visible');
+    cardPopover.classList.add('is-closing');
+    const handleTransitionEnd = (event) => {
+      if (event.target !== cardPopover) return;
+      if (event.propertyName && event.propertyName !== 'opacity') return;
+      finalizeCardPopoverClose();
+    };
+    cardPopoverTransitionHandler = handleTransitionEnd;
+    cardPopover.addEventListener('transitionend', handleTransitionEnd);
+    cardPopoverCloseTimer = window.setTimeout(finalizeCardPopoverClose, 360);
+    if (cardSearchInput) cardSearchInput.value = '';
+  };
+
+  const openCardPopover = () => {
+    if (!cardButton || !cardPopover) return;
+    const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
+    if (!hasEntries) return;
+    renderCardPickerList('');
+    if (cardSearchInput) cardSearchInput.value = '';
+    clearCardPopoverCloseWatcher();
+    cardPopoverClosing = false;
+    cardPopover.classList.remove('is-visible');
+    cardPopover.classList.remove('is-closing');
+    cardPopover.removeAttribute('hidden');
+    cardPopover.setAttribute('aria-hidden', 'false');
+    positionCardPopover(cardButton);
+    void cardPopover.offsetWidth;
+    cardPopover.classList.add('is-visible');
+    cardButton.setAttribute('aria-expanded', 'true');
+    cardPopoverOpen = true;
+    setTimeout(() => {
+      if (cardSearchInput) {
+        try { cardSearchInput.focus(); }
+        catch (_) {}
+      }
+    }, 0);
+    document.addEventListener('mousedown', handleCardOutsideClick, true);
+    document.addEventListener('keydown', handleCardKeydown, true);
+    window.addEventListener('resize', handleCardRelayout, true);
+    window.addEventListener('scroll', handleCardRelayout, true);
+  };
+
+  function handleCardOutsideClick(event) {
+    if (!cardPopoverOpen) return;
+    const target = event.target;
+    if (!cardPopover) return;
+    if (cardPopover.contains(target)) return;
+    if (cardButton && cardButton.contains(target)) return;
+    closeCardPopover();
+  }
+
+  function handleCardKeydown(event) {
+    if (!cardPopoverOpen) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeCardPopover();
+      restoreSelection();
+    }
+  }
+
+  const handleCardContextUpdate = () => {
+    updateFormattingToolbarState();
+    const hasEntries = Array.isArray(editorPostPickerEntries) && editorPostPickerEntries.length > 0;
+    const textarea = getEditorTextarea();
+    const selection = lastSelectionRange || { start: 0, end: 0 };
+    const allowCardInsertion = hasEntries && isCaretOnEmptyLine(textarea, selection);
+    if ((!hasEntries || !allowCardInsertion) && cardPopoverOpen) {
+      closeCardPopover();
+      return;
+    }
+    if (cardPopoverOpen) {
+      renderCardPickerList(cardSearchInput ? cardSearchInput.value : '');
+      positionCardPopover(cardButton);
+    }
+  };
+
+  const BUTTON_DISABLED_HINT_KEYS = {
+    btnFmtBold: 'editor.editorTools.hints.bold',
+    btnFmtItalic: 'editor.editorTools.hints.italic',
+    btnFmtStrike: 'editor.editorTools.hints.strike',
+    btnFmtHeading: 'editor.editorTools.hints.heading',
+    btnFmtQuote: 'editor.editorTools.hints.quote',
+    btnFmtCode: 'editor.editorTools.hints.code',
+    btnFmtCodeBlock: 'editor.editorTools.hints.codeBlock',
+    btnInsertCard: 'editor.editorTools.hints.insertCard'
+  };
+
+  if (cardButton) registerButtonTooltip(cardButton, BUTTON_DISABLED_HINT_KEYS.btnInsertCard);
+
+  const selectionOrEmptyLineEnabled = (selection, textarea) => {
+    if (!selection) return false;
+    if (selection.end > selection.start) return true;
+    return isCaretOnEmptyLine(textarea, selection);
+  };
+
+  const formattingActions = [
+    { id: 'btnFmtBold', handler: () => applyInlineFormat('**', '**') },
+    { id: 'btnFmtItalic', handler: () => applyInlineFormat('*', '*') },
+    { id: 'btnFmtStrike', handler: () => applyInlineFormat('~~', '~~') },
+    { id: 'btnFmtHeading', handler: () => toggleLinePrefix('# '), isEnabled: selectionOrEmptyLineEnabled },
+    { id: 'btnFmtQuote', handler: () => toggleLinePrefix('> '), isEnabled: selectionOrEmptyLineEnabled },
+    { id: 'btnFmtCode', handler: () => applyInlineFormat('`', '`') },
+    { id: 'btnFmtCodeBlock', handler: () => applyCodeBlockFormat(), isEnabled: selectionOrEmptyLineEnabled }
+  ];
+
+  formattingButtons = formattingActions.map(action => {
+    const el = document.getElementById(action.id);
+    if (!el) return null;
+    registerButtonTooltip(el, BUTTON_DISABLED_HINT_KEYS[action.id]);
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      action.handler();
+    });
+    const requiresSelection = action.requiresSelection !== undefined ? action.requiresSelection : true;
+    return { ...action, el, requiresSelection };
+  }).filter(Boolean);
+
+  const selectionTarget = getEditorTextarea();
+  if (selectionTarget) {
+    ['select', 'keyup', 'mouseup', 'input'].forEach(evt => {
+      selectionTarget.addEventListener(evt, recordSelection);
+    });
+    selectionTarget.addEventListener('focus', recordSelection);
+  }
+  recordSelection();
+
+  document.addEventListener('ns-editor-language-applied', () => {
+    tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
+    renderCurrentFileIndicator();
+  });
+
+  if (cardSearchInput) {
+    cardSearchInput.addEventListener('input', () => {
+      renderCardPickerList(cardSearchInput.value);
+    });
+    cardSearchInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const first = cardListEl ? cardListEl.querySelector('.card-picker-item') : null;
+        if (first) first.click();
+      }
+    });
+  }
+
+  if (cardButton) {
+    cardButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (cardPopoverOpen) closeCardPopover();
+      else openCardPopover();
+    });
+  }
+
+  editorLinkCardContextListeners.add(handleCardContextUpdate);
+  handleCardContextUpdate();
 
   const getCurrentMarkdownPath = () => {
     if (currentFileInfo && currentFileInfo.path) return String(currentFileInfo.path);
@@ -698,6 +1539,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const resolveRelativeTimeLocales = () => {
+    const lang = normalizeLangKey(getCurrentLang());
+    if (!lang) return null;
+    if (lang === 'zh') return ['zh-CN', 'zh', 'en'];
+    if (lang === 'ja') return ['ja-JP', 'ja', 'en'];
+    if (lang === 'en') return ['en'];
+    if (/^[a-z]{2}(?:-[a-z0-9-]+)?$/i.test(lang)) return [lang, 'en'];
+    return null;
+  };
+
   const formatRelativeTime = (ms) => {
     if (!Number.isFinite(ms)) return '';
     const diff = Date.now() - ms;
@@ -709,9 +1560,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const week = 7 * day;
     const month = 30 * day;
     const year = 365 * day;
+    const locales = resolveRelativeTimeLocales();
     const rtf = (() => {
-      try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); }
-      catch (_) { return null; }
+      try {
+        if (locales && locales.length) return new Intl.RelativeTimeFormat(locales, { numeric: 'auto' });
+        return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+      } catch (_) {
+        try { return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }); }
+        catch (__) { return null; }
+      }
     })();
     const format = (value, unit) => {
       if (rtf) {
@@ -722,7 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const plural = Math.abs(value) === 1 ? '' : 's';
       return value < 0 ? `${Math.abs(value)} ${label}${plural} from now` : `${Math.abs(value)} ${label}${plural} ago`;
     };
-    if (sec < 45) return 'just now';
+    if (sec < 45) return t('editor.currentFile.draft.justNow');
     if (sec < 90) return format(diff < 0 ? 1 : -1, 'minute');
     if (sec < 45 * minute) return format(Math.round(diff / (1000 * minute) * -1), 'minute');
     if (sec < 90 * minute) return format(diff < 0 ? 1 : -1, 'hour');
@@ -796,7 +1653,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const describeStatusLabel = (status) => {
     if (!status || !status.state) return '';
-    const base = STATUS_LABELS[status.state] || status.state;
+    const key = STATUS_LABEL_KEYS[status.state];
+    const base = key ? t(key) : status.state;
     if (status.state === 'error') {
       const detail = [];
       if (status.message) detail.push(String(status.message));
@@ -811,13 +1669,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (status.state === 'checking') {
       if (Number.isFinite(status.checkedAt)) {
         const ts = formatStatusTimestamp(status.checkedAt);
-        return ts ? `Checking… started ${ts}` : 'Checking…';
+        return ts
+          ? t('editor.currentFile.meta.checkingStarted', { time: ts })
+          : t('editor.currentFile.meta.checking');
       }
-      return 'Checking…';
+      return t('editor.currentFile.meta.checking');
     }
     if (Number.isFinite(status.checkedAt)) {
       const ts = formatStatusTimestamp(status.checkedAt);
-      return ts ? `Last checked: ${ts}` : '';
+      return ts ? t('editor.currentFile.meta.lastChecked', { time: ts }) : '';
     }
     return '';
   };
@@ -858,11 +1718,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (Number.isFinite(draft.savedAt)) {
         const rel = formatRelativeTime(draft.savedAt);
         draftLabel = draft.conflict
-          ? (rel ? `Local draft saved ${escapeHtml(rel)} (remote updated)` : 'Local draft (remote updated)')
-          : (rel ? `Local draft saved ${escapeHtml(rel)}` : 'Local draft saved');
+          ? (rel
+            ? t('editor.currentFile.draft.savedConflictHtml', { time: escapeHtml(rel) })
+            : t('editor.currentFile.draft.conflict'))
+          : (rel
+            ? t('editor.currentFile.draft.savedHtml', { time: escapeHtml(rel) })
+            : t('editor.currentFile.draft.saved'));
       } else {
-        draftLabel = draft.conflict ? 'Local draft (remote updated)' : 'Local draft available';
+        draftLabel = draft.conflict
+          ? t('editor.currentFile.draft.conflict')
+          : t('editor.currentFile.draft.available');
       }
+      if (!draftLabel) draftLabel = '';
       metaPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
     }
     const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
@@ -889,7 +1756,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const assignCurrentFileLabel = (input) => {
     currentFileInfo = normalizeCurrentFilePayload(input);
+    previewAssetCurrentPath = normalizePreviewPath(currentFileInfo.path || '');
     renderCurrentFileIndicator();
+    refreshPreviewAssetOverrides();
   };
 
   renderCurrentFileIndicator();
@@ -1036,8 +1905,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusEl = document.getElementById('sidebarStatus');
     const currentFileEl = document.getElementById('currentFile');
     const searchInput = document.getElementById('fileSearch');
-    if (!listIndex || !listTabs) return;
-
     let currentActive = null;
     let contentRoot = 'wwwroot';
     // Track current markdown base directory for resolving relative assets
@@ -1264,6 +2131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderGroupedIndex = (ul, data) => {
+      if (!ul) return;
       ul.innerHTML = '';
       const frag = document.createDocumentFragment();
       try {
@@ -1328,6 +2196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderGroupedTabs = (ul, data) => {
+      if (!ul) return;
       ul.innerHTML = '';
       const frag = document.createDocumentFragment();
       try {

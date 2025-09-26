@@ -37,6 +37,7 @@
       --composer-inline-ease: cubic-bezier(0.16, 1, 0.3, 1);
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
+      --editor-toolbar-offset: 0px;
     }
     @media (prefers-reduced-motion: reduce) {
       :root {
@@ -191,6 +192,40 @@
       color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
       box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
     }
+    .mode-switch-editor .mode-tab.dynamic-mode {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode:hover:not(.is-busy),
+    .mode-switch-editor .mode-tab.dynamic-mode:focus-visible {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode.is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="checking"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="existing"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="missing"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="error"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="checking"].is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="existing"].is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="missing"].is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="error"].is-active {
+      box-shadow: none;
+    }
     .mode-tab-badge {
       position: absolute;
       top: -.35rem;
@@ -321,8 +356,46 @@
     .current-file[data-dirty="1"] .cf-line-main { color: color-mix(in srgb, #f97316 78%, var(--text)); }
     /* Grouped list styles */
     /* Ensure main editor can use full width */
-    .editor-main { min-width: 0; overflow: visible; }
-    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; }
+    .editor-main { min-width: 0; overflow: visible; position: relative; }
+    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; flex-wrap: wrap; }
+    .editor-lang-switcher {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      gap: .5rem;
+      min-width: 0;
+      padding: .35rem .65rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      align-self: flex-start;
+      margin-right: auto;
+    }
+    .editor-lang-switcher label {
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: color-mix(in srgb, var(--muted) 85%, transparent);
+      white-space: nowrap;
+    }
+    .editor-lang-switcher select {
+      appearance: none;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+      color: var(--text);
+      border-radius: 8px;
+      padding: .3rem .8rem;
+      font-size: .9rem;
+      line-height: 1.4;
+      cursor: pointer;
+      min-width: 120px;
+    }
+    .editor-lang-switcher select:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 48%, transparent);
+      outline-offset: 2px;
+    }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
     .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
@@ -729,13 +802,55 @@
       font-weight:500;
       color: color-mix(in srgb, var(--muted) 88%, transparent);
     }
-    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
+    .toolbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.75rem;
+      flex-wrap:wrap;
+      padding:.4rem 0 .55rem;
+      border-bottom:1px solid #d0d7de;
+      position:sticky;
+      top:0;
+      z-index:120;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+    }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
+    .btn-secondary.btn-compact { padding:.3rem .65rem; height:2rem; font-size:.85rem; font-weight:600; }
     .btn-secondary[hidden] { display:none !important; }
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
+    .editor-tools {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.65rem;
+      flex-wrap:wrap;
+      margin-bottom:.6rem;
+      position:sticky;
+      top:calc(var(--editor-toolbar-offset, 0px));
+      z-index:110;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+      padding-top:.4rem;
+      padding-bottom:.4rem;
+    }
+    .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+    .editor-tool-btn { white-space:nowrap; }
+    .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
+    .editor-card-popover { position:absolute; top:calc(100% + .5rem); right:0; min-width:260px; max-width:min(420px, calc(100vw - 2.5rem)); padding:.75rem; border-radius:.85rem; border:1px solid color-mix(in srgb, var(--border) 75%, var(--text) 12%); background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--card) 82%, transparent), 0 12px 28px rgba(15, 23, 42, 0.16), 0 22px 46px rgba(15, 23, 42, 0.12); z-index:1200; opacity:0; transform:translate3d(0, -10px, 0) scale(.98); pointer-events:none; transition:opacity .36s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)), transform .36s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)); will-change:opacity, transform; }
+    .editor-card-popover.is-visible { opacity:1; transform:translate3d(0, 0, 0) scale(1); pointer-events:auto; }
+    .editor-card-popover.is-closing { pointer-events:none; }
+    .card-picker-search input { width:100%; border-radius:.65rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); padding:.45rem .7rem; font-size:.92rem; color:var(--text); transition:border-color .18s ease, box-shadow .18s ease; }
+    .card-picker-search input::placeholder { color:color-mix(in srgb, var(--muted) 78%, transparent); }
+    .card-picker-search input:focus { outline:2px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset:1px; border-color:color-mix(in srgb, var(--primary) 42%, var(--border)); box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
+    .card-picker-list { margin-top:.6rem; max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:.35rem; }
+    .card-picker-item { display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; width:100%; padding:.45rem .55rem; border-radius:.65rem; border:1px solid transparent; background:transparent; color:var(--text); cursor:pointer; font-size:.92rem; text-align:left; transition:background .16s ease, border-color .16s ease; }
+    .card-picker-item:hover, .card-picker-item:focus { background:color-mix(in srgb, var(--text) 6%, transparent); border-color:color-mix(in srgb, var(--primary) 35%, var(--border)); outline:none; }
+    .card-picker-item-title { font-weight:600; }
+    .card-picker-item-meta { font-size:.78rem; color:var(--muted); }
+    .card-picker-empty { margin-top:.5rem; text-align:center; font-size:.85rem; color:var(--muted); }
     .composer-confirm-popover {
       position: absolute;
       inset: auto auto;
@@ -950,7 +1065,7 @@
     .composer-order-host .composer-order-main { grid-area: main; position: relative; z-index: 2; min-width: 0; }
     .composer-order-inline { grid-area: inline; display: flex; flex-direction: column; gap: .6rem; position: relative; z-index: 2; min-height: 0; }
     .composer-order-inline[hidden] { display: none !important; }
-    .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
+    .composer-order-inline-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; margin: .75rem 0 .4rem; }
     .composer-order-inline-meta[hidden] { display: none !important; }
     .composer-order-inline,
     .composer-order-inline-meta {
@@ -1110,13 +1225,17 @@
 <body>
   <div class="editor-page">
     <div class="page-titlebar">
-      <nav class="mode-switch" role="tablist" aria-label="Mode switch">
-        <button class="mode-tab is-active" data-mode="composer" data-tab-label="Composer" role="tab" aria-controls="mode-composer" aria-selected="true" aria-label="Composer">
-          Composer
+      <div class="editor-lang-switcher" id="editorLangSwitcher">
+        <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
+        <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
+      </div>
+      <nav class="mode-switch" role="tablist" aria-label="Mode switch" data-i18n-aria-label="editor.nav.modeSwitchAria">
+        <button class="mode-tab is-active" data-mode="composer" data-tab-label="Composer" data-i18n-data-tab-label="editor.modes.composer" role="tab" aria-controls="mode-composer" aria-selected="true" aria-label="Composer" data-i18n-aria-label="editor.modes.composer">
+          <span class="mode-tab-text" data-i18n="editor.modes.composer">Composer</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
-        <button class="mode-tab" data-mode="editor" data-tab-label="Editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor">
-          Editor
+        <button class="mode-tab" data-mode="editor" data-tab-label="Editor" data-i18n-data-tab-label="editor.modes.editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor" data-i18n-aria-label="editor.modes.editor">
+          <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
       </nav>
@@ -1132,14 +1251,14 @@
                     <path d="M9 16v1.25A1.75 1.75 0 0 0 10.75 19h2.5A1.75 1.75 0 0 0 15 17.25V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </span>
-                <span class="gs-node-label">LOCAL</span>
+                <span class="gs-node-label" data-i18n="editor.status.localLabel">LOCAL</span>
               </div>
-              <span class="gs-node-state" id="globalLocalState">Checking drafts…</span>
+              <span class="gs-node-state" id="globalLocalState" data-i18n="editor.status.checkingDrafts">Checking drafts…</span>
               <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
             </div>
             <span class="gs-arrow" aria-hidden="true">
               <span class="gs-arrow-tail"></span>
-              <span class="gs-arrow-bubble" id="globalArrowLabel">Synced</span>
+              <span class="gs-arrow-bubble" id="globalArrowLabel" data-i18n="editor.status.synced">Synced</span>
               <span class="gs-arrow-head"></span>
             </span>
             <div class="gs-node gs-node-remote">
@@ -1149,10 +1268,10 @@
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
                   </svg>
                 </span>
-                <span class="gs-node-label">GitHub</span>
+                <span class="gs-node-label" data-i18n="editor.status.remoteLabel">GitHub</span>
               </div>
-              <span class="gs-repo" id="globalStatusRepo">Loading GitHub settings…</span>
-              <span class="gs-message" id="globalStatusMessage">Checking connection…</span>
+              <span class="gs-repo" id="globalStatusRepo" data-i18n="editor.status.loadingRepo">Loading GitHub settings…</span>
+              <span class="gs-message" id="globalStatusMessage" data-i18n="editor.status.checkingConnection">Checking connection…</span>
             </div>
           </div>
         </div>
@@ -1162,36 +1281,58 @@
     <!-- Editor Mode -->
     <div class="editor-layout is-empty" id="mode-editor">
       <section class="box editor-main">
-        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" hidden aria-hidden="true"></nav>
+        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" data-i18n-aria-label="editor.nav.dynamicTabsAria" hidden aria-hidden="true"></nav>
         <div class="toolbar">
           <div class="left-actions">
             <span class="current-file" id="currentFile" aria-live="polite"></span>
           </div>
           <div class="right-actions">
-            <button type="button" class="btn-secondary" id="btnInsertImage">
-              <span class="btn-label">Insert Image</span>
-            </button>
-            <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
-            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting">
-              <span class="vt-label">Wrap:</span>
-              <a href="#" class="vt-btn" data-wrap="on" role="button">on</a>
+            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting" data-i18n-aria-label="editor.toolbar.wrapAria">
+              <span class="vt-label" data-i18n="editor.toolbar.wrap">Wrap:</span>
+              <a href="#" class="vt-btn" data-wrap="on" role="button" data-i18n="editor.toolbar.wrapOn">on</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn active" data-wrap="off" role="button">off</a>
+              <a href="#" class="vt-btn active" data-wrap="off" role="button" data-i18n="editor.toolbar.wrapOff">off</a>
             </div>
-            <div class="view-toggle" aria-label="View switch">
-              <span class="vt-label">View:</span>
-              <a href="#" class="vt-btn active" data-view="edit">Editor</a>
+            <div class="view-toggle" aria-label="View switch" data-i18n-aria-label="editor.toolbar.viewAria">
+              <span class="vt-label" data-i18n="editor.toolbar.view">View:</span>
+              <a href="#" class="vt-btn active" data-view="edit" data-i18n="editor.toolbar.viewEdit">Editor</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-view="preview">Preview</a>
+              <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
             </div>
             <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
-              <span class="btn-label">Discard</span>
+              <span class="btn-label" data-i18n="editor.toolbar.discard">Discard</span>
             </button>
           </div>
         </div>
 
+        <div class="editor-tools" id="editorToolbar" aria-label="Editor tools" data-i18n-aria-label="editor.editorTools.aria">
+          <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts" data-i18n-aria-label="editor.editorTools.formatGroupAria">
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled data-i18n="editor.editorTools.bold" data-i18n-title="editor.editorTools.bold" data-i18n-aria-label="editor.editorTools.bold">Bold</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled data-i18n="editor.editorTools.italic" data-i18n-title="editor.editorTools.italic" data-i18n-aria-label="editor.editorTools.italic">Italic</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled data-i18n="editor.editorTools.strike" data-i18n-title="editor.editorTools.strike" data-i18n-aria-label="editor.editorTools.strike">Strike</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled data-i18n="editor.editorTools.heading" data-i18n-title="editor.editorTools.heading" data-i18n-aria-label="editor.editorTools.heading">Heading</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled data-i18n="editor.editorTools.quote" data-i18n-title="editor.editorTools.quote" data-i18n-aria-label="editor.editorTools.quote">Quote</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled data-i18n="editor.editorTools.code" data-i18n-title="editor.editorTools.code" data-i18n-aria-label="editor.editorTools.code">Code</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled data-i18n="editor.editorTools.codeBlock" data-i18n-title="editor.editorTools.codeBlock" data-i18n-aria-label="editor.editorTools.codeBlock">Code Block</button>
+          </div>
+          <div class="editor-tools-right">
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false" data-i18n="editor.editorTools.articleCard" data-i18n-title="editor.editorTools.insertCardTitle">Article Card</button>
+            <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertImage">
+              <span class="btn-label" data-i18n="editor.editorTools.insertImage">Insert Image</span>
+            </button>
+            <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
+          </div>
+          <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card" data-i18n-aria-label="editor.editorTools.cardDialogAria">
+            <div class="card-picker-search">
+              <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles" data-i18n-placeholder="editor.editorTools.cardSearch" data-i18n-aria-label="editor.editorTools.cardSearch">
+            </div>
+            <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
+            <div class="card-picker-empty" id="cardPickerEmpty" hidden data-i18n="editor.editorTools.cardEmpty">No matching articles</div>
+          </div>
+        </div>
+
         <div id="editor-wrap">
-          <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source"></textarea>
+          <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source" data-i18n-placeholder="editor.editorPlaceholder" data-i18n-aria-label="editor.editorTextareaAria"></textarea>
         </div>
 
         <div id="preview-wrap" style="display:none;">
@@ -1202,8 +1343,8 @@
 
       <div class="editor-empty-state" id="editorEmptyState" role="status" aria-live="polite">
         <div class="empty-body">
-          <h2>No editor is currently open</h2>
-          <p>Open Markdown from the Composer to start editing.</p>
+          <h2 data-i18n="editor.empty.title">No editor is currently open</h2>
+          <p data-i18n="editor.empty.body">Open Markdown from the Composer to start editing.</p>
         </div>
       </div>
     </div>
@@ -1213,27 +1354,27 @@
       <section class="box editor-main" style="grid-column: 1 / -1;">
         <div class="toolbar">
           <div class="left-actions">
-            <div class="view-toggle" aria-label="File switch">
-              <span class="vt-label">File:</span>
-              <a href="#" class="vt-btn active" data-cfile="index">Articles</a>
+            <div class="view-toggle" aria-label="File switch" data-i18n-aria-label="editor.composer.fileSwitchAria">
+              <span class="vt-label" data-i18n="editor.composer.fileLabel">File:</span>
+              <a href="#" class="vt-btn active" data-cfile="index" data-i18n="editor.composer.fileArticles">Articles</a>
               <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-cfile="tabs">Pages</a>
+              <a href="#" class="vt-btn" data-cfile="tabs" data-i18n="editor.composer.filePages">Pages</a>
             </div>
           </div>
           <div class="right-actions">
-            <button class="btn-secondary" id="btnAddItem">Add Post Entry</button>
-            <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot">Refresh</button>
+            <button class="btn-secondary" id="btnAddItem" data-i18n="editor.composer.addPost">Add Post Entry</button>
+            <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot" data-i18n="editor.composer.refresh" data-i18n-title="editor.composer.refreshTitle">Refresh</button>
 
-            <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" hidden>Discard</button>
+            <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
           </div>
         </div>
         <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
           <div class="composer-order-inline-meta-head">
             <div class="composer-order-inline-titles">
-              <h3 class="composer-order-inline-title">Change summary</h3>
+              <h3 class="composer-order-inline-title" data-i18n="editor.composer.changeSummary">Change summary</h3>
               <span class="composer-order-inline-kind">index.yaml</span>
             </div>
-            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview">Review changes</button>
+            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview" data-i18n="editor.composer.reviewChanges" data-i18n-aria-label="editor.composer.reviewChanges">Review changes</button>
           </div>
           <div class="composer-order-inline-stats" aria-live="polite"></div>
         </div>
@@ -1241,25 +1382,25 @@
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
           <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost">
-            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" hidden>
+            <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" data-i18n-aria-label="editor.composer.indexInlineAria" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
-                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+                <div class="composer-order-inline-empty" aria-hidden="false" data-i18n="editor.composer.inlineEmpty">No entries to compare yet.</div>
               </div>
             </div>
             <div class="composer-order-main">
-              <div id="composerIndex" aria-label="index.yaml editor" style="display:block;"></div>
+              <div id="composerIndex" aria-label="index.yaml editor" data-i18n-aria-label="editor.composer.indexEditorAria" style="display:block;"></div>
             </div>
           </div>
           <div class="composer-order-host" data-kind="tabs" data-inline-active="false" id="composerTabsHost" style="display:none;">
-            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" hidden>
+            <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" data-i18n-aria-label="editor.composer.tabsInlineAria" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
-                <div class="composer-order-inline-empty" aria-hidden="false">No entries to compare yet.</div>
+                <div class="composer-order-inline-empty" aria-hidden="false" data-i18n="editor.composer.inlineEmpty">No entries to compare yet.</div>
               </div>
             </div>
             <div class="composer-order-main">
-              <div id="composerTabs" aria-label="tabs.yaml editor" style="display:none;"></div>
+              <div id="composerTabs" aria-label="tabs.yaml editor" data-i18n-aria-label="editor.composer.tabsEditorAria" style="display:none;"></div>
             </div>
           </div>
         </div>
@@ -1273,8 +1414,45 @@
   </div>
 
   <footer class="site-footer">
-    <p>Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
+    <p data-i18n-html="editor.footerNote">Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
   </footer>
+  <script>
+    (function () {
+      const root = document.documentElement;
+      const toolbarNodes = Array.from(document.querySelectorAll('.editor-main .toolbar'));
+      if (!toolbarNodes.length) return;
+
+      const updateOffset = () => {
+        let maxOffset = 0;
+        for (const toolbar of toolbarNodes) {
+          if (!toolbar.isConnected) continue;
+          if (toolbar.getClientRects().length === 0) continue;
+          const height = toolbar.offsetHeight;
+          if (height > 0) {
+            maxOffset = Math.max(maxOffset, height);
+          }
+        }
+        root.style.setProperty('--editor-toolbar-offset', `${maxOffset}px`);
+      };
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(updateOffset);
+        toolbarNodes.forEach((toolbar) => ro.observe(toolbar));
+      }
+
+      const layouts = ['mode-editor', 'mode-composer']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+      if (layouts.length) {
+        const mo = new MutationObserver(updateOffset);
+        layouts.forEach((node) => mo.observe(node, { attributes: true, attributeFilter: ['class', 'style'] }));
+      }
+
+      window.addEventListener('load', updateOffset, { once: true });
+      updateOffset();
+    })();
+  </script>
+  <script type="module" src="assets/js/editor-boot.js"></script>
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
