@@ -142,6 +142,8 @@ const composerInlineVisibilityAnimations = new WeakMap();
 const composerInlineVisibilityFallbacks = new WeakMap();
 const composerListTransitions = new WeakMap();
 const composerOrderMainTransitions = new WeakMap();
+let composerSiteScrollAnimationId = null;
+let composerSiteScrollCleanup = null;
 
 const SITE_FIELD_LABEL_MAP = {
   siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
@@ -174,6 +176,202 @@ function composerPrefersReducedMotion() {
     if (!composerReduceMotionQuery) composerReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     return !!composerReduceMotionQuery.matches;
   } catch (_) {
+    return false;
+  }
+}
+
+function cancelComposerSiteScrollAnimation() {
+  try {
+    if (composerSiteScrollAnimationId != null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(composerSiteScrollAnimationId);
+    }
+  } catch (_) {}
+  composerSiteScrollAnimationId = null;
+  if (typeof composerSiteScrollCleanup === 'function') {
+    try { composerSiteScrollCleanup(); }
+    catch (_) {}
+  }
+  composerSiteScrollCleanup = null;
+}
+
+function createCubicBezierEasing(mX1, mY1, mX2, mY2) {
+  const NEWTON_ITERATIONS = 8;
+  const NEWTON_MIN_SLOPE = 0.001;
+  const SUBDIVISION_PRECISION = 1e-7;
+  const SUBDIVISION_MAX_ITERATIONS = 10;
+  const SPLINE_TABLE_SIZE = 11;
+  const SAMPLE_STEP_SIZE = 1 / (SPLINE_TABLE_SIZE - 1);
+
+  const sampleValues = new Float32Array(SPLINE_TABLE_SIZE);
+
+  const calcBezier = (t, a1, a2) => (((1 - 3 * a2 + 3 * a1) * t + (3 * a2 - 6 * a1)) * t + (3 * a1)) * t;
+  const getSlope = (t, a1, a2) => (3 * (1 - 3 * a2 + 3 * a1) * t + 2 * (3 * a2 - 6 * a1)) * t + (3 * a1);
+
+  for (let i = 0; i < SPLINE_TABLE_SIZE; i += 1) {
+    sampleValues[i] = calcBezier(i * SAMPLE_STEP_SIZE, mX1, mX2);
+  }
+
+  const binarySubdivide = (x, lowerBound, upperBound) => {
+    let currentX = 0;
+    let currentT = 0;
+    let i = 0;
+    do {
+      currentT = lowerBound + (upperBound - lowerBound) / 2;
+      currentX = calcBezier(currentT, mX1, mX2) - x;
+      if (currentX > 0) {
+        upperBound = currentT;
+      } else {
+        lowerBound = currentT;
+      }
+      i += 1;
+    } while (Math.abs(currentX) > SUBDIVISION_PRECISION && i < SUBDIVISION_MAX_ITERATIONS);
+    return currentT;
+  };
+
+  const newtonRaphsonIterate = (x, guessT) => {
+    for (let i = 0; i < NEWTON_ITERATIONS; i += 1) {
+      const slope = getSlope(guessT, mX1, mX2);
+      if (Math.abs(slope) < NEWTON_MIN_SLOPE) return guessT;
+      const currentX = calcBezier(guessT, mX1, mX2) - x;
+      guessT -= currentX / slope;
+    }
+    return guessT;
+  };
+
+  return (x) => {
+    if (mX1 === mY1 && mX2 === mY2) return x;
+    let currentSample = 0;
+    const lastSample = SPLINE_TABLE_SIZE - 1;
+    for (; currentSample !== lastSample && sampleValues[currentSample] <= x; currentSample += 1);
+    currentSample -= 1;
+
+    const segmentStart = sampleValues[currentSample];
+    const segmentEnd = sampleValues[currentSample + 1];
+    const segmentInterval = segmentEnd - segmentStart;
+    const dist = segmentInterval > 0 ? (x - segmentStart) / segmentInterval : 0;
+    const guessForT = currentSample * SAMPLE_STEP_SIZE + dist * SAMPLE_STEP_SIZE;
+
+    const initialSlope = getSlope(guessForT, mX1, mX2);
+    const tCandidate = initialSlope >= NEWTON_MIN_SLOPE
+      ? newtonRaphsonIterate(x, guessForT)
+      : initialSlope === 0
+        ? guessForT
+        : binarySubdivide(x, currentSample * SAMPLE_STEP_SIZE, (currentSample + 1) * SAMPLE_STEP_SIZE);
+
+    return calcBezier(tCandidate, mY1, mY2);
+  };
+}
+
+const easeOutComposerScroll = (t) => Math.min(1, Math.max(0, t));
+
+function resolveComposerScrollDuration(duration) {
+  const maxDuration = 1600;
+  const minDuration = 120;
+  const fallbackDuration = 720;
+  const numeric = Number(duration);
+  if (Number.isFinite(numeric)) return Math.min(maxDuration, Math.max(minDuration, numeric));
+  return fallbackDuration;
+}
+
+function animateComposerViewportScroll(targetY, duration, onComplete) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  if (typeof window.requestAnimationFrame !== 'function' || typeof window.scrollTo !== 'function') return false;
+
+  const startY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const distance = targetY - startY;
+  if (Math.abs(distance) < 0.5) {
+    try { window.scrollTo(0, targetY); } catch (_) {}
+    if (typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
+    return true;
+  }
+
+  const resolvedDuration = resolveComposerScrollDuration(duration);
+
+  const startTime = (() => {
+    try {
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        return performance.now();
+      }
+    } catch (_) {}
+    return Date.now();
+  })();
+
+  cancelComposerSiteScrollAnimation();
+
+  let restoreScrollBehavior = null;
+  const rootEl = typeof document !== 'undefined' ? document.documentElement : null;
+  if (rootEl && rootEl.style) {
+    try {
+      const previousBehavior = rootEl.style.scrollBehavior || '';
+      const hadInlineBehavior = previousBehavior !== '';
+      rootEl.style.scrollBehavior = 'auto';
+      restoreScrollBehavior = () => {
+        if (!rootEl || !rootEl.style) return;
+        if (hadInlineBehavior) rootEl.style.scrollBehavior = previousBehavior;
+        else rootEl.style.removeProperty('scroll-behavior');
+      };
+    } catch (_) {
+      restoreScrollBehavior = null;
+    }
+  }
+
+  if (typeof restoreScrollBehavior === 'function') {
+    composerSiteScrollCleanup = () => {
+      if (typeof restoreScrollBehavior === 'function') {
+        try { restoreScrollBehavior(); }
+        catch (_) {}
+      }
+      restoreScrollBehavior = null;
+    };
+  } else {
+    composerSiteScrollCleanup = null;
+  }
+
+  const finalize = (shouldInvokeCallback) => {
+    composerSiteScrollAnimationId = null;
+    if (typeof composerSiteScrollCleanup === 'function') {
+      try { composerSiteScrollCleanup(); }
+      catch (_) {}
+    }
+    composerSiteScrollCleanup = null;
+    if (shouldInvokeCallback && typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
+  };
+
+  const step = (timestamp) => {
+    const now = (() => {
+      if (typeof timestamp === 'number') return timestamp;
+      try {
+        if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+          return performance.now();
+        }
+      } catch (_) {}
+      return Date.now();
+    })();
+
+    const progress = Math.min(1, (now - startTime) / resolvedDuration);
+    const eased = easeOutComposerScroll(progress);
+    const nextY = startY + (distance * eased);
+    try { window.scrollTo(0, nextY); } catch (_) {}
+
+    if (progress < 1) {
+      try {
+        composerSiteScrollAnimationId = window.requestAnimationFrame(step);
+        return;
+      } catch (_) {}
+    }
+
+    finalize(true);
+  };
+
+  try {
+    composerSiteScrollAnimationId = window.requestAnimationFrame(step);
+    return true;
+  } catch (_) {
+    finalize(false);
     return false;
   }
 }
@@ -1928,6 +2126,9 @@ function applySiteDiffMarkers(diff) {
     if (key && fields[key]) el.setAttribute('data-diff', 'changed');
     else el.removeAttribute('data-diff');
   });
+  try {
+    if (typeof root.__nsSiteNavRefresh === 'function') root.__nsSiteNavRefresh();
+  } catch (_) {}
 }
 
 function yamlScalar(value) {
@@ -10378,6 +10579,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 function buildSiteUI(root, state) {
   if (!root) return;
   root.innerHTML = '';
+  try {
+    if (typeof root.__nsSiteNavOrientationCleanup === 'function') root.__nsSiteNavOrientationCleanup();
+  } catch (_) {}
+  try { root.__nsSiteNavOrientationCleanup = null; } catch (_) {}
+  try {
+    if (typeof root.__nsSiteScrollSyncCleanup === 'function') root.__nsSiteScrollSyncCleanup();
+  } catch (_) {}
+  try { root.__nsSiteScrollSyncCleanup = null; } catch (_) {}
+  try {
+    if (typeof root.__nsSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__nsSiteNavFocusHandler);
+  } catch (_) {}
+  try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
+  try { root.__nsSiteNavRefresh = null; } catch (_) {}
+  try { root.__nsSiteNavSetActive = null; } catch (_) {}
+  try { root.__nsSiteRevealField = null; } catch (_) {}
   if (!state || typeof state !== 'object') return;
   let site = state.site;
   if (!site || typeof site !== 'object') {
@@ -10390,9 +10606,496 @@ function buildSiteUI(root, state) {
   container.className = 'cs-root';
   root.appendChild(container);
 
+  const sectionsMeta = [];
+  let activeSectionId = '';
+  const preservedActiveLabel = (() => {
+    try { return String(root.__nsSiteActiveSection || '').trim(); }
+    catch (_) { return ''; }
+  })();
+
+  const getNow = () => {
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+      try { return performance.now(); } catch (_) {}
+    }
+    try { return Date.now(); } catch (_) { return 0; }
+  };
+
+  let scrollSyncHandle = null;
+  let scrollSyncHandleType = '';
+  let scrollSyncLockUntil = 0;
+
+  const escapeFieldKey = (value) => {
+    const raw = value == null ? '' : String(value);
+    try {
+      if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(raw);
+    } catch (_) {}
+    return raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  };
+
+  const layout = document.createElement('div');
+  layout.className = 'cs-layout';
+  container.appendChild(layout);
+
+  const nav = document.createElement('nav');
+  nav.className = 'cs-nav';
+  const navLabel = (() => {
+    try {
+      const label = t('editor.composer.site.sections.navigation');
+      if (label && label !== 'editor.composer.site.sections.navigation') return label;
+    } catch (_) {}
+    return 'Site sections';
+  })();
+  nav.setAttribute('aria-label', navLabel);
+
+  const navList = document.createElement('ul');
+  navList.className = 'cs-nav-list';
+  navList.setAttribute('role', 'tablist');
+  nav.appendChild(navList);
+  layout.appendChild(nav);
+
+  const viewport = document.createElement('div');
+  viewport.className = 'cs-viewport';
+  layout.appendChild(viewport);
+
+  const navOrientationQuery = (() => {
+    try {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+      return window.matchMedia('(max-width: 920px)');
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  const updateNavOrientation = () => {
+    const horizontal = !!(navOrientationQuery && navOrientationQuery.matches);
+    navList.setAttribute('aria-orientation', horizontal ? 'horizontal' : 'vertical');
+  };
+
+  updateNavOrientation();
+  if (navOrientationQuery) {
+    const orientationHandler = () => {
+      updateNavOrientation();
+      try { scheduleScrollSync(); } catch (_) {}
+    };
+    if (typeof navOrientationQuery.addEventListener === 'function') navOrientationQuery.addEventListener('change', orientationHandler);
+    else if (typeof navOrientationQuery.addListener === 'function') navOrientationQuery.addListener(orientationHandler);
+    try {
+      root.__nsSiteNavOrientationCleanup = () => {
+        if (typeof navOrientationQuery.removeEventListener === 'function') navOrientationQuery.removeEventListener('change', orientationHandler);
+        else if (typeof navOrientationQuery.removeListener === 'function') navOrientationQuery.removeListener(orientationHandler);
+      };
+    } catch (_) {}
+  }
+
+  const resolveViewportAnchorTop = () => {
+    if (typeof window === 'undefined') return 0;
+    let toolbarOffset = 0;
+    try {
+      const docStyles = window.getComputedStyle(document.documentElement);
+      const parsedToolbar = parseFloat(docStyles && docStyles.getPropertyValue('--editor-toolbar-offset'));
+      if (Number.isFinite(parsedToolbar)) toolbarOffset = Math.max(parsedToolbar, 0);
+    } catch (_) {}
+
+    let desiredTop = Math.max(toolbarOffset + 12, 12);
+    try {
+      if (nav && typeof nav.getBoundingClientRect === 'function') {
+        const navRect = nav.getBoundingClientRect();
+        if (navRect && Number.isFinite(navRect.top)) {
+          desiredTop = Math.min(desiredTop, Math.max(navRect.top - 8, 12));
+        }
+      }
+    } catch (_) {}
+
+    return desiredTop;
+  };
+
+  function focusNavAt(index) {
+    if (!sectionsMeta.length) return;
+    const len = sectionsMeta.length;
+    let next = index;
+    if (Number.isNaN(next)) next = 0;
+    if (next < 0) next = len - 1;
+    if (next >= len) next = 0;
+    const target = sectionsMeta[next];
+    if (target && target.navButton && typeof target.navButton.focus === 'function') {
+      try { target.navButton.focus(); } catch (_) {}
+    }
+  }
+
+  function setActiveSection(sectionId, options = {}) {
+    if (!sectionId || !sectionsMeta.length) return;
+    let resolved = false;
+    let focusTarget = null;
+    let activeMeta = null;
+    const shouldScroll = options && options.scrollViewport !== false;
+    const skipScrollLock = !!(options && options.skipScrollLock);
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.section || !meta.navButton) return;
+      const isActive = meta.id === sectionId;
+      if (isActive) {
+        activeSectionId = sectionId;
+        resolved = true;
+        activeMeta = meta;
+        try { meta.section.removeAttribute('hidden'); } catch (_) {}
+        meta.section.classList.add('is-active');
+        meta.section.setAttribute('aria-hidden', 'false');
+        meta.navButton.classList.add('is-active');
+        meta.navButton.setAttribute('aria-selected', 'true');
+        meta.navButton.setAttribute('tabindex', '0');
+        navList.setAttribute('aria-activedescendant', meta.navButton.id);
+        try { root.__nsSiteActiveSection = meta.label || ''; } catch (_) {}
+        if (options.focusPanel) {
+          const focusable = meta.section.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])');
+          if (focusable && typeof focusable.focus === 'function') focusTarget = focusable;
+        }
+      } else {
+        try { meta.section.removeAttribute('hidden'); } catch (_) {}
+        meta.section.classList.remove('is-active');
+        try { meta.section.removeAttribute('aria-hidden'); } catch (_) {}
+        meta.navButton.classList.remove('is-active');
+        meta.navButton.setAttribute('aria-selected', 'false');
+        meta.navButton.setAttribute('tabindex', '-1');
+      }
+    });
+    if (!resolved) return;
+    let focusCommitted = false;
+    const commitFocus = (delay = 0) => {
+      if (!focusTarget || focusCommitted) return;
+      focusCommitted = true;
+      const target = focusTarget;
+      const schedule = () => {
+        if (!target || typeof target.focus !== 'function') return;
+        if (activeSectionId !== sectionId) return;
+        const applyFocus = () => {
+          try {
+            target.focus({ preventScroll: true });
+          } catch (_) {
+            try { target.focus(); } catch (_) {}
+          }
+        };
+        try {
+          requestAnimationFrame(applyFocus);
+        } catch (_) {
+          applyFocus();
+        }
+      };
+      const ms = Math.max(0, Number(delay) || 0);
+      if (ms > 0 && typeof setTimeout === 'function') {
+        setTimeout(schedule, ms);
+      } else {
+        schedule();
+      }
+      focusTarget = null;
+    };
+
+    if (shouldScroll && activeMeta && typeof window !== 'undefined') {
+      const executeScroll = () => {
+        try {
+          const sectionRect = activeMeta.section.getBoundingClientRect();
+          const desiredTop = resolveViewportAnchorTop();
+          const delta = sectionRect.top - desiredTop;
+          if (Math.abs(delta) > 4) {
+            const behavior = options.scrollBehavior || 'smooth';
+            const prefersReduced = composerPrefersReducedMotion();
+            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+            const resolvedDuration = resolveComposerScrollDuration(options.scrollDuration);
+            if (!skipScrollLock) {
+              const now = getNow();
+              const lockDuration = behavior === 'smooth' ? resolvedDuration + 160 : 140;
+              scrollSyncLockUntil = now + Math.max(lockDuration, 140);
+            }
+
+            if (!prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
+              const animated = animateComposerViewportScroll(targetY, resolvedDuration, () => commitFocus(48));
+              if (animated) return;
+            }
+
+            cancelComposerSiteScrollAnimation();
+
+            if (typeof window.scrollBy === 'function') {
+              try {
+                window.scrollBy({ top: delta, behavior });
+              } catch (_) {
+                window.scrollBy(0, delta);
+              }
+            } else if (typeof window.scrollTo === 'function') {
+              try {
+                window.scrollTo({ top: targetY, behavior });
+              } catch (_) {
+                window.scrollTo(0, targetY);
+              }
+            }
+
+            if (!prefersReduced && behavior === 'smooth') commitFocus(resolvedDuration + 64);
+            else commitFocus(0);
+            return;
+          }
+
+          commitFocus(0);
+        } catch (_) {
+          commitFocus(0);
+        }
+      };
+
+      try {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(executeScroll);
+        else executeScroll();
+      } catch (_) {
+        executeScroll();
+      }
+    } else {
+      commitFocus(0);
+    }
+  }
+
+  function refreshNavDiffState() {
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.navButton || !meta.section) return;
+      const hasDiff = !!meta.section.querySelector('[data-diff]');
+      if (hasDiff) meta.navButton.setAttribute('data-has-diff', 'true');
+      else meta.navButton.removeAttribute('data-has-diff');
+    });
+  }
+
+  function cancelScheduledScrollSync() {
+    if (scrollSyncHandle == null) return;
+    if (scrollSyncHandleType === 'raf' && typeof cancelAnimationFrame === 'function') {
+      try { cancelAnimationFrame(scrollSyncHandle); } catch (_) {}
+    } else if (scrollSyncHandleType === 'timeout' && typeof clearTimeout === 'function') {
+      try { clearTimeout(scrollSyncHandle); } catch (_) {}
+    }
+    scrollSyncHandle = null;
+    scrollSyncHandleType = '';
+  }
+
+  function runScrollSync() {
+    scrollSyncHandle = null;
+    scrollSyncHandleType = '';
+    if (typeof window === 'undefined') return;
+    const now = getNow();
+    if (now < scrollSyncLockUntil) {
+      if (typeof setTimeout === 'function') {
+        const delay = Math.max(24, Math.min(240, scrollSyncLockUntil - now + 16));
+        scrollSyncHandleType = 'timeout';
+        scrollSyncHandle = setTimeout(() => {
+          scrollSyncHandle = null;
+          scrollSyncHandleType = '';
+          runScrollSync();
+        }, delay);
+      }
+    } else {
+      if (!sectionsMeta.length) return;
+      const anchorTop = resolveViewportAnchorTop();
+      const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const tolerance = Math.max(48, Math.min(viewportHeight * 0.25 || 0, 180));
+      const anchorDocY = scrollY + anchorTop;
+      let candidate = null;
+
+      for (let i = 0; i < sectionsMeta.length; i += 1) {
+        const meta = sectionsMeta[i];
+        if (!meta || !meta.section) continue;
+        const rect = meta.section.getBoundingClientRect();
+        if (!rect || rect.height <= 4) continue;
+        const sectionTop = scrollY + rect.top;
+        if (sectionTop <= anchorDocY + tolerance) {
+          candidate = meta;
+          continue;
+        }
+        if (!candidate) candidate = meta;
+        break;
+      }
+
+      if (!candidate) candidate = sectionsMeta[sectionsMeta.length - 1] || null;
+      if (!candidate || candidate.id === activeSectionId) return;
+      setActiveSection(candidate.id, { focusPanel: false, scrollViewport: false, skipScrollLock: true });
+    }
+  }
+
+  function scheduleScrollSync() {
+    if (typeof window === 'undefined') return;
+    if (scrollSyncHandle != null) return;
+    const runner = () => {
+      scrollSyncHandle = null;
+      scrollSyncHandleType = '';
+      runScrollSync();
+    };
+    try {
+      scrollSyncHandleType = 'raf';
+      scrollSyncHandle = requestAnimationFrame(() => runner());
+    } catch (_) {
+      if (typeof setTimeout === 'function') {
+        scrollSyncHandleType = 'timeout';
+        scrollSyncHandle = setTimeout(runner, 66);
+      } else {
+        runner();
+      }
+    }
+  }
+
+  const createSection = (title, description) => {
+    const section = document.createElement('section');
+    section.className = 'cs-section';
+    section.setAttribute('role', 'tabpanel');
+    section.setAttribute('aria-hidden', 'false');
+    const sectionId = `cs-section-${sectionsMeta.length + 1}`;
+    section.id = sectionId;
+    if (title || description) {
+      const head = document.createElement('div');
+      head.className = 'cs-section-head';
+      let heading = null;
+      if (title) {
+        heading = document.createElement('h3');
+        heading.className = 'cs-section-title';
+        heading.textContent = title;
+        head.appendChild(heading);
+      }
+      if (description) {
+        const desc = document.createElement('p');
+        desc.className = 'cs-section-description';
+        desc.textContent = description;
+        head.appendChild(desc);
+      }
+      section.appendChild(head);
+    }
+    viewport.appendChild(section);
+
+    const labelText = (() => {
+      if (title && String(title).trim()) return String(title).trim();
+      const fromHeading = section.querySelector('.cs-section-title');
+      return fromHeading && fromHeading.textContent ? fromHeading.textContent.trim() : `Section ${sectionsMeta.length + 1}`;
+    })();
+
+    const navItem = document.createElement('li');
+    navItem.className = 'cs-nav-item';
+    const navButton = document.createElement('button');
+    navButton.type = 'button';
+    navButton.className = 'cs-nav-button';
+    const navButtonId = `${sectionId}-tab`;
+    navButton.id = navButtonId;
+    navButton.textContent = labelText;
+    navButton.setAttribute('role', 'tab');
+    navButton.setAttribute('aria-controls', sectionId);
+    navButton.setAttribute('aria-selected', 'false');
+    navButton.setAttribute('tabindex', '-1');
+    navButton.addEventListener('click', () => setActiveSection(sectionId, { focusPanel: true }));
+    navButton.addEventListener('keydown', (event) => {
+      const key = event.key;
+      if (!key) return;
+      const currentIndex = sectionsMeta.findIndex((meta) => meta && meta.id === sectionId);
+      if (key === 'ArrowDown' || key === 'ArrowRight') {
+        event.preventDefault();
+        focusNavAt(currentIndex + 1);
+      } else if (key === 'ArrowUp' || key === 'ArrowLeft') {
+        event.preventDefault();
+        focusNavAt(currentIndex - 1);
+      } else if (key === 'Home') {
+        event.preventDefault();
+        focusNavAt(0);
+      } else if (key === 'End') {
+        event.preventDefault();
+        focusNavAt(sectionsMeta.length - 1);
+      }
+    });
+    navItem.appendChild(navButton);
+    navList.appendChild(navItem);
+
+    const meta = { id: sectionId, section, navButton, label: labelText };
+    sectionsMeta.push(meta);
+
+    const shouldRestore = preservedActiveLabel && labelText === preservedActiveLabel;
+    if (!activeSectionId || shouldRestore) {
+      setActiveSection(sectionId, { scrollViewport: false });
+    }
+
+    return section;
+  };
+
+  const revealField = (fieldKey, options = {}) => {
+    if (!fieldKey) return null;
+    const selector = `[data-field="${escapeFieldKey(fieldKey)}"]`;
+    let fieldEl = null;
+    try { fieldEl = root.querySelector(selector); }
+    catch (_) { fieldEl = null; }
+    if (!fieldEl) return null;
+    const section = typeof fieldEl.closest === 'function' ? fieldEl.closest('.cs-section') : null;
+    if (!section) return fieldEl;
+    const meta = sectionsMeta.find((item) => item.section === section);
+    if (meta) {
+      setActiveSection(meta.id, { focusPanel: false, scrollViewport: false });
+      if (options.scroll !== false) {
+        try {
+          const behavior = options.behavior || 'smooth';
+          requestAnimationFrame(() => {
+            try { fieldEl.scrollIntoView({ block: 'start', behavior }); }
+            catch (_) { fieldEl.scrollIntoView(); }
+          });
+        } catch (_) {
+          try { fieldEl.scrollIntoView(); } catch (_) {}
+        }
+      }
+      if (options.focus !== false) {
+        const focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        try {
+          requestAnimationFrame(() => {
+            if (typeof focusTarget.focus === 'function') {
+              try { focusTarget.focus({ preventScroll: options.scroll !== false }); }
+              catch (_) { focusTarget.focus(); }
+            }
+          });
+        } catch (_) {
+          try { focusTarget.focus(); } catch (_) {}
+        }
+      }
+    }
+    return fieldEl;
+  };
+
+  const focusHandler = (event) => {
+    const target = event && event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    const section = target.closest('.cs-section');
+    if (!section) return;
+    const meta = sectionsMeta.find((item) => item.section === section);
+    if (meta && meta.id !== activeSectionId) {
+      setActiveSection(meta.id, { focusPanel: false, scrollViewport: false, skipScrollLock: true });
+    }
+  };
+
+  try { root.addEventListener('focusin', focusHandler); } catch (_) {}
+  try { root.__nsSiteNavFocusHandler = focusHandler; } catch (_) {}
+  try { root.__nsSiteRevealField = revealField; } catch (_) {}
+
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    const onScroll = () => scheduleScrollSync();
+    const onResize = () => scheduleScrollSync();
+    let passiveScrollListener = false;
+    try {
+      window.addEventListener('scroll', onScroll, { passive: true });
+      passiveScrollListener = true;
+    } catch (_) {
+      try { window.addEventListener('scroll', onScroll); } catch (_) {}
+    }
+    try { window.addEventListener('resize', onResize); } catch (_) {}
+    const cleanup = () => {
+      try {
+        if (passiveScrollListener) window.removeEventListener('scroll', onScroll, { passive: true });
+      } catch (_) {}
+      try { window.removeEventListener('scroll', onScroll); } catch (_) {}
+      try { window.removeEventListener('resize', onResize); } catch (_) {}
+      cancelScheduledScrollSync();
+    };
+    try { root.__nsSiteScrollSyncCleanup = cleanup; }
+    catch (_) { cleanup(); }
+  }
+
+  try { root.__nsSiteNavRefresh = refreshNavDiffState; } catch (_) {}
+  try { root.__nsSiteNavSetActive = setActiveSection; } catch (_) {}
+
   const markDirty = () => {
     setStateSlice('site', site);
     notifyComposerChange('site');
+    refreshNavDiffState();
   };
 
   const ensureLocalized = (key, ensureDefault = true) => {
@@ -10481,42 +11184,39 @@ function buildSiteUI(root, state) {
     return ordered;
   };
 
-  const createSection = (title, description) => {
-    const section = document.createElement('section');
-    section.className = 'cs-section';
-    if (title) {
-      const heading = document.createElement('h3');
-      heading.className = 'cs-section-title';
-      heading.textContent = title;
-      section.appendChild(heading);
-    }
-    if (description) {
-      const desc = document.createElement('p');
-      desc.className = 'cs-section-description';
-      desc.textContent = description;
-      section.appendChild(desc);
-    }
-    container.appendChild(section);
-    return section;
-  };
-
   const createField = (section, config) => {
     const field = document.createElement('div');
     field.className = 'cs-field';
     if (config.dataKey) field.dataset.field = config.dataKey;
     const head = document.createElement('div');
     head.className = 'cs-field-head';
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'cs-field-label-wrap';
+    head.appendChild(labelWrap);
     const labelEl = document.createElement('label');
     labelEl.className = 'cs-field-label';
     labelEl.textContent = config.label || '';
-    head.appendChild(labelEl);
-    if (config.action) head.appendChild(config.action);
+    labelWrap.appendChild(labelEl);
+    if (config.action) {
+      config.action.classList.add('cs-field-action');
+      head.appendChild(config.action);
+    }
     field.appendChild(head);
+    field.__csHead = head;
+    field.__csLabel = labelEl;
+    field.__csLabelWrap = labelWrap;
+    const inlineDescription = config.inlineDescription !== false;
     if (config.description) {
       const desc = document.createElement('p');
       desc.className = 'cs-field-help';
       desc.textContent = config.description;
-      field.appendChild(desc);
+      field.__csHelp = desc;
+      if (inlineDescription && labelWrap) {
+        field.classList.add('cs-field-inline-help');
+        labelWrap.appendChild(desc);
+      } else {
+        field.appendChild(desc);
+      }
     }
     section.appendChild(field);
     return field;
@@ -10799,55 +11499,71 @@ function buildSiteUI(root, state) {
     return input;
   };
 
+  const createSwitchControl = (field, labelText, options = {}) => {
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls cs-field-controls-inline';
+    if (Array.isArray(options.classes)) controls.classList.add(...options.classes);
+    const target = options.target || field;
+    const toggle = document.createElement('label');
+    toggle.className = 'cs-switch';
+    toggle.dataset.state = 'off';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'cs-switch-input';
+    checkbox.setAttribute('role', 'switch');
+    checkbox.setAttribute('aria-checked', 'false');
+    const track = document.createElement('span');
+    track.className = 'cs-switch-track';
+    const thumb = document.createElement('span');
+    thumb.className = 'cs-switch-thumb';
+    track.appendChild(thumb);
+    toggle.appendChild(checkbox);
+    toggle.appendChild(track);
+    const accessibleLabel = labelText || (field && field.__csLabel ? field.__csLabel.textContent : '');
+    if (accessibleLabel) checkbox.setAttribute('aria-label', accessibleLabel);
+    controls.appendChild(toggle);
+    target.appendChild(controls);
+    return { controls, toggle, checkbox };
+  };
+
+  const syncSwitchState = (checkbox, toggle, value, allowMixed = false) => {
+    if (allowMixed && (value === null || value === undefined)) {
+      checkbox.indeterminate = true;
+      checkbox.checked = false;
+      checkbox.setAttribute('aria-checked', 'mixed');
+      toggle.dataset.state = 'mixed';
+      return;
+    }
+    checkbox.indeterminate = false;
+    const isOn = allowMixed ? value === true : !!value;
+    checkbox.checked = isOn;
+    checkbox.setAttribute('aria-checked', isOn ? 'true' : 'false');
+    toggle.dataset.state = isOn ? 'on' : 'off';
+  };
+
   const createTriStateCheckbox = (section, config) => {
-    const resetBtn = document.createElement('button');
-    resetBtn.type = 'button';
-    resetBtn.className = 'btn-tertiary cs-reset';
-    resetBtn.textContent = t('editor.composer.site.reset');
     const field = createField(section, {
       dataKey: config.dataKey,
       label: config.label,
       description: config.description,
-      action: resetBtn
+      inlineDescription: false
     });
-    const control = document.createElement('label');
-    control.className = 'cs-field-toggle';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'cs-checkbox';
-    const text = document.createElement('span');
-    text.textContent = config.checkboxLabel || config.label;
-    control.appendChild(checkbox);
-    control.appendChild(text);
-    field.appendChild(control);
+    const head = field.__csHead || field.querySelector('.cs-field-head');
+    const labelWrap = field.__csLabelWrap || head;
+    if (labelWrap) labelWrap.classList.add('cs-field-label-with-switch');
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
+      target: labelWrap || head || field,
+      classes: ['cs-field-head-switch']
+    });
 
     const sync = () => {
       const value = config.get();
-      if (value === null || value === undefined) {
-        checkbox.indeterminate = true;
-        checkbox.checked = false;
-      } else {
-        checkbox.indeterminate = false;
-        checkbox.checked = !!value;
-      }
+      syncSwitchState(checkbox, toggle, value, true);
     };
 
     checkbox.addEventListener('change', () => {
       config.set(checkbox.checked);
-      checkbox.indeterminate = false;
-      markDirty();
-    });
-    resetBtn.addEventListener('click', () => {
-      const hasDefault = Object.prototype.hasOwnProperty.call(config, 'defaultValue');
-      const nextValue = hasDefault ? config.defaultValue : null;
-      config.set(nextValue);
-      if (nextValue === null) {
-        checkbox.checked = false;
-        checkbox.indeterminate = true;
-      } else {
-        checkbox.checked = !!nextValue;
-        checkbox.indeterminate = false;
-      }
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
       markDirty();
     });
     sync();
@@ -10857,26 +11573,24 @@ function buildSiteUI(root, state) {
     const field = createField(section, {
       dataKey: config.dataKey,
       label: config.label,
-      description: config.description
+      description: config.description,
+      inlineDescription: false
     });
-    const control = document.createElement('label');
-    control.className = 'cs-field-toggle';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'cs-checkbox';
-    const text = document.createElement('span');
-    text.textContent = config.checkboxLabel || config.label;
-    control.appendChild(checkbox);
-    control.appendChild(text);
-    field.appendChild(control);
+    const head = field.__csHead || field.querySelector('.cs-field-head');
+    const labelWrap = field.__csLabelWrap || head;
+    if (labelWrap) labelWrap.classList.add('cs-field-label-with-switch');
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
+      target: labelWrap || head || field,
+      classes: ['cs-field-head-switch']
+    });
 
     const sync = () => {
-      checkbox.checked = !!config.get();
+      syncSwitchState(checkbox, toggle, config.get(), false);
     };
 
     checkbox.addEventListener('change', () => {
       config.set(checkbox.checked);
-      sync();
+      syncSwitchState(checkbox, toggle, checkbox.checked, false);
       markDirty();
     });
 
@@ -10884,7 +11598,7 @@ function buildSiteUI(root, state) {
     return {
       checkbox,
       field,
-      control
+      control: toggle
     };
   };
 
@@ -10986,28 +11700,79 @@ function buildSiteUI(root, state) {
         listWrap.appendChild(empty);
         return;
       }
+      const labelTitleId = `${key}-label-title`;
+      const hrefTitleId = `${key}-href-title`;
       list.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'cs-link-row';
+        if (index === 0) {
+          row.classList.add('cs-link-row--with-title');
+        }
         row.dataset.index = String(index);
+
+        const labelField = document.createElement('div');
+        labelField.className = 'cs-link-field';
+        if (index > 0) {
+          labelField.classList.add('cs-link-field--compact');
+        }
+        const labelInputId = `${key}-label-${index}`;
+        const labelTitle = document.createElement('label');
+        labelTitle.className = 'cs-link-field-title';
+        labelTitle.setAttribute('for', labelInputId);
+        labelTitle.textContent = t('editor.composer.site.linkLabelTitle');
+        if (index === 0) {
+          labelTitle.id = labelTitleId;
+        }
         const labelInput = document.createElement('input');
         labelInput.type = 'text';
-        labelInput.className = 'cs-input cs-input-small';
+        labelInput.id = labelInputId;
+        labelInput.className = 'cs-input';
         labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
+        if (index > 0) {
+          labelInput.setAttribute('aria-labelledby', labelTitleId);
+        }
         labelInput.value = item && item.label ? item.label : '';
         labelInput.addEventListener('input', () => {
           list[index].label = labelInput.value;
           markDirty();
         });
+        if (index === 0) {
+          labelField.append(labelTitle, labelInput);
+        } else {
+          labelField.append(labelInput);
+        }
+
+        const hrefField = document.createElement('div');
+        hrefField.className = 'cs-link-field';
+        if (index > 0) {
+          hrefField.classList.add('cs-link-field--compact');
+        }
+        const hrefInputId = `${key}-href-${index}`;
+        const hrefTitle = document.createElement('label');
+        hrefTitle.className = 'cs-link-field-title';
+        hrefTitle.setAttribute('for', hrefInputId);
+        hrefTitle.textContent = t('editor.composer.site.linkHrefTitle');
+        if (index === 0) {
+          hrefTitle.id = hrefTitleId;
+        }
         const hrefInput = document.createElement('input');
         hrefInput.type = 'text';
-        hrefInput.className = 'cs-input cs-input-small';
+        hrefInput.id = hrefInputId;
+        hrefInput.className = 'cs-input';
         hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
+        if (index > 0) {
+          hrefInput.setAttribute('aria-labelledby', hrefTitleId);
+        }
         hrefInput.value = item && item.href ? item.href : '';
         hrefInput.addEventListener('input', () => {
           list[index].href = hrefInput.value;
           markDirty();
         });
+        if (index === 0) {
+          hrefField.append(hrefTitle, hrefInput);
+        } else {
+          hrefField.append(hrefInput);
+        }
         const actions = document.createElement('div');
         actions.className = 'cs-link-actions';
         const upBtn = document.createElement('button');
@@ -11032,7 +11797,7 @@ function buildSiteUI(root, state) {
           renderRows();
         });
         actions.append(upBtn, downBtn, removeBtn);
-        row.append(labelInput, hrefInput, actions);
+        row.append(labelField, hrefField, actions);
         listWrap.appendChild(row);
       });
     };
@@ -11404,25 +12169,67 @@ function buildSiteUI(root, state) {
   });
   const repoInputs = document.createElement('div');
   repoInputs.className = 'cs-repo-grid';
+
   const ownerInput = document.createElement('input');
   ownerInput.type = 'text';
-  ownerInput.className = 'cs-input';
+  ownerInput.className = 'cs-input cs-repo-input cs-repo-input--owner';
   ownerInput.placeholder = t('editor.composer.site.repoOwner');
+  ownerInput.setAttribute('aria-label', t('editor.composer.site.repoOwner'));
+  ownerInput.spellcheck = false;
   ownerInput.value = repo.owner || '';
   ownerInput.addEventListener('input', () => { repo.owner = ownerInput.value; markDirty(); });
+
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
-  nameInput.className = 'cs-input';
+  nameInput.className = 'cs-input cs-repo-input cs-repo-input--name';
   nameInput.placeholder = t('editor.composer.site.repoName');
+  nameInput.setAttribute('aria-label', t('editor.composer.site.repoName'));
+  nameInput.spellcheck = false;
   nameInput.value = repo.name || '';
   nameInput.addEventListener('input', () => { repo.name = nameInput.value; markDirty(); });
+
   const branchInput = document.createElement('input');
   branchInput.type = 'text';
-  branchInput.className = 'cs-input';
+  branchInput.className = 'cs-input cs-repo-input cs-repo-input--branch';
   branchInput.placeholder = t('editor.composer.site.repoBranch');
+  branchInput.setAttribute('aria-label', t('editor.composer.site.repoBranch'));
+  branchInput.spellcheck = false;
   branchInput.value = repo.branch || '';
   branchInput.addEventListener('input', () => { repo.branch = branchInput.value; markDirty(); });
-  repoInputs.append(ownerInput, nameInput, branchInput);
+
+  const ownerWrap = document.createElement('div');
+  ownerWrap.className = 'cs-repo-field cs-repo-field--owner';
+  const ownerAffix = document.createElement('span');
+  ownerAffix.className = 'cs-repo-affix';
+  ownerAffix.textContent = t('editor.composer.site.repoOwnerPrefix');
+  ownerAffix.setAttribute('aria-hidden', 'true');
+  ownerWrap.append(ownerAffix, ownerInput);
+
+  const repoWrap = document.createElement('div');
+  repoWrap.className = 'cs-repo-field cs-repo-field--name';
+  const repoAffix = document.createElement('span');
+  repoAffix.className = 'cs-repo-affix';
+  repoAffix.textContent = t('editor.composer.site.repoNamePrefix');
+  repoAffix.setAttribute('aria-hidden', 'true');
+  repoWrap.append(repoAffix, nameInput);
+
+  const pathRow = document.createElement('div');
+  pathRow.className = 'cs-repo-path';
+  const divider = document.createElement('span');
+  divider.className = 'cs-repo-divider';
+  divider.textContent = '/';
+  divider.setAttribute('aria-hidden', 'true');
+  pathRow.append(ownerWrap, divider, repoWrap);
+
+  const branchWrap = document.createElement('div');
+  branchWrap.className = 'cs-repo-field cs-repo-field--branch';
+  const branchAffix = document.createElement('span');
+  branchAffix.className = 'cs-repo-affix';
+  branchAffix.textContent = t('editor.composer.site.repoBranchPrefix');
+  branchAffix.setAttribute('aria-hidden', 'true');
+  branchWrap.append(branchAffix, branchInput);
+
+  repoInputs.append(pathRow, branchWrap);
   repoField.appendChild(repoInputs);
 
   const assetsSection = createSection(
@@ -11467,6 +12274,9 @@ function buildSiteUI(root, state) {
     });
     field.appendChild(list);
   }
+
+  refreshNavDiffState();
+  try { scheduleScrollSync(); } catch (_) {}
 }
 
 function rebuildSiteUI() {
@@ -11806,54 +12616,109 @@ function rebuildSiteUI() {
   .btn-tertiary:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
   .btn-tertiary[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
 
-  .composer-site-host{padding:.35rem 0 1.4rem}
-  .composer-site-main{max-width:960px;margin:0 auto;padding:0 1rem}
-  @media (max-width:720px){
-    .composer-site-main{padding:0}
-  }
+  .composer-site-host{padding:.35rem 0 1.2rem}
+  .composer-site-main{width:100%;max-width:none;margin:0;padding:0}
+  #composerSite{width:100%}
 
-  .cs-root{display:flex;flex-direction:column;gap:1.6rem;padding:.2rem 0 1.6rem}
-  .cs-section{border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 10px 24px rgba(15,23,42,0.08);padding:1.35rem 1.55rem;display:flex;flex-direction:column;gap:1.05rem}
-  .cs-section-title{margin:0;font-size:1.08rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
-  .cs-section-description{margin:0;font-size:.92rem;color:color-mix(in srgb,var(--muted) 92%, transparent)}
-  .cs-field{position:relative;padding:.1rem 0 .1rem .85rem;margin:0 0 1.05rem;border-left:3px solid transparent;border-radius:10px}
-  .cs-field:last-of-type{margin-bottom:.1rem}
-  .cs-field[data-diff="changed"]{border-left-color:color-mix(in srgb,var(--primary) 70%, transparent);background:color-mix(in srgb,var(--primary) 6%, transparent)}
+  .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
+  .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
+  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
+  .cs-nav-list{list-style:none;margin:0;padding:1rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-item{width:100%}
+  .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
+  .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
+  .cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 14%, var(--card));border-color:color-mix(in srgb,var(--primary) 45%, var(--border));color:color-mix(in srgb,var(--primary) 98%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
+  .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
+  .cs-section{border:1px solid color-mix(in srgb,var(--border) 96%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
+  .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
+  .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
+  .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
+  .cs-field{margin:0;padding:.6rem 0;display:flex;flex-direction:column;gap:.4rem;position:relative}
+  .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
+  .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
-  .cs-field-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.45rem}
-  .cs-field-label{font-weight:600;font-size:.95rem;color:color-mix(in srgb,var(--text) 88%, transparent)}
-  .cs-field-help{margin:.1rem 0 0;font-size:.88rem;color:color-mix(in srgb,var(--muted) 90%, transparent)}
-  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.55rem;align-items:flex-start}
-  .cs-localized-list{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.2rem}
-  .cs-localized-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.6rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--text) 4%, var(--card))}
-  .cs-localized-input{flex:1 1 260px;min-width:200px}
-  .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 18%, transparent);color:color-mix(in srgb,var(--primary) 96%, var(--text));font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-  .cs-input{width:100%;min-height:2.4rem;padding:.45rem .6rem;border-radius:9px;border:1px solid color-mix(in srgb,var(--border) 85%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
-  .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  textarea.cs-input{min-height:5.5rem;resize:vertical}
-  .cs-input-small{max-width:240px}
-  .cs-field-toggle{display:inline-flex;align-items:center;gap:.5rem;padding:.42rem .75rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);background:color-mix(in srgb,var(--text) 4%, var(--card));color:color-mix(in srgb,var(--text) 82%, transparent);font-size:.9rem}
-  .cs-checkbox{width:1.1rem;height:1.1rem}
-  .cs-empty{padding:.8rem 1rem;border:1px dashed color-mix(in srgb,var(--border) 80%, transparent);border-radius:10px;background:color-mix(in srgb,var(--text) 3%, var(--card));color:color-mix(in srgb,var(--muted) 92%, transparent);font-size:.9rem}
+  .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+  .cs-field-inline-help .cs-field-head{align-items:baseline}
+  .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}
+  .cs-field-inline-help .cs-field-label-wrap{align-items:baseline;gap:.4rem;flex-wrap:wrap}
+  .cs-field-label-with-switch{gap:.6rem}
+  .cs-field-action{margin-left:auto}
+  .cs-field-label{font-weight:600;font-size:.9rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:0 1 auto;min-width:0}
+  .cs-field-help{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
+  .cs-field-inline-help .cs-field-help{flex:1 1 auto;min-width:120px}
+  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+  .cs-field-controls-inline{flex-wrap:nowrap}
+  .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
+  .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
+  .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
+  .cs-localized-input{flex:1 1 240px;min-width:180px}
+  .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
+  .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  textarea.cs-input{min-height:4.6rem;resize:vertical}
+  .cs-input-small{max-width:220px}
+  .cs-empty{padding:.7rem .85rem;border:1px dashed color-mix(in srgb,var(--border) 75%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 2%, var(--card));color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-add-lang,.cs-add-link{align-self:flex-start}
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
-  .cs-select{min-width:220px;padding:.45rem .6rem;border-radius:9px;border:1px solid color-mix(in srgb,var(--border) 85%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease}
-  .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-link-list{display:flex;flex-direction:column;gap:.6rem;margin-bottom:.2rem}
-  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.6rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--text) 4%, var(--card))}
-  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto}
+  .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-link-list{display:flex;flex-direction:column;gap:0}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.45rem .85rem;padding:.3rem 0}
+  .cs-link-row + .cs-link-row{margin-top:.3rem}
+  .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
+  .cs-link-field--compact{gap:.15rem}
+  .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:.45rem}
+  .cs-link-row--with-title .cs-link-actions{padding-top:1.5rem}
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
-  .cs-reset{margin-left:auto}
-  .cs-repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;margin-top:.5rem}
-  .cs-extra-list{margin:.45rem 0 0;padding-left:1.2rem;color:color-mix(in srgb,var(--muted) 92%, transparent);font-size:.9rem}
+  .cs-repo-grid{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.35rem}
+  .cs-repo-path{display:flex;align-items:center;gap:.35rem;flex:1 1 320px;min-width:220px;flex-wrap:wrap}
+  .cs-repo-field{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .55rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-repo-field:focus-within{border-color:color-mix(in srgb,var(--primary) 50%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-repo-field .cs-repo-input{border:0;background:transparent;padding:0;min-height:1.8rem;font-size:.84rem;line-height:1.25;color:var(--text);min-width:0;width:auto}
+  .cs-repo-field .cs-repo-input:focus{outline:none;box-shadow:none}
+  .cs-repo-field--owner{flex:1 1 160px;min-width:140px}
+  .cs-repo-field--name{flex:1 1 200px;min-width:160px}
+  .cs-repo-field--branch{align-self:center;min-width:180px;max-width:260px;flex:0 1 220px}
+  .cs-repo-affix{font-size:.82rem;font-weight:600;color:color-mix(in srgb,var(--muted) 78%, transparent);text-transform:lowercase;letter-spacing:.04em}
+  .cs-repo-divider{font-size:1.1rem;font-weight:600;color:color-mix(in srgb,var(--muted) 82%, transparent)}
+  .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-extra-list li{margin:.2rem 0}
+  .cs-switch{display:inline-flex;align-items:center;gap:.45rem;padding:.12rem .2rem;border-radius:999px;cursor:pointer;user-select:none;color:color-mix(in srgb,var(--text) 85%, transparent);transition:color .16s ease}
+  .cs-switch-input{position:absolute;opacity:0;width:1px;height:1px;margin:-1px;border:0;padding:0;clip:rect(0 0 0 0);clip-path:inset(50%)}
+  .cs-switch-track{position:relative;display:inline-flex;align-items:center;width:2.4rem;height:1.25rem;border-radius:999px;background:color-mix(in srgb,var(--text) 8%, var(--card));border:1px solid color-mix(in srgb,var(--border) 80%, transparent);padding:0 .15rem;transition:background .16s ease,border-color .16s ease}
+  .cs-switch-thumb{width:1rem;height:1rem;border-radius:999px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 1px 2px rgba(15,23,42,0.2);transform:translateX(0);transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+  .cs-switch[data-state="on"] .cs-switch-track{background:color-mix(in srgb,var(--primary) 45%, var(--card));border-color:color-mix(in srgb,var(--primary) 55%, var(--border))}
+  .cs-switch[data-state="on"] .cs-switch-thumb{transform:translateX(1.05rem);background:color-mix(in srgb,var(--primary) 96%, var(--card));box-shadow:0 4px 10px color-mix(in srgb,var(--primary) 35%, transparent)}
+  .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
+  .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
+  .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
+  @media (max-width:1024px){
+    .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
+  }
+  @media (max-width:920px){
+    .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
+    .cs-nav{position:relative;top:auto}
+    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:1rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
+    .cs-nav-item{flex:0 0 auto}
+    .cs-nav-button{white-space:nowrap;padding:.48rem .65rem}
+  }
+  @media (max-width:720px){
+    .cs-nav-list{gap:.3rem}
+    .cs-nav-button{font-size:.86rem;padding:.45rem .6rem}
+  }
   @media (max-width:880px){
-    .cs-section{padding:1.1rem 1.2rem}
+    .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
     .cs-input-small{max-width:100%}
-    .cs-link-actions{width:100%;justify-content:flex-end}
+    .cs-link-actions{width:100%;justify-content:flex-end;margin-left:0;align-self:auto;padding-top:.35rem}
+  }
+  @media (max-width:720px){
+    .cs-section-description{text-align:left}
   }
 
   /* Modal animations */

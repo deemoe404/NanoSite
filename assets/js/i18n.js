@@ -270,11 +270,12 @@ const translations = {
           languageExists: 'That language already exists.',
           languageDefault: 'Default',
           languageAutoOption: 'Auto-detect (browser language)',
-          reset: 'Reset override',
           addLink: 'Add link',
           removeLink: 'Remove',
           noLinks: 'No links configured.',
+          linkLabelTitle: 'Label',
           linkLabelPlaceholder: 'Label',
+          linkHrefTitle: 'URL',
           linkHrefPlaceholder: 'https://example.com',
           toggleEnabled: 'Enable',
           optionShow: 'Show',
@@ -282,6 +283,9 @@ const translations = {
           repoOwner: 'Repository owner',
           repoName: 'Repository name',
           repoBranch: 'Branch (optional)',
+          repoOwnerPrefix: '@',
+          repoNamePrefix: 'repo:',
+          repoBranchPrefix: 'branch:',
           sections: {
             identity: {
               title: 'Identity',
@@ -899,7 +903,9 @@ const translations = {
           addLink: '添加链接',
           removeLink: '移除',
           noLinks: '暂无链接。',
+          linkLabelTitle: '名称',
           linkLabelPlaceholder: '名称',
+          linkHrefTitle: 'URL',
           linkHrefPlaceholder: 'https://example.com',
           toggleEnabled: '启用',
           optionShow: '显示',
@@ -907,6 +913,9 @@ const translations = {
           repoOwner: '仓库所有者',
           repoName: '仓库名称',
           repoBranch: '分支（可选）',
+          repoOwnerPrefix: '@',
+          repoNamePrefix: 'repo：',
+          repoBranchPrefix: '分支：',
           sections: {
             identity: {
               title: '站点信息',
@@ -1524,7 +1533,9 @@ const translations = {
           addLink: 'リンクを追加',
           removeLink: '削除',
           noLinks: 'リンクはまだありません。',
+          linkLabelTitle: 'ラベル',
           linkLabelPlaceholder: 'ラベル',
+          linkHrefTitle: 'URL',
           linkHrefPlaceholder: 'https://example.com',
           toggleEnabled: '有効にする',
           optionShow: '表示する',
@@ -1532,6 +1543,9 @@ const translations = {
           repoOwner: 'リポジトリ所有者',
           repoName: 'リポジトリ名',
           repoBranch: 'ブランチ（任意）',
+          repoOwnerPrefix: '@',
+          repoNamePrefix: 'repo：',
+          repoBranchPrefix: 'ブランチ：',
           sections: {
             identity: {
               title: 'サイト情報',
