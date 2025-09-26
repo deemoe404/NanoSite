@@ -11510,12 +11510,10 @@ function buildSiteUI(root, state) {
     const thumb = document.createElement('span');
     thumb.className = 'cs-switch-thumb';
     track.appendChild(thumb);
-    const text = document.createElement('span');
-    text.className = 'cs-switch-label';
-    text.textContent = labelText || '';
     toggle.appendChild(checkbox);
     toggle.appendChild(track);
-    toggle.appendChild(text);
+    const accessibleLabel = labelText || (field && field.__csLabel ? field.__csLabel.textContent : '');
+    if (accessibleLabel) checkbox.setAttribute('aria-label', accessibleLabel);
     controls.appendChild(toggle);
     target.appendChild(controls);
     return { controls, toggle, checkbox };
@@ -12592,7 +12590,6 @@ function rebuildSiteUI() {
   .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
   .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
   .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
-  .cs-switch-label{font-weight:600;font-size:.82rem}
   @media (max-width:1024px){
     .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
   }
