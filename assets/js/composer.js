@@ -4010,7 +4010,13 @@ function gatherLocalChangesForCommit() {
     dynamicEditorTabs.forEach((tab) => { flushMarkdownDraft(tab); });
   } catch (_) { /* ignore */ }
 
-  const root = getContentRootSafe();
+  const siteState = getStateSlice('site');
+  let root;
+  if (siteState && Object.prototype.hasOwnProperty.call(siteState, 'contentRoot')) {
+    root = safeString(siteState.contentRoot);
+  } else {
+    root = getContentRootSafe();
+  }
   const normalizedRoot = String(root || '')
     .replace(/\\+/g, '/').replace(/\/?$/, '');
   const rootPrefix = normalizedRoot ? `${normalizedRoot}/` : '';
