@@ -7,6 +7,14 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
 const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
+const LANGUAGE_POOL_CHANGED_EVENT = 'ns-composer-language-pool-changed';
+
+function broadcastLanguagePoolChange() {
+  if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') return;
+  try {
+    document.dispatchEvent(new CustomEvent(LANGUAGE_POOL_CHANGED_EVENT));
+  } catch (_) {}
+}
 
 function normalizeLangCode(code) {
   if (!code) return '';
@@ -9167,6 +9175,7 @@ function buildIndexUI(root, state) {
           const meta = row.querySelector('.ci-meta');
           if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
+          broadcastLanguagePoolChange();
           markDirty();
         });
         bodyInner.appendChild(block);
@@ -9234,6 +9243,7 @@ function buildIndexUI(root, state) {
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
+            broadcastLanguagePoolChange();
             markDirty();
           });
         });
@@ -9401,6 +9411,7 @@ function buildTabsUI(root, state) {
           const meta = row.querySelector('.ct-meta');
           if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
+          broadcastLanguagePoolChange();
           markDirty();
         });
         bodyInner.appendChild(block);
@@ -9465,6 +9476,7 @@ function buildTabsUI(root, state) {
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
+            broadcastLanguagePoolChange();
             markDirty();
           });
         });
@@ -10387,20 +10399,40 @@ function buildSiteUI(root, state) {
       const localized = ensureLocalized(key, options.ensureDefault !== false);
       const used = new Set(Object.keys(localized || {}));
       used.add('default');
-      const supported = Array.isArray(PREFERRED_LANG_ORDER)
-        ? PREFERRED_LANG_ORDER.slice()
-        : [];
-      try {
-        collectLanguageCodes().forEach((code) => {
-          const normalized = normalizeLangCode(code);
-          if (normalized && !supported.includes(normalized)) supported.push(normalized);
-        });
-      } catch (_) {}
-      const available = supported.filter((code) => {
+
+      const supportedSet = new Set();
+      const addSupported = (code) => {
         const normalized = normalizeLangCode(code);
-        if (!normalized) return false;
-        return !used.has(normalized);
+        if (!normalized) return;
+        supportedSet.add(normalized);
+      };
+
+      try {
+        const availableLangs = getAvailableLangs();
+        if (Array.isArray(availableLangs)) availableLangs.forEach(addSupported);
+      } catch (_) {}
+
+      if (!supportedSet.size && Array.isArray(PREFERRED_LANG_ORDER)) {
+        PREFERRED_LANG_ORDER.forEach(addSupported);
+      }
+
+      try {
+        collectLanguageCodes().forEach(addSupported);
+      } catch (_) {}
+
+      const supported = Array.from(supportedSet);
+      supported.sort((a, b) => {
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) {
+          const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+          const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+          return pa - pb;
+        }
+        return a.localeCompare(b);
       });
+
+      const available = supported.filter((code) => !used.has(code));
 
       menu.innerHTML = available
         .map((code) => `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`)
@@ -10410,6 +10442,8 @@ function buildSiteUI(root, state) {
         addBtn.setAttribute('disabled', '');
         addWrap.classList.add('is-disabled');
         addWrap.hidden = true;
+        addWrap.setAttribute('aria-hidden', 'true');
+        addWrap.style.display = 'none';
         if (!menu.hidden) closeMenu();
         return;
       }
@@ -10417,7 +10451,13 @@ function buildSiteUI(root, state) {
       addBtn.removeAttribute('disabled');
       addWrap.classList.remove('is-disabled');
       addWrap.hidden = false;
+      addWrap.removeAttribute('aria-hidden');
+      addWrap.style.removeProperty('display');
     };
+
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener(LANGUAGE_POOL_CHANGED_EVENT, refreshMenu);
+    }
 
     const closeMenu = () => {
       if (menu.hidden) return;
@@ -10462,6 +10502,7 @@ function buildSiteUI(root, state) {
           markDirty();
           closeMenu();
           renderRows();
+          broadcastLanguagePoolChange();
         });
       });
     };
@@ -10529,6 +10570,7 @@ function buildSiteUI(root, state) {
             delete localizedMap[lang];
             markDirty();
             renderRows();
+            broadcastLanguagePoolChange();
           });
           row.appendChild(removeBtn);
         }
