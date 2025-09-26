@@ -283,6 +283,9 @@ const translations = {
           repoOwner: 'Repository owner',
           repoName: 'Repository name',
           repoBranch: 'Branch (optional)',
+          repoOwnerPrefix: '@',
+          repoNamePrefix: 'repo:',
+          repoBranchPrefix: 'branch:',
           sections: {
             identity: {
               title: 'Identity',
@@ -910,6 +913,9 @@ const translations = {
           repoOwner: '仓库所有者',
           repoName: '仓库名称',
           repoBranch: '分支（可选）',
+          repoOwnerPrefix: '@',
+          repoNamePrefix: 'repo：',
+          repoBranchPrefix: '分支：',
           sections: {
             identity: {
               title: '站点信息',
@@ -1537,6 +1543,9 @@ const translations = {
           repoOwner: 'リポジトリ所有者',
           repoName: 'リポジトリ名',
           repoBranch: 'ブランチ（任意）',
+          repoOwnerPrefix: '@',
+          repoNamePrefix: 'repo：',
+          repoBranchPrefix: 'ブランチ：',
           sections: {
             identity: {
               title: 'サイト情報',
