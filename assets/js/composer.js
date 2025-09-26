@@ -257,11 +257,20 @@ function createCubicBezierEasing(mX1, mY1, mX2, mY2) {
 }
 
 const easeOutComposerScroll = (() => {
-  const ease = createCubicBezierEasing(0.22, 1, 0.36, 1);
+  const ease = createCubicBezierEasing(0.25, 0.95, 0.35, 1);
   return (t) => ease(Math.min(1, Math.max(0, t)));
 })();
 
-function animateComposerViewportScroll(targetY, duration) {
+function resolveComposerScrollDuration(duration) {
+  const maxDuration = 1600;
+  const minDuration = 120;
+  const fallbackDuration = 720;
+  const numeric = Number(duration);
+  if (Number.isFinite(numeric)) return Math.min(maxDuration, Math.max(minDuration, numeric));
+  return fallbackDuration;
+}
+
+function animateComposerViewportScroll(targetY, duration, onComplete) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return false;
   if (typeof window.requestAnimationFrame !== 'function' || typeof window.scrollTo !== 'function') return false;
 
@@ -269,17 +278,13 @@ function animateComposerViewportScroll(targetY, duration) {
   const distance = targetY - startY;
   if (Math.abs(distance) < 0.5) {
     try { window.scrollTo(0, targetY); } catch (_) {}
+    if (typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
     return true;
   }
 
-  const maxDuration = 1600;
-  const minDuration = 120;
-  const fallbackDuration = 720;
-  const resolvedDuration = (() => {
-    const numeric = Number(duration);
-    if (Number.isFinite(numeric)) return Math.min(maxDuration, Math.max(minDuration, numeric));
-    return fallbackDuration;
-  })();
+  const resolvedDuration = resolveComposerScrollDuration(duration);
 
   const startTime = (() => {
     try {
@@ -316,6 +321,9 @@ function animateComposerViewportScroll(targetY, duration) {
     }
 
     composerSiteScrollAnimationId = null;
+    if (typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
   };
 
   try {
@@ -10668,6 +10676,36 @@ function buildSiteUI(root, state) {
       }
     });
     if (!resolved) return;
+    let focusCommitted = false;
+    const commitFocus = (delay = 0) => {
+      if (!focusTarget || focusCommitted) return;
+      focusCommitted = true;
+      const target = focusTarget;
+      const schedule = () => {
+        if (!target || typeof target.focus !== 'function') return;
+        if (activeSectionId !== sectionId) return;
+        const applyFocus = () => {
+          try {
+            target.focus({ preventScroll: true });
+          } catch (_) {
+            try { target.focus(); } catch (_) {}
+          }
+        };
+        try {
+          requestAnimationFrame(applyFocus);
+        } catch (_) {
+          applyFocus();
+        }
+      };
+      const ms = Math.max(0, Number(delay) || 0);
+      if (ms > 0 && typeof setTimeout === 'function') {
+        setTimeout(schedule, ms);
+      } else {
+        schedule();
+      }
+      focusTarget = null;
+    };
+
     if (shouldScroll && activeMeta && typeof window !== 'undefined') {
       const executeScroll = () => {
         try {
@@ -10694,9 +10732,10 @@ function buildSiteUI(root, state) {
             const behavior = options.scrollBehavior || 'smooth';
             const prefersReduced = composerPrefersReducedMotion();
             const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+            const resolvedDuration = resolveComposerScrollDuration(options.scrollDuration);
 
             if (!prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
-              const animated = animateComposerViewportScroll(targetY, options.scrollDuration);
+              const animated = animateComposerViewportScroll(targetY, resolvedDuration, () => commitFocus(48));
               if (animated) return;
             }
 
@@ -10715,8 +10754,16 @@ function buildSiteUI(root, state) {
                 window.scrollTo(0, targetY);
               }
             }
+
+            if (!prefersReduced && behavior === 'smooth') commitFocus(resolvedDuration + 64);
+            else commitFocus(0);
+            return;
           }
-        } catch (_) {}
+
+          commitFocus(0);
+        } catch (_) {
+          commitFocus(0);
+        }
       };
 
       try {
@@ -10725,26 +10772,8 @@ function buildSiteUI(root, state) {
       } catch (_) {
         executeScroll();
       }
-    }
-    if (focusTarget) {
-      const applyFocus = () => {
-        if (!focusTarget || typeof focusTarget.focus !== 'function') return;
-        try {
-          if (shouldScroll) {
-            try {
-              focusTarget.focus({ preventScroll: true });
-              return;
-            } catch (_) {}
-          }
-          focusTarget.focus();
-        } catch (_) {}
-      };
-
-      try {
-        requestAnimationFrame(applyFocus);
-      } catch (_) {
-        applyFocus();
-      }
+    } else {
+      commitFocus(0);
     }
   }
 
