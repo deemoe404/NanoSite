@@ -4529,6 +4529,29 @@ async function waitForRemotePropagation(files = []) {
   return { canceled: false, timedOut: false };
 }
 
+function getActiveSiteRepoConfig() {
+  const site = getStateSlice('site');
+  const repo = site && typeof site === 'object' && site.repo && typeof site.repo === 'object'
+    ? site.repo
+    : null;
+  const fallback = window.__ns_site_repo && typeof window.__ns_site_repo === 'object'
+    ? window.__ns_site_repo
+    : {};
+  const ownerRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'owner')
+    ? repo.owner
+    : fallback.owner;
+  const nameRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'name')
+    ? repo.name
+    : fallback.name;
+  const branchRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'branch')
+    ? repo.branch
+    : fallback.branch;
+  const owner = String(ownerRaw || '').trim();
+  const name = String(nameRaw || '').trim();
+  const branch = String(branchRaw || '').trim() || 'main';
+  return { owner, name, branch };
+}
+
 function applyLocalPostCommitState(files = []) {
   if (!Array.isArray(files) || !files.length) return;
   const handledMarkdown = new Set();
@@ -4614,10 +4637,7 @@ function applyLocalPostCommitState(files = []) {
 }
 
 async function performDirectGithubCommit(token, summaryEntries = []) {
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
-  const branch = String(repo.branch || '').trim() || 'main';
+  const { owner, name, branch } = getActiveSiteRepoConfig();
   if (!owner || !name) {
     throw new Error('GitHub repository information is missing in site.yaml.');
   }
@@ -4756,9 +4776,7 @@ async function handleGlobalBubbleActivation(event) {
     showToast('info', t('editor.composer.noLocalChangesToCommit'));
     return;
   }
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
+  const { owner, name } = getActiveSiteRepoConfig();
   if (!owner || !name) {
     showToast('error', t('editor.toasts.repoOwnerMissing'));
     return;
@@ -7424,10 +7442,8 @@ function updateMarkdownPushButton(tab) {
   if (!markdownPushButton) return;
 
   const btn = markdownPushButton;
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
-  const hasRepo = !!(owner && name);
+  const repo = getActiveSiteRepoConfig();
+  const hasRepo = !!(repo.owner && repo.name);
 
   const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
   const hasDraftContent = !!(active && active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
@@ -7552,15 +7568,12 @@ async function openMarkdownPushOnGitHub(tab) {
     return;
   }
 
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
+  const { owner, name, branch } = getActiveSiteRepoConfig();
   if (!owner || !name) {
     showToast('info', t('editor.toasts.repoConfigMissing'));
     return;
   }
 
-  const branch = String(repo.branch || 'main').trim() || 'main';
   const root = getContentRootSafe();
   const rel = normalizeRelPath(tab.path);
   if (!rel) {
@@ -9810,9 +9823,10 @@ function bindComposerUI(state) {
               const badge = document.createElement('span'); badge.className='badge badge-ver'; badge.textContent = it.version ? it.version : '—'; row.appendChild(badge);
               const p = document.createElement('code'); p.textContent = it.path; p.style.flex='1 1 auto'; row.appendChild(p);
               const actions = document.createElement('div'); actions.className='ci-ver-actions'; actions.style.display='inline-flex'; actions.style.gap='.35rem';
-              const siteRepo = window.__ns_site_repo || {}; const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+              const { owner, name, branch } = getActiveSiteRepoConfig();
+              const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
               const aNew = document.createElement('a');
-              const canGh = !!(siteRepo.owner && siteRepo.name);
+              const canGh = !!(owner && name);
               aNew.className = canGh ? 'btn-secondary btn-github' : 'btn-secondary'; aNew.target='_blank'; aNew.rel='noopener';
               if (canGh) {
                 aNew.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Create File</span>';
@@ -9821,7 +9835,8 @@ function bindComposerUI(state) {
               }
               // For missing files under post/..., prefill with default front-matter
               if (canGh) {
-                let href = buildGhNewLink(siteRepo.owner, siteRepo.name, siteRepo.branch||'main', `${root}/${it.folder}`, it.filename);
+                const branchName = branch || 'main';
+                let href = buildGhNewLink(owner, name, branchName, `${root}/${it.folder}`, it.filename);
                 try {
                   if (String(it.folder || '').replace(/^\/+/, '').startsWith('post/')) {
                     const ver = it && it.version ? String(it.version) : '';
@@ -9940,7 +9955,7 @@ function bindComposerUI(state) {
       }
       // Need update -> copy and open GitHub edit/new page
       try { nsCopyToClipboard(desired); } catch(_) {}
-      const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
+      const { owner, name, branch } = getActiveSiteRepoConfig();
       if (owner && name){
         let href = '';
         if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/${baseName}.yaml`);
