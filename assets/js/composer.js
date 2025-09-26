@@ -10539,6 +10539,14 @@ function buildSiteUI(root, state) {
     });
     const ensureSelection = () => {
       const options = Array.from(select.options);
+      if (!options.length) {
+        const currentRaw = config.get();
+        const current = currentRaw == null ? '' : String(currentRaw);
+        if (current) {
+          select.value = current;
+        }
+        return current;
+      }
       const available = new Set(options.map((opt) => opt.value));
       const currentRaw = config.get();
       const current = currentRaw == null ? '' : String(currentRaw);
