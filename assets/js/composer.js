@@ -4572,8 +4572,26 @@ function applyLocalPostCommitState(files = []) {
       const state = getStateSlice('site');
       const snapshot = state ? cloneSiteState(state) : cloneSiteState(prepareSiteState({}));
       remoteBaseline.site = snapshot;
+
+      const previousRoot = getContentRootSafe();
+      const rawNextRoot = snapshot && typeof snapshot === 'object' && Object.prototype.hasOwnProperty.call(snapshot, 'contentRoot')
+        ? safeString(snapshot.contentRoot)
+        : '';
+      const storedNextRoot = rawNextRoot ? rawNextRoot : 'wwwroot';
+      const normalizedNextRoot = storedNextRoot.trim().replace(/[\\]/g, '/').replace(/\/?$/, '');
+      const rootChanged = normalizedNextRoot !== previousRoot;
+      try {
+        window.__ns_content_root = storedNextRoot;
+      } catch (_) { /* noop */ }
+
       notifyComposerChange('site', { skipAutoSave: true });
       clearDraftStorage('site');
+
+      if (rootChanged) {
+        updateComposerMarkdownDraftIndicators();
+        updateMarkdownPushButton(getActiveDynamicTab());
+        updateMarkdownDiscardButton(getActiveDynamicTab());
+      }
     } else if (file.kind === 'markdown') {
       const norm = normalizeRelPath(file.markdownPath || file.label || '');
       if (!norm) return;
