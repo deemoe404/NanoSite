@@ -10488,12 +10488,15 @@ function buildSiteUI(root, state) {
     if (!sectionId || !sectionsMeta.length) return;
     let resolved = false;
     let focusTarget = null;
+    let activeMeta = null;
+    const shouldScroll = options && options.scrollViewport !== false;
     sectionsMeta.forEach((meta) => {
       if (!meta || !meta.section || !meta.navButton) return;
       const isActive = meta.id === sectionId;
       if (isActive) {
         activeSectionId = sectionId;
         resolved = true;
+        activeMeta = meta;
         meta.section.removeAttribute('hidden');
         meta.section.setAttribute('aria-hidden', 'false');
         meta.section.classList.add('is-active');
@@ -10516,6 +10519,36 @@ function buildSiteUI(root, state) {
       }
     });
     if (!resolved) return;
+    if (shouldScroll && activeMeta && typeof window !== 'undefined') {
+      try {
+        const sectionRect = activeMeta.section.getBoundingClientRect();
+        let stickyTop = 0;
+        try {
+          const navStyles = window.getComputedStyle(nav);
+          const parsed = parseFloat(navStyles && navStyles.top);
+          if (Number.isFinite(parsed)) stickyTop = Math.max(parsed, 0);
+        } catch (_) {}
+        const desiredTop = stickyTop + 16;
+        const delta = sectionRect.top - desiredTop;
+        if (Math.abs(delta) > 4) {
+          const behavior = options.scrollBehavior || 'smooth';
+          if (typeof window.scrollBy === 'function') {
+            try {
+              window.scrollBy({ top: delta, behavior });
+            } catch (_) {
+              window.scrollBy(0, delta);
+            }
+          } else if (typeof window.scrollTo === 'function') {
+            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+            try {
+              window.scrollTo({ top: targetY, behavior });
+            } catch (_) {
+              window.scrollTo(0, targetY);
+            }
+          }
+        }
+      } catch (_) {}
+    }
     if (focusTarget) {
       try {
         requestAnimationFrame(() => {
@@ -10608,7 +10641,7 @@ function buildSiteUI(root, state) {
 
     const shouldRestore = preservedActiveLabel && labelText === preservedActiveLabel;
     if (!activeSectionId || shouldRestore) {
-      setActiveSection(sectionId);
+      setActiveSection(sectionId, { scrollViewport: false });
     } else {
       section.setAttribute('hidden', '');
       section.setAttribute('aria-hidden', 'true');
@@ -10630,7 +10663,7 @@ function buildSiteUI(root, state) {
     if (!section) return fieldEl;
     const meta = sectionsMeta.find((item) => item.section === section);
     if (meta) {
-      setActiveSection(meta.id, { focusPanel: false });
+      setActiveSection(meta.id, { focusPanel: false, scrollViewport: false });
       if (options.scroll !== false) {
         try {
           const behavior = options.behavior || 'smooth';
@@ -10665,7 +10698,7 @@ function buildSiteUI(root, state) {
     const section = target.closest('.cs-section');
     if (!section || !section.hasAttribute('hidden')) return;
     const meta = sectionsMeta.find((item) => item.section === section);
-    if (meta) setActiveSection(meta.id, { focusPanel: false });
+    if (meta) setActiveSection(meta.id, { focusPanel: false, scrollViewport: false });
   };
 
   try { root.addEventListener('focusin', focusHandler); } catch (_) {}
