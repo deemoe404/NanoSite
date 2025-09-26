@@ -12101,10 +12101,8 @@ function rebuildSiteUI() {
   .btn-tertiary[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
 
   .composer-site-host{padding:.35rem 0 1.2rem}
-  .composer-site-main{max-width:960px;margin:0 auto;padding:0 1rem}
-  @media (max-width:720px){
-    .composer-site-main{padding:0}
-  }
+  .composer-site-main{width:100%;max-width:none;margin:0;padding:0}
+  #composerSite{width:100%}
 
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
