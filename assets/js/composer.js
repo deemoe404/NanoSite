@@ -12611,12 +12611,12 @@ function rebuildSiteUI() {
   .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-link-list{display:flex;flex-direction:column;gap:0}
-  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.65rem 1rem;padding:.4rem 0}
-  .cs-link-row + .cs-link-row{margin-top:.45rem}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.45rem .85rem;padding:.3rem 0}
+  .cs-link-row + .cs-link-row{margin-top:.3rem}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
   .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
-  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:.6rem}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:.45rem}
   .cs-link-row--with-title .cs-link-actions{padding-top:1.5rem}
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
