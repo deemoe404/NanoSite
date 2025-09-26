@@ -4452,7 +4452,7 @@ async function waitForRemotePropagation(files = []) {
   files.forEach((file) => {
     if (!file || !file.path) return;
     const normalized = String(file.path).replace(/\\+/g, '/').replace(/^\/+/, '');
-    if (!normalized || seen.has(normalized)) return;
+    if (!normalized || normalized === 'site.yaml' || seen.has(normalized)) return;
     seen.add(normalized);
     unique.push({ ...file, path: normalized });
   });
