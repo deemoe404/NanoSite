@@ -435,8 +435,12 @@
       padding:.95rem 1rem;
       min-width:0;
       position:relative;
-      z-index:2;
+      z-index: var(--gs-node-z, 2);
       overflow:visible;
+    }
+    .global-status .gs-node-local:has(.gs-node-drafts.has-many:hover),
+    .global-status .gs-node-local:has(.gs-node-drafts.has-many:focus-within) {
+      --gs-node-z: var(--gs-drafts-overlay-z, 2147483647);
     }
     @media (min-width: 521px) {
       .global-status .gs-node-remote,
