@@ -1,0 +1,1529 @@
+body.seo-mode {
+    --code-bg: #f6f8fa;
+    --code-text: #24292f;
+    --border: #d0d7de;
+    --primary: #0969da;
+    --shadow: none;
+    /* Chip system */
+    --chip-bg: #f6f8fa;
+    --chip-text: #24292f;
+    --chip-border: #e6e8eb;
+    --chip-bg-hover: #eef2f7;
+    /* Accents for contextual chips (used via structural selectors) */
+    --chip-ac-1: #e7f0ff;
+    /* blue */
+    --chip-ac-2: #e8f5e9;
+    /* green */
+    --chip-ac-3: #fff5e6;
+    /* orange */
+    --chip-ac-4: #f3e8ff;
+    /* purple */
+    --chip-ac-5: #ffe8ef;
+    /* pink/red */
+    --chip-ac-6: #e6fbff;
+    /* cyan */
+    /* Card backgrounds */
+    --card-bg-1: #fbfdff;
+    /* ultra subtle */
+    --card-bg-2: #f9fbff;
+    /* slightly stronger alt */
+    --card-border: #d9e2ec
+    }
+body.seo-mode #mode-seo .page-titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem
+    }
+body.seo-mode #mode-seo .global-status {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #57606a;
+    font-size: 0.92rem
+    }
+body.seo-mode #mode-seo .global-status .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8c959f;
+    display: inline-block
+    }
+body.seo-mode #mode-seo .global-status.ok .dot {
+    background: #1f883d
+    }
+body.seo-mode #mode-seo .global-status.warn .dot {
+    background: #f59e0b
+    }
+body.seo-mode #mode-seo .global-status.err .dot {
+    background: #dc2626
+    }
+body.seo-mode #mode-seo .global-status a {
+    color: #0969da;
+    text-decoration: none
+    }
+body.seo-mode #mode-seo .global-status a:hover {
+    text-decoration: underline
+    }
+/* Bottom breathing room */
+body.seo-mode {
+    padding-bottom: clamp(24px, 6vh, 96px)
+    }
+body.seo-mode #mode-seo *, body.seo-mode #mode-seo *::before, body.seo-mode #mode-seo *::after {
+    box-sizing: border-box
+    }
+body.seo-mode {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    max-width: 62.5rem;
+    margin: 0 auto;
+    padding: 1.25rem;
+    line-height: 1.6;
+    color: #24292f;
+    /* Base text contrast */
+    }
+body.seo-mode #mode-seo .container {
+    background: #fff;
+    border: 1px solid #e6e8eb;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1.25rem
+    }
+body.seo-mode #mode-seo .tabs {
+    display: flex;
+    border-bottom: 0.125rem solid #e9ecef;
+    margin-bottom: 1.25rem;
+    position: sticky;
+    top: 0;
+    /* stick to top */
+    z-index: 200;
+    /* above content cards */
+    background: #fff;
+    /* prevent bleed-through */
+    /* iOS safe area */
+    padding-top: env(safe-area-inset-top, 0);
+    gap: 0.1rem 0.25rem
+    }
+body.seo-mode #mode-seo .tabs .tab-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center
+    }
+body.seo-mode #mode-seo .tab {
+    padding: 0.625rem 1.25rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    border-bottom: 0.125rem solid transparent
+    }
+body.seo-mode #mode-seo .tab.has-help {
+    padding-right: 2.9rem
+    }
+body.seo-mode #mode-seo .tab.active {
+    border-bottom-color: #007acc;
+    color: #007acc;
+    font-weight: 600
+    }
+body.seo-mode #mode-seo .tab-content {
+    display: none
+    }
+body.seo-mode #mode-seo .tab-content.active {
+    display: block
+    }
+body.seo-mode #mode-seo .btn-primary {
+    background: #0969da;
+    color: #fff;
+    border: 1px solid rgba(27, 31, 36, 0.15);
+    padding: 0.5rem 0.9rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    height: 2.25rem
+    }
+body.seo-mode #mode-seo .btn-primary:hover {
+    background: #0757b7
+    }
+body.seo-mode #mode-seo .btn-secondary {
+    background: #fff;
+    color: #24292f;
+    border: 1px solid #d0d7de;
+    padding: 0.45rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.93rem;
+    height: 2.25rem
+    }
+body.seo-mode #mode-seo .btn-secondary:hover {
+    background: #f6f8fa
+    }
+body.seo-mode #mode-seo .btn-tertiary {
+    background: transparent;
+    color: #374151;
+    border: 1px dashed #cbd5e1;
+    padding: 0.45rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    height: 2.25rem
+    }
+body.seo-mode #mode-seo .btn-tertiary:hover {
+    background: #f6f8fa;
+    color: #111827
+    }
+/* Stronger, consistent focus outline */
+body.seo-mode #mode-seo .btn-primary:focus-visible, body.seo-mode #mode-seo .btn-secondary:focus-visible, body.seo-mode #mode-seo .btn-tertiary:focus-visible, body.seo-mode #mode-seo .tab:focus-visible, body.seo-mode #mode-seo .vt-btn:focus-visible {
+    outline: 2px solid #0969da;
+    outline-offset: 2px;
+    border-radius: 8px
+    }
+body.seo-mode #mode-seo textarea {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: 24rem;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+    font-size: 0.8125rem;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: #fff;
+    resize: vertical;
+    overflow: auto
+    }
+body.seo-mode #mode-seo .output-group {
+    margin-bottom: 1.25rem;
+    background: transparent;
+    border: 0;
+    padding: 0
+    }
+/* Code editor styling (line numbers + highlight) */
+body.seo-mode #mode-seo .hi-editor pre.hi-pre {
+    background-color: transparent;
+    color: var(--code-text);
+    padding: 1rem 1rem 1rem 0.5rem;
+    overflow: hidden;
+    border: 0;
+    border-radius: 8px;
+    line-height: 20px;
+    font-size: 12px;
+    tab-size: 4;
+    position: relative;
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    letter-spacing: 0
+    }
+body.seo-mode #mode-seo .hi-editor .code-scroll {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--code-bg);
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative
+    }
+body.seo-mode #mode-seo .hi-editor .code-scroll .code-gutter {
+    flex: 0 0 auto;
+    text-align: right;
+    padding: 1rem 0.5rem;
+    user-select: none;
+    color: rgba(36, 41, 47, 0.6);
+    border-right: 1px solid rgba(36, 41, 47, 0.12);
+    margin-right: 0;
+    background: var(--code-bg);
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    /* Ensure gutter uses identical metrics as code */
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace;
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0
+    }
+body.seo-mode #mode-seo .hi-editor .code-scroll .code-gutter span {
+    display: block;
+    line-height: inherit;
+    font-variant-numeric: tabular-nums
+    }
+body.seo-mode #mode-seo .hi-editor {
+    position: relative
+    }
+body.seo-mode #mode-seo .hi-editor .hi-body {
+    position: relative;
+    flex: 1 1 auto;
+    overflow: visible
+    }
+body.seo-mode #mode-seo .hi-editor .hi-pre {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    white-space: pre;
+    overflow: visible;
+    pointer-events: none
+    }
+body.seo-mode #mode-seo .hi-editor .hi-pre code {
+    white-space: inherit;
+    display: inline-block;
+    min-width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace;
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0
+    }
+body.seo-mode #mode-seo .hi-editor .hi-ta {
+    position: absolute;
+    inset: 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--code-text);
+    padding: 1rem 1rem 1rem 0.5rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace;
+    font-size: 12px;
+    line-height: 20px;
+    white-space: pre;
+    overflow: hidden;
+    overscroll-behavior: none;
+    tab-size: 4;
+    font-weight: 400;
+    font-variant-ligatures: none;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0
+    }
+/* Active line highlight */
+body.seo-mode #mode-seo .hi-editor .hi-hl-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0
+    }
+body.seo-mode #mode-seo .hi-editor .hi-hl-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: rgba(9, 105, 218, 0.08);
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(9, 105, 218, 0.35)
+    }
+body.seo-mode #mode-seo .hi-editor .code-scroll .code-gutter span.is-active {
+    background: transparent;
+    color: #0f172a;
+    font-weight: 600
+    }
+body.seo-mode #mode-seo .hi-editor .syntax-language-label {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.8;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    user-select: none;
+    line-height: 1
+    }
+body.seo-mode #mode-seo .syntax-keyword {
+    color: #d73a49;
+    font-weight: 600
+    }
+body.seo-mode #mode-seo .syntax-string {
+    color: #22863a
+    }
+body.seo-mode #mode-seo .syntax-number {
+    color: #005cc5
+    }
+/* Slightly lighter comment for better contrast in robots.txt and others */
+body.seo-mode #mode-seo .syntax-comment {
+    color: #8c959f;
+    font-style: italic;
+    opacity: 0.95
+    }
+body.seo-mode #mode-seo .syntax-operator {
+    color: #d73a49
+    }
+body.seo-mode #mode-seo .syntax-punctuation {
+    color: #586069
+    }
+body.seo-mode #mode-seo .syntax-tag {
+    color: #22863a;
+    font-weight: 600
+    }
+body.seo-mode #mode-seo .syntax-property {
+    color: #005cc5
+    }
+body.seo-mode #mode-seo .syntax-selector {
+    color: #6f42c1;
+    font-weight: 600
+    }
+body.seo-mode #mode-seo .syntax-preprocessor {
+    color: #e36209;
+    font-weight: 600
+    }
+body.seo-mode #mode-seo .syntax-variables {
+    color: #e36209
+    }
+body.seo-mode #mode-seo .syntax-language-label {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.75rem;
+    background: rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.8;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    user-select: none;
+    line-height: 1
+    }
+body.seo-mode #mode-seo .syntax-language-label.is-hover {
+    opacity: 1
+    }
+body.seo-mode #mode-seo .syntax-language-label.is-copied {
+    opacity: 1;
+    background: #16a34a;
+    color: #fff;
+    border-color: rgba(0, 0, 0, 0.1)
+    }
+/* Ensure visible colors inside custom editor */
+body.seo-mode #mode-seo .hi-editor .syntax-keyword {
+    color: #cf222e !important;
+    font-weight: 700
+    }
+body.seo-mode #mode-seo .hi-editor .syntax-comment {
+    color: #8c959f !important;
+    opacity: 0.95
+    }
+body.seo-mode #mode-seo .hi-editor .syntax-string {
+    color: #1a7f37 !important
+    }
+body.seo-mode #mode-seo .hi-editor .syntax-number {
+    color: #0550ae !important
+    }
+body.seo-mode #mode-seo .output-group h3 {
+    margin: 0 0 0.5rem 0;
+    color: #24292f;
+    font-weight: 600;
+    font-size: 0.95rem
+    }
+body.seo-mode #mode-seo .success, body.seo-mode #mode-seo .error, body.seo-mode #mode-seo .warning {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    height: 1.875rem;
+    /* 30px */
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-weight: 600;
+    font-size: 0.82rem;
+    line-height: 1
+    }
+body.seo-mode #mode-seo .success {
+    color: #1f883d;
+    background: #e8f5e9;
+    border-color: #1f883d
+    }
+body.seo-mode #mode-seo .error {
+    color: #dc2626;
+    background: #fde8e8;
+    border-color: #dc2626
+    }
+body.seo-mode #mode-seo .warning {
+    color: #b45309;
+    background: #fff7ed;
+    border-color: #f59e0b
+    }
+body.seo-mode #mode-seo .config-preview {
+    background: white;
+    border: 0;
+    border-radius: 0.25rem;
+    padding: 0;
+    margin-bottom: 1.25rem
+    }
+body.seo-mode #mode-seo .config-preview h3 {
+    margin-top: 0;
+    color: #495057
+    }
+/* Non-collapsible config groups */
+body.seo-mode #mode-seo .config-preview .config-group {
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--card-bg-1);
+    box-shadow: 0 1px 2px rgba(27, 31, 36, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    overflow: hidden
+    }
+/* Alternate tint to better separate sections */
+body.seo-mode #mode-seo .config-preview .config-group:nth-of-type(2n) {
+    background: var(--card-bg-2)
+    }
+body.seo-mode #mode-seo .config-preview .config-group + .config-group {
+    margin-top: 1.25rem
+    }
+body.seo-mode #mode-seo .config-preview .config-group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    color: #111827;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(246, 248, 250, 0.9) 100%);
+    border-bottom: 1px solid #cbd5e1
+    }
+body.seo-mode #mode-seo .config-preview .section-body {
+    padding: 0.3rem 0.9rem 0.9rem
+    }
+body.seo-mode #mode-seo .config-preview .section-body .config-item {
+    background: transparent
+    }
+/* Items layout */
+body.seo-mode #mode-seo .config-preview .config-item {
+    display: grid;
+    grid-template-columns: 14rem 1fr;
+    gap: 0.5rem;
+    padding: 0.35rem 0.25rem;
+    border-bottom: 1px solid #d0d7de
+    }
+/* Ensure value column contents size to content, not stretch */
+body.seo-mode #mode-seo .config-preview .config-item > :nth-child(2) {
+    justify-self: start;
+    align-self: start
+    }
+body.seo-mode #mode-seo .config-preview .config-value {
+    display: inline-flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    align-items: center;
+    color: #1f2937
+    }
+body.seo-mode #mode-seo .config-preview .config-item:last-child {
+    border-bottom: 0
+    }
+body.seo-mode #mode-seo .config-preview .config-label {
+    color: #374151;
+    font-weight: 600;
+    min-width: 14rem;
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.2rem
+    }
+body.seo-mode #mode-seo .config-preview .config-label-text {
+    line-height: 1.2
+    }
+body.seo-mode #mode-seo .config-preview .config-label-hint {
+    line-height: 1
+    }
+body.seo-mode #mode-seo .config-preview .mini-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 1.25rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #eef2f7;
+    color: #444e57;
+    border: 1px solid #d0d7de;
+    line-height: 1
+    }
+/* Nicer native-ish tooltip via title attr hint */
+body.seo-mode #mode-seo .config-preview .config-label[title] {
+    text-decoration: underline dotted rgba(87, 96, 106, 0.5);
+    text-underline-offset: 2px;
+    cursor: help
+    }
+body.seo-mode #mode-seo .config-preview .config-item em {
+    color: #8c959f
+    }
+/* Link lists */
+body.seo-mode #mode-seo .config-preview .config-list {
+    margin: 0.2rem 0 0.35rem 0;
+    padding-left: 1.25rem
+    }
+body.seo-mode #mode-seo .config-preview .config-list li {
+    margin: 0.6rem 0
+    }
+body.seo-mode #mode-seo .config-preview .config-list > li {
+    margin: 0.9rem 0
+    }
+body.seo-mode #mode-seo .config-preview .item-head.topline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem
+    }
+body.seo-mode #mode-seo .config-preview .config-list a {
+    color: #0757b7;
+    text-decoration: none
+    }
+body.seo-mode #mode-seo .config-preview .config-list a:hover {
+    text-decoration: underline
+    }
+body.seo-mode #mode-seo .config-preview .dim {
+    color: #4b5563
+    }
+/* Chips / bubbles */
+body.seo-mode #mode-seo .config-preview .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem
+    }
+body.seo-mode #mode-seo .config-preview .chip {
+    display: inline-flex;
+    align-items: center;
+    height: 1.55rem;
+    padding: 0 0.6rem;
+    border-radius: 999px;
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    border: 1px solid var(--chip-border);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    line-height: 1;
+    user-select: none
+    }
+body.seo-mode #mode-seo .config-preview .chip a {
+    color: inherit;
+    text-decoration: none
+    }
+body.seo-mode #mode-seo .config-preview .chip:hover {
+    background: var(--chip-bg-hover)
+    }
+body.seo-mode #mode-seo .config-preview .chip a:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 999px
+    }
+body.seo-mode #mode-seo .config-preview .chip.is-lang a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem
+    }
+body.seo-mode #mode-seo .config-preview .chip.is-lang a:focus-visible {
+    border-radius: 6px
+    }
+/* Contextual: the "latest" status chip in post version headers */
+body.seo-mode #mode-seo .config-preview .item-head .chip {
+    background: var(--chip-ac-2);
+    color: #1f883d;
+    border-color: #1f883d
+    }
+/* Contextual: tag chips that follow a dim "Tags:" label inside Posts */
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip {
+    background: var(--chip-ac-1)
+    }
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip + .chip {
+    background: var(--chip-ac-2)
+    }
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip + .chip + .chip {
+    background: var(--chip-ac-3)
+    }
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip + .chip + .chip + .chip {
+    background: var(--chip-ac-4)
+    }
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip + .chip + .chip + .chip + .chip {
+    background: var(--chip-ac-5)
+    }
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip + .chip + .chip + .chip + .chip + .chip {
+    background: var(--chip-ac-6)
+    }
+/* Contextual: language chips in Tabs summary (contain links) */
+body.seo-mode #mode-seo .config-preview .config-value .dim + .chip a {
+    display: inline-flex;
+    align-items: center
+    }
+/* Better alignment for version heads + language rows */
+body.seo-mode #mode-seo .config-preview .config-list .item-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem
+    }
+/* Align title + language chip vertically for better balance */
+body.seo-mode #mode-seo .config-preview .lang-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem
+    }
+/* Inline code inside preview (locations, URLs) */
+body.seo-mode #mode-seo .config-preview code {
+    background: #f6f8fa;
+    border: 1px solid #e6e8eb;
+    border-radius: 6px;
+    padding: 0.05rem 0.35rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace;
+    font-size: 0.78em
+    }
+/* De-emphasize date and tags in Posts */
+body.seo-mode #mode-seo .config-preview .mini-badge.is-date {
+    color: #6b7280;
+    background: #f3f4f6;
+    border-color: #e5e7eb
+    }
+body.seo-mode #mode-seo .config-preview .mini-badge.is-words {
+    color: #6b7280;
+    background: #f3f4f6;
+    border-color: #e5e7eb
+    }
+body.seo-mode #mode-seo .config-preview .tags-label {
+    color: #6b7280
+    }
+body.seo-mode #mode-seo .config-preview .chip.is-tag {
+    color: #6b7280
+    }
+/* Emphasize post title and place language as a chip */
+body.seo-mode #mode-seo .config-preview .post-title {
+    color: #111827;
+    font-weight: 700
+    }
+/* Language chip: compact, clickable, with hover arrow */
+body.seo-mode #mode-seo .config-preview .chip.is-lang {
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    border: 1px solid var(--chip-border);
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    height: 1.45rem
+    }
+body.seo-mode #mode-seo .config-preview .chip.is-lang:hover {
+    background: var(--chip-bg-hover)
+    }
+body.seo-mode #mode-seo .config-preview .chip.is-lang a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: inherit;
+    text-decoration: none
+    }
+/* Keep language code text not overly shrunken inside chip */
+body.seo-mode #mode-seo .config-preview .chip.is-lang code {
+    font-size: 1em;
+    background: transparent;
+    border: 0;
+    padding: 0
+    }
+/* Subtle arrow, stronger on hover/focus */
+body.seo-mode #mode-seo .config-preview .chip.is-lang .go {
+    opacity: 0.55;
+    transition: opacity 0.12s ease;
+    line-height: 1;
+    transform: translatey(-0.5px)
+    }
+body.seo-mode #mode-seo .config-preview .chip.is-lang:hover .go, body.seo-mode #mode-seo .config-preview .chip.is-lang a:focus-visible .go {
+    opacity: 1
+    }
+body.seo-mode #mode-seo .config-preview .chip-sep {
+    display: inline-block;
+    margin: 0 0.25rem;
+    color: #6b7280
+    }
+/* Avatar preview */
+body.seo-mode #mode-seo .config-preview .config-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+    border: 1px solid #e6e8eb;
+    background: #f6f8fa
+    }
+body.seo-mode #mode-seo .config-preview .config-avatar-block {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem
+    }
+body.seo-mode #mode-seo .config-preview .config-avatar-path code {
+    background: #f6f8fa;
+    border: 1px solid #e6e8eb;
+    padding: 0.1rem 0.35rem;
+    border-radius: 6px
+    }
+/* Boolean badges */
+body.seo-mode #mode-seo .config-preview .bool {
+    display: inline-flex;
+    align-items: center;
+    height: 1.25rem;
+    padding: 0 0.5rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    border: 1px solid
+    }
+body.seo-mode #mode-seo .config-preview .bool-true {
+    background: #e8f5e9;
+    color: #1f883d;
+    border-color: #1f883d
+    }
+body.seo-mode #mode-seo .config-preview .bool-false {
+    background: #fde8e8;
+    color: #dc2626;
+    border-color: #dc2626
+    }
+/* Badges in preview */
+body.seo-mode #mode-seo .config-preview .badge {
+    border: 0;
+    font-weight: 600;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.72rem
+    }
+body.seo-mode #mode-seo .config-preview .badge.warn {
+    background: #fff7ed;
+    color: #b45309
+    }
+body.seo-mode #mode-seo .config-preview .badge.ok {
+    background: #e8f5e9;
+    color: #1f883d
+    }
+body.seo-mode #mode-seo .config-preview .badge.err {
+    background: #fde8e8;
+    color: #dc2626
+    }
+/* Header row inside preview */
+body.seo-mode #mode-seo .config-preview .config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0 0.5rem;
+    border-bottom: 0;
+    margin-bottom: 0.75rem
+    }
+body.seo-mode #mode-seo .config-preview .config-header h3 {
+    margin: 0;
+    color: #24292f;
+    font-weight: 700
+    }
+body.seo-mode #mode-seo .config-preview .config-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem
+    }
+body.seo-mode #mode-seo .config-preview .config-src-link {
+    margin-left: 0.5rem;
+    color: #0969da;
+    text-decoration: none;
+    font-weight: 500
+    }
+body.seo-mode #mode-seo .config-preview .config-src-link:hover {
+    text-decoration: underline
+    }
+/* Two-pane layout */
+body.seo-mode #mode-seo .config-preview .config-split {
+    display: grid;
+    grid-template-columns: 15rem 1fr;
+    gap: 1rem
+    }
+body.seo-mode #mode-seo .config-preview .config-cats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-self: start;
+    padding: 0.25rem 0.75rem 0.25rem 0;
+    border-right: 1px solid #d0d7de;
+    border-radius: 0;
+    background: transparent
+    }
+body.seo-mode #mode-seo .config-preview .cat-item {
+    text-align: left;
+    background: transparent;
+    border: 0;
+    color: #24292f;
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem
+    }
+body.seo-mode #mode-seo .config-preview .cat-icon {
+    width: 1.1rem;
+    text-align: center;
+    opacity: 0.9
+    }
+body.seo-mode #mode-seo .config-preview .cat-item:hover {
+    background: #eaeef2
+    }
+body.seo-mode #mode-seo .config-preview .cat-item.active {
+    background: #ddf4ff;
+    color: #0969da;
+    font-weight: 600;
+    box-shadow: inset 2px 0 0 #0969da
+    }
+body.seo-mode #mode-seo .config-preview .config-pane {
+    min-height: 10rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible
+    }
+body.seo-mode #mode-seo .config-preview .pane-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.4rem 0 0.6rem;
+    font-weight: 600;
+    color: #24292f;
+    border-bottom: 0;
+    background: transparent
+    }
+body.seo-mode #mode-seo .config-preview .pane-title-left {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem
+    }
+body.seo-mode #mode-seo .config-preview .pane-icon {
+    width: 1.1rem;
+    text-align: center
+    }
+body.seo-mode #mode-seo .config-preview .pane-top-link {
+    color: #0969da;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.9rem
+    }
+body.seo-mode #mode-seo .config-preview .pane-top-link:hover {
+    text-decoration: underline
+    }
+@media (max-width: 880px) {
+    body.seo-mode #mode-seo .config-preview .config-split {
+        grid-template-columns: 1fr
+        }
+    body.seo-mode #mode-seo .config-preview .config-cats {
+        flex-direction: row;
+        overflow-x: auto;
+        white-space: nowrap;
+        border-radius: 8px;
+        border-right: 0;
+        padding: 0.25rem 0
+        }
+    body.seo-mode #mode-seo .config-preview .cat-item {
+        flex: 0 0 auto
+        }
+    }
+@media (max-width: 880px) {
+    body.seo-mode #mode-seo .config-preview .config-item {
+        grid-template-columns: 1fr
+        }
+    body.seo-mode #mode-seo .config-preview .config-label {
+        min-width: 0
+        }
+    }
+body.seo-mode #mode-seo .config-header {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-wrap: wrap
+    }
+body.seo-mode #mode-seo .config-header h3 {
+    margin: 0;
+    line-height: 1.875rem
+    }
+body.seo-mode #mode-seo .config-item {
+    margin-bottom: 0.5rem;
+    font-family: monospace;
+    font-size: 0.875rem
+    }
+body.seo-mode #mode-seo .config-label {
+    font-weight: 600;
+    color: #6c757d;
+    min-width: 7.5rem;
+    display: inline-block
+    }
+body.seo-mode #mode-seo .instructions {
+    background: #e3f2fd;
+    border-left: 0.25rem solid #2196f3;
+    padding: 0.9375rem;
+    margin-bottom: 1.25rem
+    }
+body.seo-mode #mode-seo .instructions h4 {
+    margin-top: 0;
+    color: #1976d2
+    }
+body.seo-mode #mode-seo .file-actions {
+    display: flex;
+    gap: 0.625rem;
+    margin-bottom: 0.9375rem;
+    flex-wrap: wrap
+    }
+/* New toolbar layout for tab sections */
+body.seo-mode #mode-seo .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #d0d7de
+    }
+body.seo-mode #mode-seo .left-actions, body.seo-mode #mode-seo .right-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap
+    }
+body.seo-mode #mode-seo .btn-compact {
+    padding: 0.4rem 0.8rem;
+    height: 2.25rem
+    }
+body.seo-mode #mode-seo .btn-secondary.btn-compact {
+    padding: 0.4rem 0.9rem
+    }
+body.seo-mode #mode-seo .info-btn {
+    margin-left: 0.25rem
+    }
+/* View toggle */
+body.seo-mode #mode-seo .view-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.92rem;
+    color: #57606a
+    }
+body.seo-mode #mode-seo .view-toggle .vt-label {
+    color: #6e7781;
+    font-weight: 500;
+    margin-right: 0.25rem
+    }
+body.seo-mode #mode-seo .view-toggle .vt-btn {
+    color: #0969da;
+    text-decoration: none;
+    padding: 0.1rem 0.25rem;
+    border-radius: 6px
+    }
+body.seo-mode #mode-seo .view-toggle .vt-btn:hover {
+    text-decoration: underline
+    }
+body.seo-mode #mode-seo .view-toggle .vt-btn.active {
+    background: #eaeef2;
+    color: #24292f;
+    text-decoration: none;
+    cursor: default
+    }
+/* Composite tab help icon inside button */
+body.seo-mode #mode-seo .tabs .tab-help {
+    position: absolute;
+    right: 0.6rem;
+    top: 50%;
+    transform: translatey(-50%);
+    z-index: 1
+    }
+/* Tighter alignment when help buttons are in the tab bar */
+body.seo-mode #mode-seo .tabs .info-btn {
+    align-self: center;
+    margin-right: 0.4rem
+    }
+body.seo-mode #mode-seo .toolbar .divider {
+    width: 1px;
+    height: 2rem;
+    background: #e6e8eb
+    }
+body.seo-mode #mode-seo .toolbar .toolbar-more {
+    display: none
+    }
+body.seo-mode #mode-seo #sitemap-status, body.seo-mode #mode-seo #robots-status, body.seo-mode #mode-seo #meta-status, body.seo-mode #mode-seo #config-status {
+    min-height: 0;
+    margin: 0
+    }
+/* Inline status + action */
+body.seo-mode #mode-seo .status-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px
+    }
+body.seo-mode #mode-seo .icon-btn {
+    width: 1.875rem;
+    height: 1.875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d0d7de;
+    border-radius: 50%;
+    background: #fff;
+    color: #57606a;
+    cursor: pointer;
+    padding: 0;
+    line-height: 0
+    }
+body.seo-mode #mode-seo .icon-btn:hover {
+    background: #f6f8fa;
+    color: #24292f
+    }
+body.seo-mode #mode-seo .icon-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+    border-color: #0969da
+    }
+body.seo-mode #mode-seo .icon-btn svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+    transform: translatey(0.5px)
+    }
+/* Output polish */
+body.seo-mode #mode-seo .output-group textarea {
+    margin-top: 0.25rem;
+    border-color: #d0d7de
+    }
+/* Toasts (overlay, no layout shift) */
+body.seo-mode #mode-seo .toast-container {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1100
+    }
+body.seo-mode #mode-seo .toast {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(140, 149, 159, 0.28), 0 1px 0 rgba(27, 31, 36, 0.06);
+    border: 1px solid #d0d7de;
+    background: #fff;
+    color: #24292f;
+    font-size: 0.92rem
+    }
+body.seo-mode #mode-seo .toast.ok {
+    border-color: #1f883d
+    }
+body.seo-mode #mode-seo .toast.err {
+    border-color: #dc2626
+    }
+body.seo-mode #mode-seo .toast.warn {
+    border-color: #f59e0b
+    }
+@media (max-width: 640px) {
+    body.seo-mode #mode-seo .toolbar {
+        gap: 0.5rem
+        }
+    body.seo-mode #mode-seo .left-actions, body.seo-mode #mode-seo .right-actions {
+        gap: 0.4rem
+        }
+    body.seo-mode #mode-seo textarea {
+        height: 16rem
+        }
+    }
+/* Collapse extra toolbar actions on narrow screens */
+@media (max-width: 880px) {
+    body.seo-mode #mode-seo .toolbar .toolbar-more {
+        display: inline-flex
+        }
+    /* Hide extras by default on narrow */
+    body.seo-mode #mode-seo .toolbar .is-extra {
+        display: none !important
+        }
+    body.seo-mode #mode-seo .toolbar .divider {
+        display: none !important
+        }
+    /* When expanded, force show */
+    body.seo-mode #mode-seo .toolbar.expanded .is-extra {
+        display: inline-flex !important
+        }
+    body.seo-mode #mode-seo .toolbar.expanded .divider {
+        display: block !important
+        }
+    }
+/* GitHub controls: compact, cleaner */
+body.seo-mode #mode-seo .gh-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap
+    }
+body.seo-mode #mode-seo .gh-field {
+    display: flex;
+    align-items: center;
+    border: 1px solid #d0d7de;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+    height: 2.1rem;
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5)
+    }
+body.seo-mode #mode-seo .gh-prefix {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    color: #57606a;
+    background: #f6f8fa;
+    border-right: 1px solid #d0d7de;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace
+    }
+body.seo-mode #mode-seo .gh-input {
+    border: 0;
+    outline: none;
+    padding: 0 0.5rem;
+    min-width: 16rem;
+    flex: 1 1 auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    height: 100%
+    }
+body.seo-mode #mode-seo .gh-field.error {
+    border-color: #ef4444;
+    background: #fff7f7
+    }
+body.seo-mode #mode-seo .gh-field.valid {
+    border-color: #1f883d
+    }
+body.seo-mode #mode-seo .gh-select {
+    border: 1px solid #d0d7de;
+    background: #fff;
+    border-radius: 6px;
+    padding: 0.35rem 2rem 0.35rem 0.6rem;
+    min-width: 12rem;
+    height: 2.1rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'%3E%3Cpath fill='%2357606a' d='M5.516 7.548a.75.75 0 0 1 1.06 0L10 10.97l3.424-3.424a.75.75 0 1 1 1.06 1.06l-3.954 3.955a.75.75 0 0 1-1.06 0L5.516 8.608a.75.75 0 0 1 0-1.06Z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.5)
+    }
+body.seo-mode #mode-seo .gh-select:focus {
+    border-color: #0969da;
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3)
+    }
+body.seo-mode #mode-seo .gh-select:disabled {
+    background: #f6f8fa;
+    color: #8c959f
+    }
+body.seo-mode #mode-seo .btn-gh {
+    background: #1f883d;
+    color: #fff;
+    border: 1px solid rgba(27, 31, 36, 0.15);
+    border-radius: 8px;
+    padding: 0.4rem 0.85rem;
+    height: 2.25rem;
+    cursor: pointer;
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.1)
+    }
+body.seo-mode #mode-seo .btn-gh:hover {
+    background: #1a7f37
+    }
+body.seo-mode #mode-seo .btn-gh:active {
+    background: #187432
+    }
+body.seo-mode #mode-seo .btn-gh:disabled {
+    background: #94d3a2;
+    cursor: not-allowed
+    }
+body.seo-mode #mode-seo .gh-inline-action {
+    height: 100%;
+    padding: 0 0.55rem;
+    border: 0;
+    border-left: 1px solid #d0d7de;
+    background: transparent;
+    color: #0969da;
+    cursor: pointer
+    }
+body.seo-mode #mode-seo .gh-inline-action:hover {
+    background: #f6f8fa;
+    color: #054da7
+    }
+body.seo-mode #mode-seo .btn-link {
+    background: transparent;
+    border: none;
+    color: #0969da;
+    cursor: pointer;
+    padding: 0 0.25rem;
+    height: 2.1rem;
+    text-decoration: underline
+    }
+body.seo-mode #mode-seo .btn-link:hover {
+    color: #054da7;
+    text-decoration: underline
+    }
+body.seo-mode #mode-seo .gh-status {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    min-height: 1.2rem;
+    margin-top: 0.5rem
+    }
+body.seo-mode #mode-seo .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    line-height: 1
+    }
+body.seo-mode #mode-seo .badge.ok {
+    background: #e8f5e9;
+    color: #16a34a
+    }
+body.seo-mode #mode-seo .badge.err {
+    background: #fde8e8;
+    color: #dc2626
+    }
+body.seo-mode #mode-seo .badge.warn {
+    background: #fff7ed;
+    color: #f59e0b
+    }
+body.seo-mode #mode-seo .spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #c9d1d9;
+    border-top-color: #0969da;
+    border-radius: 50%;
+    display: inline-block;
+    animation: spin 0.8s linear infinite
+    }
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+        }
+    }
+/* Title + fullscreen help modal */
+body.seo-mode #mode-seo .gh-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    position: relative;
+    margin-bottom: 0.75rem
+    }
+body.seo-mode #mode-seo .gh-titlebar h3 {
+    margin: 0;
+    color: #24292f;
+    font-weight: 700;
+    line-height: 1.875rem
+    }
+body.seo-mode #mode-seo .section-divider {
+    border-top: 1px solid #d0d7de;
+    margin: 0.9rem 0 0.75rem
+    }
+body.seo-mode #mode-seo .info-btn {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d0d7de;
+    border-radius: 50%;
+    background: #fff;
+    color: #57606a;
+    cursor: pointer;
+    padding: 0;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1;
+    box-shadow: 0 1px 0 rgba(27, 31, 36, 0.04)
+    }
+body.seo-mode #mode-seo .info-btn:hover {
+    background: #f6f8fa
+    }
+body.seo-mode #mode-seo .info-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.3);
+    border-color: #0969da
+    }
+/* removed small tab popover in favor of fullscreen modal */
+/* Avoid forcing fixed height on html/body to not break sticky elements */
+body.seo-mode, body.seo-mode {
+    min-height: 100%
+    }
+@supports (-webkit-touch-callout: none) {
+    html, body {
+        min-height: -webkit-fill-available;
+        }
+    }
+body.seo-mode #mode-seo .gh-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    min-height: var(--vvh, 100vh);
+    background: rgba(27, 31, 36, 0.38);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: none;
+    z-index: 1000;
+    padding: clamp(12px, 4vw, 24px);
+    overflow: auto;
+    overscroll-behavior: contain
+    }
+@supports (height: 100dvh) {
+    . gh-overlay {
+        height: 100dvh;
+        }
+    }
+@supports (height: 100lvh) {
+    . gh-overlay {
+        height: 100lvh;
+        }
+    }
+body.seo-mode #mode-seo .gh-overlay.open {
+    display: grid;
+    place-items: start center
+    }
+/* Soften the bottom edge on iOS Safari where browser UI can't be blurred */
+body.seo-mode #mode-seo .gh-overlay::after {
+    content: "";
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: max(48px, env(safe-area-inset-bottom));
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(27, 31, 36, 0) 0%, rgba(27, 31, 36, 0.22) 40%, rgba(27, 31, 36, 0.32) 100%)
+    }
+body.seo-mode #mode-seo .gh-modal {
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 14px;
+    width: min(640px, 92vw);
+    max-height: min(82vh, 82svh);
+    box-shadow: 0 16px 48px rgba(140, 149, 159, 0.28), 0 1px 0 rgba(27, 31, 36, 0.06);
+    overflow: auto
+    }
+body.seo-mode #mode-seo .gh-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #d0d7de
+    }
+body.seo-mode #mode-seo .gh-modal-header h4 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: #24292f;
+    letter-spacing: 0.2px
+    }
+body.seo-mode #mode-seo .close-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #fff;
+    color: #57606a;
+    cursor: pointer;
+    padding: 0
+    }
+body.seo-mode #mode-seo .close-btn:hover {
+    background: #f6f8fa
+    }
+body.seo-mode #mode-seo .gh-modal-body {
+    padding: 1rem 1.1rem 1.1rem;
+    line-height: 1.65;
+    font-size: 0.96rem;
+    color: #24292f
+    }
+body.seo-mode #mode-seo .gh-modal-body p {
+    margin: 0 0 0.75rem
+    }
+body.seo-mode #mode-seo .gh-modal-body ul {
+    margin: 0.25rem 0 0.6rem 1.2rem;
+    padding: 0
+    }
+body.seo-mode #mode-seo .gh-modal-body li {
+    margin: 0.35rem 0
+    }
+@media (max-width: 480px) {
+    body.seo-mode #mode-seo .gh-modal {
+        width: 94vw
+        }
+    body.seo-mode #mode-seo .gh-modal-body {
+        font-size: 0.98rem
+        }
+    }
+body.seo-mode #mode-seo .gh-modal-body code {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 0 0.35rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-weight: 600;
+    color: #24292f;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6)
+    }
+/* Prevent background scroll when modal open (fallback class) */
+body.seo-mode #mode-seo .no-scroll {
+    overflow: hidden !important
+    }
+/* Inline validation styles */
+body.seo-mode #mode-seo .input-error {
+    border-color: #ef4444 !important;
+    background: #fff7f7
+    }
+body.seo-mode #mode-seo .input-valid {
+    border-color: #22c55e !important
+    }
+body.seo-mode #mode-seo .field-status {
+    font-size: 0.85rem;
+    margin-top: 0.25rem
+    }
+body.seo-mode #mode-seo .field-status.ok {
+    color: #16a34a
+    }
+body.seo-mode #mode-seo .field-status.warn {
+    color: #f59e0b
+    }
+body.seo-mode #mode-seo .field-status.err {
+    color: #dc2626
+    }
+/* Footer */
+body.seo-mode #mode-seo .site-footer {
+    border-top: 1px solid #d0d7de;
+    margin-top: 2rem;
+    margin-bottom: clamp(24px, 6vh, 96px);
+    color: #57606a;
+    font-size: 0.9rem
+    }
+body.seo-mode #mode-seo .site-footer .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap
+    }
+body.seo-mode #mode-seo .site-footer a {
+    color: #0969da;
+    text-decoration: none
+    }
+body.seo-mode #mode-seo .site-footer a:hover {
+    text-decoration: underline
+    }
+body.seo-mode #mode-seo .site-footer .dot {
+    color: #8c959f;
+    margin: 0 0.35rem
+    }
+body.seo-mode #mode-seo .site-footer .brand {
+    font-weight: 600;
+    color: #24292f
+    }

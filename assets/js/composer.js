@@ -7785,6 +7785,8 @@ function persistDynamicEditorState() {
       const active = dynamicEditorTabs.get(currentMode);
       state.mode = 'dynamic';
       state.activePath = active && active.path ? active.path : null;
+    } else if (currentMode === 'seo') {
+      state.mode = 'seo';
     } else {
       state.mode = 'composer';
     }
@@ -7817,7 +7819,7 @@ function restoreDynamicEditorState() {
     getOrCreateDynamicMode(norm);
   });
 
-  const mode = (data.mode === 'editor' || data.mode === 'dynamic') ? data.mode : 'composer';
+  const mode = (data.mode === 'editor' || data.mode === 'dynamic' || data.mode === 'seo') ? data.mode : 'composer';
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
 
   if (mode === 'dynamic' && activePath) {
@@ -7829,6 +7831,7 @@ function restoreDynamicEditorState() {
   }
 
   if (mode === 'editor') applyMode('editor');
+  else if (mode === 'seo') applyMode('seo');
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -8553,7 +8556,7 @@ function applyMode(mode) {
   }
 
   const candidate = mode || 'composer';
-  const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
+  const nextMode = (candidate === 'composer' || candidate === 'editor' || candidate === 'seo' || isDynamicMode(candidate))
     ? candidate
     : 'composer';
 
@@ -8572,9 +8575,20 @@ function applyMode(mode) {
 
   currentMode = nextMode;
 
-  const onEditor = nextMode !== 'composer';
+  const isComposer = nextMode === 'composer';
+  const isSeo = nextMode === 'seo';
+  const onEditor = !isComposer && !isSeo;
   try { $('#mode-editor').style.display = onEditor ? '' : 'none'; } catch (_) {}
-  try { $('#mode-composer').style.display = onEditor ? 'none' : ''; } catch (_) {}
+  try { $('#mode-composer').style.display = isComposer ? '' : 'none'; } catch (_) {}
+  try {
+    const seoPanel = $('#mode-seo');
+    if (seoPanel) seoPanel.style.display = isSeo ? '' : 'none';
+  } catch (_) {}
+  try {
+    if (document && document.body && document.body.classList) {
+      document.body.classList.toggle('seo-mode', isSeo);
+    }
+  } catch (_) {}
   try {
     const layout = $('#mode-editor');
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
@@ -8605,6 +8619,9 @@ function applyMode(mode) {
   if (onEditor) scheduleEditorLayoutRefresh();
 
   if (nextMode === 'composer') {
+    activeDynamicMode = null;
+    pushEditorCurrentFileInfo(null);
+  } else if (nextMode === 'seo') {
     activeDynamicMode = null;
     pushEditorCurrentFileInfo(null);
   } else if (isDynamicMode(nextMode)) {
@@ -8664,6 +8681,7 @@ function applyMode(mode) {
   // Sync preload attribute so CSS with !important stops forcing previous mode
   try {
     if (nextMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
+    else if (nextMode === 'seo') document.documentElement.setAttribute('data-init-mode', 'seo');
     else document.documentElement.removeAttribute('data-init-mode');
   } catch (_) {}
 

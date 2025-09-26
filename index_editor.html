@@ -16,10 +16,12 @@
             var parsed = JSON.parse(rawState);
             if (parsed && typeof parsed === 'object') {
               if (parsed.mode === 'editor' || parsed.mode === 'dynamic') initMode = 'editor';
+              else if (parsed.mode === 'seo') initMode = 'seo';
             }
           } catch (_) {}
         }
         if (initMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
+        else if (initMode === 'seo') document.documentElement.setAttribute('data-init-mode', 'seo');
         else document.documentElement.removeAttribute('data-init-mode');
         // Preselect composer file (index/tabs) when persisted
         var cf = (localStorage.getItem('ns_composer_file') || 'index').toLowerCase();
@@ -29,6 +31,7 @@
     })();
   </script>
   <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/seo-tool-embedded.css">
   <link rel="stylesheet" id="theme-pack">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -1225,6 +1228,15 @@
       color: var(--primary);
       cursor: default;
     }
+    [data-init-mode="seo"] #mode-editor,
+    [data-init-mode="seo"] #mode-composer { display: none !important; }
+    [data-init-mode="seo"] #mode-seo { display: block !important; }
+    [data-init-mode="seo"] .mode-tab[data-mode="seo"] {
+      background: color-mix(in srgb, var(--primary) 14%, var(--card));
+      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+      color: var(--primary);
+      cursor: default;
+    }
     /* Preselect composer sub-file to tabs when persisted */
     [data-init-cfile="tabs"] #composerIndex { display: none !important; }
     [data-init-cfile="tabs"] #composerTabs { display: block !important; }
@@ -1247,6 +1259,10 @@
         </button>
         <button class="mode-tab" data-mode="editor" data-tab-label="Editor" data-i18n-data-tab-label="editor.modes.editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor" data-i18n-aria-label="editor.modes.editor">
           <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
+          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+        </button>
+        <button class="mode-tab" data-mode="seo" data-tab-label="SEO" role="tab" aria-controls="mode-seo" aria-selected="false" aria-label="SEO">
+          <span class="mode-tab-text">SEO</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
       </nav>
@@ -1429,6 +1445,215 @@
         </div>
       </section>
     </div>
+    <div class="editor-layout" id="mode-seo" style="display:none;">
+      <section class="box editor-main" style="grid-column: 1 / -1;">
+        <div id="toast-root" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+        <div class="page-titlebar">
+          <h1>🔍 NanoSite SEO Generator</h1>
+          <div id="seo-global-status" class="global-status" data-seo-global-status aria-live="polite"></div>
+        </div>
+        <p>Quickly create the files that help search engines understand your site (SEO files). This tool uses your NanoSite settings and content to generate a sitemap, robots.txt, and meta tags — ready to copy or commit to GitHub.</p>
+
+        <div id="gh-help-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+          <div class="gh-modal" role="document">
+            <div class="gh-modal-header">
+              <h4>💡 What is GitHub Destination?</h4>
+              <button id="gh-help-close" class="close-btn" type="button" aria-label="Close">×</button>
+            </div>
+            <div class="gh-modal-body">
+              <p>This tells the tool which GitHub repository your site lives in.</p>
+              <p><b>How to fill it in:</b></p>
+              <ul>
+                <li>If your site already has this info in <code>site.yaml</code>, it will show up here automatically.</li>
+                <li>If not, just type your <code>username/repository</code> and branch name, then click <b>Check</b>.</li>
+              </ul>
+              <p><b>Where it’s stored:</b></p>
+              <ul>
+                <li>The setting is saved only in your browser (local storage).</li>
+                <li>Nothing is uploaded anywhere until you open GitHub yourself.</li>
+              </ul>
+              <p><b>Why it matters:</b></p>
+              <p>When you click “Open on GitHub” (to create or edit files), the tool will use this information to take you straight to the correct repository page.</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-help-overlay" class="gh-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+          <div class="gh-modal" role="document">
+            <div class="gh-modal-header">
+              <h4 id="tab-help-title">Help</h4>
+              <button id="tab-help-close" class="close-btn" type="button" aria-label="Close">×</button>
+            </div>
+            <div id="tab-help-body" class="gh-modal-body"></div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab-item">
+            <button class="tab active" onclick="switchTab('config')">Pre-check</button>
+          </div>
+          <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('sitemap')">Sitemap</button>
+            <button id="sitemap-help-btn" class="info-btn tab-help" type="button" aria-label="Sitemap help" aria-expanded="false">?</button>
+          </div>
+          <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('robots')">Robots.txt</button>
+            <button id="robots-help-btn" class="info-btn tab-help" type="button" aria-label="Robots help" aria-expanded="false">?</button>
+          </div>
+          <div class="tab-item">
+            <button class="tab has-help" onclick="switchTab('meta')">HTML Meta Tags</button>
+            <button id="meta-help-btn" class="info-btn tab-help" type="button" aria-label="Meta help" aria-expanded="false">?</button>
+          </div>
+        </div>
+
+        <div id="config-tab" class="tab-content active">
+          <div class="container">
+            <div class="gh-titlebar">
+              <h3>GitHub Destination</h3>
+              <button id="gh-help-btn" class="info-btn" type="button" aria-label="What is this?" aria-expanded="false">?</button>
+            </div>
+            <div class="gh-controls">
+              <div class="gh-field">
+                <span class="gh-prefix">@</span>
+                <input id="gh-slug" class="gh-input" placeholder="owner/repo (e.g., deemoe/NanoSite)" title="Format: owner/repo" pattern="^@?[^/\s]+/[^/\s]+$">
+                <button id="gh-revert" class="gh-inline-action" type="button" title="Revert from site.yaml">Revert</button>
+              </div>
+              <select id="gh-branch" class="gh-select" title="Select a branch" disabled>
+                <option value="" selected>Loading branches…</option>
+              </select>
+              <div class="gh-actions" style="display:flex; align-items:center; gap:.25rem;">
+                <button id="gh-save" class="btn-gh" type="button">Check</button>
+              </div>
+            </div>
+            <div id="gh-status" class="gh-status" aria-live="polite">
+              <span id="gh-slug-status" class="badge"></span>
+              <span id="gh-branch-status" class="badge"></span>
+            </div>
+            <div class="section-divider" aria-hidden="true"></div>
+            <div class="instructions">
+              <h4>How this works</h4>
+              <ul>
+                <li>Loads <code>site.yaml</code>, <code>index.yaml</code>, and <code>tabs.yaml</code>.</li>
+                <li>Shows quick checks for missing or default values that might reduce SEO quality.</li>
+                <li>Generates fresh <code>sitemap.xml</code>, <code>robots.txt</code>, and HTML <code>&lt;meta&gt;</code> tags.</li>
+              </ul>
+            </div>
+            <div class="config-preview" id="configPreview">
+              <h3>Loading configuration...</h3>
+            </div>
+            <div class="output-group" style="display:none;">
+              <textarea id="configOutput" readonly placeholder="Click 'Refresh Configuration' to load site.yaml..."></textarea>
+            </div>
+            <div id="config-status"></div>
+          </div>
+        </div>
+
+        <div id="sitemap-tab" class="tab-content">
+          <div class="container">
+            <div class="toolbar">
+              <div class="left-actions">
+                <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
+                <button class="btn-tertiary btn-compact is-extra" onclick="validateSitemap()" title="Validate sitemap">Validate</button>
+                <div class="divider is-extra"></div>
+                <button class="btn-secondary btn-compact is-extra" onclick="copySitemap()">Copy</button>
+                <button class="btn-secondary btn-compact is-extra" onclick="downloadSitemap()">Download</button>
+              </div>
+              <div class="right-actions">
+                <div class="view-toggle" aria-label="View switch">
+                  <span class="vt-label">View:</span>
+                  <a href="#" class="vt-btn active" data-view-target="sitemap" onclick="return __switchView('sitemap','friendly', this)">Friendly</a>
+                  <span class="dim" aria-hidden="true">/</span>
+                  <a href="#" class="vt-btn" data-view-target="sitemap" onclick="return __switchView('sitemap','source', this)">Source</a>
+                </div>
+                <button id="sitemap-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
+              </div>
+            </div>
+            <div id="sitemap-status"></div>
+            <div class="config-preview" id="sitemapPreview">
+              <h3>Loading sitemap...</h3>
+            </div>
+            <div class="output-group" style="display:none;">
+              <textarea id="sitemapOutput" placeholder="Click 'Refresh' to generate the XML..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div id="robots-tab" class="tab-content">
+          <div class="container">
+            <div class="toolbar">
+              <div class="left-actions">
+                <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
+                <button class="btn-tertiary btn-compact is-extra" onclick="validateRobots()" title="Validate robots.txt">Validate</button>
+                <div class="divider is-extra"></div>
+                <button class="btn-secondary btn-compact is-extra" onclick="copyRobots()">Copy</button>
+                <button class="btn-secondary btn-compact is-extra" onclick="downloadRobots()">Download</button>
+              </div>
+              <div class="right-actions">
+                <div class="view-toggle" aria-label="View switch">
+                  <span class="vt-label">View:</span>
+                  <a href="#" class="vt-btn active" data-view-target="robots" onclick="return __switchView('robots','friendly', this)">Friendly</a>
+                  <span class="dim" aria-hidden="true">/</span>
+                  <a href="#" class="vt-btn" data-view-target="robots" onclick="return __switchView('robots','source', this)">Source</a>
+                </div>
+                <button id="robots-gh-btn" class="btn-gh btn-compact" disabled title="Configure GitHub destination first">Open on GitHub</button>
+              </div>
+            </div>
+            <div id="robots-status"></div>
+            <div class="config-preview" id="robotsPreview">
+              <h3>Loading robots.txt...</h3>
+            </div>
+            <div class="output-group" style="display:none;">
+              <textarea id="robotsOutput" placeholder="Click 'Refresh' to generate robots.txt..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div id="meta-tab" class="tab-content">
+          <div class="container">
+            <div class="toolbar">
+              <div class="left-actions">
+                <button class="btn-secondary btn-compact toolbar-more" onclick="toggleToolbarMore(this)" aria-expanded="false" title="More actions">More ▾</button>
+                <button class="btn-tertiary btn-compact is-extra" onclick="validateMeta()" title="Validate tags">Validate</button>
+                <div class="divider is-extra"></div>
+                <button class="btn-secondary btn-compact is-extra" onclick="copyMetaTags()">Copy</button>
+                <button class="btn-secondary btn-compact is-extra" onclick="downloadMetaTags()">Download</button>
+              </div>
+              <div class="right-actions">
+                <div class="view-toggle" aria-label="View switch">
+                  <span class="vt-label">View:</span>
+                  <a href="#" class="vt-btn active" data-view-target="meta" onclick="return __switchView('meta','friendly', this)">Friendly</a>
+                  <span class="dim" aria-hidden="true">/</span>
+                  <a href="#" class="vt-btn" data-view-target="meta" onclick="return __switchView('meta','source', this)">Source</a>
+                </div>
+                <button class="btn-gh btn-compact" onclick="openIndexHtmlEdit()">Open index.html on GitHub</button>
+              </div>
+            </div>
+            <div id="meta-status"></div>
+            <div class="config-preview" id="metaPreview">
+              <h3>Loading meta tags...</h3>
+            </div>
+            <div class="output-group" style="display:none;">
+              <textarea id="metaOutput" placeholder="Click 'Refresh' to generate meta tags..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <footer class="site-footer" role="contentinfo">
+          <div class="footer-inner">
+            <div>
+              <span class="brand">NanoSite SEO Generator</span>
+              <span class="dot">•</span>
+              <a href="https://nano.dee.moe" target="_blank" rel="noopener">nano.dee.moe</a>
+              <span class="dot">•</span>
+              <a href="https://github.com/deemoe404/nanosite" target="_blank" rel="noopener">deemoe404/nanosite</a>
+            </div>
+            <div>
+              © <span id="footer-year"></span> NanoSite contributors
+            </div>
+          </div>
+        </footer>
+      </section>
+    </div>
   </div>
 
   <footer class="site-footer">
@@ -1458,7 +1683,7 @@
         toolbarNodes.forEach((toolbar) => ro.observe(toolbar));
       }
 
-      const layouts = ['mode-editor', 'mode-composer']
+      const layouts = ['mode-editor', 'mode-composer', 'mode-seo']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
       if (layouts.length) {
@@ -1474,6 +1699,7 @@
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
+  <script type="module" src="assets/js/seo-tool-main.js?v=3"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

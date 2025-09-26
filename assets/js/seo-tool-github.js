@@ -12,16 +12,37 @@ function __buildStatusTextFragment(text) {
   return frag;
 }
 
+function resolveGlobalStatusBox() {
+  try {
+    const scoped = document.querySelector('[data-seo-global-status]');
+    if (scoped) return scoped;
+  } catch (_) {}
+  try { return document.getElementById('global-status'); }
+  catch (_) { return null; }
+}
+
 function setGlobalStatus(mode, content, opts = {}) {
   try {
-    const box = document.getElementById('global-status');
+    const box = resolveGlobalStatusBox();
     if (!box) return;
     const curMode = box.dataset.mode || '';
     // Prevent downgrading from ok -> warn unless forced
     if (!opts.force && mode === 'warn' && curMode === 'ok') return;
     // Avoid clearing to empty when we already have a state
     if (!opts.force && !mode && (curMode === 'ok' || curMode === 'warn' || curMode === 'err')) return;
-    box.className = `global-status ${mode || ''}`;
+    if (!box.dataset.seoBaseClass) {
+      box.dataset.seoBaseClass = box.className || 'global-status';
+    }
+    const baseClasses = (box.dataset.seoBaseClass || 'global-status')
+      .split(/\s+/)
+      .map((cls) => cls.trim())
+      .filter(Boolean);
+    const classSet = new Set(baseClasses);
+    classSet.delete('ok');
+    classSet.delete('warn');
+    classSet.delete('err');
+    if (mode) classSet.add(mode);
+    box.className = Array.from(classSet).join(' ');
     box.dataset.mode = mode || '';
     // Clear existing content and append safely
     while (box.firstChild) box.removeChild(box.firstChild);
