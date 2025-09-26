@@ -1266,11 +1266,11 @@
     .seo-detail-group { display: flex; flex-direction: column; gap: .65rem; }
     .seo-detail-group h4 { margin: 0; font-size: .95rem; color: var(--muted); letter-spacing: .01em; text-transform: uppercase; }
     .seo-preview { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, transparent); max-height: 280px; overflow: auto; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    .seo-editor-wrap { position: relative; display: flex; flex-direction: column; gap: .75rem; }
+    .seo-editor-wrap { position: relative; display: flex; flex-direction: column; gap: .75rem; min-height: 0; }
     .seo-editor-wrap textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: .85rem; }
     .seo-detail-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
     .seo-mode .hi-editor { max-height: 280px; }
-    .seo-mode .hi-editor .code-scroll { min-height: 220px; }
+    .seo-mode .hi-editor .code-scroll { min-height: 220px; max-height: 100%; overflow-y: auto; }
     @media (max-width: 720px) {
       .seo-grid { gap: 1.1rem; }
     }
@@ -1437,7 +1437,7 @@
             <div class="seo-detail-group">
               <h4>Proposed update</h4>
               <div class="seo-editor-wrap">
-                <textarea id="sitemapOutput" data-seo-kind="sitemap" spellcheck="false"></textarea>
+                <textarea id="sitemapOutput" data-seo-kind="sitemap" data-hi-max-height="280" spellcheck="false"></textarea>
               </div>
               <div class="seo-detail-actions">
                 <button type="button" class="btn-secondary" id="seoCopySitemap">Copy</button>
@@ -1469,7 +1469,7 @@
             <div class="seo-detail-group">
               <h4>Proposed update</h4>
               <div class="seo-editor-wrap">
-                <textarea id="robotsOutput" data-seo-kind="robots" spellcheck="false"></textarea>
+                <textarea id="robotsOutput" data-seo-kind="robots" data-hi-max-height="280" spellcheck="false"></textarea>
               </div>
               <div class="seo-detail-actions">
                 <button type="button" class="btn-secondary" id="seoCopyRobots">Copy</button>
@@ -1501,7 +1501,7 @@
             <div class="seo-detail-group">
               <h4>Proposed update</h4>
               <div class="seo-editor-wrap">
-                <textarea id="metaOutput" data-seo-kind="meta" spellcheck="false"></textarea>
+                <textarea id="metaOutput" data-seo-kind="meta" data-hi-max-height="280" spellcheck="false"></textarea>
               </div>
               <div class="seo-detail-actions">
                 <button type="button" class="btn-secondary" id="seoCopyMeta">Copy</button>

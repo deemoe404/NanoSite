@@ -10,7 +10,7 @@ import {
   downloadRobots,
   downloadMetaTags
 } from './seo-tool-generators.js?v=2';
-import { initSeoEditors, getEditorValue, setEditorValue } from './hieditor.js';
+import { initSeoEditors, getEditorValue, setEditorValue, refreshEditorLayout } from './hieditor.js';
 
 const SEO_FILES = {
   sitemap: {
@@ -188,6 +188,14 @@ function setDetailsVisibility(kind, visible) {
     toggle.dataset.labelHide = hideLabel;
     toggle.textContent = show ? hideLabel : showLabel;
     toggle.setAttribute('aria-expanded', String(show));
+  }
+  if (show && info.outputId) {
+    const refresh = () => {
+      try { refreshEditorLayout(info.outputId); }
+      catch (_) { /* noop */ }
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(refresh);
+    else setTimeout(refresh, 0);
   }
 }
 

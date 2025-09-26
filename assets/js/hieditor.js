@@ -576,6 +576,13 @@ function makeEditor(targetTextarea, language, readOnly) {
   const lineMetricCache = { lineH: DEFAULT_LINE_HEIGHT, padTop: 0 };
 
   // Auto-resize to fit content height (no inner scrollbar)
+  const maxAutoHeight = (() => {
+    const raw = hiddenTa.dataset.hiMaxHeight;
+    if (!raw) return null;
+    const parsed = parseFloat(raw);
+    return (Number.isFinite(parsed) && parsed > 0) ? parsed : null;
+  })();
+
   const applyHeights = () => {
     // Robust auto-resize (also shrinks after large deletions)
     // Collapse first to force reflow, then grow to scrollHeight
@@ -591,6 +598,9 @@ function makeEditor(targetTextarea, language, readOnly) {
       const lines = (ta.value.match(/\n/g) || []).length + 1;
       const fallback = (metrics.padTop * 2) + metrics.lineH * Math.max(1, lines);
       h = Math.max(h, fallback);
+    }
+    if (maxAutoHeight != null) {
+      h = Math.min(h, maxAutoHeight);
     }
     ta.style.height = h + 'px';
     body.style.height = h + 'px';
@@ -778,6 +788,12 @@ export function setEditorValue(id, text) {
 }
 export function getEditorValue(id) {
   const ed = editors.get(id); if (ed) return ed.getValue(); const ta = document.getElementById(id); return ta ? (ta.value || '') : '';
+}
+export function refreshEditorLayout(id) {
+  const ed = editors.get(id);
+  if (ed && typeof ed.refreshLayout === 'function') {
+    ed.refreshLayout();
+  }
 }
 export function toggleEditorWrap(id, value) {
   const ed = editors.get(id);
