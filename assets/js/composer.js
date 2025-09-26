@@ -4544,6 +4544,12 @@ function applyLocalPostCommitState(files = []) {
       remoteBaseline.tabs = deepClone(prepareTabsState(state));
       notifyComposerChange('tabs', { skipAutoSave: true });
       clearDraftStorage('tabs');
+    } else if (file.kind === 'site') {
+      const state = getStateSlice('site');
+      const snapshot = state ? cloneSiteState(state) : cloneSiteState(prepareSiteState({}));
+      remoteBaseline.site = snapshot;
+      notifyComposerChange('site', { skipAutoSave: true });
+      clearDraftStorage('site');
     } else if (file.kind === 'markdown') {
       const norm = normalizeRelPath(file.markdownPath || file.label || '');
       if (!norm) return;
