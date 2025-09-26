@@ -10365,11 +10365,120 @@ function buildSiteUI(root, state) {
     const controls = document.createElement('div');
     controls.className = 'cs-field-controls';
     field.appendChild(controls);
+    const addWrap = document.createElement('div');
+    addWrap.className = 'cs-add-lang has-menu';
+    controls.appendChild(addWrap);
+
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'btn-secondary cs-add-lang';
     addBtn.textContent = t('editor.composer.site.addLanguage');
-    controls.appendChild(addBtn);
+    addBtn.setAttribute('aria-haspopup', 'listbox');
+    addBtn.setAttribute('aria-expanded', 'false');
+    addWrap.appendChild(addBtn);
+
+    const menu = document.createElement('div');
+    menu.className = 'ns-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    addWrap.appendChild(menu);
+
+    const refreshMenu = () => {
+      const localized = ensureLocalized(key, options.ensureDefault !== false);
+      const used = new Set(Object.keys(localized || {}));
+      used.add('default');
+      const supported = Array.isArray(PREFERRED_LANG_ORDER)
+        ? PREFERRED_LANG_ORDER.slice()
+        : [];
+      try {
+        collectLanguageCodes().forEach((code) => {
+          const normalized = normalizeLangCode(code);
+          if (normalized && !supported.includes(normalized)) supported.push(normalized);
+        });
+      } catch (_) {}
+      const available = supported.filter((code) => {
+        const normalized = normalizeLangCode(code);
+        if (!normalized) return false;
+        return !used.has(normalized);
+      });
+
+      menu.innerHTML = available
+        .map((code) => `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`)
+        .join('');
+
+      if (!available.length) {
+        addBtn.setAttribute('disabled', '');
+        addWrap.classList.add('is-disabled');
+        if (!menu.hidden) closeMenu();
+      } else {
+        addBtn.removeAttribute('disabled');
+        addWrap.classList.remove('is-disabled');
+      }
+    };
+
+    const closeMenu = () => {
+      if (menu.hidden) return;
+      const finish = () => {
+        menu.hidden = true;
+        addBtn.classList.remove('is-open');
+        addWrap.classList.remove('is-open');
+        addBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', onDocDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        menu.classList.remove('is-closing');
+      };
+      try {
+        menu.classList.add('is-closing');
+        const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+        menu.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(finish, 180);
+      } catch (_) {
+        finish();
+      }
+    };
+
+    const openMenu = () => {
+      refreshMenu();
+      if (!menu.innerHTML.trim()) return;
+      if (!menu.hidden) return;
+      menu.hidden = false;
+      try { menu.classList.remove('is-closing'); } catch (_) {}
+      addBtn.classList.add('is-open');
+      addWrap.classList.add('is-open');
+      addBtn.setAttribute('aria-expanded', 'true');
+      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const code = normalizeLangCode(item.getAttribute('data-lang'));
+          if (!code) return;
+          const localized = ensureLocalized(key, options.ensureDefault !== false);
+          if (Object.prototype.hasOwnProperty.call(localized, code)) return;
+          localized[code] = '';
+          markDirty();
+          closeMenu();
+          renderRows();
+        });
+      });
+    };
+
+    const onDocDown = (event) => {
+      if (!addWrap.contains(event.target)) closeMenu();
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu();
+      }
+    };
+
+    addBtn.addEventListener('click', () => {
+      if (addBtn.hasAttribute('disabled')) return;
+      if (addBtn.classList.contains('is-open')) closeMenu();
+      else openMenu();
+    });
 
     const renderRows = () => {
       list.innerHTML = '';
@@ -10428,22 +10537,8 @@ function buildSiteUI(root, state) {
         empty.textContent = t('editor.composer.site.noLanguages');
         list.appendChild(empty);
       }
+      refreshMenu();
     };
-
-    addBtn.addEventListener('click', () => {
-      const code = window.prompt(t('editor.composer.site.promptLanguage'));
-      if (!code) return;
-      const lang = String(code).trim();
-      if (!lang) return;
-      const localized = ensureLocalized(key, options.ensureDefault !== false);
-      if (Object.prototype.hasOwnProperty.call(localized, lang)) {
-        alert(t('editor.composer.site.languageExists'));
-        return;
-      }
-      localized[lang] = '';
-      markDirty();
-      renderRows();
-    });
 
     renderRows();
   };
