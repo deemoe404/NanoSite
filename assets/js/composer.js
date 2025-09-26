@@ -35,7 +35,7 @@ const getMarkdownDiscardTooltip = (kind) => {
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
-  cfile: 'ns_composer_file',           // 'index' | 'tabs'
+  cfile: 'ns_composer_file',           // 'index' | 'tabs' | 'site'
   editorState: 'ns_composer_editor_state' // persisted dynamic editor info
 };
 
@@ -104,10 +104,10 @@ let gitHubCommitInFlight = false;
 let cachedFineGrainedTokenMemory = '';
 
 let activeComposerState = null;
-let remoteBaseline = { index: null, tabs: null };
-let composerDiffCache = { index: null, tabs: null };
-let composerDraftMeta = { index: null, tabs: null };
-let composerAutoSaveTimers = { index: null, tabs: null };
+let remoteBaseline = { index: null, tabs: null, site: null };
+let composerDiffCache = { index: null, tabs: null, site: null };
+let composerDraftMeta = { index: null, tabs: null, site: null };
+let composerAutoSaveTimers = { index: null, tabs: null, site: null };
 let composerDiffModal = null;
 let composerOrderState = null;
 let composerDiffResizeHandler = null;
@@ -486,7 +486,9 @@ function animateComposerOrderMainReset(host, previousRect, options = {}) {
 }
 
 function getActiveComposerFile() {
-  return activeComposerFile === 'tabs' ? 'tabs' : 'index';
+  if (activeComposerFile === 'tabs') return 'tabs';
+  if (activeComposerFile === 'site') return 'site';
+  return 'index';
 }
 
 function deepClone(value) {
@@ -1505,6 +1507,468 @@ function normalizeTabsEntry(entry) {
   return out;
 }
 
+function normalizeLocalizedConfig(value, options = {}) {
+  const ensureDefault = options.ensureDefault !== false;
+  if (typeof value === 'string') {
+    const out = {};
+    if (value !== '' || ensureDefault) out.default = safeString(value);
+    return out;
+  }
+  if (!value || typeof value !== 'object') {
+    return ensureDefault ? { default: '' } : {};
+  }
+  const out = {};
+  Object.keys(value).forEach((lang) => {
+    const v = value[lang];
+    if (v == null) {
+      if (ensureDefault && lang === 'default' && !Object.prototype.hasOwnProperty.call(out, 'default')) out.default = '';
+      return;
+    }
+    out[lang] = safeString(v);
+  });
+  if (ensureDefault && !Object.prototype.hasOwnProperty.call(out, 'default')) out.default = '';
+  return out;
+}
+
+function normalizeLinkEntry(entry) {
+  if (!entry || typeof entry !== 'object') return { label: '', href: '' };
+  return { label: safeString(entry.label), href: safeString(entry.href) };
+}
+
+function normalizeLinkList(value) {
+  if (Array.isArray(value)) return value.map(item => normalizeLinkEntry(item));
+  if (value && typeof value === 'object') {
+    return Object.keys(value).map(label => ({ label: safeString(label), href: safeString(value[label]) }));
+  }
+  return [];
+}
+
+function normalizeBoolean(value, fallback = null) {
+  if (value === true) return true;
+  if (value === false) return false;
+  return fallback;
+}
+
+function normalizeNumber(value, fallback = null) {
+  const num = Number(value);
+  if (Number.isFinite(num)) return num;
+  return fallback;
+}
+
+function prepareSiteState(raw) {
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const site = {};
+
+  site.siteTitle = normalizeLocalizedConfig(src.siteTitle);
+  site.siteSubtitle = normalizeLocalizedConfig(src.siteSubtitle);
+  site.siteDescription = normalizeLocalizedConfig(src.siteDescription, { ensureDefault: false });
+  site.siteKeywords = normalizeLocalizedConfig(src.siteKeywords, { ensureDefault: false });
+  site.avatar = safeString(src.avatar || '');
+  site.resourceURL = safeString(src.resourceURL || '');
+  site.contentRoot = safeString(src.contentRoot || 'wwwroot');
+  site.profileLinks = normalizeLinkList(src.profileLinks);
+  site.links = normalizeLinkList(src.links);
+  site.contentOutdatedDays = normalizeNumber(src.contentOutdatedDays);
+  site.cardCoverFallback = normalizeBoolean(src.cardCoverFallback);
+  site.errorOverlay = normalizeBoolean(src.errorOverlay);
+  const pageSize = src.pageSize != null ? src.pageSize : src.postsPerPage;
+  site.pageSize = normalizeNumber(pageSize);
+  site.defaultLanguage = safeString(src.defaultLanguage || '');
+  site.themeMode = safeString(src.themeMode || '');
+  site.themePack = safeString(src.themePack || '');
+  site.themeOverride = normalizeBoolean(src.themeOverride);
+  const enableAllPosts = normalizeBoolean(src.enableAllPosts);
+  const disableAllPosts = normalizeBoolean(src.disableAllPosts);
+  if (normalizeBoolean(src.showAllPosts) != null) site.showAllPosts = normalizeBoolean(src.showAllPosts);
+  else if (enableAllPosts === true) site.showAllPosts = true;
+  else if (disableAllPosts === true) site.showAllPosts = false;
+  else site.showAllPosts = null;
+  site.landingTab = safeString(src.landingTab || '');
+  const repo = (src.repo && typeof src.repo === 'object') ? src.repo : {};
+  site.repo = {
+    owner: safeString(repo.owner || ''),
+    name: safeString(repo.name || ''),
+    branch: safeString(repo.branch || '')
+  };
+  const assetWarnings = (src.assetWarnings && typeof src.assetWarnings === 'object') ? src.assetWarnings : {};
+  const largeImage = (assetWarnings.largeImage && typeof assetWarnings.largeImage === 'object') ? assetWarnings.largeImage : {};
+  site.assetWarnings = {
+    largeImage: {
+      enabled: normalizeBoolean(largeImage.enabled),
+      thresholdKB: normalizeNumber(largeImage.thresholdKB)
+    }
+  };
+
+  const recognized = new Set([
+    'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'resourceURL', 'contentRoot',
+    'profileLinks', 'links', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'postsPerPage',
+    'defaultLanguage', 'themeMode', 'themePack', 'themeOverride', 'repo', 'assetWarnings', 'landingTab', 'showAllPosts',
+    'enableAllPosts', 'disableAllPosts'
+  ]);
+
+  const extras = {};
+  Object.keys(src).forEach((key) => {
+    if (recognized.has(key)) return;
+    extras[key] = deepClone(src[key]);
+  });
+  site.__extras = extras;
+
+  return site;
+}
+
+function cloneSiteState(state) {
+  if (!state || typeof state !== 'object') return { __extras: {} };
+  return {
+    siteTitle: deepClone(state.siteTitle || {}),
+    siteSubtitle: deepClone(state.siteSubtitle || {}),
+    siteDescription: deepClone(state.siteDescription || {}),
+    siteKeywords: deepClone(state.siteKeywords || {}),
+    avatar: safeString(state.avatar || ''),
+    resourceURL: safeString(state.resourceURL || ''),
+    contentRoot: safeString(state.contentRoot || ''),
+    profileLinks: Array.isArray(state.profileLinks) ? deepClone(state.profileLinks) : [],
+    links: Array.isArray(state.links) ? deepClone(state.links) : [],
+    contentOutdatedDays: state.contentOutdatedDays != null ? Number(state.contentOutdatedDays) : null,
+    cardCoverFallback: normalizeBoolean(state.cardCoverFallback),
+    errorOverlay: normalizeBoolean(state.errorOverlay),
+    pageSize: state.pageSize != null ? Number(state.pageSize) : null,
+    defaultLanguage: safeString(state.defaultLanguage || ''),
+    themeMode: safeString(state.themeMode || ''),
+    themePack: safeString(state.themePack || ''),
+    themeOverride: normalizeBoolean(state.themeOverride),
+    showAllPosts: normalizeBoolean(state.showAllPosts),
+    landingTab: safeString(state.landingTab || ''),
+    repo: deepClone(state.repo || { owner: '', name: '', branch: '' }),
+    assetWarnings: deepClone(state.assetWarnings || { largeImage: { enabled: null, thresholdKB: null } }),
+    __extras: deepClone(state.__extras || {})
+  };
+}
+
+function localizedEntriesForOutput(localized, options = {}) {
+  const source = localized && typeof localized === 'object' ? localized : {};
+  const entries = Object.keys(source).map(key => ({ key, value: safeString(source[key]) }));
+  const filtered = entries.filter(entry => entry.value != null && entry.value !== '');
+  if (!filtered.length) {
+    if (options.forceDefault && Object.prototype.hasOwnProperty.call(source, 'default')) {
+      return { default: safeString(source.default) };
+    }
+    return null;
+  }
+  if (filtered.length === 1 && filtered[0].key === 'default') return filtered[0].value;
+  filtered.sort((a, b) => {
+    if (a.key === 'default') return -1;
+    if (b.key === 'default') return 1;
+    return a.key.localeCompare(b.key);
+  });
+  const out = {};
+  filtered.forEach(entry => { out[entry.key] = entry.value; });
+  return out;
+}
+
+function linkListForOutput(list) {
+  if (!Array.isArray(list)) return null;
+  const filtered = list.filter(item => item && (item.label || item.href));
+  if (!filtered.length) return null;
+  return filtered.map(item => ({ label: safeString(item.label || ''), href: safeString(item.href || '') }));
+}
+
+function assetWarningsForOutput(warnings) {
+  if (!warnings || typeof warnings !== 'object') return null;
+  const largeImage = warnings.largeImage && typeof warnings.largeImage === 'object' ? warnings.largeImage : {};
+  const enabled = normalizeBoolean(largeImage.enabled);
+  const threshold = normalizeNumber(largeImage.thresholdKB);
+  if (enabled == null && (threshold == null || Number.isNaN(threshold))) return null;
+  const out = {};
+  out.largeImage = {};
+  if (enabled != null) out.largeImage.enabled = enabled;
+  if (threshold != null) out.largeImage.thresholdKB = threshold;
+  if (!Object.keys(out.largeImage).length) return null;
+  return out;
+}
+
+function repoForOutput(repo) {
+  if (!repo || typeof repo !== 'object') return null;
+  const owner = safeString(repo.owner || '');
+  const name = safeString(repo.name || '');
+  const branch = safeString(repo.branch || '');
+  if (!owner && !name && !branch) return null;
+  const out = {};
+  if (owner) out.owner = owner;
+  if (name) out.name = name;
+  if (branch) out.branch = branch;
+  return Object.keys(out).length ? out : null;
+}
+
+function buildSiteSnapshot(state) {
+  const site = cloneSiteState(state);
+  const snapshot = {};
+
+  const identityTitle = localizedEntriesForOutput(site.siteTitle, { forceDefault: true });
+  if (identityTitle != null) snapshot.siteTitle = identityTitle;
+  const identitySubtitle = localizedEntriesForOutput(site.siteSubtitle, { forceDefault: true });
+  if (identitySubtitle != null) snapshot.siteSubtitle = identitySubtitle;
+  const identityDescription = localizedEntriesForOutput(site.siteDescription);
+  if (identityDescription != null) snapshot.siteDescription = identityDescription;
+  const identityKeywords = localizedEntriesForOutput(site.siteKeywords);
+  if (identityKeywords != null) snapshot.siteKeywords = identityKeywords;
+  if (site.avatar) snapshot.avatar = site.avatar;
+  if (site.profileLinks && site.profileLinks.length) {
+    const links = linkListForOutput(site.profileLinks);
+    if (links) snapshot.profileLinks = links;
+  }
+  if (site.links && site.links.length) {
+    const links = linkListForOutput(site.links);
+    if (links) snapshot.links = links;
+  }
+  if (site.resourceURL) snapshot.resourceURL = site.resourceURL;
+  if (site.contentRoot) snapshot.contentRoot = site.contentRoot;
+  if (site.contentOutdatedDays != null && !Number.isNaN(site.contentOutdatedDays)) snapshot.contentOutdatedDays = Number(site.contentOutdatedDays);
+  if (site.cardCoverFallback != null) snapshot.cardCoverFallback = !!site.cardCoverFallback;
+  if (site.errorOverlay != null) snapshot.errorOverlay = !!site.errorOverlay;
+  if (site.pageSize != null && !Number.isNaN(site.pageSize)) snapshot.pageSize = Number(site.pageSize);
+  if (site.defaultLanguage) snapshot.defaultLanguage = site.defaultLanguage;
+  if (site.themeMode) snapshot.themeMode = site.themeMode;
+  if (site.themePack) snapshot.themePack = site.themePack;
+  if (site.themeOverride != null) snapshot.themeOverride = !!site.themeOverride;
+  if (site.showAllPosts != null) snapshot.showAllPosts = !!site.showAllPosts;
+  if (site.landingTab) snapshot.landingTab = site.landingTab;
+  const repo = repoForOutput(site.repo);
+  if (repo) snapshot.repo = repo;
+  const warnings = assetWarningsForOutput(site.assetWarnings);
+  if (warnings) snapshot.assetWarnings = warnings;
+
+  const extras = site.__extras && typeof site.__extras === 'object' ? site.__extras : {};
+  Object.keys(extras).forEach((key) => {
+    if (snapshot[key] !== undefined) return;
+    snapshot[key] = deepClone(extras[key]);
+  });
+
+  return snapshot;
+}
+
+function stableSerialize(value) {
+  if (value == null) return 'null';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return '[' + value.map(item => stableSerialize(item)).join(',') + ']';
+  }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',') + '}';
+  }
+  return '';
+}
+
+function computeSiteSignature(state) {
+  const snapshot = buildSiteSnapshot(state);
+  return stableSerialize(snapshot);
+}
+
+function compareLocalizedMaps(cur = {}, base = {}) {
+  const langSet = new Set([...Object.keys(cur), ...Object.keys(base)]);
+  const changedLangs = [];
+  langSet.forEach((lang) => {
+    if (safeString(cur[lang] || '') !== safeString(base[lang] || '')) changedLangs.push(lang);
+  });
+  return changedLangs;
+}
+
+function compareLinkLists(cur = [], base = []) {
+  const max = Math.max(cur.length, base.length);
+  for (let i = 0; i < max; i += 1) {
+    const a = cur[i] || { label: '', href: '' };
+    const b = base[i] || { label: '', href: '' };
+    if (safeString(a.label) !== safeString(b.label)) return true;
+    if (safeString(a.href) !== safeString(b.href)) return true;
+  }
+  return false;
+}
+
+function computeSiteDiff(current, baseline) {
+  const cur = cloneSiteState(current);
+  const base = cloneSiteState(baseline);
+  const diff = { hasChanges: false, fields: {} };
+
+  const localizedFields = ['siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords'];
+  localizedFields.forEach((key) => {
+    const changed = compareLocalizedMaps(cur[key] || {}, base[key] || {});
+    if (changed.length) {
+      diff.fields[key] = { type: 'localized', languages: changed };
+      diff.hasChanges = true;
+    }
+  });
+
+  const stringFields = ['avatar', 'resourceURL', 'contentRoot', 'defaultLanguage', 'themeMode', 'themePack', 'landingTab'];
+  stringFields.forEach((key) => {
+    if (safeString(cur[key] || '') !== safeString(base[key] || '')) {
+      diff.fields[key] = { type: 'text' };
+      diff.hasChanges = true;
+    }
+  });
+
+  const booleanFields = ['cardCoverFallback', 'errorOverlay', 'themeOverride', 'showAllPosts'];
+  booleanFields.forEach((key) => {
+    if (normalizeBoolean(cur[key]) !== normalizeBoolean(base[key])) {
+      diff.fields[key] = { type: 'boolean' };
+      diff.hasChanges = true;
+    }
+  });
+
+  const numericFields = ['contentOutdatedDays', 'pageSize'];
+  numericFields.forEach((key) => {
+    const a = cur[key] != null ? Number(cur[key]) : null;
+    const b = base[key] != null ? Number(base[key]) : null;
+    if ((Number.isNaN(a) ? null : a) !== (Number.isNaN(b) ? null : b)) {
+      diff.fields[key] = { type: 'number' };
+      diff.hasChanges = true;
+    }
+  });
+
+  if (compareLinkLists(cur.profileLinks || [], base.profileLinks || [])) {
+    diff.fields.profileLinks = { type: 'list' };
+    diff.hasChanges = true;
+  }
+
+  if (compareLinkLists(cur.links || [], base.links || [])) {
+    diff.fields.links = { type: 'list' };
+    diff.hasChanges = true;
+  }
+
+  const repoCur = cur.repo || {};
+  const repoBase = base.repo || {};
+  if (safeString(repoCur.owner) !== safeString(repoBase.owner)
+    || safeString(repoCur.name) !== safeString(repoBase.name)
+    || safeString(repoCur.branch) !== safeString(repoBase.branch)) {
+    diff.fields.repo = { type: 'object' };
+    diff.hasChanges = true;
+  }
+
+  const curWarn = (cur.assetWarnings && cur.assetWarnings.largeImage) || {};
+  const baseWarn = (base.assetWarnings && base.assetWarnings.largeImage) || {};
+  if (normalizeBoolean(curWarn.enabled) !== normalizeBoolean(baseWarn.enabled)
+    || normalizeNumber(curWarn.thresholdKB) !== normalizeNumber(baseWarn.thresholdKB)) {
+    diff.fields.assetWarnings = { type: 'object' };
+    diff.hasChanges = true;
+  }
+
+  const extrasCur = cur.__extras || {};
+  const extrasBase = base.__extras || {};
+  if (stableSerialize(extrasCur) !== stableSerialize(extrasBase)) {
+    diff.fields.__extras = { type: 'object' };
+    diff.hasChanges = true;
+  }
+
+  return diff;
+}
+
+function applySiteDiffMarkers(diff) {
+  const root = document.getElementById('composerSite');
+  if (!root) return;
+  const fields = diff && diff.fields ? diff.fields : {};
+  root.querySelectorAll('[data-field]').forEach((el) => {
+    const key = el.getAttribute('data-field');
+    if (key && fields[key]) el.setAttribute('data-diff', 'changed');
+    else el.removeAttribute('data-diff');
+  });
+}
+
+function yamlScalar(value) {
+  if (value == null) return 'null';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'null';
+  if (typeof value === 'string') {
+    if (!value) return '""';
+    if (/^[A-Za-z0-9_\-\/\.]+$/.test(value)) return value;
+    return q(value);
+  }
+  return 'null';
+}
+
+function writeYamlValue(lines, indent, value) {
+  const pad = '  '.repeat(indent);
+  if (value == null) {
+    lines.push(`${pad}null`);
+    return;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    lines.push(`${pad}${yamlScalar(value)}`);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      lines.push(`${pad}[]`);
+      return;
+    }
+    value.forEach((item) => {
+      if (item == null || typeof item !== 'object' || Array.isArray(item)) {
+        lines.push(`${pad}- ${yamlScalar(item)}`);
+      } else {
+        lines.push(`${pad}-`);
+        writeYamlObject(lines, indent + 1, item);
+      }
+    });
+    return;
+  }
+  if (typeof value === 'object') {
+    writeYamlObject(lines, indent, value);
+    return;
+  }
+  lines.push(`${pad}${yamlScalar(String(value))}`);
+}
+
+function writeYamlObject(lines, indent, obj) {
+  const pad = '  '.repeat(indent);
+  const keys = Object.keys(obj);
+  if (!keys.length) {
+    lines.push(`${pad}{}`);
+    return;
+  }
+  keys.forEach((key) => {
+    const value = obj[key];
+    if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${pad}${key}: ${yamlScalar(value)}`);
+    } else {
+      lines.push(`${pad}${key}:`);
+      writeYamlValue(lines, indent + 1, value);
+    }
+  });
+}
+
+function toSiteYaml(data) {
+  const snapshot = buildSiteSnapshot(data || {});
+  const keysInOrder = [
+    'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'profileLinks', 'links', 'resourceURL',
+    'contentRoot', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'defaultLanguage',
+    'themeMode', 'themePack', 'themeOverride', 'showAllPosts', 'landingTab', 'repo', 'assetWarnings'
+  ];
+  const ordered = {};
+  keysInOrder.forEach((key) => {
+    if (snapshot[key] !== undefined) ordered[key] = snapshot[key];
+  });
+  Object.keys(snapshot).forEach((key) => {
+    if (ordered[key] !== undefined) return;
+    ordered[key] = snapshot[key];
+  });
+
+  const lines = ['# yaml-language-server: $schema=./assets/schema/site.json', ''];
+  Object.keys(ordered).forEach((key) => {
+    const value = ordered[key];
+    if (value == null) return;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${key}: ${yamlScalar(value)}`);
+    } else {
+      lines.push(`${key}:`);
+      writeYamlValue(lines, 1, value);
+    }
+    lines.push('');
+  });
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  lines.push('');
+  return lines.join('\n');
+}
+
 function arraysEqual(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
   if (a.length !== b.length) return false;
@@ -2242,6 +2706,9 @@ function hasUnsavedComposerChanges() {
   try {
     if (composerDiffCache && composerDiffCache.tabs && composerDiffCache.tabs.hasChanges) return true;
   } catch (_) {}
+  try {
+    if (composerDiffCache && composerDiffCache.site && composerDiffCache.site.hasChanges) return true;
+  } catch (_) {}
   return false;
 }
 
@@ -2401,26 +2868,38 @@ function updateComposerMarkdownDraftIndicators(options = {}) {
 
 function getStateSlice(kind) {
   if (!activeComposerState) return null;
-  return kind === 'tabs' ? activeComposerState.tabs : activeComposerState.index;
+  if (kind === 'tabs') return activeComposerState.tabs;
+  if (kind === 'site') return activeComposerState.site;
+  return activeComposerState.index;
 }
 
 function setStateSlice(kind, value) {
   if (!activeComposerState) return;
   if (kind === 'tabs') activeComposerState.tabs = value;
+  else if (kind === 'site') activeComposerState.site = value;
   else activeComposerState.index = value;
 }
 
 function computeBaselineSignature(kind) {
   if (kind === 'tabs') return computeTabsSignature(remoteBaseline.tabs);
+  if (kind === 'site') return computeSiteSignature(remoteBaseline.site);
   return computeIndexSignature(remoteBaseline.index);
 }
 
 function recomputeDiff(kind) {
   const slice = getStateSlice(kind) || { __order: [] };
-  const baselineSlice = kind === 'tabs' ? remoteBaseline.tabs : remoteBaseline.index;
-  const diff = kind === 'tabs'
-    ? computeTabsDiff(slice, baselineSlice)
-    : computeIndexDiff(slice, baselineSlice);
+  let baselineSlice;
+  let diff;
+  if (kind === 'tabs') {
+    baselineSlice = remoteBaseline.tabs;
+    diff = computeTabsDiff(slice, baselineSlice);
+  } else if (kind === 'site') {
+    baselineSlice = remoteBaseline.site;
+    diff = computeSiteDiff(slice, baselineSlice);
+  } else {
+    baselineSlice = remoteBaseline.index;
+    diff = computeIndexDiff(slice, baselineSlice);
+  }
   composerDiffCache[kind] = diff;
   return diff;
 }
@@ -2577,7 +3056,7 @@ function applyTabsDiffMarkers(diff) {
 }
 
 function updateFileDirtyBadge(kind) {
-  const name = kind === 'tabs' ? 'tabs' : 'index';
+  const name = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   const el = document.querySelector(`a.vt-btn[data-cfile="${name}"]`);
   if (!el) return;
   const diff = composerDiffCache[kind];
@@ -2648,6 +3127,7 @@ function computeUnsyncedSummary() {
   const entries = [];
   const indexDiff = composerDiffCache.index;
   const tabsDiff = composerDiffCache.tabs;
+  const siteDiff = composerDiffCache.site;
   if (indexDiff && indexDiff.hasChanges) {
     entries.push({
       kind: 'index',
@@ -2666,6 +3146,13 @@ function computeUnsyncedSummary() {
       hasContentChange: Object.keys(tabsDiff.keys || {}).length > 0
         || tabsDiff.addedKeys.length > 0
         || tabsDiff.removedKeys.length > 0
+    });
+  }
+  if (siteDiff && siteDiff.hasChanges) {
+    entries.push({
+      kind: 'site',
+      label: 'site.yaml',
+      hasContentChange: true
     });
   }
   const markdownEntries = collectUnsyncedMarkdownEntries();
@@ -2774,14 +3261,14 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
-    if (entry.kind === 'index' || entry.kind === 'tabs') composerCount += 1;
+    if (entry.kind === 'index' || entry.kind === 'tabs' || entry.kind === 'site') composerCount += 1;
     else if (entry.kind === 'markdown') editorCount += 1;
   }
 
   if (!composerCount) {
     try {
       if (hasUnsavedComposerChanges()) composerCount = Math.max(composerCount, 1);
-      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs)) composerCount = Math.max(composerCount, 1);
+      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs || composerDraftMeta.site)) composerCount = Math.max(composerCount, 1);
     } catch (_) { /* ignore */ }
   }
 
@@ -2799,7 +3286,16 @@ function updateReviewButton(summaryEntries = []) {
   const btn = document.getElementById('btnReview');
   if (!btn) return;
   const activeKind = getActiveComposerFile();
-  const normalizedKind = activeKind === 'tabs' ? 'tabs' : 'index';
+  const normalizedKind = activeKind === 'tabs' ? 'tabs' : (activeKind === 'site' ? 'site' : 'index');
+  if (normalizedKind === 'site') {
+    btn.hidden = true;
+    btn.style.display = 'none';
+    btn.removeAttribute('data-kind');
+    btn.setAttribute('aria-hidden', 'true');
+    btn.removeAttribute('title');
+    btn.removeAttribute('aria-label');
+    return;
+  }
   const targetEntry = summaryEntries.find(entry => entry && entry.kind === normalizedKind);
   if (targetEntry) {
     btn.hidden = false;
@@ -3528,6 +4024,11 @@ function gatherLocalChangesForCommit() {
     const state = getStateSlice('tabs') || { __order: [] };
     const yaml = toTabsYaml(state);
     addFile({ kind: 'tabs', label: 'tabs.yaml', path: `${rootPrefix}tabs.yaml`, content: yaml });
+  }
+  if (composerDiffCache.site && composerDiffCache.site.hasChanges) {
+    const state = getStateSlice('site') || {};
+    const yaml = toSiteYaml(state);
+    addFile({ kind: 'site', label: 'site.yaml', path: 'site.yaml', content: yaml });
   }
 
   const markdownEntries = collectUnsyncedMarkdownEntries();
@@ -5842,7 +6343,10 @@ function scheduleAutoDraft(kind) {
 function saveDraftToStorage(kind, opts = {}) {
   const slice = getStateSlice(kind);
   if (!slice) return null;
-  const snapshot = kind === 'tabs' ? prepareTabsState(slice) : prepareIndexState(slice);
+  let snapshot;
+  if (kind === 'tabs') snapshot = prepareTabsState(slice);
+  else if (kind === 'site') snapshot = cloneSiteState(slice);
+  else snapshot = prepareIndexState(slice);
   const store = readDraftStore();
   const savedAt = Date.now();
   const baseSignature = computeBaselineSignature(kind);
@@ -5867,12 +6371,13 @@ function clearDraftStorage(kind) {
 function notifyComposerChange(kind, options = {}) {
   const diff = recomputeDiff(kind);
   if (kind === 'tabs') applyTabsDiffMarkers(diff);
+  else if (kind === 'site') applySiteDiffMarkers(diff);
   else applyIndexDiffMarkers(diff);
   updateFileDirtyBadge(kind);
   if (!options.skipAutoSave) scheduleAutoDraft(kind);
 
   updateUnsyncedSummary();
-  if (composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
+  if ((kind === 'index' || kind === 'tabs') && composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -5929,13 +6434,15 @@ function loadDraftSnapshotsIntoState(state) {
   const restored = [];
   const store = readDraftStore();
   if (!store) return restored;
-  ['index', 'tabs'].forEach(kind => {
+  ['index', 'tabs', 'site'].forEach(kind => {
     const entry = store[kind];
     if (!entry || !entry.data) return;
-    const snapshot = kind === 'tabs'
-      ? prepareTabsState(entry.data)
-      : prepareIndexState(entry.data);
+    let snapshot;
+    if (kind === 'tabs') snapshot = prepareTabsState(entry.data);
+    else if (kind === 'site') snapshot = cloneSiteState(prepareSiteState(entry.data));
+    else snapshot = prepareIndexState(entry.data);
     if (kind === 'tabs') state.tabs = snapshot;
+    else if (kind === 'site') state.site = snapshot;
     else state.index = snapshot;
     setStateSlice(kind, snapshot);
     composerDraftMeta[kind] = {
@@ -5968,11 +6475,15 @@ async function handleComposerRefresh(btn) {
       button.textContent = t('editor.composer.refreshing');
     }
     const contentRoot = getContentRootSafe();
-    const remote = await fetchConfigWithYamlFallback([
-      `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yaml`,
-      `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yml`
-    ]);
-    const prepared = target === 'tabs' ? prepareTabsState(remote || {}) : prepareIndexState(remote || {});
+    const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
+    const urls = target === 'site'
+      ? ['site.yaml', 'site.yml']
+      : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
+    const remote = await fetchConfigWithYamlFallback(urls);
+    let prepared;
+    if (target === 'tabs') prepared = prepareTabsState(remote || {});
+    else if (target === 'site') prepared = cloneSiteState(prepareSiteState(remote || {}));
+    else prepared = prepareIndexState(remote || {});
     const baselineSignatureBefore = computeBaselineSignature(target);
     remoteBaseline[target] = prepared;
     const diffBefore = composerDiffCache[target];
@@ -5980,10 +6491,11 @@ async function handleComposerRefresh(btn) {
     if (!hadLocalChanges) {
       setStateSlice(target, deepClone(prepared));
       if (target === 'tabs') rebuildTabsUI();
+      else if (target === 'site') rebuildSiteUI();
       else rebuildIndexUI();
       showStatus(
         t('editor.composer.statusMessages.refreshSuccess', {
-          name: `${target === 'tabs' ? 'tabs' : 'index'}.yaml`
+          name: `${fileBase}.yaml`
         })
       );
     } else {
@@ -6605,7 +7117,7 @@ function showComposerDiscardConfirm(anchor, messageText, options) {
 
 async function handleComposerDiscard(btn) {
   const target = getActiveComposerFile();
-  const label = target === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const label = target === 'tabs' ? 'tabs.yaml' : target === 'site' ? 'site.yaml' : 'index.yaml';
   const diff = composerDiffCache[target];
   const meta = composerDraftMeta[target];
   const hasChanges = !!(diff && diff.hasChanges);
@@ -6651,12 +7163,15 @@ async function handleComposerDiscard(btn) {
     let fetchedFresh = false;
     try {
       const contentRoot = getContentRootSafe();
-      const remote = await fetchConfigWithYamlFallback([
-        `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yaml`,
-        `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yml`
-      ]);
+      const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
+      const urls = target === 'site'
+        ? ['site.yaml', 'site.yml']
+        : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
+      const remote = await fetchConfigWithYamlFallback(urls);
       if (remote != null) {
-        prepared = target === 'tabs' ? prepareTabsState(remote) : prepareIndexState(remote);
+        if (target === 'tabs') prepared = prepareTabsState(remote);
+        else if (target === 'site') prepared = cloneSiteState(prepareSiteState(remote));
+        else prepared = prepareIndexState(remote);
         fetchedFresh = true;
       }
     } catch (err) {
@@ -6665,11 +7180,12 @@ async function handleComposerDiscard(btn) {
 
     if (!prepared) {
       const baseline = remoteBaseline[target];
-      prepared = baseline ? deepClone(baseline) : { __order: [] };
+      if (target === 'site') prepared = baseline ? cloneSiteState(baseline) : cloneSiteState(prepareSiteState({}));
+      else prepared = baseline ? deepClone(baseline) : { __order: [] };
     }
 
-    const normalized = deepClone(prepared);
-    remoteBaseline[target] = deepClone(prepared);
+    const normalized = target === 'site' ? cloneSiteState(prepared) : deepClone(prepared);
+    remoteBaseline[target] = target === 'site' ? cloneSiteState(prepared) : deepClone(prepared);
     setStateSlice(target, normalized);
 
     if (composerAutoSaveTimers[target]) {
@@ -6678,6 +7194,7 @@ async function handleComposerDiscard(btn) {
     }
 
     if (target === 'tabs') rebuildTabsUI();
+    else if (target === 'site') rebuildSiteUI();
     else rebuildIndexUI();
 
     clearDraftStorage(target);
@@ -7723,7 +8240,7 @@ function applyMode(mode) {
 function getInitialComposerFile() {
   try {
     const v = (localStorage.getItem(LS_KEYS.cfile) || '').toLowerCase();
-    if (v === 'tabs' || v === 'index') return v;
+    if (v === 'tabs' || v === 'index' || v === 'site') return v;
   } catch (_) {}
   return 'index';
 }
@@ -7742,7 +8259,7 @@ function cancelComposerViewTransition() {
 }
 
 function applyComposerFile(name, options = {}) {
-  const target = name === 'tabs' ? 'tabs' : 'index';
+  const target = name === 'tabs' ? 'tabs' : (name === 'site' ? 'site' : 'index');
   const force = !!options.force;
   const immediate = !!options.immediate;
   if (!force && activeComposerFile === target) {
@@ -7756,18 +8273,31 @@ function applyComposerFile(name, options = {}) {
   activeComposerFile = target;
 
   const updateToggleUi = () => {
-    const isIndex = activeComposerFile !== 'tabs';
+    const normalized = getActiveComposerFile();
     try {
       $$('a.vt-btn[data-cfile]').forEach(a => {
-        a.classList.toggle('active', a.dataset.cfile === (isIndex ? 'index' : 'tabs'));
+        a.classList.toggle('active', a.dataset.cfile === normalized);
       });
     } catch (_) {}
     try {
       const btn = $('#btnAddItem');
       if (btn) {
-        const key = isIndex ? 'editor.composer.addPost' : 'editor.composer.addTab';
-        btn.setAttribute('data-i18n', key);
-        btn.textContent = t(key);
+        if (normalized === 'index') {
+          const key = 'editor.composer.addPost';
+          btn.hidden = false;
+          btn.style.display = '';
+          btn.setAttribute('data-i18n', key);
+          btn.textContent = t(key);
+        } else if (normalized === 'tabs') {
+          const key = 'editor.composer.addTab';
+          btn.hidden = false;
+          btn.style.display = '';
+          btn.setAttribute('data-i18n', key);
+          btn.textContent = t(key);
+        } else {
+          btn.hidden = true;
+          btn.style.display = 'none';
+        }
       }
     } catch (_) {}
   };
@@ -7775,24 +8305,35 @@ function applyComposerFile(name, options = {}) {
   updateToggleUi();
 
   const applyState = () => {
-    const isIndex = activeComposerFile !== 'tabs';
+    const normalized = getActiveComposerFile();
+    const showIndex = normalized === 'index';
+    const showTabs = normalized === 'tabs';
+    const showSite = normalized === 'site';
     try {
       const hostIndex = document.getElementById('composerIndexHost');
-      if (hostIndex) hostIndex.style.display = isIndex ? '' : 'none';
+      if (hostIndex) hostIndex.style.display = showIndex ? '' : 'none';
     } catch (_) {}
     try {
       const hostTabs = document.getElementById('composerTabsHost');
-      if (hostTabs) hostTabs.style.display = isIndex ? 'none' : '';
+      if (hostTabs) hostTabs.style.display = showTabs ? '' : 'none';
     } catch (_) {}
-    try { $('#composerIndex').style.display = isIndex ? 'block' : 'none'; } catch (_) {}
-    try { $('#composerTabs').style.display = isIndex ? 'none' : 'block'; } catch (_) {}
+    try {
+      const hostSite = document.getElementById('composerSiteHost');
+      if (hostSite) hostSite.style.display = showSite ? '' : 'none';
+    } catch (_) {}
+    try { $('#composerIndex').style.display = showIndex ? 'block' : 'none'; } catch (_) {}
+    try { $('#composerTabs').style.display = showTabs ? 'block' : 'none'; } catch (_) {}
+    try { $('#composerSite').style.display = showSite ? 'block' : 'none'; } catch (_) {}
     // Sync preload attribute to avoid CSS forcing the wrong sub-file
     try {
-      if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
+      if (normalized === 'tabs' || normalized === 'site') document.documentElement.setAttribute('data-init-cfile', normalized);
       else document.documentElement.removeAttribute('data-init-cfile');
     } catch (_) {}
 
-    try { setComposerOrderPreviewActiveKind(activeComposerFile); } catch (_) {}
+    try {
+      if (normalized === 'site') setComposerOrderPreviewActiveKind('index');
+      else setComposerOrderPreviewActiveKind(normalized);
+    } catch (_) {}
     try { updateUnsyncedSummary(); } catch (_) {}
   };
 
@@ -9041,7 +9582,10 @@ function bindComposerUI(state) {
   const links = $$('a.vt-btn[data-cfile]');
   const setFile = (name, options = {}) => {
     applyComposerFile(name, options);
-    try { localStorage.setItem(LS_KEYS.cfile, (name === 'tabs') ? 'tabs' : 'index'); } catch (_) {}
+    try {
+      const normalized = name === 'tabs' ? 'tabs' : (name === 'site' ? 'site' : 'index');
+      localStorage.setItem(LS_KEYS.cfile, normalized);
+    } catch (_) {}
   };
   links.forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setFile(a.dataset.cfile); }));
   // Respect persisted selection on load
@@ -9528,7 +10072,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (_) {}
 
-  const state = { index: {}, tabs: {} };
+  const state = { index: {}, tabs: {}, site: {} };
   showStatus(t('editor.composer.statusMessages.loadingConfig'));
   try {
     const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
@@ -9539,6 +10083,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.__ns_site_repo = { owner: String(repo.owner || ''), name: String(repo.name || ''), branch: String(repo.branch || 'main') };
     } catch(_) { window.__ns_site_repo = { owner: '', name: '', branch: 'main' }; }
     updateMarkdownPushButton(getActiveDynamicTab());
+    const remoteSite = prepareSiteState(site || {});
     const [idx, tbs] = await Promise.all([
       fetchConfigWithYamlFallback([`${root}/index.yaml`, `${root}/index.yml`]),
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
@@ -9547,14 +10092,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const remoteTabs = prepareTabsState(tbs || {});
     remoteBaseline.index = deepClone(remoteIndex);
     remoteBaseline.tabs = deepClone(remoteTabs);
+    remoteBaseline.site = cloneSiteState(remoteSite);
     state.index = deepClone(remoteIndex);
     state.tabs = deepClone(remoteTabs);
+    state.site = cloneSiteState(remoteSite);
   } catch (e) {
     console.warn('Composer: failed to load configs', e);
     remoteBaseline.index = { __order: [] };
     remoteBaseline.tabs = { __order: [] };
+    remoteBaseline.site = cloneSiteState(prepareSiteState({}));
     state.index = { __order: [] };
     state.tabs = { __order: [] };
+    state.site = cloneSiteState(prepareSiteState({}));
     updateMarkdownPushButton(getActiveDynamicTab());
   }
 
@@ -9562,7 +10111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const restoredDrafts = loadDraftSnapshotsIntoState(state);
 
   if (restoredDrafts.length) {
-    const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : 'index.yaml')).join(' & ');
+    const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : k === 'site' ? 'site.yaml' : 'index.yaml')).join(' & ');
     showStatus(t('editor.composer.statusMessages.restoredDraft', { label }));
     setTimeout(() => { showStatus(''); }, 1800);
   } else {
@@ -9573,15 +10122,676 @@ document.addEventListener('DOMContentLoaded', async () => {
   attachGlobalStatusCommitHandler();
   buildIndexUI($('#composerIndex'), state);
   buildTabsUI($('#composerTabs'), state);
+  buildSiteUI($('#composerSite'), state);
 
   notifyComposerChange('index', { skipAutoSave: true });
   notifyComposerChange('tabs', { skipAutoSave: true });
+  notifyComposerChange('site', { skipAutoSave: true });
 
 
   restoreDynamicEditorState();
   allowEditorStatePersist = true;
   persistDynamicEditorState();
 });
+
+function buildSiteUI(root, state) {
+  if (!root) return;
+  root.innerHTML = '';
+  if (!state || typeof state !== 'object') return;
+  let site = state.site;
+  if (!site || typeof site !== 'object') {
+    site = cloneSiteState(prepareSiteState({}));
+    state.site = site;
+  }
+  setStateSlice('site', site);
+
+  const container = document.createElement('div');
+  container.className = 'cs-root';
+  root.appendChild(container);
+
+  const markDirty = () => {
+    setStateSlice('site', site);
+    notifyComposerChange('site');
+  };
+
+  const ensureLocalized = (key, ensureDefault = true) => {
+    if (!site[key] || typeof site[key] !== 'object') {
+      site[key] = ensureDefault ? { default: '' } : {};
+    }
+    if (ensureDefault && !Object.prototype.hasOwnProperty.call(site[key], 'default')) site[key].default = '';
+    return site[key];
+  };
+
+  const ensureLinkList = (key) => {
+    if (!Array.isArray(site[key])) site[key] = [];
+    return site[key];
+  };
+
+  const ensureRepo = () => {
+    if (!site.repo || typeof site.repo !== 'object') site.repo = { owner: '', name: '', branch: '' };
+    return site.repo;
+  };
+
+  const ensureAssetWarnings = () => {
+    if (!site.assetWarnings || typeof site.assetWarnings !== 'object') site.assetWarnings = {};
+    if (!site.assetWarnings.largeImage || typeof site.assetWarnings.largeImage !== 'object') {
+      site.assetWarnings.largeImage = { enabled: null, thresholdKB: null };
+    }
+    const largeImage = site.assetWarnings.largeImage;
+    if (!Object.prototype.hasOwnProperty.call(largeImage, 'enabled')) largeImage.enabled = null;
+    if (!Object.prototype.hasOwnProperty.call(largeImage, 'thresholdKB')) largeImage.thresholdKB = null;
+    return site.assetWarnings;
+  };
+
+  const createSection = (title, description) => {
+    const section = document.createElement('section');
+    section.className = 'cs-section';
+    if (title) {
+      const heading = document.createElement('h3');
+      heading.className = 'cs-section-title';
+      heading.textContent = title;
+      section.appendChild(heading);
+    }
+    if (description) {
+      const desc = document.createElement('p');
+      desc.className = 'cs-section-description';
+      desc.textContent = description;
+      section.appendChild(desc);
+    }
+    container.appendChild(section);
+    return section;
+  };
+
+  const createField = (section, config) => {
+    const field = document.createElement('div');
+    field.className = 'cs-field';
+    if (config.dataKey) field.dataset.field = config.dataKey;
+    const head = document.createElement('div');
+    head.className = 'cs-field-head';
+    const labelEl = document.createElement('label');
+    labelEl.className = 'cs-field-label';
+    labelEl.textContent = config.label || '';
+    head.appendChild(labelEl);
+    if (config.action) head.appendChild(config.action);
+    field.appendChild(head);
+    if (config.description) {
+      const desc = document.createElement('p');
+      desc.className = 'cs-field-help';
+      desc.textContent = config.description;
+      field.appendChild(desc);
+    }
+    section.appendChild(field);
+    return field;
+  };
+
+  const renderLocalizedField = (section, key, options = {}) => {
+    ensureLocalized(key, options.ensureDefault !== false);
+    const field = createField(section, {
+      dataKey: key,
+      label: options.label,
+      description: options.description
+    });
+    const list = document.createElement('div');
+    list.className = 'cs-localized-list';
+    field.appendChild(list);
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls';
+    field.appendChild(controls);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary cs-add-lang';
+    addBtn.textContent = t('editor.composer.site.addLanguage');
+    controls.appendChild(addBtn);
+
+    const renderRows = () => {
+      list.innerHTML = '';
+      const localized = ensureLocalized(key, options.ensureDefault !== false);
+      const langs = Object.keys(localized || {});
+      if (options.ensureDefault !== false && !langs.includes('default')) langs.push('default');
+      langs.sort((a, b) => {
+        if (a === 'default') return -1;
+        if (b === 'default') return 1;
+        return a.localeCompare(b);
+      });
+      langs.forEach((lang) => {
+        if (!localized && lang !== 'default') return;
+        if (options.ensureDefault !== false && !Object.prototype.hasOwnProperty.call(localized, lang)) localized[lang] = '';
+        const row = document.createElement('div');
+        row.className = 'cs-localized-row';
+        row.dataset.lang = lang;
+        const badge = document.createElement('span');
+        badge.className = 'cs-lang-chip';
+        badge.textContent = lang === 'default'
+          ? t('editor.composer.site.languageDefault')
+          : lang.toUpperCase();
+        row.appendChild(badge);
+        const inputWrap = document.createElement('div');
+        inputWrap.className = 'cs-localized-input';
+        const input = document.createElement(options.multiline ? 'textarea' : 'input');
+        if (!options.multiline) input.type = 'text';
+        else input.rows = options.rows || 3;
+        input.className = 'cs-input';
+        if (options.placeholder) input.placeholder = options.placeholder;
+        input.value = localized[lang] || '';
+        input.addEventListener('input', () => {
+          ensureLocalized(key, options.ensureDefault !== false)[lang] = input.value;
+          markDirty();
+        });
+        inputWrap.appendChild(input);
+        row.appendChild(inputWrap);
+        if (lang !== 'default' || options.allowDefaultDelete) {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn-tertiary cs-remove-lang';
+          removeBtn.textContent = t('editor.composer.site.removeLanguage');
+          removeBtn.addEventListener('click', () => {
+            const localizedMap = ensureLocalized(key, options.ensureDefault !== false);
+            delete localizedMap[lang];
+            markDirty();
+            renderRows();
+          });
+          row.appendChild(removeBtn);
+        }
+        list.appendChild(row);
+      });
+      if (!list.children.length) {
+        const empty = document.createElement('div');
+        empty.className = 'cs-empty';
+        empty.textContent = t('editor.composer.site.noLanguages');
+        list.appendChild(empty);
+      }
+    };
+
+    addBtn.addEventListener('click', () => {
+      const code = window.prompt(t('editor.composer.site.promptLanguage'));
+      if (!code) return;
+      const lang = String(code).trim();
+      if (!lang) return;
+      const localized = ensureLocalized(key, options.ensureDefault !== false);
+      if (Object.prototype.hasOwnProperty.call(localized, lang)) {
+        alert(t('editor.composer.site.languageExists'));
+        return;
+      }
+      localized[lang] = '';
+      markDirty();
+      renderRows();
+    });
+
+    renderRows();
+  };
+
+  const createTextField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const input = document.createElement(config.multiline ? 'textarea' : 'input');
+    if (!config.multiline) input.type = config.type || 'text';
+    else input.rows = config.rows || 3;
+    input.className = 'cs-input';
+    input.value = config.get() || '';
+    if (config.placeholder) input.placeholder = config.placeholder;
+    input.addEventListener('input', () => {
+      config.set(config.multiline ? input.value : input.value);
+      markDirty();
+    });
+    control.appendChild(input);
+    if (config.trailing) control.appendChild(config.trailing);
+    field.appendChild(control);
+    return input;
+  };
+
+  const createNumberField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'cs-input cs-input-small';
+    if (config.min != null) input.min = String(config.min);
+    if (config.max != null) input.max = String(config.max);
+    if (config.step != null) input.step = String(config.step);
+    const value = config.get();
+    input.value = value != null && !Number.isNaN(value) ? String(value) : '';
+    input.placeholder = config.placeholder || '';
+    input.addEventListener('input', () => {
+      const raw = input.value.trim();
+      if (!raw) config.set(null);
+      else config.set(Number(raw));
+      markDirty();
+    });
+    control.appendChild(input);
+    if (config.trailing) control.appendChild(config.trailing);
+    field.appendChild(control);
+    return input;
+  };
+
+  const createTriStateCheckbox = (section, config) => {
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'btn-tertiary cs-reset';
+    resetBtn.textContent = t('editor.composer.site.reset');
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description,
+      action: resetBtn
+    });
+    const control = document.createElement('label');
+    control.className = 'cs-field-toggle';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'cs-checkbox';
+    const text = document.createElement('span');
+    text.textContent = config.checkboxLabel || config.label;
+    control.appendChild(checkbox);
+    control.appendChild(text);
+    field.appendChild(control);
+
+    const sync = () => {
+      const value = config.get();
+      if (value === null || value === undefined) {
+        checkbox.indeterminate = true;
+        checkbox.checked = false;
+      } else {
+        checkbox.indeterminate = false;
+        checkbox.checked = !!value;
+      }
+    };
+
+    checkbox.addEventListener('change', () => {
+      config.set(checkbox.checked);
+      checkbox.indeterminate = false;
+      markDirty();
+    });
+    resetBtn.addEventListener('click', () => {
+      config.set(null);
+      checkbox.checked = false;
+      checkbox.indeterminate = true;
+      markDirty();
+    });
+    sync();
+  };
+
+  const createSelectField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const select = document.createElement('select');
+    select.className = 'cs-select';
+    (config.options || []).forEach((opt) => {
+      const option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.label;
+      select.appendChild(option);
+    });
+    select.value = config.get() == null ? '' : String(config.get());
+    select.addEventListener('change', () => {
+      const next = select.value;
+      config.set(next === '' ? null : next);
+      markDirty();
+    });
+    control.appendChild(select);
+    field.appendChild(control);
+    return select;
+  };
+
+  const createLinkListField = (section, key, config) => {
+    const list = ensureLinkList(key);
+    const field = createField(section, {
+      dataKey: key,
+      label: config.label,
+      description: config.description
+    });
+    const listWrap = document.createElement('div');
+    listWrap.className = 'cs-link-list';
+    field.appendChild(listWrap);
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls';
+    field.appendChild(controls);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary cs-add-link';
+    addBtn.textContent = t('editor.composer.site.addLink');
+    controls.appendChild(addBtn);
+
+    const moveEntry = (from, to) => {
+      if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+      const [item] = list.splice(from, 1);
+      list.splice(to, 0, item);
+      markDirty();
+      renderRows();
+    };
+
+    const renderRows = () => {
+      listWrap.innerHTML = '';
+      if (!list.length) {
+        const empty = document.createElement('div');
+        empty.className = 'cs-empty';
+        empty.textContent = t('editor.composer.site.noLinks');
+        listWrap.appendChild(empty);
+        return;
+      }
+      list.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'cs-link-row';
+        row.dataset.index = String(index);
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.className = 'cs-input cs-input-small';
+        labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
+        labelInput.value = item && item.label ? item.label : '';
+        labelInput.addEventListener('input', () => {
+          list[index].label = labelInput.value;
+          markDirty();
+        });
+        const hrefInput = document.createElement('input');
+        hrefInput.type = 'text';
+        hrefInput.className = 'cs-input cs-input-small';
+        hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
+        hrefInput.value = item && item.href ? item.href : '';
+        hrefInput.addEventListener('input', () => {
+          list[index].href = hrefInput.value;
+          markDirty();
+        });
+        const actions = document.createElement('div');
+        actions.className = 'cs-link-actions';
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'btn-tertiary cs-move';
+        upBtn.textContent = '↑';
+        upBtn.disabled = index === 0;
+        upBtn.addEventListener('click', () => moveEntry(index, index - 1));
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'btn-tertiary cs-move';
+        downBtn.textContent = '↓';
+        downBtn.disabled = index === list.length - 1;
+        downBtn.addEventListener('click', () => moveEntry(index, index + 1));
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-tertiary cs-remove-link';
+        removeBtn.textContent = t('editor.composer.site.removeLink');
+        removeBtn.addEventListener('click', () => {
+          list.splice(index, 1);
+          markDirty();
+          renderRows();
+        });
+        actions.append(upBtn, downBtn, removeBtn);
+        row.append(labelInput, hrefInput, actions);
+        listWrap.appendChild(row);
+      });
+    };
+
+    addBtn.addEventListener('click', () => {
+      list.push({ label: '', href: '' });
+      markDirty();
+      renderRows();
+    });
+
+    renderRows();
+  };
+
+  const identitySection = createSection(
+    t('editor.composer.site.sections.identity.title'),
+    t('editor.composer.site.sections.identity.description')
+  );
+  renderLocalizedField(identitySection, 'siteTitle', {
+    label: t('editor.composer.site.fields.siteTitle'),
+    description: t('editor.composer.site.fields.siteTitleHelp')
+  });
+  renderLocalizedField(identitySection, 'siteSubtitle', {
+    label: t('editor.composer.site.fields.siteSubtitle'),
+    description: t('editor.composer.site.fields.siteSubtitleHelp')
+  });
+  createTextField(identitySection, {
+    dataKey: 'avatar',
+    label: t('editor.composer.site.fields.avatar'),
+    description: t('editor.composer.site.fields.avatarHelp'),
+    placeholder: 'assets/avatar.jpeg',
+    get: () => site.avatar,
+    set: (value) => { site.avatar = value; }
+  });
+  createTextField(identitySection, {
+    dataKey: 'resourceURL',
+    label: t('editor.composer.site.fields.resourceURL'),
+    description: t('editor.composer.site.fields.resourceURLHelp'),
+    placeholder: 'https://example.com/',
+    get: () => site.resourceURL,
+    set: (value) => { site.resourceURL = value; }
+  });
+  createTextField(identitySection, {
+    dataKey: 'contentRoot',
+    label: t('editor.composer.site.fields.contentRoot'),
+    description: t('editor.composer.site.fields.contentRootHelp'),
+    placeholder: 'wwwroot',
+    get: () => site.contentRoot,
+    set: (value) => { site.contentRoot = value; }
+  });
+
+  const seoSection = createSection(
+    t('editor.composer.site.sections.seo.title'),
+    t('editor.composer.site.sections.seo.description')
+  );
+  renderLocalizedField(seoSection, 'siteDescription', {
+    label: t('editor.composer.site.fields.siteDescription'),
+    description: t('editor.composer.site.fields.siteDescriptionHelp'),
+    multiline: true,
+    rows: 3,
+    ensureDefault: false
+  });
+  renderLocalizedField(seoSection, 'siteKeywords', {
+    label: t('editor.composer.site.fields.siteKeywords'),
+    description: t('editor.composer.site.fields.siteKeywordsHelp'),
+    ensureDefault: false
+  });
+  createLinkListField(seoSection, 'profileLinks', {
+    label: t('editor.composer.site.fields.profileLinks'),
+    description: t('editor.composer.site.fields.profileLinksHelp')
+  });
+  createLinkListField(seoSection, 'links', {
+    label: t('editor.composer.site.fields.navLinks'),
+    description: t('editor.composer.site.fields.navLinksHelp')
+  });
+
+  const behaviorSection = createSection(
+    t('editor.composer.site.sections.behavior.title'),
+    t('editor.composer.site.sections.behavior.description')
+  );
+  createTextField(behaviorSection, {
+    dataKey: 'defaultLanguage',
+    label: t('editor.composer.site.fields.defaultLanguage'),
+    description: t('editor.composer.site.fields.defaultLanguageHelp'),
+    placeholder: 'en',
+    get: () => site.defaultLanguage,
+    set: (value) => { site.defaultLanguage = value; }
+  });
+  createNumberField(behaviorSection, {
+    dataKey: 'contentOutdatedDays',
+    label: t('editor.composer.site.fields.contentOutdatedDays'),
+    description: t('editor.composer.site.fields.contentOutdatedDaysHelp'),
+    min: 0,
+    get: () => site.contentOutdatedDays,
+    set: (value) => { site.contentOutdatedDays = value == null || Number.isNaN(value) ? null : value; }
+  });
+  createNumberField(behaviorSection, {
+    dataKey: 'pageSize',
+    label: t('editor.composer.site.fields.pageSize'),
+    description: t('editor.composer.site.fields.pageSizeHelp'),
+    min: 1,
+    get: () => site.pageSize,
+    set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
+  });
+  createSelectField(behaviorSection, {
+    dataKey: 'showAllPosts',
+    label: t('editor.composer.site.fields.showAllPosts'),
+    description: t('editor.composer.site.fields.showAllPostsHelp'),
+    get: () => {
+      if (site.showAllPosts === true) return 'true';
+      if (site.showAllPosts === false) return 'false';
+      return '';
+    },
+    set: (value) => {
+      if (value === null || value === '') site.showAllPosts = null;
+      else site.showAllPosts = value === 'true';
+    },
+    options: [
+      { value: '', label: t('editor.composer.site.optionInherit') },
+      { value: 'true', label: t('editor.composer.site.optionShow') },
+      { value: 'false', label: t('editor.composer.site.optionHide') }
+    ]
+  });
+  createTextField(behaviorSection, {
+    dataKey: 'landingTab',
+    label: t('editor.composer.site.fields.landingTab'),
+    description: t('editor.composer.site.fields.landingTabHelp'),
+    get: () => site.landingTab,
+    set: (value) => { site.landingTab = value; }
+  });
+  createTriStateCheckbox(behaviorSection, {
+    dataKey: 'cardCoverFallback',
+    label: t('editor.composer.site.fields.cardCoverFallback'),
+    description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    get: () => site.cardCoverFallback,
+    set: (value) => { site.cardCoverFallback = value; }
+  });
+  createTriStateCheckbox(behaviorSection, {
+    dataKey: 'errorOverlay',
+    label: t('editor.composer.site.fields.errorOverlay'),
+    description: t('editor.composer.site.fields.errorOverlayHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    get: () => site.errorOverlay,
+    set: (value) => { site.errorOverlay = value; }
+  });
+
+  const themeSection = createSection(
+    t('editor.composer.site.sections.theme.title'),
+    t('editor.composer.site.sections.theme.description')
+  );
+  createSelectField(themeSection, {
+    dataKey: 'themeMode',
+    label: t('editor.composer.site.fields.themeMode'),
+    description: t('editor.composer.site.fields.themeModeHelp'),
+    get: () => site.themeMode || '',
+    set: (value) => { site.themeMode = value == null ? '' : value; },
+    options: [
+      { value: '', label: t('editor.composer.site.optionInherit') },
+      { value: 'user', label: 'user' },
+      { value: 'auto', label: 'auto' },
+      { value: 'light', label: 'light' },
+      { value: 'dark', label: 'dark' }
+    ]
+  });
+  createTextField(themeSection, {
+    dataKey: 'themePack',
+    label: t('editor.composer.site.fields.themePack'),
+    description: t('editor.composer.site.fields.themePackHelp'),
+    get: () => site.themePack,
+    set: (value) => { site.themePack = value; }
+  });
+  createTriStateCheckbox(themeSection, {
+    dataKey: 'themeOverride',
+    label: t('editor.composer.site.fields.themeOverride'),
+    description: t('editor.composer.site.fields.themeOverrideHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    get: () => site.themeOverride,
+    set: (value) => { site.themeOverride = value; }
+  });
+
+  const repoSection = createSection(
+    t('editor.composer.site.sections.repo.title'),
+    t('editor.composer.site.sections.repo.description')
+  );
+  const repo = ensureRepo();
+  const repoField = createField(repoSection, {
+    dataKey: 'repo',
+    label: t('editor.composer.site.fields.repo'),
+    description: t('editor.composer.site.fields.repoHelp')
+  });
+  const repoInputs = document.createElement('div');
+  repoInputs.className = 'cs-repo-grid';
+  const ownerInput = document.createElement('input');
+  ownerInput.type = 'text';
+  ownerInput.className = 'cs-input';
+  ownerInput.placeholder = t('editor.composer.site.repoOwner');
+  ownerInput.value = repo.owner || '';
+  ownerInput.addEventListener('input', () => { repo.owner = ownerInput.value; markDirty(); });
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'cs-input';
+  nameInput.placeholder = t('editor.composer.site.repoName');
+  nameInput.value = repo.name || '';
+  nameInput.addEventListener('input', () => { repo.name = nameInput.value; markDirty(); });
+  const branchInput = document.createElement('input');
+  branchInput.type = 'text';
+  branchInput.className = 'cs-input';
+  branchInput.placeholder = t('editor.composer.site.repoBranch');
+  branchInput.value = repo.branch || '';
+  branchInput.addEventListener('input', () => { repo.branch = branchInput.value; markDirty(); });
+  repoInputs.append(ownerInput, nameInput, branchInput);
+  repoField.appendChild(repoInputs);
+
+  const assetsSection = createSection(
+    t('editor.composer.site.sections.assets.title'),
+    t('editor.composer.site.sections.assets.description')
+  );
+  const warnings = ensureAssetWarnings();
+  createTriStateCheckbox(assetsSection, {
+    dataKey: 'assetWarnings',
+    label: t('editor.composer.site.fields.assetLargeImage'),
+    description: t('editor.composer.site.fields.assetLargeImageHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    get: () => warnings.largeImage.enabled,
+    set: (value) => { warnings.largeImage.enabled = value; }
+  });
+  createNumberField(assetsSection, {
+    dataKey: 'assetWarnings',
+    label: t('editor.composer.site.fields.assetLargeImageThreshold'),
+    description: t('editor.composer.site.fields.assetLargeImageThresholdHelp'),
+    min: 1,
+    get: () => warnings.largeImage.thresholdKB,
+    set: (value) => { warnings.largeImage.thresholdKB = value == null || Number.isNaN(value) ? null : value; }
+  });
+
+  if (site.__extras && Object.keys(site.__extras).length) {
+    const extrasSection = createSection(
+      t('editor.composer.site.sections.extras.title'),
+      t('editor.composer.site.sections.extras.description')
+    );
+    const field = createField(extrasSection, {
+      dataKey: '__extras',
+      label: t('editor.composer.site.fields.extras'),
+      description: t('editor.composer.site.fields.extrasHelp')
+    });
+    const list = document.createElement('ul');
+    list.className = 'cs-extra-list';
+    Object.keys(site.__extras).sort().forEach((key) => {
+      const item = document.createElement('li');
+      item.textContent = key;
+      list.appendChild(item);
+    });
+    field.appendChild(list);
+  }
+}
+
+function rebuildSiteUI() {
+  const root = document.getElementById('composerSite');
+  if (!root) return;
+  buildSiteUI(root, activeComposerState);
+  notifyComposerChange('site', { skipAutoSave: true });
+}
 
 // Minimal styles injected for composer behaviors
 (function injectComposerStyles(){
@@ -9906,6 +11116,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     .composer-order-lines{display:none}
     .composer-order-visual{padding:.4rem 1.2rem 1.4rem}
     .composer-order-item{padding:.32rem .55rem}
+  }
+
+  .btn-tertiary{appearance:none;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--primary) 92%, var(--text));font-weight:600;font-size:.9rem;padding:.3rem .6rem;border-radius:8px;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease}
+  .btn-tertiary:hover{background:color-mix(in srgb,var(--primary) 12%, transparent);border-color:color-mix(in srgb,var(--primary) 48%, transparent);color:color-mix(in srgb,var(--primary) 98%, var(--text))}
+  .btn-tertiary:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  .btn-tertiary[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
+
+  .composer-site-host{padding:.35rem 0 1.4rem}
+  .composer-site-main{max-width:960px;margin:0 auto;padding:0 1rem}
+  @media (max-width:720px){
+    .composer-site-main{padding:0}
+  }
+
+  .cs-root{display:flex;flex-direction:column;gap:1.6rem;padding:.2rem 0 1.6rem}
+  .cs-section{border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 10px 24px rgba(15,23,42,0.08);padding:1.35rem 1.55rem;display:flex;flex-direction:column;gap:1.05rem}
+  .cs-section-title{margin:0;font-size:1.08rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
+  .cs-section-description{margin:0;font-size:.92rem;color:color-mix(in srgb,var(--muted) 92%, transparent)}
+  .cs-field{position:relative;padding:.1rem 0 .1rem .85rem;margin:0 0 1.05rem;border-left:3px solid transparent;border-radius:10px}
+  .cs-field:last-of-type{margin-bottom:.1rem}
+  .cs-field[data-diff="changed"]{border-left-color:color-mix(in srgb,var(--primary) 70%, transparent);background:color-mix(in srgb,var(--primary) 6%, transparent)}
+  .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
+  .cs-field-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.45rem}
+  .cs-field-label{font-weight:600;font-size:.95rem;color:color-mix(in srgb,var(--text) 88%, transparent)}
+  .cs-field-help{margin:.1rem 0 0;font-size:.88rem;color:color-mix(in srgb,var(--muted) 90%, transparent)}
+  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.55rem;align-items:flex-start}
+  .cs-localized-list{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.2rem}
+  .cs-localized-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.6rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--text) 4%, var(--card))}
+  .cs-localized-input{flex:1 1 260px;min-width:200px}
+  .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 18%, transparent);color:color-mix(in srgb,var(--primary) 96%, var(--text));font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+  .cs-input{width:100%;min-height:2.4rem;padding:.45rem .6rem;border-radius:9px;border:1px solid color-mix(in srgb,var(--border) 85%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
+  .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  textarea.cs-input{min-height:5.5rem;resize:vertical}
+  .cs-input-small{max-width:240px}
+  .cs-field-toggle{display:inline-flex;align-items:center;gap:.5rem;padding:.42rem .75rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);background:color-mix(in srgb,var(--text) 4%, var(--card));color:color-mix(in srgb,var(--text) 82%, transparent);font-size:.9rem}
+  .cs-checkbox{width:1.1rem;height:1.1rem}
+  .cs-empty{padding:.8rem 1rem;border:1px dashed color-mix(in srgb,var(--border) 80%, transparent);border-radius:10px;background:color-mix(in srgb,var(--text) 3%, var(--card));color:color-mix(in srgb,var(--muted) 92%, transparent);font-size:.9rem}
+  .cs-add-lang,.cs-add-link{align-self:flex-start}
+  .cs-remove-lang,.cs-remove-link{margin-left:auto}
+  .cs-select{min-width:220px;padding:.45rem .6rem;border-radius:9px;border:1px solid color-mix(in srgb,var(--border) 85%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-link-list{display:flex;flex-direction:column;gap:.6rem;margin-bottom:.2rem}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.6rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--text) 4%, var(--card))}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto}
+  .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
+  .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
+  .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
+  .cs-reset{margin-left:auto}
+  .cs-repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;margin-top:.5rem}
+  .cs-extra-list{margin:.45rem 0 0;padding-left:1.2rem;color:color-mix(in srgb,var(--muted) 92%, transparent);font-size:.9rem}
+  .cs-extra-list li{margin:.2rem 0}
+  @media (max-width:880px){
+    .cs-section{padding:1.1rem 1.2rem}
+    .cs-select{min-width:0;width:100%}
+    .cs-input-small{max-width:100%}
+    .cs-link-actions{width:100%;justify-content:flex-end}
   }
 
   /* Modal animations */

@@ -232,6 +232,7 @@ const translations = {
         fileLabel: 'File:',
         fileArticles: 'Articles',
         filePages: 'Pages',
+        fileSite: 'Site',
         addPost: 'Add Post Entry',
         addTab: 'Add Tab Entry',
         refresh: 'Refresh',
@@ -246,6 +247,7 @@ const translations = {
         indexEditorAria: 'index.yaml editor',
         tabsInlineAria: 'Old order for tabs.yaml',
         tabsEditorAria: 'tabs.yaml editor',
+        siteEditorAria: 'site.yaml editor',
         noLocalChangesToCommit: 'No local changes to commit.',
         noLocalChangesYet: 'No local changes yet.',
         dialogs: {
@@ -259,6 +261,105 @@ const translations = {
           remoteUpdated: 'Remote snapshot updated. Highlights now include remote differences.',
           remoteUnchanged: 'Remote snapshot unchanged.',
           refreshFailed: 'Failed to refresh remote snapshot'
+        },
+        site: {
+          addLanguage: 'Add language',
+          removeLanguage: 'Remove',
+          noLanguages: 'No languages configured yet.',
+          promptLanguage: 'Enter a language code (for example: en, zh, ja):',
+          languageExists: 'That language already exists.',
+          languageDefault: 'Default',
+          reset: 'Reset override',
+          addLink: 'Add link',
+          removeLink: 'Remove',
+          noLinks: 'No links configured.',
+          linkLabelPlaceholder: 'Label',
+          linkHrefPlaceholder: 'https://example.com',
+          toggleEnabled: 'Enable',
+          optionInherit: 'Auto (follow defaults)',
+          optionShow: 'Show',
+          optionHide: 'Hide',
+          repoOwner: 'Repository owner',
+          repoName: 'Repository name',
+          repoBranch: 'Branch (optional)',
+          sections: {
+            identity: {
+              title: 'Identity',
+              description: 'Customize the site title, subtitle, and avatar shown in navigation.'
+            },
+            seo: {
+              title: 'SEO & sharing',
+              description: 'Provide metadata used for search engines and link previews.'
+            },
+            behavior: {
+              title: 'Behavior',
+              description: 'Control pagination, landing behavior, and All Posts visibility.'
+            },
+            theme: {
+              title: 'Theme',
+              description: 'Pick default theme settings applied to visitors.'
+            },
+            repo: {
+              title: 'Repository',
+              description: 'Configure GitHub details for commits and issue links.'
+            },
+            assets: {
+              title: 'Asset warnings',
+              description: 'Warn editors about large image uploads.'
+            },
+            extras: {
+              title: 'Other keys',
+              description: 'Read-only keys detected in site.yaml (not editable here).'
+            }
+          },
+          fields: {
+            siteTitle: 'Site title',
+            siteTitleHelp: 'Shown as the main title in navigation and metadata.',
+            siteSubtitle: 'Site subtitle',
+            siteSubtitleHelp: 'Displayed beneath the title in navigation.',
+            avatar: 'Avatar',
+            avatarHelp: 'Relative path or URL to the avatar image.',
+            resourceURL: 'Resource URL',
+            resourceURLHelp: 'Absolute URL that points to the published /wwwroot folder (optional).',
+            contentRoot: 'Content root',
+            contentRootHelp: 'Folder containing index.yaml and tabs.yaml.',
+            siteDescription: 'Site description',
+            siteDescriptionHelp: 'Optional description used for SEO and link previews.',
+            siteKeywords: 'Site keywords',
+            siteKeywordsHelp: 'Comma-separated keywords for SEO (optional).',
+            profileLinks: 'Profile links',
+            profileLinksHelp: 'List of profile or social links shown near the avatar.',
+            navLinks: 'Navigation links',
+            navLinksHelp: 'Custom links shown in the navigation menu.',
+            defaultLanguage: 'Default language',
+            defaultLanguageHelp: 'Language code to use when no browser preference is matched.',
+            contentOutdatedDays: 'Outdated threshold (days)',
+            contentOutdatedDaysHelp: 'Highlight posts older than this many days. Leave blank to disable.',
+            pageSize: 'Posts per page',
+            pageSizeHelp: 'Maximum number of posts to display on the All Posts page.',
+            showAllPosts: 'All Posts tab',
+            showAllPostsHelp: 'Choose whether to display the All Posts tab. Auto keeps the existing behavior.',
+            landingTab: 'Landing tab',
+            landingTabHelp: 'Slug or title of a tab to open first when the site loads.',
+            cardCoverFallback: 'Fallback card cover',
+            cardCoverFallbackHelp: 'Generate a fallback cover image when a post has no cover.',
+            errorOverlay: 'Error overlay',
+            errorOverlayHelp: 'Show a client-side error overlay when runtime errors occur.',
+            themeMode: 'Theme mode',
+            themeModeHelp: 'Default theme mode (user/system/light/dark).',
+            themePack: 'Theme pack',
+            themePackHelp: 'Theme pack folder to load by default.',
+            themeOverride: 'Lock theme',
+            themeOverrideHelp: 'Force the selected theme even if visitors change it.',
+            repo: 'GitHub repository',
+            repoHelp: 'Required for commits, push to GitHub, and issue links.',
+            assetLargeImage: 'Warn about large images',
+            assetLargeImageHelp: 'Show a warning when attached images exceed the threshold.',
+            assetLargeImageThreshold: 'Large image threshold (KB)',
+            assetLargeImageThresholdHelp: 'File size in kilobytes that triggers the warning. Leave blank to use the default.',
+            extras: 'Preserved keys',
+            extrasHelp: 'These keys stay in site.yaml but must be edited manually.'
+          }
         },
         entryRow: {
           gripHint: 'Drag to reorder',
@@ -755,6 +856,7 @@ const translations = {
         fileLabel: '文件：',
         fileArticles: '文章',
         filePages: '页面',
+        fileSite: '站点',
         addPost: '添加文章条目',
         addTab: '添加标签条目',
         refresh: '刷新',
@@ -769,6 +871,7 @@ const translations = {
         indexEditorAria: 'index.yaml 编辑器',
         tabsInlineAria: 'tabs.yaml 的旧顺序',
         tabsEditorAria: 'tabs.yaml 编辑器',
+        siteEditorAria: 'site.yaml 编辑器',
         noLocalChangesToCommit: '没有本地更改可提交。',
         noLocalChangesYet: '暂时没有本地更改。',
         dialogs: {
@@ -782,6 +885,105 @@ const translations = {
           remoteUpdated: '远程快照已更新。高亮部分现在包含远程差异。',
           remoteUnchanged: '远程快照未发生变化。',
           refreshFailed: '刷新远程快照失败'
+        },
+        site: {
+          addLanguage: '添加语言',
+          removeLanguage: '移除',
+          noLanguages: '尚未配置语言。',
+          promptLanguage: '请输入语言代码（例如：en、zh、ja）：',
+          languageExists: '该语言已经存在。',
+          languageDefault: '默认',
+          reset: '恢复默认',
+          addLink: '添加链接',
+          removeLink: '移除',
+          noLinks: '暂无链接。',
+          linkLabelPlaceholder: '名称',
+          linkHrefPlaceholder: 'https://example.com',
+          toggleEnabled: '启用',
+          optionInherit: '自动（沿用默认）',
+          optionShow: '显示',
+          optionHide: '隐藏',
+          repoOwner: '仓库所有者',
+          repoName: '仓库名称',
+          repoBranch: '分支（可选）',
+          sections: {
+            identity: {
+              title: '站点信息',
+              description: '配置导航栏中展示的站点名称、标语和头像。'
+            },
+            seo: {
+              title: 'SEO 与分享',
+              description: '提供用于搜索引擎和链接预览的元信息。'
+            },
+            behavior: {
+              title: '行为',
+              description: '控制分页、默认打开的页面以及“全部文章”的显示。'
+            },
+            theme: {
+              title: '主题',
+              description: '设置访问者默认使用的主题方案。'
+            },
+            repo: {
+              title: '仓库',
+              description: '配置 GitHub 信息，以启用提交与“报告问题”链接。'
+            },
+            assets: {
+              title: '资源提醒',
+              description: '为体积较大的图片显示警告。'
+            },
+            extras: {
+              title: '其他字段',
+              description: '检测到但不可在此编辑的 site.yaml 字段。'
+            }
+          },
+          fields: {
+            siteTitle: '站点标题',
+            siteTitleHelp: '显示在导航栏与页面元信息中。',
+            siteSubtitle: '站点副标题',
+            siteSubtitleHelp: '显示在导航栏标题下方。',
+            avatar: '头像',
+            avatarHelp: '头像图片的相对路径或完整 URL。',
+            resourceURL: '资源 URL',
+            resourceURLHelp: '指向已发布 wwwroot 目录的绝对地址（可选）。',
+            contentRoot: '内容根目录',
+            contentRootHelp: '存放 index.yaml 与 tabs.yaml 的文件夹。',
+            siteDescription: '站点描述',
+            siteDescriptionHelp: '用于 SEO 和分享链接的可选描述。',
+            siteKeywords: '站点关键词',
+            siteKeywordsHelp: '用于 SEO 的逗号分隔关键词（可选）。',
+            profileLinks: '个人链接',
+            profileLinksHelp: '显示在头像附近的个人或社交链接。',
+            navLinks: '导航链接',
+            navLinksHelp: '显示在导航菜单中的自定义链接。',
+            defaultLanguage: '默认语言',
+            defaultLanguageHelp: '当浏览器首选语言不匹配时使用的语言代码。',
+            contentOutdatedDays: '过期提醒（天）',
+            contentOutdatedDaysHelp: '文章超过此天数会标记为可能过期。留空则禁用。',
+            pageSize: '每页文章数',
+            pageSizeHelp: '“全部文章”页面每页最多显示的文章数量。',
+            showAllPosts: '显示“全部文章”',
+            showAllPostsHelp: '控制是否展示“全部文章”页面。选择“自动”以保持当前行为。',
+            landingTab: '默认标签页',
+            landingTabHelp: '站点加载时首先打开的标签页（填写 tabs.yaml 中的 slug 或标题）。',
+            cardCoverFallback: '生成默认封面',
+            cardCoverFallbackHelp: '当文章没有封面时生成一张替代封面。',
+            errorOverlay: '错误浮层',
+            errorOverlayHelp: '在发生运行时错误时显示调试浮层。',
+            themeMode: '主题模式',
+            themeModeHelp: '默认的主题模式（user / system / light / dark）。',
+            themePack: '主题包',
+            themePackHelp: '默认加载的主题包文件夹名称。',
+            themeOverride: '锁定主题',
+            themeOverrideHelp: '强制使用所选主题，忽略访问者的切换。',
+            repo: 'GitHub 仓库',
+            repoHelp: '用于提交、推送到 GitHub 以及“报告问题”链接。',
+            assetLargeImage: '大图警告',
+            assetLargeImageHelp: '当附件图片超过阈值时提醒编辑。',
+            assetLargeImageThreshold: '大图阈值（KB）',
+            assetLargeImageThresholdHelp: '触发警告的大小（千字节）。留空表示使用默认值。',
+            extras: '保留字段',
+            extrasHelp: '这些字段会保留在 site.yaml 中，需要手动编辑。'
+          }
         },
         entryRow: {
           gripHint: '拖动以重新排序',
@@ -1278,6 +1480,7 @@ const translations = {
         fileLabel: 'ファイル:',
         fileArticles: '記事',
         filePages: 'ページ',
+        fileSite: 'サイト',
         addPost: '記事エントリーを追加',
         addTab: 'タブ項目を追加',
         refresh: '更新',
@@ -1292,6 +1495,7 @@ const translations = {
         indexEditorAria: 'index.yaml エディター',
         tabsInlineAria: 'tabs.yaml の旧順序',
         tabsEditorAria: 'tabs.yaml エディター',
+        siteEditorAria: 'site.yaml エディター',
         noLocalChangesToCommit: 'コミットするローカルの変更はありません。',
         noLocalChangesYet: 'ローカルの変更はまだありません。',
         dialogs: {
@@ -1305,6 +1509,105 @@ const translations = {
           remoteUpdated: 'リモートスナップショットが更新されました。ハイライトにリモートの差分が含まれます。',
           remoteUnchanged: 'リモートスナップショットは変更されていません。',
           refreshFailed: 'リモートスナップショットの更新に失敗しました'
+        },
+        site: {
+          addLanguage: '言語を追加',
+          removeLanguage: '削除',
+          noLanguages: '言語はまだ設定されていません。',
+          promptLanguage: '言語コードを入力してください（例: en, zh, ja）：',
+          languageExists: 'その言語はすでに存在します。',
+          languageDefault: 'デフォルト',
+          reset: '上書きをリセット',
+          addLink: 'リンクを追加',
+          removeLink: '削除',
+          noLinks: 'リンクはまだありません。',
+          linkLabelPlaceholder: 'ラベル',
+          linkHrefPlaceholder: 'https://example.com',
+          toggleEnabled: '有効にする',
+          optionInherit: '自動（既定を使用）',
+          optionShow: '表示する',
+          optionHide: '非表示にする',
+          repoOwner: 'リポジトリ所有者',
+          repoName: 'リポジトリ名',
+          repoBranch: 'ブランチ（任意）',
+          sections: {
+            identity: {
+              title: 'サイト情報',
+              description: 'ナビゲーションに表示されるサイト名・サブタイトル・アバターを設定します。'
+            },
+            seo: {
+              title: 'SEO / 共有',
+              description: '検索エンジンやリンクプレビューで利用されるメタ情報を設定します。'
+            },
+            behavior: {
+              title: '動作',
+              description: 'ページネーション、初期表示タブ、All Posts の表示を制御します。'
+            },
+            theme: {
+              title: 'テーマ',
+              description: '訪問者に適用される既定のテーマ設定です。'
+            },
+            repo: {
+              title: 'リポジトリ',
+              description: 'GitHub へのコミットや「問題を報告」リンクに必要な情報です。'
+            },
+            assets: {
+              title: 'アセット警告',
+              description: '大きな画像を挿入するときの警告を設定します。'
+            },
+            extras: {
+              title: 'その他のキー',
+              description: 'site.yaml に存在するものの、この画面では編集できないキーです。'
+            }
+          },
+          fields: {
+            siteTitle: 'サイトタイトル',
+            siteTitleHelp: 'ナビゲーションとメタ情報に表示されます。',
+            siteSubtitle: 'サイトサブタイトル',
+            siteSubtitleHelp: 'ナビゲーションのタイトル下に表示されます。',
+            avatar: 'アバター',
+            avatarHelp: 'アバター画像への相対パスまたは URL。',
+            resourceURL: 'リソース URL',
+            resourceURLHelp: '公開済み wwwroot フォルダーへの絶対 URL（任意）。',
+            contentRoot: 'コンテンツルート',
+            contentRootHelp: 'index.yaml と tabs.yaml を配置しているフォルダー。',
+            siteDescription: 'サイト説明',
+            siteDescriptionHelp: 'SEO やリンクプレビュー用の任意の説明文。',
+            siteKeywords: 'サイトキーワード',
+            siteKeywordsHelp: 'SEO 用のカンマ区切りキーワード（任意）。',
+            profileLinks: 'プロフィールリンク',
+            profileLinksHelp: 'アバター付近に表示されるプロフィール / ソーシャルリンク。',
+            navLinks: 'ナビゲーションリンク',
+            navLinksHelp: 'ナビゲーションメニューに表示するカスタムリンク。',
+            defaultLanguage: '既定の言語',
+            defaultLanguageHelp: 'ブラウザー設定が一致しない場合に使用する言語コード。',
+            contentOutdatedDays: '古い記事のしきい値（日）',
+            contentOutdatedDaysHelp: '指定日数を超えた記事を古い可能性ありとして表示します。空欄で無効。',
+            pageSize: '1 ページの投稿数',
+            pageSizeHelp: 'All Posts ページに表示する最大投稿数。',
+            showAllPosts: 'All Posts タブ',
+            showAllPostsHelp: 'All Posts を表示するかどうか。自動にすると既存の動作を維持します。',
+            landingTab: '初期表示タブ',
+            landingTabHelp: 'サイト読み込み時に最初に開くタブ（tabs.yaml のスラッグまたはタイトル）。',
+            cardCoverFallback: 'カードの代替カバー',
+            cardCoverFallbackHelp: '投稿にカバー画像がない場合に自動生成します。',
+            errorOverlay: 'エラーオーバーレイ',
+            errorOverlayHelp: '実行時エラーが起きたときにオーバーレイを表示します。',
+            themeMode: 'テーマモード',
+            themeModeHelp: '既定のテーマモード（user / system / light / dark）。',
+            themePack: 'テーマパック',
+            themePackHelp: '既定で読み込むテーマパックフォルダー名。',
+            themeOverride: 'テーマを固定する',
+            themeOverrideHelp: '訪問者が変更しても選択したテーマを強制します。',
+            repo: 'GitHub リポジトリ',
+            repoHelp: 'コミット、GitHub へのプッシュ、問題報告リンクに必要です。',
+            assetLargeImage: '大きな画像の警告',
+            assetLargeImageHelp: '添付画像がしきい値を超えた際に警告します。',
+            assetLargeImageThreshold: '画像のしきい値 (KB)',
+            assetLargeImageThresholdHelp: '警告を表示するサイズ（KB）。空欄で既定値を使用。',
+            extras: '保持しているキー',
+            extrasHelp: 'site.yaml に残しつつ、ここでは編集できないキーです。'
+          }
         },
         entryRow: {
           gripHint: 'ドラッグして並び替え',
