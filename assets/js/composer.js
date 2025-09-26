@@ -145,6 +145,183 @@ const composerOrderMainTransitions = new WeakMap();
 let composerSiteScrollAnimationId = null;
 let composerSiteScrollCleanup = null;
 
+const SEO_FILE_KINDS = ['sitemap', 'robots', 'meta'];
+const SEO_FILE_DEFAULTS = {
+  sitemap: { path: 'sitemap.xml', label: 'sitemap.xml' },
+  robots: { path: 'robots.txt', label: 'robots.txt' },
+  meta: { path: 'meta-tags.html', label: 'meta-tags.html' }
+};
+
+function createSeoDraft(kind) {
+  const meta = SEO_FILE_DEFAULTS[kind] || {};
+  return {
+    kind: 'seo',
+    seoKind: kind,
+    label: meta.label || meta.path || kind,
+    path: meta.path || (meta.label || ''),
+    original: '',
+    content: '',
+    dirty: false,
+    exists: false,
+    lastUpdated: 0
+  };
+}
+
+const seoDraftState = {
+  sitemap: createSeoDraft('sitemap'),
+  robots: createSeoDraft('robots'),
+  meta: createSeoDraft('meta')
+};
+
+let pendingSeoSummaryUpdate = false;
+
+function scheduleSeoSummaryUpdate() {
+  if (pendingSeoSummaryUpdate) return;
+  pendingSeoSummaryUpdate = true;
+  const run = () => {
+    pendingSeoSummaryUpdate = false;
+    try { updateUnsyncedSummary(); } catch (_) {}
+  };
+  try { requestAnimationFrame(run); }
+  catch (_) { setTimeout(run, 0); }
+}
+
+function cloneSeoDraftEntry(kind) {
+  const entry = seoDraftState[kind];
+  if (!entry) return null;
+  return { ...entry };
+}
+
+function notifySeoDraftChange(kind) {
+  const entry = cloneSeoDraftEntry(kind);
+  if (!entry) return;
+  try {
+    document.dispatchEvent(new CustomEvent('ns:seo-draft-change', { detail: { kind, entry } }));
+  } catch (_) {}
+}
+
+function normalizeSeoContent(text) {
+  return String(text == null ? '' : text).replace(/\r\n/g, '\n');
+}
+
+function setSeoDraftBaseline(kind, text, meta = {}) {
+  const entry = seoDraftState[kind];
+  if (!entry) return;
+  if (meta && meta.label) entry.label = meta.label;
+  if (meta && meta.path) entry.path = meta.path;
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'exists')) entry.exists = !!meta.exists;
+  const normalized = normalizeSeoContent(text);
+  entry.original = normalized;
+  if (!entry.dirty) {
+    entry.content = normalized;
+  }
+  entry.dirty = normalizeSeoContent(entry.content) !== normalized;
+  entry.lastUpdated = Date.now();
+  notifySeoDraftChange(kind);
+  scheduleSeoSummaryUpdate();
+}
+
+function setSeoDraftContent(kind, text, meta = {}) {
+  const entry = seoDraftState[kind];
+  if (!entry) return;
+  if (meta && meta.label) entry.label = meta.label;
+  if (meta && meta.path) entry.path = meta.path;
+  if (meta && Object.prototype.hasOwnProperty.call(meta, 'exists')) entry.exists = !!meta.exists;
+  const normalized = normalizeSeoContent(text);
+  entry.content = normalized;
+  entry.dirty = normalized !== normalizeSeoContent(entry.original);
+  entry.lastUpdated = Date.now();
+  notifySeoDraftChange(kind);
+  scheduleSeoSummaryUpdate();
+}
+
+function resetSeoDraft(kind) {
+  const entry = seoDraftState[kind];
+  if (!entry) return;
+  entry.content = entry.original;
+  entry.dirty = false;
+  entry.lastUpdated = Date.now();
+  notifySeoDraftChange(kind);
+  scheduleSeoSummaryUpdate();
+}
+
+function listSeoDrafts() {
+  return SEO_FILE_KINDS.map((kind) => cloneSeoDraftEntry(kind)).filter(Boolean);
+}
+
+function getSeoDraft(kind) {
+  return cloneSeoDraftEntry(kind);
+}
+
+function inferSeoKindFromPath(path) {
+  const clean = String(path || '').trim().toLowerCase();
+  if (!clean) return '';
+  if (clean.endsWith('sitemap.xml')) return 'sitemap';
+  if (clean.endsWith('robots.txt')) return 'robots';
+  if (clean.endsWith('meta-tags.html')) return 'meta';
+  return '';
+}
+
+function finalizeSeoDraftCommit(file) {
+  if (!file) return;
+  const kind = file.seoKind || inferSeoKindFromPath(file.path || file.label || '');
+  if (!kind || !seoDraftState[kind]) return;
+  const entry = seoDraftState[kind];
+  if (file.path) entry.path = file.path;
+  if (file.label) entry.label = file.label;
+  entry.original = normalizeSeoContent(file.content || '');
+  entry.content = entry.original;
+  entry.dirty = false;
+  entry.exists = true;
+  entry.lastUpdated = Date.now();
+  notifySeoDraftChange(kind);
+  scheduleSeoSummaryUpdate();
+}
+
+function getDirtySeoDraftSummaries() {
+  const dirty = [];
+  SEO_FILE_KINDS.forEach((kind) => {
+    const entry = seoDraftState[kind];
+    if (!entry || !entry.dirty) return;
+    dirty.push({
+      kind: 'seo',
+      seoKind: kind,
+      label: entry.label || entry.path || `${kind}.txt`,
+      path: entry.path || entry.label || `${kind}.txt`,
+      exists: !!entry.exists,
+      hasContentChange: true,
+      state: entry.exists ? 'dirty' : 'new'
+    });
+  });
+  return dirty;
+}
+
+function getSeoDraftCommitEntries() {
+  const files = [];
+  SEO_FILE_KINDS.forEach((kind) => {
+    const entry = seoDraftState[kind];
+    if (!entry || !entry.dirty) return;
+    files.push({
+      kind: 'seo',
+      seoKind: kind,
+      label: entry.label || entry.path || `${kind}.txt`,
+      path: entry.path || entry.label || `${kind}.txt`,
+      content: entry.content || ''
+    });
+  });
+  return files;
+}
+
+try {
+  window.__nsSeoDraftApi = {
+    setBaseline: setSeoDraftBaseline,
+    setContent: setSeoDraftContent,
+    reset: resetSeoDraft,
+    get: getSeoDraft,
+    list: listSeoDrafts
+  };
+} catch (_) {}
+
 const SITE_FIELD_LABEL_MAP = {
   siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
   siteSubtitle: { i18nKey: 'editor.composer.site.fields.siteSubtitle' },
@@ -3414,6 +3591,8 @@ function computeUnsyncedSummary() {
   }
   const markdownEntries = collectUnsyncedMarkdownEntries();
   if (markdownEntries.length) entries.push(...markdownEntries);
+  const seoEntries = getDirtySeoDraftSummaries();
+  if (seoEntries.length) entries.push(...seoEntries);
   return entries;
 }
 
@@ -3515,11 +3694,13 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   let composerCount = 0;
   let editorCount = 0;
+  let seoCount = 0;
 
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
     if (entry.kind === 'index' || entry.kind === 'tabs' || entry.kind === 'site') composerCount += 1;
     else if (entry.kind === 'markdown') editorCount += 1;
+    else if (entry.kind === 'seo') seoCount += 1;
   }
 
   if (!composerCount) {
@@ -3537,6 +3718,7 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   applyModeTabBadgeState('composer', composerCount);
   applyModeTabBadgeState('editor', editorCount);
+  applyModeTabBadgeState('seo', seoCount);
 }
 
 function updateReviewButton(summaryEntries = []) {
@@ -4367,6 +4549,11 @@ function gatherLocalChangesForCommit() {
     });
   }
 
+  const seoFiles = getSeoDraftCommitEntries();
+  if (seoFiles && seoFiles.length) {
+    seoFiles.forEach((entry) => { addFile(entry); });
+  }
+
   return { files };
 }
 
@@ -4426,6 +4613,10 @@ function describeSummaryEntry(entry) {
     if (entry.hasOrderChange) bits.push('order');
     if (!bits.length) return base;
     return `${base} – ${bits.join(' & ')} changes`;
+  }
+  if (entry.kind === 'seo') {
+    const suffix = entry.exists ? '' : ' (new)';
+    return `${base}${suffix}`;
   }
   return base;
 }
@@ -4906,6 +5097,8 @@ function applyLocalPostCommitState(files = []) {
         const withoutRoot = file.path.replace(/^\/?(?:wwwroot\/)?/, '');
         removeMarkdownAsset(norm, normalizeRelPath(withoutRoot));
       }
+    } else if (file.kind === 'seo') {
+      finalizeSeoDraftCommit(file);
     }
   });
   updateUnsyncedSummary();
@@ -8553,7 +8746,8 @@ function applyMode(mode) {
   }
 
   const candidate = mode || 'composer';
-  const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
+  const allowedStatic = new Set(['composer', 'editor', 'seo']);
+  const nextMode = (allowedStatic.has(candidate) || isDynamicMode(candidate))
     ? candidate
     : 'composer';
 
@@ -8572,15 +8766,21 @@ function applyMode(mode) {
 
   currentMode = nextMode;
 
-  const onEditor = nextMode !== 'composer';
-  try { $('#mode-editor').style.display = onEditor ? '' : 'none'; } catch (_) {}
-  try { $('#mode-composer').style.display = onEditor ? 'none' : ''; } catch (_) {}
+  const isDynamic = isDynamicMode(nextMode);
+  const isSeoMode = nextMode === 'seo';
+  const isComposerMode = nextMode === 'composer';
+  const isEditorMode = nextMode === 'editor' || isDynamic;
+  try { $('#mode-editor').style.display = isEditorMode ? '' : 'none'; } catch (_) {}
+  try { $('#mode-composer').style.display = isComposerMode ? '' : 'none'; } catch (_) {}
+  try {
+    const seoPanel = $('#mode-seo');
+    if (seoPanel) seoPanel.style.display = isSeoMode ? '' : 'none';
+  } catch (_) {}
   try {
     const layout = $('#mode-editor');
-    if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
+    if (layout) layout.classList.toggle('is-dynamic', isDynamic);
   } catch (_) {}
 
-  const isDynamic = isDynamicMode(nextMode);
   try {
     $$('.mode-tab').forEach((b) => {
       const targetMode = b.classList.contains('dynamic-mode')
@@ -8602,9 +8802,9 @@ function applyMode(mode) {
     catch (_) { setTimeout(run, 0); }
   };
 
-  if (onEditor) scheduleEditorLayoutRefresh();
+  if (isEditorMode) scheduleEditorLayoutRefresh();
 
-  if (nextMode === 'composer') {
+  if (isComposerMode || isSeoMode) {
     activeDynamicMode = null;
     pushEditorCurrentFileInfo(null);
   } else if (isDynamicMode(nextMode)) {
@@ -10163,10 +10363,14 @@ function bindComposerUI(state) {
                   }
                 } catch(_) { out.push({ key, lang, path: rel, version: extractVersionFromPath(rel), folder: dirname(rel), filename: basename(rel) }); }
               })());
-            }
-          }
-        }
       }
+    }
+  }
+
+  try {
+    document.dispatchEvent(new CustomEvent('ns:mode-changed', { detail: { mode: nextMode, previous: previousMode } }));
+  } catch (_) {}
+}
       await Promise.all(tasks);
       return out;
     }

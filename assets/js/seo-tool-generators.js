@@ -1192,3 +1192,18 @@ window.__seoToolState = state;
 window.__seoUpdatePreview = function(id){
   try { const ta = document.getElementById(id); const val = ta ? (ta.value || '') : ''; setEditorValue(id, val); } catch (_) {}
 }
+
+export {
+  generateSitemap,
+  generateRobots,
+  generateMetaTags,
+  validateSitemap,
+  validateRobots,
+  validateMeta,
+  copySitemap,
+  copyRobots,
+  copyMetaTags,
+  downloadSitemap,
+  downloadRobots,
+  downloadMetaTags
+};

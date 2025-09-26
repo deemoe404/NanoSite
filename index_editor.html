@@ -1231,6 +1231,35 @@
     [data-init-cfile="site"] #composerSite { display: block !important; }
     [data-init-cfile="site"] #composerIndex,
     [data-init-cfile="site"] #composerTabs { display: none !important; }
+
+    /* SEO mode */
+    #mode-seo { display: none; }
+    .seo-mode { display: flex; flex-direction: column; gap: 1.5rem; }
+    .seo-mode .seo-intro { display: flex; flex-direction: column; gap: .5rem; }
+    .seo-mode .seo-intro h2 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    .seo-mode .seo-intro p { margin: 0; color: var(--muted); font-size: .98rem; line-height: 1.6; }
+    .seo-grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: stretch; }
+    .seo-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; box-shadow: var(--shadow); min-width: 0; }
+    .seo-card-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .seo-card-header h3 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text); }
+    .seo-status { font-size: .9rem; color: var(--muted); display: inline-flex; align-items: center; gap: .45rem; }
+    .seo-status[data-state="dirty"] { color: var(--primary); font-weight: 600; }
+    .seo-status[data-state="error"] { color: #dc2626; }
+    .seo-status[data-state="loading"] { color: var(--muted); font-style: italic; }
+    .seo-status[data-state="clean"] { color: #15803d; }
+    .seo-status[data-state="empty"] { color: #92400e; }
+    .seo-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+    .seo-actions button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; }
+    .seo-actions .btn-tertiary { border-style: dashed; }
+    .seo-preview { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, transparent); max-height: 320px; overflow: auto; font-size: .9rem; line-height: 1.5; }
+    .seo-editor-wrap { position: relative; display: flex; flex-direction: column; gap: .75rem; }
+    .seo-editor-wrap textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: .85rem; }
+    .seo-card-footer { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+    .seo-mode .hi-editor { max-height: 320px; }
+    .seo-mode .hi-editor .code-scroll { min-height: 220px; }
+    @media (max-width: 720px) {
+      .seo-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -1247,6 +1276,10 @@
         </button>
         <button class="mode-tab" data-mode="editor" data-tab-label="Editor" data-i18n-data-tab-label="editor.modes.editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor" data-i18n-aria-label="editor.modes.editor">
           <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
+          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+        </button>
+        <button class="mode-tab" data-mode="seo" data-tab-label="SEO" role="tab" aria-controls="mode-seo" aria-selected="false" aria-label="SEO">
+          <span class="mode-tab-text">SEO</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
       </nav>
@@ -1359,6 +1392,71 @@
         </div>
       </div>
     </div>
+
+    <!-- SEO Mode -->
+    <section class="box seo-mode" id="mode-seo" style="display:none;">
+      <div class="seo-intro">
+        <h2>SEO tools</h2>
+        <p>Generate sitemap, robots.txt, and HTML meta tags directly from your site configuration and content. Any changes appear in the status panel and can be synchronized to GitHub with the existing workflow.</p>
+      </div>
+      <div class="seo-grid">
+        <article class="seo-card" data-seo-kind="sitemap">
+          <div class="seo-card-header">
+            <h3>sitemap.xml</h3>
+            <span class="seo-status" id="seoStatus-sitemap" data-state="idle" role="status" aria-live="polite">Load current sitemap to begin.</span>
+          </div>
+          <div class="seo-actions">
+            <button type="button" class="btn-tertiary" id="seoLoadSitemap">Load current</button>
+            <button type="button" class="btn-primary" id="seoGenerateSitemap">Generate</button>
+            <button type="button" class="btn-secondary" id="seoValidateSitemap">Validate</button>
+            <button type="button" class="btn-secondary" id="seoCopySitemap">Copy</button>
+            <button type="button" class="btn-secondary" id="seoDownloadSitemap">Download</button>
+            <button type="button" class="btn-tertiary" id="seoResetSitemap">Revert</button>
+          </div>
+          <div class="seo-preview" id="sitemapPreview" aria-live="polite"></div>
+          <div class="seo-editor-wrap">
+            <textarea id="sitemapOutput" data-seo-kind="sitemap" spellcheck="false"></textarea>
+          </div>
+        </article>
+        <article class="seo-card" data-seo-kind="robots">
+          <div class="seo-card-header">
+            <h3>robots.txt</h3>
+            <span class="seo-status" id="seoStatus-robots" data-state="idle" role="status" aria-live="polite">Load current robots.txt to begin.</span>
+          </div>
+          <div class="seo-actions">
+            <button type="button" class="btn-tertiary" id="seoLoadRobots">Load current</button>
+            <button type="button" class="btn-primary" id="seoGenerateRobots">Generate</button>
+            <button type="button" class="btn-secondary" id="seoValidateRobots">Validate</button>
+            <button type="button" class="btn-secondary" id="seoCopyRobots">Copy</button>
+            <button type="button" class="btn-secondary" id="seoDownloadRobots">Download</button>
+            <button type="button" class="btn-tertiary" id="seoResetRobots">Revert</button>
+          </div>
+          <div class="seo-preview" id="robotsPreview" aria-live="polite"></div>
+          <div class="seo-editor-wrap">
+            <textarea id="robotsOutput" data-seo-kind="robots" spellcheck="false"></textarea>
+          </div>
+        </article>
+        <article class="seo-card" data-seo-kind="meta">
+          <div class="seo-card-header">
+            <h3>meta-tags.html</h3>
+            <span class="seo-status" id="seoStatus-meta" data-state="idle" role="status" aria-live="polite">Load current meta tags to begin.</span>
+          </div>
+          <div class="seo-actions">
+            <button type="button" class="btn-tertiary" id="seoLoadMeta">Load current</button>
+            <button type="button" class="btn-primary" id="seoGenerateMeta">Generate</button>
+            <button type="button" class="btn-secondary" id="seoValidateMeta">Validate</button>
+            <button type="button" class="btn-secondary" id="seoCopyMeta">Copy</button>
+            <button type="button" class="btn-secondary" id="seoDownloadMeta">Download</button>
+            <button type="button" class="btn-tertiary" id="seoResetMeta">Revert</button>
+          </div>
+          <div class="seo-preview" id="metaPreview" aria-live="polite"></div>
+          <div class="seo-editor-wrap">
+            <textarea id="metaOutput" data-seo-kind="meta" spellcheck="false"></textarea>
+          </div>
+        </article>
+      </div>
+      <textarea id="configOutput" hidden></textarea>
+    </section>
 
     <!-- Composer Mode -->
     <div class="editor-layout" id="mode-composer" style="display:none;">
@@ -1473,6 +1571,7 @@
   <script type="module" src="assets/js/editor-boot.js"></script>
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
+  <script type="module" src="assets/js/editor-seo.js"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
