@@ -143,6 +143,7 @@ const composerInlineVisibilityFallbacks = new WeakMap();
 const composerListTransitions = new WeakMap();
 const composerOrderMainTransitions = new WeakMap();
 let composerSiteScrollAnimationId = null;
+let composerSiteScrollCleanup = null;
 
 const SITE_FIELD_LABEL_MAP = {
   siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
@@ -186,6 +187,11 @@ function cancelComposerSiteScrollAnimation() {
     }
   } catch (_) {}
   composerSiteScrollAnimationId = null;
+  if (typeof composerSiteScrollCleanup === 'function') {
+    try { composerSiteScrollCleanup(); }
+    catch (_) {}
+  }
+  composerSiteScrollCleanup = null;
 }
 
 function createCubicBezierEasing(mX1, mY1, mX2, mY2) {
@@ -294,6 +300,47 @@ function animateComposerViewportScroll(targetY, duration, onComplete) {
 
   cancelComposerSiteScrollAnimation();
 
+  let restoreScrollBehavior = null;
+  const rootEl = typeof document !== 'undefined' ? document.documentElement : null;
+  if (rootEl && rootEl.style) {
+    try {
+      const previousBehavior = rootEl.style.scrollBehavior || '';
+      const hadInlineBehavior = previousBehavior !== '';
+      rootEl.style.scrollBehavior = 'auto';
+      restoreScrollBehavior = () => {
+        if (!rootEl || !rootEl.style) return;
+        if (hadInlineBehavior) rootEl.style.scrollBehavior = previousBehavior;
+        else rootEl.style.removeProperty('scroll-behavior');
+      };
+    } catch (_) {
+      restoreScrollBehavior = null;
+    }
+  }
+
+  if (typeof restoreScrollBehavior === 'function') {
+    composerSiteScrollCleanup = () => {
+      if (typeof restoreScrollBehavior === 'function') {
+        try { restoreScrollBehavior(); }
+        catch (_) {}
+      }
+      restoreScrollBehavior = null;
+    };
+  } else {
+    composerSiteScrollCleanup = null;
+  }
+
+  const finalize = (shouldInvokeCallback) => {
+    composerSiteScrollAnimationId = null;
+    if (typeof composerSiteScrollCleanup === 'function') {
+      try { composerSiteScrollCleanup(); }
+      catch (_) {}
+    }
+    composerSiteScrollCleanup = null;
+    if (shouldInvokeCallback && typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
+  };
+
   const step = (timestamp) => {
     const now = (() => {
       if (typeof timestamp === 'number') return timestamp;
@@ -317,17 +364,14 @@ function animateComposerViewportScroll(targetY, duration, onComplete) {
       } catch (_) {}
     }
 
-    composerSiteScrollAnimationId = null;
-    if (typeof onComplete === 'function') {
-      try { onComplete(); } catch (_) {}
-    }
+    finalize(true);
   };
 
   try {
     composerSiteScrollAnimationId = window.requestAnimationFrame(step);
     return true;
   } catch (_) {
-    composerSiteScrollAnimationId = null;
+    finalize(false);
     return false;
   }
 }
