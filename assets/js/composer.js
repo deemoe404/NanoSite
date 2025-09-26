@@ -12525,7 +12525,7 @@ function rebuildSiteUI() {
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
   .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
-  .cs-nav-list{list-style:none;margin:0;padding:.5rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-list{list-style:none;margin:0;padding:1rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
   .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
@@ -12587,7 +12587,7 @@ function rebuildSiteUI() {
   @media (max-width:920px){
     .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
     .cs-nav{position:relative;top:auto}
-    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:.4rem .45rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
+    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:1rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
     .cs-nav-item{flex:0 0 auto}
     .cs-nav-button{white-space:nowrap;padding:.48rem .65rem}
   }
