@@ -23,7 +23,7 @@
         else document.documentElement.removeAttribute('data-init-mode');
         // Preselect composer file (index/tabs) when persisted
         var cf = (localStorage.getItem('ns_composer_file') || 'index').toLowerCase();
-        if (cf === 'tabs') document.documentElement.setAttribute('data-init-cfile', 'tabs');
+        if (cf === 'tabs' || cf === 'site') document.documentElement.setAttribute('data-init-cfile', cf);
         else document.documentElement.removeAttribute('data-init-cfile');
       } catch (_) { /* ignore */ }
     })();
@@ -1220,6 +1220,9 @@
     /* Preselect composer sub-file to tabs when persisted */
     [data-init-cfile="tabs"] #composerIndex { display: none !important; }
     [data-init-cfile="tabs"] #composerTabs { display: block !important; }
+    [data-init-cfile="site"] #composerSite { display: block !important; }
+    [data-init-cfile="site"] #composerIndex,
+    [data-init-cfile="site"] #composerTabs { display: none !important; }
   </style>
 </head>
 <body>
@@ -1359,6 +1362,8 @@
               <a href="#" class="vt-btn active" data-cfile="index" data-i18n="editor.composer.fileArticles">Articles</a>
               <span class="dim" aria-hidden="true">/</span>
               <a href="#" class="vt-btn" data-cfile="tabs" data-i18n="editor.composer.filePages">Pages</a>
+              <span class="dim" aria-hidden="true">/</span>
+              <a href="#" class="vt-btn" data-cfile="site" data-i18n="editor.composer.fileSite">Site</a>
             </div>
           </div>
           <div class="right-actions">
@@ -1401,6 +1406,11 @@
             </div>
             <div class="composer-order-main">
               <div id="composerTabs" aria-label="tabs.yaml editor" data-i18n-aria-label="editor.composer.tabsEditorAria" style="display:none;"></div>
+            </div>
+          </div>
+          <div class="composer-site-host" id="composerSiteHost" style="display:none;">
+            <div class="composer-site-main">
+              <div id="composerSite" aria-label="site.yaml editor" data-i18n-aria-label="editor.composer.siteEditorAria" style="display:none;"></div>
             </div>
           </div>
         </div>
