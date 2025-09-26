@@ -3829,7 +3829,7 @@ function updateDiscardButtonVisibility() {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
   const activeKind = getActiveComposerFile();
-  const normalizedKind = activeKind === 'tabs' ? 'tabs' : 'index';
+  const normalizedKind = activeKind === 'tabs' ? 'tabs' : activeKind === 'site' ? 'site' : 'index';
   const diff = composerDiffCache[normalizedKind];
   const meta = composerDraftMeta[normalizedKind];
   const hasLocalChanges = !!(diff && diff.hasChanges);
