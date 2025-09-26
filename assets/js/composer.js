@@ -10799,6 +10799,48 @@ function buildSiteUI(root, state) {
     return input;
   };
 
+  const createSwitchControl = (field, labelText) => {
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls cs-field-controls-inline';
+    const toggle = document.createElement('label');
+    toggle.className = 'cs-switch';
+    toggle.dataset.state = 'off';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'cs-switch-input';
+    checkbox.setAttribute('role', 'switch');
+    checkbox.setAttribute('aria-checked', 'false');
+    const track = document.createElement('span');
+    track.className = 'cs-switch-track';
+    const thumb = document.createElement('span');
+    thumb.className = 'cs-switch-thumb';
+    track.appendChild(thumb);
+    const text = document.createElement('span');
+    text.className = 'cs-switch-label';
+    text.textContent = labelText || '';
+    toggle.appendChild(checkbox);
+    toggle.appendChild(track);
+    toggle.appendChild(text);
+    controls.appendChild(toggle);
+    field.appendChild(controls);
+    return { controls, toggle, checkbox };
+  };
+
+  const syncSwitchState = (checkbox, toggle, value, allowMixed = false) => {
+    if (allowMixed && (value === null || value === undefined)) {
+      checkbox.indeterminate = true;
+      checkbox.checked = false;
+      checkbox.setAttribute('aria-checked', 'mixed');
+      toggle.dataset.state = 'mixed';
+      return;
+    }
+    checkbox.indeterminate = false;
+    const isOn = allowMixed ? value === true : !!value;
+    checkbox.checked = isOn;
+    checkbox.setAttribute('aria-checked', isOn ? 'true' : 'false');
+    toggle.dataset.state = isOn ? 'on' : 'off';
+  };
+
   const createTriStateCheckbox = (section, config) => {
     const resetBtn = document.createElement('button');
     resetBtn.type = 'button';
@@ -10810,44 +10852,23 @@ function buildSiteUI(root, state) {
       description: config.description,
       action: resetBtn
     });
-    const control = document.createElement('label');
-    control.className = 'cs-field-toggle';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'cs-checkbox';
-    const text = document.createElement('span');
-    text.textContent = config.checkboxLabel || config.label;
-    control.appendChild(checkbox);
-    control.appendChild(text);
-    field.appendChild(control);
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label);
 
     const sync = () => {
       const value = config.get();
-      if (value === null || value === undefined) {
-        checkbox.indeterminate = true;
-        checkbox.checked = false;
-      } else {
-        checkbox.indeterminate = false;
-        checkbox.checked = !!value;
-      }
+      syncSwitchState(checkbox, toggle, value, true);
     };
 
     checkbox.addEventListener('change', () => {
       config.set(checkbox.checked);
-      checkbox.indeterminate = false;
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
       markDirty();
     });
     resetBtn.addEventListener('click', () => {
       const hasDefault = Object.prototype.hasOwnProperty.call(config, 'defaultValue');
       const nextValue = hasDefault ? config.defaultValue : null;
       config.set(nextValue);
-      if (nextValue === null) {
-        checkbox.checked = false;
-        checkbox.indeterminate = true;
-      } else {
-        checkbox.checked = !!nextValue;
-        checkbox.indeterminate = false;
-      }
+      syncSwitchState(checkbox, toggle, nextValue, true);
       markDirty();
     });
     sync();
@@ -10859,24 +10880,15 @@ function buildSiteUI(root, state) {
       label: config.label,
       description: config.description
     });
-    const control = document.createElement('label');
-    control.className = 'cs-field-toggle';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'cs-checkbox';
-    const text = document.createElement('span');
-    text.textContent = config.checkboxLabel || config.label;
-    control.appendChild(checkbox);
-    control.appendChild(text);
-    field.appendChild(control);
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label);
 
     const sync = () => {
-      checkbox.checked = !!config.get();
+      syncSwitchState(checkbox, toggle, config.get(), false);
     };
 
     checkbox.addEventListener('change', () => {
       config.set(checkbox.checked);
-      sync();
+      syncSwitchState(checkbox, toggle, checkbox.checked, false);
       markDirty();
     });
 
@@ -10884,7 +10896,7 @@ function buildSiteUI(root, state) {
     return {
       checkbox,
       field,
-      control
+      control: toggle
     };
   };
 
@@ -11806,51 +11818,61 @@ function rebuildSiteUI() {
   .btn-tertiary:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
   .btn-tertiary[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
 
-  .composer-site-host{padding:.35rem 0 1.4rem}
+  .composer-site-host{padding:.35rem 0 1.2rem}
   .composer-site-main{max-width:960px;margin:0 auto;padding:0 1rem}
   @media (max-width:720px){
     .composer-site-main{padding:0}
   }
 
-  .cs-root{display:flex;flex-direction:column;gap:1.6rem;padding:.2rem 0 1.6rem}
-  .cs-section{border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 10px 24px rgba(15,23,42,0.08);padding:1.35rem 1.55rem;display:flex;flex-direction:column;gap:1.05rem}
-  .cs-section-title{margin:0;font-size:1.08rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
-  .cs-section-description{margin:0;font-size:.92rem;color:color-mix(in srgb,var(--muted) 92%, transparent)}
-  .cs-field{position:relative;padding:.1rem 0 .1rem .85rem;margin:0 0 1.05rem;border-left:3px solid transparent;border-radius:10px}
-  .cs-field:last-of-type{margin-bottom:.1rem}
-  .cs-field[data-diff="changed"]{border-left-color:color-mix(in srgb,var(--primary) 70%, transparent);background:color-mix(in srgb,var(--primary) 6%, transparent)}
+  .cs-root{display:flex;flex-direction:column;gap:1.2rem;padding:.2rem 0 1.2rem}
+  .cs-section{border:1px solid color-mix(in srgb,var(--border) 85%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.75rem}
+  .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
+  .cs-section-description{margin:0;font-size:.88rem;color:color-mix(in srgb,var(--muted) 90%, transparent)}
+  .cs-section-title + .cs-section-description{margin-top:-.1rem}
+  .cs-field{margin:0;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:10px;padding:.65rem .75rem;display:flex;flex-direction:column;gap:.45rem;background:color-mix(in srgb,var(--text) 3%, var(--card))}
+  .cs-field[data-diff="changed"]{border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 24%, transparent)}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
-  .cs-field-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.45rem}
-  .cs-field-label{font-weight:600;font-size:.95rem;color:color-mix(in srgb,var(--text) 88%, transparent)}
-  .cs-field-help{margin:.1rem 0 0;font-size:.88rem;color:color-mix(in srgb,var(--muted) 90%, transparent)}
-  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.55rem;align-items:flex-start}
-  .cs-localized-list{display:flex;flex-direction:column;gap:.55rem;margin-bottom:.2rem}
-  .cs-localized-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.6rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--text) 4%, var(--card))}
-  .cs-localized-input{flex:1 1 260px;min-width:200px}
-  .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 18%, transparent);color:color-mix(in srgb,var(--primary) 96%, var(--text));font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-  .cs-input{width:100%;min-height:2.4rem;padding:.45rem .6rem;border-radius:9px;border:1px solid color-mix(in srgb,var(--border) 85%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
-  .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  textarea.cs-input{min-height:5.5rem;resize:vertical}
-  .cs-input-small{max-width:240px}
-  .cs-field-toggle{display:inline-flex;align-items:center;gap:.5rem;padding:.42rem .75rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);background:color-mix(in srgb,var(--text) 4%, var(--card));color:color-mix(in srgb,var(--text) 82%, transparent);font-size:.9rem}
-  .cs-checkbox{width:1.1rem;height:1.1rem}
-  .cs-empty{padding:.8rem 1rem;border:1px dashed color-mix(in srgb,var(--border) 80%, transparent);border-radius:10px;background:color-mix(in srgb,var(--text) 3%, var(--card));color:color-mix(in srgb,var(--muted) 92%, transparent);font-size:.9rem}
+  .cs-field-head{display:flex;align-items:center;gap:.5rem}
+  .cs-field-head > .btn-tertiary{margin-left:auto}
+  .cs-field-label{font-weight:600;font-size:.92rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:1 1 auto}
+  .cs-field-help{margin:0;font-size:.85rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
+  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+  .cs-field-controls-inline{flex-wrap:nowrap}
+  .cs-localized-list{display:flex;flex-direction:column;gap:.5rem}
+  .cs-localized-row{display:flex;flex-wrap:wrap;gap:.5rem;padding:.55rem .65rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 3%, var(--card))}
+  .cs-localized-input{flex:1 1 240px;min-width:180px}
+  .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .cs-input{width:100%;min-height:2.2rem;padding:.35rem .55rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
+  .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  textarea.cs-input{min-height:4.6rem;resize:vertical}
+  .cs-input-small{max-width:220px}
+  .cs-empty{padding:.7rem .85rem;border:1px dashed color-mix(in srgb,var(--border) 75%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 2%, var(--card));color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-add-lang,.cs-add-link{align-self:flex-start}
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
-  .cs-select{min-width:220px;padding:.45rem .6rem;border-radius:9px;border:1px solid color-mix(in srgb,var(--border) 85%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease}
-  .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-link-list{display:flex;flex-direction:column;gap:.6rem;margin-bottom:.2rem}
-  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.6rem;padding:.65rem .75rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--text) 4%, var(--card))}
+  .cs-select{min-width:200px;padding:.35rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font:inherit;transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-link-list{display:flex;flex-direction:column;gap:.5rem}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.5rem;padding:.55rem .65rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 3%, var(--card))}
   .cs-link-actions{display:flex;gap:.35rem;margin-left:auto}
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
   .cs-reset{margin-left:auto}
-  .cs-repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;margin-top:.5rem}
-  .cs-extra-list{margin:.45rem 0 0;padding-left:1.2rem;color:color-mix(in srgb,var(--muted) 92%, transparent);font-size:.9rem}
+  .cs-repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.55rem;margin-top:.3rem}
+  .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-extra-list li{margin:.2rem 0}
+  .cs-switch{display:inline-flex;align-items:center;gap:.55rem;padding:.15rem .2rem;border-radius:999px;cursor:pointer;user-select:none;color:color-mix(in srgb,var(--text) 85%, transparent);transition:color .16s ease}
+  .cs-switch-input{position:absolute;opacity:0;width:1px;height:1px;margin:-1px;border:0;padding:0;clip:rect(0 0 0 0);clip-path:inset(50%)}
+  .cs-switch-track{position:relative;display:inline-flex;align-items:center;width:2.4rem;height:1.25rem;border-radius:999px;background:color-mix(in srgb,var(--text) 8%, var(--card));border:1px solid color-mix(in srgb,var(--border) 80%, transparent);padding:0 .15rem;transition:background .16s ease,border-color .16s ease}
+  .cs-switch-thumb{width:1rem;height:1rem;border-radius:999px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 1px 2px rgba(15,23,42,0.2);transform:translateX(0);transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+  .cs-switch[data-state="on"] .cs-switch-track{background:color-mix(in srgb,var(--primary) 45%, var(--card));border-color:color-mix(in srgb,var(--primary) 55%, var(--border))}
+  .cs-switch[data-state="on"] .cs-switch-thumb{transform:translateX(1.05rem);background:color-mix(in srgb,var(--primary) 96%, var(--card));box-shadow:0 4px 10px color-mix(in srgb,var(--primary) 35%, transparent)}
+  .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
+  .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
+  .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
+  .cs-switch-label{font-weight:600;font-size:.9rem}
   @media (max-width:880px){
-    .cs-section{padding:1.1rem 1.2rem}
+    .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
     .cs-input-small{max-width:100%}
     .cs-link-actions{width:100%;justify-content:flex-end}
