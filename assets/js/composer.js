@@ -11205,11 +11205,18 @@ function buildSiteUI(root, state) {
     field.__csHead = head;
     field.__csLabel = labelEl;
     field.__csLabelWrap = labelWrap;
+    const inlineDescription = config.inlineDescription !== false;
     if (config.description) {
       const desc = document.createElement('p');
       desc.className = 'cs-field-help';
       desc.textContent = config.description;
-      field.appendChild(desc);
+      field.__csHelp = desc;
+      if (inlineDescription && labelWrap) {
+        field.classList.add('cs-field-inline-help');
+        labelWrap.appendChild(desc);
+      } else {
+        field.appendChild(desc);
+      }
     }
     section.appendChild(field);
     return field;
@@ -11538,7 +11545,8 @@ function buildSiteUI(root, state) {
     const field = createField(section, {
       dataKey: config.dataKey,
       label: config.label,
-      description: config.description
+      description: config.description,
+      inlineDescription: false
     });
     const head = field.__csHead || field.querySelector('.cs-field-head');
     const labelWrap = field.__csLabelWrap || head;
@@ -11565,7 +11573,8 @@ function buildSiteUI(root, state) {
     const field = createField(section, {
       dataKey: config.dataKey,
       label: config.label,
-      description: config.description
+      description: config.description,
+      inlineDescription: false
     });
     const head = field.__csHead || field.querySelector('.cs-field-head');
     const labelWrap = field.__csLabelWrap || head;
@@ -12631,11 +12640,14 @@ function rebuildSiteUI() {
   .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
   .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+  .cs-field-inline-help .cs-field-head{align-items:baseline}
   .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}
+  .cs-field-inline-help .cs-field-label-wrap{align-items:baseline;gap:.4rem;flex-wrap:wrap}
   .cs-field-label-with-switch{gap:.6rem}
   .cs-field-action{margin-left:auto}
   .cs-field-label{font-weight:600;font-size:.9rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:0 1 auto;min-width:0}
   .cs-field-help{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
+  .cs-field-inline-help .cs-field-help{flex:1 1 auto;min-width:120px}
   .cs-field-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
   .cs-field-controls-inline{flex-wrap:nowrap}
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
