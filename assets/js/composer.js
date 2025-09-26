@@ -11847,8 +11847,9 @@ function rebuildSiteUI() {
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
   .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
   .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
-  .cs-field{margin:0;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:10px;padding:.55rem .65rem;display:flex;flex-direction:column;gap:.4rem;background:color-mix(in srgb,var(--text) 3%, var(--card))}
-  .cs-field[data-diff="changed"]{border-color:color-mix(in srgb,var(--primary) 60%, var(--border));box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 24%, transparent)}
+  .cs-field{margin:0;padding:.6rem 0;display:flex;flex-direction:column;gap:.4rem;position:relative}
+  .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
+  .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
   .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
   .cs-field-action{margin-left:auto}
