@@ -269,6 +269,7 @@ const translations = {
           promptLanguage: 'Enter a language code (for example: en, zh, ja):',
           languageExists: 'That language already exists.',
           languageDefault: 'Default',
+          languageAutoOption: 'Auto-detect (browser language)',
           reset: 'Reset override',
           addLink: 'Add link',
           removeLink: 'Remove',
@@ -893,6 +894,7 @@ const translations = {
           promptLanguage: '请输入语言代码（例如：en、zh、ja）：',
           languageExists: '该语言已经存在。',
           languageDefault: '默认',
+          languageAutoOption: '自动检测（浏览器语言）',
           reset: '恢复默认',
           addLink: '添加链接',
           removeLink: '移除',
@@ -1517,6 +1519,7 @@ const translations = {
           promptLanguage: '言語コードを入力してください（例: en, zh, ja）：',
           languageExists: 'その言語はすでに存在します。',
           languageDefault: 'デフォルト',
+          languageAutoOption: '自動検出（ブラウザー言語）',
           reset: '上書きをリセット',
           addLink: 'リンクを追加',
           removeLink: '削除',
@@ -2308,7 +2311,7 @@ function applyStaticTranslations() {
 export const __translations = translations;
 
 // Friendly names for the language switcher. Add an entry when you add a new language.
-const languageNames = { en: 'English', zh: '中文', ja: '日本語' };
+const languageNames = { en: 'English', zh: '简体中文', ja: '日本語' };
 let __contentLangs = null;
 function __setContentLangs(list) {
   try {

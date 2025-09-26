@@ -1,11 +1,21 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
-import { t } from './i18n.js';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
+const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
+
+function normalizeLangCode(code) {
+  if (!code) return '';
+  return String(code).trim().toLowerCase();
+}
+
+function isLanguageCode(value) {
+  return LANG_CODE_PATTERN.test(String(value || '').trim());
+}
 const CLEAN_STATUS_MESSAGE_KEY = 'editor.status.clean';
 const STATUS_UPLOAD_KEY = 'editor.status.upload';
 const STATUS_SYNCED_KEY = 'editor.status.synced';
@@ -8665,15 +8675,17 @@ function sortLangKeys(obj) {
 
 // Localized display names for languages in UI menus
 function displayLangName(code) {
-  const c = String(code || '').toLowerCase();
-  if (c === 'en') return 'English';
-  if (c === 'zh') return '中文';
-  if (c === 'ja') return '日本語';
-  return c.toUpperCase();
+  const normalized = normalizeLangCode(code);
+  if (!normalized) return '';
+  try {
+    const label = getLanguageLabel(normalized);
+    if (label && String(label).trim()) return String(label).trim();
+  } catch (_) {}
+  return normalized.toUpperCase();
 }
 
 function langFlag(code) {
-  const c = String(code || '').toLowerCase();
+  const c = normalizeLangCode(code);
   if (c === 'en') return '🇺🇸';
   if (c === 'zh') return '🇨🇳';
   if (c === 'ja') return '🇯🇵';
@@ -10242,6 +10254,63 @@ function buildSiteUI(root, state) {
     return site.assetWarnings;
   };
 
+  const collectLanguageCodes = () => {
+    const codes = new Set();
+    const add = (value) => {
+      const normalized = normalizeLangCode(value);
+      if (!normalized) return;
+      codes.add(normalized);
+    };
+    const addFromEntry = (entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      Object.keys(entry).forEach((key) => {
+        if (!isLanguageCode(key)) return;
+        add(key);
+      });
+    };
+
+    try {
+      const langs = typeof getAvailableLangs === 'function' ? getAvailableLangs() : [];
+      if (Array.isArray(langs)) langs.forEach(add);
+    } catch (_) {}
+    if (site && site.defaultLanguage) add(site.defaultLanguage);
+
+    if (state && state.index && typeof state.index === 'object') {
+      Object.keys(state.index).forEach((key) => {
+        if (key === '__order') return;
+        addFromEntry(state.index[key]);
+      });
+    }
+
+    if (state && state.tabs && typeof state.tabs === 'object') {
+      Object.keys(state.tabs).forEach((key) => {
+        if (key === '__order') return;
+        addFromEntry(state.tabs[key]);
+      });
+    }
+
+    if (site && typeof site === 'object') {
+      Object.keys(site).forEach((key) => {
+        const value = site[key];
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+        addFromEntry(value);
+      });
+    }
+
+    const ordered = Array.from(codes);
+    ordered.sort((a, b) => {
+      const ia = PREFERRED_LANG_ORDER.indexOf(a);
+      const ib = PREFERRED_LANG_ORDER.indexOf(b);
+      if (ia !== -1 || ib !== -1) {
+        const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+        const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+        return pa - pb;
+      }
+      return a.localeCompare(b);
+    });
+    return ordered;
+  };
+
   const createSection = (title, description) => {
     const section = document.createElement('section');
     section.className = 'cs-section';
@@ -10745,14 +10814,39 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.behavior.title'),
     t('editor.composer.site.sections.behavior.description')
   );
-  createTextField(behaviorSection, {
+  const defaultLanguageSelect = createSelectField(behaviorSection, {
     dataKey: 'defaultLanguage',
     label: t('editor.composer.site.fields.defaultLanguage'),
     description: t('editor.composer.site.fields.defaultLanguageHelp'),
-    placeholder: 'en',
-    get: () => site.defaultLanguage,
-    set: (value) => { site.defaultLanguage = value; }
+    get: () => normalizeLangCode(site.defaultLanguage),
+    set: (value) => { site.defaultLanguage = normalizeLangCode(value); },
+    defaultValue: '',
+    options: []
   });
+  const applyDefaultLanguageOptions = () => {
+    const codes = collectLanguageCodes();
+    const seen = new Set();
+    const appendOption = (value, label) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      defaultLanguageSelect.appendChild(option);
+      seen.add(value);
+    };
+
+    defaultLanguageSelect.innerHTML = '';
+    appendOption('', t('editor.composer.site.languageAutoOption'));
+    codes.forEach((code) => {
+      if (!seen.has(code)) appendOption(code, displayLangName(code));
+    });
+    const current = normalizeLangCode(site.defaultLanguage);
+    if (current && !seen.has(current)) {
+      appendOption(current, displayLangName(current));
+    }
+    const nextValue = current && seen.has(current) ? current : '';
+    defaultLanguageSelect.value = nextValue;
+  };
+  applyDefaultLanguageOptions();
   createNumberField(behaviorSection, {
     dataKey: 'contentOutdatedDays',
     label: t('editor.composer.site.fields.contentOutdatedDays'),
