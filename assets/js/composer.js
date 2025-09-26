@@ -142,6 +142,7 @@ const composerInlineVisibilityAnimations = new WeakMap();
 const composerInlineVisibilityFallbacks = new WeakMap();
 const composerListTransitions = new WeakMap();
 const composerOrderMainTransitions = new WeakMap();
+let composerSiteScrollAnimationId = null;
 
 const SITE_FIELD_LABEL_MAP = {
   siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
@@ -174,6 +175,86 @@ function composerPrefersReducedMotion() {
     if (!composerReduceMotionQuery) composerReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     return !!composerReduceMotionQuery.matches;
   } catch (_) {
+    return false;
+  }
+}
+
+function cancelComposerSiteScrollAnimation() {
+  try {
+    if (composerSiteScrollAnimationId != null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(composerSiteScrollAnimationId);
+    }
+  } catch (_) {}
+  composerSiteScrollAnimationId = null;
+}
+
+function easeOutComposerScroll(t) {
+  const clamped = Math.min(1, Math.max(0, t));
+  return 1 - Math.pow(1 - clamped, 3);
+}
+
+function animateComposerViewportScroll(targetY, duration) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  if (typeof window.requestAnimationFrame !== 'function' || typeof window.scrollTo !== 'function') return false;
+
+  const startY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const distance = targetY - startY;
+  if (Math.abs(distance) < 0.5) {
+    try { window.scrollTo(0, targetY); } catch (_) {}
+    return true;
+  }
+
+  const maxDuration = 1600;
+  const minDuration = 120;
+  const fallbackDuration = 720;
+  const resolvedDuration = (() => {
+    const numeric = Number(duration);
+    if (Number.isFinite(numeric)) return Math.min(maxDuration, Math.max(minDuration, numeric));
+    return fallbackDuration;
+  })();
+
+  const startTime = (() => {
+    try {
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        return performance.now();
+      }
+    } catch (_) {}
+    return Date.now();
+  })();
+
+  cancelComposerSiteScrollAnimation();
+
+  const step = (timestamp) => {
+    const now = (() => {
+      if (typeof timestamp === 'number') return timestamp;
+      try {
+        if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+          return performance.now();
+        }
+      } catch (_) {}
+      return Date.now();
+    })();
+
+    const progress = Math.min(1, (now - startTime) / resolvedDuration);
+    const eased = easeOutComposerScroll(progress);
+    const nextY = startY + (distance * eased);
+    try { window.scrollTo(0, nextY); } catch (_) {}
+
+    if (progress < 1) {
+      try {
+        composerSiteScrollAnimationId = window.requestAnimationFrame(step);
+        return;
+      } catch (_) {}
+    }
+
+    composerSiteScrollAnimationId = null;
+  };
+
+  try {
+    composerSiteScrollAnimationId = window.requestAnimationFrame(step);
+    return true;
+  } catch (_) {
+    composerSiteScrollAnimationId = null;
     return false;
   }
 }
@@ -10543,6 +10624,16 @@ function buildSiteUI(root, state) {
           const delta = sectionRect.top - desiredTop;
           if (Math.abs(delta) > 4) {
             const behavior = options.scrollBehavior || 'smooth';
+            const prefersReduced = composerPrefersReducedMotion();
+            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+
+            if (!prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
+              const animated = animateComposerViewportScroll(targetY, options.scrollDuration);
+              if (animated) return;
+            }
+
+            cancelComposerSiteScrollAnimation();
+
             if (typeof window.scrollBy === 'function') {
               try {
                 window.scrollBy({ top: delta, behavior });
@@ -10550,7 +10641,6 @@ function buildSiteUI(root, state) {
                 window.scrollBy(0, delta);
               }
             } else if (typeof window.scrollTo === 'function') {
-              const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
               try {
                 window.scrollTo({ top: targetY, behavior });
               } catch (_) {
