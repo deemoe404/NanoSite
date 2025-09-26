@@ -10537,10 +10537,37 @@ function buildSiteUI(root, state) {
       option.textContent = opt.label;
       select.appendChild(option);
     });
-    select.value = config.get() == null ? '' : String(config.get());
+    const ensureSelection = () => {
+      const options = Array.from(select.options);
+      const available = new Set(options.map((opt) => opt.value));
+      const currentRaw = config.get();
+      const current = currentRaw == null ? '' : String(currentRaw);
+      if (current && available.has(current)) {
+        select.value = current;
+        return current;
+      }
+      const fallback = (() => {
+        if (config.defaultValue != null && available.has(config.defaultValue)) {
+          return config.defaultValue;
+        }
+        return options.length ? options[0].value : '';
+      })();
+      select.value = fallback;
+      if (fallback && fallback !== current) {
+        config.set(fallback);
+        markDirty();
+        return fallback;
+      }
+      if (!fallback && current) {
+        config.set('');
+        markDirty();
+      }
+      return fallback;
+    };
+    ensureSelection();
     select.addEventListener('change', () => {
       const next = select.value;
-      config.set(next === '' ? null : next);
+      config.set(next);
       markDirty();
     });
     control.appendChild(select);
@@ -10783,18 +10810,19 @@ function buildSiteUI(root, state) {
 
     const renderOptions = () => {
       const seen = new Set();
+      let firstOption = null;
       const addOption = (value, label) => {
-        if (seen.has(value)) return;
+        if (value === '' || seen.has(value)) return;
         const option = document.createElement('option');
         option.value = value;
         option.textContent = label;
         select.appendChild(option);
         seen.add(value);
+        if (firstOption == null) firstOption = value;
       };
 
       const current = site.landingTab || '';
       select.innerHTML = '';
-      addOption('', t('editor.composer.site.fields.landingTabDefaultOption'));
       const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
       order.forEach((slug) => {
         if (!slug) return;
@@ -10805,13 +10833,20 @@ function buildSiteUI(root, state) {
         addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
       }
       if (current && !seen.has(current)) addOption(current, current);
-      select.value = seen.has(current) ? current : '';
+      const nextValue = seen.has(current) ? current : firstOption || '';
+      select.value = nextValue;
+      if (nextValue && nextValue !== site.landingTab) {
+        site.landingTab = nextValue;
+        markDirty();
+      }
     };
 
     select.addEventListener('change', () => {
       const value = select.value;
-      site.landingTab = value === '' ? '' : value;
-      markDirty();
+      if (value && site.landingTab !== value) {
+        site.landingTab = value;
+        markDirty();
+      }
     });
 
     renderOptions();
@@ -10826,8 +10861,6 @@ function buildSiteUI(root, state) {
   showAllPostsField.checkbox.addEventListener('change', () => {
     if (site.showAllPosts !== true && site.landingTab === 'posts') {
       site.landingTab = '';
-      landingTabField.select.value = '';
-      markDirty();
     }
     landingTabField.renderOptions();
   });
@@ -10860,8 +10893,8 @@ function buildSiteUI(root, state) {
     description: t('editor.composer.site.fields.themeModeHelp'),
     get: () => site.themeMode || '',
     set: (value) => { site.themeMode = value == null ? '' : value; },
+    defaultValue: 'auto',
     options: [
-      { value: '', label: t('editor.composer.site.optionInherit') },
       { value: 'user', label: 'user' },
       { value: 'auto', label: 'auto' },
       { value: 'light', label: 'light' },
@@ -10904,17 +10937,33 @@ function buildSiteUI(root, state) {
       seen.add(value);
     };
     themePackSelect.innerHTML = '';
-    appendOption('', t('editor.composer.site.optionInherit'));
-    selectOptions.forEach(({ value, label }) => appendOption(value, label));
-    if (current && !seen.has(current)) appendOption(current, current);
-    themePackSelect.value = current || '';
+    let firstOption = null;
+    selectOptions.forEach(({ value, label }) => {
+      appendOption(value, label);
+      if (firstOption == null) firstOption = value;
+    });
+    if (current && !seen.has(current)) {
+      appendOption(current, current);
+      if (firstOption == null) firstOption = current;
+    }
+    const nextValue = current && seen.has(current) ? current : firstOption || '';
+    themePackSelect.value = nextValue;
+    const sanitized = sanitizeThemePackValue(nextValue);
+    if (sanitized && sanitized !== site.themePack) {
+      site.themePack = sanitized;
+      markDirty();
+    } else if (!sanitized && site.themePack) {
+      site.themePack = '';
+      markDirty();
+    }
   };
   const themePackSelect = createSelectField(themeSection, {
     dataKey: 'themePack',
     label: t('editor.composer.site.fields.themePack'),
     description: t('editor.composer.site.fields.themePackHelp'),
     get: () => sanitizeThemePackValue(site.themePack),
-    set: (value) => { site.themePack = value == null ? '' : sanitizeThemePackValue(value); },
+    set: (value) => { site.themePack = sanitizeThemePackValue(value); },
+    defaultValue: 'native',
     options: []
   });
   const fallbackThemePacks = [
