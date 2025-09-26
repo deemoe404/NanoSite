@@ -12524,7 +12524,7 @@ function rebuildSiteUI() {
 
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
-  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2}
+  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
   .cs-nav-list{list-style:none;margin:0;padding:.5rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
@@ -12533,7 +12533,7 @@ function rebuildSiteUI() {
   .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
   .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
-  .cs-section{border:1px solid color-mix(in srgb,var(--border) 85%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
+  .cs-section{border:1px solid color-mix(in srgb,var(--border) 96%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
   .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
   .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
