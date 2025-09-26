@@ -774,8 +774,7 @@
       justify-content:space-between;
       gap:.75rem;
       flex-wrap:wrap;
-      margin-bottom:.35rem;
-      padding:.35rem 0 .4rem;
+      padding:.4rem 0 .55rem;
       border-bottom:1px solid #d0d7de;
       position:sticky;
       top:0;
@@ -1394,11 +1393,9 @@
         for (const toolbar of toolbarNodes) {
           if (!toolbar.isConnected) continue;
           if (toolbar.getClientRects().length === 0) continue;
-          const styles = getComputedStyle(toolbar);
           const height = toolbar.offsetHeight;
-          const marginBottom = parseFloat(styles.marginBottom) || 0;
           if (height > 0) {
-            maxOffset = Math.max(maxOffset, height + marginBottom);
+            maxOffset = Math.max(maxOffset, height);
           }
         }
         root.style.setProperty('--editor-toolbar-offset', `${maxOffset}px`);
