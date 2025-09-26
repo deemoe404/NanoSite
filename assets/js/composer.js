@@ -11691,6 +11691,8 @@ function buildSiteUI(root, state) {
         listWrap.appendChild(empty);
         return;
       }
+      const labelTitleId = `${key}-label-title`;
+      const hrefTitleId = `${key}-href-title`;
       list.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'cs-link-row';
@@ -11703,17 +11705,27 @@ function buildSiteUI(root, state) {
         labelTitle.className = 'cs-link-field-title';
         labelTitle.setAttribute('for', labelInputId);
         labelTitle.textContent = t('editor.composer.site.linkLabelTitle');
+        if (index === 0) {
+          labelTitle.id = labelTitleId;
+        }
         const labelInput = document.createElement('input');
         labelInput.type = 'text';
         labelInput.id = labelInputId;
         labelInput.className = 'cs-input';
         labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
+        if (index > 0) {
+          labelInput.setAttribute('aria-labelledby', labelTitleId);
+        }
         labelInput.value = item && item.label ? item.label : '';
         labelInput.addEventListener('input', () => {
           list[index].label = labelInput.value;
           markDirty();
         });
-        labelField.append(labelTitle, labelInput);
+        if (index === 0) {
+          labelField.append(labelTitle, labelInput);
+        } else {
+          labelField.append(labelInput);
+        }
 
         const hrefField = document.createElement('div');
         hrefField.className = 'cs-link-field';
@@ -11722,17 +11734,27 @@ function buildSiteUI(root, state) {
         hrefTitle.className = 'cs-link-field-title';
         hrefTitle.setAttribute('for', hrefInputId);
         hrefTitle.textContent = t('editor.composer.site.linkHrefTitle');
+        if (index === 0) {
+          hrefTitle.id = hrefTitleId;
+        }
         const hrefInput = document.createElement('input');
         hrefInput.type = 'text';
         hrefInput.id = hrefInputId;
         hrefInput.className = 'cs-input';
         hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
+        if (index > 0) {
+          hrefInput.setAttribute('aria-labelledby', hrefTitleId);
+        }
         hrefInput.value = item && item.href ? item.href : '';
         hrefInput.addEventListener('input', () => {
           list[index].href = hrefInput.value;
           markDirty();
         });
-        hrefField.append(hrefTitle, hrefInput);
+        if (index === 0) {
+          hrefField.append(hrefTitle, hrefInput);
+        } else {
+          hrefField.append(hrefInput);
+        }
         const actions = document.createElement('div');
         actions.className = 'cs-link-actions';
         const upBtn = document.createElement('button');
@@ -12581,7 +12603,6 @@ function rebuildSiteUI() {
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-link-list{display:flex;flex-direction:column;gap:0}
   .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.65rem 1rem;padding:.4rem 0}
-  .cs-link-row + .cs-link-row{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.75rem}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
   .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:1.5rem}
