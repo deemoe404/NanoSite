@@ -10909,14 +10909,6 @@ function buildSiteUI(root, state) {
     set: (value) => { site.avatar = value; }
   });
   createTextField(identitySection, {
-    dataKey: 'resourceURL',
-    label: t('editor.composer.site.fields.resourceURL'),
-    description: t('editor.composer.site.fields.resourceURLHelp'),
-    placeholder: 'https://example.com/',
-    get: () => site.resourceURL,
-    set: (value) => { site.resourceURL = value; }
-  });
-  createTextField(identitySection, {
     dataKey: 'contentRoot',
     label: t('editor.composer.site.fields.contentRoot'),
     description: t('editor.composer.site.fields.contentRootHelp'),
@@ -10940,6 +10932,14 @@ function buildSiteUI(root, state) {
     label: t('editor.composer.site.fields.siteKeywords'),
     description: t('editor.composer.site.fields.siteKeywordsHelp'),
     ensureDefault: false
+  });
+  createTextField(seoSection, {
+    dataKey: 'resourceURL',
+    label: t('editor.composer.site.fields.resourceURL'),
+    description: t('editor.composer.site.fields.resourceURLHelp'),
+    placeholder: 'https://example.com/',
+    get: () => site.resourceURL,
+    set: (value) => { site.resourceURL = value; }
   });
   createLinkListField(seoSection, 'profileLinks', {
     label: t('editor.composer.site.fields.profileLinks'),
