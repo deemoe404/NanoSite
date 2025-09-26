@@ -8774,7 +8774,7 @@ function applyMode(mode) {
   try { $('#mode-composer').style.display = isComposerMode ? '' : 'none'; } catch (_) {}
   try {
     const seoPanel = $('#mode-seo');
-    if (seoPanel) seoPanel.style.display = isSeoMode ? '' : 'none';
+    if (seoPanel) seoPanel.style.display = isSeoMode ? 'block' : 'none';
   } catch (_) {}
   try {
     const layout = $('#mode-editor');
