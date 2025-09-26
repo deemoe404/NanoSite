@@ -3690,7 +3690,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const btnClose = document.createElement('button');
     btnClose.type = 'button';
     btnClose.className = 'ns-modal-close btn-secondary';
-    const cancelLabel = t('editor.dialogs.cancel');
+    const cancelLabel = t('editor.composer.dialogs.cancel');
     btnClose.textContent = cancelLabel;
     btnClose.setAttribute('aria-label', cancelLabel);
     head.appendChild(headLeft);
@@ -7317,8 +7317,8 @@ async function closeDynamicTab(modeId, options = {}) {
   }
 
   if (!opts.force && (hasDirty || hasLocalDraft)) {
-    const ref = tab.path || tab.label || 'this file';
-    const promptMessage = `Close ${ref}? Closing this tab will discard local markdown changes.`;
+    const ref = tab.path || tab.label || t('editor.composer.discardConfirm.closeTabFallback');
+    const promptMessage = t('editor.composer.discardConfirm.closeTabMessage', { label: ref });
     let proceed = true;
     const runNativeConfirm = () => {
       try {
@@ -7333,7 +7333,10 @@ async function closeDynamicTab(modeId, options = {}) {
 
     if (anchorEl) {
       try {
-        proceed = await showComposerDiscardConfirm(anchorEl, promptMessage, { confirmLabel: 'Discard', cancelLabel: 'Cancel' });
+        proceed = await showComposerDiscardConfirm(anchorEl, promptMessage, {
+          confirmLabel: t('editor.composer.discardConfirm.discard'),
+          cancelLabel: t('editor.composer.dialogs.cancel')
+        });
       } catch (err) {
         console.warn('Markdown tab close prompt failed, falling back to native confirm', err);
         proceed = runNativeConfirm();
