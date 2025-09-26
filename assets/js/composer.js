@@ -1676,8 +1676,18 @@ function assetWarningsForOutput(warnings) {
   if (!warnings || typeof warnings !== 'object') return null;
   const largeImage = warnings.largeImage && typeof warnings.largeImage === 'object' ? warnings.largeImage : {};
   const enabled = normalizeBoolean(largeImage.enabled);
-  const threshold = normalizeNumber(largeImage.thresholdKB);
-  if (enabled == null && (threshold == null || Number.isNaN(threshold))) return null;
+  let threshold = null;
+  if (Object.prototype.hasOwnProperty.call(largeImage, 'thresholdKB')) {
+    const rawThreshold = largeImage.thresholdKB;
+    const trimmed = typeof rawThreshold === 'string' ? rawThreshold.trim() : rawThreshold;
+    if (trimmed !== '' && trimmed != null) {
+      const normalized = normalizeNumber(trimmed);
+      if (normalized != null && !Number.isNaN(normalized)) {
+        threshold = normalized;
+      }
+    }
+  }
+  if (enabled == null && threshold == null) return null;
   const out = {};
   out.largeImage = {};
   if (enabled != null) out.largeImage.enabled = enabled;
