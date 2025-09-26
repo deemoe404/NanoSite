@@ -10520,34 +10520,53 @@ function buildSiteUI(root, state) {
     });
     if (!resolved) return;
     if (shouldScroll && activeMeta && typeof window !== 'undefined') {
-      try {
-        const sectionRect = activeMeta.section.getBoundingClientRect();
-        let stickyTop = 0;
+      const executeScroll = () => {
         try {
-          const navStyles = window.getComputedStyle(nav);
-          const parsed = parseFloat(navStyles && navStyles.top);
-          if (Number.isFinite(parsed)) stickyTop = Math.max(parsed, 0);
-        } catch (_) {}
-        const desiredTop = stickyTop + 16;
-        const delta = sectionRect.top - desiredTop;
-        if (Math.abs(delta) > 4) {
-          const behavior = options.scrollBehavior || 'smooth';
-          if (typeof window.scrollBy === 'function') {
-            try {
-              window.scrollBy({ top: delta, behavior });
-            } catch (_) {
-              window.scrollBy(0, delta);
+          const sectionRect = activeMeta.section.getBoundingClientRect();
+          let toolbarOffset = 0;
+          try {
+            const docStyles = window.getComputedStyle(document.documentElement);
+            const parsedToolbar = parseFloat(docStyles && docStyles.getPropertyValue('--editor-toolbar-offset'));
+            if (Number.isFinite(parsedToolbar)) toolbarOffset = Math.max(parsedToolbar, 0);
+          } catch (_) {}
+
+          let desiredTop = Math.max(toolbarOffset + 12, 12);
+          try {
+            if (nav && typeof nav.getBoundingClientRect === 'function') {
+              const navRect = nav.getBoundingClientRect();
+              if (navRect && Number.isFinite(navRect.top)) {
+                desiredTop = Math.min(desiredTop, Math.max(navRect.top - 8, 12));
+              }
             }
-          } else if (typeof window.scrollTo === 'function') {
-            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
-            try {
-              window.scrollTo({ top: targetY, behavior });
-            } catch (_) {
-              window.scrollTo(0, targetY);
+          } catch (_) {}
+
+          const delta = sectionRect.top - desiredTop;
+          if (Math.abs(delta) > 4) {
+            const behavior = options.scrollBehavior || 'smooth';
+            if (typeof window.scrollBy === 'function') {
+              try {
+                window.scrollBy({ top: delta, behavior });
+              } catch (_) {
+                window.scrollBy(0, delta);
+              }
+            } else if (typeof window.scrollTo === 'function') {
+              const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+              try {
+                window.scrollTo({ top: targetY, behavior });
+              } catch (_) {
+                window.scrollTo(0, targetY);
+              }
             }
           }
-        }
-      } catch (_) {}
+        } catch (_) {}
+      };
+
+      try {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(executeScroll);
+        else executeScroll();
+      } catch (_) {
+        executeScroll();
+      }
     }
     if (focusTarget) {
       try {
