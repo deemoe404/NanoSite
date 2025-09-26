@@ -188,10 +188,78 @@ function cancelComposerSiteScrollAnimation() {
   composerSiteScrollAnimationId = null;
 }
 
-function easeOutComposerScroll(t) {
-  const clamped = Math.min(1, Math.max(0, t));
-  return 1 - Math.pow(1 - clamped, 3);
+function createCubicBezierEasing(mX1, mY1, mX2, mY2) {
+  const NEWTON_ITERATIONS = 8;
+  const NEWTON_MIN_SLOPE = 0.001;
+  const SUBDIVISION_PRECISION = 1e-7;
+  const SUBDIVISION_MAX_ITERATIONS = 10;
+  const SPLINE_TABLE_SIZE = 11;
+  const SAMPLE_STEP_SIZE = 1 / (SPLINE_TABLE_SIZE - 1);
+
+  const sampleValues = new Float32Array(SPLINE_TABLE_SIZE);
+
+  const calcBezier = (t, a1, a2) => (((1 - 3 * a2 + 3 * a1) * t + (3 * a2 - 6 * a1)) * t + (3 * a1)) * t;
+  const getSlope = (t, a1, a2) => (3 * (1 - 3 * a2 + 3 * a1) * t + 2 * (3 * a2 - 6 * a1)) * t + (3 * a1);
+
+  for (let i = 0; i < SPLINE_TABLE_SIZE; i += 1) {
+    sampleValues[i] = calcBezier(i * SAMPLE_STEP_SIZE, mX1, mX2);
+  }
+
+  const binarySubdivide = (x, lowerBound, upperBound) => {
+    let currentX = 0;
+    let currentT = 0;
+    let i = 0;
+    do {
+      currentT = lowerBound + (upperBound - lowerBound) / 2;
+      currentX = calcBezier(currentT, mX1, mX2) - x;
+      if (currentX > 0) {
+        upperBound = currentT;
+      } else {
+        lowerBound = currentT;
+      }
+      i += 1;
+    } while (Math.abs(currentX) > SUBDIVISION_PRECISION && i < SUBDIVISION_MAX_ITERATIONS);
+    return currentT;
+  };
+
+  const newtonRaphsonIterate = (x, guessT) => {
+    for (let i = 0; i < NEWTON_ITERATIONS; i += 1) {
+      const slope = getSlope(guessT, mX1, mX2);
+      if (Math.abs(slope) < NEWTON_MIN_SLOPE) return guessT;
+      const currentX = calcBezier(guessT, mX1, mX2) - x;
+      guessT -= currentX / slope;
+    }
+    return guessT;
+  };
+
+  return (x) => {
+    if (mX1 === mY1 && mX2 === mY2) return x;
+    let currentSample = 0;
+    const lastSample = SPLINE_TABLE_SIZE - 1;
+    for (; currentSample !== lastSample && sampleValues[currentSample] <= x; currentSample += 1);
+    currentSample -= 1;
+
+    const segmentStart = sampleValues[currentSample];
+    const segmentEnd = sampleValues[currentSample + 1];
+    const segmentInterval = segmentEnd - segmentStart;
+    const dist = segmentInterval > 0 ? (x - segmentStart) / segmentInterval : 0;
+    const guessForT = currentSample * SAMPLE_STEP_SIZE + dist * SAMPLE_STEP_SIZE;
+
+    const initialSlope = getSlope(guessForT, mX1, mX2);
+    const tCandidate = initialSlope >= NEWTON_MIN_SLOPE
+      ? newtonRaphsonIterate(x, guessForT)
+      : initialSlope === 0
+        ? guessForT
+        : binarySubdivide(x, currentSample * SAMPLE_STEP_SIZE, (currentSample + 1) * SAMPLE_STEP_SIZE);
+
+    return calcBezier(tCandidate, mY1, mY2);
+  };
 }
+
+const easeOutComposerScroll = (() => {
+  const ease = createCubicBezierEasing(0.22, 1, 0.36, 1);
+  return (t) => ease(Math.min(1, Math.max(0, t)));
+})();
 
 function animateComposerViewportScroll(targetY, duration) {
   if (typeof window === 'undefined' || typeof document === 'undefined') return false;
