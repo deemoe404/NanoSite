@@ -37,6 +37,7 @@
       --composer-inline-ease: cubic-bezier(0.16, 1, 0.3, 1);
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
+      --editor-toolbar-offset: 0px;
     }
     @media (prefers-reduced-motion: reduce) {
       :root {
@@ -190,6 +191,40 @@
       background: linear-gradient(135deg, color-mix(in srgb, #ef4444 28%, var(--card)), color-mix(in srgb, var(--card) 90%, transparent));
       color: color-mix(in srgb, #991b1b 82%, #ef4444 45%);
       box-shadow: 0 16px 34px rgba(239, 68, 68, 0.32);
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode:hover:not(.is-busy),
+    .mode-switch-editor .mode-tab.dynamic-mode:focus-visible {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode.is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="checking"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="existing"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="missing"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="error"] {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="checking"].is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="existing"].is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="missing"].is-active {
+      box-shadow: none;
+    }
+    .mode-switch-editor .mode-tab.dynamic-mode[data-file-state="error"].is-active {
+      box-shadow: none;
     }
     .mode-tab-badge {
       position: absolute;
@@ -767,7 +802,19 @@
       font-weight:500;
       color: color-mix(in srgb, var(--muted) 88%, transparent);
     }
-    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; margin-bottom:.75rem; padding-bottom:.5rem; border-bottom:1px solid #d0d7de; }
+    .toolbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.75rem;
+      flex-wrap:wrap;
+      padding:.4rem 0 .55rem;
+      border-bottom:1px solid #d0d7de;
+      position:sticky;
+      top:0;
+      z-index:120;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+    }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
     .btn-secondary.btn-compact { padding:.3rem .65rem; height:2rem; font-size:.85rem; font-weight:600; }
@@ -775,7 +822,20 @@
     .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
     a.btn-secondary:visited { color: var(--text); }
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
-    .editor-tools { display:flex; align-items:center; justify-content:space-between; gap:.65rem; flex-wrap:wrap; margin-bottom:.75rem; position:sticky; top:0; z-index:110; background:color-mix(in srgb, var(--card) 96%, transparent); padding-top:.35rem; padding-bottom:.35rem; }
+    .editor-tools {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.65rem;
+      flex-wrap:wrap;
+      margin-bottom:.6rem;
+      position:sticky;
+      top:calc(var(--editor-toolbar-offset, 0px));
+      z-index:110;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+      padding-top:.4rem;
+      padding-bottom:.4rem;
+    }
     .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
     .editor-tool-btn { white-space:nowrap; }
     .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
@@ -1356,6 +1416,42 @@
   <footer class="site-footer">
     <p data-i18n-html="editor.footerNote">Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.</p>
   </footer>
+  <script>
+    (function () {
+      const root = document.documentElement;
+      const toolbarNodes = Array.from(document.querySelectorAll('.editor-main .toolbar'));
+      if (!toolbarNodes.length) return;
+
+      const updateOffset = () => {
+        let maxOffset = 0;
+        for (const toolbar of toolbarNodes) {
+          if (!toolbar.isConnected) continue;
+          if (toolbar.getClientRects().length === 0) continue;
+          const height = toolbar.offsetHeight;
+          if (height > 0) {
+            maxOffset = Math.max(maxOffset, height);
+          }
+        }
+        root.style.setProperty('--editor-toolbar-offset', `${maxOffset}px`);
+      };
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(updateOffset);
+        toolbarNodes.forEach((toolbar) => ro.observe(toolbar));
+      }
+
+      const layouts = ['mode-editor', 'mode-composer']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+      if (layouts.length) {
+        const mo = new MutationObserver(updateOffset);
+        layouts.forEach((node) => mo.observe(node, { attributes: true, attributeFilter: ['class', 'style'] }));
+      }
+
+      window.addEventListener('load', updateOffset, { once: true });
+      updateOffset();
+    })();
+  </script>
   <script type="module" src="assets/js/editor-boot.js"></script>
   <script type="module" src="assets/js/editor-main.js"></script>
   <script type="module" src="assets/js/composer.js"></script>
