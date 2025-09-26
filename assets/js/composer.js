@@ -11695,24 +11695,44 @@ function buildSiteUI(root, state) {
         const row = document.createElement('div');
         row.className = 'cs-link-row';
         row.dataset.index = String(index);
+
+        const labelField = document.createElement('div');
+        labelField.className = 'cs-link-field';
+        const labelInputId = `${key}-label-${index}`;
+        const labelTitle = document.createElement('label');
+        labelTitle.className = 'cs-link-field-title';
+        labelTitle.setAttribute('for', labelInputId);
+        labelTitle.textContent = t('editor.composer.site.linkLabelTitle');
         const labelInput = document.createElement('input');
         labelInput.type = 'text';
-        labelInput.className = 'cs-input cs-input-small';
+        labelInput.id = labelInputId;
+        labelInput.className = 'cs-input';
         labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
         labelInput.value = item && item.label ? item.label : '';
         labelInput.addEventListener('input', () => {
           list[index].label = labelInput.value;
           markDirty();
         });
+        labelField.append(labelTitle, labelInput);
+
+        const hrefField = document.createElement('div');
+        hrefField.className = 'cs-link-field';
+        const hrefInputId = `${key}-href-${index}`;
+        const hrefTitle = document.createElement('label');
+        hrefTitle.className = 'cs-link-field-title';
+        hrefTitle.setAttribute('for', hrefInputId);
+        hrefTitle.textContent = t('editor.composer.site.linkHrefTitle');
         const hrefInput = document.createElement('input');
         hrefInput.type = 'text';
-        hrefInput.className = 'cs-input cs-input-small';
+        hrefInput.id = hrefInputId;
+        hrefInput.className = 'cs-input';
         hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
         hrefInput.value = item && item.href ? item.href : '';
         hrefInput.addEventListener('input', () => {
           list[index].href = hrefInput.value;
           markDirty();
         });
+        hrefField.append(hrefTitle, hrefInput);
         const actions = document.createElement('div');
         actions.className = 'cs-link-actions';
         const upBtn = document.createElement('button');
@@ -11737,7 +11757,7 @@ function buildSiteUI(root, state) {
           renderRows();
         });
         actions.append(upBtn, downBtn, removeBtn);
-        row.append(labelInput, hrefInput, actions);
+        row.append(labelField, hrefField, actions);
         listWrap.appendChild(row);
       });
     };
@@ -12559,9 +12579,12 @@ function rebuildSiteUI() {
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
   .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-link-list{display:flex;flex-direction:column;gap:.5rem}
-  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.5rem;padding:.55rem .65rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 3%, var(--card))}
-  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto}
+  .cs-link-list{display:flex;flex-direction:column;gap:0}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.65rem 1rem;padding:.4rem 0}
+  .cs-link-row + .cs-link-row{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.75rem}
+  .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
+  .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:1.5rem}
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
@@ -12595,7 +12618,7 @@ function rebuildSiteUI() {
     .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
     .cs-input-small{max-width:100%}
-    .cs-link-actions{width:100%;justify-content:flex-end}
+    .cs-link-actions{width:100%;justify-content:flex-end;margin-left:0;align-self:auto;padding-top:.35rem}
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
