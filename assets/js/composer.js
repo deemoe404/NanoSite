@@ -10409,11 +10409,14 @@ function buildSiteUI(root, state) {
       if (!available.length) {
         addBtn.setAttribute('disabled', '');
         addWrap.classList.add('is-disabled');
+        addWrap.hidden = true;
         if (!menu.hidden) closeMenu();
-      } else {
-        addBtn.removeAttribute('disabled');
-        addWrap.classList.remove('is-disabled');
+        return;
       }
+
+      addBtn.removeAttribute('disabled');
+      addWrap.classList.remove('is-disabled');
+      addWrap.hidden = false;
     };
 
     const closeMenu = () => {
@@ -10439,7 +10442,7 @@ function buildSiteUI(root, state) {
 
     const openMenu = () => {
       refreshMenu();
-      if (!menu.innerHTML.trim()) return;
+      if (!menu.innerHTML.trim() || addWrap.hidden) return;
       if (!menu.hidden) return;
       menu.hidden = false;
       try { menu.classList.remove('is-closing'); } catch (_) {}
