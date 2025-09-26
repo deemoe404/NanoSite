@@ -688,7 +688,7 @@
       color: color-mix(in srgb, var(--text) 82%, transparent);
       position:relative;
       isolation:isolate;
-      z-index:1;
+      z-index: var(--gs-drafts-base-z, 1);
     }
     .gs-node-drafts[hidden] { display:none !important; }
     .gs-node-drafts:focus { outline:none; }
@@ -751,6 +751,10 @@
       box-shadow:0 18px 36px rgba(15, 23, 42, 0.18);
       max-height:inherit;
       overflow:visible;
+    }
+    .gs-node-drafts.has-many:hover,
+    .gs-node-drafts.has-many:focus-within {
+      z-index: var(--gs-drafts-overlay-z, 2147483647);
     }
     .gs-node-drafts.has-many:hover .gs-node-drafts-shell,
     .gs-node-drafts.has-many:focus-within .gs-node-drafts-shell {
