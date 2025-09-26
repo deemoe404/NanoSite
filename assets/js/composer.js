@@ -8867,6 +8867,13 @@ function applyMode(mode) {
     else document.documentElement.removeAttribute('data-init-mode');
   } catch (_) {}
 
+  // Notify listeners about the mode switch (used by SEO tools, etc.)
+  try {
+    document.dispatchEvent(new CustomEvent('ns:mode-changed', {
+      detail: { mode: nextMode, previous: previousMode }
+    }));
+  } catch (_) {}
+
   persistDynamicEditorState();
 }
 
