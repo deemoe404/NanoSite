@@ -6445,7 +6445,7 @@ function loadDraftSnapshotsIntoState(state) {
     if (!entry || !entry.data) return;
     let snapshot;
     if (kind === 'tabs') snapshot = prepareTabsState(entry.data);
-    else if (kind === 'site') snapshot = cloneSiteState(prepareSiteState(entry.data));
+    else if (kind === 'site') snapshot = cloneSiteState(entry.data);
     else snapshot = prepareIndexState(entry.data);
     if (kind === 'tabs') state.tabs = snapshot;
     else if (kind === 'site') state.site = snapshot;
