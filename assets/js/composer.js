@@ -4014,7 +4014,8 @@ function gatherLocalChangesForCommit() {
   let root;
   if (siteState && Object.prototype.hasOwnProperty.call(siteState, 'contentRoot')) {
     root = safeString(siteState.contentRoot);
-  } else {
+  }
+  if (!root) {
     root = getContentRootSafe();
   }
   const normalizedRoot = String(root || '')
