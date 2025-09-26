@@ -11696,10 +11696,16 @@ function buildSiteUI(root, state) {
       list.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'cs-link-row';
+        if (index === 0) {
+          row.classList.add('cs-link-row--with-title');
+        }
         row.dataset.index = String(index);
 
         const labelField = document.createElement('div');
         labelField.className = 'cs-link-field';
+        if (index > 0) {
+          labelField.classList.add('cs-link-field--compact');
+        }
         const labelInputId = `${key}-label-${index}`;
         const labelTitle = document.createElement('label');
         labelTitle.className = 'cs-link-field-title';
@@ -11729,6 +11735,9 @@ function buildSiteUI(root, state) {
 
         const hrefField = document.createElement('div');
         hrefField.className = 'cs-link-field';
+        if (index > 0) {
+          hrefField.classList.add('cs-link-field--compact');
+        }
         const hrefInputId = `${key}-href-${index}`;
         const hrefTitle = document.createElement('label');
         hrefTitle.className = 'cs-link-field-title';
@@ -12603,9 +12612,12 @@ function rebuildSiteUI() {
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-link-list{display:flex;flex-direction:column;gap:0}
   .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.65rem 1rem;padding:.4rem 0}
+  .cs-link-row:not(.cs-link-row--with-title){padding-top:.2rem}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
+  .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
-  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:1.5rem}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:.6rem}
+  .cs-link-row--with-title .cs-link-actions{padding-top:1.5rem}
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
