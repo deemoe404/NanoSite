@@ -112,7 +112,8 @@ const translations = {
       },
       modes: {
         composer: 'Composer',
-        editor: 'Editor'
+        editor: 'Editor',
+        updates: 'System Updates'
       },
       status: {
         localLabel: 'LOCAL',
@@ -123,6 +124,45 @@ const translations = {
         loadingRepo: 'Loading GitHub settings…',
         checkingConnection: 'Checking connection…',
         clean: 'No local changes'
+      },
+      systemUpdates: {
+        tabLabel: 'System Updates',
+        title: 'System Updates',
+        openDownload: 'Download release ZIP',
+        downloadAssetLink: ({ name }) => `Download ${name}`,
+        openReleasePage: 'View release on GitHub',
+        selectArchive: 'Select downloaded ZIP',
+        filesHeading: 'Pending system files',
+        releaseNotes: 'Release notes',
+        noNotes: 'This release does not include additional notes.',
+        latestLabel: ({ name, tag }) => `Latest release: ${name}${tag ? ` (${tag})` : ''}`,
+        publishedLabel: ({ date }) => `Published on ${date}`,
+        assetLabel: ({ name, size }) => `Asset: ${name} (${size})`,
+        assetWithHash: ({ name, size, hash }) => `Asset: ${name} (${size}) — SHA-256 ${hash}`,
+        noAsset: 'No downloadable assets were attached to this release.',
+        status: {
+          idle: 'Download the latest release ZIP, then select it to check for updates.',
+          reading: 'Reading archive…',
+          verifying: 'Verifying archive…',
+          noChanges: 'System files are up to date.',
+          comparing: 'Comparing downloaded files…',
+          changes: ({ count }) => `${count} system file${count === 1 ? '' : 's'} pending update.`
+        },
+        errors: {
+          releaseFetch: 'Unable to load latest release information.',
+          emptyFile: 'The selected file is empty.',
+          invalidArchive: 'The selected ZIP could not be read as a NanoSite release.',
+          sizeMismatch: ({ expected, actual }) => `The selected archive size (${actual}) does not match the release asset (${expected}).`,
+          generic: 'System update failed. Please try again.'
+        },
+        fileStatus: {
+          added: 'New file',
+          modified: 'Updated file'
+        },
+        summary: {
+          added: 'new system file',
+          modified: 'updated system file'
+        }
       },
       currentFile: {
         status: {
@@ -526,6 +566,7 @@ const translations = {
             subtitle: 'Provide a Fine-grained Personal Access Token with repository contents access.',
             summaryTitle: 'The following files will be committed:',
             summaryTextFilesTitle: 'Content files',
+            summarySystemFilesTitle: 'System files',
             summarySeoFilesTitle: 'SEO files',
             summaryAssetFilesTitle: 'Asset files',
             summaryEmpty: 'No pending files to commit.',
@@ -751,7 +792,8 @@ const translations = {
       },
       modes: {
         composer: '编排器',
-        editor: '编辑器'
+        editor: '编辑器',
+        updates: '系统更新'
       },
       status: {
         localLabel: '本地',
@@ -762,6 +804,45 @@ const translations = {
         loadingRepo: '正在加载 GitHub 设置…',
         checkingConnection: '正在检查连接…',
         clean: '没有本地更改'
+      },
+      systemUpdates: {
+        tabLabel: '系统更新',
+        title: '系统更新',
+        openDownload: '下载发布 ZIP',
+        downloadAssetLink: ({ name }) => `下载 ${name}`,
+        openReleasePage: '在 GitHub 查看发布页',
+        selectArchive: '选择已下载的 ZIP',
+        filesHeading: '待更新的系统文件',
+        releaseNotes: '发布说明',
+        noNotes: '此次发布未提供额外说明。',
+        latestLabel: ({ name, tag }) => `最新发布：${name}${tag ? `（${tag}）` : ''}`,
+        publishedLabel: ({ date }) => `发布时间：${date}`,
+        assetLabel: ({ name, size }) => `附件：${name}（${size}）`,
+        assetWithHash: ({ name, size, hash }) => `附件：${name}（${size}） — SHA-256 ${hash}`,
+        noAsset: '此发布没有可下载的附件。',
+        status: {
+          idle: '先下载最新的发布 ZIP，然后选择该文件以检查更新。',
+          reading: '正在读取压缩包…',
+          verifying: '正在校验压缩包…',
+          noChanges: '系统文件已是最新状态。',
+          comparing: '正在比对下载的文件…',
+          changes: ({ count }) => `有 ${count} 个系统文件待更新。`
+        },
+        errors: {
+          releaseFetch: '无法加载最新发布信息。',
+          emptyFile: '选择的文件为空。',
+          invalidArchive: '选中的 ZIP 无法作为 NanoSite 发布读取。',
+          sizeMismatch: ({ expected, actual }) => `选中的压缩包大小（${actual}）与发布附件（${expected}）不一致。`,
+          generic: '系统更新失败，请重试。'
+        },
+        fileStatus: {
+          added: '新文件',
+          modified: '已更新'
+        },
+        summary: {
+          added: '新增的系统文件',
+          modified: '已更新的系统文件'
+        }
       },
       currentFile: {
         status: {
@@ -1166,6 +1247,7 @@ const translations = {
             subtitle: '请提供具备仓库内容访问权限的精细化个人访问令牌。',
             summaryTitle: '将提交以下文件：',
             summaryTextFilesTitle: '内容文件',
+            summarySystemFilesTitle: '系统文件',
             summarySeoFilesTitle: 'SEO 文件',
             summaryAssetFilesTitle: '资源文件',
             summaryEmpty: '没有待提交的文件。',
@@ -1391,7 +1473,8 @@ const translations = {
       },
       modes: {
         composer: 'コンポーザー',
-        editor: 'エディター'
+        editor: 'エディター',
+        updates: 'システム更新'
       },
       status: {
         localLabel: 'ローカル',
@@ -1402,6 +1485,45 @@ const translations = {
         loadingRepo: 'GitHub 設定を読み込み中…',
         checkingConnection: '接続を確認中…',
         clean: 'ローカルの変更はありません'
+      },
+      systemUpdates: {
+        tabLabel: 'システム更新',
+        title: 'システム更新',
+        openDownload: 'リリース ZIP をダウンロード',
+        downloadAssetLink: ({ name }) => `${name} をダウンロード`,
+        openReleasePage: 'GitHub でリリースを開く',
+        selectArchive: 'ダウンロードした ZIP を選択',
+        filesHeading: '更新待ちのシステムファイル',
+        releaseNotes: 'リリースノート',
+        noNotes: 'このリリースには追加の説明がありません。',
+        latestLabel: ({ name, tag }) => `最新リリース：${name}${tag ? `（${tag}）` : ''}`,
+        publishedLabel: ({ date }) => `公開日：${date}`,
+        assetLabel: ({ name, size }) => `アセット：${name}（${size}）`,
+        assetWithHash: ({ name, size, hash }) => `アセット：${name}（${size}） — SHA-256 ${hash}`,
+        noAsset: 'このリリースにはダウンロード可能なアセットがありません。',
+        status: {
+          idle: '最新のリリース ZIP をダウンロードしてから、更新を確認するために選択してください。',
+          reading: 'アーカイブを読み込み中…',
+          verifying: 'アーカイブを検証しています…',
+          noChanges: 'システムファイルは最新です。',
+          comparing: 'ダウンロードしたファイルを比較しています…',
+          changes: ({ count }) => `更新が必要なシステムファイルが ${count} 件あります。`
+        },
+        errors: {
+          releaseFetch: '最新リリース情報を取得できませんでした。',
+          emptyFile: '選択したファイルは空です。',
+          invalidArchive: '選択した ZIP を NanoSite リリースとして読み込めませんでした。',
+          sizeMismatch: ({ expected, actual }) => `選択したアーカイブのサイズ（${actual}）がリリースアセット（${expected}）と一致しません。`,
+          generic: 'システム更新に失敗しました。再試行してください。'
+        },
+        fileStatus: {
+          added: '新規',
+          modified: '更新済み'
+        },
+        summary: {
+          added: '新しいシステムファイル',
+          modified: '更新されたシステムファイル'
+        }
       },
       currentFile: {
         status: {
@@ -1806,6 +1928,7 @@ const translations = {
             subtitle: 'リポジトリの内容にアクセスできるファイングレインド Personal Access Token を入力してください。',
             summaryTitle: '以下のファイルがコミットされます:',
             summaryTextFilesTitle: 'コンテンツファイル',
+            summarySystemFilesTitle: 'システムファイル',
             summarySeoFilesTitle: 'SEO ファイル',
             summaryAssetFilesTitle: 'アセットファイル',
             summaryEmpty: 'コミット予定のファイルはありません。',
