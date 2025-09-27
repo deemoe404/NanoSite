@@ -1,6 +1,7 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
+import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles } from './system-updates.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -3413,6 +3414,13 @@ function computeUnsyncedSummary() {
       hasContentChange: true
     });
   }
+  const systemEntries = getSystemUpdateSummaryEntries();
+  if (systemEntries && systemEntries.length) {
+    systemEntries.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      entries.push({ ...entry, kind: 'system' });
+    });
+  }
   const markdownEntries = collectUnsyncedMarkdownEntries();
   if (markdownEntries.length) entries.push(...markdownEntries);
   return entries;
@@ -3516,11 +3524,13 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   let composerCount = 0;
   let editorCount = 0;
+  let updatesCount = 0;
 
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
     if (entry.kind === 'index' || entry.kind === 'tabs' || entry.kind === 'site') composerCount += 1;
     else if (entry.kind === 'markdown') editorCount += 1;
+    else if (entry.kind === 'system') updatesCount += 1;
   }
 
   if (!composerCount) {
@@ -3538,6 +3548,7 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   applyModeTabBadgeState('composer', composerCount);
   applyModeTabBadgeState('editor', editorCount);
+  applyModeTabBadgeState('updates', updatesCount);
 }
 
 function updateReviewButton(summaryEntries = []) {
@@ -4787,6 +4798,14 @@ function gatherLocalChangesForCommit(options = {}) {
     });
   }
 
+  const systemFiles = getSystemUpdateCommitFiles();
+  if (systemFiles && systemFiles.length) {
+    systemFiles.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      addFile({ ...entry, kind: 'system' });
+    });
+  }
+
   return { files };
 }
 
@@ -4856,6 +4875,15 @@ function describeSummaryEntry(entry) {
           ? 'Index HTML'
           : 'Meta tags';
     return `${base} – auto-generated SEO (${type})`;
+  }
+  if (entry.kind === 'system') {
+    let label = '';
+    try {
+      const key = entry.state === 'added' ? 'added' : 'modified';
+      label = t(`editor.systemUpdates.summary.${key}`);
+    } catch (_) { label = ''; }
+    if (label) return `${base} – ${label}`;
+    return `${base} – system file update`;
   }
   return base;
 }
@@ -8420,6 +8448,8 @@ function persistDynamicEditorState() {
       const active = dynamicEditorTabs.get(currentMode);
       state.mode = 'dynamic';
       state.activePath = active && active.path ? active.path : null;
+    } else if (currentMode === 'updates') {
+      state.mode = 'updates';
     } else {
       state.mode = 'composer';
     }
@@ -8452,7 +8482,7 @@ function restoreDynamicEditorState() {
     getOrCreateDynamicMode(norm);
   });
 
-  const mode = (data.mode === 'editor' || data.mode === 'dynamic') ? data.mode : 'composer';
+  const mode = (data.mode === 'editor' || data.mode === 'dynamic' || data.mode === 'updates') ? data.mode : 'composer';
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
 
   if (mode === 'dynamic' && activePath) {
@@ -8464,6 +8494,7 @@ function restoreDynamicEditorState() {
   }
 
   if (mode === 'editor') applyMode('editor');
+  else if (mode === 'updates') applyMode('updates');
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -9188,7 +9219,7 @@ function applyMode(mode) {
   }
 
   const candidate = mode || 'composer';
-  const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
+  const nextMode = (candidate === 'composer' || candidate === 'editor' || candidate === 'updates' || isDynamicMode(candidate))
     ? candidate
     : 'composer';
 
@@ -9207,9 +9238,15 @@ function applyMode(mode) {
 
   currentMode = nextMode;
 
-  const onEditor = nextMode !== 'composer';
-  try { $('#mode-editor').style.display = onEditor ? '' : 'none'; } catch (_) {}
-  try { $('#mode-composer').style.display = onEditor ? 'none' : ''; } catch (_) {}
+  const showComposer = nextMode === 'composer';
+  const showEditor = nextMode === 'editor' || isDynamicMode(nextMode);
+  const showUpdates = nextMode === 'updates';
+  try { $('#mode-editor').style.display = showEditor ? '' : 'none'; } catch (_) {}
+  try { $('#mode-composer').style.display = showComposer ? '' : 'none'; } catch (_) {}
+  try {
+    const updatesLayout = $('#mode-updates');
+    if (updatesLayout) updatesLayout.style.display = showUpdates ? '' : 'none';
+  } catch (_) {}
   try {
     const layout = $('#mode-editor');
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
@@ -9237,7 +9274,7 @@ function applyMode(mode) {
     catch (_) { setTimeout(run, 0); }
   };
 
-  if (onEditor) scheduleEditorLayoutRefresh();
+  if (showEditor) scheduleEditorLayoutRefresh();
 
   if (nextMode === 'composer') {
     activeDynamicMode = null;
@@ -9287,12 +9324,15 @@ function applyMode(mode) {
         });
       }
     }
-  } else {
+  } else if (nextMode === 'editor') {
     activeDynamicMode = null;
     if (editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       scheduleEditorLayoutRefresh();
     }
+    pushEditorCurrentFileInfo(null);
+  } else {
+    activeDynamicMode = null;
     pushEditorCurrentFileInfo(null);
   }
 
@@ -10652,6 +10692,15 @@ function bindComposerUI(state) {
       applyMode(mode);
     });
   });
+  const systemOpenBtn = document.getElementById('systemUpdateOpenBtn');
+  if (systemOpenBtn) {
+    systemOpenBtn.addEventListener('click', () => applyMode('updates'));
+  }
+  try {
+    initSystemUpdates({ onStateChange: () => { try { updateUnsyncedSummary(); } catch (_) {} } });
+  } catch (err) {
+    console.error('Failed to initialize system updates module', err);
+  }
 
   // File switch (index.yaml <-> tabs.yaml)
   const links = $$('a.vt-btn[data-cfile]');

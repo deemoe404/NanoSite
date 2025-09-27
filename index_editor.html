@@ -54,6 +54,38 @@
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
+    .updates-layout { display:flex; flex-direction:column; gap:1rem; }
+    .updates-main { display:flex; flex-direction:column; gap:1.25rem; }
+    .updates-header { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:1rem; }
+    .updates-header-text { display:flex; flex-direction:column; gap:.4rem; min-width:0; }
+    .updates-title { margin:0; font-size:1.35rem; color: color-mix(in srgb, var(--text) 92%, transparent); }
+    .updates-meta { display:flex; flex-direction:column; gap:.15rem; font-size:.92rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
+    .updates-meta span { line-height:1.4; }
+    .updates-header-actions { display:flex; align-items:center; gap:.75rem; }
+    #btnSystemRefresh[data-state="busy"] { pointer-events:none; opacity:.82; }
+    #btnSystemRefresh[data-state="busy"]::after { content:''; display:inline-block; width:1rem; height:1rem; margin-left:.5rem; border:2px solid color-mix(in srgb, var(--primary) 40%, transparent); border-top-color: color-mix(in srgb, var(--primary) 86%, transparent); border-radius:50%; animation: ns-updates-spin .85s linear infinite; vertical-align:middle; }
+    @keyframes ns-updates-spin { to { transform: rotate(360deg); } }
+    .updates-status { margin:0; font-size:.95rem; color: color-mix(in srgb, var(--muted) 82%, transparent); }
+    .updates-status[data-tone="warn"] { color: #b45309; }
+    .updates-status[data-tone="error"] { color: #dc2626; }
+    .updates-status[data-tone="success"] { color: #15803d; }
+    .updates-files { display:flex; flex-direction:column; gap:.6rem; }
+    .updates-files[hidden] { display:none !important; }
+    .updates-subtitle { margin:0; font-size:1.05rem; color: color-mix(in srgb, var(--text) 90%, transparent); }
+    .updates-file-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+    .updates-file-item { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.55rem .75rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:12px; background: color-mix(in srgb, var(--card) 96%, transparent); }
+    .updates-file-name { flex:1 1 auto; min-width:0; font-size:.95rem; color: color-mix(in srgb, var(--text) 90%, transparent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .updates-file-badge { flex:0 0 auto; font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: color-mix(in srgb, var(--primary) 90%, transparent); background: color-mix(in srgb, var(--primary) 14%, transparent); border-radius:999px; padding:.2rem .65rem; }
+    .updates-notes { display:flex; flex-direction:column; gap:.55rem; }
+    .updates-release-notes { border:1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius:14px; background: color-mix(in srgb, var(--card) 95%, transparent); padding:1rem 1.1rem; max-height:360px; overflow:auto; font-size:.95rem; color: color-mix(in srgb, var(--text) 88%, transparent); }
+    .updates-release-notes h1,
+    .updates-release-notes h2,
+    .updates-release-notes h3,
+    .updates-release-notes h4 { margin:1rem 0 .5rem; font-size:1.05rem; }
+    .updates-release-notes p { margin:.6rem 0; }
+    .updates-release-notes ul,
+    .updates-release-notes ol { margin:.6rem 0 .6rem 1.2rem; padding:0; }
+    .updates-release-notes code { background: color-mix(in srgb, var(--border) 60%, transparent); padding:.15rem .4rem; border-radius:6px; font-size:.85rem; }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
@@ -400,6 +432,19 @@
     /* GitHub connection status */
     .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
     .status-stack > * { width:100%; }
+    .system-update-banner { background: color-mix(in srgb, var(--card) 96%, transparent); border:1px solid color-mix(in srgb, var(--border) 84%, transparent); border-radius:16px; padding:1rem 1.1rem; box-shadow: var(--shadow); }
+    .system-update-banner[hidden] { display:none !important; }
+    .system-update-banner .sub-status-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.4rem; }
+    .system-update-banner .sub-status-title { font-size:.95rem; font-weight:700; color: color-mix(in srgb, var(--text) 88%, transparent); }
+    .system-update-banner .sub-status-link { font-size:.82rem; font-weight:600; color: var(--primary); background: transparent; border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent); border-radius: 999px; padding:.25rem .8rem; cursor:pointer; transition: background .2s ease, color .2s ease, border-color .2s ease; }
+    .system-update-banner .sub-status-link:hover,
+    .system-update-banner .sub-status-link:focus-visible { background: color-mix(in srgb, var(--primary) 18%, transparent); color: color-mix(in srgb, var(--primary) 96%, white 6%); outline:none; }
+    .system-update-banner .sub-status-summary { margin:.1rem 0 .45rem; font-size:.85rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
+    .system-update-banner .system-update-banner-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.35rem; }
+    .system-update-banner-item { display:flex; align-items:center; justify-content:space-between; gap:.65rem; font-size:.92rem; color: color-mix(in srgb, var(--text) 85%, transparent); }
+    .system-update-banner-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .system-update-banner-badge { flex:0 0 auto; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color: color-mix(in srgb, var(--primary) 90%, transparent); background: color-mix(in srgb, var(--primary) 16%, transparent); border-radius:999px; padding:.15rem .6rem; }
+    .system-update-banner .sub-status-empty { margin:0; font-size:.9rem; color: color-mix(in srgb, var(--muted) 82%, transparent); }
     .global-status {
       display:flex;
       flex-direction:column;
@@ -1249,6 +1294,10 @@
           <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
+        <button class="mode-tab" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" role="tab" aria-controls="mode-updates" aria-selected="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
+          <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
+          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+        </button>
       </nav>
       <div class="status-stack">
         <div id="global-status" class="global-status" aria-live="polite">
@@ -1284,6 +1333,17 @@
               <span class="gs-repo" id="globalStatusRepo" data-i18n="editor.status.loadingRepo">Loading GitHub settings…</span>
               <span class="gs-message" id="globalStatusMessage" data-i18n="editor.status.checkingConnection">Checking connection…</span>
             </div>
+          </div>
+        </div>
+        <div id="systemUpdateBanner" class="system-update-banner" hidden aria-live="polite">
+          <div class="sub-status">
+            <div class="sub-status-head">
+              <span class="sub-status-title" data-i18n="editor.systemUpdates.banner.title">System files pending update</span>
+              <button type="button" class="sub-status-link" id="systemUpdateOpenBtn" data-i18n="editor.systemUpdates.banner.open">Open</button>
+            </div>
+            <p id="systemUpdateBannerSummary" class="sub-status-summary"></p>
+            <ul id="systemUpdateBannerList" class="system-update-banner-list"></ul>
+            <p id="systemUpdateBannerEmpty" class="sub-status-empty" data-i18n="editor.systemUpdates.banner.clean">System files are up to date.</p>
           </div>
         </div>
       </div>
@@ -1426,6 +1486,33 @@
         <!-- YAML preview/export area -->
         <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
           <textarea id="yamlExport" style="width:100%; height: 280px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); padding:.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 18px;"></textarea>
+        </div>
+      </section>
+    </div>
+    <!-- System Updates Mode -->
+    <div class="updates-layout" id="mode-updates" style="display:none;">
+      <section class="box updates-main">
+        <div class="updates-header">
+          <div class="updates-header-text">
+            <h2 class="updates-title" data-i18n="editor.systemUpdates.title">System Updates</h2>
+            <div class="updates-meta">
+              <span id="systemUpdateReleaseMeta"></span>
+              <span id="systemUpdateReleasePublished"></span>
+              <span id="systemUpdateAssetMeta" class="updates-asset"></span>
+            </div>
+          </div>
+          <div class="updates-header-actions">
+            <button class="btn-primary" id="btnSystemRefresh" data-i18n="editor.systemUpdates.download">Download latest release</button>
+          </div>
+        </div>
+        <p id="systemUpdateStatus" class="updates-status" data-tone="info"></p>
+        <div id="systemUpdateFileSection" class="updates-files" hidden aria-hidden="true">
+          <h3 class="updates-subtitle" data-i18n="editor.systemUpdates.filesHeading">Pending system files</h3>
+          <ul id="systemUpdateFileList" class="updates-file-list"></ul>
+        </div>
+        <div class="updates-notes">
+          <h3 class="updates-subtitle" data-i18n="editor.systemUpdates.releaseNotes">Release notes</h3>
+          <div id="systemUpdateReleaseNotes" class="updates-release-notes"></div>
         </div>
       </section>
     </div>

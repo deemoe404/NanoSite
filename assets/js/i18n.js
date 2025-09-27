@@ -112,7 +112,8 @@ const translations = {
       },
       modes: {
         composer: 'Composer',
-        editor: 'Editor'
+        editor: 'Editor',
+        updates: 'System Updates'
       },
       status: {
         localLabel: 'LOCAL',
@@ -123,6 +124,47 @@ const translations = {
         loadingRepo: 'Loading GitHub settings…',
         checkingConnection: 'Checking connection…',
         clean: 'No local changes'
+      },
+      systemUpdates: {
+        tabLabel: 'System Updates',
+        title: 'System Updates',
+        download: 'Download latest release',
+        filesHeading: 'Pending system files',
+        releaseNotes: 'Release notes',
+        noNotes: 'This release does not include additional notes.',
+        latestLabel: ({ name, tag }) => `Latest release: ${name}${tag ? ` (${tag})` : ''}`,
+        publishedLabel: ({ date }) => `Published on ${date}`,
+        assetLabel: ({ name, size }) => `Asset: ${name} (${size})`,
+        assetWithHash: ({ name, size, hash }) => `Asset: ${name} (${size}) — SHA-256 ${hash}`,
+        noAsset: 'No downloadable assets were attached to this release.',
+        status: {
+          idle: 'Ready to check for system updates.',
+          downloading: 'Downloading release asset…',
+          verifying: 'Verifying archive…',
+          noChanges: 'System files are up to date.',
+          comparing: 'Comparing downloaded files…',
+          changes: ({ count }) => `${count} system file${count === 1 ? '' : 's'} pending update.`
+        },
+        errors: {
+          releaseFetch: 'Unable to load latest release information.',
+          assetMissing: 'The latest release does not include a downloadable asset.',
+          assetDownload: 'Failed to download the release asset.',
+          generic: 'System update failed. Please try again.'
+        },
+        fileStatus: {
+          added: 'New file',
+          modified: 'Updated file'
+        },
+        banner: {
+          title: 'System files pending update',
+          open: 'Open',
+          clean: 'System files are up to date.',
+          summary: ({ count }) => `${count} file${count === 1 ? '' : 's'} pending`
+        },
+        summary: {
+          added: 'new system file',
+          modified: 'updated system file'
+        }
       },
       currentFile: {
         status: {
@@ -751,7 +793,8 @@ const translations = {
       },
       modes: {
         composer: '编排器',
-        editor: '编辑器'
+        editor: '编辑器',
+        updates: '系统更新'
       },
       status: {
         localLabel: '本地',
@@ -762,6 +805,47 @@ const translations = {
         loadingRepo: '正在加载 GitHub 设置…',
         checkingConnection: '正在检查连接…',
         clean: '没有本地更改'
+      },
+      systemUpdates: {
+        tabLabel: '系统更新',
+        title: '系统更新',
+        download: '下载最新发布版本',
+        filesHeading: '待更新的系统文件',
+        releaseNotes: '发布说明',
+        noNotes: '此次发布未提供额外说明。',
+        latestLabel: ({ name, tag }) => `最新发布：${name}${tag ? `（${tag}）` : ''}`,
+        publishedLabel: ({ date }) => `发布时间：${date}`,
+        assetLabel: ({ name, size }) => `附件：${name}（${size}）`,
+        assetWithHash: ({ name, size, hash }) => `附件：${name}（${size}） — SHA-256 ${hash}`,
+        noAsset: '此发布没有可下载的附件。',
+        status: {
+          idle: '准备检查系统更新。',
+          downloading: '正在下载发布附件…',
+          verifying: '正在校验压缩包…',
+          noChanges: '系统文件已是最新状态。',
+          comparing: '正在比对下载的文件…',
+          changes: ({ count }) => `有 ${count} 个系统文件待更新。`
+        },
+        errors: {
+          releaseFetch: '无法加载最新发布信息。',
+          assetMissing: '最新发布未提供可下载的附件。',
+          assetDownload: '下载发布附件失败。',
+          generic: '系统更新失败，请重试。'
+        },
+        fileStatus: {
+          added: '新文件',
+          modified: '已更新'
+        },
+        banner: {
+          title: '有系统文件等待更新',
+          open: '查看',
+          clean: '系统文件已保持最新。',
+          summary: ({ count }) => `${count} 个文件待处理`
+        },
+        summary: {
+          added: '新增的系统文件',
+          modified: '已更新的系统文件'
+        }
       },
       currentFile: {
         status: {
@@ -1391,7 +1475,8 @@ const translations = {
       },
       modes: {
         composer: 'コンポーザー',
-        editor: 'エディター'
+        editor: 'エディター',
+        updates: 'システム更新'
       },
       status: {
         localLabel: 'ローカル',
@@ -1402,6 +1487,47 @@ const translations = {
         loadingRepo: 'GitHub 設定を読み込み中…',
         checkingConnection: '接続を確認中…',
         clean: 'ローカルの変更はありません'
+      },
+      systemUpdates: {
+        tabLabel: 'システム更新',
+        title: 'システム更新',
+        download: '最新リリースをダウンロード',
+        filesHeading: '更新待ちのシステムファイル',
+        releaseNotes: 'リリースノート',
+        noNotes: 'このリリースには追加の説明がありません。',
+        latestLabel: ({ name, tag }) => `最新リリース：${name}${tag ? `（${tag}）` : ''}`,
+        publishedLabel: ({ date }) => `公開日：${date}`,
+        assetLabel: ({ name, size }) => `アセット：${name}（${size}）`,
+        assetWithHash: ({ name, size, hash }) => `アセット：${name}（${size}） — SHA-256 ${hash}`,
+        noAsset: 'このリリースにはダウンロード可能なアセットがありません。',
+        status: {
+          idle: 'システム更新を確認できます。',
+          downloading: 'リリースアセットをダウンロード中…',
+          verifying: 'アーカイブを検証しています…',
+          noChanges: 'システムファイルは最新です。',
+          comparing: 'ダウンロードしたファイルを比較しています…',
+          changes: ({ count }) => `更新が必要なシステムファイルが ${count} 件あります。`
+        },
+        errors: {
+          releaseFetch: '最新リリース情報を取得できませんでした。',
+          assetMissing: '最新リリースにダウンロード可能なアセットがありません。',
+          assetDownload: 'リリースアセットのダウンロードに失敗しました。',
+          generic: 'システム更新に失敗しました。再試行してください。'
+        },
+        fileStatus: {
+          added: '新規',
+          modified: '更新済み'
+        },
+        banner: {
+          title: '更新待ちのシステムファイルがあります',
+          open: '開く',
+          clean: 'システムファイルは最新です。',
+          summary: ({ count }) => `${count} 件のファイルが保留中`
+        },
+        summary: {
+          added: '新しいシステムファイル',
+          modified: '更新されたシステムファイル'
+        }
       },
       currentFile: {
         status: {
