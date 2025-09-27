@@ -1738,7 +1738,7 @@ window.addEventListener('resize', () => {
 const defaultLang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
 // Bootstrap i18n without persisting to localStorage so site.yaml can
 // still override the default language on first load.
-initI18n({ defaultLang, persist: false });
+await initI18n({ defaultLang, persist: false });
 // Expose translate helper for modules that don't import i18n directly
 try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
@@ -1763,7 +1763,7 @@ async function softResetToSiteDefaultLanguage() {
   try {
     const def = (siteConfig && (siteConfig.defaultLanguage || siteConfig.defaultLang)) || defaultLang || 'en';
     // Switch language immediately (do not persist to mimic reset semantics)
-    initI18n({ lang: String(def), persist: false });
+    await initI18n({ lang: String(def), persist: false });
     // Reflect placeholder promptly
     try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
     // Update URL to drop any lang param so defaults apply going forward
@@ -1931,7 +1931,7 @@ try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catc
 
 // Load site config first so we can honor defaultLanguage before fetching localized content
 loadSiteConfig()
-  .then(cfg => {
+  .then(async (cfg) => {
     siteConfig = cfg || {};
     // Apply content root override early so subsequent loads honor it
     try {
@@ -1958,7 +1958,7 @@ loadSiteConfig()
         const savedIsHtmlDefault = savedLang && savedLang.toLowerCase() === htmlDefault;
         if (!hasUrlLang && (!hasSaved || savedIsHtmlDefault)) {
           // Force language to site default, not just the fallback
-          initI18n({ lang: String(cfgDefaultLang) });
+          await initI18n({ lang: String(cfgDefaultLang) });
           try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
         }
       }
