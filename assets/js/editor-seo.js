@@ -10,17 +10,15 @@ import {
   downloadRobots,
   downloadMetaTags
 } from './seo-tool-generators.js?v=2';
-import { initSeoEditors, getEditorValue, setEditorValue, refreshEditorLayout } from './hieditor.js';
+import { getEditorValue, setEditorValue } from './hieditor.js';
 
 const SEO_FILES = {
   sitemap: {
     path: 'sitemap.xml',
     label: 'sitemap.xml',
     outputId: 'sitemapOutput',
-    previewId: 'sitemapPreview',
     statusId: 'seoStatus-sitemap',
     badgeId: 'seoStatusBadge-sitemap',
-    detailsId: 'seoDetails-sitemap',
     loadBtn: 'seoLoadSitemap',
     generateBtn: 'seoGenerateSitemap',
     copyBtn: 'seoCopySitemap',
@@ -38,10 +36,8 @@ const SEO_FILES = {
     path: 'robots.txt',
     label: 'robots.txt',
     outputId: 'robotsOutput',
-    previewId: 'robotsPreview',
     statusId: 'seoStatus-robots',
     badgeId: 'seoStatusBadge-robots',
-    detailsId: 'seoDetails-robots',
     loadBtn: 'seoLoadRobots',
     generateBtn: 'seoGenerateRobots',
     copyBtn: 'seoCopyRobots',
@@ -59,10 +55,8 @@ const SEO_FILES = {
     path: 'meta-tags.html',
     label: 'meta-tags.html',
     outputId: 'metaOutput',
-    previewId: 'metaPreview',
     statusId: 'seoStatus-meta',
     badgeId: 'seoStatusBadge-meta',
-    detailsId: 'seoDetails-meta',
     loadBtn: 'seoLoadMeta',
     generateBtn: 'seoGenerateMeta',
     copyBtn: 'seoCopyMeta',
@@ -172,33 +166,6 @@ function refreshAllStatuses() {
   Object.keys(SEO_FILES).forEach((kind) => refreshStatus(kind));
 }
 
-function setDetailsVisibility(kind, visible) {
-  const info = SEO_FILES[kind];
-  if (!info || !info.detailsId) return;
-  const details = document.getElementById(info.detailsId);
-  if (!details) return;
-  const toggle = document.querySelector(`[data-toggle-details="${kind}"]`);
-  const show = Boolean(visible);
-  if (show) details.removeAttribute('hidden');
-  else details.setAttribute('hidden', '');
-  if (toggle) {
-    const showLabel = toggle.dataset.labelShow || toggle.textContent.trim() || 'Review details';
-    const hideLabel = toggle.dataset.labelHide || 'Hide details';
-    toggle.dataset.labelShow = showLabel;
-    toggle.dataset.labelHide = hideLabel;
-    toggle.textContent = show ? hideLabel : showLabel;
-    toggle.setAttribute('aria-expanded', String(show));
-  }
-  if (show && info.outputId) {
-    const refresh = () => {
-      try { refreshEditorLayout(info.outputId); }
-      catch (_) { /* noop */ }
-    };
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(refresh);
-    else setTimeout(refresh, 0);
-  }
-}
-
 async function loadExisting(kind, options = {}) {
   const info = SEO_FILES[kind];
   if (!info) return '';
@@ -224,23 +191,12 @@ async function loadExisting(kind, options = {}) {
       updateStatus(kind, `Failed to load (${err.message || 'error'})`, 'error');
       info.loaded = false;
       info.liveExists = null;
-      const preview = document.getElementById(info.previewId);
-      if (preview) preview.textContent = 'Unable to load the live file right now. Try again in a moment.';
       throw err;
     }
 
     setBaseline(kind, content, { exists, path: info.path, label: info.label });
 
     info.liveExists = exists;
-
-    const preview = document.getElementById(info.previewId);
-    if (preview) {
-      if (exists) {
-        preview.textContent = content || '(The live file is currently empty.)';
-      } else {
-        preview.textContent = 'We could not find this file on the live site yet.';
-      }
-    }
 
     const textarea = document.getElementById(info.outputId);
     if (textarea) textarea.value = content;
@@ -270,10 +226,6 @@ function handleTextareaInput(kind) {
   });
 }
 
-function ensureEditorsInitialized() {
-  try { initSeoEditors(); } catch (_) {}
-}
-
 function extractEditorValue(kind) {
   const info = SEO_FILES[kind];
   if (!info) return '';
@@ -290,19 +242,6 @@ function extractEditorValue(kind) {
 function attachButtonHandlers(kind) {
   const info = SEO_FILES[kind];
   if (!info) return;
-
-  const toggleBtn = document.querySelector(`[data-toggle-details="${kind}"]`);
-  if (toggleBtn && info.detailsId) {
-    const details = document.getElementById(info.detailsId);
-    const initiallyVisible = details ? !details.hasAttribute('hidden') : false;
-    setDetailsVisibility(kind, initiallyVisible);
-    toggleBtn.addEventListener('click', () => {
-      const detailsEl = document.getElementById(info.detailsId);
-      if (!detailsEl) return;
-      const shouldShow = detailsEl.hasAttribute('hidden');
-      setDetailsVisibility(kind, shouldShow);
-    });
-  }
 
   const loadBtn = document.getElementById(info.loadBtn);
   if (loadBtn) {
@@ -328,7 +267,6 @@ function attachButtonHandlers(kind) {
       const value = extractEditorValue(kind);
       setContent(kind, value, { path: info.path, label: info.label });
       info.cachedContent = value;
-      setDetailsVisibility(kind, true);
       refreshStatus(kind);
     });
   }
@@ -360,7 +298,6 @@ function attachButtonHandlers(kind) {
       const textarea = document.getElementById(info.outputId);
       if (textarea) textarea.value = original;
       info.cachedContent = original;
-      setDetailsVisibility(kind, false);
       refreshStatus(kind);
     });
   }
@@ -372,7 +309,6 @@ async function initializeSeoMode() {
     return;
   }
   seoModeInitialized = true;
-  ensureEditorsInitialized();
   Object.keys(SEO_FILES).forEach((kind) => {
     handleTextareaInput(kind);
     attachButtonHandlers(kind);

@@ -1261,16 +1261,6 @@
     .seo-actions .btn-primary { flex: 1 1 auto; min-width: 160px; }
     .seo-actions .btn-tertiary { border-style: dashed; }
     .seo-summary { margin: 0; color: color-mix(in srgb, var(--text) 80%, transparent); font-size: .96rem; line-height: 1.6; }
-    .seo-details { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); padding-top: 1.25rem; }
-    .seo-details[hidden] { display: none; }
-    .seo-detail-group { display: flex; flex-direction: column; gap: .65rem; }
-    .seo-detail-group h4 { margin: 0; font-size: .95rem; color: var(--muted); letter-spacing: .01em; text-transform: uppercase; }
-    .seo-preview { border: 1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius: 12px; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, transparent); max-height: 280px; overflow: auto; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    .seo-editor-wrap { position: relative; display: flex; flex-direction: column; gap: .75rem; min-height: 0; }
-    .seo-editor-wrap textarea { min-height: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: .85rem; }
-    .seo-detail-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
-    .seo-mode .hi-editor { max-height: 280px; }
-    .seo-mode .hi-editor .code-scroll { min-height: 220px; max-height: 100%; overflow-y: auto; }
     @media (max-width: 720px) {
       .seo-grid { gap: 1.1rem; }
     }
@@ -1426,25 +1416,11 @@
           <div class="seo-actions">
             <button type="button" class="btn-secondary" id="seoLoadSitemap">Check live file</button>
             <button type="button" class="btn-primary" id="seoGenerateSitemap">Generate update</button>
-            <button type="button" class="btn-tertiary" data-toggle-details="sitemap" data-label-hide="Hide details" aria-expanded="false" aria-controls="seoDetails-sitemap">Review details</button>
+            <button type="button" class="btn-secondary" id="seoCopySitemap">Copy</button>
+            <button type="button" class="btn-secondary" id="seoDownloadSitemap">Download</button>
             <button type="button" class="btn-tertiary" id="seoResetSitemap">Revert</button>
           </div>
-          <div class="seo-details" id="seoDetails-sitemap" hidden>
-            <div class="seo-detail-group">
-              <h4>Live file</h4>
-              <div class="seo-preview" id="sitemapPreview"></div>
-            </div>
-            <div class="seo-detail-group">
-              <h4>Proposed update</h4>
-              <div class="seo-editor-wrap">
-                <textarea id="sitemapOutput" data-seo-kind="sitemap" data-hi-max-height="280" spellcheck="false"></textarea>
-              </div>
-              <div class="seo-detail-actions">
-                <button type="button" class="btn-secondary" id="seoCopySitemap">Copy</button>
-                <button type="button" class="btn-secondary" id="seoDownloadSitemap">Download</button>
-              </div>
-            </div>
-          </div>
+          <textarea id="sitemapOutput" data-seo-kind="sitemap" spellcheck="false" hidden></textarea>
         </article>
         <article class="seo-card" data-seo-kind="robots" data-state="idle">
           <div class="seo-card-header">
@@ -1458,25 +1434,11 @@
           <div class="seo-actions">
             <button type="button" class="btn-secondary" id="seoLoadRobots">Check live file</button>
             <button type="button" class="btn-primary" id="seoGenerateRobots">Generate update</button>
-            <button type="button" class="btn-tertiary" data-toggle-details="robots" data-label-hide="Hide details" aria-expanded="false" aria-controls="seoDetails-robots">Review details</button>
+            <button type="button" class="btn-secondary" id="seoCopyRobots">Copy</button>
+            <button type="button" class="btn-secondary" id="seoDownloadRobots">Download</button>
             <button type="button" class="btn-tertiary" id="seoResetRobots">Revert</button>
           </div>
-          <div class="seo-details" id="seoDetails-robots" hidden>
-            <div class="seo-detail-group">
-              <h4>Live file</h4>
-              <div class="seo-preview" id="robotsPreview"></div>
-            </div>
-            <div class="seo-detail-group">
-              <h4>Proposed update</h4>
-              <div class="seo-editor-wrap">
-                <textarea id="robotsOutput" data-seo-kind="robots" data-hi-max-height="280" spellcheck="false"></textarea>
-              </div>
-              <div class="seo-detail-actions">
-                <button type="button" class="btn-secondary" id="seoCopyRobots">Copy</button>
-                <button type="button" class="btn-secondary" id="seoDownloadRobots">Download</button>
-              </div>
-            </div>
-          </div>
+          <textarea id="robotsOutput" data-seo-kind="robots" spellcheck="false" hidden></textarea>
         </article>
         <article class="seo-card" data-seo-kind="meta" data-state="idle">
           <div class="seo-card-header">
@@ -1490,25 +1452,11 @@
           <div class="seo-actions">
             <button type="button" class="btn-secondary" id="seoLoadMeta">Check live file</button>
             <button type="button" class="btn-primary" id="seoGenerateMeta">Generate update</button>
-            <button type="button" class="btn-tertiary" data-toggle-details="meta" data-label-hide="Hide details" aria-expanded="false" aria-controls="seoDetails-meta">Review details</button>
+            <button type="button" class="btn-secondary" id="seoCopyMeta">Copy</button>
+            <button type="button" class="btn-secondary" id="seoDownloadMeta">Download</button>
             <button type="button" class="btn-tertiary" id="seoResetMeta">Revert</button>
           </div>
-          <div class="seo-details" id="seoDetails-meta" hidden>
-            <div class="seo-detail-group">
-              <h4>Live file</h4>
-              <div class="seo-preview" id="metaPreview"></div>
-            </div>
-            <div class="seo-detail-group">
-              <h4>Proposed update</h4>
-              <div class="seo-editor-wrap">
-                <textarea id="metaOutput" data-seo-kind="meta" data-hi-max-height="280" spellcheck="false"></textarea>
-              </div>
-              <div class="seo-detail-actions">
-                <button type="button" class="btn-secondary" id="seoCopyMeta">Copy</button>
-                <button type="button" class="btn-secondary" id="seoDownloadMeta">Download</button>
-              </div>
-            </div>
-          </div>
+          <textarea id="metaOutput" data-seo-kind="meta" spellcheck="false" hidden></textarea>
         </article>
       </div>
     </section>
