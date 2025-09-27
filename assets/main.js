@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
+import { initThemeSystem, applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
@@ -38,6 +38,15 @@ let PAGE_SIZE = 8;
 let __activePostRequestId = 0;
 // Track last route to harmonize scroll behavior on back/forward
 let __lastRouteKey = '';
+
+const getLayoutArea = (name, fallbackSelector) => {
+  return document.querySelector(`[data-ns-area="${name}"]`) || (fallbackSelector ? document.querySelector(fallbackSelector) : null);
+};
+
+const getMainAreaEl = () => getLayoutArea('main', '.content');
+const getSidebarAreaEl = () => getLayoutArea('sidebar', '.sidebar') || getLayoutArea('support', '.sidebar');
+
+initThemeSystem();
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
 
@@ -935,8 +944,8 @@ function displayPost(postname) {
   // Bump request token to invalidate any in-flight older renders
   const reqId = (++__activePostRequestId);
   // Add loading-state classes to keep layout stable
-  const contentEl = document.querySelector('.content');
-  const sidebarEl = document.querySelector('.sidebar');
+  const contentEl = getMainAreaEl();
+  const sidebarEl = getSidebarAreaEl();
   const mainviewContainer = document.getElementById('mainview')?.closest('.box');
   
   if (contentEl) contentEl.classList.add('loading', 'layout-stable');
@@ -1448,8 +1457,8 @@ function displayStaticTab(slug) {
   if (!tab) return displayIndex({});
   
   // Add loading state class to maintain layout stability
-  const contentEl = document.querySelector('.content');
-  const sidebarEl = document.querySelector('.sidebar');
+  const contentEl = getMainAreaEl();
+  const sidebarEl = getSidebarAreaEl();
   const mainviewContainer = document.getElementById('mainview')?.closest('.box');
   
   if (contentEl) contentEl.classList.add('loading', 'layout-stable');

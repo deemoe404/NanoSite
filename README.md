@@ -26,9 +26,10 @@
 
 - ⚡ **Zero Build** – no bundlers, compilers, or environments required.  
 - 📝 **Markdown-first** – write posts like plain notes.  
-- 🌐 **GitHub Pages Ready** – simply push and host.  
-- 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).  
-- 🎨 **Configurable** – customize your site using a simple `site.yaml`.  
+- 🌐 **GitHub Pages Ready** – simply push and host.
+- 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).
+- 🎨 **Configurable** – customize your site using a simple `site.yaml`.
+- 🧩 **Manifest-driven Themes** – swap full theme packs, including layout and design tokens, without touching HTML.
 
 ## 🌍 Built with Nanosite
 

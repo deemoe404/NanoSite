@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "github",
+  "label": "GitHub Primer",
+  "description": "GitHub-inspired palette with a compact document column and flat surfaces.",
+  "variables": {
+    "--ns-shell-gap": "1.5rem",
+    "--ns-shell-max-width": "min(61.25rem, calc(100% - 2.5rem))"
+  },
+  "layout": {
+    "preset": "two-column",
+    "sidebarPosition": "right",
+    "variables": {
+      "--ns-sidebar-width": "15rem"
+    },
+    "areas": [
+      { "name": "main", "classes": ["content"], "modules": ["tabs", "main"] },
+      { "name": "sidebar", "classes": ["sidebar"], "modules": ["search", "site-card", "tags", "tools", "toc"] }
+    ]
+  }
+}

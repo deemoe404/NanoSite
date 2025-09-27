@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "native",
+  "label": "Native Classic",
+  "description": "Default NanoSite layout with a right sidebar and balanced spacing.",
+  "variables": {
+    "--ns-shell-gap": "1.5rem",
+    "--ns-shell-max-width": "min(75rem, calc(100% - 2.5rem))"
+  },
+  "layout": {
+    "preset": "two-column",
+    "sidebarPosition": "right",
+    "variables": {
+      "--ns-sidebar-width": "min(20rem, 100%)"
+    },
+    "areas": [
+      { "name": "main", "classes": ["content"], "modules": ["tabs", "main"] },
+      { "name": "sidebar", "classes": ["sidebar"], "modules": ["search", "site-card", "tags", "tools", "toc"] }
+    ]
+  }
+}
