@@ -129,12 +129,21 @@ function clearList(node) {
 
 function renderNotes(body) {
   if (!elements.notes) return;
-  if (body && body.trim()) {
-    const html = mdParse(body);
-    setSafeHtml(elements.notes, html, '', { blockLevel: true });
-  } else {
-    elements.notes.textContent = t('editor.systemUpdates.noNotes');
+  const raw = typeof body === 'string' ? body : '';
+  const trimmed = raw.trim();
+  if (trimmed) {
+    const parsed = mdParse(trimmed);
+    const html = typeof parsed === 'string'
+      ? parsed
+      : parsed && typeof parsed === 'object' && Object.prototype.hasOwnProperty.call(parsed, 'post')
+        ? parsed.post
+        : '';
+    if (html) {
+      setSafeHtml(elements.notes, html, '', { alreadySanitized: true });
+      return;
+    }
   }
+  elements.notes.textContent = t('editor.systemUpdates.noNotes');
 }
 
 function notify() {
@@ -242,6 +251,12 @@ async function fetchLatestRelease() {
   if (!response.ok) throw new Error(t('editor.systemUpdates.errors.releaseFetch'));
   const data = await response.json();
   const asset = Array.isArray(data.assets) && data.assets.length ? data.assets[0] : null;
+  const archiveUrl = data && (data.zipball_url || data.tarball_url) ? (data.zipball_url || data.tarball_url) : '';
+  const archiveName = (() => {
+    const base = data && (data.tag_name || data.name);
+    if (!base) return 'source.zip';
+    return `${String(base).replace(/\s+/g, '-').replace(/[^\w.-]+/g, '') || 'source'}.zip`;
+  })();
   releaseCache = {
     name: data.name || data.tag_name || 'latest',
     tag: data.tag_name || '',
@@ -252,6 +267,10 @@ async function fetchLatestRelease() {
       name: asset.name || 'release.zip',
       url: asset.browser_download_url,
       size: asset.size || 0
+    } : null,
+    archive: archiveUrl ? {
+      name: archiveName,
+      url: archiveUrl
     } : null
   };
   renderReleaseMeta();
@@ -357,14 +376,71 @@ async function processArchive(buffer) {
 
 async function downloadLatestRelease() {
   const release = await fetchLatestRelease();
-  if (!release.asset || !release.asset.url) throw new Error(t('editor.systemUpdates.errors.assetMissing'));
+  const targets = [];
+  if (release.asset && release.asset.url) {
+    targets.push({
+      url: release.asset.url,
+      name: release.asset.name || 'release.zip',
+      type: 'asset'
+    });
+  }
+  if (release.archive && release.archive.url) {
+    targets.push({
+      url: release.archive.url,
+      name: release.archive.name || 'source.zip',
+      type: 'archive'
+    });
+  }
+  if (!targets.length) {
+    throw new Error(t('editor.systemUpdates.errors.assetMissing'));
+  }
+
   setStatus(t('editor.systemUpdates.status.downloading'));
-  const response = await fetch(release.asset.url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(t('editor.systemUpdates.errors.assetDownload'));
-  const buffer = await response.arrayBuffer();
+
+  let buffer = null;
+  let usedTarget = null;
+  const failures = [];
+
+  for (const target of targets) {
+    try {
+      if (usedTarget) break;
+      if (target.type === 'archive' && failures.length && elements.status) {
+        setStatus(t('editor.systemUpdates.status.retrying'), { tone: 'info' });
+      }
+      const response = await fetch(target.url, {
+        cache: 'no-store',
+        mode: 'cors',
+        redirect: 'follow'
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      buffer = await response.arrayBuffer();
+      usedTarget = target;
+    } catch (err) {
+      failures.push(err);
+    }
+  }
+
+  if (!buffer || !usedTarget) {
+    const blocked = failures.some((err) => err instanceof TypeError);
+    const message = blocked
+      ? t('editor.systemUpdates.errors.assetDownloadBlocked')
+      : t('editor.systemUpdates.errors.assetDownload');
+    throw new Error(message);
+  }
+
   assetSha256 = await digestSha256(buffer);
   assetSize = buffer.byteLength;
-  assetName = release.asset.name || 'release.zip';
+  assetName = usedTarget.name || 'release.zip';
+  if (!release.asset && release.archive) {
+    release.asset = {
+      name: release.archive.name || assetName,
+      url: release.archive.url,
+      size: assetSize
+    };
+    renderReleaseMeta();
+  }
   if (elements.assetMeta) {
     elements.assetMeta.textContent = t('editor.systemUpdates.assetWithHash', {
       name: assetName,
@@ -440,5 +516,18 @@ export function getSystemUpdateSummaryEntries() {
 
 export function getSystemUpdateCommitFiles() {
   return currentFiles.slice();
+}
+
+export function clearSystemUpdateState(options = {}) {
+  applySummary([], []);
+  currentSummary = [];
+  currentFiles = [];
+  assetSha256 = '';
+  assetSize = 0;
+  assetName = '';
+  if (options && options.keepStatus !== true) {
+    setStatus(t('editor.systemUpdates.status.idle'));
+  }
+  renderReleaseMeta();
 }
 

@@ -1,7 +1,7 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
-import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles } from './system-updates.js';
+import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -5477,6 +5477,7 @@ function getActiveSiteRepoConfig() {
 function applyLocalPostCommitState(files = []) {
   if (!Array.isArray(files) || !files.length) return;
   const handledMarkdown = new Set();
+  let clearedSystem = false;
   files.forEach((file) => {
     if (!file || !file.kind) return;
     if (file.kind === 'index') {
@@ -5559,6 +5560,12 @@ function applyLocalPostCommitState(files = []) {
         clearMarkdownAssetsForPath(norm);
       }
       updateComposerMarkdownDraftIndicators({ path: norm });
+    }
+    else if (file.kind === 'system') {
+      if (!clearedSystem) {
+        clearSystemUpdateState({ keepStatus: false });
+        clearedSystem = true;
+      }
     }
     else if (file.kind === 'asset') {
       const norm = normalizeRelPath(file.markdownPath || '');

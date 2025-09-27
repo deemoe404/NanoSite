@@ -140,6 +140,7 @@ const translations = {
         status: {
           idle: 'Ready to check for system updates.',
           downloading: 'Downloading release asset…',
+          retrying: 'Download was blocked. Trying an alternate source…',
           verifying: 'Verifying archive…',
           noChanges: 'System files are up to date.',
           comparing: 'Comparing downloaded files…',
@@ -149,6 +150,7 @@ const translations = {
           releaseFetch: 'Unable to load latest release information.',
           assetMissing: 'The latest release does not include a downloadable asset.',
           assetDownload: 'Failed to download the release asset.',
+          assetDownloadBlocked: 'GitHub blocked the asset download for this session. Try again later or download manually.',
           generic: 'System update failed. Please try again.'
         },
         fileStatus: {
@@ -821,6 +823,7 @@ const translations = {
         status: {
           idle: '准备检查系统更新。',
           downloading: '正在下载发布附件…',
+          retrying: '下载被阻止，正在尝试备用来源…',
           verifying: '正在校验压缩包…',
           noChanges: '系统文件已是最新状态。',
           comparing: '正在比对下载的文件…',
@@ -830,6 +833,7 @@ const translations = {
           releaseFetch: '无法加载最新发布信息。',
           assetMissing: '最新发布未提供可下载的附件。',
           assetDownload: '下载发布附件失败。',
+          assetDownloadBlocked: 'GitHub 阻止了附件下载。请稍后重试或手动下载。',
           generic: '系统更新失败，请重试。'
         },
         fileStatus: {
@@ -1503,6 +1507,7 @@ const translations = {
         status: {
           idle: 'システム更新を確認できます。',
           downloading: 'リリースアセットをダウンロード中…',
+          retrying: 'ダウンロードがブロックされました。代替ソースを試行します…',
           verifying: 'アーカイブを検証しています…',
           noChanges: 'システムファイルは最新です。',
           comparing: 'ダウンロードしたファイルを比較しています…',
@@ -1512,6 +1517,7 @@ const translations = {
           releaseFetch: '最新リリース情報を取得できませんでした。',
           assetMissing: '最新リリースにダウンロード可能なアセットがありません。',
           assetDownload: 'リリースアセットのダウンロードに失敗しました。',
+          assetDownloadBlocked: 'GitHub によってアセットのダウンロードがブロックされました。時間をおいて再試行するか手動でダウンロードしてください。',
           generic: 'システム更新に失敗しました。再試行してください。'
         },
         fileStatus: {
