@@ -24,11 +24,12 @@
 
 ## ✨ Features
 
-- ⚡ **Zero Build** – no bundlers, compilers, or environments required.  
-- 📝 **Markdown-first** – write posts like plain notes.  
-- 🌐 **GitHub Pages Ready** – simply push and host.  
-- 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).  
-- 🎨 **Configurable** – customize your site using a simple `site.yaml`.  
+- ⚡ **Zero Build** – no bundlers, compilers, or environments required.
+- 📝 **Markdown-first** – write posts like plain notes.
+- 🌐 **GitHub Pages Ready** – simply push and host.
+- 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).
+- 🎨 **Configurable** – customize your site using a simple `site.yaml`.
+- 🧩 **Composable Themes** – theme packs can ship manifests with layout presets, custom assets, and optional behavior.
 
 ## 🌍 Built with Nanosite
 

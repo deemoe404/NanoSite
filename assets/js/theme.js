@@ -1,6 +1,13 @@
 import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage } from './i18n.js';
+import { applyLayoutConfig, registerLayoutPreset, registerLayoutComponent } from './layouts.js';
 
 const PACK_LINK_ID = 'theme-pack';
+const EXTRA_STYLE_ATTR = 'data-theme-pack-extra';
+const THEME_BASE_PATH = 'assets/themes';
+const DEFAULT_LAYOUT_PRESET = 'sidebar-right';
+
+let activeThemeDisposers = [];
+let currentThemeRequestId = 0;
 
 // Restrict theme pack names to safe slug format and default to 'native'.
 function sanitizePack(input) {
@@ -9,12 +16,211 @@ function sanitizePack(input) {
   return clean || 'native';
 }
 
-export function loadThemePack(name) {
+function toArray(input) {
+  if (Array.isArray(input)) return input;
+  if (input === undefined || input === null) return [];
+  return [input];
+}
+
+function sanitizeResourcePath(path) {
+  if (typeof path !== 'string') return '';
+  const trimmed = path.trim();
+  if (!trimmed || trimmed.includes('..')) return '';
+  if (!/^[a-zA-Z0-9_./-]+$/.test(trimmed)) return '';
+  return trimmed.replace(/^\/+/, '');
+}
+
+function encodeResourcePath(path) {
+  return path.split('/').filter(Boolean).map(segment => encodeURIComponent(segment)).join('/');
+}
+
+function buildThemeResourceUrl(pack, resourcePath) {
+  const safePath = sanitizeResourcePath(resourcePath) || 'theme.css';
+  const encodedPack = encodeURIComponent(pack);
+  const encodedResource = encodeResourcePath(safePath);
+  return `${THEME_BASE_PATH}/${encodedPack}/${encodedResource}`;
+}
+
+function clearExtraThemeStyles() {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll(`link[${EXTRA_STYLE_ATTR}]`).forEach(link => {
+    try { link.remove(); } catch (_) {}
+  });
+}
+
+function applyLinkMetadata(link, meta) {
+  if (!link || typeof link.setAttribute !== 'function') return;
+  const m = meta && typeof meta === 'object' ? meta : {};
+  const media = typeof m.media === 'string' ? m.media.trim() : '';
+  if (media) link.setAttribute('media', media);
+  else link.removeAttribute('media');
+  const title = typeof m.title === 'string' ? m.title : '';
+  if (title) link.setAttribute('title', title);
+  else link.removeAttribute('title');
+}
+
+function normalizeStyleEntries(input) {
+  const entries = [];
+  const list = toArray(input);
+  for (const item of list) {
+    if (typeof item === 'string') {
+      const href = sanitizeResourcePath(item);
+      if (href) entries.push({ href, rel: 'stylesheet' });
+      continue;
+    }
+    if (!item || typeof item !== 'object') continue;
+    const href = sanitizeResourcePath(item.href || item.path || item.src);
+    if (!href) continue;
+    const rel = typeof item.rel === 'string' ? item.rel : 'stylesheet';
+    const media = typeof item.media === 'string' ? item.media.trim() : undefined;
+    const title = typeof item.title === 'string' ? item.title : undefined;
+    entries.push({ href, rel, media, title });
+  }
+  if (!entries.length) entries.push({ href: 'theme.css', rel: 'stylesheet' });
+  return entries;
+}
+
+function runThemeDisposers() {
+  if (!Array.isArray(activeThemeDisposers)) { activeThemeDisposers = []; return; }
+  while (activeThemeDisposers.length) {
+    const disposer = activeThemeDisposers.pop();
+    try { if (typeof disposer === 'function') disposer(); } catch (err) { console.error('[theme] Cleanup failed:', err); }
+  }
+}
+
+async function fetchThemeManifest(pack) {
+  const url = `${THEME_BASE_PATH}/${encodeURIComponent(pack)}/manifest.json`;
+  try {
+    const resp = await fetch(url, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    return (data && typeof data === 'object') ? data : {};
+  } catch (err) {
+    console.warn(`[theme] Using fallback manifest for ${pack}:`, err);
+    return {};
+  }
+}
+
+function normalizeManifest(manifest) {
+  const data = (manifest && typeof manifest === 'object') ? manifest : {};
+  if (!data.assets || typeof data.assets !== 'object') data.assets = {};
+  return data;
+}
+
+function applyThemeStyles(pack, manifest) {
+  if (typeof document === 'undefined') return;
+  const styles = normalizeStyleEntries(manifest && manifest.assets ? manifest.assets.styles : undefined);
+  clearExtraThemeStyles();
+  const head = document.head || document.querySelector('head');
+  const primary = styles[0];
+  const mainLink = document.getElementById(PACK_LINK_ID);
+  if (mainLink) {
+    mainLink.setAttribute('rel', primary.rel || 'stylesheet');
+    mainLink.setAttribute('href', buildThemeResourceUrl(pack, primary.href));
+    applyLinkMetadata(mainLink, primary);
+  }
+  for (let i = 1; i < styles.length; i += 1) {
+    const entry = styles[i];
+    const link = document.createElement('link');
+    link.setAttribute('rel', entry.rel || 'stylesheet');
+    link.setAttribute('href', buildThemeResourceUrl(pack, entry.href));
+    link.setAttribute(EXTRA_STYLE_ATTR, pack);
+    if (entry.media) link.setAttribute('media', entry.media);
+    if (entry.title) link.setAttribute('title', entry.title);
+    if (head) head.appendChild(link);
+  }
+}
+
+async function loadLayoutModules(pack, layoutConfig) {
+  const modules = [];
+  const entries = [];
+  if (layoutConfig && typeof layoutConfig === 'object') {
+    entries.push(...toArray(layoutConfig.module || layoutConfig.modules));
+  }
+  for (const entry of entries) {
+    const path = typeof entry === 'string' ? entry : (entry && (entry.path || entry.href || entry.src));
+    const safePath = sanitizeResourcePath(path);
+    if (!safePath) continue;
+    const url = buildThemeResourceUrl(pack, safePath);
+    try {
+      const mod = await import(url);
+      if (mod) modules.push(mod);
+    } catch (err) {
+      console.error(`[theme] Failed to load layout module ${url}:`, err);
+    }
+  }
+  return modules;
+}
+
+async function applyThemeLayout(pack, manifest) {
+  const rawLayout = (manifest && Object.prototype.hasOwnProperty.call(manifest, 'layout')) ? manifest.layout : DEFAULT_LAYOUT_PRESET;
+  const layoutConfig = (rawLayout && typeof rawLayout === 'object') ? { ...rawLayout, zones: rawLayout.zones && typeof rawLayout.zones === 'object' ? { ...rawLayout.zones } : rawLayout.zones } : rawLayout || DEFAULT_LAYOUT_PRESET;
+
+  runThemeDisposers();
+  const modules = await loadLayoutModules(pack, layoutConfig);
+
+  const baseContext = {
+    pack,
+    config: layoutConfig,
+    registerLayoutPreset,
+    registerLayoutComponent,
+    applyLayoutConfig,
+  };
+
+  modules.forEach(mod => {
+    if (mod && typeof mod.registerLayouts === 'function') {
+      try { mod.registerLayouts(baseContext); } catch (err) { console.error('[theme] registerLayouts failed:', err); }
+    }
+  });
+
+  modules.forEach(mod => {
+    if (mod && typeof mod.beforeLayout === 'function') {
+      try { mod.beforeLayout(baseContext); } catch (err) { console.error('[theme] beforeLayout failed:', err); }
+    }
+  });
+
+  const applied = applyLayoutConfig(layoutConfig);
+  const afterContext = { ...baseContext, applied };
+
+  modules.forEach(mod => {
+    if (mod && typeof mod.afterLayout === 'function') {
+      try { mod.afterLayout(afterContext); } catch (err) { console.error('[theme] afterLayout failed:', err); }
+    }
+    const cleanup = mod && (mod.cleanup || mod.dispose);
+    if (typeof cleanup === 'function') {
+      activeThemeDisposers.push(() => {
+        try { cleanup.call(mod); } catch (err) { console.error('[theme] Theme module cleanup failed:', err); }
+      });
+    }
+  });
+
+  return applied;
+}
+
+export async function loadThemePack(name) {
   const pack = sanitizePack(name);
   try { localStorage.setItem('themePack', pack); } catch (_) {}
-  const link = document.getElementById(PACK_LINK_ID);
-  const href = `assets/themes/${encodeURIComponent(pack)}/theme.css`;
-  if (link) link.setAttribute('href', href);
+  const requestId = ++currentThemeRequestId;
+
+  let manifest = await fetchThemeManifest(pack);
+  if (requestId !== currentThemeRequestId) return manifest;
+  manifest = normalizeManifest(manifest);
+
+  try {
+    applyThemeStyles(pack, manifest);
+  } catch (err) {
+    console.error('[theme] Failed to apply theme styles:', err);
+    applyThemeStyles(pack, { assets: { styles: ['theme.css'] } });
+  }
+
+  try {
+    await applyThemeLayout(pack, manifest);
+  } catch (err) {
+    console.error('[theme] Failed to apply theme layout:', err);
+    applyLayoutConfig(DEFAULT_LAYOUT_PRESET);
+  }
+
+  return manifest;
 }
 
 export function getSavedThemePack() {
@@ -31,7 +237,7 @@ export function applySavedTheme() {
     }
   } catch (_) { /* ignore */ }
   // Ensure pack is applied too
-  loadThemePack(getSavedThemePack());
+  return loadThemePack(getSavedThemePack());
 }
 
 // Apply theme according to site config. When override = true, it forces the
@@ -41,6 +247,15 @@ export function applyThemeConfig(siteConfig) {
   const override = cfg.themeOverride !== false; // default true
   const mode = (cfg.themeMode || '').toLowerCase(); // 'dark' | 'light' | 'auto' | 'user'
   const pack = sanitizePack(cfg.themePack);
+  const layoutOverrideRaw =
+    Object.prototype.hasOwnProperty.call(cfg, 'themeLayout') ? cfg.themeLayout :
+    (Object.prototype.hasOwnProperty.call(cfg, 'layout') ? cfg.layout :
+    (Object.prototype.hasOwnProperty.call(cfg, 'layoutPreset') ? cfg.layoutPreset : undefined));
+  const hasLayoutOverride = layoutOverrideRaw !== undefined && layoutOverrideRaw !== null && layoutOverrideRaw !== '';
+  const applyLayoutOverride = () => {
+    if (!hasLayoutOverride) return;
+    try { applyLayoutConfig(layoutOverrideRaw); } catch (err) { console.error('[theme] Failed to apply layout override:', err); }
+  };
 
   const setMode = (m) => {
     if (m === 'dark') {
@@ -69,7 +284,10 @@ export function applyThemeConfig(siteConfig) {
     if (pack) {
       // Force pack and persist
       try { localStorage.setItem('themePack', pack); } catch (_) {}
-      loadThemePack(pack);
+      const promise = loadThemePack(pack);
+      if (hasLayoutOverride) promise.then(applyLayoutOverride).catch(applyLayoutOverride);
+    } else {
+      applyLayoutOverride();
     }
   } else {
     // Respect user choice; but if site provides a default and no user choice exists,
@@ -81,7 +299,12 @@ export function applyThemeConfig(siteConfig) {
       // When mode is 'user' and there's no saved user theme, do nothing here;
       // the boot code/applySavedTheme already applied system preference as a soft default.
     }
-    if (!hasUserPack && pack) loadThemePack(pack);
+    if (!hasUserPack && pack) {
+      const promise = loadThemePack(pack);
+      if (hasLayoutOverride) promise.then(applyLayoutOverride).catch(applyLayoutOverride);
+    } else if (hasLayoutOverride) {
+      applyLayoutOverride();
+    }
   }
 }
 

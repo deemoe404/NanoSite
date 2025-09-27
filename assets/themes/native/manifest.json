@@ -1,0 +1,19 @@
+{
+  "name": "Native",
+  "version": 1,
+  "assets": {
+    "styles": [
+      {
+        "href": "theme.css",
+        "rel": "stylesheet"
+      }
+    ]
+  },
+  "layout": {
+    "preset": "sidebar-right",
+    "zones": {
+      "content": ["map", "main"],
+      "sidebar": ["search", "site", "tags", "tools", "toc"]
+    }
+  }
+}
