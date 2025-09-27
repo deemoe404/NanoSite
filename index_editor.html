@@ -54,6 +54,39 @@
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
+    .updates-layout { display:flex; flex-direction:column; gap:1rem; }
+    .updates-main { display:flex; flex-direction:column; gap:1.25rem; }
+    .updates-header { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:1rem; }
+    .updates-header-text { display:flex; flex-direction:column; gap:.4rem; min-width:0; }
+    .updates-title { margin:0; font-size:1.35rem; color: color-mix(in srgb, var(--text) 92%, transparent); }
+    .updates-meta { display:flex; flex-direction:column; gap:.15rem; font-size:.92rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
+    .updates-meta span { line-height:1.4; }
+    .updates-header-actions { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+    #btnSystemSelect[data-state="busy"] { pointer-events:none; opacity:.82; }
+    #btnSystemSelect[data-state="busy"]::after { content:''; display:inline-block; width:1rem; height:1rem; margin-left:.5rem; border:2px solid color-mix(in srgb, var(--primary) 40%, transparent); border-top-color: color-mix(in srgb, var(--primary) 86%, transparent); border-radius:50%; animation: ns-updates-spin .85s linear infinite; vertical-align:middle; }
+    .updates-download[aria-disabled="true"] { pointer-events:none; opacity:.55; }
+    @keyframes ns-updates-spin { to { transform: rotate(360deg); } }
+    .updates-status { margin:0; font-size:.95rem; color: color-mix(in srgb, var(--muted) 82%, transparent); }
+    .updates-status[data-tone="warn"] { color: #b45309; }
+    .updates-status[data-tone="error"] { color: #dc2626; }
+    .updates-status[data-tone="success"] { color: #15803d; }
+    .updates-files { display:flex; flex-direction:column; gap:.6rem; }
+    .updates-files[hidden] { display:none !important; }
+    .updates-subtitle { margin:0; font-size:1.05rem; color: color-mix(in srgb, var(--text) 90%, transparent); }
+    .updates-file-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+    .updates-file-item { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.55rem .75rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:12px; background: color-mix(in srgb, var(--card) 96%, transparent); }
+    .updates-file-name { flex:1 1 auto; min-width:0; font-size:.95rem; color: color-mix(in srgb, var(--text) 90%, transparent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .updates-file-badge { flex:0 0 auto; font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: color-mix(in srgb, var(--primary) 90%, transparent); background: color-mix(in srgb, var(--primary) 14%, transparent); border-radius:999px; padding:.2rem .65rem; }
+    .updates-notes { display:flex; flex-direction:column; gap:.55rem; }
+    .updates-release-notes { border:1px solid color-mix(in srgb, var(--border) 80%, transparent); border-radius:14px; background: color-mix(in srgb, var(--card) 95%, transparent); padding:1rem 1.1rem; max-height:360px; overflow:auto; font-size:.95rem; color: color-mix(in srgb, var(--text) 88%, transparent); }
+    .updates-release-notes h1,
+    .updates-release-notes h2,
+    .updates-release-notes h3,
+    .updates-release-notes h4 { margin:1rem 0 .5rem; font-size:1.05rem; }
+    .updates-release-notes p { margin:.6rem 0; }
+    .updates-release-notes ul,
+    .updates-release-notes ol { margin:.6rem 0 .6rem 1.2rem; padding:0; }
+    .updates-release-notes code { background: color-mix(in srgb, var(--border) 60%, transparent); padding:.15rem .4rem; border-radius:6px; font-size:.85rem; }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
@@ -1249,6 +1282,10 @@
           <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
           <span class="mode-tab-badge" aria-hidden="true" hidden></span>
         </button>
+        <button class="mode-tab" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" role="tab" aria-controls="mode-updates" aria-selected="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
+          <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
+          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+        </button>
       </nav>
       <div class="status-stack">
         <div id="global-status" class="global-status" aria-live="polite">
@@ -1426,6 +1463,35 @@
         <!-- YAML preview/export area -->
         <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
           <textarea id="yamlExport" style="width:100%; height: 280px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); padding:.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 18px;"></textarea>
+        </div>
+      </section>
+    </div>
+    <!-- System Updates Mode -->
+    <div class="updates-layout" id="mode-updates" style="display:none;">
+      <section class="box updates-main">
+        <div class="updates-header">
+          <div class="updates-header-text">
+            <h2 class="updates-title" data-i18n="editor.systemUpdates.title">System Updates</h2>
+            <div class="updates-meta">
+              <span id="systemUpdateReleaseMeta"></span>
+              <span id="systemUpdateReleasePublished"></span>
+              <span id="systemUpdateAssetMeta" class="updates-asset"></span>
+            </div>
+          </div>
+          <div class="updates-header-actions">
+            <a class="btn-secondary updates-download" id="systemUpdateDownloadLink" href="#" target="_blank" rel="noopener" aria-disabled="true" data-i18n="editor.systemUpdates.openDownload">Open latest release</a>
+            <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
+            <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+          </div>
+        </div>
+        <p id="systemUpdateStatus" class="updates-status" data-tone="info"></p>
+        <div id="systemUpdateFileSection" class="updates-files" hidden aria-hidden="true">
+          <h3 class="updates-subtitle" data-i18n="editor.systemUpdates.filesHeading">Pending system files</h3>
+          <ul id="systemUpdateFileList" class="updates-file-list"></ul>
+        </div>
+        <div class="updates-notes">
+          <h3 class="updates-subtitle" data-i18n="editor.systemUpdates.releaseNotes">Release notes</h3>
+          <div id="systemUpdateReleaseNotes" class="updates-release-notes"></div>
         </div>
       </section>
     </div>
