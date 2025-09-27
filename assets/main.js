@@ -413,12 +413,17 @@ async function warnLargeImagesIn(container, cfg = {}) {
       if (typeof size === 'number' && size > thresholdKB * 1024) {
         try {
           const lang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
+          const normalized = String(lang || '').toLowerCase();
           const name = url.split('/').pop() || url;
-          const msg = (lang === 'zh' || lang?.startsWith('zh'))
+          const isZhCn = normalized === 'zh' || normalized === 'zh-cn' || normalized.startsWith('zh-cn') || normalized === 'zh-hans' || normalized.startsWith('zh-hans') || normalized === 'zh-sg' || normalized === 'zh-my';
+          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant') || normalized === 'zh-hk' || normalized.startsWith('zh-hk');
+          const msg = isZhCn
             ? `发现大图资源：${name}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
-            : (lang === 'ja')
-              ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
-              : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
+            : isZhTw
+              ? `發現大型圖片資源：${name}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
+              : (normalized === 'ja' || normalized.startsWith('ja'))
+                ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
+                : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
           const e = new Error(msg);
           try { e.name = 'Warning'; } catch(_) {}
           showErrorOverlay(e, {
