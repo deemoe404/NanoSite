@@ -1,6 +1,6 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
-import { generateSitemapData } from './seo.js';
+import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -4400,7 +4400,7 @@ function computeSeoContentRoot(siteConfig) {
 }
 
 function generateSeoRobotsTxt(siteConfig) {
-  const baseUrl = `${window.location.origin}/`;
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
   const contentRoot = computeSeoContentRoot(siteConfig);
   let robots = 'User-agent: *\n';
   robots += 'Allow: /\n\n';
@@ -4427,7 +4427,7 @@ function generateSeoRobotsTxt(siteConfig) {
 }
 
 function generateSeoMetaTags(siteConfig) {
-  const baseUrl = `${window.location.origin}/`;
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
   const getLocalizedValue = (val, fallback = '') => {
     if (!val) return fallback;
     if (typeof val === 'string') return val;
