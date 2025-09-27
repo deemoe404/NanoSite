@@ -1544,6 +1544,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!lang) return null;
     if (lang === 'zh') return ['zh-CN', 'zh', 'en'];
     if (lang === 'zh-tw') return ['zh-TW', 'zh-Hant', 'zh', 'en'];
+    if (lang === 'zh-hk') return ['zh-HK', 'zh-Hant', 'zh', 'en'];
     if (lang === 'ja') return ['ja-JP', 'ja', 'en'];
     if (lang === 'en') return ['en'];
     if (/^[a-z]{2}(?:-[a-z0-9-]+)?$/i.test(lang)) return [lang, 'en'];
@@ -2165,7 +2166,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else if (val && typeof val === 'object') {
             const langs = Object.entries(val);
             // Deterministic language order: en, zh, zh-tw, ja, then others
-            const langOrder = { en: 1, zh: 2, 'zh-tw': 3, ja: 4 };
+            const langOrder = { en: 1, zh: 2, 'zh-tw': 3, 'zh-hk': 4, ja: 5 };
             const langOrderIndex = (code) => langOrder[normalizeLangKey(code)] || 9;
             langs.sort(([a], [b]) => langOrderIndex(a) - langOrderIndex(b) || a.localeCompare(b));
             for (const [lang, paths] of langs) {
@@ -2226,7 +2227,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sublist.appendChild(makeLi(`${tabKey} - ${basename(variants)}`, variants));
           } else if (variants && typeof variants === 'object') {
             const langs = Object.entries(variants);
-            const langOrder = { en: 1, zh: 2, 'zh-tw': 3, ja: 4 };
+            const langOrder = { en: 1, zh: 2, 'zh-tw': 3, 'zh-hk': 4, ja: 5 };
             const langOrderIndex = (code) => langOrder[normalizeLangKey(code)] || 9;
             langs.sort(([a], [b]) => langOrderIndex(a) - langOrderIndex(b) || a.localeCompare(b));
             for (const [lang, detail] of langs) {

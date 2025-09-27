@@ -416,11 +416,14 @@ async function warnLargeImagesIn(container, cfg = {}) {
           const normalized = String(lang || '').toLowerCase();
           const name = url.split('/').pop() || url;
           const isZhCn = normalized === 'zh' || normalized === 'zh-cn' || normalized.startsWith('zh-cn') || normalized === 'zh-hans' || normalized.startsWith('zh-hans') || normalized === 'zh-sg' || normalized === 'zh-my';
-          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant') || normalized === 'zh-hk' || normalized.startsWith('zh-hk');
+          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant');
+          const isZhHk = normalized === 'zh-hk' || normalized.startsWith('zh-hk') || normalized === 'zh-mo' || normalized.startsWith('zh-mo');
           const msg = isZhCn
             ? `发现大图资源：${name}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
             : isZhTw
               ? `發現大型圖片資源：${name}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
+              : isZhHk
+                ? `發現大型圖片資源：${name}（${formatBytes(size)}）超出上限 ${thresholdKB} KB`
               : (normalized === 'ja' || normalized.startsWith('ja'))
                 ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
                 : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;

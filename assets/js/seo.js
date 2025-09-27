@@ -764,7 +764,7 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
       });
     }
     const currentLang = getCurrentLang();
-    const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'zh', 'zh-tw', 'ja', 'default'];
+    const tryLangs = [currentLang, DEFAULT_LANG, 'en', 'zh', 'zh-tw', 'zh-hk', 'ja', 'default'];
     versionToLangLoc.forEach((langLocMap) => {
       const langs = Object.keys(langLocMap || {});
       if (!langs.length) return;
