@@ -91,8 +91,7 @@ const translations = {
       postEditor: 'Markdown Editor',
       themePack: 'Theme pack',
       language: 'Language',
-      resetLanguage: 'Reset language',
-      seoGenerator: 'SEO Generator'
+      resetLanguage: 'Reset language'
     },
     toc: {
       toggleAria: 'Toggle section',
@@ -731,8 +730,7 @@ const translations = {
       postEditor: '文章编辑器',
       themePack: '主题包',
       language: '语言',
-      resetLanguage: '重置语言',
-      seoGenerator: 'SEO 生成器'
+      resetLanguage: '重置语言'
     },
     toc: {
       toggleAria: '展开/折叠章节',
@@ -1372,8 +1370,7 @@ const translations = {
       postEditor: '記事エディター',
       themePack: 'テーマパック',
       language: '言語',
-      resetLanguage: '言語をリセット',
-      seoGenerator: 'SEOジェネレーター'
+      resetLanguage: '言語をリセット'
     },
     toc: {
       toggleAria: 'セクションの切替',
