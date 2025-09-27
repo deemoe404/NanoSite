@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "magazine",
+  "label": "Magazine Focus",
+  "description": "A single-column magazine layout with generous spacing and stacked utilities.",
+  "variables": {
+    "--ns-shell-gap": "2.25rem",
+    "--ns-shell-max-width": "min(48rem, calc(100% - 2rem))"
+  },
+  "layout": {
+    "preset": "single-column",
+    "sidebarPosition": "right",
+    "variables": {
+      "--ns-sidebar-width": "100%"
+    },
+    "areas": [
+      { "name": "main", "classes": ["content", "magazine-main"], "modules": ["tabs", "main"] },
+      { "name": "support", "classes": ["sidebar", "magazine-support"], "modules": ["search", "site-card", "tags", "tools", "toc"] }
+    ]
+  }
+}

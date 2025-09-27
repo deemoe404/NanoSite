@@ -12,6 +12,9 @@
   --code-text: #e5e7eb;
   --hr: #e5e7eb;
   --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.06), 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04);
+  --ns-shell-gap: 1.5rem;
+  --ns-shell-max-width: min(75rem, calc(100% - 2.5rem));
+  --ns-sidebar-width: min(20rem, 100%);
   /* Serif stack for article-like body text (theme packs may override) */
   --article-serif-stack: Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif", "STSong", serif;
   /* Callout palette */
@@ -66,11 +69,73 @@ body {
   max-width: 100vw;
   box-sizing: border-box;
 }
-html { 
-  scroll-behavior: smooth; 
+html {
+  scroll-behavior: smooth;
   /* Prevent horizontal scroll on mobile */
   overflow-x: clip;
   max-width: 100vw;
+}
+
+/* Layout shell rebuilt dynamically by the theme system */
+#ns-shell {
+  width: 100%;
+}
+
+.ns-shell {
+  box-sizing: border-box;
+  margin: 0 auto;
+  width: min(var(--ns-shell-max-width), 100%);
+  padding: 0 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ns-shell-gap);
+}
+
+.ns-layout {
+  display: grid;
+  gap: var(--ns-shell-gap);
+  align-items: start;
+  width: 100%;
+}
+
+.ns-layout.ns-layout-two-column {
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--ns-sidebar-width));
+}
+
+.ns-layout.ns-sidebar-left {
+  grid-template-columns: minmax(0, var(--ns-sidebar-width)) minmax(0, 1fr);
+}
+
+.ns-layout.ns-layout-single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ns-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.ns-area > .box {
+  margin-bottom: 0;
+}
+
+.ns-area-main,
+.content {
+  min-height: 70vh;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.ns-area-sidebar,
+.sidebar {
+  min-width: 0;
+}
+
+.ns-area-support {
+  min-width: 0;
 }
 
 /* Link style */
@@ -848,11 +913,14 @@ ul.collapsed, li > ul.collapsed { display: none; }
 }
 
 /* Container stability during loading */
-.content.loading #mainview {
+.content.loading #mainview,
+.ns-area-main.loading #mainview {
   min-height: 37.5rem; /* Ensure stable height while loading */
 }
 
-.sidebar.loading #tocview {
+.sidebar.loading #tocview,
+.ns-area-sidebar.loading #tocview,
+.ns-area-support.loading #tocview {
   min-height: 12.5rem; /* Ensure stable height for TOC while loading */
 }
 
@@ -1123,14 +1191,11 @@ ul.collapsed, li > ul.collapsed { display: none; }
 }
 
 .container {
-  display: grid;
-  grid-template-columns: 45rem 18.75rem; /* Fixed column widths to prevent collapse */
-  justify-content: center; /* Center align */
   margin: 0 auto;
-  max-width: 75rem;
-  gap: 1.5rem;
+  width: min(var(--ns-shell-max-width), 100%);
+  max-width: 100%;
   padding: 0 1.25rem;
-  /* Prevent grid container distortion when content changes */
+  box-sizing: border-box;
 }
 
 /* Compact tabs mode: when nav collapses due to small width */
@@ -1198,6 +1263,8 @@ ul.collapsed, li > ul.collapsed { display: none; }
 /* Labeled tool items */
 #tools .tool-item { display:flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
 #tools .tool-label { font-size: .78rem; color: var(--muted); letter-spacing: .02em; }
+#tools .tool-meta { font-size: .8rem; color: var(--muted); line-height: 1.4; margin-top: 0.5rem; }
+#tools .tool-meta[hidden] { display: none; }
 
 #tools .btn,
 #themeToggle.btn,
@@ -1272,173 +1339,153 @@ ul.collapsed, li > ul.collapsed { display: none; }
 
 /* Large screens (>1400px) */
 @media (min-width: 87.5rem) {
-  .container {
-    max-width: 87.5rem;
-    gap: 2rem;
-    grid-template-columns: 50rem 20rem; /* Wider layout on large screens */
+  .ns-shell {
+    width: min(var(--ns-shell-max-width), 87.5rem);
   }
-  
+
+  .ns-layout.ns-layout-two-column {
+    gap: max(var(--ns-shell-gap), 2rem);
+    grid-template-columns: minmax(0, 1fr) minmax(0, max(var(--ns-sidebar-width), 20rem));
+  }
+
   .index {
     grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
-  column-gap: 1.5rem;
-  row-gap: 0;
+    column-gap: 1.5rem;
+    row-gap: 0;
   }
 }
 
 /* Tablet landscape (769px - 1024px) */
 @media (max-width: 64rem) and (min-width: 48.0625rem) {
-  .container {
-    max-width: 100%;
+  .ns-shell {
+    width: 100%;
     padding: 0 1rem;
-    gap: 1.25rem;
-    grid-template-columns: 37.5rem 16.25rem; /* Grid layout for medium screens */
   }
-  
-  .index {
-    grid-template-columns: repeat(auto-fill, minmax(15.625rem, 1fr));
-  column-gap: 1rem;
-  row-gap: 0;
-  }
-}
 
-/* Tablet devices (769px - 1024px) */
-@media (max-width: 64rem) and (min-width: 48.0625rem) {
-  .container {
-    max-width: 100%;
-    padding: 0 1rem;
+  .ns-layout.ns-layout-two-column {
     gap: 1.25rem;
-    grid-template-columns: 37.5rem 16.25rem; /* Grid layout for medium screens */
+    grid-template-columns: minmax(0, 1fr) minmax(0, clamp(16.25rem, 24vw, 18rem));
   }
-  
+
   .index {
     grid-template-columns: repeat(auto-fill, minmax(15.625rem, 1fr));
-  column-gap: 1rem;
-  row-gap: 0;
+    column-gap: 1rem;
+    row-gap: 0;
   }
 }
 
 /* Mobile (≤768px) — comprehensive mobile optimizations */
 @media (max-width: 48rem) {
-  /* Global mobile settings */
   html {
-    -webkit-text-size-adjust: 100%; /* Prevent iOS auto text-size adjustment */
+    -webkit-text-size-adjust: 100%;
   }
-  
+
   body {
-    padding: 1rem 0 1.5rem; /* Reduce padding on mobile */
+    padding: 1rem 0 1.5rem;
   }
-  
-  .container {
-    display: flex !important; /* Force flex layout on mobile */
-    flex-direction: column;
-    margin: 0;
-    padding: 0.5rem; /* Reduce container padding */
-    gap: 1rem; /* Reduce spacing */
+
+  .ns-shell {
+    padding: 0.5rem;
     width: 100%;
-    max-width: 100vw; /* Use viewport width */
-    min-width: 0; /* Allow minimum shrink */
-    overflow-x: hidden; /* Prevent horizontal overflow */
-    box-sizing: border-box;
+    max-width: 100vw;
+    gap: 1rem;
   }
 
-  .content {
-    flex: 1 1 auto;
-    width: 100%; /* Ensure full width */
-    max-width: 100%;
-    min-width: 0; /* Allow shrink */
-    overflow: hidden; /* Prevent content overflow */
-    min-height: 40vh; /* Smaller min-height on mobile */
-    /* Reset desktop fixed-width settings */
-    box-sizing: border-box;
-    order: 1; /* Place content above */
+  .ns-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 
+  .ns-area,
+  .content,
   .sidebar {
-    flex: 0 0 auto; /* No stretch; size to content */
-    width: 100%; /* Ensure full width */
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .ns-area-main,
+  .content {
+    min-height: 40vh;
+  }
+
+  .ns-area-sidebar,
+  .ns-area-support,
+  .sidebar {
     margin-top: 0;
     margin-left: 0;
-    order: 2; /* Move sidebar below content */
-    box-sizing: border-box;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
-  
+
   .index {
-    grid-template-columns: 1fr; /* Single-column layout */
-  column-gap: 0.75rem; /* horizontal spacing */
-  row-gap: 0; /* remove vertical spacing on mobile too */
+    grid-template-columns: 1fr;
+    column-gap: 0.75rem;
+    row-gap: 0;
   }
-  
+
   #tools .tools {
-    grid-template-columns: 1fr; /* Single-column toolbar */
-    gap: 0.5rem; /* Reduce spacing */
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
-  
+
   .site-footer .footer-inner {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem; /* Reduce spacing */
-    padding: 0.75rem 0; /* Reduce padding */
+    gap: 0.5rem;
+    padding: 0.75rem 0;
     max-width: 100%;
   }
-  
+
   .footer-nav {
     flex-direction: column;
-    gap: 0.375rem; /* Reduce spacing */
+    gap: 0.375rem;
     width: 100%;
   }
-  
-  /* Mobile TOC optimizations */
+
   #tocview {
-    position: static !important; /* Force non-sticky positioning on mobile */
+    position: static !important;
     max-height: none;
     overflow: visible;
-    min-height: 6.25rem; /* Reduce min-height */
+    min-height: 6.25rem;
     width: 100%;
-    box-sizing: border-box;
   }
-  
-  /* Mobile main content area adjustments */
+
   #mainview {
-    min-height: 15.625rem; /* Reduce min-height */
+    min-height: 15.625rem;
     width: 100%;
     max-width: 100%;
-    /* Allow long tokens to wrap, but prefer hyphenation over arbitrary breaks */
-    overflow-wrap: break-word; /* Allow long-word wrap when necessary */
-    word-break: normal; /* Do not force arbitrary breaks */
-    hyphens: auto; /* Enable hyphenation */
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: auto;
     -webkit-hyphens: auto;
     -ms-hyphens: auto;
-    box-sizing: border-box;
+    font-size: 0.95rem;
+    line-height: 1.6;
   }
-  
-  /* Mobile font size adjustments */
-  #mainview {
-    font-size: 0.95rem; /* Slightly smaller font */
-    line-height: 1.6; /* Tighter line-height */
-  }
-  
-  /* Mobile buttons and inputs optimizations */
+
   #tools .btn,
   #searchbox input[type="search"] {
-    padding: .5rem .6rem; /* Reduce padding */
-    height: 2.625rem; /* Touch-friendly height */
-    width: 100%; /* Ensure buttons span full width */
+    padding: .5rem .6rem;
+    height: 2.625rem;
+    width: 100%;
     box-sizing: border-box;
-    font-size: 0.95rem; /* Slightly smaller font */
+    font-size: 0.95rem;
   }
-  
-  /* Mobile box optimizations */
+
   .box {
-    margin-bottom: 0.75rem; /* Reduce spacing */
-    padding: 0.75rem; /* Reduce padding */
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    overflow: hidden; /* Prevent content overflow */
+    overflow: hidden;
   }
-  
-  /* Mobile image handling */
+
   #mainview img,
   .index img {
     max-width: 100% !important;
@@ -1446,55 +1493,50 @@ ul.collapsed, li > ul.collapsed { display: none; }
     width: auto !important;
     box-sizing: border-box;
   }
-  
-  /* Mobile table handling */
+
   .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
   }
-  
+
   table {
     min-width: 100%;
-    font-size: 0.9rem; /* Smaller font for tables */
+    font-size: 0.9rem;
   }
-  
-  /* Mobile code block handling */
+
   pre {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
-    padding: 0.8rem; /* Reduce padding */
-    font-size: 0.85rem; /* Smaller font for code */
-    margin: 0.75rem 0; /* Keep consistent spacing between blocks */
+    padding: 0.8rem;
+    font-size: 0.85rem;
+    margin: 0.75rem 0;
   }
-  
-  /* Ensure the nav bar renders correctly on mobile */
+
   .tabs {
     flex-wrap: wrap;
-    gap: 0.1875rem; /* Reduce spacing */
-    padding: 0.25rem; /* Reduce padding */
+    gap: 0.1875rem;
+    padding: 0.25rem;
   }
-  
+
   .tab {
-    padding: .3rem .45rem; /* Reduce padding */
-    font-size: 0.85rem; /* Smaller font */
+    padding: .3rem .45rem;
+    font-size: 0.85rem;
   }
-  
-  /* Mobile heading adjustments */
-  h1 { font-size: 1.6rem; } /* 减小标题字体 */
+
+  h1 { font-size: 1.6rem; }
   h2 { font-size: 1.4rem; }
   h3 { font-size: 1.2rem; }
-  
-  /* Mobile list adjustments */
-  #mainview ul, #mainview ol { 
-    margin: .6rem 0 .6rem 1rem; /* Reduce margins */
+
+  #mainview ul,
+  #mainview ol {
+    margin: .6rem 0 .6rem 1rem;
   }
-  
-  /* Mobile blockquote adjustments */
-  blockquote { 
-    margin: .8rem 0; /* Reduce margins */
-    padding: .4rem .8rem; /* Reduce padding */
+
+  blockquote {
+    margin: .8rem 0;
+    padding: .4rem .8rem;
   }
 }
 

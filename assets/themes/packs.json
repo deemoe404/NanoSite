@@ -1,4 +1,5 @@
 [
   { "value": "native", "label": "Native" },
-  { "value": "github", "label": "GitHub" }
+  { "value": "github", "label": "GitHub" },
+  { "value": "magazine", "label": "Magazine" }
 ]

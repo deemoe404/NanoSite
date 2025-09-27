@@ -90,6 +90,10 @@
       "type": "boolean",
       "description": "Allow theme override via UI or config."
     },
+    "themeLayout": {
+      "$ref": "#/$defs/themeLayout",
+      "description": "Optional layout overrides merged with the active theme manifest."
+    },
     "cardCoverFallback": {
       "type": "boolean",
       "description": "Use card cover image as fallback when missing."
@@ -208,6 +212,51 @@
           }
         }
       ]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "themeLayoutArea": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "classes": { "$ref": "#/$defs/stringArray" },
+        "class": { "type": "string" },
+        "modules": { "$ref": "#/$defs/stringArray" },
+        "as": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "themeLayout": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": ["two-column", "single-column", "stacked"]
+        },
+        "sidebarPosition": {
+          "type": "string",
+          "enum": ["left", "right"]
+        },
+        "areas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/themeLayoutArea" }
+        },
+        "hiddenModules": { "$ref": "#/$defs/stringArray" },
+        "variables": { "$ref": "#/$defs/stringMap" },
+        "rootVariables": { "$ref": "#/$defs/stringMap" },
+        "shellClasses": { "$ref": "#/$defs/stringArray" },
+        "bodyClasses": { "$ref": "#/$defs/stringArray" },
+        "layoutClasses": { "$ref": "#/$defs/stringArray" },
+        "gap": { "type": "string" },
+        "maxWidth": { "type": "string" }
+      },
+      "additionalProperties": true
     }
   }
 }

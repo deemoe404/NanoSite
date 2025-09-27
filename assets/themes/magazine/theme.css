@@ -1,0 +1,181 @@
+/* Magazine-inspired theme */
+:root {
+  --bg: #fdfbf6;
+  --text: #2b2118;
+  --muted: #7c6f62;
+  --primary: #d97706;
+  --primary-hover: #f97316;
+  --card: rgba(255, 255, 255, 0.92);
+  --border: rgba(226, 209, 189, 0.7);
+  --code-bg: #f6efe6;
+  --code-text: #2b2118;
+  --hr: rgba(226, 209, 189, 0.8);
+  --shadow: 0 1.25rem 3rem rgba(122, 74, 18, 0.08);
+}
+
+[data-theme="dark"] {
+  --bg: #1f1710;
+  --text: #f1ede7;
+  --muted: #c7b9a5;
+  --primary: #f8b26a;
+  --primary-hover: #f9c087;
+  --card: rgba(35, 25, 18, 0.92);
+  --border: rgba(122, 90, 58, 0.4);
+  --code-bg: #241c15;
+  --code-text: #f1ede7;
+  --hr: rgba(122, 90, 58, 0.4);
+  --shadow: 0 1.25rem 3.5rem rgba(0, 0, 0, 0.35);
+}
+
+body {
+  font-family: "Playfair Display", "Georgia", "Times New Roman", serif;
+  background: radial-gradient(circle at top left, rgba(217, 119, 6, 0.12), transparent 55%),
+              radial-gradient(circle at bottom right, rgba(234, 179, 8, 0.12), transparent 50%),
+              var(--bg) !important;
+  color: var(--text);
+}
+
+.ns-shell {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 1.5rem;
+  padding: 2rem clamp(1.5rem, 2vw, 2.5rem);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), var(--shadow);
+  backdrop-filter: blur(14px);
+}
+
+.ns-layout.ns-layout-single-column {
+  gap: 2.5rem;
+}
+
+.ns-area-main .box,
+.ns-area-support .box {
+  border-radius: 1.25rem;
+  border-color: var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+#mapview .tabs {
+  border: none;
+  background: transparent;
+  padding: 0;
+  gap: 0.75rem;
+}
+
+#mapview .tab {
+  font-family: "Playfair Display", "Georgia", serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  background: rgba(217, 119, 6, 0.08);
+  color: var(--primary);
+}
+
+#mapview .tab.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0.75rem 2rem rgba(217, 119, 6, 0.25);
+}
+
+#mapview .tab:hover { background: color-mix(in srgb, var(--primary) 20%, transparent); }
+
+#mainview h1,
+#mainview h2,
+#mainview h3 {
+  font-family: "Playfair Display", "Georgia", serif;
+  letter-spacing: 0.04em;
+}
+
+#mainview p,
+#mainview li {
+  font-size: 1.08rem;
+  line-height: 1.9;
+}
+
+.ns-area-support {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.5rem;
+}
+
+.ns-area-support #searchbox,
+.ns-area-support #tagview,
+.ns-area-support #tools,
+.ns-area-support .site-card,
+.ns-area-support #tocview {
+  height: 100%;
+}
+
+.site-card .avatar {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  border: 0.25rem solid rgba(217, 119, 6, 0.25);
+  margin-bottom: 1rem;
+}
+
+.site-card .site-title {
+  font-family: "Playfair Display", serif;
+  font-size: 1.4rem;
+}
+
+.site-card .site-subtitle {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+#tools .btn,
+#tools select {
+  border-radius: 999px;
+  border: 1px solid rgba(217, 119, 6, 0.2);
+  background: rgba(217, 119, 6, 0.08);
+  color: var(--primary);
+}
+
+#tools .btn:hover,
+#tools select:hover {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: #fff;
+}
+
+#tools .tool-label { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.7rem; }
+
+.index .card-title {
+  font-family: "Playfair Display", serif;
+}
+
+.index a {
+  border-radius: 1.25rem !important;
+  border: none !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.index a:hover {
+  transform: translateY(-0.2rem) !important;
+  box-shadow: 0 1.5rem 3rem rgba(217, 119, 6, 0.2) !important;
+}
+
+#tocview .toc-header { font-family: "Playfair Display", serif; letter-spacing: 0.08em; text-transform: uppercase; }
+
+#tagview .section-title { font-family: "Playfair Display", serif; letter-spacing: 0.08em; }
+
+[data-theme="dark"] .ns-shell {
+  background: rgba(24, 17, 12, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), var(--shadow);
+}
+
+[data-theme="dark"] #tools .btn,
+[data-theme="dark"] #tools select {
+  color: var(--text);
+  background: rgba(248, 178, 106, 0.12);
+  border-color: rgba(248, 178, 106, 0.35);
+}
+
+[data-theme="dark"] .index a {
+  background: rgba(35, 25, 18, 0.95) !important;
+}

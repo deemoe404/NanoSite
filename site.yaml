@@ -43,6 +43,13 @@ contentRoot: wwwroot      # Root directory for content files
 themeMode: user
 themePack: native
 themeOverride: true
+# themeLayout:
+#   preset: two-column
+#   areas:
+#     - name: main
+#       modules: [tabs, main]
+#     - name: sidebar
+#       modules: [search, site-card, tags, tools, toc]
 
 # Repository information used for internal linking of "report issue" etc.
 # repo:
