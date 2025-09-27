@@ -1,0 +1,9 @@
+{
+  "name": "Aurora",
+  "label": "Aurora",
+  "version": "1.0.0",
+  "styles": ["theme.css"],
+  "layout": "layout.html",
+  "entry": "theme.js",
+  "description": "Editorial layout with hero header and responsive sidebar"
+}

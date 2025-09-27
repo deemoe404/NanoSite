@@ -1,0 +1,8 @@
+{
+  "name": "Native",
+  "label": "Native",
+  "version": "1.1.0",
+  "styles": ["theme.css"],
+  "layout": "layout.html",
+  "description": "NanoSite minimal layout"
+}

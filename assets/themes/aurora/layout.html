@@ -1,0 +1,47 @@
+<div class="aurora-app container">
+  <header class="aurora-hero box">
+    <div class="aurora-identity site-card">
+      <div class="aurora-identity-main">
+        <img class="avatar" alt="avatar" loading="lazy" decoding="async">
+        <div class="aurora-identity-text">
+          <h3 class="site-title"></h3>
+          <p class="site-subtitle"></p>
+        </div>
+      </div>
+      <ul class="social-links"></ul>
+    </div>
+    <div class="aurora-hero-info">
+      <div class="aurora-status">
+        <span class="aurora-lang" data-lang-indicator></span>
+        <span class="aurora-route" data-route-label></span>
+      </div>
+      <div class="box aurora-search" id="searchbox">
+        <input id="searchInput" type="search">
+      </div>
+    </div>
+  </header>
+  <div class="box flex-split aurora-tabs" id="mapview">
+    <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>
+  </div>
+  <div class="aurora-body">
+    <main class="content">
+      <div class="box" id="mainview"></div>
+    </main>
+    <aside class="sidebar aurora-sidebar">
+      <div class="box aurora-tags" id="tagview"></div>
+      <div class="box" id="tocview"></div>
+    </aside>
+  </div>
+</div>
+<footer class="site-footer" role="contentinfo">
+  <div class="footer-inner">
+    <div class="footer-left">
+      <span class="footer-copy">© <span id="footerYear"></span> <span class="footer-site">NanoSite</span></span>
+      <span class="footer-sep">•</span>
+      <nav class="footer-nav" id="footerNav" aria-label="Footer"></nav>
+    </div>
+    <div class="footer-right">
+      <a href="#" class="top-link" id="footerTop">Top</a>
+    </div>
+  </div>
+</footer>

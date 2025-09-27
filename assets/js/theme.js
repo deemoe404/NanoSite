@@ -1,24 +1,28 @@
 import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage } from './i18n.js';
+import {
+  sanitizePack,
+  ensureInitialTheme,
+  applyThemePack as applyThemePackInternal,
+  getSavedThemePack as managerGetSavedThemePack,
+  getThemeRegistry,
+  registerThemeHydrator as managerRegisterThemeHydrator,
+  notifyThemeSiteConfig as managerNotifyThemeSiteConfig,
+  notifyThemeRouteChange as managerNotifyThemeRouteChange,
+  notifyThemeContentRendered as managerNotifyThemeContentRendered,
+  getActiveThemeInfo as managerGetActiveThemeInfo
+} from './theme-manager.js';
 
-const PACK_LINK_ID = 'theme-pack';
-
-// Restrict theme pack names to safe slug format and default to 'native'.
-function sanitizePack(input) {
-  const s = String(input || '').toLowerCase().trim();
-  const clean = s.replace(/[^a-z0-9_-]/g, '');
-  return clean || 'native';
-}
-
-export function loadThemePack(name) {
+export function loadThemePack(name, { persist = true, force = false } = {}) {
   const pack = sanitizePack(name);
-  try { localStorage.setItem('themePack', pack); } catch (_) {}
-  const link = document.getElementById(PACK_LINK_ID);
-  const href = `assets/themes/${encodeURIComponent(pack)}/theme.css`;
-  if (link) link.setAttribute('href', href);
+  return applyThemePackInternal(pack, { persistSelection: persist, force });
 }
 
 export function getSavedThemePack() {
-  try { return sanitizePack(localStorage.getItem('themePack')) || 'native'; } catch (_) { return 'native'; }
+  try {
+    return managerGetSavedThemePack();
+  } catch (_) {
+    return 'native';
+  }
 }
 
 export function applySavedTheme() {
@@ -30,13 +34,11 @@ export function applySavedTheme() {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
   } catch (_) { /* ignore */ }
-  // Ensure pack is applied too
-  loadThemePack(getSavedThemePack());
 }
 
 // Apply theme according to site config. When override = true, it forces the
 // site-defined values and updates localStorage to keep UI in sync.
-export function applyThemeConfig(siteConfig) {
+export async function applyThemeConfig(siteConfig) {
   const cfg = siteConfig || {};
   const override = cfg.themeOverride !== false; // default true
   const mode = (cfg.themeMode || '').toLowerCase(); // 'dark' | 'light' | 'auto' | 'user'
@@ -69,7 +71,7 @@ export function applyThemeConfig(siteConfig) {
     if (pack) {
       // Force pack and persist
       try { localStorage.setItem('themePack', pack); } catch (_) {}
-      loadThemePack(pack);
+      await loadThemePack(pack, { persist: true });
     }
   } else {
     // Respect user choice; but if site provides a default and no user choice exists,
@@ -81,7 +83,7 @@ export function applyThemeConfig(siteConfig) {
       // When mode is 'user' and there's no saved user theme, do nothing here;
       // the boot code/applySavedTheme already applied system preference as a soft default.
     }
-    if (!hasUserPack && pack) loadThemePack(pack);
+    if (!hasUserPack && pack) await loadThemePack(pack, { persist: false });
   }
 }
 
@@ -109,11 +111,28 @@ export function bindThemePackPicker() {
   const sel = document.getElementById('themePack');
   if (!sel) return;
   // Initialize selection
-  const saved = getSavedThemePack();
+  const info = managerGetActiveThemeInfo();
+  const saved = (info && info.pack) || getSavedThemePack();
   sel.value = saved;
+  const updateDescription = () => {
+    const selected = sel.options[sel.selectedIndex];
+    const desc = selected ? (selected.dataset.description || '') : '';
+    sel.title = desc || (selected ? selected.textContent || '' : '');
+    const hint = document.getElementById('themePackHint');
+    if (hint) hint.textContent = desc;
+  };
+  updateDescription();
   sel.addEventListener('change', () => {
     const val = sanitizePack(sel.value) || 'native';
-    loadThemePack(val);
+    loadThemePack(val).then(() => {
+      sel.value = val;
+      updateDescription();
+    }).catch(() => {
+      // Restore previous value on failure
+      const fallback = (managerGetActiveThemeInfo() && managerGetActiveThemeInfo().pack) || saved;
+      sel.value = fallback;
+      updateDescription();
+    });
   });
 }
 
@@ -142,6 +161,9 @@ export function mountThemeControls() {
         <select id="themePack" aria-label="${t('tools.themePack')}" title="${t('tools.themePack')}"></select>
       </div>
       <div class="tool-item">
+        <p class="tool-hint" id="themePackHint"></p>
+      </div>
+      <div class="tool-item">
         <label for="langSelect" class="tool-label">${t('tools.language')}</label>
         <select id="langSelect" aria-label="${t('tools.language')}" title="${t('tools.language')}"></select>
       </div>
@@ -156,39 +178,51 @@ export function mountThemeControls() {
 
   // Populate theme packs
   const sel = wrapper.querySelector('#themePack');
-  const saved = getSavedThemePack();
-  const fallback = [
-    { value: 'native', label: 'Native' },
-    { value: 'github', label: 'GitHub' },
-    { value: 'apple', label: 'Apple' },
-    { value: 'openai', label: 'OpenAI' },
-  ];
+  const hint = wrapper.querySelector('#themePackHint');
+  const info = managerGetActiveThemeInfo();
+  const saved = (info && info.pack) || getSavedThemePack();
 
-  // Try to load from JSON; if it fails, use fallback
-  fetch('assets/themes/packs.json').then(r => r.ok ? r.json() : Promise.reject()).then(list => {
-    try {
-      sel.innerHTML = '';
-      (Array.isArray(list) ? list : []).forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = sanitizePack(p.value);
-        opt.textContent = String(p.label || p.value || 'Theme');
-        sel.appendChild(opt);
-      });
-      if (!sel.options.length) throw new Error('empty options');
-    } catch (_) {
-      throw _;
-    }
-  }).catch(() => {
+  const applyOptions = (list) => {
     sel.innerHTML = '';
-    fallback.forEach(p => {
+    list.forEach(p => {
       const opt = document.createElement('option');
-      opt.value = p.value;
-      opt.textContent = p.label;
+      opt.value = sanitizePack(p.value);
+      opt.textContent = String(p.label || p.value || 'Theme');
+      if (p.description) opt.dataset.description = String(p.description);
       sel.appendChild(opt);
     });
-  }).finally(() => {
-    sel.value = saved;
-  });
+    if (hint) {
+      const current = sel.options[sel.selectedIndex];
+      const desc = current ? (current.dataset.description || '') : '';
+      hint.textContent = desc;
+      if (current) current.title = desc;
+    }
+  };
+
+  getThemeRegistry()
+    .then(list => {
+      if (Array.isArray(list) && list.length) {
+        applyOptions(list);
+      } else {
+        throw new Error('empty registry');
+      }
+    })
+    .catch(() => {
+      applyOptions([
+        { value: 'native', label: 'Native', description: 'NanoSite minimal layout' },
+        { value: 'github', label: 'GitHub', description: 'GitHub-inspired look' },
+        { value: 'aurora', label: 'Aurora', description: 'Editorial two-column layout' }
+      ]);
+    })
+    .finally(() => {
+      sel.value = saved;
+      if (sel.selectedIndex === -1 && sel.options.length) sel.selectedIndex = 0;
+      if (hint) {
+        const current = sel.options[sel.selectedIndex];
+        const desc = current ? (current.dataset.description || '') : '';
+        hint.textContent = desc;
+      }
+    });
 
   // Populate language selector
   const langSel = wrapper.querySelector('#langSelect');
@@ -239,3 +273,10 @@ export function refreshLanguageSelector() {
   });
   sel.value = current;
 }
+
+export const ensureThemeReady = ensureInitialTheme;
+export const registerThemeHydrator = managerRegisterThemeHydrator;
+export const notifyThemeSiteConfig = managerNotifyThemeSiteConfig;
+export const notifyThemeRouteChange = managerNotifyThemeRouteChange;
+export const notifyThemeContentRendered = managerNotifyThemeContentRendered;
+export const getActiveThemeInfo = managerGetActiveThemeInfo;

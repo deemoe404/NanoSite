@@ -1198,6 +1198,7 @@ ul.collapsed, li > ul.collapsed { display: none; }
 /* Labeled tool items */
 #tools .tool-item { display:flex; flex-direction: column; gap: 0.375rem; min-width: 0; }
 #tools .tool-label { font-size: .78rem; color: var(--muted); letter-spacing: .02em; }
+#tools .tool-hint { font-size: .78rem; color: var(--muted); line-height: 1.45; margin: 0; }
 
 #tools .btn,
 #themeToggle.btn,

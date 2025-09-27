@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor, ensureThemeReady, registerThemeHydrator, notifyThemeSiteConfig, notifyThemeRouteChange, notifyThemeContentRendered } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
@@ -1105,6 +1105,12 @@ function displayPost(postname) {
         try { window.scrollTo(0, 0); } catch (_) {}
       }
     }
+    notifyThemeContentRendered({
+      view: 'post',
+      id: postname,
+      element: document.getElementById('mainview'),
+      route: { view: 'post', id: postname }
+    });
   }).catch(() => {
     // Ignore stale errors if a newer navigation started
     if (reqId !== __activePostRequestId) return;
@@ -1235,10 +1241,10 @@ function displayIndex(parsed) {
         const items = [];
         const dateEl = metaEl.querySelector('.card-date');
         if (dateEl && dateEl.textContent.trim()) items.push(dateEl.cloneNode(true));
-        const read = document.createElement('span');
-        read.className = 'card-read';
-        read.textContent = `${minutes} ${t('ui.minRead')}`;
-        items.push(read);
+    const read = document.createElement('span');
+    read.className = 'card-read';
+    read.textContent = `${minutes} ${t('ui.minRead')}`;
+    items.push(read);
         const verCount = (meta && Array.isArray(meta.versions)) ? meta.versions.length : 0;
         if (verCount > 1) {
           const v = document.createElement('span');
@@ -1266,8 +1272,15 @@ function displayIndex(parsed) {
       }
   // Recompute masonry span for the updated card
   const container = document.querySelector('.index');
-  if (container && el) updateMasonryItem(container, el);
-    }).catch(() => {});
+    if (container && el) updateMasonryItem(container, el);
+  }).catch(() => {});
+  });
+  notifyThemeContentRendered({
+    view: 'posts',
+    page,
+    total,
+    element: document.getElementById('mainview'),
+    route: { view: 'posts', page }
   });
 }
 
@@ -1424,8 +1437,17 @@ function displaySearch(query) {
         });
       }
   const container = document.querySelector('.index');
-  if (container && el) updateMasonryItem(container, el);
-    }).catch(() => {});
+    if (container && el) updateMasonryItem(container, el);
+  }).catch(() => {});
+  });
+  notifyThemeContentRendered({
+    view: 'search',
+    query: q,
+    tag: tagFilter,
+    page,
+    total,
+    element: document.getElementById('mainview'),
+    route: { view: 'search', q, tag: tagFilter, page }
   });
 }
 
@@ -1502,15 +1524,21 @@ function displayStaticTab(slug) {
       
       // Update SEO meta tags for the tab page
       try {
-        const seoData = extractSEOFromMarkdown(md, { 
+        const seoData = extractSEOFromMarkdown(md, {
           title: pageTitle,
           author: tab.author || 'NanoSite',
           location: tab.location
         }, siteConfig);
         updateSEO(seoData, siteConfig);
       } catch (_) {}
-      
+
       try { setDocTitle(pageTitle); } catch (_) {}
+      notifyThemeContentRendered({
+        view: 'tab',
+        slug,
+        element: document.getElementById('mainview'),
+        route: { view: 'tab', tab: slug }
+      });
     })
     .catch((e) => {
       // 移除加载状态类，即使出错也要移除
@@ -1552,8 +1580,9 @@ function routeAndRender() {
   const isValidId = (x) => typeof x === 'string' && !x.includes('..') && !x.startsWith('/') && !x.includes('\\') && allowedLocations.has(x);
 
   // Capture current navigation state for error reporting
+  let currentRoute = null;
   try {
-    const route = (() => {
+    currentRoute = (() => {
       if (isValidId(id)) {
         return { view: 'post', id, title: postsByLocationTitle[id] || null };
       }
@@ -1567,7 +1596,7 @@ function routeAndRender() {
       const page = parseInt(getQueryVariable('page') || '1', 10);
       return { view: 'posts', page: isNaN(page) ? 1 : page };
     })();
-    setReporterContext({ route, routeUpdatedAt: new Date().toISOString() });
+    setReporterContext({ route: currentRoute, routeUpdatedAt: new Date().toISOString() });
   } catch (_) { /* ignore */ }
 
   if (isValidId(id)) {
@@ -1616,6 +1645,7 @@ function routeAndRender() {
   }
   // Keep footer nav in sync as route/tabs may impact labels
   renderFooterNav();
+  notifyThemeRouteChange(currentRoute);
 }
 
 
@@ -1753,16 +1783,29 @@ try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 // Install error reporter early to catch resource 404s (e.g., theme CSS, images)
 try { initErrorReporter({}); } catch (_) {}
 
-// Ensure theme controls are present, then apply and bind
-mountThemeControls();
+let __themeHydrated = false;
+const hydrateThemeShell = () => {
+  __themeHydrated = true;
+  mountThemeControls();
+  bindThemeToggle();
+  bindPostEditor();
+  bindThemePackPicker();
+  try {
+    const input = document.getElementById('searchInput');
+    if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
+  } catch (_) {}
+};
+
+registerThemeHydrator(hydrateThemeShell);
 applySavedTheme();
-bindThemeToggle();
-bindPostEditor();
-bindThemePackPicker();
+try {
+  await ensureThemeReady();
+} catch (err) {
+  console.error('[theme] failed to ensure initial theme', err);
+}
+if (!__themeHydrated) hydrateThemeShell();
 // Install lightweight image viewer (delegated; safe to call once)
 try { installLightbox({ root: '#mainview' }); } catch (_) {}
-// Localize search placeholder ASAP
-try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
 // Observe viewport changes for responsive tabs
 setupResponsiveTabsObserver();
 
@@ -1985,7 +2028,7 @@ loadSiteConfig()
       })()
     ]);
   })
-  .then(results => {
+  .then(async results => {
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
     const rawIndex = results[2] && results[2].status === 'fulfilled' ? (results[2].value || null) : null;
@@ -2104,7 +2147,8 @@ loadSiteConfig()
 
     // Apply site-controlled theme after loading config
     try {
-      applyThemeConfig(siteConfig);
+      await applyThemeConfig(siteConfig);
+      notifyThemeSiteConfig(siteConfig);
       // If site enforces a specific pack, ensure the selector reflects it
       const sel = document.getElementById('themePack');
       if (sel && siteConfig && siteConfig.themeOverride !== false && siteConfig.themePack) {

@@ -1,4 +1,5 @@
 [
-  { "value": "native", "label": "Native" },
-  { "value": "github", "label": "GitHub" }
+  { "value": "native", "label": "Native", "description": "NanoSite minimal layout" },
+  { "value": "github", "label": "GitHub", "description": "GitHub-inspired presentation" },
+  { "value": "aurora", "label": "Aurora", "description": "Editorial layout with hero header" }
 ]

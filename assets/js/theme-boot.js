@@ -16,7 +16,14 @@
   try {
     pack = String(pack || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '') || 'native';
   } catch (_) { pack = 'native'; }
-  var href = 'assets/themes/' + encodeURIComponent(pack) + '/theme.css';
+  var primary = 'theme.css';
+  try {
+    var storedPrimary = localStorage.getItem('themePackPrimaryStyle');
+    if (storedPrimary) {
+      primary = String(storedPrimary || '').trim().replace(/[^a-zA-Z0-9_./-]/g, '') || 'theme.css';
+    }
+  } catch (_) { primary = 'theme.css'; }
+  var href = 'assets/themes/' + encodeURIComponent(pack) + '/' + encodeURIComponent(primary || 'theme.css');
   window.__themePackHref = href;
 
   // If the link tag exists already, set it; otherwise try briefly until it does
