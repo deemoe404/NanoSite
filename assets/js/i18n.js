@@ -159,12 +159,6 @@ const translations = {
           added: 'New file',
           modified: 'Updated file'
         },
-        banner: {
-          title: 'System files pending update',
-          open: 'Open',
-          clean: 'System files are up to date.',
-          summary: ({ count }) => `${count} file${count === 1 ? '' : 's'} pending`
-        },
         summary: {
           added: 'new system file',
           modified: 'updated system file'
@@ -844,12 +838,6 @@ const translations = {
         fileStatus: {
           added: '新文件',
           modified: '已更新'
-        },
-        banner: {
-          title: '有系统文件等待更新',
-          open: '查看',
-          clean: '系统文件已保持最新。',
-          summary: ({ count }) => `${count} 个文件待处理`
         },
         summary: {
           added: '新增的系统文件',
@@ -1531,12 +1519,6 @@ const translations = {
         fileStatus: {
           added: '新規',
           modified: '更新済み'
-        },
-        banner: {
-          title: '更新待ちのシステムファイルがあります',
-          open: '開く',
-          clean: 'システムファイルは最新です。',
-          summary: ({ count }) => `${count} 件のファイルが保留中`
         },
         summary: {
           added: '新しいシステムファイル',

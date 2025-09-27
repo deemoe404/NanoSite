@@ -433,19 +433,6 @@
     /* GitHub connection status */
     .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
     .status-stack > * { width:100%; }
-    .system-update-banner { background: color-mix(in srgb, var(--card) 96%, transparent); border:1px solid color-mix(in srgb, var(--border) 84%, transparent); border-radius:16px; padding:1rem 1.1rem; box-shadow: var(--shadow); }
-    .system-update-banner[hidden] { display:none !important; }
-    .system-update-banner .sub-status-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.4rem; }
-    .system-update-banner .sub-status-title { font-size:.95rem; font-weight:700; color: color-mix(in srgb, var(--text) 88%, transparent); }
-    .system-update-banner .sub-status-link { font-size:.82rem; font-weight:600; color: var(--primary); background: transparent; border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent); border-radius: 999px; padding:.25rem .8rem; cursor:pointer; transition: background .2s ease, color .2s ease, border-color .2s ease; }
-    .system-update-banner .sub-status-link:hover,
-    .system-update-banner .sub-status-link:focus-visible { background: color-mix(in srgb, var(--primary) 18%, transparent); color: color-mix(in srgb, var(--primary) 96%, white 6%); outline:none; }
-    .system-update-banner .sub-status-summary { margin:.1rem 0 .45rem; font-size:.85rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
-    .system-update-banner .system-update-banner-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.35rem; }
-    .system-update-banner-item { display:flex; align-items:center; justify-content:space-between; gap:.65rem; font-size:.92rem; color: color-mix(in srgb, var(--text) 85%, transparent); }
-    .system-update-banner-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .system-update-banner-badge { flex:0 0 auto; font-size:.72rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color: color-mix(in srgb, var(--primary) 90%, transparent); background: color-mix(in srgb, var(--primary) 16%, transparent); border-radius:999px; padding:.15rem .6rem; }
-    .system-update-banner .sub-status-empty { margin:0; font-size:.9rem; color: color-mix(in srgb, var(--muted) 82%, transparent); }
     .global-status {
       display:flex;
       flex-direction:column;
@@ -1334,17 +1321,6 @@
               <span class="gs-repo" id="globalStatusRepo" data-i18n="editor.status.loadingRepo">Loading GitHub settings…</span>
               <span class="gs-message" id="globalStatusMessage" data-i18n="editor.status.checkingConnection">Checking connection…</span>
             </div>
-          </div>
-        </div>
-        <div id="systemUpdateBanner" class="system-update-banner" hidden aria-live="polite">
-          <div class="sub-status">
-            <div class="sub-status-head">
-              <span class="sub-status-title" data-i18n="editor.systemUpdates.banner.title">System files pending update</span>
-              <button type="button" class="sub-status-link" id="systemUpdateOpenBtn" data-i18n="editor.systemUpdates.banner.open">Open</button>
-            </div>
-            <p id="systemUpdateBannerSummary" class="sub-status-summary"></p>
-            <ul id="systemUpdateBannerList" class="system-update-banner-list"></ul>
-            <p id="systemUpdateBannerEmpty" class="sub-status-empty" data-i18n="editor.systemUpdates.banner.clean">System files are up to date.</p>
           </div>
         </div>
       </div>

@@ -32,11 +32,7 @@ const elements = {
   notesWrap: null,
   metaTitle: null,
   metaPublished: null,
-  assetMeta: null,
-  banner: null,
-  bannerList: null,
-  bannerEmpty: null,
-  bannerSummary: null
+  assetMeta: null
 };
 
 function getBuffer(view) {
@@ -166,7 +162,6 @@ function applySummary(entries, files) {
   currentSummary = Array.isArray(entries) ? entries : [];
   currentFiles = Array.isArray(files) ? files : [];
   renderFileList();
-  renderBanner();
   notify();
 }
 
@@ -198,44 +193,6 @@ function renderFileList() {
     item.appendChild(badge);
     list.appendChild(item);
   });
-}
-
-function renderBanner() {
-  const banner = elements.banner;
-  const list = elements.bannerList;
-  const empty = elements.bannerEmpty;
-  if (!banner || !list || !empty) return;
-  clearList(list);
-  if (!currentSummary.length) {
-    banner.hidden = true;
-    banner.setAttribute('aria-hidden', 'true');
-    empty.hidden = false;
-    if (elements.bannerSummary) elements.bannerSummary.textContent = '';
-    return;
-  }
-  banner.hidden = false;
-  banner.setAttribute('aria-hidden', 'false');
-  empty.hidden = true;
-  currentSummary.slice(0, 5).forEach((entry) => {
-    const item = document.createElement('li');
-    item.className = 'system-update-banner-item';
-    const label = document.createElement('span');
-    label.className = 'system-update-banner-name';
-    label.textContent = entry.label || entry.path || '';
-    const badge = document.createElement('span');
-    badge.className = 'system-update-banner-badge';
-    if (entry && entry.state === 'added') badge.textContent = t('editor.systemUpdates.fileStatus.added');
-    else if (entry && entry.state === 'modified') badge.textContent = t('editor.systemUpdates.fileStatus.modified');
-    else badge.textContent = entry.state || '';
-    item.appendChild(label);
-    item.appendChild(badge);
-    list.appendChild(item);
-  });
-  const summary = elements.bannerSummary;
-  if (summary) {
-    const count = currentSummary.length;
-    summary.textContent = t('editor.systemUpdates.banner.summary', { count });
-  }
 }
 
 function normalizePaths(entries) {
@@ -507,10 +464,6 @@ export function initSystemUpdates(options = {}) {
   elements.metaTitle = document.getElementById('systemUpdateReleaseMeta');
   elements.metaPublished = document.getElementById('systemUpdateReleasePublished');
   elements.assetMeta = document.getElementById('systemUpdateAssetMeta');
-  elements.banner = document.getElementById('systemUpdateBanner');
-  elements.bannerList = document.getElementById('systemUpdateBannerList');
-  elements.bannerEmpty = document.getElementById('systemUpdateBannerEmpty');
-  elements.bannerSummary = document.getElementById('systemUpdateBannerSummary');
 
   if (options && typeof options.onStateChange === 'function') listeners.add(options.onStateChange);
 

@@ -10701,10 +10701,6 @@ function bindComposerUI(state) {
       applyMode(mode);
     });
   });
-  const systemOpenBtn = document.getElementById('systemUpdateOpenBtn');
-  if (systemOpenBtn) {
-    systemOpenBtn.addEventListener('click', () => applyMode('updates'));
-  }
   try {
     initSystemUpdates({ onStateChange: () => { try { updateUnsyncedSummary(); } catch (_) {} } });
   } catch (err) {
