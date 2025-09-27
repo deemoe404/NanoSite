@@ -4253,7 +4253,8 @@ function encodeContentToBase64(text) {
   }
 }
 
-function gatherLocalChangesForCommit() {
+function gatherLocalChangesForCommit(options = {}) {
+  const { cleanupUnusedAssets = true } = options;
   const files = [];
   const seenPaths = new Set();
   const addFile = (entry) => {
@@ -4358,7 +4359,7 @@ function gatherLocalChangesForCommit() {
             assetRelativePath: asset.relativePath || ''
           });
         });
-        if (unusedAssets.length) {
+        if (cleanupUnusedAssets && unusedAssets.length) {
           unusedAssets.forEach((assetPath) => {
             removeMarkdownAsset(rel, assetPath);
           });
@@ -4470,7 +4471,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
     const summaryBlock = document.createElement('div');
     summaryBlock.style.margin = '.25rem 0 1rem';
 
-    const commitPayload = gatherLocalChangesForCommit();
+    const commitPayload = gatherLocalChangesForCommit({ cleanupUnusedAssets: false });
     const commitFiles = commitPayload && Array.isArray(commitPayload.files)
       ? commitPayload.files
       : [];
