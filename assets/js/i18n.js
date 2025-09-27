@@ -166,34 +166,35 @@ export function t(path, vars) {
 
 // --- Content loading (unified JSON with fallback, plus legacy support) ---
 
+const NORMALIZED_LANG_ALIASES = new Map([
+  ['english', 'en'],
+  ['en', 'en'],
+  ['中文', 'zh'],
+  ['简体中文', 'zh'],
+  ['zh', 'zh'],
+  ['zh-cn', 'zh'],
+  ['繁體中文', 'zh-tw'],
+  ['繁体中文', 'zh-tw'],
+  ['正體中文', 'zh-tw'],
+  ['正体中文', 'zh-tw'],
+  ['台灣', 'zh-tw'],
+  ['臺灣', 'zh-tw'],
+  ['zh-tw', 'zh-tw'],
+  ['zh-hant', 'zh-tw'],
+  ['zh-hk', 'zh-tw'],
+  ['zh-mo', 'zh-tw'],
+  ['zh-hant-tw', 'zh-tw'],
+  ['日本語', 'ja'],
+  ['にほんご', 'ja'],
+  ['ja', 'ja'],
+  ['jp', 'ja']
+]);
+
 // Normalize common language labels seen in content JSON to BCP-47-ish codes
 export function normalizeLangKey(k) {
   const raw = String(k || '').trim();
   const lower = raw.toLowerCase();
-  const map = new Map([
-    ['english', 'en'],
-    ['en', 'en'],
-    ['中文', 'zh'],
-    ['简体中文', 'zh'],
-    ['zh', 'zh'],
-    ['zh-cn', 'zh'],
-    ['繁體中文', 'zh-tw'],
-    ['繁体中文', 'zh-tw'],
-    ['正體中文', 'zh-tw'],
-    ['正体中文', 'zh-tw'],
-    ['台灣', 'zh-tw'],
-    ['臺灣', 'zh-tw'],
-    ['zh-tw', 'zh-tw'],
-    ['zh-hant', 'zh-tw'],
-    ['zh-hk', 'zh-tw'],
-    ['zh-mo', 'zh-tw'],
-    ['zh-hant-tw', 'zh-tw'],
-    ['日本語', 'ja'],
-    ['にほんご', 'ja'],
-    ['ja', 'ja'],
-    ['jp', 'ja']
-  ]);
-  if (map.has(lower)) return map.get(lower);
+  if (NORMALIZED_LANG_ALIASES.has(lower)) return NORMALIZED_LANG_ALIASES.get(lower);
   // If looks like a code (xx or xx-YY), return lower base
   if (/^[a-z]{2}(?:-[a-z]{2})?$/i.test(raw)) return lower;
   return raw; // fallback to original
