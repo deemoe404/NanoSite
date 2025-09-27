@@ -5,46 +5,6 @@ import { getCurrentLang, DEFAULT_LANG } from './i18n.js';
 import { getAvailableLangs } from './i18n.js';
 import { parseFrontMatter } from './content.js';
 
-function ensureTrailingSlash(value) {
-  const str = String(value == null ? '' : value).trim();
-  if (!str) return '';
-  return str.endsWith('/') ? str : `${str}/`;
-}
-
-export function resolveSiteBaseUrl(siteConfig = {}) {
-  const raw = siteConfig && siteConfig.siteURL;
-  if (raw != null) {
-    const trimmed = String(raw).trim();
-    if (trimmed) {
-      try {
-        const resolved = new URL(trimmed, window.location.href).href;
-        const normalized = ensureTrailingSlash(resolved);
-        if (normalized) return normalized;
-      } catch (_) {
-        try {
-          const resolved = new URL(trimmed, window.location.origin).href;
-          const normalized = ensureTrailingSlash(resolved);
-          if (normalized) return normalized;
-        } catch (_) {}
-      }
-    }
-  }
-
-  try {
-    const normalized = ensureTrailingSlash(new URL('.', window.location.href).href);
-    if (normalized) return normalized;
-  } catch (_) {}
-
-  const hasWindow = typeof window !== 'undefined' && window.location;
-  const origin = hasWindow && window.location.origin ? window.location.origin : '';
-  const pathname = hasWindow && window.location.pathname ? window.location.pathname : '';
-  const basePath = pathname.replace(/[^/]*$/, '');
-  const fallback = ensureTrailingSlash(`${origin}${basePath}`);
-  if (fallback) return fallback;
-  if (origin) return ensureTrailingSlash(origin);
-  return '/';
-}
-
 /**
  * Generate a fallback image using SVG when no avatar is configured
  * @param {string} title - Site title to display on the image
@@ -623,8 +583,8 @@ function extractDateFromMarkdown(content) {
  * This can be used to create a sitemap.xml file
  */
 export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = {}) {
-  // Use site's base URL (remove current file path or respect configured URL)
-  const baseUrl = resolveSiteBaseUrl(siteConfig);
+  // Use site's base URL (remove current file path)
+  const baseUrl = window.location.origin + '/';
   const urls = [];
   const siteDefaultLang = (siteConfig && siteConfig.defaultLanguage) ? String(siteConfig.defaultLanguage).toLowerCase() : DEFAULT_LANG;
   
