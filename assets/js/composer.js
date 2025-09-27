@@ -4930,7 +4930,8 @@ async function promptForFineGrainedToken(summaryEntries = []) {
       info.textContent = t('editor.composer.github.modal.summaryTitle');
       summaryBlock.appendChild(info);
 
-      const textFiles = commitFiles.filter((file) => file && file.kind !== 'asset');
+      const textFiles = commitFiles.filter((file) => file && file.kind !== 'asset' && file.kind !== 'seo');
+      const seoFilesGroup = commitFiles.filter((file) => file && file.kind === 'seo');
       const assetFiles = commitFiles.filter((file) => file && file.kind === 'asset');
 
       const renderGroup = (titleText, files) => {
@@ -4960,6 +4961,7 @@ async function promptForFineGrainedToken(summaryEntries = []) {
       };
 
       renderGroup(t('editor.composer.github.modal.summaryTextFilesTitle'), textFiles);
+      renderGroup(t('editor.composer.github.modal.summarySeoFilesTitle'), seoFilesGroup);
       renderGroup(t('editor.composer.github.modal.summaryAssetFilesTitle'), assetFiles);
     } else if (Array.isArray(summaryEntries) && summaryEntries.length) {
       const info = document.createElement('p');
