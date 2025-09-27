@@ -128,7 +128,10 @@ const translations = {
       systemUpdates: {
         tabLabel: 'System Updates',
         title: 'System Updates',
-        download: 'Download latest release',
+        openDownload: 'Download release ZIP',
+        downloadAssetLink: ({ name }) => `Download ${name}`,
+        openReleasePage: 'View release on GitHub',
+        selectArchive: 'Select downloaded ZIP',
         filesHeading: 'Pending system files',
         releaseNotes: 'Release notes',
         noNotes: 'This release does not include additional notes.',
@@ -138,9 +141,8 @@ const translations = {
         assetWithHash: ({ name, size, hash }) => `Asset: ${name} (${size}) — SHA-256 ${hash}`,
         noAsset: 'No downloadable assets were attached to this release.',
         status: {
-          idle: 'Ready to check for system updates.',
-          downloading: 'Downloading release asset…',
-          retrying: 'Download was blocked. Trying an alternate source…',
+          idle: 'Download the latest release ZIP, then select it to check for updates.',
+          reading: 'Reading archive…',
           verifying: 'Verifying archive…',
           noChanges: 'System files are up to date.',
           comparing: 'Comparing downloaded files…',
@@ -148,9 +150,9 @@ const translations = {
         },
         errors: {
           releaseFetch: 'Unable to load latest release information.',
-          assetMissing: 'The latest release does not include a downloadable asset.',
-          assetDownload: 'Failed to download the release asset.',
-          assetDownloadBlocked: 'GitHub blocked the asset download for this session. Try again later or download manually.',
+          emptyFile: 'The selected file is empty.',
+          invalidArchive: 'The selected ZIP could not be read as a NanoSite release.',
+          sizeMismatch: ({ expected, actual }) => `The selected archive size (${actual}) does not match the release asset (${expected}).`,
           generic: 'System update failed. Please try again.'
         },
         fileStatus: {
@@ -811,7 +813,10 @@ const translations = {
       systemUpdates: {
         tabLabel: '系统更新',
         title: '系统更新',
-        download: '下载最新发布版本',
+        openDownload: '下载发布 ZIP',
+        downloadAssetLink: ({ name }) => `下载 ${name}`,
+        openReleasePage: '在 GitHub 查看发布页',
+        selectArchive: '选择已下载的 ZIP',
         filesHeading: '待更新的系统文件',
         releaseNotes: '发布说明',
         noNotes: '此次发布未提供额外说明。',
@@ -821,9 +826,8 @@ const translations = {
         assetWithHash: ({ name, size, hash }) => `附件：${name}（${size}） — SHA-256 ${hash}`,
         noAsset: '此发布没有可下载的附件。',
         status: {
-          idle: '准备检查系统更新。',
-          downloading: '正在下载发布附件…',
-          retrying: '下载被阻止，正在尝试备用来源…',
+          idle: '先下载最新的发布 ZIP，然后选择该文件以检查更新。',
+          reading: '正在读取压缩包…',
           verifying: '正在校验压缩包…',
           noChanges: '系统文件已是最新状态。',
           comparing: '正在比对下载的文件…',
@@ -831,9 +835,9 @@ const translations = {
         },
         errors: {
           releaseFetch: '无法加载最新发布信息。',
-          assetMissing: '最新发布未提供可下载的附件。',
-          assetDownload: '下载发布附件失败。',
-          assetDownloadBlocked: 'GitHub 阻止了附件下载。请稍后重试或手动下载。',
+          emptyFile: '选择的文件为空。',
+          invalidArchive: '选中的 ZIP 无法作为 NanoSite 发布读取。',
+          sizeMismatch: ({ expected, actual }) => `选中的压缩包大小（${actual}）与发布附件（${expected}）不一致。`,
           generic: '系统更新失败，请重试。'
         },
         fileStatus: {
@@ -1495,7 +1499,10 @@ const translations = {
       systemUpdates: {
         tabLabel: 'システム更新',
         title: 'システム更新',
-        download: '最新リリースをダウンロード',
+        openDownload: 'リリース ZIP をダウンロード',
+        downloadAssetLink: ({ name }) => `${name} をダウンロード`,
+        openReleasePage: 'GitHub でリリースを開く',
+        selectArchive: 'ダウンロードした ZIP を選択',
         filesHeading: '更新待ちのシステムファイル',
         releaseNotes: 'リリースノート',
         noNotes: 'このリリースには追加の説明がありません。',
@@ -1505,9 +1512,8 @@ const translations = {
         assetWithHash: ({ name, size, hash }) => `アセット：${name}（${size}） — SHA-256 ${hash}`,
         noAsset: 'このリリースにはダウンロード可能なアセットがありません。',
         status: {
-          idle: 'システム更新を確認できます。',
-          downloading: 'リリースアセットをダウンロード中…',
-          retrying: 'ダウンロードがブロックされました。代替ソースを試行します…',
+          idle: '最新のリリース ZIP をダウンロードしてから、更新を確認するために選択してください。',
+          reading: 'アーカイブを読み込み中…',
           verifying: 'アーカイブを検証しています…',
           noChanges: 'システムファイルは最新です。',
           comparing: 'ダウンロードしたファイルを比較しています…',
@@ -1515,9 +1521,9 @@ const translations = {
         },
         errors: {
           releaseFetch: '最新リリース情報を取得できませんでした。',
-          assetMissing: '最新リリースにダウンロード可能なアセットがありません。',
-          assetDownload: 'リリースアセットのダウンロードに失敗しました。',
-          assetDownloadBlocked: 'GitHub によってアセットのダウンロードがブロックされました。時間をおいて再試行するか手動でダウンロードしてください。',
+          emptyFile: '選択したファイルは空です。',
+          invalidArchive: '選択した ZIP を NanoSite リリースとして読み込めませんでした。',
+          sizeMismatch: ({ expected, actual }) => `選択したアーカイブのサイズ（${actual}）がリリースアセット（${expected}）と一致しません。`,
           generic: 'システム更新に失敗しました。再試行してください。'
         },
         fileStatus: {

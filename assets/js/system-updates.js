@@ -23,7 +23,9 @@ const listeners = new Set();
 const elements = {
   root: null,
   status: null,
-  button: null,
+  downloadLink: null,
+  selectButton: null,
+  fileInput: null,
   fileSection: null,
   fileList: null,
   notes: null,
@@ -115,11 +117,15 @@ function setStatus(text, options = {}) {
   elements.status.dataset.tone = tone;
 }
 
-function setButtonBusy(flag) {
+function setBusy(flag) {
   busy = !!flag;
-  if (!elements.button) return;
-  elements.button.disabled = busy;
-  elements.button.dataset.state = busy ? 'busy' : 'idle';
+  if (elements.selectButton) {
+    elements.selectButton.disabled = busy;
+    elements.selectButton.dataset.state = busy ? 'busy' : 'idle';
+  }
+  if (elements.fileInput) {
+    elements.fileInput.disabled = busy;
+  }
 }
 
 function clearList(node) {
@@ -275,6 +281,7 @@ async function fetchLatestRelease() {
   };
   renderReleaseMeta();
   renderNotes(releaseCache.notes);
+  updateDownloadLink();
   return releaseCache;
 }
 
@@ -296,6 +303,27 @@ function renderReleaseMeta() {
       elements.assetMeta.textContent = t('editor.systemUpdates.noAsset');
     }
   }
+}
+
+function updateDownloadLink() {
+  const link = elements.downloadLink;
+  if (!link) return;
+  let href = 'https://github.com/deemoe404/NanoSite/releases/latest';
+  let label = t('editor.systemUpdates.openReleasePage');
+  link.removeAttribute('download');
+  if (releaseCache) {
+    if (releaseCache.asset && releaseCache.asset.url) {
+      const name = releaseCache.asset.name || releaseCache.name || '';
+      href = releaseCache.asset.url;
+      label = name ? t('editor.systemUpdates.downloadAssetLink', { name }) : t('editor.systemUpdates.openDownload');
+      if (releaseCache.asset.name) link.setAttribute('download', releaseCache.asset.name);
+    } else if (releaseCache.htmlUrl) {
+      href = releaseCache.htmlUrl;
+    }
+  }
+  link.textContent = label;
+  link.href = href;
+  link.removeAttribute('aria-disabled');
 }
 
 function buildSummaryFromFiles(files) {
@@ -374,73 +402,36 @@ async function processArchive(buffer) {
   return compareArchive(filtered);
 }
 
-async function downloadLatestRelease() {
-  const release = await fetchLatestRelease();
-  const targets = [];
-  if (release.asset && release.asset.url) {
-    targets.push({
-      url: release.asset.url,
-      name: release.asset.name || 'release.zip',
-      type: 'asset'
-    });
-  }
-  if (release.archive && release.archive.url) {
-    targets.push({
-      url: release.archive.url,
-      name: release.archive.name || 'source.zip',
-      type: 'archive'
-    });
-  }
-  if (!targets.length) {
-    throw new Error(t('editor.systemUpdates.errors.assetMissing'));
+async function analyzeArchive(buffer, filename) {
+  if (!(buffer instanceof ArrayBuffer)) buffer = getBuffer(buffer);
+  if (!buffer || !buffer.byteLength) {
+    throw new Error(t('editor.systemUpdates.errors.emptyFile'));
   }
 
-  setStatus(t('editor.systemUpdates.status.downloading'));
-
-  let buffer = null;
-  let usedTarget = null;
-  const failures = [];
-
-  for (const target of targets) {
-    try {
-      if (usedTarget) break;
-      if (target.type === 'archive' && failures.length && elements.status) {
-        setStatus(t('editor.systemUpdates.status.retrying'), { tone: 'info' });
-      }
-      const response = await fetch(target.url, {
-        cache: 'no-store',
-        mode: 'cors',
-        redirect: 'follow'
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      buffer = await response.arrayBuffer();
-      usedTarget = target;
-    } catch (err) {
-      failures.push(err);
-    }
-  }
-
-  if (!buffer || !usedTarget) {
-    const blocked = failures.some((err) => err instanceof TypeError);
-    const message = blocked
-      ? t('editor.systemUpdates.errors.assetDownloadBlocked')
-      : t('editor.systemUpdates.errors.assetDownload');
-    throw new Error(message);
-  }
-
+  const release = await fetchLatestRelease().catch(() => releaseCache);
+  const nameFromRelease = release && release.asset ? (release.asset.name || release.name) : '';
+  assetName = filename || nameFromRelease || 'release.zip';
   assetSha256 = await digestSha256(buffer);
   assetSize = buffer.byteLength;
-  assetName = usedTarget.name || 'release.zip';
-  if (!release.asset && release.archive) {
-    release.asset = {
-      name: release.archive.name || assetName,
-      url: release.archive.url,
-      size: assetSize
-    };
+
+  if (release) {
+    if (release.asset) {
+      const expectedSize = Number(release.asset.size);
+      if (Number.isFinite(expectedSize) && expectedSize > 0 && Math.abs(expectedSize - assetSize) > 0) {
+        throw new Error(t('editor.systemUpdates.errors.sizeMismatch', {
+          expected: formatSize(expectedSize),
+          actual: formatSize(assetSize)
+        }));
+      }
+      release.asset.size = assetSize;
+      if (!release.asset.name) release.asset.name = assetName;
+    } else {
+      release.asset = { name: assetName, url: '', size: assetSize };
+    }
     renderReleaseMeta();
+    updateDownloadLink();
   }
+
   if (elements.assetMeta) {
     elements.assetMeta.textContent = t('editor.systemUpdates.assetWithHash', {
       name: assetName,
@@ -448,32 +439,54 @@ async function downloadLatestRelease() {
       hash: assetSha256
     });
   }
+
   setStatus(t('editor.systemUpdates.status.verifying'));
-  const files = await processArchive(buffer);
+
+  let files = [];
+  try {
+    files = await processArchive(buffer);
+  } catch (err) {
+    console.error('Failed to unpack system update archive', err);
+    throw new Error(t('editor.systemUpdates.errors.invalidArchive'));
+  }
+
   if (!files.length) {
     setStatus(t('editor.systemUpdates.status.noChanges'), { tone: 'success' });
     applySummary([], []);
     return;
   }
+
   setStatus(t('editor.systemUpdates.status.comparing'));
   applySummary(buildSummaryFromFiles(files), files);
   const count = files.length;
   setStatus(t('editor.systemUpdates.status.changes', { count }), { tone: 'warn' });
 }
 
-async function handleDownloadClick() {
+function handleSelectClick() {
+  if (busy || !elements.fileInput) return;
+  elements.fileInput.click();
+}
+
+async function handleFileInputChange(event) {
   if (busy) return;
-  setButtonBusy(true);
+  const input = event && event.target ? event.target : elements.fileInput;
+  if (!input || !input.files || !input.files.length) return;
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  setBusy(true);
   try {
-    await fetchLatestRelease();
-    await downloadLatestRelease();
+    setStatus(t('editor.systemUpdates.status.reading'));
+    applySummary([], []);
+    const buffer = await file.arrayBuffer();
+    await analyzeArchive(buffer, file.name);
   } catch (err) {
-    console.error('System update failed', err);
+    console.error('System update processing failed', err);
     const message = err && err.message ? err.message : t('editor.systemUpdates.errors.generic');
     setStatus(message, { tone: 'error' });
     applySummary([], []);
   } finally {
-    setButtonBusy(false);
+    setBusy(false);
   }
 }
 
@@ -485,7 +498,9 @@ export function initSystemUpdates(options = {}) {
   initialized = true;
   elements.root = document.getElementById('mode-updates');
   elements.status = document.getElementById('systemUpdateStatus');
-  elements.button = document.getElementById('btnSystemRefresh');
+  elements.downloadLink = document.getElementById('systemUpdateDownloadLink');
+  elements.selectButton = document.getElementById('btnSystemSelect');
+  elements.fileInput = document.getElementById('systemUpdateFileInput');
   elements.fileSection = document.getElementById('systemUpdateFileSection');
   elements.fileList = document.getElementById('systemUpdateFileList');
   elements.notes = document.getElementById('systemUpdateReleaseNotes');
@@ -499,10 +514,15 @@ export function initSystemUpdates(options = {}) {
 
   if (options && typeof options.onStateChange === 'function') listeners.add(options.onStateChange);
 
-  if (elements.button) {
-    elements.button.addEventListener('click', handleDownloadClick);
+  if (elements.selectButton) {
+    elements.selectButton.dataset.state = 'idle';
+    elements.selectButton.addEventListener('click', handleSelectClick);
+  }
+  if (elements.fileInput) {
+    elements.fileInput.addEventListener('change', handleFileInputChange);
   }
 
+  updateDownloadLink();
   setStatus(t('editor.systemUpdates.status.idle'));
   fetchLatestRelease().catch((err) => {
     console.error('Failed to load system update metadata', err);

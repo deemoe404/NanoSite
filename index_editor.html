@@ -61,9 +61,10 @@
     .updates-title { margin:0; font-size:1.35rem; color: color-mix(in srgb, var(--text) 92%, transparent); }
     .updates-meta { display:flex; flex-direction:column; gap:.15rem; font-size:.92rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
     .updates-meta span { line-height:1.4; }
-    .updates-header-actions { display:flex; align-items:center; gap:.75rem; }
-    #btnSystemRefresh[data-state="busy"] { pointer-events:none; opacity:.82; }
-    #btnSystemRefresh[data-state="busy"]::after { content:''; display:inline-block; width:1rem; height:1rem; margin-left:.5rem; border:2px solid color-mix(in srgb, var(--primary) 40%, transparent); border-top-color: color-mix(in srgb, var(--primary) 86%, transparent); border-radius:50%; animation: ns-updates-spin .85s linear infinite; vertical-align:middle; }
+    .updates-header-actions { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
+    #btnSystemSelect[data-state="busy"] { pointer-events:none; opacity:.82; }
+    #btnSystemSelect[data-state="busy"]::after { content:''; display:inline-block; width:1rem; height:1rem; margin-left:.5rem; border:2px solid color-mix(in srgb, var(--primary) 40%, transparent); border-top-color: color-mix(in srgb, var(--primary) 86%, transparent); border-radius:50%; animation: ns-updates-spin .85s linear infinite; vertical-align:middle; }
+    .updates-download[aria-disabled="true"] { pointer-events:none; opacity:.55; }
     @keyframes ns-updates-spin { to { transform: rotate(360deg); } }
     .updates-status { margin:0; font-size:.95rem; color: color-mix(in srgb, var(--muted) 82%, transparent); }
     .updates-status[data-tone="warn"] { color: #b45309; }
@@ -1502,7 +1503,9 @@
             </div>
           </div>
           <div class="updates-header-actions">
-            <button class="btn-primary" id="btnSystemRefresh" data-i18n="editor.systemUpdates.download">Download latest release</button>
+            <a class="btn-secondary updates-download" id="systemUpdateDownloadLink" href="#" target="_blank" rel="noopener" aria-disabled="true" data-i18n="editor.systemUpdates.openDownload">Open latest release</a>
+            <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
+            <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
           </div>
         </div>
         <p id="systemUpdateStatus" class="updates-status" data-tone="info"></p>
