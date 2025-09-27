@@ -7,7 +7,7 @@ import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommit
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
+const PREFERRED_LANG_ORDER = ['en', 'zh', 'zh-tw', 'zh-hk', 'ja'];
 const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
 const LANGUAGE_POOL_CHANGED_EVENT = 'ns-composer-language-pool-changed';
 
@@ -9764,8 +9764,8 @@ function slideToggle(el, toOpen) {
 function sortLangKeys(obj) {
   const keys = Object.keys(obj || {});
   return keys.sort((a, b) => {
-    const ia = PREFERRED_LANG_ORDER.indexOf(a);
-    const ib = PREFERRED_LANG_ORDER.indexOf(b);
+    const ia = PREFERRED_LANG_ORDER.indexOf(normalizeLangCode(a));
+    const ib = PREFERRED_LANG_ORDER.indexOf(normalizeLangCode(b));
     if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
     return a.localeCompare(b);
   });
@@ -9786,6 +9786,8 @@ function langFlag(code) {
   const c = normalizeLangCode(code);
   if (c === 'en') return '🇺🇸';
   if (c === 'zh') return '🇨🇳';
+  if (c === 'zh-tw') return '🇹🇼';
+  if (c === 'zh-hk') return '🇭🇰';
   if (c === 'ja') return '🇯🇵';
   return '';
 }

@@ -5,11 +5,15 @@ siteTitle:
   default: Yet-another NanoSite
   en: Yet-another NanoSite
   zh: 世界上的另一个微站
+  zh-tw: 世界上的另一個微站
+  zh-hk: 世界上的另一個微站
   ja: もうひとつのナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
   en: Just Markdown. Just a website.
   zh: 写下 Markdown，就是你的网站。
+  zh-tw: 寫下 Markdown，就是你的網站。
+  zh-hk: 寫低 Markdown，就係你嘅網站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
 

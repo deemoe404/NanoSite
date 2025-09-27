@@ -413,12 +413,20 @@ async function warnLargeImagesIn(container, cfg = {}) {
       if (typeof size === 'number' && size > thresholdKB * 1024) {
         try {
           const lang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
+          const normalized = String(lang || '').toLowerCase();
           const name = url.split('/').pop() || url;
-          const msg = (lang === 'zh' || lang?.startsWith('zh'))
+          const isZhCn = normalized === 'zh' || normalized === 'zh-cn' || normalized.startsWith('zh-cn') || normalized === 'zh-hans' || normalized.startsWith('zh-hans') || normalized === 'zh-sg' || normalized === 'zh-my';
+          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant');
+          const isZhHk = normalized === 'zh-hk' || normalized.startsWith('zh-hk') || normalized === 'zh-mo' || normalized.startsWith('zh-mo');
+          const msg = isZhCn
             ? `发现大图资源：${name}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
-            : (lang === 'ja')
-              ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
-              : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
+            : isZhTw
+              ? `發現大型圖片資源：${name}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
+              : isZhHk
+                ? `發現大型圖片資源：${name}（${formatBytes(size)}）超出上限 ${thresholdKB} KB`
+              : (normalized === 'ja' || normalized.startsWith('ja'))
+                ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
+                : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
           const e = new Error(msg);
           try { e.name = 'Warning'; } catch(_) {}
           showErrorOverlay(e, {
@@ -1738,7 +1746,7 @@ window.addEventListener('resize', () => {
 const defaultLang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
 // Bootstrap i18n without persisting to localStorage so site.yaml can
 // still override the default language on first load.
-initI18n({ defaultLang, persist: false });
+await initI18n({ defaultLang, persist: false });
 // Expose translate helper for modules that don't import i18n directly
 try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
@@ -1763,7 +1771,7 @@ async function softResetToSiteDefaultLanguage() {
   try {
     const def = (siteConfig && (siteConfig.defaultLanguage || siteConfig.defaultLang)) || defaultLang || 'en';
     // Switch language immediately (do not persist to mimic reset semantics)
-    initI18n({ lang: String(def), persist: false });
+    await initI18n({ lang: String(def), persist: false });
     // Reflect placeholder promptly
     try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
     // Update URL to drop any lang param so defaults apply going forward
@@ -1931,7 +1939,7 @@ try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catc
 
 // Load site config first so we can honor defaultLanguage before fetching localized content
 loadSiteConfig()
-  .then(cfg => {
+  .then(async (cfg) => {
     siteConfig = cfg || {};
     // Apply content root override early so subsequent loads honor it
     try {
@@ -1958,7 +1966,7 @@ loadSiteConfig()
         const savedIsHtmlDefault = savedLang && savedLang.toLowerCase() === htmlDefault;
         if (!hasUrlLang && (!hasSaved || savedIsHtmlDefault)) {
           // Force language to site default, not just the fallback
-          initI18n({ lang: String(cfgDefaultLang) });
+          await initI18n({ lang: String(cfgDefaultLang) });
           try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
         }
       }

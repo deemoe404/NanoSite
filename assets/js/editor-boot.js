@@ -78,17 +78,17 @@ function applyEditorLanguage() {
   document.dispatchEvent(new CustomEvent('ns-editor-language-applied'));
 }
 
-function bootstrap() {
-  initI18n();
+async function bootstrap() {
+  await initI18n();
   applyEditorLanguage();
-  window.__ns_softResetLang = () => {
-    initI18n({ persist: false });
+  window.__ns_softResetLang = async () => {
+    await initI18n({ persist: false });
     applyEditorLanguage();
   };
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootstrap);
+  document.addEventListener('DOMContentLoaded', () => { bootstrap().catch(() => {}); });
 } else {
-  bootstrap();
+  bootstrap().catch(() => {});
 }

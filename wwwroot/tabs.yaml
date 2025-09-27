@@ -7,6 +7,12 @@ Hello_World:
   zh:
     title: 你好，世界！
     location: tab/hello_world_zh.md
+  zh-tw:
+    title: 你好，世界！
+    location: tab/hello_world_zh-tw.md
+  zh-hk:
+    title: 你好，世界！
+    location: tab/hello_world_zh-hk.md
   ja:
     title: こんにちは、世界！
     location: tab/hello_world_ja.md

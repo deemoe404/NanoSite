@@ -1,0 +1,7 @@
+[
+  { "value": "en", "label": "English", "module": "./en.js" },
+  { "value": "zh", "label": "简体中文", "module": "./zh.js" },
+  { "value": "zh-tw", "label": "正體中文（台灣）", "module": "./zh-TW.js" },
+  { "value": "zh-hk", "label": "繁體中文（香港）", "module": "./zh-HK.js" },
+  { "value": "ja", "label": "日本語", "module": "./ja.js" }
+]
