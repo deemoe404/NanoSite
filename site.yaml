@@ -41,8 +41,15 @@ contentRoot: wwwroot      # Root directory for content files
 
 # Theme override configurations
 themeMode: user
-themePack: native
+themePack: aurora
 themeOverride: true
+# themeLayout: sidebar-right
+# themeLayout:
+#   preset: single-column
+#   zones:
+#     sidebar:
+#       - search
+#       - site
 
 # Repository information used for internal linking of "report issue" etc.
 # repo:

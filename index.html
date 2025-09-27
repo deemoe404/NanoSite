@@ -21,44 +21,44 @@
 </head>
 
 <body>
-  <div class="container">
-    <div class="content">
+  <main id="layoutRoot" data-layout-root>
+    <div class="container layout-two-column">
+      <div class="content">
+        <!-- Navigator Bar -->
+        <div class="box flex-split" id="mapview">
+          <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>
+        </div>
 
-      <!-- Navigator Bar -->
-      <div class="box flex-split" id="mapview">
-        <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>
+        <!-- Main content -->
+        <div class="box" id="mainview">
+        </div>
       </div>
+      <aside class="sidebar">
+        <!-- Search -->
+        <div class="box" id="searchbox">
+          <input id="searchInput" type="search">
+        </div>
 
-      <!-- Main content -->
-      <div class="box" id="mainview">
-      </div>
+        <!-- Site Card -->
+        <div class="box site-card" id="sitecard">
+          <img class="avatar" alt="avatar" loading="lazy" decoding="async">
+          <h3 class="site-title"></h3>
+          <p class="site-subtitle"></p>
+          <hr class="site-hr">
+          <ul class="social-links">
+          </ul>
+        </div>
+
+        <!-- Tags Filter -->
+        <div class="box" id="tagview"></div>
+
+        <!-- Tools box is rendered by JS (theme.js) -->
+
+        <!-- Page of Content for Posts -->
+        <div class="box" id="tocview"></div>
+      </aside>
     </div>
-    <div class="sidebar">
-
-      <!-- Search -->
-      <div class="box" id="searchbox">
-        <input id="searchInput" type="search">
-      </div>
-
-      <!-- Site Card -->
-      <div class="box site-card">
-        <img class="avatar" alt="avatar" loading="lazy" decoding="async">
-        <h3 class="site-title"></h3>
-        <p class="site-subtitle"></p>
-        <hr class="site-hr">
-        <ul class="social-links">
-        </ul>
-      </div>
-
-  <!-- Tags Filter -->
-  <div class="box" id="tagview"></div>
-
-      <!-- Tools box is rendered by JS (theme.js) -->
-
-      <!-- Page of Content for Posts -->
-      <div class="box" id="tocview"></div>
-    </div>
-  </div>
+  </main>
 
   <!-- Site Footer -->
   <footer class="site-footer" role="contentinfo">

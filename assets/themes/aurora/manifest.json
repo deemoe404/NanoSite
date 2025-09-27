@@ -1,0 +1,23 @@
+{
+  "name": "Aurora Glass",
+  "version": 1,
+  "description": "Glassmorphism layout with aurora gradients and a hero spotlight for the site card.",
+  "assets": {
+    "styles": [
+      {
+        "href": "theme.css",
+        "rel": "stylesheet"
+      }
+    ]
+  },
+  "layout": {
+    "preset": "aurora-split",
+    "module": "layout.js",
+    "fallbackZone": "aside",
+    "zones": {
+      "hero": ["site"],
+      "content": ["map", "main"],
+      "aside": ["search", "tags", "tools", "toc"]
+    }
+  }
+}
