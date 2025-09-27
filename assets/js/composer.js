@@ -1,5 +1,6 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
+import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -4253,6 +4254,425 @@ function encodeContentToBase64(text) {
   }
 }
 
+function exportIndexDataForSeo(state) {
+  const output = {};
+  if (!state || typeof state !== 'object') return output;
+  const keys = Array.isArray(state.__order)
+    ? state.__order.filter((key) => key && key !== '__order')
+    : Object.keys(state);
+  keys.forEach((key) => {
+    if (key === '__order') return;
+    const entry = state[key];
+    if (!entry || typeof entry !== 'object') return;
+    const langs = {};
+    Object.keys(entry).forEach((lang) => {
+      if (lang === '__order') return;
+      const value = entry[lang];
+      if (Array.isArray(value)) {
+        const normalized = value
+          .map((item) => (item == null ? '' : String(item)))
+          .filter((item) => item);
+        if (!normalized.length) return;
+        if (normalized.length === 1) langs[lang] = normalized[0];
+        else langs[lang] = normalized;
+      } else if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) langs[lang] = trimmed;
+      }
+    });
+    if (Object.keys(langs).length) output[key] = langs;
+  });
+  return output;
+}
+
+function exportTabsDataForSeo(state) {
+  const output = {};
+  if (!state || typeof state !== 'object') return output;
+  const keys = Array.isArray(state.__order)
+    ? state.__order.filter((key) => key && key !== '__order')
+    : Object.keys(state);
+  keys.forEach((key) => {
+    if (key === '__order') return;
+    const entry = state[key];
+    if (!entry || typeof entry !== 'object') return;
+    const langs = {};
+    Object.keys(entry).forEach((lang) => {
+      if (lang === '__order') return;
+      const value = entry[lang];
+      if (!value || typeof value !== 'object') return;
+      const title = value.title != null ? String(value.title) : '';
+      const location = value.location != null ? String(value.location) : '';
+      if (!title && !location) return;
+      langs[lang] = { title, location };
+    });
+    if (Object.keys(langs).length) output[key] = langs;
+  });
+  return output;
+}
+
+function exportSiteConfigForSeo(state) {
+  const base = cloneSiteState(state || {});
+  if (!base.contentRoot) base.contentRoot = getContentRootSafe() || 'wwwroot';
+  if (!base.defaultLanguage) {
+    try {
+      const baseline = remoteBaseline && remoteBaseline.site;
+      if (baseline && baseline.defaultLanguage) base.defaultLanguage = baseline.defaultLanguage;
+    } catch (_) { /* ignore */ }
+  }
+  return base;
+}
+
+function escapeSeoXml(str) {
+  return String(str || '').replace(/[<>&'\"]/g, (char) => {
+    switch (char) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case "'": return '&apos;';
+      case '"': return '&quot;';
+      default: return char;
+    }
+  });
+}
+
+function escapeSeoHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return char;
+    }
+  });
+}
+
+function formatSeoXml(xml) {
+  try {
+    const formatted = [];
+    let pad = 0;
+    xml
+      .replace(/>(\s*)</g, '>$1\n<')
+      .split('\n')
+      .forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        if (/^<\//.test(trimmed)) pad = Math.max(pad - 1, 0);
+        formatted.push(`${'  '.repeat(pad)}${trimmed}`);
+        if (/^<[^!?][^>]*[^/]>/i.test(trimmed) && !/<.*<\/.*>/.test(trimmed)) pad += 1;
+      });
+    return formatted.join('\n');
+  } catch (_) {
+    return xml;
+  }
+}
+
+function generateSeoSitemapXml(urls) {
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
+  urls.forEach((url) => {
+    if (!url || !url.loc) return;
+    xml += '  <url>\n';
+    xml += `    <loc>${escapeSeoXml(url.loc)}</loc>\n`;
+    if (Array.isArray(url.alternates)) {
+      url.alternates.forEach((alt) => {
+        if (!alt || !alt.href || !alt.hreflang) return;
+        xml += `    <xhtml:link rel="alternate" hreflang="${escapeSeoXml(alt.hreflang)}" href="${escapeSeoXml(alt.href)}"/>\n`;
+      });
+      if (url.xdefault) {
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeSeoXml(url.xdefault)}"/>\n`;
+      }
+    }
+    if (url.lastmod) xml += `    <lastmod>${escapeSeoXml(url.lastmod)}</lastmod>\n`;
+    if (url.changefreq) xml += `    <changefreq>${escapeSeoXml(url.changefreq)}</changefreq>\n`;
+    if (url.priority) xml += `    <priority>${escapeSeoXml(url.priority)}</priority>\n`;
+    xml += '  </url>\n';
+  });
+  xml += '</urlset>';
+  return formatSeoXml(xml);
+}
+
+function computeSeoContentRoot(siteConfig) {
+  const raw = siteConfig && siteConfig.contentRoot ? String(siteConfig.contentRoot) : 'wwwroot';
+  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
+  return trimmed || 'wwwroot';
+}
+
+function generateSeoRobotsTxt(siteConfig) {
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
+  const contentRoot = computeSeoContentRoot(siteConfig);
+  let robots = 'User-agent: *\n';
+  robots += 'Allow: /\n\n';
+  robots += '# Sitemap\n';
+  robots += `Sitemap: ${baseUrl}sitemap.xml\n\n`;
+  robots += '# Allow crawling of main content\n';
+  robots += `Allow: /${contentRoot}/\n`;
+  robots += 'Allow: /assets/\n\n';
+  robots += '# Disallow admin or internal directories\n';
+  robots += 'Disallow: /admin/\n';
+  robots += 'Disallow: /.git/\n';
+  robots += 'Disallow: /node_modules/\n';
+  robots += 'Disallow: /.env\n';
+  robots += 'Disallow: /package.json\n';
+  robots += 'Disallow: /package-lock.json\n\n';
+  robots += '# SEO tools (allow but not priority)\n';
+  robots += 'Allow: /seo-generator.html\n';
+  robots += 'Allow: /sitemap-generator.html\n\n';
+  robots += '# Crawl delay (be nice to servers)\n';
+  robots += 'Crawl-delay: 1\n\n';
+  robots += '# Generated by NanoSite SEO Generator\n';
+  robots += `# ${new Date().toISOString()}\n`;
+  return robots;
+}
+
+function generateSeoMetaTags(siteConfig) {
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
+  const getLocalizedValue = (val, fallback = '') => {
+    if (!val) return fallback;
+    if (typeof val === 'string') return val;
+    if (val.default) return val.default;
+    const langs = Object.keys(val);
+    if (langs.length) return val[langs[0]];
+    return fallback;
+  };
+  const siteTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
+  const siteDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end blog template');
+  const siteKeywords = getLocalizedValue(siteConfig.siteKeywords, 'blog, static site, markdown');
+  const avatar = siteConfig.avatar || 'assets/avatar.png';
+  const fullAvatarUrl = avatar.startsWith('http') ? avatar : baseUrl + avatar.replace(/^\/+/, '');
+  let html = '';
+  html += `  <!-- Primary SEO Meta Tags -->\n`;
+  html += `  <title>${escapeSeoHtml(siteTitle)}</title>\n`;
+  html += `  <meta name="title" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += `  <meta name="description" content="${escapeSeoHtml(siteDescription)}">\n`;
+  html += `  <meta name="keywords" content="${escapeSeoHtml(siteKeywords)}">\n`;
+  html += `  <meta name="author" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += '  <meta name="robots" content="index, follow">\n';
+  html += `  <link rel="canonical" href="${baseUrl}">\n`;
+  html += '  \n';
+  html += '  <!-- Open Graph / Facebook -->\n';
+  html += '  <meta property="og:type" content="website">\n';
+  html += `  <meta property="og:url" content="${baseUrl}">\n`;
+  html += `  <meta property="og:title" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += `  <meta property="og:description" content="${escapeSeoHtml(siteDescription)}">\n`;
+  html += `  <meta property="og:image" content="${escapeSeoHtml(fullAvatarUrl)}">\n`;
+  html += `  <meta property="og:logo" content="${escapeSeoHtml(fullAvatarUrl)}">\n`;
+  html += '  \n';
+  html += '  <!-- Twitter -->\n';
+  html += '  <meta property="twitter:card" content="summary_large_image">\n';
+  html += `  <meta property="twitter:url" content="${baseUrl}">\n`;
+  html += `  <meta property="twitter:title" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += `  <meta property="twitter:description" content="${escapeSeoHtml(siteDescription)}">\n`;
+  html += `  <meta property="twitter:image" content="${escapeSeoHtml(fullAvatarUrl)}">\n`;
+  html += '  \n';
+  html += '  <!-- Initial meta tags - will be updated by dynamic SEO system -->\n';
+  html += '  <meta name="theme-color" content="#1a1a1a">\n';
+  html += '  <meta name="msapplication-TileColor" content="#1a1a1a">\n';
+  html += `  <link rel="icon" type="image/png" href="${escapeSeoHtml(avatar)}">`;
+  return html;
+}
+
+function normalizeSeoLangCode(value) {
+  const raw = safeString(value).trim();
+  if (!raw) return '';
+  const sanitized = raw.replace(/[^0-9A-Za-z-]/g, '');
+  return sanitized || '';
+}
+
+function computeSeoHtmlLang(siteConfig) {
+  const fromConfig = siteConfig && siteConfig.defaultLanguage;
+  const normalized = normalizeSeoLangCode(fromConfig);
+  if (normalized) return normalized;
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      const docLang = normalizeSeoLangCode(document.documentElement.lang);
+      if (docLang) return docLang;
+    }
+  } catch (_) { /* ignore */ }
+  return 'en';
+}
+
+function applySeoHtmlLang(html, lang) {
+  const normalized = normalizeSeoLangCode(lang);
+  if (!normalized) return html;
+  const langAttrRegex = /(<html\b[^>]*\blang\s*=\s*)(["'])([^"']*)(\2)/i;
+  if (langAttrRegex.test(html)) {
+    return html.replace(langAttrRegex, `$1$2${normalized}$4`);
+  }
+  return html.replace(/<html\b([^>]*)>/i, `<html$1 lang="${normalized}">`);
+}
+
+function injectSeoMetaIntoIndexHtml(baseHtml, metaBlock) {
+  if (!baseHtml) return '';
+  const META_START = '  <!-- Primary SEO Meta Tags -->';
+  const META_NOTE = '  <!-- Note: Structured data is dynamically generated by the SEO system -->';
+  const startIndex = baseHtml.indexOf(META_START);
+  const noteIndex = baseHtml.indexOf(META_NOTE);
+  if (startIndex === -1 || noteIndex === -1 || noteIndex < startIndex) return '';
+  const before = baseHtml.slice(0, startIndex);
+  const after = baseHtml.slice(noteIndex + META_NOTE.length);
+  const trimmedMeta = metaBlock.trimEnd();
+  const replacement = `${trimmedMeta}\n\n${META_NOTE}`;
+  return `${before}${replacement}${after}`;
+}
+
+function buildDefaultIndexHtml(metaBlock, lang) {
+  const langAttr = normalizeSeoLangCode(lang) || 'en';
+  const trimmedMeta = metaBlock.trimEnd();
+  const metaSection = trimmedMeta ? `${trimmedMeta}\n\n` : '';
+  let html = '<!DOCTYPE html>\n';
+  html += `<html lang="${escapeSeoHtml(langAttr)}">\n\n`;
+  html += '<head>\n';
+  html += '  <meta charset="UTF-8">\n';
+  html += '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n\n';
+  html += metaSection;
+  html += '  <!-- Note: Structured data is dynamically generated by the SEO system -->\n\n';
+  html += '  <script src="assets/js/theme-boot.js"></script>\n';
+  html += '  <link rel="stylesheet" type="text/css" href="assets/styles.css">\n';
+  html += '  <link rel="stylesheet" id="theme-pack">\n';
+  html += '</head>\n\n';
+  html += '<body>\n';
+  html += '  <div class="container">\n';
+  html += '    <div class="content">\n\n';
+  html += '      <!-- Navigator Bar -->\n';
+  html += '      <div class="box flex-split" id="mapview">\n';
+  html += '        <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>\n';
+  html += '      </div>\n\n';
+  html += '      <!-- Main content -->\n';
+  html += '      <div class="box" id="mainview">\n';
+  html += '      </div>\n';
+  html += '    </div>\n';
+  html += '    <div class="sidebar">\n\n';
+  html += '      <!-- Search -->\n';
+  html += '      <div class="box" id="searchbox">\n';
+  html += '        <input id="searchInput" type="search">\n';
+  html += '      </div>\n\n';
+  html += '      <!-- Site Card -->\n';
+  html += '      <div class="box site-card">\n';
+  html += '        <img class="avatar" alt="avatar" loading="lazy" decoding="async">\n';
+  html += '        <h3 class="site-title"></h3>\n';
+  html += '        <p class="site-subtitle"></p>\n';
+  html += '        <hr class="site-hr">\n';
+  html += '        <ul class="social-links">\n';
+  html += '        </ul>\n';
+  html += '      </div>\n\n';
+  html += '  <!-- Tags Filter -->\n';
+  html += '  <div class="box" id="tagview"></div>\n\n';
+  html += '      <!-- Tools box is rendered by JS (theme.js) -->\n\n';
+  html += '      <!-- Page of Content for Posts -->\n';
+  html += '      <div class="box" id="tocview"></div>\n';
+  html += '    </div>\n';
+  html += '  </div>\n\n';
+  html += '  <!-- Site Footer -->\n';
+  html += '  <footer class="site-footer" role="contentinfo">\n';
+  html += '    <div class="footer-inner">\n';
+  html += '      <div class="footer-left">\n';
+  html += '        <span class="footer-copy">© <span id="footerYear"></span> <span class="footer-site">NanoSite</span></span>\n';
+  html += '        <span class="footer-sep">•</span>\n';
+  html += '        <nav class="footer-nav" id="footerNav" aria-label="Footer"></nav>\n';
+  html += '      </div>\n';
+  html += '      <div class="footer-right">\n';
+  html += '        <a href="#" class="top-link" id="footerTop">Top</a>\n';
+  html += '      </div>\n';
+  html += '    </div>\n';
+  html += '  </footer>\n\n';
+  html += '  <script type="module" src="assets/main.js"></script>\n';
+  html += '</body>\n\n';
+  html += '</html>\n';
+  return html;
+}
+
+function generateSeoIndexHtml(siteConfig, baseHtml) {
+  const metaBlock = ensureTrailingNewline(generateSeoMetaTags(siteConfig)).trimEnd();
+  const lang = computeSeoHtmlLang(siteConfig);
+  let html = '';
+  if (baseHtml) {
+    html = injectSeoMetaIntoIndexHtml(baseHtml, metaBlock);
+  }
+  if (!html) {
+    html = buildDefaultIndexHtml(metaBlock, lang);
+  }
+  html = applySeoHtmlLang(html, lang);
+  return ensureTrailingNewline(html);
+}
+
+function ensureTrailingNewline(text) {
+  const str = String(text == null ? '' : text);
+  return str.endsWith('\n') ? str : `${str}\n`;
+}
+
+function normalizeSeoContent(text) {
+  return String(text == null ? '' : text)
+    .replace(/\r\n?/g, '\n')
+    .trim();
+}
+
+async function fetchExistingSeoFile(path) {
+  try {
+    const response = await fetch(path, { cache: 'no-store' });
+    if (!response.ok) return '';
+    return await response.text();
+  } catch (_) {
+    return '';
+  }
+}
+
+async function generateSeoCommitFiles() {
+  try {
+    const siteState = exportSiteConfigForSeo(getStateSlice('site'));
+    const indexState = exportIndexDataForSeo(getStateSlice('index'));
+    const tabsState = exportTabsDataForSeo(getStateSlice('tabs'));
+    const urls = generateSitemapData(indexState, tabsState, siteState) || [];
+    const sitemapXml = ensureTrailingNewline(generateSeoSitemapXml(urls));
+    const robotsTxt = ensureTrailingNewline(generateSeoRobotsTxt(siteState));
+    const remoteIndexHtml = await fetchExistingSeoFile('index.html');
+    const indexHtml = generateSeoIndexHtml(siteState, remoteIndexHtml);
+
+    const candidates = [
+      { seoType: 'sitemap', path: 'sitemap.xml', label: 'sitemap.xml', content: sitemapXml },
+      { seoType: 'robots', path: 'robots.txt', label: 'robots.txt', content: robotsTxt },
+      { seoType: 'index', path: 'index.html', label: 'index.html', content: indexHtml, remote: remoteIndexHtml }
+    ];
+
+    const files = [];
+    for (const candidate of candidates) {
+      const remote = Object.prototype.hasOwnProperty.call(candidate, 'remote')
+        ? candidate.remote
+        : await fetchExistingSeoFile(candidate.path);
+      if (normalizeSeoContent(remote) === normalizeSeoContent(candidate.content)) continue;
+      files.push({
+        kind: 'seo',
+        seoType: candidate.seoType,
+        label: candidate.label,
+        path: candidate.path,
+        content: candidate.content,
+        isSeo: true
+      });
+    }
+    return files;
+  } catch (err) {
+    console.error('Failed to prepare SEO files for commit', err);
+    return [];
+  }
+}
+
+async function gatherCommitPayload(options = {}) {
+  const { showSeoStatus = false } = options;
+  const base = gatherLocalChangesForCommit(options);
+  const files = Array.isArray(base.files) ? base.files.slice() : [];
+  if (showSeoStatus) {
+    try {
+      if (typeof setSyncOverlayStatus === 'function') {
+        setSyncOverlayStatus('Generating SEO files…');
+      }
+    } catch (_) { /* ignore */ }
+  }
+  const seoFiles = await generateSeoCommitFiles();
+  if (seoFiles.length) files.push(...seoFiles);
+  return { files, seoFiles };
+}
+
 function gatherLocalChangesForCommit(options = {}) {
   const { cleanupUnusedAssets = true } = options;
   const files = [];
@@ -4428,10 +4848,24 @@ function describeSummaryEntry(entry) {
     if (!bits.length) return base;
     return `${base} – ${bits.join(' & ')} changes`;
   }
+  if (entry.kind === 'seo') {
+    const type = entry.seoType === 'sitemap'
+      ? 'Sitemap'
+      : entry.seoType === 'robots'
+        ? 'Robots.txt'
+        : entry.seoType === 'index'
+          ? 'Index HTML'
+          : 'Meta tags';
+    return `${base} – auto-generated SEO (${type})`;
+  }
   return base;
 }
 
-function promptForFineGrainedToken(summaryEntries = []) {
+async function promptForFineGrainedToken(summaryEntries = []) {
+  const commitPayload = await gatherCommitPayload({ cleanupUnusedAssets: false, showSeoStatus: false });
+  const commitFiles = Array.isArray(commitPayload.files) ? commitPayload.files : [];
+  const seoFiles = Array.isArray(commitPayload.seoFiles) ? commitPayload.seoFiles : [];
+
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'ns-modal';
@@ -4470,11 +4904,6 @@ function promptForFineGrainedToken(summaryEntries = []) {
 
     const summaryBlock = document.createElement('div');
     summaryBlock.style.margin = '.25rem 0 1rem';
-
-    const commitPayload = gatherLocalChangesForCommit({ cleanupUnusedAssets: false });
-    const commitFiles = commitPayload && Array.isArray(commitPayload.files)
-      ? commitPayload.files
-      : [];
 
     const openFilePreview = (file, triggerEl) => {
       if (!file) return;
@@ -4630,7 +5059,8 @@ function promptForFineGrainedToken(summaryEntries = []) {
       info.textContent = t('editor.composer.github.modal.summaryTitle');
       summaryBlock.appendChild(info);
 
-      const textFiles = commitFiles.filter((file) => file && file.kind !== 'asset');
+      const textFiles = commitFiles.filter((file) => file && file.kind !== 'asset' && file.kind !== 'seo');
+      const seoFilesGroup = commitFiles.filter((file) => file && file.kind === 'seo');
       const assetFiles = commitFiles.filter((file) => file && file.kind === 'asset');
 
       const renderGroup = (titleText, files) => {
@@ -4660,6 +5090,7 @@ function promptForFineGrainedToken(summaryEntries = []) {
       };
 
       renderGroup(t('editor.composer.github.modal.summaryTextFilesTitle'), textFiles);
+      renderGroup(t('editor.composer.github.modal.summarySeoFilesTitle'), seoFilesGroup);
       renderGroup(t('editor.composer.github.modal.summaryAssetFilesTitle'), assetFiles);
     } else if (Array.isArray(summaryEntries) && summaryEntries.length) {
       const info = document.createElement('p');
@@ -4679,6 +5110,13 @@ function promptForFineGrainedToken(summaryEntries = []) {
       info.className = 'muted';
       info.textContent = t('editor.composer.github.modal.summaryEmpty');
       summaryBlock.appendChild(info);
+    }
+
+    if (seoFiles.length) {
+      const note = document.createElement('p');
+      note.className = 'muted';
+      note.textContent = 'SEO files were generated automatically and will be included in this upload.';
+      summaryBlock.appendChild(note);
     }
 
     form.appendChild(summaryBlock);
@@ -5142,7 +5580,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
   });
 
   try {
-    const { files } = gatherLocalChangesForCommit();
+    const { files } = await gatherCommitPayload({ showSeoStatus: true });
     if (!files.length) {
       hideSyncOverlay();
       showToast('info', t('editor.toasts.noPendingChanges'));
