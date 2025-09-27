@@ -7,7 +7,7 @@ import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommit
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const PREFERRED_LANG_ORDER = ['en', 'zh', 'zh-tw', 'ja'];
+const PREFERRED_LANG_ORDER = ['en', 'zh', 'zh-tw', 'zh-hk', 'ja'];
 const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
 const LANGUAGE_POOL_CHANGED_EVENT = 'ns-composer-language-pool-changed';
 
@@ -9787,6 +9787,7 @@ function langFlag(code) {
   if (c === 'en') return '🇺🇸';
   if (c === 'zh') return '🇨🇳';
   if (c === 'zh-tw') return '🇹🇼';
+  if (c === 'zh-hk') return '🇭🇰';
   if (c === 'ja') return '🇯🇵';
   return '';
 }
