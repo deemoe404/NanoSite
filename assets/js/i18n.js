@@ -252,7 +252,8 @@ const translations = {
         noLocalChangesYet: 'No local changes yet.',
         dialogs: {
           cancel: 'Cancel',
-          confirm: 'Confirm'
+          confirm: 'Confirm',
+          close: 'Close'
         },
         statusMessages: {
           loadingConfig: 'Loading config…',
@@ -525,11 +526,19 @@ const translations = {
             title: 'Synchronize with GitHub',
             subtitle: 'Provide a Fine-grained Personal Access Token with repository contents access.',
             summaryTitle: 'The following files will be committed:',
+            summaryTextFilesTitle: 'Content files',
+            summaryAssetFilesTitle: 'Asset files',
+            summaryEmpty: 'No pending files to commit.',
             tokenLabel: 'Fine-grained Personal Access Token',
             helpHtml: 'Create a token at <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> with access to the repository\'s contents. The token is stored for this browser session only.',
             forget: 'Forget token',
             submit: 'Commit changes',
             errorRequired: 'Enter a Fine-grained Personal Access Token to continue.'
+          },
+          preview: {
+            subtitle: 'Preview pending file before uploading to GitHub.',
+            unavailable: 'Preview unavailable for this file.',
+            untitled: 'Untitled file'
           }
         },
         dialogs: {
@@ -881,7 +890,8 @@ const translations = {
         noLocalChangesYet: '暂时没有本地更改。',
         dialogs: {
           cancel: '取消',
-          confirm: '确认'
+          confirm: '确认',
+          close: '关闭'
         },
         statusMessages: {
           loadingConfig: '正在加载配置…',
@@ -1155,11 +1165,19 @@ const translations = {
             title: '与 GitHub 同步',
             subtitle: '请提供具备仓库内容访问权限的精细化个人访问令牌。',
             summaryTitle: '将提交以下文件：',
+            summaryTextFilesTitle: '内容文件',
+            summaryAssetFilesTitle: '资源文件',
+            summaryEmpty: '没有待提交的文件。',
             tokenLabel: '精细化个人访问令牌',
             helpHtml: '请在 <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> 创建一个具有仓库内容访问权限的令牌。该令牌仅在当前浏览器会话中存储。',
             forget: '忘记令牌',
             submit: '提交更改',
             errorRequired: '请输入精细化个人访问令牌以继续。'
+          },
+          preview: {
+            subtitle: '上传至 GitHub 之前预览待提交的文件。',
+            unavailable: '无法预览此文件。',
+            untitled: '未命名文件'
           }
         },
         dialogs: {
@@ -1511,7 +1529,8 @@ const translations = {
         noLocalChangesYet: 'ローカルの変更はまだありません。',
         dialogs: {
           cancel: 'キャンセル',
-          confirm: '確認'
+          confirm: '確認',
+          close: '閉じる'
         },
         statusMessages: {
           loadingConfig: '設定を読み込み中…',
@@ -1785,11 +1804,19 @@ const translations = {
             title: 'GitHub と同期',
             subtitle: 'リポジトリの内容にアクセスできるファイングレインド Personal Access Token を入力してください。',
             summaryTitle: '以下のファイルがコミットされます:',
+            summaryTextFilesTitle: 'コンテンツファイル',
+            summaryAssetFilesTitle: 'アセットファイル',
+            summaryEmpty: 'コミット予定のファイルはありません。',
             tokenLabel: 'ファイングレインド Personal Access Token',
             helpHtml: '<a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a> でリポジトリ内容にアクセスできるトークンを作成してください。このトークンはこのブラウザセッションにのみ保存されます。',
             forget: 'トークンを削除',
             submit: '変更をコミット',
             errorRequired: '続行するにはファイングレインド Personal Access Token を入力してください。'
+          },
+          preview: {
+            subtitle: 'GitHub にアップロードする前にファイルを確認できます。',
+            unavailable: 'このファイルはプレビューできません。',
+            untitled: '無題のファイル'
           }
         },
         dialogs: {

@@ -4469,7 +4469,198 @@ function promptForFineGrainedToken(summaryEntries = []) {
 
     const summaryBlock = document.createElement('div');
     summaryBlock.style.margin = '.25rem 0 1rem';
-    if (Array.isArray(summaryEntries) && summaryEntries.length) {
+
+    const commitPayload = gatherLocalChangesForCommit();
+    const commitFiles = commitPayload && Array.isArray(commitPayload.files)
+      ? commitPayload.files
+      : [];
+
+    const openFilePreview = (file, triggerEl) => {
+      if (!file) return;
+
+      const previewModal = document.createElement('div');
+      previewModal.className = 'ns-modal github-preview-modal';
+      previewModal.setAttribute('aria-hidden', 'true');
+
+      const previewDialog = document.createElement('div');
+      previewDialog.className = 'ns-modal-dialog github-preview-dialog';
+      previewDialog.setAttribute('role', 'dialog');
+      previewDialog.setAttribute('aria-modal', 'true');
+
+      const head = document.createElement('div');
+      head.className = 'comp-guide-head';
+      const headLeft = document.createElement('div'); headLeft.className = 'comp-head-left';
+      const previewTitleId = `nsGithubPreviewTitle-${Math.random().toString(36).slice(2, 8)}`;
+      const title = document.createElement('strong');
+      title.id = previewTitleId;
+      title.textContent = file.label || file.path || t('editor.composer.github.preview.untitled');
+      headLeft.appendChild(title);
+      const subtitle = document.createElement('span'); subtitle.className = 'muted';
+      subtitle.textContent = t('editor.composer.github.preview.subtitle');
+      headLeft.appendChild(subtitle);
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'ns-modal-close btn-secondary';
+      const closeLabel = t('editor.composer.dialogs.close');
+      closeBtn.textContent = closeLabel;
+      closeBtn.setAttribute('aria-label', closeLabel);
+      head.appendChild(headLeft);
+      head.appendChild(closeBtn);
+      previewDialog.appendChild(head);
+      previewDialog.setAttribute('aria-labelledby', previewTitleId);
+
+      const body = document.createElement('div');
+      body.className = 'github-preview-body';
+      const pathLine = document.createElement('p');
+      pathLine.className = 'github-preview-path';
+      pathLine.textContent = file.path || file.label || '';
+      body.appendChild(pathLine);
+
+      const contentWrap = document.createElement('div');
+      contentWrap.className = 'github-preview-content';
+
+      if (file.kind === 'asset') {
+        if (file.base64) {
+          const mime = file.mime || 'application/octet-stream';
+          const img = document.createElement('img');
+          img.className = 'github-preview-image';
+          img.alt = file.label || file.path || '';
+          img.src = `data:${mime};base64,${file.base64}`;
+          contentWrap.appendChild(img);
+          if (Number.isFinite(file.size)) {
+            const meta = document.createElement('p');
+            meta.className = 'github-preview-meta';
+            const sizeKb = file.size > 0 ? (file.size / 1024).toFixed(1) : '0';
+            meta.textContent = `${mime} · ${sizeKb} KB`;
+            body.appendChild(meta);
+          }
+        } else {
+          const notice = document.createElement('p');
+          notice.className = 'github-preview-empty';
+          notice.textContent = t('editor.composer.github.preview.unavailable');
+          contentWrap.appendChild(notice);
+        }
+      } else if (typeof file.content === 'string') {
+        const pre = document.createElement('pre');
+        pre.className = 'github-preview-code';
+        pre.textContent = file.content;
+        contentWrap.appendChild(pre);
+      } else {
+        const notice = document.createElement('p');
+        notice.className = 'github-preview-empty';
+        notice.textContent = t('editor.composer.github.preview.unavailable');
+        contentWrap.appendChild(notice);
+      }
+
+      body.appendChild(contentWrap);
+      previewDialog.appendChild(body);
+      previewModal.appendChild(previewDialog);
+      document.body.appendChild(previewModal);
+
+      let closing = false;
+      const reduceMotion = (function () {
+        try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+        catch (_) { return false; }
+      })();
+
+      const hadModalOpen = document.body.classList.contains('ns-modal-open');
+
+      const restoreFocus = () => {
+        if (!triggerEl || typeof triggerEl.focus !== 'function') return;
+        try { triggerEl.focus({ preventScroll: true }); }
+        catch (_) { triggerEl.focus(); }
+      };
+
+      const closePreview = () => {
+        if (closing) return;
+        closing = true;
+        const finish = () => {
+          try { previewModal.remove(); } catch (_) {}
+          if (!hadModalOpen) document.body.classList.remove('ns-modal-open');
+          restoreFocus();
+        };
+        if (reduceMotion) { finish(); return; }
+        try {
+          previewModal.classList.remove('ns-anim-in');
+          previewModal.classList.add('ns-anim-out');
+        } catch (_) {}
+        const onEnd = () => {
+          previewDialog.removeEventListener('animationend', onEnd);
+          try { previewModal.classList.remove('ns-anim-out'); } catch (_) {}
+          finish();
+        };
+        try {
+          previewDialog.addEventListener('animationend', onEnd, { once: true });
+          setTimeout(onEnd, 200);
+        } catch (_) { onEnd(); }
+      };
+
+      document.body.classList.add('ns-modal-open');
+      previewModal.classList.add('is-open');
+      previewModal.setAttribute('aria-hidden', 'false');
+      if (!reduceMotion) {
+        try {
+          previewModal.classList.add('ns-anim-in');
+          const onEnd = () => {
+            previewDialog.removeEventListener('animationend', onEnd);
+            try { previewModal.classList.remove('ns-anim-in'); } catch (_) {}
+          };
+          previewDialog.addEventListener('animationend', onEnd, { once: true });
+        } catch (_) {}
+      }
+
+      try { closeBtn.focus({ preventScroll: true }); }
+      catch (_) { closeBtn.focus(); }
+
+      closeBtn.addEventListener('click', () => closePreview());
+      previewModal.addEventListener('mousedown', (event) => {
+        if (event.target === previewModal) closePreview();
+      });
+      previewModal.addEventListener('keydown', (event) => {
+        if ((event.key || '').toLowerCase() === 'escape') {
+          event.preventDefault();
+          closePreview();
+        }
+      });
+    };
+
+    if (commitFiles.length) {
+      const info = document.createElement('p');
+      info.textContent = t('editor.composer.github.modal.summaryTitle');
+      summaryBlock.appendChild(info);
+
+      const textFiles = commitFiles.filter((file) => file && file.kind !== 'asset');
+      const assetFiles = commitFiles.filter((file) => file && file.kind === 'asset');
+
+      const renderGroup = (titleText, files) => {
+        if (!files || !files.length) return;
+        const group = document.createElement('div');
+        group.className = 'gh-sync-file-group';
+        const groupTitle = document.createElement('div');
+        groupTitle.className = 'gh-sync-file-group-title';
+        groupTitle.textContent = titleText;
+        group.appendChild(groupTitle);
+
+        const list = document.createElement('div');
+        list.className = 'gh-sync-file-list';
+
+        files.forEach((file) => {
+          if (!file) return;
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'gh-sync-file-entry';
+          item.textContent = describeSummaryEntry(file) || file.label || file.path || '';
+          item.addEventListener('click', () => openFilePreview(file, item));
+          list.appendChild(item);
+        });
+
+        group.appendChild(list);
+        summaryBlock.appendChild(group);
+      };
+
+      renderGroup(t('editor.composer.github.modal.summaryTextFilesTitle'), textFiles);
+      renderGroup(t('editor.composer.github.modal.summaryAssetFilesTitle'), assetFiles);
+    } else if (Array.isArray(summaryEntries) && summaryEntries.length) {
       const info = document.createElement('p');
       info.textContent = t('editor.composer.github.modal.summaryTitle');
       summaryBlock.appendChild(info);
@@ -4482,7 +4673,13 @@ function promptForFineGrainedToken(summaryEntries = []) {
         list.appendChild(item);
       });
       summaryBlock.appendChild(list);
+    } else {
+      const info = document.createElement('p');
+      info.className = 'muted';
+      info.textContent = t('editor.composer.github.modal.summaryEmpty');
+      summaryBlock.appendChild(info);
     }
+
     form.appendChild(summaryBlock);
 
     const tokenField = document.createElement('label');
