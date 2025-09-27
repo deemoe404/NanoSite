@@ -142,11 +142,20 @@ async function loadLayoutModules(pack, layoutConfig) {
     const safePath = sanitizeResourcePath(path);
     if (!safePath) continue;
     const url = buildThemeResourceUrl(pack, safePath);
+    const base = (typeof document !== 'undefined' && document.baseURI) ? document.baseURI : (typeof window !== 'undefined' ? window.location.href : '');
+    let importUrl = url;
+    if (base) {
+      try {
+        importUrl = new URL(url, base).href;
+      } catch (_) {
+        importUrl = url;
+      }
+    }
     try {
-      const mod = await import(url);
+      const mod = await import(/* @vite-ignore */ importUrl);
       if (mod) modules.push(mod);
     } catch (err) {
-      console.error(`[theme] Failed to load layout module ${url}:`, err);
+      console.error(`[theme] Failed to load layout module ${importUrl}:`, err);
     }
   }
   return modules;
