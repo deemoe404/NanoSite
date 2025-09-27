@@ -543,7 +543,8 @@ const translations = {
         },
         dialogs: {
           cancel: 'Cancel',
-          confirm: 'Confirm'
+          confirm: 'Confirm',
+          close: 'Close'
         },
         addEntryPrompt: {
           hint: 'Use only English letters and numbers.',
@@ -1182,7 +1183,8 @@ const translations = {
         },
         dialogs: {
           cancel: '取消',
-          confirm: '确认'
+          confirm: '确认',
+          close: '关闭'
         },
         addEntryPrompt: {
           hint: '仅使用英文字母和数字。',
@@ -1821,7 +1823,8 @@ const translations = {
         },
         dialogs: {
           cancel: 'キャンセル',
-          confirm: '確認'
+          confirm: '確認',
+          close: '閉じる'
         },
         addEntryPrompt: {
           hint: '英数字のみを使用してください。',
