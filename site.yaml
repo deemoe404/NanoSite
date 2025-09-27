@@ -14,10 +14,15 @@ siteSubtitle:
 
 siteDescription:
   default: "NanoSite - Just Markdown. Just a website."
+  en: "NanoSite - Just Markdown. Just a website."
   ja: "ナノサイト - 書くだけ、Markdown。それがサイトになる。"
   zh: "微站 - 写下 Markdown，就是你的网站。"
 
-siteKeywords: "static blog, markdown, github pages, blog"
+siteKeywords:
+  default: "static blog, markdown, github pages, blog"
+  en: "static blog, markdown, github pages, blog"
+  ja: "静态博客, Markdown, GitHub Pages, 博客"
+  zh: "静的ブログ, Markdown, GitHub Pages, ブログ"
 
 avatar: assets/avatar.jpeg
 
