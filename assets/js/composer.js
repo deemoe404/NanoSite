@@ -1,11 +1,31 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
-import { t } from './i18n.js';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
+import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
+import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'zh', 'ja'];
+const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
+const LANGUAGE_POOL_CHANGED_EVENT = 'ns-composer-language-pool-changed';
+
+function broadcastLanguagePoolChange() {
+  if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') return;
+  try {
+    document.dispatchEvent(new CustomEvent(LANGUAGE_POOL_CHANGED_EVENT));
+  } catch (_) {}
+}
+
+function normalizeLangCode(code) {
+  if (!code) return '';
+  return String(code).trim().toLowerCase();
+}
+
+function isLanguageCode(value) {
+  return LANG_CODE_PATTERN.test(String(value || '').trim());
+}
 const CLEAN_STATUS_MESSAGE_KEY = 'editor.status.clean';
 const STATUS_UPLOAD_KEY = 'editor.status.upload';
 const STATUS_SYNCED_KEY = 'editor.status.synced';
@@ -35,7 +55,7 @@ const getMarkdownDiscardTooltip = (kind) => {
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
-  cfile: 'ns_composer_file',           // 'index' | 'tabs'
+  cfile: 'ns_composer_file',           // 'index' | 'tabs' | 'site'
   editorState: 'ns_composer_editor_state' // persisted dynamic editor info
 };
 
@@ -104,10 +124,10 @@ let gitHubCommitInFlight = false;
 let cachedFineGrainedTokenMemory = '';
 
 let activeComposerState = null;
-let remoteBaseline = { index: null, tabs: null };
-let composerDiffCache = { index: null, tabs: null };
-let composerDraftMeta = { index: null, tabs: null };
-let composerAutoSaveTimers = { index: null, tabs: null };
+let remoteBaseline = { index: null, tabs: null, site: null };
+let composerDiffCache = { index: null, tabs: null, site: null };
+let composerDraftMeta = { index: null, tabs: null, site: null };
+let composerAutoSaveTimers = { index: null, tabs: null, site: null };
 let composerDiffModal = null;
 let composerOrderState = null;
 let composerDiffResizeHandler = null;
@@ -124,6 +144,33 @@ const composerInlineVisibilityAnimations = new WeakMap();
 const composerInlineVisibilityFallbacks = new WeakMap();
 const composerListTransitions = new WeakMap();
 const composerOrderMainTransitions = new WeakMap();
+let composerSiteScrollAnimationId = null;
+let composerSiteScrollCleanup = null;
+
+const SITE_FIELD_LABEL_MAP = {
+  siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
+  siteSubtitle: { i18nKey: 'editor.composer.site.fields.siteSubtitle' },
+  siteDescription: { i18nKey: 'editor.composer.site.fields.siteDescription' },
+  siteKeywords: { i18nKey: 'editor.composer.site.fields.siteKeywords' },
+  avatar: { i18nKey: 'editor.composer.site.fields.avatar' },
+  resourceURL: { i18nKey: 'editor.composer.site.fields.resourceURL' },
+  contentRoot: { i18nKey: 'editor.composer.site.fields.contentRoot' },
+  profileLinks: { i18nKey: 'editor.composer.site.fields.profileLinks' },
+  links: { i18nKey: 'editor.composer.site.fields.navLinks' },
+  contentOutdatedDays: { i18nKey: 'editor.composer.site.fields.contentOutdatedDays' },
+  cardCoverFallback: { i18nKey: 'editor.composer.site.fields.cardCoverFallback' },
+  errorOverlay: { i18nKey: 'editor.composer.site.fields.errorOverlay' },
+  pageSize: { i18nKey: 'editor.composer.site.fields.pageSize' },
+  defaultLanguage: { i18nKey: 'editor.composer.site.fields.defaultLanguage' },
+  themeMode: { i18nKey: 'editor.composer.site.fields.themeMode' },
+  themePack: { i18nKey: 'editor.composer.site.fields.themePack' },
+  themeOverride: { i18nKey: 'editor.composer.site.fields.themeOverride' },
+  showAllPosts: { i18nKey: 'editor.composer.site.fields.showAllPosts' },
+  landingTab: { i18nKey: 'editor.composer.site.fields.landingTab' },
+  repo: { i18nKey: 'editor.composer.site.fields.repo' },
+  assetWarnings: { i18nKey: 'editor.composer.site.sections.assets.title', fallback: 'Asset warnings' },
+  __extras: { i18nKey: 'editor.composer.site.fields.extras', fallback: 'Extras' }
+};
 
 function composerPrefersReducedMotion() {
   try {
@@ -131,6 +178,202 @@ function composerPrefersReducedMotion() {
     if (!composerReduceMotionQuery) composerReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     return !!composerReduceMotionQuery.matches;
   } catch (_) {
+    return false;
+  }
+}
+
+function cancelComposerSiteScrollAnimation() {
+  try {
+    if (composerSiteScrollAnimationId != null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(composerSiteScrollAnimationId);
+    }
+  } catch (_) {}
+  composerSiteScrollAnimationId = null;
+  if (typeof composerSiteScrollCleanup === 'function') {
+    try { composerSiteScrollCleanup(); }
+    catch (_) {}
+  }
+  composerSiteScrollCleanup = null;
+}
+
+function createCubicBezierEasing(mX1, mY1, mX2, mY2) {
+  const NEWTON_ITERATIONS = 8;
+  const NEWTON_MIN_SLOPE = 0.001;
+  const SUBDIVISION_PRECISION = 1e-7;
+  const SUBDIVISION_MAX_ITERATIONS = 10;
+  const SPLINE_TABLE_SIZE = 11;
+  const SAMPLE_STEP_SIZE = 1 / (SPLINE_TABLE_SIZE - 1);
+
+  const sampleValues = new Float32Array(SPLINE_TABLE_SIZE);
+
+  const calcBezier = (t, a1, a2) => (((1 - 3 * a2 + 3 * a1) * t + (3 * a2 - 6 * a1)) * t + (3 * a1)) * t;
+  const getSlope = (t, a1, a2) => (3 * (1 - 3 * a2 + 3 * a1) * t + 2 * (3 * a2 - 6 * a1)) * t + (3 * a1);
+
+  for (let i = 0; i < SPLINE_TABLE_SIZE; i += 1) {
+    sampleValues[i] = calcBezier(i * SAMPLE_STEP_SIZE, mX1, mX2);
+  }
+
+  const binarySubdivide = (x, lowerBound, upperBound) => {
+    let currentX = 0;
+    let currentT = 0;
+    let i = 0;
+    do {
+      currentT = lowerBound + (upperBound - lowerBound) / 2;
+      currentX = calcBezier(currentT, mX1, mX2) - x;
+      if (currentX > 0) {
+        upperBound = currentT;
+      } else {
+        lowerBound = currentT;
+      }
+      i += 1;
+    } while (Math.abs(currentX) > SUBDIVISION_PRECISION && i < SUBDIVISION_MAX_ITERATIONS);
+    return currentT;
+  };
+
+  const newtonRaphsonIterate = (x, guessT) => {
+    for (let i = 0; i < NEWTON_ITERATIONS; i += 1) {
+      const slope = getSlope(guessT, mX1, mX2);
+      if (Math.abs(slope) < NEWTON_MIN_SLOPE) return guessT;
+      const currentX = calcBezier(guessT, mX1, mX2) - x;
+      guessT -= currentX / slope;
+    }
+    return guessT;
+  };
+
+  return (x) => {
+    if (mX1 === mY1 && mX2 === mY2) return x;
+    let currentSample = 0;
+    const lastSample = SPLINE_TABLE_SIZE - 1;
+    for (; currentSample !== lastSample && sampleValues[currentSample] <= x; currentSample += 1);
+    currentSample -= 1;
+
+    const segmentStart = sampleValues[currentSample];
+    const segmentEnd = sampleValues[currentSample + 1];
+    const segmentInterval = segmentEnd - segmentStart;
+    const dist = segmentInterval > 0 ? (x - segmentStart) / segmentInterval : 0;
+    const guessForT = currentSample * SAMPLE_STEP_SIZE + dist * SAMPLE_STEP_SIZE;
+
+    const initialSlope = getSlope(guessForT, mX1, mX2);
+    const tCandidate = initialSlope >= NEWTON_MIN_SLOPE
+      ? newtonRaphsonIterate(x, guessForT)
+      : initialSlope === 0
+        ? guessForT
+        : binarySubdivide(x, currentSample * SAMPLE_STEP_SIZE, (currentSample + 1) * SAMPLE_STEP_SIZE);
+
+    return calcBezier(tCandidate, mY1, mY2);
+  };
+}
+
+const easeOutComposerScroll = (t) => Math.min(1, Math.max(0, t));
+
+function resolveComposerScrollDuration(duration) {
+  const maxDuration = 1600;
+  const minDuration = 120;
+  const fallbackDuration = 720;
+  const numeric = Number(duration);
+  if (Number.isFinite(numeric)) return Math.min(maxDuration, Math.max(minDuration, numeric));
+  return fallbackDuration;
+}
+
+function animateComposerViewportScroll(targetY, duration, onComplete) {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  if (typeof window.requestAnimationFrame !== 'function' || typeof window.scrollTo !== 'function') return false;
+
+  const startY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const distance = targetY - startY;
+  if (Math.abs(distance) < 0.5) {
+    try { window.scrollTo(0, targetY); } catch (_) {}
+    if (typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
+    return true;
+  }
+
+  const resolvedDuration = resolveComposerScrollDuration(duration);
+
+  const startTime = (() => {
+    try {
+      if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+        return performance.now();
+      }
+    } catch (_) {}
+    return Date.now();
+  })();
+
+  cancelComposerSiteScrollAnimation();
+
+  let restoreScrollBehavior = null;
+  const rootEl = typeof document !== 'undefined' ? document.documentElement : null;
+  if (rootEl && rootEl.style) {
+    try {
+      const previousBehavior = rootEl.style.scrollBehavior || '';
+      const hadInlineBehavior = previousBehavior !== '';
+      rootEl.style.scrollBehavior = 'auto';
+      restoreScrollBehavior = () => {
+        if (!rootEl || !rootEl.style) return;
+        if (hadInlineBehavior) rootEl.style.scrollBehavior = previousBehavior;
+        else rootEl.style.removeProperty('scroll-behavior');
+      };
+    } catch (_) {
+      restoreScrollBehavior = null;
+    }
+  }
+
+  if (typeof restoreScrollBehavior === 'function') {
+    composerSiteScrollCleanup = () => {
+      if (typeof restoreScrollBehavior === 'function') {
+        try { restoreScrollBehavior(); }
+        catch (_) {}
+      }
+      restoreScrollBehavior = null;
+    };
+  } else {
+    composerSiteScrollCleanup = null;
+  }
+
+  const finalize = (shouldInvokeCallback) => {
+    composerSiteScrollAnimationId = null;
+    if (typeof composerSiteScrollCleanup === 'function') {
+      try { composerSiteScrollCleanup(); }
+      catch (_) {}
+    }
+    composerSiteScrollCleanup = null;
+    if (shouldInvokeCallback && typeof onComplete === 'function') {
+      try { onComplete(); } catch (_) {}
+    }
+  };
+
+  const step = (timestamp) => {
+    const now = (() => {
+      if (typeof timestamp === 'number') return timestamp;
+      try {
+        if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+          return performance.now();
+        }
+      } catch (_) {}
+      return Date.now();
+    })();
+
+    const progress = Math.min(1, (now - startTime) / resolvedDuration);
+    const eased = easeOutComposerScroll(progress);
+    const nextY = startY + (distance * eased);
+    try { window.scrollTo(0, nextY); } catch (_) {}
+
+    if (progress < 1) {
+      try {
+        composerSiteScrollAnimationId = window.requestAnimationFrame(step);
+        return;
+      } catch (_) {}
+    }
+
+    finalize(true);
+  };
+
+  try {
+    composerSiteScrollAnimationId = window.requestAnimationFrame(step);
+    return true;
+  } catch (_) {
+    finalize(false);
     return false;
   }
 }
@@ -486,7 +729,9 @@ function animateComposerOrderMainReset(host, previousRect, options = {}) {
 }
 
 function getActiveComposerFile() {
-  return activeComposerFile === 'tabs' ? 'tabs' : 'index';
+  if (activeComposerFile === 'tabs') return 'tabs';
+  if (activeComposerFile === 'site') return 'site';
+  return 'index';
 }
 
 function deepClone(value) {
@@ -1280,9 +1525,9 @@ function startMarkdownSyncWatcher(tab, options = {}) {
 }
 
 async function fetchComposerRemoteSnapshot(kind) {
-  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const safeKind = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   const root = getContentRootSafe();
-  const base = safeKind === 'tabs' ? 'tabs' : 'index';
+  const base = safeKind === 'tabs' ? 'tabs' : (safeKind === 'site' ? 'site' : 'index');
   const urls = [`${root}/${base}.yaml`, `${root}/${base}.yml`];
   let lastStatus = 404;
   for (const url of urls) {
@@ -1313,7 +1558,7 @@ async function fetchComposerRemoteSnapshot(kind) {
 }
 
 function applyComposerRemoteSnapshot(kind, snapshot) {
-  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
+  const safeKind = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   if (!snapshot || snapshot.state !== 'existing') return;
   let parsed = snapshot.parsed;
   if (!parsed || typeof parsed !== 'object') {
@@ -1321,18 +1566,21 @@ function applyComposerRemoteSnapshot(kind, snapshot) {
     catch (_) { parsed = null; }
   }
   if (!parsed || typeof parsed !== 'object') {
-    const targetLabel = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+    const targetLabel = safeKind === 'tabs' ? 'tabs.yaml' : (safeKind === 'site' ? 'site.yaml' : 'index.yaml');
     showToast('warn', t('editor.toasts.yamlParseFailed', { label: targetLabel }), { duration: 4200 });
     return;
   }
-  const prepared = safeKind === 'tabs' ? prepareTabsState(parsed || {}) : prepareIndexState(parsed || {});
-  remoteBaseline[safeKind] = deepClone(prepared);
+  let prepared;
+  if (safeKind === 'tabs') prepared = prepareTabsState(parsed || {});
+  else if (safeKind === 'site') prepared = cloneSiteState(prepareSiteState(parsed || {}));
+  else prepared = prepareIndexState(parsed || {});
+  remoteBaseline[safeKind] = safeKind === 'site' ? prepared : deepClone(prepared);
   notifyComposerChange(safeKind, { skipAutoSave: true });
 }
 
 function startComposerSyncWatcher(kind, options = {}) {
-  const safeKind = kind === 'tabs' ? 'tabs' : 'index';
-  const label = safeKind === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const safeKind = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
+  const label = safeKind === 'tabs' ? 'tabs.yaml' : (safeKind === 'site' ? 'site.yaml' : 'index.yaml');
   const expectedText = options.expectedText != null ? String(options.expectedText) : '';
   const expectedSignature = computeTextSignature(expectedText);
   const message = options.message || t('editor.composer.remoteWatcher.waitingForLabel', { label });
@@ -1503,6 +1751,481 @@ function normalizeTabsEntry(entry) {
     }
   });
   return out;
+}
+
+function normalizeLocalizedConfig(value, options = {}) {
+  const ensureDefault = options.ensureDefault !== false;
+  if (typeof value === 'string') {
+    const out = {};
+    if (value !== '' || ensureDefault) out.default = safeString(value);
+    return out;
+  }
+  if (!value || typeof value !== 'object') {
+    return ensureDefault ? { default: '' } : {};
+  }
+  const out = {};
+  Object.keys(value).forEach((lang) => {
+    const v = value[lang];
+    if (v == null) {
+      if (ensureDefault && lang === 'default' && !Object.prototype.hasOwnProperty.call(out, 'default')) out.default = '';
+      return;
+    }
+    out[lang] = safeString(v);
+  });
+  if (ensureDefault && !Object.prototype.hasOwnProperty.call(out, 'default')) out.default = '';
+  return out;
+}
+
+function normalizeLinkEntry(entry) {
+  if (!entry || typeof entry !== 'object') return { label: '', href: '' };
+  return { label: safeString(entry.label), href: safeString(entry.href) };
+}
+
+function normalizeLinkList(value) {
+  if (Array.isArray(value)) return value.map(item => normalizeLinkEntry(item));
+  if (value && typeof value === 'object') {
+    return Object.keys(value).map(label => ({ label: safeString(label), href: safeString(value[label]) }));
+  }
+  return [];
+}
+
+function normalizeBoolean(value, fallback = null) {
+  if (value === true) return true;
+  if (value === false) return false;
+  return fallback;
+}
+
+function normalizeNumber(value, fallback = null) {
+  const num = Number(value);
+  if (Number.isFinite(num)) return num;
+  return fallback;
+}
+
+function prepareSiteState(raw) {
+  const src = (raw && typeof raw === 'object') ? raw : {};
+  const site = {};
+
+  site.siteTitle = normalizeLocalizedConfig(src.siteTitle);
+  site.siteSubtitle = normalizeLocalizedConfig(src.siteSubtitle);
+  site.siteDescription = normalizeLocalizedConfig(src.siteDescription, { ensureDefault: false });
+  site.siteKeywords = normalizeLocalizedConfig(src.siteKeywords, { ensureDefault: false });
+  site.avatar = safeString(src.avatar || '');
+  site.resourceURL = safeString(src.resourceURL || '');
+  site.contentRoot = safeString(src.contentRoot || 'wwwroot');
+  site.profileLinks = normalizeLinkList(src.profileLinks);
+  site.links = normalizeLinkList(src.links);
+  site.contentOutdatedDays = normalizeNumber(src.contentOutdatedDays);
+  site.cardCoverFallback = normalizeBoolean(src.cardCoverFallback);
+  site.errorOverlay = normalizeBoolean(src.errorOverlay);
+  const pageSize = src.pageSize != null ? src.pageSize : src.postsPerPage;
+  site.pageSize = normalizeNumber(pageSize);
+  site.defaultLanguage = safeString(src.defaultLanguage || '');
+  site.themeMode = safeString(src.themeMode || '');
+  site.themePack = safeString(src.themePack || '');
+  site.themeOverride = normalizeBoolean(src.themeOverride);
+  const enableAllPosts = normalizeBoolean(src.enableAllPosts);
+  const disableAllPosts = normalizeBoolean(src.disableAllPosts);
+  if (normalizeBoolean(src.showAllPosts) != null) site.showAllPosts = normalizeBoolean(src.showAllPosts);
+  else if (enableAllPosts === true) site.showAllPosts = true;
+  else if (disableAllPosts === true) site.showAllPosts = false;
+  else site.showAllPosts = null;
+  site.landingTab = safeString(src.landingTab || '');
+  const repo = (src.repo && typeof src.repo === 'object') ? src.repo : {};
+  site.repo = {
+    owner: safeString(repo.owner || ''),
+    name: safeString(repo.name || ''),
+    branch: safeString(repo.branch || '')
+  };
+  const assetWarnings = (src.assetWarnings && typeof src.assetWarnings === 'object') ? src.assetWarnings : {};
+  const largeImage = (assetWarnings.largeImage && typeof assetWarnings.largeImage === 'object') ? assetWarnings.largeImage : {};
+  site.assetWarnings = {
+    largeImage: {
+      enabled: normalizeBoolean(largeImage.enabled),
+      thresholdKB: normalizeNumber(largeImage.thresholdKB)
+    }
+  };
+
+  const recognized = new Set([
+    'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'resourceURL', 'contentRoot',
+    'profileLinks', 'links', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'postsPerPage',
+    'defaultLanguage', 'themeMode', 'themePack', 'themeOverride', 'repo', 'assetWarnings', 'landingTab', 'showAllPosts',
+    'enableAllPosts', 'disableAllPosts'
+  ]);
+
+  const extras = {};
+  Object.keys(src).forEach((key) => {
+    if (recognized.has(key)) return;
+    extras[key] = deepClone(src[key]);
+  });
+  site.__extras = extras;
+
+  return site;
+}
+
+function cloneSiteState(state) {
+  if (!state || typeof state !== 'object') return { __extras: {} };
+  return {
+    siteTitle: deepClone(state.siteTitle || {}),
+    siteSubtitle: deepClone(state.siteSubtitle || {}),
+    siteDescription: deepClone(state.siteDescription || {}),
+    siteKeywords: deepClone(state.siteKeywords || {}),
+    avatar: safeString(state.avatar || ''),
+    resourceURL: safeString(state.resourceURL || ''),
+    contentRoot: safeString(state.contentRoot || ''),
+    profileLinks: Array.isArray(state.profileLinks) ? deepClone(state.profileLinks) : [],
+    links: Array.isArray(state.links) ? deepClone(state.links) : [],
+    contentOutdatedDays: state.contentOutdatedDays != null ? Number(state.contentOutdatedDays) : null,
+    cardCoverFallback: normalizeBoolean(state.cardCoverFallback),
+    errorOverlay: normalizeBoolean(state.errorOverlay),
+    pageSize: state.pageSize != null ? Number(state.pageSize) : null,
+    defaultLanguage: safeString(state.defaultLanguage || ''),
+    themeMode: safeString(state.themeMode || ''),
+    themePack: safeString(state.themePack || ''),
+    themeOverride: normalizeBoolean(state.themeOverride),
+    showAllPosts: normalizeBoolean(state.showAllPosts),
+    landingTab: safeString(state.landingTab || ''),
+    repo: deepClone(state.repo || { owner: '', name: '', branch: '' }),
+    assetWarnings: deepClone(state.assetWarnings || { largeImage: { enabled: null, thresholdKB: null } }),
+    __extras: deepClone(state.__extras || {})
+  };
+}
+
+function localizedEntriesForOutput(localized, options = {}) {
+  const source = localized && typeof localized === 'object' ? localized : {};
+  const entries = Object.keys(source).map(key => ({ key, value: safeString(source[key]) }));
+  const filtered = entries.filter(entry => entry.value != null && entry.value !== '');
+  if (!filtered.length) {
+    if (options.forceDefault && Object.prototype.hasOwnProperty.call(source, 'default')) {
+      return { default: safeString(source.default) };
+    }
+    return null;
+  }
+  if (filtered.length === 1 && filtered[0].key === 'default') return filtered[0].value;
+  filtered.sort((a, b) => {
+    if (a.key === 'default') return -1;
+    if (b.key === 'default') return 1;
+    return a.key.localeCompare(b.key);
+  });
+  const out = {};
+  filtered.forEach(entry => { out[entry.key] = entry.value; });
+  return out;
+}
+
+function linkListForOutput(list) {
+  if (!Array.isArray(list)) return null;
+  const filtered = list.filter(item => item && (item.label || item.href));
+  if (!filtered.length) return null;
+  return filtered.map(item => ({ label: safeString(item.label || ''), href: safeString(item.href || '') }));
+}
+
+function assetWarningsForOutput(warnings) {
+  if (!warnings || typeof warnings !== 'object') return null;
+  const largeImage = warnings.largeImage && typeof warnings.largeImage === 'object' ? warnings.largeImage : {};
+  const enabled = normalizeBoolean(largeImage.enabled);
+  let threshold = null;
+  if (Object.prototype.hasOwnProperty.call(largeImage, 'thresholdKB')) {
+    const rawThreshold = largeImage.thresholdKB;
+    const trimmed = typeof rawThreshold === 'string' ? rawThreshold.trim() : rawThreshold;
+    if (trimmed !== '' && trimmed != null) {
+      const normalized = normalizeNumber(trimmed);
+      if (normalized != null && !Number.isNaN(normalized)) {
+        threshold = normalized;
+      }
+    }
+  }
+  if (enabled == null && threshold == null) return null;
+  const out = {};
+  out.largeImage = {};
+  if (enabled != null) out.largeImage.enabled = enabled;
+  if (threshold != null) out.largeImage.thresholdKB = threshold;
+  if (!Object.keys(out.largeImage).length) return null;
+  return out;
+}
+
+function repoForOutput(repo) {
+  if (!repo || typeof repo !== 'object') return null;
+  const owner = safeString(repo.owner || '');
+  const name = safeString(repo.name || '');
+  const branch = safeString(repo.branch || '');
+  if (!owner && !name && !branch) return null;
+  const out = {};
+  if (owner) out.owner = owner;
+  if (name) out.name = name;
+  if (branch) out.branch = branch;
+  return Object.keys(out).length ? out : null;
+}
+
+function buildSiteSnapshot(state) {
+  const site = cloneSiteState(state);
+  const snapshot = {};
+
+  const identityTitle = localizedEntriesForOutput(site.siteTitle, { forceDefault: true });
+  if (identityTitle != null) snapshot.siteTitle = identityTitle;
+  const identitySubtitle = localizedEntriesForOutput(site.siteSubtitle, { forceDefault: true });
+  if (identitySubtitle != null) snapshot.siteSubtitle = identitySubtitle;
+  const identityDescription = localizedEntriesForOutput(site.siteDescription);
+  if (identityDescription != null) snapshot.siteDescription = identityDescription;
+  const identityKeywords = localizedEntriesForOutput(site.siteKeywords);
+  if (identityKeywords != null) snapshot.siteKeywords = identityKeywords;
+  if (site.avatar) snapshot.avatar = site.avatar;
+  if (site.profileLinks && site.profileLinks.length) {
+    const links = linkListForOutput(site.profileLinks);
+    if (links) snapshot.profileLinks = links;
+  }
+  if (site.links && site.links.length) {
+    const links = linkListForOutput(site.links);
+    if (links) snapshot.links = links;
+  }
+  if (site.resourceURL) snapshot.resourceURL = site.resourceURL;
+  if (site.contentRoot) snapshot.contentRoot = site.contentRoot;
+  if (site.contentOutdatedDays != null && !Number.isNaN(site.contentOutdatedDays)) snapshot.contentOutdatedDays = Number(site.contentOutdatedDays);
+  if (site.cardCoverFallback != null) snapshot.cardCoverFallback = !!site.cardCoverFallback;
+  if (site.errorOverlay != null) snapshot.errorOverlay = !!site.errorOverlay;
+  if (site.pageSize != null && !Number.isNaN(site.pageSize)) snapshot.pageSize = Number(site.pageSize);
+  if (site.defaultLanguage) snapshot.defaultLanguage = site.defaultLanguage;
+  if (site.themeMode) snapshot.themeMode = site.themeMode;
+  if (site.themePack) snapshot.themePack = site.themePack;
+  if (site.themeOverride != null) snapshot.themeOverride = !!site.themeOverride;
+  if (site.showAllPosts != null) snapshot.showAllPosts = !!site.showAllPosts;
+  if (site.landingTab) snapshot.landingTab = site.landingTab;
+  const repo = repoForOutput(site.repo);
+  if (repo) snapshot.repo = repo;
+  const warnings = assetWarningsForOutput(site.assetWarnings);
+  if (warnings) snapshot.assetWarnings = warnings;
+
+  const extras = site.__extras && typeof site.__extras === 'object' ? site.__extras : {};
+  Object.keys(extras).forEach((key) => {
+    if (snapshot[key] !== undefined) return;
+    snapshot[key] = deepClone(extras[key]);
+  });
+
+  return snapshot;
+}
+
+function stableSerialize(value) {
+  if (value == null) return 'null';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return '[' + value.map(item => stableSerialize(item)).join(',') + ']';
+  }
+  if (typeof value === 'object') {
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',') + '}';
+  }
+  return '';
+}
+
+function computeSiteSignature(state) {
+  const snapshot = buildSiteSnapshot(state);
+  return stableSerialize(snapshot);
+}
+
+function compareLocalizedMaps(cur = {}, base = {}) {
+  const langSet = new Set([...Object.keys(cur), ...Object.keys(base)]);
+  const changedLangs = [];
+  langSet.forEach((lang) => {
+    if (safeString(cur[lang] || '') !== safeString(base[lang] || '')) changedLangs.push(lang);
+  });
+  return changedLangs;
+}
+
+function compareLinkLists(cur = [], base = []) {
+  const max = Math.max(cur.length, base.length);
+  for (let i = 0; i < max; i += 1) {
+    const a = cur[i] || { label: '', href: '' };
+    const b = base[i] || { label: '', href: '' };
+    if (safeString(a.label) !== safeString(b.label)) return true;
+    if (safeString(a.href) !== safeString(b.href)) return true;
+  }
+  return false;
+}
+
+function computeSiteDiff(current, baseline) {
+  const cur = cloneSiteState(current);
+  const base = cloneSiteState(baseline);
+  const diff = { hasChanges: false, fields: {} };
+
+  const localizedFields = ['siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords'];
+  localizedFields.forEach((key) => {
+    const changed = compareLocalizedMaps(cur[key] || {}, base[key] || {});
+    if (changed.length) {
+      diff.fields[key] = { type: 'localized', languages: changed };
+      diff.hasChanges = true;
+    }
+  });
+
+  const stringFields = ['avatar', 'resourceURL', 'contentRoot', 'defaultLanguage', 'themeMode', 'themePack', 'landingTab'];
+  stringFields.forEach((key) => {
+    if (safeString(cur[key] || '') !== safeString(base[key] || '')) {
+      diff.fields[key] = { type: 'text' };
+      diff.hasChanges = true;
+    }
+  });
+
+  const booleanFields = ['cardCoverFallback', 'errorOverlay', 'themeOverride', 'showAllPosts'];
+  booleanFields.forEach((key) => {
+    if (normalizeBoolean(cur[key]) !== normalizeBoolean(base[key])) {
+      diff.fields[key] = { type: 'boolean' };
+      diff.hasChanges = true;
+    }
+  });
+
+  const numericFields = ['contentOutdatedDays', 'pageSize'];
+  numericFields.forEach((key) => {
+    const a = cur[key] != null ? Number(cur[key]) : null;
+    const b = base[key] != null ? Number(base[key]) : null;
+    if ((Number.isNaN(a) ? null : a) !== (Number.isNaN(b) ? null : b)) {
+      diff.fields[key] = { type: 'number' };
+      diff.hasChanges = true;
+    }
+  });
+
+  if (compareLinkLists(cur.profileLinks || [], base.profileLinks || [])) {
+    diff.fields.profileLinks = { type: 'list' };
+    diff.hasChanges = true;
+  }
+
+  if (compareLinkLists(cur.links || [], base.links || [])) {
+    diff.fields.links = { type: 'list' };
+    diff.hasChanges = true;
+  }
+
+  const repoCur = cur.repo || {};
+  const repoBase = base.repo || {};
+  if (safeString(repoCur.owner) !== safeString(repoBase.owner)
+    || safeString(repoCur.name) !== safeString(repoBase.name)
+    || safeString(repoCur.branch) !== safeString(repoBase.branch)) {
+    diff.fields.repo = { type: 'object' };
+    diff.hasChanges = true;
+  }
+
+  const curWarn = (cur.assetWarnings && cur.assetWarnings.largeImage) || {};
+  const baseWarn = (base.assetWarnings && base.assetWarnings.largeImage) || {};
+  if (normalizeBoolean(curWarn.enabled) !== normalizeBoolean(baseWarn.enabled)
+    || normalizeNumber(curWarn.thresholdKB) !== normalizeNumber(baseWarn.thresholdKB)) {
+    diff.fields.assetWarnings = { type: 'object' };
+    diff.hasChanges = true;
+  }
+
+  const extrasCur = cur.__extras || {};
+  const extrasBase = base.__extras || {};
+  if (stableSerialize(extrasCur) !== stableSerialize(extrasBase)) {
+    diff.fields.__extras = { type: 'object' };
+    diff.hasChanges = true;
+  }
+
+  return diff;
+}
+
+function applySiteDiffMarkers(diff) {
+  const root = document.getElementById('composerSite');
+  if (!root) return;
+  const fields = diff && diff.fields ? diff.fields : {};
+  root.querySelectorAll('[data-field]').forEach((el) => {
+    const key = el.getAttribute('data-field');
+    if (key && fields[key]) el.setAttribute('data-diff', 'changed');
+    else el.removeAttribute('data-diff');
+  });
+  try {
+    if (typeof root.__nsSiteNavRefresh === 'function') root.__nsSiteNavRefresh();
+  } catch (_) {}
+}
+
+function yamlScalar(value) {
+  if (value == null) return 'null';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'null';
+  if (typeof value === 'string') {
+    if (!value) return '""';
+    if (/^[A-Za-z0-9_\-\/\.]+$/.test(value)) return value;
+    return q(value);
+  }
+  return 'null';
+}
+
+function writeYamlValue(lines, indent, value) {
+  const pad = '  '.repeat(indent);
+  if (value == null) {
+    lines.push(`${pad}null`);
+    return;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    lines.push(`${pad}${yamlScalar(value)}`);
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      lines.push(`${pad}[]`);
+      return;
+    }
+    value.forEach((item) => {
+      if (item == null || typeof item !== 'object' || Array.isArray(item)) {
+        lines.push(`${pad}- ${yamlScalar(item)}`);
+      } else {
+        lines.push(`${pad}-`);
+        writeYamlObject(lines, indent + 1, item);
+      }
+    });
+    return;
+  }
+  if (typeof value === 'object') {
+    writeYamlObject(lines, indent, value);
+    return;
+  }
+  lines.push(`${pad}${yamlScalar(String(value))}`);
+}
+
+function writeYamlObject(lines, indent, obj) {
+  const pad = '  '.repeat(indent);
+  const keys = Object.keys(obj);
+  if (!keys.length) {
+    lines.push(`${pad}{}`);
+    return;
+  }
+  keys.forEach((key) => {
+    const value = obj[key];
+    if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${pad}${key}: ${yamlScalar(value)}`);
+    } else {
+      lines.push(`${pad}${key}:`);
+      writeYamlValue(lines, indent + 1, value);
+    }
+  });
+}
+
+function toSiteYaml(data) {
+  const snapshot = buildSiteSnapshot(data || {});
+  const keysInOrder = [
+    'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'profileLinks', 'links', 'resourceURL',
+    'contentRoot', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'defaultLanguage',
+    'themeMode', 'themePack', 'themeOverride', 'showAllPosts', 'landingTab', 'repo', 'assetWarnings'
+  ];
+  const ordered = {};
+  keysInOrder.forEach((key) => {
+    if (snapshot[key] !== undefined) ordered[key] = snapshot[key];
+  });
+  Object.keys(snapshot).forEach((key) => {
+    if (ordered[key] !== undefined) return;
+    ordered[key] = snapshot[key];
+  });
+
+  const lines = ['# yaml-language-server: $schema=./assets/schema/site.json', ''];
+  Object.keys(ordered).forEach((key) => {
+    const value = ordered[key];
+    if (value == null) return;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${key}: ${yamlScalar(value)}`);
+    } else {
+      lines.push(`${key}:`);
+      writeYamlValue(lines, 1, value);
+    }
+    lines.push('');
+  });
+  while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  lines.push('');
+  return lines.join('\n');
 }
 
 function arraysEqual(a, b) {
@@ -2242,6 +2965,9 @@ function hasUnsavedComposerChanges() {
   try {
     if (composerDiffCache && composerDiffCache.tabs && composerDiffCache.tabs.hasChanges) return true;
   } catch (_) {}
+  try {
+    if (composerDiffCache && composerDiffCache.site && composerDiffCache.site.hasChanges) return true;
+  } catch (_) {}
   return false;
 }
 
@@ -2401,26 +3127,38 @@ function updateComposerMarkdownDraftIndicators(options = {}) {
 
 function getStateSlice(kind) {
   if (!activeComposerState) return null;
-  return kind === 'tabs' ? activeComposerState.tabs : activeComposerState.index;
+  if (kind === 'tabs') return activeComposerState.tabs;
+  if (kind === 'site') return activeComposerState.site;
+  return activeComposerState.index;
 }
 
 function setStateSlice(kind, value) {
   if (!activeComposerState) return;
   if (kind === 'tabs') activeComposerState.tabs = value;
+  else if (kind === 'site') activeComposerState.site = value;
   else activeComposerState.index = value;
 }
 
 function computeBaselineSignature(kind) {
   if (kind === 'tabs') return computeTabsSignature(remoteBaseline.tabs);
+  if (kind === 'site') return computeSiteSignature(remoteBaseline.site);
   return computeIndexSignature(remoteBaseline.index);
 }
 
 function recomputeDiff(kind) {
   const slice = getStateSlice(kind) || { __order: [] };
-  const baselineSlice = kind === 'tabs' ? remoteBaseline.tabs : remoteBaseline.index;
-  const diff = kind === 'tabs'
-    ? computeTabsDiff(slice, baselineSlice)
-    : computeIndexDiff(slice, baselineSlice);
+  let baselineSlice;
+  let diff;
+  if (kind === 'tabs') {
+    baselineSlice = remoteBaseline.tabs;
+    diff = computeTabsDiff(slice, baselineSlice);
+  } else if (kind === 'site') {
+    baselineSlice = remoteBaseline.site;
+    diff = computeSiteDiff(slice, baselineSlice);
+  } else {
+    baselineSlice = remoteBaseline.index;
+    diff = computeIndexDiff(slice, baselineSlice);
+  }
   composerDiffCache[kind] = diff;
   return diff;
 }
@@ -2577,7 +3315,7 @@ function applyTabsDiffMarkers(diff) {
 }
 
 function updateFileDirtyBadge(kind) {
-  const name = kind === 'tabs' ? 'tabs' : 'index';
+  const name = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   const el = document.querySelector(`a.vt-btn[data-cfile="${name}"]`);
   if (!el) return;
   const diff = composerDiffCache[kind];
@@ -2648,6 +3386,7 @@ function computeUnsyncedSummary() {
   const entries = [];
   const indexDiff = composerDiffCache.index;
   const tabsDiff = composerDiffCache.tabs;
+  const siteDiff = composerDiffCache.site;
   if (indexDiff && indexDiff.hasChanges) {
     entries.push({
       kind: 'index',
@@ -2666,6 +3405,20 @@ function computeUnsyncedSummary() {
       hasContentChange: Object.keys(tabsDiff.keys || {}).length > 0
         || tabsDiff.addedKeys.length > 0
         || tabsDiff.removedKeys.length > 0
+    });
+  }
+  if (siteDiff && siteDiff.hasChanges) {
+    entries.push({
+      kind: 'site',
+      label: 'site.yaml',
+      hasContentChange: true
+    });
+  }
+  const systemEntries = getSystemUpdateSummaryEntries();
+  if (systemEntries && systemEntries.length) {
+    systemEntries.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      entries.push({ ...entry, kind: 'system' });
     });
   }
   const markdownEntries = collectUnsyncedMarkdownEntries();
@@ -2771,17 +3524,19 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   let composerCount = 0;
   let editorCount = 0;
+  let updatesCount = 0;
 
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
-    if (entry.kind === 'index' || entry.kind === 'tabs') composerCount += 1;
+    if (entry.kind === 'index' || entry.kind === 'tabs' || entry.kind === 'site') composerCount += 1;
     else if (entry.kind === 'markdown') editorCount += 1;
+    else if (entry.kind === 'system') updatesCount += 1;
   }
 
   if (!composerCount) {
     try {
       if (hasUnsavedComposerChanges()) composerCount = Math.max(composerCount, 1);
-      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs)) composerCount = Math.max(composerCount, 1);
+      else if (composerDraftMeta && (composerDraftMeta.index || composerDraftMeta.tabs || composerDraftMeta.site)) composerCount = Math.max(composerCount, 1);
     } catch (_) { /* ignore */ }
   }
 
@@ -2793,13 +3548,23 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   applyModeTabBadgeState('composer', composerCount);
   applyModeTabBadgeState('editor', editorCount);
+  applyModeTabBadgeState('updates', updatesCount);
 }
 
 function updateReviewButton(summaryEntries = []) {
   const btn = document.getElementById('btnReview');
   if (!btn) return;
   const activeKind = getActiveComposerFile();
-  const normalizedKind = activeKind === 'tabs' ? 'tabs' : 'index';
+  const normalizedKind = activeKind === 'tabs' ? 'tabs' : (activeKind === 'site' ? 'site' : 'index');
+  if (normalizedKind === 'site') {
+    btn.hidden = true;
+    btn.style.display = 'none';
+    btn.removeAttribute('data-kind');
+    btn.setAttribute('aria-hidden', 'true');
+    btn.removeAttribute('title');
+    btn.removeAttribute('aria-label');
+    return;
+  }
   const targetEntry = summaryEntries.find(entry => entry && entry.kind === normalizedKind);
   if (targetEntry) {
     btn.hidden = false;
@@ -3333,7 +4098,7 @@ function updateDiscardButtonVisibility() {
   const btn = document.getElementById('btnDiscard');
   if (!btn) return;
   const activeKind = getActiveComposerFile();
-  const normalizedKind = activeKind === 'tabs' ? 'tabs' : 'index';
+  const normalizedKind = activeKind === 'tabs' ? 'tabs' : activeKind === 'site' ? 'site' : 'index';
   const diff = composerDiffCache[normalizedKind];
   const meta = composerDraftMeta[normalizedKind];
   const hasLocalChanges = !!(diff && diff.hasChanges);
@@ -3371,7 +4136,7 @@ function buildLocalDraftSummaryItem(entry) {
   return item;
 }
 
-function updateUnsyncedSummary() {
+function updateUnsyncedSummary(options = {}) {
   const summaryContainer = document.getElementById('localDraftSummary');
   const summaryEntries = computeUnsyncedSummary();
   updateDiscardButtonVisibility();
@@ -3456,6 +4221,7 @@ function updateUnsyncedSummary() {
     updateReviewButton([]);
   }
   updateModeDirtyIndicators(summaryEntries);
+  refreshComposerInlineMeta(options);
 }
 
 function findDynamicTabByPath(path) {
@@ -3499,7 +4265,473 @@ function encodeContentToBase64(text) {
   }
 }
 
-function gatherLocalChangesForCommit() {
+function exportIndexDataForSeo(state) {
+  const output = {};
+  if (!state || typeof state !== 'object') return output;
+  const keys = Array.isArray(state.__order)
+    ? state.__order.filter((key) => key && key !== '__order')
+    : Object.keys(state);
+  keys.forEach((key) => {
+    if (key === '__order') return;
+    const entry = state[key];
+    if (!entry || typeof entry !== 'object') return;
+    const langs = {};
+    Object.keys(entry).forEach((lang) => {
+      if (lang === '__order') return;
+      const value = entry[lang];
+      if (Array.isArray(value)) {
+        const normalized = value
+          .map((item) => (item == null ? '' : String(item)))
+          .filter((item) => item);
+        if (!normalized.length) return;
+        if (normalized.length === 1) langs[lang] = normalized[0];
+        else langs[lang] = normalized;
+      } else if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) langs[lang] = trimmed;
+      }
+    });
+    if (Object.keys(langs).length) output[key] = langs;
+  });
+  return output;
+}
+
+function exportTabsDataForSeo(state) {
+  const output = {};
+  if (!state || typeof state !== 'object') return output;
+  const keys = Array.isArray(state.__order)
+    ? state.__order.filter((key) => key && key !== '__order')
+    : Object.keys(state);
+  keys.forEach((key) => {
+    if (key === '__order') return;
+    const entry = state[key];
+    if (!entry || typeof entry !== 'object') return;
+    const langs = {};
+    Object.keys(entry).forEach((lang) => {
+      if (lang === '__order') return;
+      const value = entry[lang];
+      if (!value || typeof value !== 'object') return;
+      const title = value.title != null ? String(value.title) : '';
+      const location = value.location != null ? String(value.location) : '';
+      if (!title && !location) return;
+      langs[lang] = { title, location };
+    });
+    if (Object.keys(langs).length) output[key] = langs;
+  });
+  return output;
+}
+
+function exportSiteConfigForSeo(state) {
+  const base = cloneSiteState(state || {});
+  if (!base.contentRoot) base.contentRoot = getContentRootSafe() || 'wwwroot';
+  if (!base.defaultLanguage) {
+    try {
+      const baseline = remoteBaseline && remoteBaseline.site;
+      if (baseline && baseline.defaultLanguage) base.defaultLanguage = baseline.defaultLanguage;
+    } catch (_) { /* ignore */ }
+  }
+  return base;
+}
+
+function escapeSeoXml(str) {
+  return String(str || '').replace(/[<>&'\"]/g, (char) => {
+    switch (char) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case "'": return '&apos;';
+      case '"': return '&quot;';
+      default: return char;
+    }
+  });
+}
+
+function escapeSeoHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return char;
+    }
+  });
+}
+
+function formatSeoXml(xml) {
+  try {
+    const formatted = [];
+    let pad = 0;
+    xml
+      .replace(/>(\s*)</g, '>$1\n<')
+      .split('\n')
+      .forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        if (/^<\//.test(trimmed)) pad = Math.max(pad - 1, 0);
+        formatted.push(`${'  '.repeat(pad)}${trimmed}`);
+        if (/^<[^!?][^>]*[^/]>/i.test(trimmed) && !/<.*<\/.*>/.test(trimmed)) pad += 1;
+      });
+    return formatted.join('\n');
+  } catch (_) {
+    return xml;
+  }
+}
+
+function generateSeoSitemapXml(urls) {
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
+  urls.forEach((url) => {
+    if (!url || !url.loc) return;
+    xml += '  <url>\n';
+    xml += `    <loc>${escapeSeoXml(url.loc)}</loc>\n`;
+    if (Array.isArray(url.alternates)) {
+      url.alternates.forEach((alt) => {
+        if (!alt || !alt.href || !alt.hreflang) return;
+        xml += `    <xhtml:link rel="alternate" hreflang="${escapeSeoXml(alt.hreflang)}" href="${escapeSeoXml(alt.href)}"/>\n`;
+      });
+      if (url.xdefault) {
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeSeoXml(url.xdefault)}"/>\n`;
+      }
+    }
+    if (url.lastmod) xml += `    <lastmod>${escapeSeoXml(url.lastmod)}</lastmod>\n`;
+    if (url.changefreq) xml += `    <changefreq>${escapeSeoXml(url.changefreq)}</changefreq>\n`;
+    if (url.priority) xml += `    <priority>${escapeSeoXml(url.priority)}</priority>\n`;
+    xml += '  </url>\n';
+  });
+  xml += '</urlset>';
+  return formatSeoXml(xml);
+}
+
+function computeSeoContentRoot(siteConfig) {
+  const raw = siteConfig && siteConfig.contentRoot ? String(siteConfig.contentRoot) : 'wwwroot';
+  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
+  return trimmed || 'wwwroot';
+}
+
+function generateSeoRobotsTxt(siteConfig) {
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
+  const contentRoot = computeSeoContentRoot(siteConfig);
+  const deriveBasePath = () => {
+    if (!baseUrl) return '/';
+    const ensureLeadingAndTrailingSlash = (value) => {
+      if (!value) return '/';
+      let normalized = value;
+      if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+      normalized = normalized.replace(/\/+/g, '/');
+      if (normalized !== '/' && !normalized.endsWith('/')) normalized = `${normalized}/`;
+      return normalized === '//' ? '/' : normalized;
+    };
+    const resolvePathname = (raw) => {
+      if (!raw) return '/';
+      try {
+        const parsed = new URL(raw);
+        return parsed.pathname || '/';
+      } catch (_) {
+        try {
+          if (typeof window !== 'undefined' && window.location && window.location.origin) {
+            const parsed = new URL(raw, window.location.origin);
+            return parsed.pathname || '/';
+          }
+        } catch (_) {
+          /* noop */
+        }
+      }
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('/')) return trimmed;
+      }
+      return '/';
+    };
+    const pathname = resolvePathname(baseUrl);
+    if (!pathname || pathname === '/') return '/';
+    return ensureLeadingAndTrailingSlash(pathname);
+  };
+  const basePath = deriveBasePath();
+  const withBasePath = (path) => {
+    const input = String(path == null ? '' : path).trim();
+    if (!input || input === '/') return basePath;
+    const hasTrailingSlash = input.endsWith('/');
+    const stripped = input.replace(/^\/+/, '');
+    const prefix = basePath === '/' ? '/' : basePath;
+    let combined = prefix === '/' ? `/${stripped}` : `${prefix}${stripped}`;
+    if (hasTrailingSlash && !combined.endsWith('/')) combined += '/';
+    if (!combined.startsWith('/')) combined = `/${combined}`;
+    return combined === '//' ? '/' : combined;
+  };
+  let robots = 'User-agent: *\n';
+  robots += `Allow: ${withBasePath('/')}\n\n`;
+  robots += '# Sitemap\n';
+  robots += `Sitemap: ${baseUrl}sitemap.xml\n\n`;
+  robots += '# Allow crawling of main content\n';
+  robots += `Allow: ${withBasePath(`${contentRoot}/`)}\n`;
+  robots += `Allow: ${withBasePath('assets/')}\n\n`;
+  robots += '# Disallow admin or internal directories\n';
+  robots += `Disallow: ${withBasePath('admin/')}\n`;
+  robots += `Disallow: ${withBasePath('.git/')}\n`;
+  robots += `Disallow: ${withBasePath('node_modules/')}\n`;
+  robots += `Disallow: ${withBasePath('.env')}\n`;
+  robots += `Disallow: ${withBasePath('package.json')}\n`;
+  robots += `Disallow: ${withBasePath('package-lock.json')}\n\n`;
+  robots += '# SEO tools (allow but not priority)\n';
+  robots += `Allow: ${withBasePath('sitemap-generator.html')}\n\n`;
+  robots += '# Crawl delay (be nice to servers)\n';
+  robots += 'Crawl-delay: 1\n\n';
+  robots += '# Generated by NanoSite\n';
+  robots += `# ${new Date().toISOString()}\n`;
+  return robots;
+}
+
+function generateSeoMetaTags(siteConfig) {
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
+  const getLocalizedValue = (val, fallback = '') => {
+    if (!val) return fallback;
+    if (typeof val === 'string') return val;
+    if (val.default) return val.default;
+    const langs = Object.keys(val);
+    if (langs.length) return val[langs[0]];
+    return fallback;
+  };
+  const siteTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
+  const siteDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end blog template');
+  const siteKeywords = getLocalizedValue(siteConfig.siteKeywords, 'blog, static site, markdown');
+  const avatar = siteConfig.avatar || 'assets/avatar.png';
+  const fullAvatarUrl = avatar.startsWith('http') ? avatar : baseUrl + avatar.replace(/^\/+/, '');
+  let html = '';
+  html += `  <!-- Primary SEO Meta Tags -->\n`;
+  html += `  <title>${escapeSeoHtml(siteTitle)}</title>\n`;
+  html += `  <meta name="title" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += `  <meta name="description" content="${escapeSeoHtml(siteDescription)}">\n`;
+  html += `  <meta name="keywords" content="${escapeSeoHtml(siteKeywords)}">\n`;
+  html += `  <meta name="author" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += '  <meta name="robots" content="index, follow">\n';
+  html += `  <link rel="canonical" href="${baseUrl}">\n`;
+  html += '  \n';
+  html += '  <!-- Open Graph / Facebook -->\n';
+  html += '  <meta property="og:type" content="website">\n';
+  html += `  <meta property="og:url" content="${baseUrl}">\n`;
+  html += `  <meta property="og:title" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += `  <meta property="og:description" content="${escapeSeoHtml(siteDescription)}">\n`;
+  html += `  <meta property="og:image" content="${escapeSeoHtml(fullAvatarUrl)}">\n`;
+  html += `  <meta property="og:logo" content="${escapeSeoHtml(fullAvatarUrl)}">\n`;
+  html += '  \n';
+  html += '  <!-- Twitter -->\n';
+  html += '  <meta property="twitter:card" content="summary_large_image">\n';
+  html += `  <meta property="twitter:url" content="${baseUrl}">\n`;
+  html += `  <meta property="twitter:title" content="${escapeSeoHtml(siteTitle)}">\n`;
+  html += `  <meta property="twitter:description" content="${escapeSeoHtml(siteDescription)}">\n`;
+  html += `  <meta property="twitter:image" content="${escapeSeoHtml(fullAvatarUrl)}">\n`;
+  html += '  \n';
+  html += '  <!-- Initial meta tags - will be updated by dynamic SEO system -->\n';
+  html += '  <meta name="theme-color" content="#1a1a1a">\n';
+  html += '  <meta name="msapplication-TileColor" content="#1a1a1a">\n';
+  html += `  <link rel="icon" type="image/png" href="${escapeSeoHtml(avatar)}">`;
+  return html;
+}
+
+function normalizeSeoLangCode(value) {
+  const raw = safeString(value).trim();
+  if (!raw) return '';
+  const sanitized = raw.replace(/[^0-9A-Za-z-]/g, '');
+  return sanitized || '';
+}
+
+function computeSeoHtmlLang(siteConfig) {
+  const fromConfig = siteConfig && siteConfig.defaultLanguage;
+  const normalized = normalizeSeoLangCode(fromConfig);
+  if (normalized) return normalized;
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      const docLang = normalizeSeoLangCode(document.documentElement.lang);
+      if (docLang) return docLang;
+    }
+  } catch (_) { /* ignore */ }
+  return 'en';
+}
+
+function applySeoHtmlLang(html, lang) {
+  const normalized = normalizeSeoLangCode(lang);
+  if (!normalized) return html;
+  const langAttrRegex = /(<html\b[^>]*\blang\s*=\s*)(["'])([^"']*)(\2)/i;
+  if (langAttrRegex.test(html)) {
+    return html.replace(langAttrRegex, `$1$2${normalized}$4`);
+  }
+  return html.replace(/<html\b([^>]*)>/i, `<html$1 lang="${normalized}">`);
+}
+
+function injectSeoMetaIntoIndexHtml(baseHtml, metaBlock) {
+  if (!baseHtml) return '';
+  const META_START = '  <!-- Primary SEO Meta Tags -->';
+  const META_NOTE = '  <!-- Note: Structured data is dynamically generated by the SEO system -->';
+  const startIndex = baseHtml.indexOf(META_START);
+  const noteIndex = baseHtml.indexOf(META_NOTE);
+  if (startIndex === -1 || noteIndex === -1 || noteIndex < startIndex) return '';
+  const before = baseHtml.slice(0, startIndex);
+  const after = baseHtml.slice(noteIndex + META_NOTE.length);
+  const trimmedMeta = metaBlock.trimEnd();
+  const replacement = `${trimmedMeta}\n\n${META_NOTE}`;
+  return `${before}${replacement}${after}`;
+}
+
+function buildDefaultIndexHtml(metaBlock, lang) {
+  const langAttr = normalizeSeoLangCode(lang) || 'en';
+  const trimmedMeta = metaBlock.trimEnd();
+  const metaSection = trimmedMeta ? `${trimmedMeta}\n\n` : '';
+  let html = '<!DOCTYPE html>\n';
+  html += `<html lang="${escapeSeoHtml(langAttr)}">\n\n`;
+  html += '<head>\n';
+  html += '  <meta charset="UTF-8">\n';
+  html += '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n\n';
+  html += metaSection;
+  html += '  <!-- Note: Structured data is dynamically generated by the SEO system -->\n\n';
+  html += '  <script src="assets/js/theme-boot.js"></script>\n';
+  html += '  <link rel="stylesheet" type="text/css" href="assets/styles.css">\n';
+  html += '  <link rel="stylesheet" id="theme-pack">\n';
+  html += '</head>\n\n';
+  html += '<body>\n';
+  html += '  <div class="container">\n';
+  html += '    <div class="content">\n\n';
+  html += '      <!-- Navigator Bar -->\n';
+  html += '      <div class="box flex-split" id="mapview">\n';
+  html += '        <nav class="tabs" id="tabsNav" aria-label="Sections"></nav>\n';
+  html += '      </div>\n\n';
+  html += '      <!-- Main content -->\n';
+  html += '      <div class="box" id="mainview">\n';
+  html += '      </div>\n';
+  html += '    </div>\n';
+  html += '    <div class="sidebar">\n\n';
+  html += '      <!-- Search -->\n';
+  html += '      <div class="box" id="searchbox">\n';
+  html += '        <input id="searchInput" type="search">\n';
+  html += '      </div>\n\n';
+  html += '      <!-- Site Card -->\n';
+  html += '      <div class="box site-card">\n';
+  html += '        <img class="avatar" alt="avatar" loading="lazy" decoding="async">\n';
+  html += '        <h3 class="site-title"></h3>\n';
+  html += '        <p class="site-subtitle"></p>\n';
+  html += '        <hr class="site-hr">\n';
+  html += '        <ul class="social-links">\n';
+  html += '        </ul>\n';
+  html += '      </div>\n\n';
+  html += '  <!-- Tags Filter -->\n';
+  html += '  <div class="box" id="tagview"></div>\n\n';
+  html += '      <!-- Tools box is rendered by JS (theme.js) -->\n\n';
+  html += '      <!-- Page of Content for Posts -->\n';
+  html += '      <div class="box" id="tocview"></div>\n';
+  html += '    </div>\n';
+  html += '  </div>\n\n';
+  html += '  <!-- Site Footer -->\n';
+  html += '  <footer class="site-footer" role="contentinfo">\n';
+  html += '    <div class="footer-inner">\n';
+  html += '      <div class="footer-left">\n';
+  html += '        <span class="footer-copy">© <span id="footerYear"></span> <span class="footer-site">NanoSite</span></span>\n';
+  html += '        <span class="footer-sep">•</span>\n';
+  html += '        <nav class="footer-nav" id="footerNav" aria-label="Footer"></nav>\n';
+  html += '      </div>\n';
+  html += '      <div class="footer-right">\n';
+  html += '        <a href="#" class="top-link" id="footerTop">Top</a>\n';
+  html += '      </div>\n';
+  html += '    </div>\n';
+  html += '  </footer>\n\n';
+  html += '  <script type="module" src="assets/main.js"></script>\n';
+  html += '</body>\n\n';
+  html += '</html>\n';
+  return html;
+}
+
+function generateSeoIndexHtml(siteConfig, baseHtml) {
+  const metaBlock = ensureTrailingNewline(generateSeoMetaTags(siteConfig)).trimEnd();
+  const lang = computeSeoHtmlLang(siteConfig);
+  let html = '';
+  if (baseHtml) {
+    html = injectSeoMetaIntoIndexHtml(baseHtml, metaBlock);
+  }
+  if (!html) {
+    html = buildDefaultIndexHtml(metaBlock, lang);
+  }
+  html = applySeoHtmlLang(html, lang);
+  return ensureTrailingNewline(html);
+}
+
+function ensureTrailingNewline(text) {
+  const str = String(text == null ? '' : text);
+  return str.endsWith('\n') ? str : `${str}\n`;
+}
+
+function normalizeSeoContent(text) {
+  return String(text == null ? '' : text)
+    .replace(/\r\n?/g, '\n')
+    .trim();
+}
+
+async function fetchExistingSeoFile(path) {
+  try {
+    const response = await fetch(path, { cache: 'no-store' });
+    if (!response.ok) return '';
+    return await response.text();
+  } catch (_) {
+    return '';
+  }
+}
+
+async function generateSeoCommitFiles() {
+  try {
+    const siteState = exportSiteConfigForSeo(getStateSlice('site'));
+    const indexState = exportIndexDataForSeo(getStateSlice('index'));
+    const tabsState = exportTabsDataForSeo(getStateSlice('tabs'));
+    const urls = generateSitemapData(indexState, tabsState, siteState) || [];
+    const sitemapXml = ensureTrailingNewline(generateSeoSitemapXml(urls));
+    const robotsTxt = ensureTrailingNewline(generateSeoRobotsTxt(siteState));
+    const remoteIndexHtml = await fetchExistingSeoFile('index.html');
+    const indexHtml = generateSeoIndexHtml(siteState, remoteIndexHtml);
+
+    const candidates = [
+      { seoType: 'sitemap', path: 'sitemap.xml', label: 'sitemap.xml', content: sitemapXml },
+      { seoType: 'robots', path: 'robots.txt', label: 'robots.txt', content: robotsTxt },
+      { seoType: 'index', path: 'index.html', label: 'index.html', content: indexHtml, remote: remoteIndexHtml }
+    ];
+
+    const files = [];
+    for (const candidate of candidates) {
+      const remote = Object.prototype.hasOwnProperty.call(candidate, 'remote')
+        ? candidate.remote
+        : await fetchExistingSeoFile(candidate.path);
+      if (normalizeSeoContent(remote) === normalizeSeoContent(candidate.content)) continue;
+      files.push({
+        kind: 'seo',
+        seoType: candidate.seoType,
+        label: candidate.label,
+        path: candidate.path,
+        content: candidate.content,
+        isSeo: true
+      });
+    }
+    return files;
+  } catch (err) {
+    console.error('Failed to prepare SEO files for commit', err);
+    return [];
+  }
+}
+
+async function gatherCommitPayload(options = {}) {
+  const { showSeoStatus = false } = options;
+  const base = gatherLocalChangesForCommit(options);
+  const files = Array.isArray(base.files) ? base.files.slice() : [];
+  if (showSeoStatus) {
+    try {
+      if (typeof setSyncOverlayStatus === 'function') {
+        setSyncOverlayStatus('Generating SEO files…');
+      }
+    } catch (_) { /* ignore */ }
+  }
+  const seoFiles = await generateSeoCommitFiles();
+  if (seoFiles.length) files.push(...seoFiles);
+  return { files, seoFiles };
+}
+
+function gatherLocalChangesForCommit(options = {}) {
+  const { cleanupUnusedAssets = true } = options;
   const files = [];
   const seenPaths = new Set();
   const addFile = (entry) => {
@@ -3514,7 +4746,14 @@ function gatherLocalChangesForCommit() {
     dynamicEditorTabs.forEach((tab) => { flushMarkdownDraft(tab); });
   } catch (_) { /* ignore */ }
 
-  const root = getContentRootSafe();
+  const siteState = getStateSlice('site');
+  let root;
+  if (siteState && Object.prototype.hasOwnProperty.call(siteState, 'contentRoot')) {
+    root = safeString(siteState.contentRoot);
+  }
+  if (!root) {
+    root = getContentRootSafe();
+  }
   const normalizedRoot = String(root || '')
     .replace(/\\+/g, '/').replace(/\/?$/, '');
   const rootPrefix = normalizedRoot ? `${normalizedRoot}/` : '';
@@ -3528,6 +4767,11 @@ function gatherLocalChangesForCommit() {
     const state = getStateSlice('tabs') || { __order: [] };
     const yaml = toTabsYaml(state);
     addFile({ kind: 'tabs', label: 'tabs.yaml', path: `${rootPrefix}tabs.yaml`, content: yaml });
+  }
+  if (composerDiffCache.site && composerDiffCache.site.hasChanges) {
+    const state = getStateSlice('site') || {};
+    const yaml = toSiteYaml(state);
+    addFile({ kind: 'site', label: 'site.yaml', path: 'site.yaml', content: yaml });
   }
 
   const markdownEntries = collectUnsyncedMarkdownEntries();
@@ -3592,12 +4836,20 @@ function gatherLocalChangesForCommit() {
             assetRelativePath: asset.relativePath || ''
           });
         });
-        if (unusedAssets.length) {
+        if (cleanupUnusedAssets && unusedAssets.length) {
           unusedAssets.forEach((assetPath) => {
             removeMarkdownAsset(rel, assetPath);
           });
         }
       }
+    });
+  }
+
+  const systemFiles = getSystemUpdateCommitFiles();
+  if (systemFiles && systemFiles.length) {
+    systemFiles.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      addFile({ ...entry, kind: 'system' });
     });
   }
 
@@ -3661,10 +4913,33 @@ function describeSummaryEntry(entry) {
     if (!bits.length) return base;
     return `${base} – ${bits.join(' & ')} changes`;
   }
+  if (entry.kind === 'seo') {
+    const type = entry.seoType === 'sitemap'
+      ? 'Sitemap'
+      : entry.seoType === 'robots'
+        ? 'Robots.txt'
+        : entry.seoType === 'index'
+          ? 'Index HTML'
+          : 'Meta tags';
+    return `${base} – auto-generated SEO (${type})`;
+  }
+  if (entry.kind === 'system') {
+    let label = '';
+    try {
+      const key = entry.state === 'added' ? 'added' : 'modified';
+      label = t(`editor.systemUpdates.summary.${key}`);
+    } catch (_) { label = ''; }
+    if (label) return `${base} – ${label}`;
+    return `${base} – system file update`;
+  }
   return base;
 }
 
-function promptForFineGrainedToken(summaryEntries = []) {
+async function promptForFineGrainedToken(summaryEntries = []) {
+  const commitPayload = await gatherCommitPayload({ cleanupUnusedAssets: false, showSeoStatus: false });
+  const commitFiles = Array.isArray(commitPayload.files) ? commitPayload.files : [];
+  const seoFiles = Array.isArray(commitPayload.seoFiles) ? commitPayload.seoFiles : [];
+
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'ns-modal';
@@ -3703,7 +4978,197 @@ function promptForFineGrainedToken(summaryEntries = []) {
 
     const summaryBlock = document.createElement('div');
     summaryBlock.style.margin = '.25rem 0 1rem';
-    if (Array.isArray(summaryEntries) && summaryEntries.length) {
+
+    const openFilePreview = (file, triggerEl) => {
+      if (!file) return;
+
+      const previewModal = document.createElement('div');
+      previewModal.className = 'ns-modal github-preview-modal';
+      previewModal.setAttribute('aria-hidden', 'true');
+
+      const previewDialog = document.createElement('div');
+      previewDialog.className = 'ns-modal-dialog github-preview-dialog';
+      previewDialog.setAttribute('role', 'dialog');
+      previewDialog.setAttribute('aria-modal', 'true');
+
+      const head = document.createElement('div');
+      head.className = 'comp-guide-head';
+      const headLeft = document.createElement('div'); headLeft.className = 'comp-head-left';
+      const previewTitleId = `nsGithubPreviewTitle-${Math.random().toString(36).slice(2, 8)}`;
+      const title = document.createElement('strong');
+      title.id = previewTitleId;
+      title.textContent = file.label || file.path || t('editor.composer.github.preview.untitled');
+      headLeft.appendChild(title);
+      const subtitle = document.createElement('span'); subtitle.className = 'muted';
+      subtitle.textContent = t('editor.composer.github.preview.subtitle');
+      headLeft.appendChild(subtitle);
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'ns-modal-close btn-secondary';
+      const closeLabel = t('editor.composer.dialogs.close');
+      closeBtn.textContent = closeLabel;
+      closeBtn.setAttribute('aria-label', closeLabel);
+      head.appendChild(headLeft);
+      head.appendChild(closeBtn);
+      previewDialog.appendChild(head);
+      previewDialog.setAttribute('aria-labelledby', previewTitleId);
+
+      const body = document.createElement('div');
+      body.className = 'github-preview-body';
+      const pathLine = document.createElement('p');
+      pathLine.className = 'github-preview-path';
+      pathLine.textContent = file.path || file.label || '';
+      body.appendChild(pathLine);
+
+      const contentWrap = document.createElement('div');
+      contentWrap.className = 'github-preview-content';
+
+      if (file.kind === 'asset') {
+        if (file.base64) {
+          const mime = file.mime || 'application/octet-stream';
+          const img = document.createElement('img');
+          img.className = 'github-preview-image';
+          img.alt = file.label || file.path || '';
+          img.src = `data:${mime};base64,${file.base64}`;
+          contentWrap.appendChild(img);
+          if (Number.isFinite(file.size)) {
+            const meta = document.createElement('p');
+            meta.className = 'github-preview-meta';
+            const sizeKb = file.size > 0 ? (file.size / 1024).toFixed(1) : '0';
+            meta.textContent = `${mime} · ${sizeKb} KB`;
+            body.appendChild(meta);
+          }
+        } else {
+          const notice = document.createElement('p');
+          notice.className = 'github-preview-empty';
+          notice.textContent = t('editor.composer.github.preview.unavailable');
+          contentWrap.appendChild(notice);
+        }
+      } else if (typeof file.content === 'string') {
+        const pre = document.createElement('pre');
+        pre.className = 'github-preview-code';
+        pre.textContent = file.content;
+        contentWrap.appendChild(pre);
+      } else {
+        const notice = document.createElement('p');
+        notice.className = 'github-preview-empty';
+        notice.textContent = t('editor.composer.github.preview.unavailable');
+        contentWrap.appendChild(notice);
+      }
+
+      body.appendChild(contentWrap);
+      previewDialog.appendChild(body);
+      previewModal.appendChild(previewDialog);
+      document.body.appendChild(previewModal);
+
+      let closing = false;
+      const reduceMotion = (function () {
+        try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+        catch (_) { return false; }
+      })();
+
+      const hadModalOpen = document.body.classList.contains('ns-modal-open');
+
+      const restoreFocus = () => {
+        if (!triggerEl || typeof triggerEl.focus !== 'function') return;
+        try { triggerEl.focus({ preventScroll: true }); }
+        catch (_) { triggerEl.focus(); }
+      };
+
+      const closePreview = () => {
+        if (closing) return;
+        closing = true;
+        const finish = () => {
+          try { previewModal.remove(); } catch (_) {}
+          if (!hadModalOpen) document.body.classList.remove('ns-modal-open');
+          restoreFocus();
+        };
+        if (reduceMotion) { finish(); return; }
+        try {
+          previewModal.classList.remove('ns-anim-in');
+          previewModal.classList.add('ns-anim-out');
+        } catch (_) {}
+        const onEnd = () => {
+          previewDialog.removeEventListener('animationend', onEnd);
+          try { previewModal.classList.remove('ns-anim-out'); } catch (_) {}
+          finish();
+        };
+        try {
+          previewDialog.addEventListener('animationend', onEnd, { once: true });
+          setTimeout(onEnd, 200);
+        } catch (_) { onEnd(); }
+      };
+
+      document.body.classList.add('ns-modal-open');
+      previewModal.classList.add('is-open');
+      previewModal.setAttribute('aria-hidden', 'false');
+      if (!reduceMotion) {
+        try {
+          previewModal.classList.add('ns-anim-in');
+          const onEnd = () => {
+            previewDialog.removeEventListener('animationend', onEnd);
+            try { previewModal.classList.remove('ns-anim-in'); } catch (_) {}
+          };
+          previewDialog.addEventListener('animationend', onEnd, { once: true });
+        } catch (_) {}
+      }
+
+      try { closeBtn.focus({ preventScroll: true }); }
+      catch (_) { closeBtn.focus(); }
+
+      closeBtn.addEventListener('click', () => closePreview());
+      previewModal.addEventListener('mousedown', (event) => {
+        if (event.target === previewModal) closePreview();
+      });
+      previewModal.addEventListener('keydown', (event) => {
+        if ((event.key || '').toLowerCase() === 'escape') {
+          event.preventDefault();
+          closePreview();
+        }
+      });
+    };
+
+    if (commitFiles.length) {
+      const info = document.createElement('p');
+      info.textContent = t('editor.composer.github.modal.summaryTitle');
+      summaryBlock.appendChild(info);
+
+      const systemFilesGroup = commitFiles.filter((file) => file && file.kind === 'system');
+      const textFiles = commitFiles.filter((file) => file && file.kind !== 'asset' && file.kind !== 'seo' && file.kind !== 'system');
+      const seoFilesGroup = commitFiles.filter((file) => file && file.kind === 'seo');
+      const assetFiles = commitFiles.filter((file) => file && file.kind === 'asset');
+
+      const renderGroup = (titleText, files) => {
+        if (!files || !files.length) return;
+        const group = document.createElement('div');
+        group.className = 'gh-sync-file-group';
+        const groupTitle = document.createElement('div');
+        groupTitle.className = 'gh-sync-file-group-title';
+        groupTitle.textContent = titleText;
+        group.appendChild(groupTitle);
+
+        const list = document.createElement('div');
+        list.className = 'gh-sync-file-list';
+
+        files.forEach((file) => {
+          if (!file) return;
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'gh-sync-file-entry';
+          item.textContent = describeSummaryEntry(file) || file.label || file.path || '';
+          item.addEventListener('click', () => openFilePreview(file, item));
+          list.appendChild(item);
+        });
+
+        group.appendChild(list);
+        summaryBlock.appendChild(group);
+      };
+
+      renderGroup(t('editor.composer.github.modal.summaryTextFilesTitle'), textFiles);
+      renderGroup(t('editor.composer.github.modal.summarySystemFilesTitle'), systemFilesGroup);
+      renderGroup(t('editor.composer.github.modal.summarySeoFilesTitle'), seoFilesGroup);
+      renderGroup(t('editor.composer.github.modal.summaryAssetFilesTitle'), assetFiles);
+    } else if (Array.isArray(summaryEntries) && summaryEntries.length) {
       const info = document.createElement('p');
       info.textContent = t('editor.composer.github.modal.summaryTitle');
       summaryBlock.appendChild(info);
@@ -3716,7 +5181,20 @@ function promptForFineGrainedToken(summaryEntries = []) {
         list.appendChild(item);
       });
       summaryBlock.appendChild(list);
+    } else {
+      const info = document.createElement('p');
+      info.className = 'muted';
+      info.textContent = t('editor.composer.github.modal.summaryEmpty');
+      summaryBlock.appendChild(info);
     }
+
+    if (seoFiles.length) {
+      const note = document.createElement('p');
+      note.className = 'muted';
+      note.textContent = 'SEO files were generated automatically and will be included in this upload.';
+      summaryBlock.appendChild(note);
+    }
+
     form.appendChild(summaryBlock);
 
     const tokenField = document.createElement('label');
@@ -3934,7 +5412,7 @@ async function waitForRemotePropagation(files = []) {
   files.forEach((file) => {
     if (!file || !file.path) return;
     const normalized = String(file.path).replace(/\\+/g, '/').replace(/^\/+/, '');
-    if (!normalized || seen.has(normalized)) return;
+    if (!normalized || normalized === 'site.yaml' || seen.has(normalized)) return;
     seen.add(normalized);
     unique.push({ ...file, path: normalized });
   });
@@ -4022,9 +5500,33 @@ async function waitForRemotePropagation(files = []) {
   return { canceled: false, timedOut: false };
 }
 
+function getActiveSiteRepoConfig() {
+  const site = getStateSlice('site');
+  const repo = site && typeof site === 'object' && site.repo && typeof site.repo === 'object'
+    ? site.repo
+    : null;
+  const fallback = window.__ns_site_repo && typeof window.__ns_site_repo === 'object'
+    ? window.__ns_site_repo
+    : {};
+  const ownerRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'owner')
+    ? repo.owner
+    : fallback.owner;
+  const nameRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'name')
+    ? repo.name
+    : fallback.name;
+  const branchRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'branch')
+    ? repo.branch
+    : fallback.branch;
+  const owner = String(ownerRaw || '').trim();
+  const name = String(nameRaw || '').trim();
+  const branch = String(branchRaw || '').trim() || 'main';
+  return { owner, name, branch };
+}
+
 function applyLocalPostCommitState(files = []) {
   if (!Array.isArray(files) || !files.length) return;
   const handledMarkdown = new Set();
+  let clearedSystem = false;
   files.forEach((file) => {
     if (!file || !file.kind) return;
     if (file.kind === 'index') {
@@ -4037,6 +5539,30 @@ function applyLocalPostCommitState(files = []) {
       remoteBaseline.tabs = deepClone(prepareTabsState(state));
       notifyComposerChange('tabs', { skipAutoSave: true });
       clearDraftStorage('tabs');
+    } else if (file.kind === 'site') {
+      const state = getStateSlice('site');
+      const snapshot = state ? cloneSiteState(state) : cloneSiteState(prepareSiteState({}));
+      remoteBaseline.site = snapshot;
+
+      const previousRoot = getContentRootSafe();
+      const rawNextRoot = snapshot && typeof snapshot === 'object' && Object.prototype.hasOwnProperty.call(snapshot, 'contentRoot')
+        ? safeString(snapshot.contentRoot)
+        : '';
+      const storedNextRoot = rawNextRoot ? rawNextRoot : 'wwwroot';
+      const normalizedNextRoot = storedNextRoot.trim().replace(/[\\]/g, '/').replace(/\/?$/, '');
+      const rootChanged = normalizedNextRoot !== previousRoot;
+      try {
+        window.__ns_content_root = storedNextRoot;
+      } catch (_) { /* noop */ }
+
+      notifyComposerChange('site', { skipAutoSave: true });
+      clearDraftStorage('site');
+
+      if (rootChanged) {
+        updateComposerMarkdownDraftIndicators();
+        updateMarkdownPushButton(getActiveDynamicTab());
+        updateMarkdownDiscardButton(getActiveDynamicTab());
+      }
     } else if (file.kind === 'markdown') {
       const norm = normalizeRelPath(file.markdownPath || file.label || '');
       if (!norm) return;
@@ -4084,6 +5610,12 @@ function applyLocalPostCommitState(files = []) {
       }
       updateComposerMarkdownDraftIndicators({ path: norm });
     }
+    else if (file.kind === 'system') {
+      if (!clearedSystem) {
+        clearSystemUpdateState({ keepStatus: false });
+        clearedSystem = true;
+      }
+    }
     else if (file.kind === 'asset') {
       const norm = normalizeRelPath(file.markdownPath || '');
       if (!norm) return;
@@ -4101,10 +5633,7 @@ function applyLocalPostCommitState(files = []) {
 }
 
 async function performDirectGithubCommit(token, summaryEntries = []) {
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
-  const branch = String(repo.branch || '').trim() || 'main';
+  const { owner, name, branch } = getActiveSiteRepoConfig();
   if (!owner || !name) {
     throw new Error('GitHub repository information is missing in site.yaml.');
   }
@@ -4134,7 +5663,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
   });
 
   try {
-    const { files } = gatherLocalChangesForCommit();
+    const { files } = await gatherCommitPayload({ showSeoStatus: true });
     if (!files.length) {
       hideSyncOverlay();
       showToast('info', t('editor.toasts.noPendingChanges'));
@@ -4243,9 +5772,7 @@ async function handleGlobalBubbleActivation(event) {
     showToast('info', t('editor.composer.noLocalChangesToCommit'));
     return;
   }
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
+  const { owner, name } = getActiveSiteRepoConfig();
   if (!owner || !name) {
     showToast('error', t('editor.toasts.repoOwnerMissing'));
     return;
@@ -4444,6 +5971,137 @@ function renderComposerInlineSummary(target, diff, options = {}) {
     empty.className = 'composer-inline-summary-empty';
     empty.textContent = tComposerDiff('inlineChips.none');
     target.appendChild(empty);
+  }
+}
+
+function getSiteFieldLabel(fieldKey) {
+  if (!fieldKey) return '';
+  const entry = SITE_FIELD_LABEL_MAP[fieldKey];
+  if (!entry) return fieldKey;
+  const key = entry.i18nKey || entry.key || entry;
+  if (typeof key === 'string' && key) {
+    try {
+      const label = t(key);
+      if (label && typeof label === 'string' && label.trim()) return label;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  if (entry && typeof entry === 'object' && entry.fallback) return entry.fallback;
+  if (typeof key === 'string' && key.trim()) return key;
+  return fieldKey;
+}
+
+function renderComposerSiteInlineSummary(target, diff) {
+  if (!target) return false;
+  target.innerHTML = '';
+
+  const summary = diff && typeof diff === 'object' ? diff : null;
+  if (!summary || !summary.hasChanges) {
+    const empty = document.createElement('span');
+    empty.className = 'composer-inline-summary-empty';
+    empty.textContent = tComposer('noLocalChangesYet');
+    target.appendChild(empty);
+    return false;
+  }
+
+  const fields = summary.fields && typeof summary.fields === 'object'
+    ? Object.keys(summary.fields).filter(Boolean)
+    : [];
+
+  const row = document.createElement('div');
+  row.className = 'composer-inline-chip-row';
+
+  const countChip = document.createElement('span');
+  countChip.className = 'composer-inline-chip';
+  countChip.dataset.variant = 'modified';
+  countChip.textContent = tComposerDiff('inlineChips.modified', { count: fields.length || 0 });
+  row.appendChild(countChip);
+
+  const labels = fields.map(getSiteFieldLabel).filter(Boolean);
+  const maxFields = 3;
+  labels.slice(0, maxFields).forEach(label => {
+    const chip = document.createElement('span');
+    chip.className = 'composer-inline-chip';
+    chip.dataset.variant = 'langs';
+    chip.textContent = label;
+    row.appendChild(chip);
+  });
+
+  if (labels.length > maxFields) {
+    const chip = document.createElement('span');
+    chip.className = 'composer-inline-chip';
+    chip.dataset.variant = 'langs';
+    chip.textContent = tComposerDiff('lists.more', { count: labels.length - maxFields });
+    row.appendChild(chip);
+  }
+
+  target.appendChild(row);
+  return true;
+}
+
+function updateComposerSiteInlineMeta(meta, options = {}) {
+  if (!meta) return;
+
+  meta.__nsSiteMetaActive = true;
+  try { meta.setAttribute('data-site-active', 'true'); } catch (_) {}
+  if (meta.dataset) meta.dataset.kind = 'site';
+
+  const title = meta.querySelector('.composer-order-inline-title');
+  if (title) title.textContent = tComposerDiff('inline.title');
+  const kindLabel = meta.querySelector('.composer-order-inline-kind');
+  if (kindLabel) kindLabel.textContent = 'site.yaml';
+
+  const openBtn = meta.querySelector('.composer-order-inline-open');
+  if (openBtn) {
+    if (!meta.__nsSiteMetaButtonState) {
+      meta.__nsSiteMetaButtonState = {
+        hidden: openBtn.hidden,
+        ariaHidden: openBtn.getAttribute('aria-hidden'),
+        display: openBtn.style.display,
+        disabled: !!openBtn.disabled
+      };
+    }
+    try { openBtn.dataset.kind = 'site'; } catch (_) {}
+    openBtn.hidden = true;
+    openBtn.disabled = true;
+    openBtn.style.display = 'none';
+    openBtn.setAttribute('aria-hidden', 'true');
+  }
+
+  const statsWrap = meta.querySelector('.composer-order-inline-stats');
+  const diff = composerDiffCache.site || recomputeDiff('site');
+  const hasChanges = !!(diff && diff.hasChanges);
+
+  if (statsWrap) renderComposerSiteInlineSummary(statsWrap, diff);
+
+  if (meta.dataset) meta.dataset.state = hasChanges ? 'changed' : 'clean';
+  animateComposerInlineVisibility(meta, hasChanges, { immediate: !!options.immediate });
+}
+
+function refreshComposerInlineMeta(options = {}) {
+  const meta = document.getElementById('composerOrderInlineMeta');
+  if (!meta) return;
+  const activeKind = getActiveComposerFile();
+  if (activeKind === 'site') {
+    updateComposerSiteInlineMeta(meta, options);
+    return;
+  }
+
+  if (meta.__nsSiteMetaActive) {
+    const stored = meta.__nsSiteMetaButtonState || null;
+    const openBtn = meta.querySelector('.composer-order-inline-open');
+    if (openBtn) {
+      openBtn.disabled = stored ? !!stored.disabled : false;
+      openBtn.hidden = stored ? !!stored.hidden : false;
+      if (stored && stored.display != null) openBtn.style.display = stored.display;
+      else openBtn.style.display = '';
+      if (stored && stored.ariaHidden != null) openBtn.setAttribute('aria-hidden', stored.ariaHidden);
+      else openBtn.removeAttribute('aria-hidden');
+    }
+    delete meta.__nsSiteMetaButtonState;
+    delete meta.__nsSiteMetaActive;
+    try { meta.removeAttribute('data-site-active'); } catch (_) {}
   }
 }
 
@@ -5842,7 +7500,10 @@ function scheduleAutoDraft(kind) {
 function saveDraftToStorage(kind, opts = {}) {
   const slice = getStateSlice(kind);
   if (!slice) return null;
-  const snapshot = kind === 'tabs' ? prepareTabsState(slice) : prepareIndexState(slice);
+  let snapshot;
+  if (kind === 'tabs') snapshot = prepareTabsState(slice);
+  else if (kind === 'site') snapshot = cloneSiteState(slice);
+  else snapshot = prepareIndexState(slice);
   const store = readDraftStore();
   const savedAt = Date.now();
   const baseSignature = computeBaselineSignature(kind);
@@ -5867,12 +7528,13 @@ function clearDraftStorage(kind) {
 function notifyComposerChange(kind, options = {}) {
   const diff = recomputeDiff(kind);
   if (kind === 'tabs') applyTabsDiffMarkers(diff);
+  else if (kind === 'site') applySiteDiffMarkers(diff);
   else applyIndexDiffMarkers(diff);
   updateFileDirtyBadge(kind);
   if (!options.skipAutoSave) scheduleAutoDraft(kind);
 
   updateUnsyncedSummary();
-  if (composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
+  if ((kind === 'index' || kind === 'tabs') && composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -5929,13 +7591,15 @@ function loadDraftSnapshotsIntoState(state) {
   const restored = [];
   const store = readDraftStore();
   if (!store) return restored;
-  ['index', 'tabs'].forEach(kind => {
+  ['index', 'tabs', 'site'].forEach(kind => {
     const entry = store[kind];
     if (!entry || !entry.data) return;
-    const snapshot = kind === 'tabs'
-      ? prepareTabsState(entry.data)
-      : prepareIndexState(entry.data);
+    let snapshot;
+    if (kind === 'tabs') snapshot = prepareTabsState(entry.data);
+    else if (kind === 'site') snapshot = cloneSiteState(entry.data);
+    else snapshot = prepareIndexState(entry.data);
     if (kind === 'tabs') state.tabs = snapshot;
+    else if (kind === 'site') state.site = snapshot;
     else state.index = snapshot;
     setStateSlice(kind, snapshot);
     composerDraftMeta[kind] = {
@@ -5968,11 +7632,15 @@ async function handleComposerRefresh(btn) {
       button.textContent = t('editor.composer.refreshing');
     }
     const contentRoot = getContentRootSafe();
-    const remote = await fetchConfigWithYamlFallback([
-      `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yaml`,
-      `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yml`
-    ]);
-    const prepared = target === 'tabs' ? prepareTabsState(remote || {}) : prepareIndexState(remote || {});
+    const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
+    const urls = target === 'site'
+      ? ['site.yaml', 'site.yml']
+      : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
+    const remote = await fetchConfigWithYamlFallback(urls);
+    let prepared;
+    if (target === 'tabs') prepared = prepareTabsState(remote || {});
+    else if (target === 'site') prepared = cloneSiteState(prepareSiteState(remote || {}));
+    else prepared = prepareIndexState(remote || {});
     const baselineSignatureBefore = computeBaselineSignature(target);
     remoteBaseline[target] = prepared;
     const diffBefore = composerDiffCache[target];
@@ -5980,10 +7648,11 @@ async function handleComposerRefresh(btn) {
     if (!hadLocalChanges) {
       setStateSlice(target, deepClone(prepared));
       if (target === 'tabs') rebuildTabsUI();
+      else if (target === 'site') rebuildSiteUI();
       else rebuildIndexUI();
       showStatus(
         t('editor.composer.statusMessages.refreshSuccess', {
-          name: `${target === 'tabs' ? 'tabs' : 'index'}.yaml`
+          name: `${fileBase}.yaml`
         })
       );
     } else {
@@ -6605,7 +8274,7 @@ function showComposerDiscardConfirm(anchor, messageText, options) {
 
 async function handleComposerDiscard(btn) {
   const target = getActiveComposerFile();
-  const label = target === 'tabs' ? 'tabs.yaml' : 'index.yaml';
+  const label = target === 'tabs' ? 'tabs.yaml' : target === 'site' ? 'site.yaml' : 'index.yaml';
   const diff = composerDiffCache[target];
   const meta = composerDraftMeta[target];
   const hasChanges = !!(diff && diff.hasChanges);
@@ -6651,12 +8320,15 @@ async function handleComposerDiscard(btn) {
     let fetchedFresh = false;
     try {
       const contentRoot = getContentRootSafe();
-      const remote = await fetchConfigWithYamlFallback([
-        `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yaml`,
-        `${contentRoot}/${target === 'tabs' ? 'tabs' : 'index'}.yml`
-      ]);
+      const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
+      const urls = target === 'site'
+        ? ['site.yaml', 'site.yml']
+        : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
+      const remote = await fetchConfigWithYamlFallback(urls);
       if (remote != null) {
-        prepared = target === 'tabs' ? prepareTabsState(remote) : prepareIndexState(remote);
+        if (target === 'tabs') prepared = prepareTabsState(remote);
+        else if (target === 'site') prepared = cloneSiteState(prepareSiteState(remote));
+        else prepared = prepareIndexState(remote);
         fetchedFresh = true;
       }
     } catch (err) {
@@ -6665,11 +8337,12 @@ async function handleComposerDiscard(btn) {
 
     if (!prepared) {
       const baseline = remoteBaseline[target];
-      prepared = baseline ? deepClone(baseline) : { __order: [] };
+      if (target === 'site') prepared = baseline ? cloneSiteState(baseline) : cloneSiteState(prepareSiteState({}));
+      else prepared = baseline ? deepClone(baseline) : { __order: [] };
     }
 
-    const normalized = deepClone(prepared);
-    remoteBaseline[target] = deepClone(prepared);
+    const normalized = target === 'site' ? cloneSiteState(prepared) : deepClone(prepared);
+    remoteBaseline[target] = target === 'site' ? cloneSiteState(prepared) : deepClone(prepared);
     setStateSlice(target, normalized);
 
     if (composerAutoSaveTimers[target]) {
@@ -6678,6 +8351,7 @@ async function handleComposerDiscard(btn) {
     }
 
     if (target === 'tabs') rebuildTabsUI();
+    else if (target === 'site') rebuildSiteUI();
     else rebuildIndexUI();
 
     clearDraftStorage(target);
@@ -6830,6 +8504,8 @@ function persistDynamicEditorState() {
       const active = dynamicEditorTabs.get(currentMode);
       state.mode = 'dynamic';
       state.activePath = active && active.path ? active.path : null;
+    } else if (currentMode === 'updates') {
+      state.mode = 'updates';
     } else {
       state.mode = 'composer';
     }
@@ -6862,7 +8538,7 @@ function restoreDynamicEditorState() {
     getOrCreateDynamicMode(norm);
   });
 
-  const mode = (data.mode === 'editor' || data.mode === 'dynamic') ? data.mode : 'composer';
+  const mode = (data.mode === 'editor' || data.mode === 'dynamic' || data.mode === 'updates') ? data.mode : 'composer';
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
 
   if (mode === 'dynamic' && activePath) {
@@ -6874,6 +8550,7 @@ function restoreDynamicEditorState() {
   }
 
   if (mode === 'editor') applyMode('editor');
+  else if (mode === 'updates') applyMode('updates');
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -6895,10 +8572,8 @@ function updateMarkdownPushButton(tab) {
   if (!markdownPushButton) return;
 
   const btn = markdownPushButton;
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
-  const hasRepo = !!(owner && name);
+  const repo = getActiveSiteRepoConfig();
+  const hasRepo = !!(repo.owner && repo.name);
 
   const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
   const hasDraftContent = !!(active && active.localDraft && normalizeMarkdownContent(active.localDraft.content || ''));
@@ -7023,15 +8698,12 @@ async function openMarkdownPushOnGitHub(tab) {
     return;
   }
 
-  const repo = window.__ns_site_repo || {};
-  const owner = String(repo.owner || '').trim();
-  const name = String(repo.name || '').trim();
+  const { owner, name, branch } = getActiveSiteRepoConfig();
   if (!owner || !name) {
     showToast('info', t('editor.toasts.repoConfigMissing'));
     return;
   }
 
-  const branch = String(repo.branch || 'main').trim() || 'main';
   const root = getContentRootSafe();
   const rel = normalizeRelPath(tab.path);
   if (!rel) {
@@ -7603,7 +9275,7 @@ function applyMode(mode) {
   }
 
   const candidate = mode || 'composer';
-  const nextMode = (candidate === 'composer' || candidate === 'editor' || isDynamicMode(candidate))
+  const nextMode = (candidate === 'composer' || candidate === 'editor' || candidate === 'updates' || isDynamicMode(candidate))
     ? candidate
     : 'composer';
 
@@ -7622,9 +9294,15 @@ function applyMode(mode) {
 
   currentMode = nextMode;
 
-  const onEditor = nextMode !== 'composer';
-  try { $('#mode-editor').style.display = onEditor ? '' : 'none'; } catch (_) {}
-  try { $('#mode-composer').style.display = onEditor ? 'none' : ''; } catch (_) {}
+  const showComposer = nextMode === 'composer';
+  const showEditor = nextMode === 'editor' || isDynamicMode(nextMode);
+  const showUpdates = nextMode === 'updates';
+  try { $('#mode-editor').style.display = showEditor ? '' : 'none'; } catch (_) {}
+  try { $('#mode-composer').style.display = showComposer ? '' : 'none'; } catch (_) {}
+  try {
+    const updatesLayout = $('#mode-updates');
+    if (updatesLayout) updatesLayout.style.display = showUpdates ? '' : 'none';
+  } catch (_) {}
   try {
     const layout = $('#mode-editor');
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
@@ -7652,7 +9330,7 @@ function applyMode(mode) {
     catch (_) { setTimeout(run, 0); }
   };
 
-  if (onEditor) scheduleEditorLayoutRefresh();
+  if (showEditor) scheduleEditorLayoutRefresh();
 
   if (nextMode === 'composer') {
     activeDynamicMode = null;
@@ -7702,12 +9380,15 @@ function applyMode(mode) {
         });
       }
     }
-  } else {
+  } else if (nextMode === 'editor') {
     activeDynamicMode = null;
     if (editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       scheduleEditorLayoutRefresh();
     }
+    pushEditorCurrentFileInfo(null);
+  } else {
+    activeDynamicMode = null;
     pushEditorCurrentFileInfo(null);
   }
 
@@ -7723,7 +9404,7 @@ function applyMode(mode) {
 function getInitialComposerFile() {
   try {
     const v = (localStorage.getItem(LS_KEYS.cfile) || '').toLowerCase();
-    if (v === 'tabs' || v === 'index') return v;
+    if (v === 'tabs' || v === 'index' || v === 'site') return v;
   } catch (_) {}
   return 'index';
 }
@@ -7742,7 +9423,7 @@ function cancelComposerViewTransition() {
 }
 
 function applyComposerFile(name, options = {}) {
-  const target = name === 'tabs' ? 'tabs' : 'index';
+  const target = name === 'tabs' ? 'tabs' : (name === 'site' ? 'site' : 'index');
   const force = !!options.force;
   const immediate = !!options.immediate;
   if (!force && activeComposerFile === target) {
@@ -7756,18 +9437,31 @@ function applyComposerFile(name, options = {}) {
   activeComposerFile = target;
 
   const updateToggleUi = () => {
-    const isIndex = activeComposerFile !== 'tabs';
+    const normalized = getActiveComposerFile();
     try {
       $$('a.vt-btn[data-cfile]').forEach(a => {
-        a.classList.toggle('active', a.dataset.cfile === (isIndex ? 'index' : 'tabs'));
+        a.classList.toggle('active', a.dataset.cfile === normalized);
       });
     } catch (_) {}
     try {
       const btn = $('#btnAddItem');
       if (btn) {
-        const key = isIndex ? 'editor.composer.addPost' : 'editor.composer.addTab';
-        btn.setAttribute('data-i18n', key);
-        btn.textContent = t(key);
+        if (normalized === 'index') {
+          const key = 'editor.composer.addPost';
+          btn.hidden = false;
+          btn.style.display = '';
+          btn.setAttribute('data-i18n', key);
+          btn.textContent = t(key);
+        } else if (normalized === 'tabs') {
+          const key = 'editor.composer.addTab';
+          btn.hidden = false;
+          btn.style.display = '';
+          btn.setAttribute('data-i18n', key);
+          btn.textContent = t(key);
+        } else {
+          btn.hidden = true;
+          btn.style.display = 'none';
+        }
       }
     } catch (_) {}
   };
@@ -7775,25 +9469,37 @@ function applyComposerFile(name, options = {}) {
   updateToggleUi();
 
   const applyState = () => {
-    const isIndex = activeComposerFile !== 'tabs';
+    const normalized = getActiveComposerFile();
+    const showIndex = normalized === 'index';
+    const showTabs = normalized === 'tabs';
+    const showSite = normalized === 'site';
     try {
       const hostIndex = document.getElementById('composerIndexHost');
-      if (hostIndex) hostIndex.style.display = isIndex ? '' : 'none';
+      if (hostIndex) hostIndex.style.display = showIndex ? '' : 'none';
     } catch (_) {}
     try {
       const hostTabs = document.getElementById('composerTabsHost');
-      if (hostTabs) hostTabs.style.display = isIndex ? 'none' : '';
+      if (hostTabs) hostTabs.style.display = showTabs ? '' : 'none';
     } catch (_) {}
-    try { $('#composerIndex').style.display = isIndex ? 'block' : 'none'; } catch (_) {}
-    try { $('#composerTabs').style.display = isIndex ? 'none' : 'block'; } catch (_) {}
+    try {
+      const hostSite = document.getElementById('composerSiteHost');
+      if (hostSite) hostSite.style.display = showSite ? '' : 'none';
+    } catch (_) {}
+    try { $('#composerIndex').style.display = showIndex ? 'block' : 'none'; } catch (_) {}
+    try { $('#composerTabs').style.display = showTabs ? 'block' : 'none'; } catch (_) {}
+    try { $('#composerSite').style.display = showSite ? 'block' : 'none'; } catch (_) {}
     // Sync preload attribute to avoid CSS forcing the wrong sub-file
     try {
-      if (!isIndex) document.documentElement.setAttribute('data-init-cfile', 'tabs');
+      if (normalized === 'tabs' || normalized === 'site') document.documentElement.setAttribute('data-init-cfile', normalized);
       else document.documentElement.removeAttribute('data-init-cfile');
     } catch (_) {}
 
-    try { setComposerOrderPreviewActiveKind(activeComposerFile); } catch (_) {}
-    try { updateUnsyncedSummary(); } catch (_) {}
+    try {
+      if (normalized === 'site') setComposerOrderPreviewActiveKind('index');
+      else setComposerOrderPreviewActiveKind(normalized);
+    } catch (_) {}
+    const summaryOptions = normalized === 'site' ? { immediate: true } : undefined;
+    try { updateUnsyncedSummary(summaryOptions); } catch (_) {}
   };
 
   if (!panels || reduceMotion) {
@@ -8067,15 +9773,17 @@ function sortLangKeys(obj) {
 
 // Localized display names for languages in UI menus
 function displayLangName(code) {
-  const c = String(code || '').toLowerCase();
-  if (c === 'en') return 'English';
-  if (c === 'zh') return '中文';
-  if (c === 'ja') return '日本語';
-  return c.toUpperCase();
+  const normalized = normalizeLangCode(code);
+  if (!normalized) return '';
+  try {
+    const label = getLanguageLabel(normalized);
+    if (label && String(label).trim()) return String(label).trim();
+  } catch (_) {}
+  return normalized.toUpperCase();
 }
 
 function langFlag(code) {
-  const c = String(code || '').toLowerCase();
+  const c = normalizeLangCode(code);
   if (c === 'en') return '🇺🇸';
   if (c === 'zh') return '🇨🇳';
   if (c === 'ja') return '🇯🇵';
@@ -8557,6 +10265,7 @@ function buildIndexUI(root, state) {
           const meta = row.querySelector('.ci-meta');
           if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
+          broadcastLanguagePoolChange();
           markDirty();
         });
         bodyInner.appendChild(block);
@@ -8624,6 +10333,7 @@ function buildIndexUI(root, state) {
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
+            broadcastLanguagePoolChange();
             markDirty();
           });
         });
@@ -8791,6 +10501,7 @@ function buildTabsUI(root, state) {
           const meta = row.querySelector('.ct-meta');
           if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
+          broadcastLanguagePoolChange();
           markDirty();
         });
         bodyInner.appendChild(block);
@@ -8855,6 +10566,7 @@ function buildTabsUI(root, state) {
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
+            broadcastLanguagePoolChange();
             markDirty();
           });
         });
@@ -9036,12 +10748,20 @@ function bindComposerUI(state) {
       applyMode(mode);
     });
   });
+  try {
+    initSystemUpdates({ onStateChange: () => { try { updateUnsyncedSummary(); } catch (_) {} } });
+  } catch (err) {
+    console.error('Failed to initialize system updates module', err);
+  }
 
   // File switch (index.yaml <-> tabs.yaml)
   const links = $$('a.vt-btn[data-cfile]');
   const setFile = (name, options = {}) => {
     applyComposerFile(name, options);
-    try { localStorage.setItem(LS_KEYS.cfile, (name === 'tabs') ? 'tabs' : 'index'); } catch (_) {}
+    try {
+      const normalized = name === 'tabs' ? 'tabs' : (name === 'site' ? 'site' : 'index');
+      localStorage.setItem(LS_KEYS.cfile, normalized);
+    } catch (_) {}
   };
   links.forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); setFile(a.dataset.cfile); }));
   // Respect persisted selection on load
@@ -9254,9 +10974,10 @@ function bindComposerUI(state) {
               const badge = document.createElement('span'); badge.className='badge badge-ver'; badge.textContent = it.version ? it.version : '—'; row.appendChild(badge);
               const p = document.createElement('code'); p.textContent = it.path; p.style.flex='1 1 auto'; row.appendChild(p);
               const actions = document.createElement('div'); actions.className='ci-ver-actions'; actions.style.display='inline-flex'; actions.style.gap='.35rem';
-              const siteRepo = window.__ns_site_repo || {}; const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+              const { owner, name, branch } = getActiveSiteRepoConfig();
+              const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
               const aNew = document.createElement('a');
-              const canGh = !!(siteRepo.owner && siteRepo.name);
+              const canGh = !!(owner && name);
               aNew.className = canGh ? 'btn-secondary btn-github' : 'btn-secondary'; aNew.target='_blank'; aNew.rel='noopener';
               if (canGh) {
                 aNew.innerHTML = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/></svg><span class="btn-label">Create File</span>';
@@ -9265,7 +10986,8 @@ function bindComposerUI(state) {
               }
               // For missing files under post/..., prefill with default front-matter
               if (canGh) {
-                let href = buildGhNewLink(siteRepo.owner, siteRepo.name, siteRepo.branch||'main', `${root}/${it.folder}`, it.filename);
+                const branchName = branch || 'main';
+                let href = buildGhNewLink(owner, name, branchName, `${root}/${it.folder}`, it.filename);
                 try {
                   if (String(it.folder || '').replace(/^\/+/, '').startsWith('post/')) {
                     const ver = it && it.version ? String(it.version) : '';
@@ -9384,7 +11106,7 @@ function bindComposerUI(state) {
       }
       // Need update -> copy and open GitHub edit/new page
       try { nsCopyToClipboard(desired); } catch(_) {}
-      const siteRepo = window.__ns_site_repo || {}; const owner = siteRepo.owner||''; const name = siteRepo.name||''; const branch = siteRepo.branch||'main';
+      const { owner, name, branch } = getActiveSiteRepoConfig();
       if (owner && name){
         let href = '';
         if (cur) href = buildGhEditFileLink(owner, name, branch, `${contentRoot}/${baseName}.yaml`);
@@ -9528,7 +11250,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (_) {}
 
-  const state = { index: {}, tabs: {} };
+  const state = { index: {}, tabs: {}, site: {} };
   showStatus(t('editor.composer.statusMessages.loadingConfig'));
   try {
     const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
@@ -9539,6 +11261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.__ns_site_repo = { owner: String(repo.owner || ''), name: String(repo.name || ''), branch: String(repo.branch || 'main') };
     } catch(_) { window.__ns_site_repo = { owner: '', name: '', branch: 'main' }; }
     updateMarkdownPushButton(getActiveDynamicTab());
+    const remoteSite = prepareSiteState(site || {});
     const [idx, tbs] = await Promise.all([
       fetchConfigWithYamlFallback([`${root}/index.yaml`, `${root}/index.yml`]),
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
@@ -9547,14 +11270,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const remoteTabs = prepareTabsState(tbs || {});
     remoteBaseline.index = deepClone(remoteIndex);
     remoteBaseline.tabs = deepClone(remoteTabs);
+    remoteBaseline.site = cloneSiteState(remoteSite);
     state.index = deepClone(remoteIndex);
     state.tabs = deepClone(remoteTabs);
+    state.site = cloneSiteState(remoteSite);
   } catch (e) {
     console.warn('Composer: failed to load configs', e);
     remoteBaseline.index = { __order: [] };
     remoteBaseline.tabs = { __order: [] };
+    remoteBaseline.site = cloneSiteState(prepareSiteState({}));
     state.index = { __order: [] };
     state.tabs = { __order: [] };
+    state.site = cloneSiteState(prepareSiteState({}));
     updateMarkdownPushButton(getActiveDynamicTab());
   }
 
@@ -9562,7 +11289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const restoredDrafts = loadDraftSnapshotsIntoState(state);
 
   if (restoredDrafts.length) {
-    const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : 'index.yaml')).join(' & ');
+    const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : k === 'site' ? 'site.yaml' : 'index.yaml')).join(' & ');
     showStatus(t('editor.composer.statusMessages.restoredDraft', { label }));
     setTimeout(() => { showStatus(''); }, 1800);
   } else {
@@ -9573,15 +11300,1727 @@ document.addEventListener('DOMContentLoaded', async () => {
   attachGlobalStatusCommitHandler();
   buildIndexUI($('#composerIndex'), state);
   buildTabsUI($('#composerTabs'), state);
+  buildSiteUI($('#composerSite'), state);
 
   notifyComposerChange('index', { skipAutoSave: true });
   notifyComposerChange('tabs', { skipAutoSave: true });
+  notifyComposerChange('site', { skipAutoSave: true });
 
 
   restoreDynamicEditorState();
   allowEditorStatePersist = true;
   persistDynamicEditorState();
 });
+
+function buildSiteUI(root, state) {
+  if (!root) return;
+  root.innerHTML = '';
+  try {
+    if (typeof root.__nsSiteNavOrientationCleanup === 'function') root.__nsSiteNavOrientationCleanup();
+  } catch (_) {}
+  try { root.__nsSiteNavOrientationCleanup = null; } catch (_) {}
+  try {
+    if (typeof root.__nsSiteScrollSyncCleanup === 'function') root.__nsSiteScrollSyncCleanup();
+  } catch (_) {}
+  try { root.__nsSiteScrollSyncCleanup = null; } catch (_) {}
+  try {
+    if (typeof root.__nsSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__nsSiteNavFocusHandler);
+  } catch (_) {}
+  try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
+  try { root.__nsSiteNavRefresh = null; } catch (_) {}
+  try { root.__nsSiteNavSetActive = null; } catch (_) {}
+  try { root.__nsSiteRevealField = null; } catch (_) {}
+  if (!state || typeof state !== 'object') return;
+  let site = state.site;
+  if (!site || typeof site !== 'object') {
+    site = cloneSiteState(prepareSiteState({}));
+    state.site = site;
+  }
+  setStateSlice('site', site);
+
+  const container = document.createElement('div');
+  container.className = 'cs-root';
+  root.appendChild(container);
+
+  const sectionsMeta = [];
+  let activeSectionId = '';
+  const preservedActiveLabel = (() => {
+    try { return String(root.__nsSiteActiveSection || '').trim(); }
+    catch (_) { return ''; }
+  })();
+
+  const getNow = () => {
+    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+      try { return performance.now(); } catch (_) {}
+    }
+    try { return Date.now(); } catch (_) { return 0; }
+  };
+
+  let scrollSyncHandle = null;
+  let scrollSyncHandleType = '';
+  let scrollSyncLockUntil = 0;
+
+  const escapeFieldKey = (value) => {
+    const raw = value == null ? '' : String(value);
+    try {
+      if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(raw);
+    } catch (_) {}
+    return raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  };
+
+  const layout = document.createElement('div');
+  layout.className = 'cs-layout';
+  container.appendChild(layout);
+
+  const nav = document.createElement('nav');
+  nav.className = 'cs-nav';
+  const navLabel = (() => {
+    try {
+      const label = t('editor.composer.site.sections.navigation');
+      if (label && label !== 'editor.composer.site.sections.navigation') return label;
+    } catch (_) {}
+    return 'Site sections';
+  })();
+  nav.setAttribute('aria-label', navLabel);
+
+  const navList = document.createElement('ul');
+  navList.className = 'cs-nav-list';
+  navList.setAttribute('role', 'tablist');
+  nav.appendChild(navList);
+  layout.appendChild(nav);
+
+  const viewport = document.createElement('div');
+  viewport.className = 'cs-viewport';
+  layout.appendChild(viewport);
+
+  const navOrientationQuery = (() => {
+    try {
+      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
+      return window.matchMedia('(max-width: 920px)');
+    } catch (_) {
+      return null;
+    }
+  })();
+
+  const updateNavOrientation = () => {
+    const horizontal = !!(navOrientationQuery && navOrientationQuery.matches);
+    navList.setAttribute('aria-orientation', horizontal ? 'horizontal' : 'vertical');
+  };
+
+  updateNavOrientation();
+  if (navOrientationQuery) {
+    const orientationHandler = () => {
+      updateNavOrientation();
+      try { scheduleScrollSync(); } catch (_) {}
+    };
+    if (typeof navOrientationQuery.addEventListener === 'function') navOrientationQuery.addEventListener('change', orientationHandler);
+    else if (typeof navOrientationQuery.addListener === 'function') navOrientationQuery.addListener(orientationHandler);
+    try {
+      root.__nsSiteNavOrientationCleanup = () => {
+        if (typeof navOrientationQuery.removeEventListener === 'function') navOrientationQuery.removeEventListener('change', orientationHandler);
+        else if (typeof navOrientationQuery.removeListener === 'function') navOrientationQuery.removeListener(orientationHandler);
+      };
+    } catch (_) {}
+  }
+
+  const resolveViewportAnchorTop = () => {
+    if (typeof window === 'undefined') return 0;
+    let toolbarOffset = 0;
+    try {
+      const docStyles = window.getComputedStyle(document.documentElement);
+      const parsedToolbar = parseFloat(docStyles && docStyles.getPropertyValue('--editor-toolbar-offset'));
+      if (Number.isFinite(parsedToolbar)) toolbarOffset = Math.max(parsedToolbar, 0);
+    } catch (_) {}
+
+    let desiredTop = Math.max(toolbarOffset + 12, 12);
+    try {
+      if (nav && typeof nav.getBoundingClientRect === 'function') {
+        const navRect = nav.getBoundingClientRect();
+        if (navRect && Number.isFinite(navRect.top)) {
+          desiredTop = Math.min(desiredTop, Math.max(navRect.top - 8, 12));
+        }
+      }
+    } catch (_) {}
+
+    return desiredTop;
+  };
+
+  function focusNavAt(index) {
+    if (!sectionsMeta.length) return;
+    const len = sectionsMeta.length;
+    let next = index;
+    if (Number.isNaN(next)) next = 0;
+    if (next < 0) next = len - 1;
+    if (next >= len) next = 0;
+    const target = sectionsMeta[next];
+    if (target && target.navButton && typeof target.navButton.focus === 'function') {
+      try { target.navButton.focus(); } catch (_) {}
+    }
+  }
+
+  function setActiveSection(sectionId, options = {}) {
+    if (!sectionId || !sectionsMeta.length) return;
+    let resolved = false;
+    let focusTarget = null;
+    let activeMeta = null;
+    const shouldScroll = options && options.scrollViewport !== false;
+    const skipScrollLock = !!(options && options.skipScrollLock);
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.section || !meta.navButton) return;
+      const isActive = meta.id === sectionId;
+      if (isActive) {
+        activeSectionId = sectionId;
+        resolved = true;
+        activeMeta = meta;
+        try { meta.section.removeAttribute('hidden'); } catch (_) {}
+        meta.section.classList.add('is-active');
+        meta.section.setAttribute('aria-hidden', 'false');
+        meta.navButton.classList.add('is-active');
+        meta.navButton.setAttribute('aria-selected', 'true');
+        meta.navButton.setAttribute('tabindex', '0');
+        navList.setAttribute('aria-activedescendant', meta.navButton.id);
+        try { root.__nsSiteActiveSection = meta.label || ''; } catch (_) {}
+        if (options.focusPanel) {
+          const focusable = meta.section.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])');
+          if (focusable && typeof focusable.focus === 'function') focusTarget = focusable;
+        }
+      } else {
+        try { meta.section.removeAttribute('hidden'); } catch (_) {}
+        meta.section.classList.remove('is-active');
+        try { meta.section.removeAttribute('aria-hidden'); } catch (_) {}
+        meta.navButton.classList.remove('is-active');
+        meta.navButton.setAttribute('aria-selected', 'false');
+        meta.navButton.setAttribute('tabindex', '-1');
+      }
+    });
+    if (!resolved) return;
+    let focusCommitted = false;
+    const commitFocus = (delay = 0) => {
+      if (!focusTarget || focusCommitted) return;
+      focusCommitted = true;
+      const target = focusTarget;
+      const schedule = () => {
+        if (!target || typeof target.focus !== 'function') return;
+        if (activeSectionId !== sectionId) return;
+        const applyFocus = () => {
+          try {
+            target.focus({ preventScroll: true });
+          } catch (_) {
+            try { target.focus(); } catch (_) {}
+          }
+        };
+        try {
+          requestAnimationFrame(applyFocus);
+        } catch (_) {
+          applyFocus();
+        }
+      };
+      const ms = Math.max(0, Number(delay) || 0);
+      if (ms > 0 && typeof setTimeout === 'function') {
+        setTimeout(schedule, ms);
+      } else {
+        schedule();
+      }
+      focusTarget = null;
+    };
+
+    if (shouldScroll && activeMeta && typeof window !== 'undefined') {
+      const executeScroll = () => {
+        try {
+          const sectionRect = activeMeta.section.getBoundingClientRect();
+          const desiredTop = resolveViewportAnchorTop();
+          const delta = sectionRect.top - desiredTop;
+          if (Math.abs(delta) > 4) {
+            const behavior = options.scrollBehavior || 'smooth';
+            const prefersReduced = composerPrefersReducedMotion();
+            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+            const resolvedDuration = resolveComposerScrollDuration(options.scrollDuration);
+            if (!skipScrollLock) {
+              const now = getNow();
+              const lockDuration = behavior === 'smooth' ? resolvedDuration + 160 : 140;
+              scrollSyncLockUntil = now + Math.max(lockDuration, 140);
+            }
+
+            if (!prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
+              const animated = animateComposerViewportScroll(targetY, resolvedDuration, () => commitFocus(48));
+              if (animated) return;
+            }
+
+            cancelComposerSiteScrollAnimation();
+
+            if (typeof window.scrollBy === 'function') {
+              try {
+                window.scrollBy({ top: delta, behavior });
+              } catch (_) {
+                window.scrollBy(0, delta);
+              }
+            } else if (typeof window.scrollTo === 'function') {
+              try {
+                window.scrollTo({ top: targetY, behavior });
+              } catch (_) {
+                window.scrollTo(0, targetY);
+              }
+            }
+
+            if (!prefersReduced && behavior === 'smooth') commitFocus(resolvedDuration + 64);
+            else commitFocus(0);
+            return;
+          }
+
+          commitFocus(0);
+        } catch (_) {
+          commitFocus(0);
+        }
+      };
+
+      try {
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(executeScroll);
+        else executeScroll();
+      } catch (_) {
+        executeScroll();
+      }
+    } else {
+      commitFocus(0);
+    }
+  }
+
+  function refreshNavDiffState() {
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.navButton || !meta.section) return;
+      const hasDiff = !!meta.section.querySelector('[data-diff]');
+      if (hasDiff) meta.navButton.setAttribute('data-has-diff', 'true');
+      else meta.navButton.removeAttribute('data-has-diff');
+    });
+  }
+
+  function cancelScheduledScrollSync() {
+    if (scrollSyncHandle == null) return;
+    if (scrollSyncHandleType === 'raf' && typeof cancelAnimationFrame === 'function') {
+      try { cancelAnimationFrame(scrollSyncHandle); } catch (_) {}
+    } else if (scrollSyncHandleType === 'timeout' && typeof clearTimeout === 'function') {
+      try { clearTimeout(scrollSyncHandle); } catch (_) {}
+    }
+    scrollSyncHandle = null;
+    scrollSyncHandleType = '';
+  }
+
+  function runScrollSync() {
+    scrollSyncHandle = null;
+    scrollSyncHandleType = '';
+    if (typeof window === 'undefined') return;
+    const now = getNow();
+    if (now < scrollSyncLockUntil) {
+      if (typeof setTimeout === 'function') {
+        const delay = Math.max(24, Math.min(240, scrollSyncLockUntil - now + 16));
+        scrollSyncHandleType = 'timeout';
+        scrollSyncHandle = setTimeout(() => {
+          scrollSyncHandle = null;
+          scrollSyncHandleType = '';
+          runScrollSync();
+        }, delay);
+      }
+    } else {
+      if (!sectionsMeta.length) return;
+      const anchorTop = resolveViewportAnchorTop();
+      const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const tolerance = Math.max(48, Math.min(viewportHeight * 0.25 || 0, 180));
+      const anchorDocY = scrollY + anchorTop;
+      let candidate = null;
+
+      for (let i = 0; i < sectionsMeta.length; i += 1) {
+        const meta = sectionsMeta[i];
+        if (!meta || !meta.section) continue;
+        const rect = meta.section.getBoundingClientRect();
+        if (!rect || rect.height <= 4) continue;
+        const sectionTop = scrollY + rect.top;
+        if (sectionTop <= anchorDocY + tolerance) {
+          candidate = meta;
+          continue;
+        }
+        if (!candidate) candidate = meta;
+        break;
+      }
+
+      if (!candidate) candidate = sectionsMeta[sectionsMeta.length - 1] || null;
+      if (!candidate || candidate.id === activeSectionId) return;
+      setActiveSection(candidate.id, { focusPanel: false, scrollViewport: false, skipScrollLock: true });
+    }
+  }
+
+  function scheduleScrollSync() {
+    if (typeof window === 'undefined') return;
+    if (scrollSyncHandle != null) return;
+    const runner = () => {
+      scrollSyncHandle = null;
+      scrollSyncHandleType = '';
+      runScrollSync();
+    };
+    try {
+      scrollSyncHandleType = 'raf';
+      scrollSyncHandle = requestAnimationFrame(() => runner());
+    } catch (_) {
+      if (typeof setTimeout === 'function') {
+        scrollSyncHandleType = 'timeout';
+        scrollSyncHandle = setTimeout(runner, 66);
+      } else {
+        runner();
+      }
+    }
+  }
+
+  const createSection = (title, description) => {
+    const section = document.createElement('section');
+    section.className = 'cs-section';
+    section.setAttribute('role', 'tabpanel');
+    section.setAttribute('aria-hidden', 'false');
+    const sectionId = `cs-section-${sectionsMeta.length + 1}`;
+    section.id = sectionId;
+    if (title || description) {
+      const head = document.createElement('div');
+      head.className = 'cs-section-head';
+      let heading = null;
+      if (title) {
+        heading = document.createElement('h3');
+        heading.className = 'cs-section-title';
+        heading.textContent = title;
+        head.appendChild(heading);
+      }
+      if (description) {
+        const desc = document.createElement('p');
+        desc.className = 'cs-section-description';
+        desc.textContent = description;
+        head.appendChild(desc);
+      }
+      section.appendChild(head);
+    }
+    viewport.appendChild(section);
+
+    const labelText = (() => {
+      if (title && String(title).trim()) return String(title).trim();
+      const fromHeading = section.querySelector('.cs-section-title');
+      return fromHeading && fromHeading.textContent ? fromHeading.textContent.trim() : `Section ${sectionsMeta.length + 1}`;
+    })();
+
+    const navItem = document.createElement('li');
+    navItem.className = 'cs-nav-item';
+    const navButton = document.createElement('button');
+    navButton.type = 'button';
+    navButton.className = 'cs-nav-button';
+    const navButtonId = `${sectionId}-tab`;
+    navButton.id = navButtonId;
+    navButton.textContent = labelText;
+    navButton.setAttribute('role', 'tab');
+    navButton.setAttribute('aria-controls', sectionId);
+    navButton.setAttribute('aria-selected', 'false');
+    navButton.setAttribute('tabindex', '-1');
+    navButton.addEventListener('click', () => setActiveSection(sectionId, { focusPanel: true }));
+    navButton.addEventListener('keydown', (event) => {
+      const key = event.key;
+      if (!key) return;
+      const currentIndex = sectionsMeta.findIndex((meta) => meta && meta.id === sectionId);
+      if (key === 'ArrowDown' || key === 'ArrowRight') {
+        event.preventDefault();
+        focusNavAt(currentIndex + 1);
+      } else if (key === 'ArrowUp' || key === 'ArrowLeft') {
+        event.preventDefault();
+        focusNavAt(currentIndex - 1);
+      } else if (key === 'Home') {
+        event.preventDefault();
+        focusNavAt(0);
+      } else if (key === 'End') {
+        event.preventDefault();
+        focusNavAt(sectionsMeta.length - 1);
+      }
+    });
+    navItem.appendChild(navButton);
+    navList.appendChild(navItem);
+
+    const meta = { id: sectionId, section, navButton, label: labelText };
+    sectionsMeta.push(meta);
+
+    const shouldRestore = preservedActiveLabel && labelText === preservedActiveLabel;
+    if (!activeSectionId || shouldRestore) {
+      setActiveSection(sectionId, { scrollViewport: false });
+    }
+
+    return section;
+  };
+
+  const revealField = (fieldKey, options = {}) => {
+    if (!fieldKey) return null;
+    const selector = `[data-field="${escapeFieldKey(fieldKey)}"]`;
+    let fieldEl = null;
+    try { fieldEl = root.querySelector(selector); }
+    catch (_) { fieldEl = null; }
+    if (!fieldEl) return null;
+    const section = typeof fieldEl.closest === 'function' ? fieldEl.closest('.cs-section') : null;
+    if (!section) return fieldEl;
+    const meta = sectionsMeta.find((item) => item.section === section);
+    if (meta) {
+      setActiveSection(meta.id, { focusPanel: false, scrollViewport: false });
+      if (options.scroll !== false) {
+        try {
+          const behavior = options.behavior || 'smooth';
+          requestAnimationFrame(() => {
+            try { fieldEl.scrollIntoView({ block: 'start', behavior }); }
+            catch (_) { fieldEl.scrollIntoView(); }
+          });
+        } catch (_) {
+          try { fieldEl.scrollIntoView(); } catch (_) {}
+        }
+      }
+      if (options.focus !== false) {
+        const focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        try {
+          requestAnimationFrame(() => {
+            if (typeof focusTarget.focus === 'function') {
+              try { focusTarget.focus({ preventScroll: options.scroll !== false }); }
+              catch (_) { focusTarget.focus(); }
+            }
+          });
+        } catch (_) {
+          try { focusTarget.focus(); } catch (_) {}
+        }
+      }
+    }
+    return fieldEl;
+  };
+
+  const focusHandler = (event) => {
+    const target = event && event.target;
+    if (!target || typeof target.closest !== 'function') return;
+    const section = target.closest('.cs-section');
+    if (!section) return;
+    const meta = sectionsMeta.find((item) => item.section === section);
+    if (meta && meta.id !== activeSectionId) {
+      setActiveSection(meta.id, { focusPanel: false, scrollViewport: false, skipScrollLock: true });
+    }
+  };
+
+  try { root.addEventListener('focusin', focusHandler); } catch (_) {}
+  try { root.__nsSiteNavFocusHandler = focusHandler; } catch (_) {}
+  try { root.__nsSiteRevealField = revealField; } catch (_) {}
+
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    const onScroll = () => scheduleScrollSync();
+    const onResize = () => scheduleScrollSync();
+    let passiveScrollListener = false;
+    try {
+      window.addEventListener('scroll', onScroll, { passive: true });
+      passiveScrollListener = true;
+    } catch (_) {
+      try { window.addEventListener('scroll', onScroll); } catch (_) {}
+    }
+    try { window.addEventListener('resize', onResize); } catch (_) {}
+    const cleanup = () => {
+      try {
+        if (passiveScrollListener) window.removeEventListener('scroll', onScroll, { passive: true });
+      } catch (_) {}
+      try { window.removeEventListener('scroll', onScroll); } catch (_) {}
+      try { window.removeEventListener('resize', onResize); } catch (_) {}
+      cancelScheduledScrollSync();
+    };
+    try { root.__nsSiteScrollSyncCleanup = cleanup; }
+    catch (_) { cleanup(); }
+  }
+
+  try { root.__nsSiteNavRefresh = refreshNavDiffState; } catch (_) {}
+  try { root.__nsSiteNavSetActive = setActiveSection; } catch (_) {}
+
+  const markDirty = () => {
+    setStateSlice('site', site);
+    notifyComposerChange('site');
+    refreshNavDiffState();
+  };
+
+  const ensureLocalized = (key, ensureDefault = true) => {
+    if (!site[key] || typeof site[key] !== 'object') {
+      site[key] = ensureDefault ? { default: '' } : {};
+    }
+    if (ensureDefault && !Object.prototype.hasOwnProperty.call(site[key], 'default')) site[key].default = '';
+    return site[key];
+  };
+
+  const ensureLinkList = (key) => {
+    if (!Array.isArray(site[key])) site[key] = [];
+    return site[key];
+  };
+
+  const ensureRepo = () => {
+    if (!site.repo || typeof site.repo !== 'object') site.repo = { owner: '', name: '', branch: '' };
+    return site.repo;
+  };
+
+  const ensureAssetWarnings = () => {
+    if (!site.assetWarnings || typeof site.assetWarnings !== 'object') site.assetWarnings = {};
+    if (!site.assetWarnings.largeImage || typeof site.assetWarnings.largeImage !== 'object') {
+      site.assetWarnings.largeImage = { enabled: null, thresholdKB: null };
+    }
+    const largeImage = site.assetWarnings.largeImage;
+    if (!Object.prototype.hasOwnProperty.call(largeImage, 'enabled')) largeImage.enabled = null;
+    if (!Object.prototype.hasOwnProperty.call(largeImage, 'thresholdKB')) largeImage.thresholdKB = null;
+    return site.assetWarnings;
+  };
+
+  const collectLanguageCodes = () => {
+    const codes = new Set();
+    const add = (value) => {
+      const normalized = normalizeLangCode(value);
+      if (!normalized) return;
+      codes.add(normalized);
+    };
+    const addFromEntry = (entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      Object.keys(entry).forEach((key) => {
+        if (!isLanguageCode(key)) return;
+        add(key);
+      });
+    };
+
+    try {
+      const langs = typeof getAvailableLangs === 'function' ? getAvailableLangs() : [];
+      if (Array.isArray(langs)) langs.forEach(add);
+    } catch (_) {}
+    if (site && site.defaultLanguage) add(site.defaultLanguage);
+
+    if (state && state.index && typeof state.index === 'object') {
+      Object.keys(state.index).forEach((key) => {
+        if (key === '__order') return;
+        addFromEntry(state.index[key]);
+      });
+    }
+
+    if (state && state.tabs && typeof state.tabs === 'object') {
+      Object.keys(state.tabs).forEach((key) => {
+        if (key === '__order') return;
+        addFromEntry(state.tabs[key]);
+      });
+    }
+
+    if (site && typeof site === 'object') {
+      Object.keys(site).forEach((key) => {
+        const value = site[key];
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+        addFromEntry(value);
+      });
+    }
+
+    const ordered = Array.from(codes);
+    ordered.sort((a, b) => {
+      const ia = PREFERRED_LANG_ORDER.indexOf(a);
+      const ib = PREFERRED_LANG_ORDER.indexOf(b);
+      if (ia !== -1 || ib !== -1) {
+        const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+        const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+        return pa - pb;
+      }
+      return a.localeCompare(b);
+    });
+    return ordered;
+  };
+
+  const createField = (section, config) => {
+    const field = document.createElement('div');
+    field.className = 'cs-field';
+    if (config.dataKey) field.dataset.field = config.dataKey;
+    const head = document.createElement('div');
+    head.className = 'cs-field-head';
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'cs-field-label-wrap';
+    head.appendChild(labelWrap);
+    const labelEl = document.createElement('label');
+    labelEl.className = 'cs-field-label';
+    labelEl.textContent = config.label || '';
+    labelWrap.appendChild(labelEl);
+    if (config.action) {
+      config.action.classList.add('cs-field-action');
+      head.appendChild(config.action);
+    }
+    field.appendChild(head);
+    field.__csHead = head;
+    field.__csLabel = labelEl;
+    field.__csLabelWrap = labelWrap;
+    const inlineDescription = config.inlineDescription !== false;
+    if (config.description) {
+      const desc = document.createElement('p');
+      desc.className = 'cs-field-help';
+      desc.textContent = config.description;
+      field.__csHelp = desc;
+      if (inlineDescription && labelWrap) {
+        field.classList.add('cs-field-inline-help');
+        labelWrap.appendChild(desc);
+      } else {
+        field.appendChild(desc);
+      }
+    }
+    section.appendChild(field);
+    return field;
+  };
+
+  const renderLocalizedField = (section, key, options = {}) => {
+    ensureLocalized(key, options.ensureDefault !== false);
+    const field = createField(section, {
+      dataKey: key,
+      label: options.label,
+      description: options.description
+    });
+    const list = document.createElement('div');
+    list.className = 'cs-localized-list';
+    field.appendChild(list);
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls';
+    field.appendChild(controls);
+    const addWrap = document.createElement('div');
+    addWrap.className = 'cs-add-lang has-menu';
+    controls.appendChild(addWrap);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary cs-add-lang';
+    addBtn.textContent = t('editor.composer.site.addLanguage');
+    addBtn.setAttribute('aria-haspopup', 'listbox');
+    addBtn.setAttribute('aria-expanded', 'false');
+    addWrap.appendChild(addBtn);
+
+    const menu = document.createElement('div');
+    menu.className = 'ns-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    addWrap.appendChild(menu);
+
+    const refreshMenu = () => {
+      const localized = ensureLocalized(key, options.ensureDefault !== false);
+      const used = new Set(Object.keys(localized || {}));
+      used.add('default');
+
+      const supportedSet = new Set();
+      const addSupported = (code) => {
+        const normalized = normalizeLangCode(code);
+        if (!normalized) return;
+        supportedSet.add(normalized);
+      };
+
+      try {
+        const availableLangs = getAvailableLangs();
+        if (Array.isArray(availableLangs)) availableLangs.forEach(addSupported);
+      } catch (_) {}
+
+      if (!supportedSet.size && Array.isArray(PREFERRED_LANG_ORDER)) {
+        PREFERRED_LANG_ORDER.forEach(addSupported);
+      }
+
+      try {
+        collectLanguageCodes().forEach(addSupported);
+      } catch (_) {}
+
+      const supported = Array.from(supportedSet);
+      supported.sort((a, b) => {
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) {
+          const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+          const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+          return pa - pb;
+        }
+        return a.localeCompare(b);
+      });
+
+      const available = supported.filter((code) => !used.has(code));
+
+      menu.innerHTML = available
+        .map((code) => `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`)
+        .join('');
+
+      if (!available.length) {
+        addBtn.setAttribute('disabled', '');
+        addWrap.classList.add('is-disabled');
+        addWrap.hidden = true;
+        addWrap.setAttribute('aria-hidden', 'true');
+        addWrap.style.display = 'none';
+        if (!menu.hidden) closeMenu();
+        return;
+      }
+
+      addBtn.removeAttribute('disabled');
+      addWrap.classList.remove('is-disabled');
+      addWrap.hidden = false;
+      addWrap.removeAttribute('aria-hidden');
+      addWrap.style.removeProperty('display');
+    };
+
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener(LANGUAGE_POOL_CHANGED_EVENT, refreshMenu);
+    }
+
+    const closeMenu = () => {
+      if (menu.hidden) return;
+      const finish = () => {
+        menu.hidden = true;
+        addBtn.classList.remove('is-open');
+        addWrap.classList.remove('is-open');
+        addBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', onDocDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        menu.classList.remove('is-closing');
+      };
+      try {
+        menu.classList.add('is-closing');
+        const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+        menu.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(finish, 180);
+      } catch (_) {
+        finish();
+      }
+    };
+
+    const openMenu = () => {
+      refreshMenu();
+      if (!menu.innerHTML.trim() || addWrap.hidden) return;
+      if (!menu.hidden) return;
+      menu.hidden = false;
+      try { menu.classList.remove('is-closing'); } catch (_) {}
+      addBtn.classList.add('is-open');
+      addWrap.classList.add('is-open');
+      addBtn.setAttribute('aria-expanded', 'true');
+      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const code = normalizeLangCode(item.getAttribute('data-lang'));
+          if (!code) return;
+          const localized = ensureLocalized(key, options.ensureDefault !== false);
+          if (Object.prototype.hasOwnProperty.call(localized, code)) return;
+          localized[code] = '';
+          markDirty();
+          closeMenu();
+          renderRows();
+          broadcastLanguagePoolChange();
+        });
+      });
+    };
+
+    const onDocDown = (event) => {
+      if (!addWrap.contains(event.target)) closeMenu();
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu();
+      }
+    };
+
+    addBtn.addEventListener('click', () => {
+      if (addBtn.hasAttribute('disabled')) return;
+      if (addBtn.classList.contains('is-open')) closeMenu();
+      else openMenu();
+    });
+
+    const renderRows = () => {
+      list.innerHTML = '';
+      const localized = ensureLocalized(key, options.ensureDefault !== false);
+      const langs = Object.keys(localized || {});
+      if (options.ensureDefault !== false && !langs.includes('default')) langs.push('default');
+      langs.sort((a, b) => {
+        if (a === 'default') return -1;
+        if (b === 'default') return 1;
+        return a.localeCompare(b);
+      });
+      langs.forEach((lang) => {
+        if (!localized && lang !== 'default') return;
+        if (options.ensureDefault !== false && !Object.prototype.hasOwnProperty.call(localized, lang)) localized[lang] = '';
+        const row = document.createElement('div');
+        row.className = 'cs-localized-row';
+        row.dataset.lang = lang;
+        const badge = document.createElement('span');
+        badge.className = 'cs-lang-chip';
+        badge.textContent = lang === 'default'
+          ? t('editor.composer.site.languageDefault')
+          : lang.toUpperCase();
+        row.appendChild(badge);
+        const inputWrap = document.createElement('div');
+        inputWrap.className = 'cs-localized-input';
+        const input = document.createElement(options.multiline ? 'textarea' : 'input');
+        if (!options.multiline) input.type = 'text';
+        else input.rows = options.rows || 3;
+        input.className = 'cs-input';
+        if (options.placeholder) input.placeholder = options.placeholder;
+        input.value = localized[lang] || '';
+        input.addEventListener('input', () => {
+          ensureLocalized(key, options.ensureDefault !== false)[lang] = input.value;
+          markDirty();
+        });
+        inputWrap.appendChild(input);
+        row.appendChild(inputWrap);
+        if (lang !== 'default' || options.allowDefaultDelete) {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn-tertiary cs-remove-lang';
+          removeBtn.textContent = t('editor.composer.site.removeLanguage');
+          removeBtn.addEventListener('click', () => {
+            const localizedMap = ensureLocalized(key, options.ensureDefault !== false);
+            delete localizedMap[lang];
+            markDirty();
+            renderRows();
+            broadcastLanguagePoolChange();
+          });
+          row.appendChild(removeBtn);
+        }
+        list.appendChild(row);
+      });
+      if (!list.children.length) {
+        const empty = document.createElement('div');
+        empty.className = 'cs-empty';
+        empty.textContent = t('editor.composer.site.noLanguages');
+        list.appendChild(empty);
+      }
+      refreshMenu();
+    };
+
+    renderRows();
+  };
+
+  const createTextField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const input = document.createElement(config.multiline ? 'textarea' : 'input');
+    if (!config.multiline) input.type = config.type || 'text';
+    else input.rows = config.rows || 3;
+    input.className = 'cs-input';
+    input.value = config.get() || '';
+    if (config.placeholder) input.placeholder = config.placeholder;
+    input.addEventListener('input', () => {
+      config.set(config.multiline ? input.value : input.value);
+      markDirty();
+    });
+    control.appendChild(input);
+    if (config.trailing) control.appendChild(config.trailing);
+    field.appendChild(control);
+    return input;
+  };
+
+  const createNumberField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'cs-input cs-input-small';
+    if (config.min != null) input.min = String(config.min);
+    if (config.max != null) input.max = String(config.max);
+    if (config.step != null) input.step = String(config.step);
+    const value = config.get();
+    input.value = value != null && !Number.isNaN(value) ? String(value) : '';
+    input.placeholder = config.placeholder || '';
+    input.addEventListener('input', () => {
+      const raw = input.value.trim();
+      if (!raw) config.set(null);
+      else config.set(Number(raw));
+      markDirty();
+    });
+    control.appendChild(input);
+    if (config.trailing) control.appendChild(config.trailing);
+    field.appendChild(control);
+    return input;
+  };
+
+  const createSwitchControl = (field, labelText, options = {}) => {
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls cs-field-controls-inline';
+    if (Array.isArray(options.classes)) controls.classList.add(...options.classes);
+    const target = options.target || field;
+    const toggle = document.createElement('label');
+    toggle.className = 'cs-switch';
+    toggle.dataset.state = 'off';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'cs-switch-input';
+    checkbox.setAttribute('role', 'switch');
+    checkbox.setAttribute('aria-checked', 'false');
+    const track = document.createElement('span');
+    track.className = 'cs-switch-track';
+    const thumb = document.createElement('span');
+    thumb.className = 'cs-switch-thumb';
+    track.appendChild(thumb);
+    toggle.appendChild(checkbox);
+    toggle.appendChild(track);
+    const accessibleLabel = labelText || (field && field.__csLabel ? field.__csLabel.textContent : '');
+    if (accessibleLabel) checkbox.setAttribute('aria-label', accessibleLabel);
+    controls.appendChild(toggle);
+    target.appendChild(controls);
+    return { controls, toggle, checkbox };
+  };
+
+  const syncSwitchState = (checkbox, toggle, value, allowMixed = false) => {
+    if (allowMixed && (value === null || value === undefined)) {
+      checkbox.indeterminate = true;
+      checkbox.checked = false;
+      checkbox.setAttribute('aria-checked', 'mixed');
+      toggle.dataset.state = 'mixed';
+      return;
+    }
+    checkbox.indeterminate = false;
+    const isOn = allowMixed ? value === true : !!value;
+    checkbox.checked = isOn;
+    checkbox.setAttribute('aria-checked', isOn ? 'true' : 'false');
+    toggle.dataset.state = isOn ? 'on' : 'off';
+  };
+
+  const createTriStateCheckbox = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description,
+      inlineDescription: false
+    });
+    const head = field.__csHead || field.querySelector('.cs-field-head');
+    const labelWrap = field.__csLabelWrap || head;
+    if (labelWrap) labelWrap.classList.add('cs-field-label-with-switch');
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
+      target: labelWrap || head || field,
+      classes: ['cs-field-head-switch']
+    });
+
+    const sync = () => {
+      const value = config.get();
+      syncSwitchState(checkbox, toggle, value, true);
+    };
+
+    checkbox.addEventListener('change', () => {
+      config.set(checkbox.checked);
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
+      markDirty();
+    });
+    sync();
+  };
+
+  const createToggleField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description,
+      inlineDescription: false
+    });
+    const head = field.__csHead || field.querySelector('.cs-field-head');
+    const labelWrap = field.__csLabelWrap || head;
+    if (labelWrap) labelWrap.classList.add('cs-field-label-with-switch');
+    const { toggle, checkbox } = createSwitchControl(field, config.checkboxLabel || config.label, {
+      target: labelWrap || head || field,
+      classes: ['cs-field-head-switch']
+    });
+
+    const sync = () => {
+      syncSwitchState(checkbox, toggle, config.get(), false);
+    };
+
+    checkbox.addEventListener('change', () => {
+      config.set(checkbox.checked);
+      syncSwitchState(checkbox, toggle, checkbox.checked, false);
+      markDirty();
+    });
+
+    sync();
+    return {
+      checkbox,
+      field,
+      control: toggle
+    };
+  };
+
+  const createSelectField = (section, config) => {
+    const field = createField(section, {
+      dataKey: config.dataKey,
+      label: config.label,
+      description: config.description
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const select = document.createElement('select');
+    select.className = 'cs-select';
+    (config.options || []).forEach((opt) => {
+      const option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.label;
+      select.appendChild(option);
+    });
+    const ensureSelection = () => {
+      const options = Array.from(select.options);
+      if (!options.length) {
+        const currentRaw = config.get();
+        const current = currentRaw == null ? '' : String(currentRaw);
+        if (current) {
+          select.value = current;
+        }
+        return current;
+      }
+      const available = new Set(options.map((opt) => opt.value));
+      const currentRaw = config.get();
+      const current = currentRaw == null ? '' : String(currentRaw);
+      if (current && available.has(current)) {
+        select.value = current;
+        return current;
+      }
+      const fallback = (() => {
+        if (config.defaultValue != null && available.has(config.defaultValue)) {
+          return config.defaultValue;
+        }
+        return options.length ? options[0].value : '';
+      })();
+      select.value = fallback;
+      if (fallback && fallback !== current) {
+        config.set(fallback);
+        markDirty();
+        return fallback;
+      }
+      if (!fallback && current) {
+        config.set('');
+        markDirty();
+      }
+      return fallback;
+    };
+    ensureSelection();
+    select.addEventListener('change', () => {
+      const next = select.value;
+      config.set(next);
+      markDirty();
+    });
+    control.appendChild(select);
+    field.appendChild(control);
+    return select;
+  };
+
+  const createLinkListField = (section, key, config) => {
+    const list = ensureLinkList(key);
+    const field = createField(section, {
+      dataKey: key,
+      label: config.label,
+      description: config.description
+    });
+    const listWrap = document.createElement('div');
+    listWrap.className = 'cs-link-list';
+    field.appendChild(listWrap);
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls';
+    field.appendChild(controls);
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary cs-add-link';
+    addBtn.textContent = t('editor.composer.site.addLink');
+    controls.appendChild(addBtn);
+
+    const moveEntry = (from, to) => {
+      if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+      const [item] = list.splice(from, 1);
+      list.splice(to, 0, item);
+      markDirty();
+      renderRows();
+    };
+
+    const renderRows = () => {
+      listWrap.innerHTML = '';
+      if (!list.length) {
+        const empty = document.createElement('div');
+        empty.className = 'cs-empty';
+        empty.textContent = t('editor.composer.site.noLinks');
+        listWrap.appendChild(empty);
+        return;
+      }
+      const labelTitleId = `${key}-label-title`;
+      const hrefTitleId = `${key}-href-title`;
+      list.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'cs-link-row';
+        if (index === 0) {
+          row.classList.add('cs-link-row--with-title');
+        }
+        row.dataset.index = String(index);
+
+        const labelField = document.createElement('div');
+        labelField.className = 'cs-link-field';
+        if (index > 0) {
+          labelField.classList.add('cs-link-field--compact');
+        }
+        const labelInputId = `${key}-label-${index}`;
+        const labelTitle = document.createElement('label');
+        labelTitle.className = 'cs-link-field-title';
+        labelTitle.setAttribute('for', labelInputId);
+        labelTitle.textContent = t('editor.composer.site.linkLabelTitle');
+        if (index === 0) {
+          labelTitle.id = labelTitleId;
+        }
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.id = labelInputId;
+        labelInput.className = 'cs-input';
+        labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
+        if (index > 0) {
+          labelInput.setAttribute('aria-labelledby', labelTitleId);
+        }
+        labelInput.value = item && item.label ? item.label : '';
+        labelInput.addEventListener('input', () => {
+          list[index].label = labelInput.value;
+          markDirty();
+        });
+        if (index === 0) {
+          labelField.append(labelTitle, labelInput);
+        } else {
+          labelField.append(labelInput);
+        }
+
+        const hrefField = document.createElement('div');
+        hrefField.className = 'cs-link-field';
+        if (index > 0) {
+          hrefField.classList.add('cs-link-field--compact');
+        }
+        const hrefInputId = `${key}-href-${index}`;
+        const hrefTitle = document.createElement('label');
+        hrefTitle.className = 'cs-link-field-title';
+        hrefTitle.setAttribute('for', hrefInputId);
+        hrefTitle.textContent = t('editor.composer.site.linkHrefTitle');
+        if (index === 0) {
+          hrefTitle.id = hrefTitleId;
+        }
+        const hrefInput = document.createElement('input');
+        hrefInput.type = 'text';
+        hrefInput.id = hrefInputId;
+        hrefInput.className = 'cs-input';
+        hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
+        if (index > 0) {
+          hrefInput.setAttribute('aria-labelledby', hrefTitleId);
+        }
+        hrefInput.value = item && item.href ? item.href : '';
+        hrefInput.addEventListener('input', () => {
+          list[index].href = hrefInput.value;
+          markDirty();
+        });
+        if (index === 0) {
+          hrefField.append(hrefTitle, hrefInput);
+        } else {
+          hrefField.append(hrefInput);
+        }
+        const actions = document.createElement('div');
+        actions.className = 'cs-link-actions';
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'btn-tertiary cs-move';
+        upBtn.textContent = '↑';
+        upBtn.disabled = index === 0;
+        upBtn.addEventListener('click', () => moveEntry(index, index - 1));
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'btn-tertiary cs-move';
+        downBtn.textContent = '↓';
+        downBtn.disabled = index === list.length - 1;
+        downBtn.addEventListener('click', () => moveEntry(index, index + 1));
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-tertiary cs-remove-link';
+        removeBtn.textContent = t('editor.composer.site.removeLink');
+        removeBtn.addEventListener('click', () => {
+          list.splice(index, 1);
+          markDirty();
+          renderRows();
+        });
+        actions.append(upBtn, downBtn, removeBtn);
+        row.append(labelField, hrefField, actions);
+        listWrap.appendChild(row);
+      });
+    };
+
+    addBtn.addEventListener('click', () => {
+      list.push({ label: '', href: '' });
+      markDirty();
+      renderRows();
+    });
+
+    renderRows();
+  };
+
+  const identitySection = createSection(
+    t('editor.composer.site.sections.identity.title'),
+    t('editor.composer.site.sections.identity.description')
+  );
+  renderLocalizedField(identitySection, 'siteTitle', {
+    label: t('editor.composer.site.fields.siteTitle'),
+    description: t('editor.composer.site.fields.siteTitleHelp')
+  });
+  renderLocalizedField(identitySection, 'siteSubtitle', {
+    label: t('editor.composer.site.fields.siteSubtitle'),
+    description: t('editor.composer.site.fields.siteSubtitleHelp')
+  });
+  createTextField(identitySection, {
+    dataKey: 'avatar',
+    label: t('editor.composer.site.fields.avatar'),
+    description: t('editor.composer.site.fields.avatarHelp'),
+    placeholder: 'assets/avatar.jpeg',
+    get: () => site.avatar,
+    set: (value) => { site.avatar = value; }
+  });
+  createTextField(identitySection, {
+    dataKey: 'contentRoot',
+    label: t('editor.composer.site.fields.contentRoot'),
+    description: t('editor.composer.site.fields.contentRootHelp'),
+    placeholder: 'wwwroot',
+    get: () => site.contentRoot,
+    set: (value) => { site.contentRoot = value; }
+  });
+
+  const seoSection = createSection(
+    t('editor.composer.site.sections.seo.title'),
+    t('editor.composer.site.sections.seo.description')
+  );
+  renderLocalizedField(seoSection, 'siteDescription', {
+    label: t('editor.composer.site.fields.siteDescription'),
+    description: t('editor.composer.site.fields.siteDescriptionHelp'),
+    multiline: true,
+    rows: 3,
+    ensureDefault: false
+  });
+  renderLocalizedField(seoSection, 'siteKeywords', {
+    label: t('editor.composer.site.fields.siteKeywords'),
+    description: t('editor.composer.site.fields.siteKeywordsHelp'),
+    ensureDefault: false
+  });
+  createTextField(seoSection, {
+    dataKey: 'resourceURL',
+    label: t('editor.composer.site.fields.resourceURL'),
+    description: t('editor.composer.site.fields.resourceURLHelp'),
+    placeholder: 'https://example.com/',
+    get: () => site.resourceURL,
+    set: (value) => { site.resourceURL = value; }
+  });
+  createLinkListField(seoSection, 'profileLinks', {
+    label: t('editor.composer.site.fields.profileLinks'),
+    description: t('editor.composer.site.fields.profileLinksHelp')
+  });
+  createLinkListField(seoSection, 'links', {
+    label: t('editor.composer.site.fields.navLinks'),
+    description: t('editor.composer.site.fields.navLinksHelp')
+  });
+
+  const behaviorSection = createSection(
+    t('editor.composer.site.sections.behavior.title'),
+    t('editor.composer.site.sections.behavior.description')
+  );
+  const defaultLanguageSelect = createSelectField(behaviorSection, {
+    dataKey: 'defaultLanguage',
+    label: t('editor.composer.site.fields.defaultLanguage'),
+    description: t('editor.composer.site.fields.defaultLanguageHelp'),
+    get: () => normalizeLangCode(site.defaultLanguage),
+    set: (value) => { site.defaultLanguage = normalizeLangCode(value); },
+    defaultValue: '',
+    options: []
+  });
+  const applyDefaultLanguageOptions = () => {
+    const codes = collectLanguageCodes();
+    const seen = new Set();
+    const appendOption = (value, label) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      defaultLanguageSelect.appendChild(option);
+      seen.add(value);
+    };
+
+    defaultLanguageSelect.innerHTML = '';
+    appendOption('', t('editor.composer.site.languageAutoOption'));
+    codes.forEach((code) => {
+      if (!seen.has(code)) appendOption(code, displayLangName(code));
+    });
+    const current = normalizeLangCode(site.defaultLanguage);
+    if (current && !seen.has(current)) {
+      appendOption(current, displayLangName(current));
+    }
+    const nextValue = current && seen.has(current) ? current : '';
+    defaultLanguageSelect.value = nextValue;
+  };
+  applyDefaultLanguageOptions();
+  createNumberField(behaviorSection, {
+    dataKey: 'contentOutdatedDays',
+    label: t('editor.composer.site.fields.contentOutdatedDays'),
+    description: t('editor.composer.site.fields.contentOutdatedDaysHelp'),
+    min: 0,
+    get: () => site.contentOutdatedDays,
+    set: (value) => { site.contentOutdatedDays = value == null || Number.isNaN(value) ? null : value; }
+  });
+  createNumberField(behaviorSection, {
+    dataKey: 'pageSize',
+    label: t('editor.composer.site.fields.pageSize'),
+    description: t('editor.composer.site.fields.pageSizeHelp'),
+    min: 1,
+    get: () => site.pageSize,
+    set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
+  });
+  const showAllPostsField = createToggleField(behaviorSection, {
+    dataKey: 'showAllPosts',
+    label: t('editor.composer.site.fields.showAllPosts'),
+    description: t('editor.composer.site.fields.showAllPostsHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    get: () => site.showAllPosts === true,
+    set: (value) => {
+      site.showAllPosts = !!value;
+    }
+  });
+
+  const landingTabField = (() => {
+    const field = createField(behaviorSection, {
+      dataKey: 'landingTab',
+      label: t('editor.composer.site.fields.landingTab'),
+      description: t('editor.composer.site.fields.landingTabHelp')
+    });
+    const control = document.createElement('div');
+    control.className = 'cs-field-controls';
+    const select = document.createElement('select');
+    select.className = 'cs-select';
+    control.appendChild(select);
+    field.appendChild(control);
+
+    const getTabLabel = (slug) => {
+      if (!state.tabs || typeof state.tabs !== 'object') return slug;
+      const entry = state.tabs[slug];
+      if (!entry || typeof entry !== 'object') return slug;
+      const pickTitle = () => {
+        const def = entry.default;
+        if (def && typeof def === 'object' && def.title) return String(def.title).trim();
+        for (const key of Object.keys(entry)) {
+          if (key === '__order') continue;
+          const val = entry[key];
+          if (val && typeof val === 'object' && val.title) {
+            const title = String(val.title).trim();
+            if (title) return title;
+          }
+        }
+        return '';
+      };
+      const title = pickTitle();
+      if (!title) return slug;
+      if (title.toLowerCase() === String(slug).toLowerCase()) return title;
+      return `${title} (${slug})`;
+    };
+
+    const renderOptions = () => {
+      const seen = new Set();
+      let firstOption = null;
+      const addOption = (value, label) => {
+        if (value === '' || seen.has(value)) return;
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+        seen.add(value);
+        if (firstOption == null) firstOption = value;
+      };
+
+      const current = site.landingTab || '';
+      select.innerHTML = '';
+      const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
+      order.forEach((slug) => {
+        if (!slug) return;
+        addOption(slug, getTabLabel(slug));
+      });
+      const allowPosts = site.showAllPosts === true || current === 'posts';
+      if (allowPosts) {
+        addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
+      }
+      if (current && !seen.has(current)) addOption(current, current);
+      const nextValue = seen.has(current) ? current : firstOption || '';
+      select.value = nextValue;
+      if (nextValue && nextValue !== site.landingTab) {
+        site.landingTab = nextValue;
+        markDirty();
+      }
+    };
+
+    select.addEventListener('change', () => {
+      const value = select.value;
+      if (value && site.landingTab !== value) {
+        site.landingTab = value;
+        markDirty();
+      }
+    });
+
+    renderOptions();
+
+    return {
+      field,
+      select,
+      renderOptions
+    };
+  })();
+
+  showAllPostsField.checkbox.addEventListener('change', () => {
+    if (site.showAllPosts !== true && site.landingTab === 'posts') {
+      site.landingTab = '';
+    }
+    landingTabField.renderOptions();
+  });
+  createTriStateCheckbox(behaviorSection, {
+    dataKey: 'cardCoverFallback',
+    label: t('editor.composer.site.fields.cardCoverFallback'),
+    description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: true,
+    get: () => site.cardCoverFallback,
+    set: (value) => { site.cardCoverFallback = value; }
+  });
+  createTriStateCheckbox(behaviorSection, {
+    dataKey: 'errorOverlay',
+    label: t('editor.composer.site.fields.errorOverlay'),
+    description: t('editor.composer.site.fields.errorOverlayHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: false,
+    get: () => site.errorOverlay,
+    set: (value) => { site.errorOverlay = value; }
+  });
+
+  const themeSection = createSection(
+    t('editor.composer.site.sections.theme.title'),
+    t('editor.composer.site.sections.theme.description')
+  );
+  createSelectField(themeSection, {
+    dataKey: 'themeMode',
+    label: t('editor.composer.site.fields.themeMode'),
+    description: t('editor.composer.site.fields.themeModeHelp'),
+    get: () => site.themeMode || '',
+    set: (value) => { site.themeMode = value == null ? '' : value; },
+    defaultValue: 'auto',
+    options: [
+      { value: 'user', label: 'user' },
+      { value: 'auto', label: 'auto' },
+      { value: 'light', label: 'light' },
+      { value: 'dark', label: 'dark' }
+    ]
+  });
+  const sanitizeThemePackValue = (value) => {
+    return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  };
+  const normalizeThemePackList = (list) => {
+    const normalized = [];
+    const seen = new Set();
+    (Array.isArray(list) ? list : []).forEach((item) => {
+      if (!item) return;
+      const packValue = sanitizeThemePackValue(item.value);
+      if (!packValue || seen.has(packValue)) return;
+      seen.add(packValue);
+      normalized.push({
+        value: packValue,
+        label: safeString(item.label || item.value || packValue) || packValue
+      });
+    });
+    return normalized;
+  };
+  const applyThemePackOptions = (options) => {
+    const normalized = normalizeThemePackList(options);
+    const selectOptions = normalized.length ? normalized : normalizeThemePackList([
+      { value: 'native', label: 'Native' },
+      { value: 'github', label: 'GitHub' },
+      { value: 'apple', label: 'Apple' },
+      { value: 'openai', label: 'OpenAI' }
+    ]);
+    const current = sanitizeThemePackValue(site.themePack);
+    const seen = new Set();
+    const appendOption = (value, label) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = safeString(label || value) || value;
+      themePackSelect.appendChild(option);
+      seen.add(value);
+    };
+    themePackSelect.innerHTML = '';
+    let firstOption = null;
+    selectOptions.forEach(({ value, label }) => {
+      appendOption(value, label);
+      if (firstOption == null) firstOption = value;
+    });
+    if (current && !seen.has(current)) {
+      appendOption(current, current);
+      if (firstOption == null) firstOption = current;
+    }
+    const nextValue = current && seen.has(current) ? current : firstOption || '';
+    themePackSelect.value = nextValue;
+    const sanitized = sanitizeThemePackValue(nextValue);
+    if (sanitized && sanitized !== site.themePack) {
+      site.themePack = sanitized;
+      markDirty();
+    } else if (!sanitized && site.themePack) {
+      site.themePack = '';
+      markDirty();
+    }
+  };
+  const themePackSelect = createSelectField(themeSection, {
+    dataKey: 'themePack',
+    label: t('editor.composer.site.fields.themePack'),
+    description: t('editor.composer.site.fields.themePackHelp'),
+    get: () => sanitizeThemePackValue(site.themePack),
+    set: (value) => { site.themePack = sanitizeThemePackValue(value); },
+    defaultValue: 'native',
+    options: []
+  });
+  const fallbackThemePacks = [
+    { value: 'native', label: 'Native' },
+    { value: 'github', label: 'GitHub' },
+    { value: 'apple', label: 'Apple' },
+    { value: 'openai', label: 'OpenAI' }
+  ];
+  applyThemePackOptions(fallbackThemePacks);
+  fetch('assets/themes/packs.json')
+    .then((response) => (response && response.ok ? response.json() : Promise.reject()))
+    .then((list) => {
+      if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
+      applyThemePackOptions(list);
+    })
+    .catch(() => {
+      applyThemePackOptions(fallbackThemePacks);
+    });
+  createTriStateCheckbox(themeSection, {
+    dataKey: 'themeOverride',
+    label: t('editor.composer.site.fields.themeOverride'),
+    description: t('editor.composer.site.fields.themeOverrideHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: true,
+    get: () => site.themeOverride,
+    set: (value) => { site.themeOverride = value; }
+  });
+
+  const repoSection = createSection(
+    t('editor.composer.site.sections.repo.title'),
+    t('editor.composer.site.sections.repo.description')
+  );
+  const repo = ensureRepo();
+  const repoField = createField(repoSection, {
+    dataKey: 'repo',
+    label: t('editor.composer.site.fields.repo'),
+    description: t('editor.composer.site.fields.repoHelp')
+  });
+  const repoInputs = document.createElement('div');
+  repoInputs.className = 'cs-repo-grid';
+
+  const ownerInput = document.createElement('input');
+  ownerInput.type = 'text';
+  ownerInput.className = 'cs-input cs-repo-input cs-repo-input--owner';
+  ownerInput.placeholder = t('editor.composer.site.repoOwner');
+  ownerInput.setAttribute('aria-label', t('editor.composer.site.repoOwner'));
+  ownerInput.spellcheck = false;
+  ownerInput.value = repo.owner || '';
+  ownerInput.addEventListener('input', () => { repo.owner = ownerInput.value; markDirty(); });
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'cs-input cs-repo-input cs-repo-input--name';
+  nameInput.placeholder = t('editor.composer.site.repoName');
+  nameInput.setAttribute('aria-label', t('editor.composer.site.repoName'));
+  nameInput.spellcheck = false;
+  nameInput.value = repo.name || '';
+  nameInput.addEventListener('input', () => { repo.name = nameInput.value; markDirty(); });
+
+  const branchInput = document.createElement('input');
+  branchInput.type = 'text';
+  branchInput.className = 'cs-input cs-repo-input cs-repo-input--branch';
+  branchInput.placeholder = t('editor.composer.site.repoBranch');
+  branchInput.setAttribute('aria-label', t('editor.composer.site.repoBranch'));
+  branchInput.spellcheck = false;
+  branchInput.value = repo.branch || '';
+  branchInput.addEventListener('input', () => { repo.branch = branchInput.value; markDirty(); });
+
+  const ownerWrap = document.createElement('div');
+  ownerWrap.className = 'cs-repo-field cs-repo-field--owner';
+  const ownerAffix = document.createElement('span');
+  ownerAffix.className = 'cs-repo-affix';
+  ownerAffix.textContent = t('editor.composer.site.repoOwnerPrefix');
+  ownerAffix.setAttribute('aria-hidden', 'true');
+  ownerWrap.append(ownerAffix, ownerInput);
+
+  const repoWrap = document.createElement('div');
+  repoWrap.className = 'cs-repo-field cs-repo-field--name';
+  const repoAffix = document.createElement('span');
+  repoAffix.className = 'cs-repo-affix';
+  repoAffix.textContent = t('editor.composer.site.repoNamePrefix');
+  repoAffix.setAttribute('aria-hidden', 'true');
+  repoWrap.append(repoAffix, nameInput);
+
+  const pathRow = document.createElement('div');
+  pathRow.className = 'cs-repo-path';
+  const divider = document.createElement('span');
+  divider.className = 'cs-repo-divider';
+  divider.textContent = '/';
+  divider.setAttribute('aria-hidden', 'true');
+  pathRow.append(ownerWrap, divider, repoWrap);
+
+  const branchWrap = document.createElement('div');
+  branchWrap.className = 'cs-repo-field cs-repo-field--branch';
+  const branchAffix = document.createElement('span');
+  branchAffix.className = 'cs-repo-affix';
+  branchAffix.textContent = t('editor.composer.site.repoBranchPrefix');
+  branchAffix.setAttribute('aria-hidden', 'true');
+  branchWrap.append(branchAffix, branchInput);
+
+  repoInputs.append(pathRow, branchWrap);
+  repoField.appendChild(repoInputs);
+
+  const assetsSection = createSection(
+    t('editor.composer.site.sections.assets.title'),
+    t('editor.composer.site.sections.assets.description')
+  );
+  const warnings = ensureAssetWarnings();
+  createTriStateCheckbox(assetsSection, {
+    dataKey: 'assetWarnings',
+    label: t('editor.composer.site.fields.assetLargeImage'),
+    description: t('editor.composer.site.fields.assetLargeImageHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: false,
+    get: () => warnings.largeImage.enabled,
+    set: (value) => { warnings.largeImage.enabled = value; }
+  });
+  createNumberField(assetsSection, {
+    dataKey: 'assetWarnings',
+    label: t('editor.composer.site.fields.assetLargeImageThreshold'),
+    description: t('editor.composer.site.fields.assetLargeImageThresholdHelp'),
+    min: 1,
+    get: () => warnings.largeImage.thresholdKB,
+    set: (value) => { warnings.largeImage.thresholdKB = value == null || Number.isNaN(value) ? null : value; }
+  });
+
+  if (site.__extras && Object.keys(site.__extras).length) {
+    const extrasSection = createSection(
+      t('editor.composer.site.sections.extras.title'),
+      t('editor.composer.site.sections.extras.description')
+    );
+    const field = createField(extrasSection, {
+      dataKey: '__extras',
+      label: t('editor.composer.site.fields.extras'),
+      description: t('editor.composer.site.fields.extrasHelp')
+    });
+    const list = document.createElement('ul');
+    list.className = 'cs-extra-list';
+    Object.keys(site.__extras).sort().forEach((key) => {
+      const item = document.createElement('li');
+      item.textContent = key;
+      list.appendChild(item);
+    });
+    field.appendChild(list);
+  }
+
+  refreshNavDiffState();
+  try { scheduleScrollSync(); } catch (_) {}
+}
+
+function rebuildSiteUI() {
+  const root = document.getElementById('composerSite');
+  if (!root) return;
+  buildSiteUI(root, activeComposerState);
+  notifyComposerChange('site', { skipAutoSave: true });
+}
 
 // Minimal styles injected for composer behaviors
 (function injectComposerStyles(){
@@ -9630,7 +13069,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;transition:border-color .18s ease, background-color .18s ease}
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   /* Add Language row: compact button, keep menu aligned to trigger width */
-  .ci-add-lang,.ct-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative}
+  .ci-add-lang,.ct-add-lang,.cs-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative;flex:0 0 auto}
   .ci-add-lang .btn-secondary,.ct-add-lang .btn-secondary{justify-content:center;border-bottom:0 !important}
   .ci-add-lang input,.ct-add-lang input{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-add-lang select,.ct-add-lang select{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
@@ -9639,7 +13078,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* Button when open looks attached to menu */
   .ci-add-lang .btn-secondary.is-open,.ct-add-lang .btn-secondary.is-open{border-bottom-left-radius:0;border-bottom-right-radius:0;background:color-mix(in srgb, var(--text) 5%, var(--card));border-color:color-mix(in srgb, var(--primary) 45%, var(--border));border-bottom:0 !important}
   /* Custom menu popup */
-  .ns-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:100%;min-width:0;border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
+  .ns-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:max-content;min-width:100%;max-width:min(320px,calc(100vw - 3rem));border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
   .has-menu.is-open > .ns-menu{animation: ns-menu-in 160ms ease-out both}
   @keyframes ns-menu-in{from{opacity:0; transform: translateY(-4px) scale(0.98);} to{opacity:1; transform: translateY(0) scale(1);} }
   /* Closing animation */
@@ -9809,12 +13248,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   body.ns-modal-open{overflow:hidden}
   .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
-  .gs-node-drafts{--gs-drafts-collapsed-height:3.6rem;--gs-drafts-expanded-max:min(60vh,420px);display:flex;flex-direction:column;gap:.3rem;width:100%;margin-top:.1rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 82%, transparent);position:relative;isolation:isolate;z-index:1}
+  .gs-node-drafts{--gs-drafts-collapsed-height:3.6rem;--gs-drafts-expanded-max:min(60vh,420px);display:flex;flex-direction:column;gap:.3rem;width:100%;margin-top:.1rem;font-size:.88rem;color:color-mix(in srgb,var(--text) 82%, transparent);position:relative;isolation:isolate;z-index:var(--gs-drafts-base-z,1)}
   .gs-node-drafts[hidden]{display:none!important}
   .gs-node-drafts:focus{outline:none}
   .gs-node-drafts:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:4px}
   .gs-node-drafts-collapsed{position:relative;z-index:1}
   .gs-node-drafts-shell{padding:.35rem .5rem;border-radius:.85rem;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 2px 8px rgba(15,23,42,0.06);height:var(--gs-drafts-collapsed-height);min-height:var(--gs-drafts-collapsed-height);overflow:hidden;transition:border-color .18s ease, box-shadow .18s ease}
+  .gs-node-drafts.has-many:hover,.gs-node-drafts.has-many:focus-within{z-index:var(--gs-drafts-overlay-z,2147483647)}
   .gs-node-drafts.has-many .gs-node-drafts-shell{cursor:pointer}
   .gs-node-drafts-track,.gs-node-drafts-overlay{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.18rem;width:100%}
   .gs-node-drafts-track{will-change:transform}
@@ -9829,6 +13269,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   .gs-node-drafts .gs-node-drafts-item::before{content:'';position:absolute;left:.125rem;top:calc(50% - .24rem);width:.48rem;height:.48rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 40%, var(--text) 25%);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 10%, transparent)}
   .gs-node-drafts .gs-node-drafts-label{font-weight:600;color:color-mix(in srgb,var(--text) 90%, transparent);display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap}
   .gs-node-drafts .gs-node-drafts-hint{font-weight:500;color:color-mix(in srgb,var(--muted) 88%, transparent)}
+  .global-status .gs-node{z-index:var(--gs-node-z,2)}
+  .global-status .gs-node-local:has(.gs-node-drafts.has-many:hover),.global-status .gs-node-local:has(.gs-node-drafts.has-many:focus-within){--gs-node-z:var(--gs-drafts-overlay-z,2147483647)}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
@@ -9906,6 +13348,116 @@ document.addEventListener('DOMContentLoaded', async () => {
     .composer-order-lines{display:none}
     .composer-order-visual{padding:.4rem 1.2rem 1.4rem}
     .composer-order-item{padding:.32rem .55rem}
+  }
+
+  .btn-tertiary{appearance:none;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--primary) 92%, var(--text));font-weight:600;font-size:.9rem;padding:.3rem .6rem;border-radius:8px;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease}
+  .btn-tertiary:hover{background:color-mix(in srgb,var(--primary) 12%, transparent);border-color:color-mix(in srgb,var(--primary) 48%, transparent);color:color-mix(in srgb,var(--primary) 98%, var(--text))}
+  .btn-tertiary:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  .btn-tertiary[disabled]{opacity:.45;cursor:not-allowed;pointer-events:none}
+
+  .composer-site-host{padding:.35rem 0 1.2rem}
+  .composer-site-main{width:100%;max-width:none;margin:0;padding:0}
+  #composerSite{width:100%}
+
+  .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
+  .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
+  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
+  .cs-nav-list{list-style:none;margin:0;padding:1rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-item{width:100%}
+  .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
+  .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
+  .cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 14%, var(--card));border-color:color-mix(in srgb,var(--primary) 45%, var(--border));color:color-mix(in srgb,var(--primary) 98%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
+  .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
+  .cs-section{border:1px solid color-mix(in srgb,var(--border) 96%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
+  .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
+  .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
+  .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
+  .cs-field{margin:0;padding:.6rem 0;display:flex;flex-direction:column;gap:.4rem;position:relative}
+  .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
+  .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
+  .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
+  .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+  .cs-field-inline-help .cs-field-head{align-items:baseline}
+  .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}
+  .cs-field-inline-help .cs-field-label-wrap{align-items:baseline;gap:.4rem;flex-wrap:wrap}
+  .cs-field-label-with-switch{gap:.6rem}
+  .cs-field-action{margin-left:auto}
+  .cs-field-label{font-weight:600;font-size:.9rem;color:color-mix(in srgb,var(--text) 86%, transparent);flex:0 1 auto;min-width:0}
+  .cs-field-help{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent)}
+  .cs-field-inline-help .cs-field-help{flex:1 1 auto;min-width:120px}
+  .cs-field-controls{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+  .cs-field-controls-inline{flex-wrap:nowrap}
+  .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
+  .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
+  .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
+  .cs-localized-input{flex:1 1 240px;min-width:180px}
+  .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
+  .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  textarea.cs-input{min-height:4.6rem;resize:vertical}
+  .cs-input-small{max-width:220px}
+  .cs-empty{padding:.7rem .85rem;border:1px dashed color-mix(in srgb,var(--border) 75%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 2%, var(--card));color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
+  .cs-add-lang,.cs-add-link{align-self:flex-start}
+  .cs-remove-lang,.cs-remove-link{margin-left:auto}
+  .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-link-list{display:flex;flex-direction:column;gap:0}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.45rem .85rem;padding:.3rem 0}
+  .cs-link-row + .cs-link-row{margin-top:.3rem}
+  .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
+  .cs-link-field--compact{gap:.15rem}
+  .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:.45rem}
+  .cs-link-row--with-title .cs-link-actions{padding-top:1.5rem}
+  .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
+  .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
+  .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
+  .cs-repo-grid{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.35rem}
+  .cs-repo-path{display:flex;align-items:center;gap:.35rem;flex:1 1 320px;min-width:220px;flex-wrap:wrap}
+  .cs-repo-field{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .55rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-repo-field:focus-within{border-color:color-mix(in srgb,var(--primary) 50%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-repo-field .cs-repo-input{border:0;background:transparent;padding:0;min-height:1.8rem;font-size:.84rem;line-height:1.25;color:var(--text);min-width:0;width:auto}
+  .cs-repo-field .cs-repo-input:focus{outline:none;box-shadow:none}
+  .cs-repo-field--owner{flex:1 1 160px;min-width:140px}
+  .cs-repo-field--name{flex:1 1 200px;min-width:160px}
+  .cs-repo-field--branch{align-self:center;min-width:180px;max-width:260px;flex:0 1 220px}
+  .cs-repo-affix{font-size:.82rem;font-weight:600;color:color-mix(in srgb,var(--muted) 78%, transparent);text-transform:lowercase;letter-spacing:.04em}
+  .cs-repo-divider{font-size:1.1rem;font-weight:600;color:color-mix(in srgb,var(--muted) 82%, transparent)}
+  .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
+  .cs-extra-list li{margin:.2rem 0}
+  .cs-switch{display:inline-flex;align-items:center;gap:.45rem;padding:.12rem .2rem;border-radius:999px;cursor:pointer;user-select:none;color:color-mix(in srgb,var(--text) 85%, transparent);transition:color .16s ease}
+  .cs-switch-input{position:absolute;opacity:0;width:1px;height:1px;margin:-1px;border:0;padding:0;clip:rect(0 0 0 0);clip-path:inset(50%)}
+  .cs-switch-track{position:relative;display:inline-flex;align-items:center;width:2.4rem;height:1.25rem;border-radius:999px;background:color-mix(in srgb,var(--text) 8%, var(--card));border:1px solid color-mix(in srgb,var(--border) 80%, transparent);padding:0 .15rem;transition:background .16s ease,border-color .16s ease}
+  .cs-switch-thumb{width:1rem;height:1rem;border-radius:999px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 1px 2px rgba(15,23,42,0.2);transform:translateX(0);transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+  .cs-switch[data-state="on"] .cs-switch-track{background:color-mix(in srgb,var(--primary) 45%, var(--card));border-color:color-mix(in srgb,var(--primary) 55%, var(--border))}
+  .cs-switch[data-state="on"] .cs-switch-thumb{transform:translateX(1.05rem);background:color-mix(in srgb,var(--primary) 96%, var(--card));box-shadow:0 4px 10px color-mix(in srgb,var(--primary) 35%, transparent)}
+  .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
+  .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
+  .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
+  @media (max-width:1024px){
+    .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
+  }
+  @media (max-width:920px){
+    .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
+    .cs-nav{position:relative;top:auto}
+    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:1rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
+    .cs-nav-item{flex:0 0 auto}
+    .cs-nav-button{white-space:nowrap;padding:.48rem .65rem}
+  }
+  @media (max-width:720px){
+    .cs-nav-list{gap:.3rem}
+    .cs-nav-button{font-size:.86rem;padding:.45rem .6rem}
+  }
+  @media (max-width:880px){
+    .cs-section{padding:.9rem .9rem}
+    .cs-select{min-width:0;width:100%}
+    .cs-input-small{max-width:100%}
+    .cs-link-actions{width:100%;justify-content:flex-end;margin-left:0;align-self:auto;padding-top:.35rem}
+  }
+  @media (max-width:720px){
+    .cs-section-description{text-align:left}
   }
 
   /* Modal animations */

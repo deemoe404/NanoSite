@@ -5,6 +5,79 @@ import { getCurrentLang, DEFAULT_LANG } from './i18n.js';
 import { getAvailableLangs } from './i18n.js';
 import { parseFrontMatter } from './content.js';
 
+function ensureTrailingSlash(value) {
+  const str = String(value == null ? '' : value).trim();
+  if (!str) return '';
+  return str.endsWith('/') ? str : `${str}/`;
+}
+
+export function resolveSiteBaseUrl(siteConfig = {}) {
+  const raw = siteConfig && siteConfig.siteURL;
+  if (raw != null) {
+    const trimmed = String(raw).trim();
+    if (trimmed) {
+      try {
+        const resolved = new URL(trimmed, window.location.href).href;
+        const normalized = ensureTrailingSlash(resolved);
+        if (normalized) return normalized;
+      } catch (_) {
+        try {
+          const resolved = new URL(trimmed, window.location.origin).href;
+          const normalized = ensureTrailingSlash(resolved);
+          if (normalized) return normalized;
+        } catch (_) {}
+      }
+    }
+  }
+
+  try {
+    const normalized = ensureTrailingSlash(new URL('.', window.location.href).href);
+    if (normalized) return normalized;
+  } catch (_) {}
+
+  const hasWindow = typeof window !== 'undefined' && window.location;
+  const origin = hasWindow && window.location.origin ? window.location.origin : '';
+  const pathname = hasWindow && window.location.pathname ? window.location.pathname : '';
+  const basePath = pathname.replace(/[^/]*$/, '');
+  const fallback = ensureTrailingSlash(`${origin}${basePath}`);
+  if (fallback) return fallback;
+  if (origin) return ensureTrailingSlash(origin);
+  return '/';
+}
+
+function resolveResourceBase(siteConfig = {}) {
+  const siteBase = resolveSiteBaseUrl(siteConfig);
+  const raw = siteConfig && Object.prototype.hasOwnProperty.call(siteConfig, 'resourceURL')
+    ? siteConfig.resourceURL
+    : undefined;
+  if (raw == null) return siteBase;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return siteBase;
+  try {
+    return ensureTrailingSlash(new URL(trimmed, siteBase).href);
+  } catch (_) {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.origin) {
+        return ensureTrailingSlash(new URL(trimmed, window.location.origin).href);
+      }
+    } catch (_) { /* noop */ }
+    const normalized = trimmed.replace(/^\/+/, '');
+    return ensureTrailingSlash(`${siteBase}${normalized}`);
+  }
+}
+
+function ensureAbsoluteUrl(value, base, siteConfig = {}) {
+  const str = String(value || '').trim();
+  if (!str) return '';
+  const fallbackBase = ensureTrailingSlash(base || resolveSiteBaseUrl(siteConfig) || (typeof window !== 'undefined' && window.location ? `${window.location.origin}/` : '/'));
+  try {
+    return new URL(str, fallbackBase).href;
+  } catch (_) {
+    const normalized = str.replace(/^\/+/, '');
+    return `${fallbackBase}${normalized}`;
+  }
+}
+
 /**
  * Generate a fallback image using SVG when no avatar is configured
  * @param {string} title - Site title to display on the image
@@ -192,28 +265,27 @@ export function updateSEO(options = {}, siteConfig = {}) {
     const lang = getCurrentLang ? getCurrentLang() : 'default';
     return (lang && val[lang]) || val.default || fallback;
   };
-  
+
   // Get default values from site config
   const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite - Zero-Dependency Static Blog');
   const defaultDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.');
-  // Base for resources (images); falls back to current location when not set
-  const resourceBaseRaw = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
-  const resourceBase = resourceBaseRaw.endsWith('/') ? resourceBaseRaw : (resourceBaseRaw + '/');
-  
+  const siteBaseUrl = resolveSiteBaseUrl(siteConfig);
+  const resourceBase = resolveResourceBase(siteConfig);
+
   // Generate fallback image if no avatar configured
-  const defaultImage = siteConfig.avatar ? 
-    (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${resourceBase}${siteConfig.avatar}`) :
+  const defaultImage = siteConfig.avatar ?
+    ensureAbsoluteUrl(siteConfig.avatar, resourceBase, siteConfig) :
     generateFallbackImage(defaultTitle);
-  
+
   // Debug: log when using fallback image
   if (!siteConfig.avatar) {
     console.log('🎨 SEO: Generated fallback image for:', defaultTitle);
   }
-  
+
   const {
     title = defaultTitle,
     description = defaultDescription,
-    image = defaultImage,
+    image: providedImage,
     url = window.location.href,
     type = 'website',
     author = 'NanoSite',
@@ -222,25 +294,41 @@ export function updateSEO(options = {}, siteConfig = {}) {
     tags = []
   } = options;
 
+  const normalizedTags = Array.isArray(tags)
+    ? tags.map(tag => String(tag || '').trim()).filter(Boolean)
+    : typeof tags === 'string'
+      ? tags.split(',').map(tag => String(tag || '').trim()).filter(Boolean)
+      : [];
+
+  const resolvedImage = ensureAbsoluteUrl(providedImage || defaultImage, resourceBase, siteConfig);
+  const canonicalUrl = ensureAbsoluteUrl(url || window.location.href, siteBaseUrl, siteConfig);
+
   // Update document title
   document.title = title;
 
   // Helper function to update or create meta tag
-  function updateMetaTag(name, content, property = false) {
-    const selector = property ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+  function updateMetaTag(name, content, attr = 'name') {
+    const attribute = attr === 'property' || attr === 'itemprop' ? attr : 'name';
+    const selector = `meta[${attribute}="${name}"]`;
     let meta = document.querySelector(selector);
-    
+
     if (!meta) {
       meta = document.createElement('meta');
-      if (property) {
-        meta.setAttribute('property', name);
-      } else {
-        meta.setAttribute('name', name);
-      }
+      meta.setAttribute(attribute, name);
       document.head.appendChild(meta);
     }
-    
+
     meta.setAttribute('content', content);
+  }
+
+  function removeMetaTags(name, attr = 'name') {
+    const attribute = attr === 'property' || attr === 'itemprop' ? attr : 'name';
+    const nodes = document.querySelectorAll(`meta[${attribute}="${name}"]`);
+    nodes.forEach((node) => {
+      if (node && node.parentNode) {
+        node.parentNode.removeChild(node);
+      }
+    });
   }
 
   // Helper function to update link tag
@@ -258,50 +346,50 @@ export function updateSEO(options = {}, siteConfig = {}) {
   updateMetaTag('title', title);
   updateMetaTag('description', description);
   updateMetaTag('author', author);
-  
+
   // Update keywords if tags provided
-  if (tags.length > 0) {
-    updateMetaTag('keywords', tags.join(', '));
+  if (normalizedTags.length > 0) {
+    updateMetaTag('keywords', normalizedTags.join(', '));
+  } else {
+    removeMetaTags('keywords');
   }
 
   // Update canonical URL
-  updateLinkTag('canonical', url);
+  updateLinkTag('canonical', canonicalUrl);
 
   // Update Open Graph tags
-  updateMetaTag('og:type', type, true);
-  updateMetaTag('og:url', url, true);
-  updateMetaTag('og:title', title, true);
-  updateMetaTag('og:description', description, true);
-  updateMetaTag('og:image', image, true);
+  updateMetaTag('og:type', type, 'property');
+  updateMetaTag('og:url', canonicalUrl, 'property');
+  updateMetaTag('og:title', title, 'property');
+  updateMetaTag('og:description', description, 'property');
+  updateMetaTag('og:image', resolvedImage, 'property');
 
   // Update Twitter Card tags
-  updateMetaTag('twitter:card', 'summary_large_image', true);
-  updateMetaTag('twitter:url', url, true);
-  updateMetaTag('twitter:title', title, true);
-  updateMetaTag('twitter:description', description, true);
-  updateMetaTag('twitter:image', image, true);
+  updateMetaTag('twitter:card', 'summary_large_image');
+  updateMetaTag('twitter:url', canonicalUrl);
+  updateMetaTag('twitter:title', title);
+  updateMetaTag('twitter:description', description);
+  updateMetaTag('twitter:image', resolvedImage);
 
   // Add article-specific meta tags if it's an article
   if (type === 'article') {
-    updateMetaTag('og:type', 'article', true);
-    if (author) updateMetaTag('article:author', author, true);
-    if (publishedTime) updateMetaTag('article:published_time', publishedTime, true);
-    if (modifiedTime) updateMetaTag('article:modified_time', modifiedTime, true);
-    
+    updateMetaTag('og:type', 'article', 'property');
+    if (author) updateMetaTag('article:author', author, 'property');
+    if (publishedTime) updateMetaTag('article:published_time', publishedTime, 'property');
+    if (modifiedTime) updateMetaTag('article:modified_time', modifiedTime, 'property');
+
     // Add article tags
-    tags.forEach(tag => {
-      const existingTag = document.querySelector(`meta[property="article:tag"][content="${tag}"]`);
-      if (!existingTag) {
-        const meta = document.createElement('meta');
-        meta.setAttribute('property', 'article:tag');
-        meta.setAttribute('content', tag);
-        document.head.appendChild(meta);
-      }
+    removeMetaTags('article:tag', 'property');
+    normalizedTags.forEach(tag => {
+      const meta = document.createElement('meta');
+      meta.setAttribute('property', 'article:tag');
+      meta.setAttribute('content', tag);
+      document.head.appendChild(meta);
     });
   }
 
   // Update structured data
-  updateStructuredData(options, siteConfig);
+  updateStructuredData({ ...options, image: resolvedImage, tags: normalizedTags, url: canonicalUrl }, siteConfig);
 }
 
 // Parse various date shapes into ISO string safely (Safari-friendly)
@@ -352,13 +440,14 @@ function updateStructuredData(options, siteConfig = {}) {
     return (lang && val[lang]) || val.default || fallback;
   };
   
-  const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
-  const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
-  const logoUrl = siteConfig.avatar ? 
-    (siteConfig.avatar.startsWith('http') ? siteConfig.avatar : `${resourceBase}${siteConfig.avatar}`) :
-    generateFallbackImage(defaultTitle);
-  // Base URL used in structured data (e.g., SearchAction target)
-  const defaultUrl = window.location.origin + window.location.pathname;
+    const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
+    const siteBaseUrl = resolveSiteBaseUrl(siteConfig);
+    const resourceBase = resolveResourceBase(siteConfig);
+    const logoUrl = siteConfig.avatar ?
+      ensureAbsoluteUrl(siteConfig.avatar, resourceBase, siteConfig) :
+      generateFallbackImage(defaultTitle);
+    // Base URL used in structured data (e.g., SearchAction target)
+    const defaultUrl = siteBaseUrl;
 
   // Remove existing structured data
   const existingScript = document.querySelector('script[type="application/ld+json"]:not([data-permanent])');
@@ -583,8 +672,8 @@ function extractDateFromMarkdown(content) {
  * This can be used to create a sitemap.xml file
  */
 export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = {}) {
-  // Use site's base URL (remove current file path)
-  const baseUrl = window.location.origin + '/';
+  // Use site's base URL (remove current file path or respect configured URL)
+  const baseUrl = resolveSiteBaseUrl(siteConfig);
   const urls = [];
   const siteDefaultLang = (siteConfig && siteConfig.defaultLanguage) ? String(siteConfig.defaultLanguage).toLowerCase() : DEFAULT_LANG;
   
