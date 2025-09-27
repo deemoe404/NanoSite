@@ -41,8 +41,10 @@ contentRoot: wwwroot      # Root directory for content files
 
 # Theme override configurations
 themeMode: user
-themePack: native
+themePack: atlas
+themeLayout: stacked
 themeOverride: true
+themeLayoutOverride: false
 
 # Repository information used for internal linking of "report issue" etc.
 # repo:

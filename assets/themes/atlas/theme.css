@@ -1,0 +1,162 @@
+:root[data-theme-pack="atlas"] {
+  --bg: #fdf8f2;
+  --text: #231f3b;
+  --muted: #6b657c;
+  --primary: #e7792d;
+  --primary-hover: #c25e1c;
+  --card: rgba(255, 255, 255, 0.95);
+  --border: rgba(35, 31, 59, 0.08);
+  --shadow: 0 22px 55px -36px rgba(35, 31, 59, 0.6);
+  --article-serif-stack: "Iowan Old Style", Georgia, "Times New Roman", "Songti SC", serif;
+}
+
+:root[data-theme-pack="atlas"][data-theme="dark"] {
+  --bg: radial-gradient(120rem 60rem at 10% -20%, rgba(231, 121, 45, 0.12), transparent 45%), #171428;
+  --text: #f3f1ff;
+  --muted: #9d94b6;
+  --primary: #fba169;
+  --primary-hover: #f27d32;
+  --card: rgba(25, 22, 44, 0.9);
+  --border: rgba(251, 161, 105, 0.08);
+  --shadow: 0 30px 60px -30px rgba(8, 6, 20, 0.8);
+}
+
+[data-theme-pack="atlas"] body {
+  background: radial-gradient(120rem 60rem at 12% -20%, rgba(231, 121, 45, 0.16), transparent 55%), var(--bg);
+  color: var(--text);
+  padding-top: 2.5rem;
+}
+
+[data-theme-pack="atlas"] .container {
+  max-width: 78rem;
+  gap: 2rem;
+}
+
+[data-theme-pack="atlas"] .box {
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  background-color: var(--card);
+}
+
+[data-theme-pack="atlas"] .section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+[data-theme-pack="atlas"] .tabs {
+  gap: 0.75rem;
+}
+
+[data-theme-pack="atlas"] .tab {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: rgba(231, 121, 45, 0.08);
+  padding: 0.55rem 1.3rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+[data-theme-pack="atlas"] .tab.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), #f1a24f);
+  border-color: rgba(231, 121, 45, 0.22);
+  box-shadow: 0 12px 24px -16px rgba(231, 121, 45, 0.6);
+}
+
+[data-theme-pack="atlas"] .tab:hover:not(.is-active) {
+  border-color: rgba(231, 121, 45, 0.3);
+  color: var(--primary);
+}
+
+[data-theme-pack="atlas"] .site-card {
+  text-align: center;
+  background: linear-gradient(145deg, rgba(231, 121, 45, 0.12), transparent 65%), var(--card);
+}
+
+[data-theme-pack="atlas"] .site-card .avatar {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 50%;
+  box-shadow: 0 16px 30px -24px rgba(35, 31, 59, 0.6);
+}
+
+[data-theme-pack="atlas"] .site-footer {
+  border-top: 1px solid rgba(35, 31, 59, 0.08);
+  margin-top: 3rem;
+  padding-top: 2rem;
+}
+
+[data-theme-pack="atlas"] .tools-panel .btn {
+  border-radius: 999px;
+}
+
+[data-theme-pack="atlas"] .tag {
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  background: rgba(35, 31, 59, 0.08);
+  color: var(--muted);
+}
+
+[data-theme="dark"][data-theme-pack="atlas"] .tag {
+  background: rgba(243, 241, 255, 0.12);
+  color: #f3f1ff;
+}
+
+[data-theme-pack="atlas"] blockquote {
+  border-radius: 0.9rem;
+  border-left-width: 0.4rem;
+  background: rgba(231, 121, 45, 0.12);
+}
+
+[data-theme-pack="atlas"] .toc-list {
+  border-left: 2px solid rgba(35, 31, 59, 0.08);
+  padding-left: 1.2rem;
+}
+
+[data-theme-pack="atlas"] .toc-link.is-active {
+  color: var(--primary);
+}
+
+[data-theme-pack="atlas"] .post-meta {
+  border-radius: 0.9rem;
+  background: rgba(35, 31, 59, 0.06);
+}
+
+[data-theme="dark"][data-theme-pack="atlas"] .box {
+  background: rgba(21, 19, 36, 0.9);
+  border-color: rgba(251, 161, 105, 0.12);
+}
+
+[data-theme="dark"][data-theme-pack="atlas"] .tab {
+  background: rgba(251, 161, 105, 0.12);
+  color: #d8d3f0;
+}
+
+[data-theme="dark"][data-theme-pack="atlas"] .tab.is-active {
+  color: #1b0f04;
+}
+
+[data-theme="dark"][data-theme-pack="atlas"] .tag {
+  background: rgba(251, 161, 105, 0.18);
+  color: #f3f1ff;
+}
+
+[data-theme-pack="atlas"] .social-links a {
+  border-radius: 999px;
+  border: 1px solid rgba(35, 31, 59, 0.08);
+  padding: 0.35rem 0.8rem;
+}
+
+[data-theme="dark"][data-theme-pack="atlas"] .social-links a {
+  border-color: rgba(251, 161, 105, 0.24);
+}
+
+[data-theme-pack="atlas"] .index .post-card {
+  border-radius: 1.1rem;
+  overflow: hidden;
+}

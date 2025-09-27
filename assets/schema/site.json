@@ -86,9 +86,28 @@
       "type": "string",
       "description": "Theme pack identifier to load."
     },
+    "themeLayout": {
+      "description": "Default layout identifier for the selected theme.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "pack": { "type": "string", "description": "Theme pack this layout applies to." },
+            "layout": { "type": "string", "description": "Layout identifier within the theme pack." }
+          },
+          "required": ["layout"],
+          "additionalProperties": true
+        }
+      ]
+    },
     "themeOverride": {
       "type": "boolean",
       "description": "Allow theme override via UI or config."
+    },
+    "themeLayoutOverride": {
+      "type": "boolean",
+      "description": "Allow layout override via UI or config."
     },
     "cardCoverFallback": {
       "type": "boolean",

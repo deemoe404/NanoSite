@@ -1,0 +1,11 @@
+{
+  "id": "atlas",
+  "name": "Atlas",
+  "description": "Magazine-inspired presentation with warm colors and flexible layouts.",
+  "additionalStyles": [],
+  "layouts": [
+    { "id": "split", "label": "Magazine split" },
+    { "id": "stacked", "label": "Stacked reader", "module": "layouts/stacked.js", "styles": ["layouts/stacked.css"] }
+  ],
+  "defaultLayout": "split"
+}

@@ -164,7 +164,9 @@ const SITE_FIELD_LABEL_MAP = {
   defaultLanguage: { i18nKey: 'editor.composer.site.fields.defaultLanguage' },
   themeMode: { i18nKey: 'editor.composer.site.fields.themeMode' },
   themePack: { i18nKey: 'editor.composer.site.fields.themePack' },
+  themeLayout: { i18nKey: 'editor.composer.site.fields.themeLayout' },
   themeOverride: { i18nKey: 'editor.composer.site.fields.themeOverride' },
+  themeLayoutOverride: { i18nKey: 'editor.composer.site.fields.themeLayoutOverride' },
   showAllPosts: { i18nKey: 'editor.composer.site.fields.showAllPosts' },
   landingTab: { i18nKey: 'editor.composer.site.fields.landingTab' },
   repo: { i18nKey: 'editor.composer.site.fields.repo' },
@@ -1801,6 +1803,44 @@ function normalizeNumber(value, fallback = null) {
   return fallback;
 }
 
+function sanitizeThemeLayoutId(value) {
+  return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+}
+
+function sanitizeThemeLayoutValue(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (!raw) return '';
+    const splitter = raw.includes('/') ? '/' : (raw.includes(':') ? ':' : null);
+    if (splitter) {
+      const [packPart, layoutPart] = raw.split(splitter, 2);
+      const layout = sanitizeThemeLayoutId(layoutPart);
+      const pack = safeString(packPart).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (layout && pack) return `${pack}/${layout}`;
+      return layout;
+    }
+    return sanitizeThemeLayoutId(raw);
+  }
+  if (typeof value === 'object') {
+    const layout = sanitizeThemeLayoutId(value.layout || value.id || value.value || '');
+    if (!layout) return '';
+    const packSource = value.pack != null ? value.pack : (value.themePack != null ? value.themePack : '');
+    const pack = safeString(packSource).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (pack) return `${pack}/${layout}`;
+    return layout;
+  }
+  return '';
+}
+
+function splitThemeLayoutValue(value) {
+  const sanitized = sanitizeThemeLayoutValue(value);
+  if (!sanitized) return { pack: '', layout: '' };
+  const parts = sanitized.split('/');
+  if (parts.length === 2) return { pack: parts[0], layout: parts[1] };
+  return { pack: '', layout: parts[0] };
+}
+
 function prepareSiteState(raw) {
   const src = (raw && typeof raw === 'object') ? raw : {};
   const site = {};
@@ -1822,7 +1862,9 @@ function prepareSiteState(raw) {
   site.defaultLanguage = safeString(src.defaultLanguage || '');
   site.themeMode = safeString(src.themeMode || '');
   site.themePack = safeString(src.themePack || '');
+  site.themeLayout = sanitizeThemeLayoutValue(src.themeLayout || '');
   site.themeOverride = normalizeBoolean(src.themeOverride);
+  site.themeLayoutOverride = normalizeBoolean(src.themeLayoutOverride);
   const enableAllPosts = normalizeBoolean(src.enableAllPosts);
   const disableAllPosts = normalizeBoolean(src.disableAllPosts);
   if (normalizeBoolean(src.showAllPosts) != null) site.showAllPosts = normalizeBoolean(src.showAllPosts);
@@ -1848,7 +1890,7 @@ function prepareSiteState(raw) {
   const recognized = new Set([
     'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'resourceURL', 'contentRoot',
     'profileLinks', 'links', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'postsPerPage',
-    'defaultLanguage', 'themeMode', 'themePack', 'themeOverride', 'repo', 'assetWarnings', 'landingTab', 'showAllPosts',
+    'defaultLanguage', 'themeMode', 'themePack', 'themeLayout', 'themeOverride', 'themeLayoutOverride', 'repo', 'assetWarnings', 'landingTab', 'showAllPosts',
     'enableAllPosts', 'disableAllPosts'
   ]);
 
@@ -1881,7 +1923,9 @@ function cloneSiteState(state) {
     defaultLanguage: safeString(state.defaultLanguage || ''),
     themeMode: safeString(state.themeMode || ''),
     themePack: safeString(state.themePack || ''),
+    themeLayout: safeString(state.themeLayout || ''),
     themeOverride: normalizeBoolean(state.themeOverride),
+    themeLayoutOverride: normalizeBoolean(state.themeLayoutOverride),
     showAllPosts: normalizeBoolean(state.showAllPosts),
     landingTab: safeString(state.landingTab || ''),
     repo: deepClone(state.repo || { owner: '', name: '', branch: '' }),
@@ -1985,7 +2029,9 @@ function buildSiteSnapshot(state) {
   if (site.defaultLanguage) snapshot.defaultLanguage = site.defaultLanguage;
   if (site.themeMode) snapshot.themeMode = site.themeMode;
   if (site.themePack) snapshot.themePack = site.themePack;
+  if (site.themeLayout) snapshot.themeLayout = site.themeLayout;
   if (site.themeOverride != null) snapshot.themeOverride = !!site.themeOverride;
+  if (site.themeLayoutOverride != null) snapshot.themeLayoutOverride = !!site.themeLayoutOverride;
   if (site.showAllPosts != null) snapshot.showAllPosts = !!site.showAllPosts;
   if (site.landingTab) snapshot.landingTab = site.landingTab;
   const repo = repoForOutput(site.repo);
@@ -2056,7 +2102,7 @@ function computeSiteDiff(current, baseline) {
     }
   });
 
-  const stringFields = ['avatar', 'resourceURL', 'contentRoot', 'defaultLanguage', 'themeMode', 'themePack', 'landingTab'];
+  const stringFields = ['avatar', 'resourceURL', 'contentRoot', 'defaultLanguage', 'themeMode', 'themePack', 'themeLayout', 'landingTab'];
   stringFields.forEach((key) => {
     if (safeString(cur[key] || '') !== safeString(base[key] || '')) {
       diff.fields[key] = { type: 'text' };
@@ -2064,7 +2110,7 @@ function computeSiteDiff(current, baseline) {
     }
   });
 
-  const booleanFields = ['cardCoverFallback', 'errorOverlay', 'themeOverride', 'showAllPosts'];
+  const booleanFields = ['cardCoverFallback', 'errorOverlay', 'themeOverride', 'themeLayoutOverride', 'showAllPosts'];
   booleanFields.forEach((key) => {
     if (normalizeBoolean(cur[key]) !== normalizeBoolean(base[key])) {
       diff.fields[key] = { type: 'boolean' };
@@ -2200,7 +2246,7 @@ function toSiteYaml(data) {
   const keysInOrder = [
     'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'profileLinks', 'links', 'resourceURL',
     'contentRoot', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'defaultLanguage',
-    'themeMode', 'themePack', 'themeOverride', 'showAllPosts', 'landingTab', 'repo', 'assetWarnings'
+    'themeMode', 'themePack', 'themeLayout', 'themeOverride', 'themeLayoutOverride', 'showAllPosts', 'landingTab', 'repo', 'assetWarnings'
   ];
   const ordered = {};
   keysInOrder.forEach((key) => {
@@ -12399,6 +12445,40 @@ function buildSiteUI(root, state) {
     });
     control.appendChild(select);
     field.appendChild(control);
+    select.updateOptions = (options, opts = {}) => {
+      const list = Array.isArray(options) ? options : [];
+      const prev = select.value;
+      select.innerHTML = '';
+      list.forEach((opt) => {
+        if (!opt) return;
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+      const available = new Set(list.map((opt) => opt && String(opt.value || '')));
+      let next = opts.selected != null ? String(opts.selected) : null;
+      if (next && !available.has(next)) next = null;
+      if (!next) {
+        const current = config.get ? String(config.get() ?? '') : '';
+        if (current && available.has(current)) next = current;
+      }
+      if (!next && opts.keepCurrent && prev && available.has(prev)) next = prev;
+      if (!next && opts.defaultValue != null && available.has(String(opts.defaultValue))) {
+        next = String(opts.defaultValue);
+      }
+      if (!next && list.length) next = String(list[0].value || '');
+      select.value = next || '';
+      if (opts.sync !== false) {
+        const current = config.get ? String(config.get() ?? '') : '';
+        const normalized = next || '';
+        if (normalized !== current) {
+          config.set(normalized);
+          markDirty();
+        }
+      }
+    };
+    select.refreshValue = ensureSelection;
     return select;
   };
 
@@ -12807,6 +12887,10 @@ function buildSiteUI(root, state) {
   const sanitizeThemePackValue = (value) => {
     return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   };
+  const THEME_LAYOUT_AUTO_VALUE = '__theme_auto__';
+  const themeManifestCache = new Map();
+  let themePackSelect = null;
+  let themeLayoutSelect = null;
   const normalizeThemePackList = (list) => {
     const normalized = [];
     const seen = new Set();
@@ -12822,14 +12906,99 @@ function buildSiteUI(root, state) {
     });
     return normalized;
   };
+  const normalizeThemeLayoutList = (manifest) => {
+    const layouts = [];
+    const seen = new Set();
+    if (manifest && typeof manifest === 'object') {
+      const raw = Array.isArray(manifest.layouts) ? manifest.layouts : [];
+      raw.forEach((entry) => {
+        if (!entry) return;
+        let id = '';
+        let label = '';
+        if (typeof entry === 'string') {
+          id = sanitizeThemeLayoutId(entry);
+          label = safeString(entry) || id;
+        } else if (typeof entry === 'object') {
+          id = sanitizeThemeLayoutId(entry.id || entry.value || entry.layout || '');
+          label = safeString(entry.label || entry.name || entry.title || id) || id;
+        }
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        layouts.push({ id, label });
+      });
+    }
+    if (!layouts.length) layouts.push({ id: 'default', label: 'Default' });
+    return layouts;
+  };
+  const fetchThemeManifest = (pack) => {
+    const sanitized = sanitizeThemePackValue(pack);
+    if (!sanitized) return Promise.resolve(null);
+    if (!themeManifestCache.has(sanitized)) {
+      const promise = fetch(`assets/themes/${encodeURIComponent(sanitized)}/manifest.json`)
+        .then((resp) => (resp && resp.ok ? resp.json() : Promise.reject()))
+        .catch(() => null);
+      themeManifestCache.set(sanitized, promise);
+    }
+    return themeManifestCache.get(sanitized);
+  };
+  const getCurrentThemePack = () => sanitizeThemePackValue(site.themePack || (themePackSelect ? themePackSelect.value : ''));
+  const applyThemeLayoutStateFromValue = (value, { markChange } = {}) => {
+    const prev = site.themeLayout || '';
+    let next = '';
+    if (value && value !== THEME_LAYOUT_AUTO_VALUE) {
+      const layoutId = sanitizeThemeLayoutId(value);
+      if (layoutId) {
+        const pack = getCurrentThemePack();
+        next = pack ? `${pack}/${layoutId}` : layoutId;
+      }
+    }
+    if (next !== prev) {
+      site.themeLayout = next;
+      if (markChange) markDirty();
+      return true;
+    }
+    return false;
+  };
+  const syncThemeLayoutPack = () => {
+    const parts = splitThemeLayoutValue(site.themeLayout);
+    if (!parts.layout) return false;
+    const pack = getCurrentThemePack();
+    const next = pack ? `${pack}/${parts.layout}` : parts.layout;
+    if (next !== site.themeLayout) {
+      site.themeLayout = next;
+      return true;
+    }
+    return false;
+  };
+  const updateThemeLayoutOptions = async ({ markDirty: shouldMark } = {}) => {
+    if (!themeLayoutSelect) return;
+    const previousStored = site.themeLayout || '';
+    const pack = getCurrentThemePack();
+    let layouts = [];
+    try {
+      const manifest = await fetchThemeManifest(pack);
+      layouts = normalizeThemeLayoutList(manifest || {});
+    } catch (_) {
+      layouts = [];
+    }
+    if (pack !== getCurrentThemePack()) return;
+    const options = [{ value: THEME_LAYOUT_AUTO_VALUE, label: t('editor.composer.site.fields.themeLayoutAuto') }];
+    layouts.forEach(({ id, label }) => { options.push({ value: id, label }); });
+    const currentParts = splitThemeLayoutValue(previousStored);
+    const desired = layouts.some((entry) => entry.id === currentParts.layout) ? currentParts.layout : THEME_LAYOUT_AUTO_VALUE;
+    themeLayoutSelect.updateOptions(options, { selected: desired, defaultValue: THEME_LAYOUT_AUTO_VALUE, sync: false });
+    themeLayoutSelect.disabled = options.length <= 1;
+    const finalValue = themeLayoutSelect.value || THEME_LAYOUT_AUTO_VALUE;
+    const changed = applyThemeLayoutStateFromValue(finalValue, { markChange: false });
+    if (shouldMark && (changed || site.themeLayout !== previousStored)) markDirty();
+  };
   const applyThemePackOptions = (options) => {
     const normalized = normalizeThemePackList(options);
-    const selectOptions = normalized.length ? normalized : normalizeThemePackList([
-      { value: 'native', label: 'Native' },
-      { value: 'github', label: 'GitHub' },
-      { value: 'apple', label: 'Apple' },
-      { value: 'openai', label: 'OpenAI' }
-    ]);
+      const selectOptions = normalized.length ? normalized : normalizeThemePackList([
+        { value: 'native', label: 'Native' },
+        { value: 'github', label: 'GitHub' },
+        { value: 'atlas', label: 'Atlas' }
+      ]);
     const current = sanitizeThemePackValue(site.themePack);
     const seen = new Set();
     const appendOption = (value, label) => {
@@ -12859,32 +13028,71 @@ function buildSiteUI(root, state) {
       site.themePack = '';
       markDirty();
     }
+    syncThemeLayoutPack();
+    updateThemeLayoutOptions({ markDirty: false }).catch(() => {});
   };
-  const themePackSelect = createSelectField(themeSection, {
+  themePackSelect = createSelectField(themeSection, {
     dataKey: 'themePack',
     label: t('editor.composer.site.fields.themePack'),
     description: t('editor.composer.site.fields.themePackHelp'),
     get: () => sanitizeThemePackValue(site.themePack),
-    set: (value) => { site.themePack = sanitizeThemePackValue(value); },
+    set: (value) => {
+      const sanitized = sanitizeThemePackValue(value);
+      site.themePack = sanitized;
+      syncThemeLayoutPack();
+    },
     defaultValue: 'native',
     options: []
   });
+  themePackSelect.addEventListener('change', () => {
+    updateThemeLayoutOptions({ markDirty: true }).catch(() => {});
+  });
+  themeLayoutSelect = createSelectField(themeSection, {
+    dataKey: 'themeLayout',
+    label: t('editor.composer.site.fields.themeLayout'),
+    description: t('editor.composer.site.fields.themeLayoutHelp'),
+    get: () => {
+      const parts = splitThemeLayoutValue(site.themeLayout);
+      return parts.layout || THEME_LAYOUT_AUTO_VALUE;
+    },
+    set: (value) => {
+      if (value === THEME_LAYOUT_AUTO_VALUE) {
+        applyThemeLayoutStateFromValue('', { markChange: false });
+      } else {
+        applyThemeLayoutStateFromValue(value, { markChange: false });
+      }
+    },
+    defaultValue: THEME_LAYOUT_AUTO_VALUE,
+    options: []
+  });
+  themeLayoutSelect.disabled = true;
   const fallbackThemePacks = [
     { value: 'native', label: 'Native' },
     { value: 'github', label: 'GitHub' },
-    { value: 'apple', label: 'Apple' },
-    { value: 'openai', label: 'OpenAI' }
+    { value: 'atlas', label: 'Atlas' }
   ];
   applyThemePackOptions(fallbackThemePacks);
+  updateThemeLayoutOptions({ markDirty: false }).catch(() => {});
   fetch('assets/themes/packs.json')
     .then((response) => (response && response.ok ? response.json() : Promise.reject()))
     .then((list) => {
       if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
       applyThemePackOptions(list);
+      updateThemeLayoutOptions({ markDirty: false }).catch(() => {});
     })
     .catch(() => {
       applyThemePackOptions(fallbackThemePacks);
+      updateThemeLayoutOptions({ markDirty: false }).catch(() => {});
     });
+  createTriStateCheckbox(themeSection, {
+    dataKey: 'themeLayoutOverride',
+    label: t('editor.composer.site.fields.themeLayoutOverride'),
+    description: t('editor.composer.site.fields.themeLayoutOverrideHelp'),
+    checkboxLabel: t('editor.composer.site.toggleEnabled'),
+    defaultValue: true,
+    get: () => site.themeLayoutOverride,
+    set: (value) => { site.themeLayoutOverride = value; }
+  });
   createTriStateCheckbox(themeSection, {
     dataKey: 'themeOverride',
     label: t('editor.composer.site.fields.themeOverride'),

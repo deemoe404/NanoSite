@@ -1,0 +1,9 @@
+{
+  "id": "native",
+  "name": "Native",
+  "description": "The original NanoSite appearance with a balanced split layout.",
+  "layouts": [
+    { "id": "default", "label": "Classic split" }
+  ],
+  "defaultLayout": "default"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "github",
+  "name": "GitHub",
+  "description": "Clean GitHub-inspired styling for note-heavy sites.",
+  "layouts": [
+    { "id": "default", "label": "Documentation split" }
+  ],
+  "defaultLayout": "default"
+}
