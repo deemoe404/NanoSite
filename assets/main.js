@@ -1036,8 +1036,9 @@ async function softResetToSiteDefaultLanguage() {
             if (v && typeof v === 'object' && typeof v.location === 'string') baseAllowed.add(String(v.location));
             else if (typeof v === 'string') baseAllowed.add(String(v));
           }
+        }
+      } catch (_) {}
     }
-  } catch (_) {}
   // Wire up version selector(s) (if multiple versions available)
     allowedLocations = baseAllowed;
     postsByLocationTitle = {};
