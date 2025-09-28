@@ -19,6 +19,7 @@
   --cupertino-shadow-dark: 0 24px 48px rgba(0, 0, 0, 0.45);
   --cupertino-transition: 180ms ease;
   --cupertino-max-width: min(1100px, calc(100vw - 64px));
+  --cupertino-stage-width: min(880px, calc(100vw - 96px));
   --cupertino-font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
   --cupertino-font-serif: "New York", "Times New Roman", serif;
 }
@@ -281,7 +282,7 @@ a:hover {
 }
 
 .cupertino-stage {
-  width: 100%;
+  width: min(100%, var(--cupertino-stage-width));
   background: color-mix(in srgb, var(--cupertino-card) 78%, transparent);
   border-radius: var(--cupertino-radius-lg);
   border: 1px solid var(--cupertino-outline);
@@ -290,10 +291,16 @@ a:hover {
   min-height: clamp(360px, 52vh, 640px);
   backdrop-filter: blur(32px);
   transition: background var(--cupertino-transition), border var(--cupertino-transition);
+  margin-inline: auto;
 }
 
 .cupertino-stage.post-layout {
   min-width: 0;
+}
+
+.cupertino-stage-wrap.post-layout .cupertino-stage {
+  width: 100%;
+  margin-inline: 0;
 }
 
 .loading {
