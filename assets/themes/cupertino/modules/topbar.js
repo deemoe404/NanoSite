@@ -1,52 +1,3 @@
-function syncBrand(doc, titleEl, subtitleEl) {
-  const apply = () => {
-    const cardTitle = doc.querySelector('.site-card .site-title');
-    const cardSubtitle = doc.querySelector('.site-card .site-subtitle');
-    if (cardTitle && titleEl) {
-      const text = cardTitle.textContent.trim();
-      if (text) titleEl.textContent = text;
-    }
-    if (cardSubtitle && subtitleEl) {
-      const text = cardSubtitle.textContent.trim();
-      subtitleEl.textContent = text;
-      subtitleEl.hidden = !text;
-    }
-  };
-
-  const attachObservers = () => {
-    const titleTarget = doc.querySelector('.site-card .site-title');
-    const subtitleTarget = doc.querySelector('.site-card .site-subtitle');
-    if (titleTarget) {
-      const obs = new MutationObserver(apply);
-      obs.observe(titleTarget, { childList: true, subtree: true, characterData: true });
-      apply();
-    }
-    if (subtitleTarget) {
-      const obs = new MutationObserver(apply);
-      obs.observe(subtitleTarget, { childList: true, subtree: true, characterData: true });
-      apply();
-    }
-  };
-
-  if (!doc || !titleEl) return;
-  apply();
-  if (doc.readyState === 'loading') {
-    doc.addEventListener('DOMContentLoaded', () => attachObservers(), { once: true });
-  } else {
-    attachObservers();
-  }
-
-  if (!doc.querySelector('.site-card .site-title')) {
-    const waitForCard = new MutationObserver((mutations, observer) => {
-      if (doc.querySelector('.site-card .site-title')) {
-        observer.disconnect();
-        attachObservers();
-      }
-    });
-    waitForCard.observe(doc.body, { childList: true, subtree: true });
-  }
-}
-
 export function mount(context = {}) {
   const doc = context.document || document;
   const regions = context.regions || {};
@@ -67,10 +18,13 @@ export function mount(context = {}) {
     brand.href = './';
     brand.setAttribute('aria-label', 'Home');
 
-    const badge = doc.createElement('span');
-    badge.className = 'brand-badge';
-    badge.setAttribute('aria-hidden', 'true');
-    brand.appendChild(badge);
+    const avatar = doc.createElement('img');
+    avatar.className = 'brand-avatar';
+    avatar.alt = '';
+    avatar.loading = 'lazy';
+    avatar.decoding = 'async';
+    avatar.classList.add('is-empty');
+    brand.appendChild(avatar);
 
     const textWrap = doc.createElement('span');
     textWrap.className = 'brand-text';
@@ -82,10 +36,21 @@ export function mount(context = {}) {
 
     const brandSubtitle = doc.createElement('span');
     brandSubtitle.className = 'cupertino-brand-subtitle';
+    brandSubtitle.hidden = true;
     textWrap.appendChild(brandSubtitle);
 
     brand.appendChild(textWrap);
     topbar.appendChild(brand);
+  } else {
+    if (!brand.querySelector('.brand-avatar')) {
+      const avatar = doc.createElement('img');
+      avatar.className = 'brand-avatar';
+      avatar.alt = '';
+      avatar.loading = 'lazy';
+      avatar.decoding = 'async';
+      avatar.classList.add('is-empty');
+      brand.insertBefore(avatar, brand.firstChild);
+    }
   }
 
   const titleEl = brand.querySelector('.cupertino-brand-title');
@@ -93,8 +58,9 @@ export function mount(context = {}) {
   if (titleEl && !titleEl.textContent.trim()) {
     titleEl.textContent = doc.title || 'NanoSite';
   }
-
-  syncBrand(doc, titleEl, subtitleEl);
+  if (subtitleEl) {
+    subtitleEl.hidden = !subtitleEl.textContent.trim();
+  }
 
   let navBox = topbar.querySelector('#mapview');
   if (!navBox) {

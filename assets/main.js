@@ -303,7 +303,8 @@ function setImageSrcNoStore(img, src) {
 
 function renderSiteLinks(cfg) {
   try {
-    const root = document.querySelector('.site-card .social-links');
+    const root = document.querySelector('.cupertino-footer .social-links')
+      || document.querySelector('.site-card .social-links');
     if (!root) return;
     const linksVal = (cfg && (cfg.profileLinks || cfg.links)) || [];
     let items = [];
@@ -314,10 +315,14 @@ function renderSiteLinks(cfg) {
     } else if (linksVal && typeof linksVal === 'object') {
       items = Object.entries(linksVal).map(([label, href]) => ({ label: String(label), href: String(href) }));
     }
-    if (!items.length) return;
-    const sep = '<span class="link-sep">•</span>';
-    const anchors = items.map(({ href, label }) => `<a href="${escapeHtml(href)}" target="_blank" rel="me noopener">${escapeHtml(label)}</a>`);
-    root.innerHTML = `<li>${anchors.join(sep)}</li>`;
+    if (!items.length) {
+      root.innerHTML = '';
+      return;
+    }
+    const anchors = items
+      .map(({ href, label }) => `<li><a href="${escapeHtml(href)}" target="_blank" rel="me noopener">${escapeHtml(label)}</a></li>`)
+      .join('');
+    root.innerHTML = anchors;
   } catch (_) { /* noop */ }
 }
 
@@ -337,19 +342,61 @@ function renderSiteIdentity(cfg) {
     const title = pick(cfg.siteTitle);
     const subtitle = pick(cfg.siteSubtitle);
     const avatar = pick(cfg.avatar);
-    if (title) {
-      const el = document.querySelector('.site-card .site-title');
-      if (el) el.textContent = title;
-      const fs = document.querySelector('.footer-site');
-      if (fs) fs.textContent = title;
+    const fallbackTitle = title || document.title || 'NanoSite';
+
+    const cardTitle = document.querySelector('.site-card .site-title');
+    if (cardTitle) cardTitle.textContent = fallbackTitle;
+
+    const brandTitle = document.querySelector('.cupertino-brand .cupertino-brand-title');
+    if (brandTitle) brandTitle.textContent = fallbackTitle;
+
+    const footerSite = document.querySelector('.footer-site');
+    if (footerSite) footerSite.textContent = fallbackTitle;
+
+    const cardSubtitle = document.querySelector('.site-card .site-subtitle');
+    if (cardSubtitle) cardSubtitle.textContent = subtitle || '';
+
+    const brandSubtitle = document.querySelector('.cupertino-brand .cupertino-brand-subtitle');
+    if (brandSubtitle) {
+      brandSubtitle.textContent = subtitle || '';
+      brandSubtitle.hidden = !subtitle;
     }
-    if (subtitle) {
-      const el2 = document.querySelector('.site-card .site-subtitle');
-      if (el2) el2.textContent = subtitle;
+
+    const siteCardAvatar = document.querySelector('.site-card .avatar');
+    if (siteCardAvatar) {
+      if (avatar) setImageSrcNoStore(siteCardAvatar, avatar);
+      else {
+        try {
+          const prev = siteCardAvatar.dataset.blobUrl;
+          if (prev) URL.revokeObjectURL(prev);
+        } catch (_) {}
+        siteCardAvatar.removeAttribute('src');
+        delete siteCardAvatar.dataset.blobUrl;
+      }
     }
-    if (avatar) {
-      const img = document.querySelector('.site-card .avatar');
-      if (img) setImageSrcNoStore(img, avatar);
+
+    const brand = document.querySelector('.cupertino-brand');
+    if (brand) {
+      brand.setAttribute('title', fallbackTitle);
+    }
+    const brandAvatar = brand && brand.querySelector('.brand-avatar');
+    if (brandAvatar) {
+      if (avatar) {
+        setImageSrcNoStore(brandAvatar, avatar);
+        brandAvatar.removeAttribute('hidden');
+        brandAvatar.classList.remove('is-empty');
+        if (brand) brand.classList.add('has-avatar');
+      } else {
+        try {
+          const prev = brandAvatar.dataset.blobUrl;
+          if (prev) URL.revokeObjectURL(prev);
+        } catch (_) {}
+        brandAvatar.removeAttribute('src');
+        delete brandAvatar.dataset.blobUrl;
+        brandAvatar.classList.add('is-empty');
+        if (brand) brand.classList.remove('has-avatar');
+        brandAvatar.removeAttribute('hidden');
+      }
     }
   } catch (_) { /* noop */ }
 }

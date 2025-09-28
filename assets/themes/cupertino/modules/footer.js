@@ -33,11 +33,26 @@ export function mount(context = {}) {
     inner.appendChild(nav);
   }
 
+  let socials = inner.querySelector('.footer-social');
+  if (!socials) {
+    socials = doc.createElement('div');
+    socials.className = 'footer-social';
+    const list = doc.createElement('ul');
+    list.className = 'social-links';
+    list.setAttribute('aria-label', 'Social links');
+    socials.appendChild(list);
+    inner.appendChild(socials);
+  }
+
   let actions = inner.querySelector('.footer-actions');
   if (!actions) {
     actions = doc.createElement('div');
     actions.className = 'footer-actions';
     inner.appendChild(actions);
+  }
+
+  if (socials && actions && socials.nextSibling !== actions) {
+    inner.insertBefore(socials, actions);
   }
 
   if (!actions.querySelector('#footerTop')) {
