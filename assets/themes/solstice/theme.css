@@ -734,6 +734,24 @@ body {
   font-size: clamp(2rem, 2vw + 1.2rem, 2.8rem);
 }
 
+.solstice-static__body img,
+.solstice-static__body video,
+.solstice-static__body iframe {
+  max-width: 100%;
+  display: block;
+  border-radius: 18px;
+  height: auto;
+  margin: 1.5rem auto;
+}
+
+.solstice-static__body figure {
+  margin: 2rem 0;
+}
+
+.solstice-static__body figure img {
+  margin: 0;
+}
+
 .solstice-footer {
   margin-top: auto;
   border-top: 1px solid rgba(0,0,0,0.05);
