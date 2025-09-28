@@ -535,6 +535,11 @@ function renderTabs(activeSlug, searchQuery) {
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
 
+  const normalizedActiveSlug = typeof activeSlug === 'string' ? activeSlug.toLowerCase() : '';
+  const effectiveActiveSlug = normalizedActiveSlug === 'post'
+    ? (postsEnabled() ? 'posts' : getHomeSlug())
+    : normalizedActiveSlug;
+
   // Safer helpers for building and injecting tabs without using innerHTML/DOMParser
   const buildSafeTrackFromHtml = (markup) => {
     const safeTrack = document.createElement('div');
@@ -633,9 +638,10 @@ function renderTabs(activeSlug, searchQuery) {
   
   const make = (slug, label) => {
     const href = withLangParam(`?tab=${encodeURIComponent(slug)}`);
-  return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
+    const isActive = effectiveActiveSlug === slug;
+    return `<a class="tab${isActive ? ' active' : ''}" data-slug="${slug}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
   };
-  
+
   // Build full tab list first (home first, optionally include All Posts if enabled), then other tabs
   const homeSlug = getHomeSlug();
   const homeLabel = getHomeLabel();
@@ -647,17 +653,13 @@ function renderTabs(activeSlug, searchQuery) {
     if (slug === homeSlug) continue;
     html += make(slug, info.title);
   }
-  if (activeSlug === 'search') {
+  if (normalizedActiveSlug === 'search') {
     const sp = new URLSearchParams(window.location.search);
     const tag = (sp.get('tag') || '').trim();
     const q = (sp.get('q') || String(searchQuery || '')).trim();
     const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
     const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
   html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-  } else if (activeSlug === 'post') {
-    const raw = String(searchQuery || t('ui.postTab')).trim();
-    const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
-  html += `<span class="tab active" data-slug="post">${label}</span>`;
   }
 
   // Helper: measure width of given markup inside a temporary element
@@ -686,30 +688,24 @@ function renderTabs(activeSlug, searchQuery) {
     const fullWidth = measureWidth(html);
     // Build compact HTML candidate: Home + active only
     let compact = make(homeSlug, homeLabel);
-    if (activeSlug === 'search') {
+    if (normalizedActiveSlug === 'search') {
       const sp = new URLSearchParams(window.location.search);
       const tag = (sp.get('tag') || '').trim();
       const q = (sp.get('q') || String(searchQuery || '')).trim();
       const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
       const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
       compact += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-    } else if (activeSlug === 'post') {
-      const raw = String(searchQuery || t('ui.postTab')).trim();
-      const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
-      compact += `<span class="tab active" data-slug="post">${label}</span>`;
-    } else if (activeSlug && activeSlug !== 'posts') {
+    } else if (effectiveActiveSlug && effectiveActiveSlug !== 'posts' && effectiveActiveSlug !== homeSlug && tabsBySlug[effectiveActiveSlug]) {
       // Active static tab from tabs.yaml
-      const info = tabsBySlug[activeSlug];
-      const label = info && info.title ? info.title : activeSlug;
-      compact += make(activeSlug, label).replace('"tab ', '"tab active ');
+      const info = tabsBySlug[effectiveActiveSlug];
+      const label = info && info.title ? info.title : effectiveActiveSlug;
+      compact += make(effectiveActiveSlug, label);
+    } else if (effectiveActiveSlug === 'posts' && postsEnabled() && homeSlug !== 'posts') {
+      compact += make('posts', t('ui.allPosts'));
     }
     // If compact still doesn't fit (e.g. very long post title), truncate active label harder
     if (containerWidth && measureWidth(compact) > containerWidth - 8) {
-      if (activeSlug === 'post') {
-        const raw = String(searchQuery || t('ui.postTab')).trim();
-        const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
-        compact = make(homeSlug, homeLabel) + `<span class="tab active" data-slug="post">${label}</span>`;
-      } else if (activeSlug === 'search') {
+      if (normalizedActiveSlug === 'search') {
         const sp = new URLSearchParams(window.location.search);
         const tag = (sp.get('tag') || '').trim();
         const q = (sp.get('q') || String(searchQuery || '')).trim();
@@ -717,6 +713,8 @@ function renderTabs(activeSlug, searchQuery) {
         const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
         const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
         compact = make(homeSlug, homeLabel) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
+      } else if (effectiveActiveSlug === 'posts' && postsEnabled() && homeSlug !== 'posts') {
+        compact = make(homeSlug, homeLabel) + make('posts', t('ui.allPosts'));
       }
     }
 
@@ -757,7 +755,7 @@ function renderTabs(activeSlug, searchQuery) {
     const currentActiveTab = nav.querySelector('.tab.active');
     if (currentActiveTab) {
       const curSlug = (currentActiveTab.dataset && currentActiveTab.dataset.slug) || '';
-      if (curSlug === 'post' || curSlug === 'search') {
+      if (curSlug === 'search') {
         currentActiveTab.classList.add('deactivating');
       }
     }
@@ -790,7 +788,7 @@ function renderTabs(activeSlug, searchQuery) {
       try {
         const newActive = nav.querySelector('.tab.active');
         const newSlug = (newActive && newActive.dataset && newActive.dataset.slug) || '';
-        if (newActive && (newSlug === 'post' || newSlug === 'search')) {
+        if (newActive && newSlug === 'search') {
           newActive.classList.add('activating');
           // next frame add .in to play entrance animation
           requestAnimationFrame(() => {
@@ -917,7 +915,7 @@ function renderFooterNav() {
   const nav = document.getElementById('footerNav');
   if (!nav) return;
   const defaultTab = getHomeSlug();
-  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : defaultTab)).toLowerCase();
+  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'posts' : defaultTab)).toLowerCase();
   const make = (href, label, cls = '') => `<a class="${cls}" href="${withLangParam(href)}">${label}</a>`;
   const isActive = (slug) => currentTab === slug;
   let html = '';
@@ -943,14 +941,6 @@ function setupResponsiveTabsObserver() {
   try {
     if (setupResponsiveTabsObserver.__done) return;
     setupResponsiveTabsObserver.__done = true;
-    const getCurrentPostTitle = () => {
-      try {
-        const el = document.querySelector('#mainview .post-meta-card .post-meta-title');
-        const txt = (el && el.textContent) ? el.textContent.trim() : '';
-        if (txt) return txt;
-      } catch (_) {}
-      try { return getArticleTitleFromMain() || ''; } catch (_) { return ''; }
-    };
     const rerender = () => {
       try {
         const id = getQueryVariable('id');
@@ -958,9 +948,7 @@ function setupResponsiveTabsObserver() {
         const q = getQueryVariable('q') || '';
         const tag = getQueryVariable('tag') || '';
         if (id) {
-          // Preserve the current article title on responsive re-render
-          const title = getCurrentPostTitle();
-          renderTabs('post', title);
+          renderTabs('posts');
         } else if (tab === 'search') {
           renderTabs('search', tag || q);
         } else if (tab && tab !== 'posts' && tabsBySlug[tab]) {
@@ -1121,7 +1109,7 @@ function displayPost(postname) {
       updateSEO(seoData, siteConfig);
     } catch (_) { /* ignore SEO errors */ }
     
-  renderTabs('post', articleTitle);
+  renderTabs(postsEnabled() ? 'posts' : getHomeSlug());
     const toc = document.getElementById('tocview');
     if (toc) {
       toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
@@ -1613,7 +1601,7 @@ function routeAndRender() {
   } catch (_) { /* ignore */ }
 
   if (isValidId(id)) {
-    renderTabs('post');
+    renderTabs(postsEnabled() ? 'posts' : getHomeSlug());
     displayPost(id);
   } else if (tab === 'search') {
     const q = getQueryVariable('q') || '';
