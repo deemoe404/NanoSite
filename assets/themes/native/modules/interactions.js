@@ -1,6 +1,7 @@
 import { installLightbox } from '../../../js/lightbox.js';
 import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
 import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle, getContentRoot } from '../../../js/utils.js';
+import { extractExcerpt as extractExcerptNative, computeReadTime as computeReadTimeNative } from '../../../js/content.js';
 import { renderTagSidebar, attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
@@ -1249,6 +1250,28 @@ function updateCardMetadata(entries = [], context = {}) {
   const translate = context.translate || t;
   const indexContainer = documentRef.querySelector('.index');
   const cards = Array.from(documentRef.querySelectorAll('.index a'));
+  const getRoot = (typeof context.getContentRoot === 'function')
+    ? context.getContentRoot
+    : () => getContentRoot();
+  const extract = (typeof context.extractExcerpt === 'function')
+    ? context.extractExcerpt
+    : (md, maxSentences) => extractExcerptNative(md, maxSentences);
+  const computeRead = (typeof context.computeReadTime === 'function')
+    ? context.computeReadTime
+    : (md, wordsPerMinute) => computeReadTimeNative(md, wordsPerMinute);
+  const updateMasonry = (typeof context.updateMasonryItem === 'function')
+    ? context.updateMasonryItem
+    : updateMasonryItem;
+  const fetchMarkdown = (location) => {
+    const loc = String(location || '').replace(/^\/+/, '');
+    const root = String(getRoot() || '');
+    if (typeof context.getFile === 'function') {
+      const base = root.replace(/\/+$/, '');
+      const target = `${base}/${loc}`.replace(/\/+/g, '/');
+      return context.getFile(target);
+    }
+    return fetchMarkdownNative(loc, context.window);
+  };
   entries.forEach(([title, meta], idx) => {
     const loc = meta && meta.location ? String(meta.location) : '';
     if (!loc) return;
@@ -1258,11 +1281,10 @@ function updateCardMetadata(entries = [], context = {}) {
     if (exEl && meta && meta.excerpt) {
       try { exEl.textContent = String(meta.excerpt); } catch (_) {}
     }
-    if (typeof context.getFile !== 'function' || typeof context.getContentRoot !== 'function' || typeof context.extractExcerpt !== 'function' || typeof context.computeReadTime !== 'function') return;
-    context.getFile(`${context.getContentRoot()}/${loc}`).then(md => {
-      const ex = context.extractExcerpt(md, 50);
+    fetchMarkdown(loc).then(md => {
+      const ex = extract(md, 50);
       if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
-      const minutes = context.computeReadTime(md, 200);
+      const minutes = computeRead(md, 200);
       const metaEl = el.querySelector('.card-meta');
       if (metaEl) {
         const items = [];
@@ -1297,8 +1319,8 @@ function updateCardMetadata(entries = [], context = {}) {
           metaEl.appendChild(node);
         });
       }
-      if (indexContainer && el) {
-        try { updateMasonryItem(indexContainer, el); } catch (_) {}
+      if (indexContainer && el && typeof updateMasonry === 'function') {
+        try { updateMasonry(indexContainer, el); } catch (_) {}
       }
     }).catch(() => {});
   });
