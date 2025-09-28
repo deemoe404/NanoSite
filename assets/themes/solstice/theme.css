@@ -10,6 +10,12 @@
   --solstice-radius: 18px;
   --solstice-gap: min(4vw, 48px);
   --solstice-font: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --solstice-code-bg: #f0f1f5;
+  --solstice-code-border: rgba(0, 0, 0, 0.07);
+  --solstice-code-text: #1c1c1f;
+  --solstice-code-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+  --solstice-inline-code-bg: rgba(0, 0, 0, 0.06);
+  --solstice-inline-code-text: inherit;
 }
 
 [data-theme='dark'] {
@@ -21,6 +27,12 @@
   --solstice-accent: #2997ff;
   --solstice-accent-strong: #0a84ff;
   --solstice-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --solstice-code-bg: rgba(36, 37, 41, 0.85);
+  --solstice-code-border: rgba(255, 255, 255, 0.08);
+  --solstice-code-text: rgba(255, 255, 255, 0.92);
+  --solstice-code-shadow: 0 22px 45px rgba(0, 0, 0, 0.55);
+  --solstice-inline-code-bg: rgba(255, 255, 255, 0.12);
+  --solstice-inline-code-text: rgba(255, 255, 255, 0.92);
 }
 
 body {
@@ -671,6 +683,79 @@ body {
   background: var(--solstice-surface);
   padding: clamp(1.5rem, 2vw + 1rem, 3rem);
   box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+}
+
+.solstice-article__body pre,
+.solstice-static__body pre {
+  background: var(--solstice-code-bg);
+  color: var(--solstice-code-text);
+  border: 1px solid var(--solstice-code-border);
+  border-radius: 16px;
+  padding: 1.35rem clamp(1.25rem, 1vw + 1rem, 1.65rem);
+  margin: 1.75rem 0;
+  overflow-x: auto;
+  font-family: 'SFMono-Regular', ui-monospace, 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  box-shadow: var(--solstice-code-shadow);
+  position: relative;
+}
+
+.solstice-article__body pre code,
+.solstice-static__body pre code {
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  display: block;
+  white-space: pre;
+}
+
+.solstice-article__body :not(pre) > code,
+.solstice-static__body :not(pre) > code {
+  font-family: 'SFMono-Regular', ui-monospace, 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+  background: var(--solstice-inline-code-bg);
+  color: var(--solstice-inline-code-text);
+  border-radius: 10px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.9em;
+}
+
+.solstice-article__body pre::-webkit-scrollbar,
+.solstice-static__body pre::-webkit-scrollbar {
+  height: 9px;
+}
+
+.solstice-article__body pre::-webkit-scrollbar-track,
+.solstice-static__body pre::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.solstice-article__body pre::-webkit-scrollbar-thumb,
+.solstice-static__body pre::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 110, 0.35);
+  border-radius: 999px;
+}
+
+[data-theme='dark'] .solstice-article__body pre::-webkit-scrollbar-thumb,
+[data-theme='dark'] .solstice-static__body pre::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.solstice-article__body pre::selection,
+.solstice-static__body pre::selection,
+.solstice-article__body code::selection,
+.solstice-static__body code::selection {
+  background: rgba(0, 113, 227, 0.24);
+  color: var(--solstice-code-text);
+}
+
+[data-theme='dark'] .solstice-article__body pre::selection,
+[data-theme='dark'] .solstice-static__body pre::selection,
+[data-theme='dark'] .solstice-article__body code::selection,
+[data-theme='dark'] .solstice-static__body code::selection {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .solstice-article__body img {
