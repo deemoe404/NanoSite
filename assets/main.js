@@ -14,6 +14,7 @@ import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from 
 import { getArticleTitleFromMain } from './js/dom-utils.js';
 
 import { applyLazyLoadingIn, hydrateCardCovers } from './js/post-render.js';
+import { renderTagSidebar as renderTagSidebarCore } from './js/tags.js';
 
 // Lightweight fetch helper (bypass caches without version params)
 const getFile = (filename) => fetch(String(filename || ''), { cache: 'no-store' })
@@ -121,6 +122,10 @@ function ensureAutoHeight(el, options = {}) {
     document,
     window
   });
+}
+
+function renderDefaultTagSidebar(indexMap) {
+  try { renderTagSidebarCore(indexMap || {}); } catch (_) {}
 }
 
 // --- Site config (root-level site.yaml) ---
@@ -269,10 +274,13 @@ function refreshTagSidebar({
   containers,
   postsIndex
 } = {}) {
-  callThemeHook('renderTagSidebar', {
+  const postsIndexMap = postsIndex === undefined ? postsIndexCache : postsIndex;
+  const handled = callThemeHook('renderTagSidebar', {
     view,
     containers,
-    postsIndex: postsIndex === undefined ? postsIndexCache : postsIndex,
+    postsIndex: postsIndexMap,
+    renderTagSidebar: renderDefaultTagSidebar,
+    renderDefaultTagSidebar,
     query: {
       tab: getQueryVariable('tab') || '',
       id: getQueryVariable('id') || '',
@@ -283,6 +291,9 @@ function refreshTagSidebar({
     document,
     window
   });
+  if (handled === undefined) {
+    renderDefaultTagSidebar(postsIndexMap);
+  }
 }
 
 function initializeSyntaxHighlightingForView(view, { containers } = {}) {
@@ -317,7 +328,7 @@ function enhanceIndexLayout(params = {}) {
     applyLazyLoadingIn,
     applyMasonry,
     debounce,
-    renderTagSidebar,
+    renderTagSidebar: renderDefaultTagSidebar,
     setupSearch,
     document,
     window
