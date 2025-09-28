@@ -262,7 +262,8 @@ function transformUnifiedContent(obj, lang) {
       tag: val.tag != null ? val.tag : (val.tags != null ? val.tags : undefined),
       date: val.date || undefined,
       // Prefer language-specific excerpt; fall back to top-level excerpt for legacy data
-      excerpt: (chosen && chosen.excerpt) || val.excerpt || undefined
+      excerpt: (chosen && chosen.excerpt) || val.excerpt || undefined,
+      title
     };
     out[title] = meta;
   }
@@ -358,7 +359,7 @@ async function loadContentFromFrontMatter(obj, lang) {
     // The displayed title prefers the primary's title
     const title = (primary.__title) || key;
     const { __title, versionLabel, ...restPrimary } = primary;
-    const meta = { ...restPrimary, versionLabel };
+    const meta = { ...restPrimary, versionLabel, title };
     // Attach versions list for UI switching (omit internal title field)
     meta.versions = variants.map(v => {
       const { __title: _t, ...rest } = v;

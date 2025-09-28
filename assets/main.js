@@ -408,14 +408,25 @@ function displayPost(postname) {
     const fallbackTitle = postsByLocationTitle[postname] || postname;
 
     let postEntry = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname);
-    let postMetadata = postEntry ? postEntry[1] : {};
+    let postMetadata = postEntry ? { ...postEntry[1] } : {};
+    if (postMetadata && Array.isArray(postMetadata.versions)) {
+      postMetadata.versions = postMetadata.versions.map(ver => ({ ...ver }));
+    }
     if (!postEntry) {
       const found = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => Array.isArray(v && v.versions) && v.versions.some(ver => ver && ver.location === postname));
       if (found) {
-        const baseMeta = found[1];
+        const baseMeta = found[1] || {};
         const match = (baseMeta.versions || []).find(ver => ver.location === postname) || {};
-        postMetadata = { ...match, versions: baseMeta.versions || [] };
+        postMetadata = { ...match };
+        postMetadata.versions = Array.isArray(baseMeta.versions) ? baseMeta.versions.map(ver => ({ ...ver })) : [];
+        if (baseMeta && baseMeta.title && !postMetadata.title) {
+          postMetadata.title = baseMeta.title;
+        }
       }
+    }
+    if (postMetadata && !postMetadata.title) {
+      const resolvedTitle = postsByLocationTitle[postname] || fallbackTitle;
+      if (resolvedTitle) postMetadata.title = resolvedTitle;
     }
 
     const hookResult = callThemeHook('renderPostView', {
