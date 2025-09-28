@@ -1,5 +1,5 @@
 import { t, withLangParam, getCurrentLang, switchLanguage } from '../../../js/i18n.js';
-import { renderTags, escapeHtml, formatDisplayDate, cardImageSrc, fallbackCover, isModifiedClick, getQueryVariable, sanitizeUrl } from '../../../js/utils.js';
+import { renderTags, escapeHtml, formatDisplayDate, cardImageSrc, fallbackCover, isModifiedClick, getQueryVariable, sanitizeUrl, sanitizeImageUrl } from '../../../js/utils.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor, refreshLanguageSelector } from '../../../js/theme.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCovers } from '../../../js/post-render.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
@@ -12,6 +12,79 @@ const defaultDocument = typeof document !== 'undefined' ? document : undefined;
 const CLASS_HIDDEN = 'is-hidden';
 
 let currentSiteConfig = null;
+
+function resolveCoverSource(meta = {}, siteConfig = {}) {
+  const allowFallback = !(siteConfig && siteConfig.cardCoverFallback === false);
+  if (!meta) return { coverSrc: '', allowFallback };
+
+  const preferred = meta.thumb || meta.cover || meta.image;
+  let coverSrc = '';
+  if (typeof preferred === 'string') {
+    coverSrc = preferred.trim();
+  } else if (preferred && typeof preferred === 'object') {
+    const maybeString = preferred.src || preferred.url || '';
+    coverSrc = typeof maybeString === 'string' ? maybeString.trim() : '';
+  }
+
+  if (coverSrc) {
+    const isProtocolRelative = coverSrc.startsWith('//');
+    const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(coverSrc);
+    if (!hasScheme && !isProtocolRelative && !coverSrc.startsWith('/') && !coverSrc.startsWith('#')) {
+      const baseLoc = meta && meta.location ? String(meta.location) : '';
+      const lastSlash = baseLoc.lastIndexOf('/');
+      const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
+      coverSrc = `${baseDir}${coverSrc}`.replace(/\/+/, '/');
+    }
+    const safeSrc = sanitizeImageUrl ? sanitizeImageUrl(coverSrc) : coverSrc;
+    if (safeSrc) {
+      return { coverSrc: safeSrc, allowFallback };
+    }
+  }
+
+  return { coverSrc: '', allowFallback };
+}
+
+function applySolsticeCoverClass(markup) {
+  if (!markup) return '';
+  if (markup.includes('solstice-card__cover')) return markup;
+  if (markup.includes('card-cover-wrap')) {
+    return markup.replace('card-cover-wrap', 'card-cover-wrap solstice-card__cover');
+  }
+  return `<div class="solstice-card__cover">${markup}</div>`;
+}
+
+function normalizeCoverUrl(coverSrc) {
+  if (!coverSrc) return '';
+  if (/^(?:https?:|data:|blob:)/i.test(coverSrc)) return coverSrc;
+  return cardImageSrc(coverSrc);
+}
+
+function renderCardCover(meta, title, siteConfig) {
+  const heading = typeof title === 'string' ? title : '';
+  const { coverSrc, allowFallback } = resolveCoverSource(meta, siteConfig);
+  if (coverSrc) {
+    const resolved = normalizeCoverUrl(coverSrc);
+    if (resolved) {
+      const alt = meta && meta.coverAlt ? meta.coverAlt : heading;
+      return `<div class="solstice-card__cover card-cover-wrap"><span class="ph-skeleton" aria-hidden="true"></span><img class="card-cover" src="${escapeHtml(resolved)}" alt="${escapeHtml(String(alt || ''))}" loading="lazy" decoding="async" fetchpriority="low" /></div>`;
+    }
+  }
+  if (allowFallback) {
+    const fallback = fallbackCover(heading);
+    return applySolsticeCoverClass(fallback);
+  }
+  return '';
+}
+
+function renderHeroImage(meta, title, siteConfig) {
+  const heading = typeof title === 'string' ? title : '';
+  const { coverSrc } = resolveCoverSource(meta, siteConfig);
+  if (!coverSrc) return '';
+  const resolved = normalizeCoverUrl(coverSrc);
+  if (!resolved) return '';
+  const alt = meta && meta.coverAlt ? meta.coverAlt : heading;
+  return `<div class="solstice-article__hero"><img src="${escapeHtml(resolved)}" alt="${escapeHtml(String(alt || ''))}" loading="lazy" decoding="async" /></div>`;
+}
 
 function localized(cfg, key) {
   if (!cfg) return '';
@@ -73,10 +146,7 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const excerpt = meta && meta.excerpt ? escapeHtml(String(meta.excerpt)) : '';
   const date = meta && meta.date ? formatDisplayDate(meta.date) : '';
   const tags = meta ? renderTags(meta.tag) : '';
-  const cover = cardImageSrc(meta, siteConfig) || (fallbackCover(siteConfig) || '');
-  const coverHtml = cover
-    ? `<div class="solstice-card__cover"><span class="ph-skeleton" aria-hidden="true"></span><img class="card-cover" src="${escapeHtml(cover)}" alt="" loading="lazy" decoding="async" /></div>`
-    : '';
+  const coverHtml = renderCardCover(meta, title, siteConfig);
   return `<article class="solstice-card">
     <a class="solstice-card__link" href="${escapeHtml(link)}">
       ${coverHtml}
@@ -460,7 +530,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     const main = containers && containers.mainElement ? containers.mainElement : getRoleElement('main', documentRef);
     if (!main) return;
     const title = (postMetadata && postMetadata.title) || fallbackTitle || '';
-    const cover = cardImageSrc(postMetadata, siteConfig) || '';
+    const hero = renderHeroImage(postMetadata, title, siteConfig);
     const date = postMetadata && postMetadata.date ? formatDisplayDate(postMetadata.date) : '';
     const tagMarkup = postMetadata ? renderTags(postMetadata.tag) : '';
     const metaCard = renderPostMetaCard(title, postMetadata || {}, markdown);
@@ -469,7 +539,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     main.innerHTML = `
       <article class="solstice-article" data-post-id="${escapeHtml(postId || '')}">
         <header class="solstice-article__header">
-          ${cover ? `<div class="solstice-article__hero"><img src="${escapeHtml(cover)}" alt="" loading="lazy" decoding="async" /></div>` : ''}
+          ${hero || ''}
           <div class="solstice-article__heading">
             <p class="solstice-article__meta-line">${date ? escapeHtml(date) : ''}</p>
             <h1 class="solstice-article__title">${escapeHtml(title)}</h1>
@@ -514,7 +584,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       return buildCard({ title, meta, translate: t, link: href, siteConfig });
     }).join('');
     const baseHref = withLangParam('?tab=posts');
-    container.innerHTML = `<div class="solstice-index">
+    container.innerHTML = `<div class="solstice-index index">
       <div class="solstice-index__grid">${cards || `<p class="solstice-empty">${t('ui.noResultsTitle')}</p>`}</div>
       ${buildPagination({ page, totalPages, baseHref, query: {} })}
     </div>`;
@@ -539,7 +609,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       : tagFilter
         ? `${t('ui.tags')} · ${escapeHtml(tagFilter)}`
         : t('ui.searchTab');
-    container.innerHTML = `<div class="solstice-index solstice-index--search">
+    container.innerHTML = `<div class="solstice-index solstice-index--search index">
       <header class="solstice-index__header"><h2>${escapeHtml(summary)}</h2></header>
       <div class="solstice-index__grid">${cards || `<p class="solstice-empty">${t('ui.noResultsTitle')}</p>`}</div>
       ${buildPagination({ page, totalPages, baseHref, query: { q: query, tag: tagFilter } })}

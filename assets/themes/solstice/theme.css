@@ -369,6 +369,20 @@ body {
   background: rgba(0,0,0,0.05);
 }
 
+.solstice-card__cover.card-fallback {
+  display: grid;
+  place-items: center;
+  background: var(--cover-bg, rgba(0,0,0,0.15));
+  color: rgba(255,255,255,0.92);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.solstice-card__cover.card-fallback .cover-initial {
+  font-size: clamp(2.5rem, 6vw, 3.25rem);
+}
+
 .solstice-card__cover .ph-skeleton {
   position: absolute;
   inset: 0;
