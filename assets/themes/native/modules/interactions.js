@@ -1,7 +1,8 @@
 import { installLightbox } from '../../../js/lightbox.js';
 import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
-import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
-import { attachHoverTooltip } from '../../../js/tags.js';
+import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle, isModifiedClick } from '../../../js/utils.js';
+import { attachHoverTooltip, renderTagSidebar as renderTagSidebarCore } from '../../../js/tags.js';
+import { setupAnchors, setupTOC } from '../../../js/toc.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { showErrorOverlay } from '../../../js/errors.js';
@@ -20,12 +21,19 @@ let tabsResizeTimer = 0;
 let responsiveObserverBound = false;
 let lightboxInstalled = false;
 let masonryHandlersBound = false;
+let navigationHandlersBound = false;
+let resizeHandlersBound = false;
+let navigationClickHandler = null;
+let resizeHandlerRef = null;
 
 function getUtility(params = {}, key, fallback) {
   try {
+    if (params && typeof params[key] === 'function') return params[key];
     const utils = params && params.utilities;
-    const value = utils && utils[key];
-    return typeof value === 'function' ? value : fallback;
+    if (utils && typeof utils[key] === 'function') return utils[key];
+    const access = params && params.contentApi;
+    if (access && typeof access[key] === 'function') return access[key];
+    return fallback;
   } catch (_) {
     return fallback;
   }
@@ -342,6 +350,22 @@ function showElementNative(params = {}, windowRef = defaultWindow) {
   }
 }
 
+function ensureAutoHeightNative(el, windowRef = defaultWindow) {
+  if (!el) return;
+  const raf = windowRef && typeof windowRef.requestAnimationFrame === 'function'
+    ? windowRef.requestAnimationFrame.bind(windowRef)
+    : (cb) => setTimeout(cb, 16);
+  raf(() => {
+    raf(() => {
+      try {
+        el.style.height = '';
+        el.style.minHeight = '';
+        el.style.overflow = '';
+      } catch (_) {}
+    });
+  });
+}
+
 function hideElementNative(params = {}, windowRef = defaultWindow) {
   const el = params.element;
   const onDone = typeof params.onDone === 'function' ? params.onDone : null;
@@ -525,6 +549,57 @@ function renderErrorStateNative(params = {}, documentRef = defaultDocument) {
   return true;
 }
 
+function syncNavigationStateNative(nav = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!nav || typeof nav !== 'object') return false;
+  const state = nav.navigation && typeof nav.navigation === 'object' ? nav.navigation : nav;
+  const tabs = state.tabsBySlug || {};
+  const activeSlug = state.activeSlug;
+  const searchQuery = state.searchQuery;
+  const homeSlug = state.homeSlug;
+  const homeLabel = state.homeLabel;
+  const postsEnabledValue = state.postsEnabled;
+  const translateFn = state.translate || state.t || t;
+  const makeLangUrl = typeof state.makeLangUrl === 'function'
+    ? state.makeLangUrl
+    : (typeof state.withLangParam === 'function' ? state.withLangParam : (href) => withLangParam(href));
+  const currentQuery = state.currentQuery && typeof state.currentQuery === 'object' ? state.currentQuery : null;
+
+  const tabParams = {
+    tabsBySlug: tabs,
+    activeSlug,
+    searchQuery,
+    window: windowRef,
+    document: documentRef,
+    translate: translateFn,
+    withLangParam: makeLangUrl
+  };
+  if (homeSlug != null) tabParams.homeSlug = homeSlug;
+  if (homeLabel != null) tabParams.homeLabel = homeLabel;
+  if (currentQuery) tabParams.currentQuery = currentQuery;
+  if (typeof postsEnabledValue === 'boolean') tabParams.postsEnabled = () => postsEnabledValue;
+  else if (typeof postsEnabledValue === 'function') tabParams.postsEnabled = postsEnabledValue;
+
+  try { renderTabsNative(tabParams); } catch (_) {}
+
+  const footerParams = {
+    tabsBySlug: tabs,
+    activeSlug,
+    searchQuery,
+    document: documentRef,
+    window: windowRef,
+    translate: translateFn,
+    withLangParam: makeLangUrl
+  };
+  if (homeSlug != null) footerParams.homeSlug = homeSlug;
+  if (homeLabel != null) footerParams.homeLabel = homeLabel;
+  if (currentQuery) footerParams.currentQuery = currentQuery;
+  if (typeof postsEnabledValue === 'boolean') footerParams.postsEnabled = postsEnabledValue;
+  else if (typeof postsEnabledValue === 'function') footerParams.postsEnabled = postsEnabledValue;
+
+  try { renderFooterNavNative(footerParams, documentRef, windowRef); } catch (_) {}
+  return true;
+}
+
 function handleViewChangeNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   const context = params && params.context && typeof params.context === 'object' ? params.context : {};
   const search = context.searchElement || params.searchElement || (documentRef ? documentRef.getElementById('searchbox') : null);
@@ -545,14 +620,17 @@ function handleViewChangeNative(params = {}, documentRef = defaultDocument, wind
   if (input && typeof queryValue === 'string') {
     try { input.value = queryValue; } catch (_) {}
   }
+  const navState = context.navigation || params.navigation;
+  if (navState) {
+    try { syncNavigationStateNative(navState, documentRef, windowRef); } catch (_) {}
+  }
   return !!(search || tags || input);
 }
 
 function renderTagSidebarNative(params = {}, documentRef = defaultDocument) {
-  const renderer = getUtility(params, 'renderTagSidebar');
+  const renderer = getUtility(params, 'renderTagSidebar', (index) => renderTagSidebarCore(index));
   if (typeof renderer !== 'function') return false;
-  try { renderer(params.postsIndex || {}); } catch (_) {}
-  return true;
+  try { renderer(params.postsIndex || {}); return true; } catch (_) { return false; }
 }
 
 function initializeSyntaxHighlightingNative(params = {}) {
@@ -841,31 +919,55 @@ function renderFooterNavNative(params = {}, documentRef = defaultDocument, windo
   const nav = documentRef.getElementById('footerNav');
   if (!nav) return false;
   const tabs = params.tabsBySlug || {};
+  const homeSlugParam = params.homeSlug;
   const getHome = typeof params.getHomeSlug === 'function'
     ? params.getHomeSlug
-    : () => getHomeSlug(tabs, windowRef);
+    : () => (homeSlugParam != null ? homeSlugParam : getHomeSlug(tabs, windowRef));
+  let homeSlugRaw;
+  try { homeSlugRaw = getHome(); } catch (_) { homeSlugRaw = homeSlugParam; }
+  const homeSlug = slugifyTab(homeSlugRaw) || homeSlugRaw || 'posts';
+
+  const homeLabelParam = params.homeLabel;
   const getLabel = typeof params.getHomeLabel === 'function'
     ? params.getHomeLabel
-    : () => computeHomeLabel(getHome(), tabs);
-  const postsEnabledFn = typeof params.postsEnabled === 'function'
-    ? params.postsEnabled
-    : () => postsEnabled(windowRef);
+    : () => (homeLabelParam != null ? homeLabelParam : computeHomeLabel(homeSlug, tabs));
+  let homeLabel;
+  try { homeLabel = getLabel(); } catch (_) { homeLabel = homeLabelParam != null ? homeLabelParam : computeHomeLabel(homeSlug, tabs); }
+  if (!homeLabel) homeLabel = computeHomeLabel(homeSlug, tabs);
+
+  const postsEnabledSource = params.postsEnabled;
+  const postsEnabledFn = typeof postsEnabledSource === 'function'
+    ? postsEnabledSource
+    : (() => {
+        if (typeof postsEnabledSource === 'boolean') return postsEnabledSource;
+        return postsEnabled(windowRef);
+      });
+
   const queryGetter = typeof params.getQueryVariable === 'function'
     ? params.getQueryVariable
-    : (name) => getQueryVariable(name, windowRef);
+    : null;
+  const currentQuery = params.currentQuery && typeof params.currentQuery === 'object' ? params.currentQuery : null;
   const makeLangUrl = typeof params.withLangParam === 'function' ? params.withLangParam : withLangParam;
-  const translate = params.t || params.translate || t;
+  const translate = params.translate || params.t || t;
 
-  const homeSlug = (() => { try { return slugifyTab(getHome()) || 'posts'; } catch (_) { return 'posts'; }})();
   const defaultTab = homeSlug || 'posts';
-  const currentTabRaw = queryGetter ? (queryGetter('tab') || (queryGetter('id') ? 'post' : defaultTab)) : defaultTab;
+  const currentTabRaw = (() => {
+    if (queryGetter) {
+      const qtab = queryGetter('tab');
+      if (qtab) return qtab;
+      if (queryGetter('id')) return 'post';
+      return defaultTab;
+    }
+    if (currentQuery) {
+      if (currentQuery.tab) return currentQuery.tab;
+      if (currentQuery.id) return 'post';
+    }
+    return defaultTab;
+  })();
   const currentTab = String(currentTabRaw || '').toLowerCase();
   const makeLink = (href, label, cls = '') => `<a class="${cls}" href="${makeLangUrl(href)}">${escapeHtml(String(label || ''))}</a>`;
   const isActive = (slug) => currentTab === slug;
   let html = '';
-  const homeLabel = (() => {
-    try { const lbl = getLabel(); return lbl || computeHomeLabel(homeSlug, tabs); } catch (_) { return computeHomeLabel(homeSlug, tabs); }
-  })();
   html += makeLink(`?tab=${encodeURIComponent(homeSlug)}`, homeLabel, isActive(homeSlug) ? 'active' : '');
   if (postsEnabledFn() && homeSlug !== 'posts') {
     html += ' ' + makeLink('?tab=posts', translate('ui.allPosts'), isActive('posts') ? 'active' : '');
@@ -886,7 +988,7 @@ function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument
   const main = scope.mainElement || params.mainElement || documentRef.getElementById('mainview');
   const translate = params.translator || params.t || t;
   const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
-  const ensureAutoHeight = typeof params.ensureAutoHeight === 'function' ? params.ensureAutoHeight : (() => {});
+  const ensureHeight = getUtility(params, 'ensureAutoHeight', (el) => ensureAutoHeightNative(el, windowRef));
   const show = typeof params.showElement === 'function' ? params.showElement : ((el) => { if (el) { el.style.display = ''; el.setAttribute('aria-hidden', 'false'); } });
 
   if (toc) {
@@ -899,7 +1001,7 @@ function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument
       + '<li><div class="skeleton-block skeleton-line w-60"></div></li>'
       + '</ul>';
     show(toc);
-    ensureAutoHeight(toc);
+    try { ensureHeight(toc); } catch (_) {}
   }
   if (main) main.innerHTML = renderSkeleton();
   return true;
@@ -985,14 +1087,7 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
     });
   } catch (_) {}
 
-  const ensureHeight = getUtility(params, 'ensureAutoHeight', (el) => {
-    if (!el) return;
-    try {
-      el.style.height = '';
-      el.style.minHeight = '';
-      el.style.overflow = '';
-    } catch (_) {}
-  });
+  const ensureHeight = getUtility(params, 'ensureAutoHeight', (el) => ensureAutoHeightNative(el, windowRef));
 
   const tocHtml = params.tocHtml || '';
   const tocElement = documentRef.getElementById('tocview');
@@ -1006,10 +1101,10 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
       renderPostTOCNative({ tocElement, articleTitle, tocHtml, translate }, documentRef, windowRef);
       try { showElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = ''; } catch (_) {} }
       try { ensureHeight(tocElement); } catch (_) {}
-      const setupAnchorsFn = getUtility(params, 'setupAnchors', null);
-      const setupTocFn = getUtility(params, 'setupTOC', null);
-      try { if (typeof setupAnchorsFn === 'function') setupAnchorsFn(); } catch (_) {}
-      try { if (typeof setupTocFn === 'function') setupTocFn(); } catch (_) {}
+      const setupAnchorsFn = getUtility(params, 'setupAnchors', () => setupAnchors());
+      const setupTocFn = getUtility(params, 'setupTOC', () => setupTOC());
+      try { setupAnchorsFn(); } catch (_) {}
+      try { setupTocFn(); } catch (_) {}
     } else {
       try { hideElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = 'none'; } catch (_) {} }
       try { tocElement.innerHTML = ''; } catch (_) {}
@@ -1518,24 +1613,32 @@ function renderTabsNative(params = {}) {
   const tabs = params.tabsBySlug || {};
   const activeSlug = params.activeSlug;
   const searchQuery = params.searchQuery;
+  const translate = params.translate || params.t || t;
 
+  const homeSlugParam = params.homeSlug;
   const getHomeFn = typeof params.getHomeSlug === 'function'
     ? params.getHomeSlug
-    : () => getHomeSlug(tabs, windowRef);
+    : () => (homeSlugParam != null ? homeSlugParam : getHomeSlug(tabs, windowRef));
   let homeSlugRaw;
-  try { homeSlugRaw = getHomeFn(); } catch (_) { homeSlugRaw = getHomeSlug(tabs, windowRef); }
+  try { homeSlugRaw = getHomeFn(); } catch (_) { homeSlugRaw = homeSlugParam != null ? homeSlugParam : getHomeSlug(tabs, windowRef); }
   const safeHome = slugifyTab(homeSlugRaw);
   const homeSlug = safeHome || homeSlugRaw || 'posts';
+  const homeLabelParam = params.homeLabel;
   const getHomeLabelFn = typeof params.getHomeLabel === 'function'
     ? params.getHomeLabel
-    : () => computeHomeLabel(homeSlugRaw || homeSlug, tabs);
+    : () => (homeLabelParam != null ? homeLabelParam : computeHomeLabel(homeSlugRaw || homeSlug, tabs));
   let homeLabel;
-  try { homeLabel = getHomeLabelFn(); } catch (_) { homeLabel = computeHomeLabel(homeSlugRaw || homeSlug, tabs); }
+  try { homeLabel = getHomeLabelFn(); } catch (_) { homeLabel = homeLabelParam != null ? homeLabelParam : computeHomeLabel(homeSlugRaw || homeSlug, tabs); }
   if (!homeLabel) homeLabel = computeHomeLabel(homeSlugRaw || homeSlug, tabs);
-  const postsEnabledFn = typeof params.postsEnabled === 'function'
-    ? params.postsEnabled
-    : () => postsEnabled(windowRef);
+  const postsEnabledSource = params.postsEnabled;
+  const postsEnabledFn = typeof postsEnabledSource === 'function'
+    ? postsEnabledSource
+    : (() => {
+        if (typeof postsEnabledSource === 'boolean') return postsEnabledSource;
+        return postsEnabled(windowRef);
+      });
   const makeLangUrl = typeof params.withLangParam === 'function' ? params.withLangParam : withLangParam;
+  const currentQuery = params.currentQuery && typeof params.currentQuery === 'object' ? params.currentQuery : null;
 
   const make = (slug, label) => {
     const safeSlug = slugifyTab(slug) || slug;
@@ -1546,7 +1649,7 @@ function renderTabsNative(params = {}) {
   let html = '';
   html += make(homeSlug, homeLabel);
   if (postsEnabledFn() && homeSlug !== 'posts') {
-    html += make('posts', t('ui.allPosts'));
+    html += make('posts', translate('ui.allPosts'));
   }
   for (const [slug, info] of Object.entries(tabs)) {
     if (slug === homeSlug) continue;
@@ -1554,17 +1657,28 @@ function renderTabsNative(params = {}) {
     html += make(slug, label);
   }
 
-  if (activeSlug === 'search') {
+  const resolveSearchParams = () => {
+    if (currentQuery) {
+      const tagVal = currentQuery.tag != null ? String(currentQuery.tag) : '';
+      const qVal = currentQuery.q != null ? String(currentQuery.q) : String(searchQuery || '');
+      return { tag: tagVal.trim(), q: qVal.trim() };
+    }
     const search = windowRef && windowRef.location ? windowRef.location.search : '';
     const sp = new URLSearchParams(search);
-    const tag = (sp.get('tag') || '').trim();
-    const q = (sp.get('q') || String(searchQuery || '')).trim();
+    return {
+      tag: (sp.get('tag') || '').trim(),
+      q: (sp.get('q') || String(searchQuery || '')).trim()
+    };
+  };
+  const { tag, q } = resolveSearchParams();
+
+  if (activeSlug === 'search') {
     const href = makeLangUrl(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-    const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+    const label = tag ? translate('ui.tagSearch', tag) : (q ? translate('titles.search', q) : translate('ui.searchTab'));
     html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
   } else if (activeSlug === 'post') {
-    const raw = String(searchQuery || t('ui.postTab')).trim();
-    const label = raw ? escapeHtml(raw.length > 28 ? `${raw.slice(0, 25)}…` : raw) : t('ui.postTab');
+    const raw = String(searchQuery || translate('ui.postTab')).trim();
+    const label = raw ? escapeHtml(raw.length > 28 ? `${raw.slice(0, 25)}…` : raw) : translate('ui.postTab');
     html += `<span class="tab active" data-slug="post">${label}</span>`;
   }
 
@@ -1591,16 +1705,12 @@ function renderTabsNative(params = {}) {
     const fullWidth = measureWidth(html);
     let compact = make(homeSlug, homeLabel);
     if (activeSlug === 'search') {
-      const search = windowRef && windowRef.location ? windowRef.location.search : '';
-      const sp = new URLSearchParams(search);
-      const tag = (sp.get('tag') || '').trim();
-      const q = (sp.get('q') || String(searchQuery || '')).trim();
       const href = makeLangUrl(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-      const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+      const label = tag ? translate('ui.tagSearch', tag) : (q ? translate('titles.search', q) : translate('ui.searchTab'));
       compact += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
     } else if (activeSlug === 'post') {
-      const raw = String(searchQuery || t('ui.postTab')).trim();
-      const label = raw ? escapeHtml(raw.length > 28 ? `${raw.slice(0, 25)}…` : raw) : t('ui.postTab');
+      const raw = String(searchQuery || translate('ui.postTab')).trim();
+      const label = raw ? escapeHtml(raw.length > 28 ? `${raw.slice(0, 25)}…` : raw) : translate('ui.postTab');
       compact += `<span class="tab active" data-slug="post">${label}</span>`;
     } else if (activeSlug && activeSlug !== 'posts') {
       const info = tabs[activeSlug];
@@ -1609,15 +1719,11 @@ function renderTabsNative(params = {}) {
     }
     if (containerWidth && measureWidth(compact) > containerWidth - 8) {
       if (activeSlug === 'post') {
-        const raw = String(searchQuery || t('ui.postTab')).trim();
-        const label = raw ? escapeHtml(raw.length > 16 ? `${raw.slice(0, 13)}…` : raw) : t('ui.postTab');
+        const raw = String(searchQuery || translate('ui.postTab')).trim();
+        const label = raw ? escapeHtml(raw.length > 16 ? `${raw.slice(0, 13)}…` : raw) : translate('ui.postTab');
         compact = make(homeSlug, homeLabel) + `<span class="tab active" data-slug="post">${label}</span>`;
       } else if (activeSlug === 'search') {
-        const search = windowRef && windowRef.location ? windowRef.location.search : '';
-        const sp = new URLSearchParams(search);
-        const tag = (sp.get('tag') || '').trim();
-        const q = (sp.get('q') || String(searchQuery || '')).trim();
-        const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
+        const labelRaw = tag ? translate('ui.tagSearch', tag) : (q ? translate('titles.search', q) : translate('ui.searchTab'));
         const label = escapeHtml(labelRaw.length > 16 ? `${labelRaw.slice(0, 13)}…` : labelRaw);
         const href = makeLangUrl(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
         compact = make(homeSlug, homeLabel) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
@@ -1773,15 +1879,116 @@ function setupResponsiveTabsObserverNative(params = {}) {
   windowRef.addEventListener('orientationchange', handler, { passive: true });
 }
 
+function bindNavigationHandlersNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef || !windowRef) return false;
+  if (navigationHandlersBound) return true;
+
+  if (navigationClickHandler && documentRef) {
+    try { documentRef.removeEventListener('click', navigationClickHandler); } catch (_) {}
+    navigationClickHandler = null;
+    navigationHandlersBound = false;
+  }
+
+  const navigateTo = typeof params.navigateTo === 'function'
+    ? params.navigateTo
+    : (url) => {
+        try {
+          windowRef.history.pushState({}, '', url);
+          if (typeof windowRef.dispatchEvent === 'function') {
+            if (typeof windowRef.PopStateEvent === 'function') {
+              windowRef.dispatchEvent(new windowRef.PopStateEvent('popstate'));
+            } else if (documentRef && typeof documentRef.createEvent === 'function') {
+              const evt = documentRef.createEvent('Event');
+              evt.initEvent('popstate', true, true);
+              windowRef.dispatchEvent(evt);
+            }
+          }
+          try { windowRef.scrollTo(0, 0); } catch (_) {}
+        } catch (_) {}
+      };
+
+  const customHandle = typeof params.handleDocumentClick === 'function' ? params.handleDocumentClick : null;
+  const isModified = typeof params.isModifiedClick === 'function' ? params.isModifiedClick : isModifiedClick;
+
+  const handler = (event) => {
+    if (!event) return;
+    if (customHandle && customHandle(event)) return;
+    if (handleDocumentClickNative({ event }, documentRef, windowRef)) return;
+    const target = event.target;
+    const link = target && typeof target.closest === 'function' ? target.closest('a') : null;
+    if (!link) return;
+    if (isModified && isModified(event)) return;
+    const hrefAttr = link.getAttribute('href') || '';
+    if (hrefAttr.includes('#')) return;
+    if (link.target && link.target === '_blank') return;
+    try {
+      const base = windowRef.location ? windowRef.location.href : (typeof location !== 'undefined' ? location.href : '');
+      const url = new URL(link.href, base || undefined);
+      const currentOrigin = windowRef.location ? windowRef.location.origin : url.origin;
+      const currentPath = windowRef.location ? windowRef.location.pathname : url.pathname;
+      if (url.origin !== currentOrigin) return;
+      if (url.pathname !== currentPath) return;
+      const sp = url.searchParams;
+      const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
+      if (!hasInAppParams) return;
+      event.preventDefault();
+      navigateTo(url.toString());
+    } catch (_) {}
+  };
+
+  try {
+    documentRef.addEventListener('click', handler);
+    navigationClickHandler = handler;
+    navigationHandlersBound = true;
+  } catch (_) {
+    return false;
+  }
+  return true;
+}
+
+function bindResizeHandlerNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!windowRef) return false;
+  if (resizeHandlersBound) return true;
+  if (resizeHandlerRef && windowRef) {
+    try { windowRef.removeEventListener('resize', resizeHandlerRef); } catch (_) {}
+    resizeHandlerRef = null;
+    resizeHandlersBound = false;
+  }
+  const resizeHandler = (event) => {
+    if (typeof params.handleWindowResize === 'function') {
+      try { params.handleWindowResize(event); } catch (_) {}
+      return;
+    }
+    try { handleWindowResizeNative({ event, ...params }, documentRef, windowRef); } catch (_) {}
+  };
+  try {
+    windowRef.addEventListener('resize', resizeHandler, { passive: true });
+    resizeHandlerRef = resizeHandler;
+    resizeHandlersBound = true;
+    return true;
+  } catch (_) { return false; }
+}
+
 export function mount(context = {}) {
   const windowRef = context.window || defaultWindow;
   const documentRef = context.document || defaultDocument;
+
+  if (navigationClickHandler && documentRef) {
+    try { documentRef.removeEventListener('click', navigationClickHandler); } catch (_) {}
+  }
+  if (resizeHandlerRef && windowRef) {
+    try { windowRef.removeEventListener('resize', resizeHandlerRef); } catch (_) {}
+  }
 
   hasInitiallyRendered = false;
   pendingHighlightRaf = 0;
   tabsResizeTimer = 0;
   responsiveObserverBound = false;
   masonryHandlersBound = false;
+  navigationHandlersBound = false;
+  resizeHandlersBound = false;
+  navigationClickHandler = null;
+  resizeHandlerRef = null;
 
   if (!lightboxInstalled) {
     try { installLightbox({ root: '#mainview' }); lightboxInstalled = true; } catch (_) {}
@@ -1824,6 +2031,8 @@ export function mount(context = {}) {
   hooks.resetThemeControls = (params = {}) => resetThemeControlsNative(params, documentRef);
   hooks.reflectThemeConfig = (params = {}) => reflectThemeConfigNative(params, documentRef);
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
+  hooks.bindNavigationHandlers = (params = {}) => bindNavigationHandlersNative(params, documentRef, windowRef);
+  hooks.bindResizeHandler = (params = {}) => bindResizeHandlerNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
   return context;

@@ -116,18 +116,32 @@ function smoothHide(el, onDone, options) {
   }
 }
 
-// Ensure element height fully resets to its natural auto height
-function ensureAutoHeight(el) {
-  if (!el) return;
-  try {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.style.height = '';
-        el.style.minHeight = '';
-        el.style.overflow = '';
-      });
-    });
-  } catch (_) {}
+function buildNavigationState({
+  activeSlug,
+  searchQuery = '',
+  currentQuery,
+  tabs = tabsBySlug
+} = {}) {
+  const baseQuery = currentQuery && typeof currentQuery === 'object'
+    ? { ...currentQuery }
+    : {
+        tab: getQueryVariable('tab') || '',
+        id: getQueryVariable('id') || '',
+        q: getQueryVariable('q') || '',
+        tag: getQueryVariable('tag') || ''
+      };
+
+  return {
+    activeSlug,
+    searchQuery,
+    tabsBySlug: tabs,
+    homeSlug: getHomeSlug(),
+    homeLabel: getHomeLabel(),
+    postsEnabled: postsEnabled(),
+    currentQuery: baseQuery,
+    makeLangUrl: (href) => withLangParam(href),
+    translate: t
+  };
 }
 
 // --- Site config (root-level site.yaml) ---
@@ -263,9 +277,24 @@ function renderErrorState(targetElement, {
 }
 
 function notifyThemeViewChange(view, context = {}) {
+  const payload = { ...context };
+  if (payload.navigation) {
+    const nav = payload.navigation;
+    if (!nav.currentQuery || typeof nav.currentQuery !== 'object') {
+      payload.navigation = {
+        ...nav,
+        currentQuery: {
+          tab: getQueryVariable('tab') || '',
+          id: getQueryVariable('id') || '',
+          q: getQueryVariable('q') || '',
+          tag: getQueryVariable('tag') || ''
+        }
+      };
+    }
+  }
   return callThemeHook('handleViewChange', {
     view,
-    context,
+    context: payload,
     document,
     window
   });
@@ -280,11 +309,6 @@ function refreshTagSidebar({
     view,
     containers,
     postsIndex: postsIndex === undefined ? postsIndexCache : postsIndex,
-    utilities: {
-      aggregateTags,
-      renderTagSidebar,
-      setupTagTooltips
-    },
     document,
     window
   });
@@ -304,7 +328,7 @@ function initializeSyntaxHighlightingForView(view, { containers } = {}) {
 }
 
 function resetTOCView(view, containers, { reason, immediate } = {}) {
-  const handled = callThemeHook('resetTOC', {
+  return callThemeHook('resetTOC', {
     view,
     containers,
     reason,
@@ -313,19 +337,6 @@ function resetTOCView(view, containers, { reason, immediate } = {}) {
     document,
     window
   });
-  if (handled === undefined) {
-    const toc = (containers && containers.tocElement) || getViewContainer(view, 'toc');
-    if (!toc) return;
-    const clear = () => { try { toc.innerHTML = ''; } catch (_) {}; };
-    if (immediate) {
-      clear();
-      try { toc.hidden = true; } catch (_) {}
-      try { toc.style.display = 'none'; } catch (_) {}
-      try { toc.setAttribute('aria-hidden', 'true'); } catch (_) {}
-      return;
-    }
-    smoothHide(toc, clear);
-  }
 }
 
 function enhanceIndexLayout(params = {}) {
@@ -348,34 +359,6 @@ function enhanceIndexLayout(params = {}) {
 
 // RenderOutdatedCard moved to ./js/templates.js
 
-function renderTabs(activeSlug, searchQuery) {
-  callThemeHook('renderTabs', {
-    activeSlug,
-    searchQuery,
-    tabsBySlug,
-    getHomeSlug: () => getHomeSlug(),
-    getHomeLabel: () => getHomeLabel(),
-    postsEnabled: () => postsEnabled(),
-    document,
-    window
-  });
-}
-
-// Render footer navigation: Home (All Posts) + custom tabs
-function renderFooterNav() {
-  callThemeHook('renderFooterNav', {
-    tabsBySlug,
-    getHomeSlug: () => getHomeSlug(),
-    getHomeLabel: () => getHomeLabel(),
-    postsEnabled: () => postsEnabled(),
-    getQueryVariable,
-    withLangParam,
-    t,
-    document,
-    window
-  });
-}
-
 function displayPost(postname) {
   // Bump request token to invalidate any in-flight older renders
   const reqId = (++__activePostRequestId);
@@ -387,14 +370,21 @@ function displayPost(postname) {
     view: 'post',
     containers,
     translator: t,
-    ensureAutoHeight,
     showElement: smoothShow,
     hideElement: smoothHide,
     document,
     window
   });
 
-  notifyThemeViewChange('post', { showSearch: false, showTags: false });
+  notifyThemeViewChange('post', {
+    showSearch: false,
+    showTags: false,
+    navigation: buildNavigationState({
+      activeSlug: 'post',
+      searchQuery: postsByLocationTitle[postname] || postname,
+      currentQuery: { tab: 'post', id: postname }
+    })
+  });
 
   return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
@@ -435,19 +425,7 @@ function displayPost(postname) {
       translate: t,
       document,
       window,
-      utilities: {
-        renderPostNav,
-        hydratePostImages,
-        hydratePostVideos,
-        hydrateInternalLinkCards,
-        applyLazyLoadingIn,
-        applyLangHints,
-        renderPostTOC: (opts) => renderPostTOCBlock(opts),
-        renderTagSidebar,
-        getArticleTitleFromMain,
-        setupAnchors,
-        setupTOC,
-        ensureAutoHeight,
+      contentApi: {
         getFile,
         getContentRoot,
         withLangParam,
@@ -477,7 +455,15 @@ function displayPost(postname) {
       });
     }
 
-    notifyThemeViewChange('post', { showSearch: false, showTags: false });
+    notifyThemeViewChange('post', {
+      showSearch: false,
+      showTags: false,
+      navigation: buildNavigationState({
+        activeSlug: 'post',
+        searchQuery: articleTitle,
+        currentQuery: { tab: 'post', id: postname }
+      })
+    });
     try { setDocTitle(articleTitle); } catch (_) {}
     initializeSyntaxHighlightingForView('post', { containers });
     refreshTagSidebar({ view: 'post', containers, postsIndex: postsIndexCache });
@@ -490,8 +476,6 @@ function displayPost(postname) {
       }, siteConfig);
       updateSEO(seoData, siteConfig);
     } catch (_) { /* ignore SEO errors */ }
-
-    renderTabs('post', articleTitle);
 
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
@@ -537,7 +521,15 @@ function displayPost(postname) {
       containers
     });
     setDocTitle(t('ui.notFound'));
-    notifyThemeViewChange('post', { showSearch: false, showTags: false });
+    notifyThemeViewChange('post', {
+      showSearch: false,
+      showTags: false,
+      navigation: buildNavigationState({
+        activeSlug: 'post',
+        searchQuery: postsByLocationTitle[postname] || postname,
+        currentQuery: { tab: 'post', id: postname }
+      })
+    });
   });
 }
 
@@ -586,8 +578,15 @@ function displayIndex(parsed) {
     siteConfig
   });
 
-  renderTabs('posts');
-  notifyThemeViewChange('posts', { showSearch: true, showTags: true, queryValue: '' });
+  notifyThemeViewChange('posts', {
+    showSearch: true,
+    showTags: true,
+    queryValue: '',
+    navigation: buildNavigationState({
+      activeSlug: 'posts',
+      currentQuery: { tab: 'posts' }
+    })
+  });
   setDocTitle(t('titles.allPosts'));
 
   callThemeHook('afterIndexRender', {
@@ -673,8 +672,18 @@ function displaySearch(query) {
     tagFilter
   });
 
-  renderTabs('search', tagFilter ? t('ui.tagSearch', tagFilter) : q);
-  notifyThemeViewChange('search', { showSearch: true, showTags: true, queryValue: q, tagFilter });
+  const navLabel = tagFilter ? t('ui.tagSearch', tagFilter) : q;
+  notifyThemeViewChange('search', {
+    showSearch: true,
+    showTags: true,
+    queryValue: q,
+    tagFilter,
+    navigation: buildNavigationState({
+      activeSlug: 'search',
+      searchQuery: navLabel,
+      currentQuery: { tab: 'search', q, tag: tagFilter }
+    })
+  });
   setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
 
   callThemeHook('afterSearchRender', {
@@ -707,8 +716,14 @@ function displayStaticTab(slug) {
     document,
     window
   });
-  notifyThemeViewChange('tab', { showSearch: false, showTags: false });
-  renderTabs(slug);
+  notifyThemeViewChange('tab', {
+    showSearch: false,
+    showTags: false,
+    navigation: buildNavigationState({
+      activeSlug: slug,
+      currentQuery: { tab: slug }
+    })
+  });
   getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
       // 移除加载状态类
@@ -733,18 +748,7 @@ function displayStaticTab(slug) {
         translate: t,
         document,
         window,
-        utilities: {
-          hydratePostImages,
-          hydratePostVideos,
-          hydrateInternalLinkCards,
-          applyLazyLoadingIn,
-          applyLangHints,
-          renderPostTOC: (opts) => renderPostTOCBlock(opts),
-          renderTagSidebar,
-          getArticleTitleFromMain,
-          setupAnchors,
-          setupTOC,
-          ensureAutoHeight,
+        contentApi: {
           getFile,
           getContentRoot,
           withLangParam,
@@ -835,12 +839,10 @@ function routeAndRender() {
   } catch (_) { /* ignore */ }
 
   if (isValidId(id)) {
-    renderTabs('post');
     displayPost(id);
   } else if (tab === 'search') {
     const q = getQueryVariable('q') || '';
     const tag = getQueryVariable('tag') || '';
-  renderTabs('search', tag || q);
     displaySearch(q);
     // Update SEO for search page
     try {
@@ -856,7 +858,6 @@ function routeAndRender() {
   } else if (tab !== 'posts' && tabsBySlug[tab]) {
     displayStaticTab(tab);
   } else {
-    renderTabs('posts');
     displayIndex(postsIndexCache);
     // Update SEO for home/posts page
     const page = parseInt(getQueryVariable('page') || '1', 10);
@@ -878,41 +879,55 @@ function routeAndRender() {
       }, siteConfig);
     } catch (_) { /* ignore SEO errors to avoid breaking UI */ }
   }
-  // Keep footer nav in sync as route/tabs may impact labels
-  renderFooterNav();
 }
 
 
 // Intercept in-app navigation and use History API
 // isModifiedClick moved to utils.js
 
-document.addEventListener('click', (e) => {
-  if (callThemeHook('handleDocumentClick', { event: e, document, window })) return;
-  const a = e.target && e.target.closest ? e.target.closest('a') : null;
-  if (!a) return;
-
-  if (isModifiedClick(e)) return;
-  const hrefAttr = a.getAttribute('href') || '';
-  // Allow any in-page hash links (e.g., '#', '#heading' or '?id=...#heading')
-  if (hrefAttr.includes('#')) return;
-  // External targets or explicit new tab
-  if (a.target && a.target === '_blank') return;
-  try {
-    const url = new URL(a.href, window.location.href);
-    // Only handle same-origin and same-path navigations
-    if (url.origin !== window.location.origin) return;
-    if (url.pathname !== window.location.pathname) return;
-    const sp = url.searchParams;
-    const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
-    if (!hasInAppParams) return;
-    e.preventDefault();
-    history.pushState({}, '', url.toString());
-    routeAndRender();
-    window.scrollTo(0, 0);
-  } catch (_) {
-    // If URL parsing fails, fall through to default navigation
-  }
+const navigationHandlersBound = callThemeHook('bindNavigationHandlers', {
+  document,
+  window,
+  navigateTo: (url) => {
+    try {
+      history.pushState({}, '', url);
+      routeAndRender();
+      try { window.scrollTo(0, 0); } catch (_) {}
+    } catch (_) {}
+  },
+  isModifiedClick,
+  handleDocumentClick: (event) => callThemeHook('handleDocumentClick', { event, document, window })
 });
+
+if (!navigationHandlersBound) {
+  document.addEventListener('click', (e) => {
+    if (callThemeHook('handleDocumentClick', { event: e, document, window })) return;
+    const a = e.target && e.target.closest ? e.target.closest('a') : null;
+    if (!a) return;
+
+    if (isModifiedClick(e)) return;
+    const hrefAttr = a.getAttribute('href') || '';
+    // Allow any in-page hash links (e.g., '#', '#heading' or '?id=...#heading')
+    if (hrefAttr.includes('#')) return;
+    // External targets or explicit new tab
+    if (a.target && a.target === '_blank') return;
+    try {
+      const url = new URL(a.href, window.location.href);
+      // Only handle same-origin and same-path navigations
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname !== window.location.pathname) return;
+      const sp = url.searchParams;
+      const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
+      if (!hasInAppParams) return;
+      e.preventDefault();
+      history.pushState({}, '', url.toString());
+      routeAndRender();
+      window.scrollTo(0, 0);
+    } catch (_) {
+      // If URL parsing fails, fall through to default navigation
+    }
+  });
+}
 
 window.addEventListener('popstate', () => {
   const prevKey = __lastRouteKey || '';
@@ -931,9 +946,12 @@ window.addEventListener('popstate', () => {
 });
 
 // Update sliding indicator on window resize
-window.addEventListener('resize', (event) => {
-  callThemeHook('handleWindowResize', { event, document, window });
-});
+const resizeHandlersBound = callThemeHook('bindResizeHandler', { document, window });
+if (!resizeHandlersBound) {
+  window.addEventListener('resize', (event) => {
+    callThemeHook('handleWindowResize', { event, document, window });
+  });
+}
 
 // Boot
 // Boot sequence overview:
@@ -1375,7 +1393,14 @@ loadSiteConfig()
       view: 'boot',
       containers: bootContainers
     });
-    notifyThemeViewChange('boot', { showSearch: false, showTags: false });
+    notifyThemeViewChange('boot', {
+      showSearch: false,
+      showTags: false,
+      navigation: buildNavigationState({
+        activeSlug: getHomeSlug(),
+        currentQuery: { tab: getHomeSlug() }
+      })
+    });
     // Surface an overlay for boot/index failures (network/unified JSON issues)
     try {
       const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
