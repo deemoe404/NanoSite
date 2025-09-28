@@ -44,26 +44,6 @@ export function mount(context = {}) {
     inner.appendChild(socials);
   }
 
-  let actions = inner.querySelector('.footer-actions');
-  if (!actions) {
-    actions = doc.createElement('div');
-    actions.className = 'footer-actions';
-    inner.appendChild(actions);
-  }
-
-  if (socials && actions && socials.nextSibling !== actions) {
-    inner.insertBefore(socials, actions);
-  }
-
-  if (!actions.querySelector('#footerTop')) {
-    const top = doc.createElement('a');
-    top.id = 'footerTop';
-    top.className = 'footer-top';
-    top.href = '#';
-    top.textContent = 'Back to top';
-    actions.appendChild(top);
-  }
-
   context.regions = { ...regions, footer, footerNav: nav };
   return { regions: { ...regions, footer, footerNav: nav } };
 }

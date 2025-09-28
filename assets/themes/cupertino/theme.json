@@ -4,6 +4,7 @@
     "modules/layout.js",
     "modules/topbar.js",
     "modules/mainview.js",
+    "modules/backtotop.js",
     "modules/tag-filter.js",
     "modules/toc.js",
     "modules/footer.js"

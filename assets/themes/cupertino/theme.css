@@ -870,21 +870,50 @@ footer.cupertino-footer {
   font-size: 0.85rem;
 }
 
-.footer-actions {
-  display: flex;
-  gap: 16px;
+.cupertino-backtotop {
+  position: fixed;
+  right: clamp(16px, 4vw, 48px);
+  bottom: clamp(24px, 6vh, 72px);
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--cupertino-card) 88%, transparent);
+  color: var(--cupertino-ink);
+  box-shadow: var(--cupertino-shadow-strong);
+  backdrop-filter: blur(18px);
+  cursor: pointer;
+  transition: opacity var(--cupertino-transition), transform var(--cupertino-transition),
+    box-shadow var(--cupertino-transition);
+  z-index: 120;
 }
 
-.footer-top {
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 0.82rem;
+.cupertino-backtotop svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.footer-top:hover {
-  color: var(--cupertino-accent);
-  border-color: var(--cupertino-accent);
+.cupertino-backtotop:is(:hover, :focus-visible) {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  transform: translateY(-2px);
+}
+
+.cupertino-backtotop[hidden] {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+
+.cupertino-backtotop:not([hidden]) {
+  opacity: 1;
 }
 
 .tag-tooltip {
