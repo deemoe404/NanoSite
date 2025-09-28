@@ -1,9 +1,10 @@
 import { installLightbox } from '../../../js/lightbox.js';
 import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
-import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
+import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
 import { attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
+import { showErrorOverlay } from '../../../js/errors.js';
 import { renderPostNav } from '../../../js/post-nav.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
@@ -27,6 +28,163 @@ function getUtility(params = {}, key, fallback) {
   } catch (_) {
     return fallback;
   }
+}
+
+function getFetcher(windowRef = defaultWindow) {
+  const candidate = windowRef && typeof windowRef.fetch === 'function'
+    ? windowRef.fetch.bind(windowRef)
+    : (typeof fetch === 'function' ? fetch : null);
+  return candidate || null;
+}
+
+async function checkImageSizeNative(url, timeoutMs = 4000, windowRef = defaultWindow) {
+  const fetcher = getFetcher(windowRef);
+  if (!fetcher) return null;
+  const AbortCtor = (windowRef && windowRef.AbortController) ? windowRef.AbortController : (typeof AbortController !== 'undefined' ? AbortController : null);
+  const controller = AbortCtor ? new AbortCtor() : null;
+  const timer = (typeof setTimeout === 'function') ? setTimeout(() => {
+    if (controller && typeof controller.abort === 'function') controller.abort();
+  }, timeoutMs) : null;
+  try {
+    const headInit = controller ? { method: 'HEAD', signal: controller.signal } : { method: 'HEAD' };
+    const headResp = await fetcher(url, headInit);
+    if (timer) clearTimeout(timer);
+    if (!headResp || !headResp.ok) throw new Error('HEAD failed');
+    const len = headResp.headers && headResp.headers.get ? headResp.headers.get('content-length') : null;
+    return len ? parseInt(len, 10) : null;
+  } catch (_) {
+    if (timer) clearTimeout(timer);
+    try {
+      const getResp = await fetcher(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+      const cr = getResp && getResp.headers && getResp.headers.get ? getResp.headers.get('content-range') : null;
+      if (cr) {
+        const match = /\/(\d+)$/.exec(cr);
+        if (match) return parseInt(match[1], 10);
+      }
+      const len = getResp && getResp.headers && getResp.headers.get ? getResp.headers.get('content-length') : null;
+      return len ? parseInt(len, 10) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+}
+
+async function warnLargeImagesInNative(containerSelector, cfg = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  try {
+    if (!cfg || !cfg.enabled) return;
+    const root = typeof containerSelector === 'string'
+      ? (documentRef ? documentRef.querySelector(containerSelector) : null)
+      : (containerSelector || documentRef);
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('img'));
+    if (!imgs.length) return;
+    const seen = new Set();
+    const baseUrl = (windowRef && windowRef.location && windowRef.location.href)
+      || ((typeof window !== 'undefined' && window.location) ? window.location.href : '');
+    const toAbs = (value) => {
+      if (!value) return value;
+      try { return new URL(value, baseUrl).toString(); } catch (_) { return value; }
+    };
+    const tasks = imgs
+      .map(img => img.getAttribute('src') || img.getAttribute('data-src'))
+      .filter(Boolean)
+      .map(src => toAbs(src))
+      .filter(src => {
+        if (seen.has(src)) return false;
+        seen.add(src);
+        return true;
+      });
+    if (!tasks.length) return;
+    const thresholdKB = Math.max(1, parseInt(cfg.thresholdKB != null ? cfg.thresholdKB : 500, 10));
+    const limit = 4;
+    let i = 0;
+    const next = async () => {
+      const idx = i++;
+      if (idx >= tasks.length) return;
+      const url = tasks[idx];
+      const size = await checkImageSizeNative(url, 4000, windowRef);
+      if (typeof size === 'number' && size > thresholdKB * 1024) {
+        try {
+          const langAttr = documentRef && documentRef.documentElement
+            ? documentRef.documentElement.getAttribute('lang')
+            : (windowRef && windowRef.navigator ? windowRef.navigator.language : 'en');
+          const normalized = (langAttr || 'en').toLowerCase();
+          const filename = url.split('/').pop() || url;
+          const isZhCn = normalized === 'zh' || normalized === 'zh-cn' || normalized.startsWith('zh-cn') || normalized === 'zh-hans' || normalized.startsWith('zh-hans') || normalized === 'zh-sg' || normalized === 'zh-my';
+          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant');
+          const isZhHk = normalized === 'zh-hk' || normalized.startsWith('zh-hk') || normalized === 'zh-mo' || normalized.startsWith('zh-mo');
+          const message = isZhCn
+            ? `发现大图资源：${filename}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
+            : isZhTw
+              ? `發現大型圖片資源：${filename}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
+              : isZhHk
+                ? `發現大型圖片資源：${filename}（${formatBytes(size)}）超出上限 ${thresholdKB} KB`
+                : (normalized === 'ja' || normalized.startsWith('ja'))
+                  ? `大きな画像を検出: ${filename}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
+                  : `Large image detected: ${filename} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
+          const err = new Error(message);
+          try { err.name = 'Warning'; } catch (_) {}
+          if (typeof showErrorOverlay === 'function') {
+            showErrorOverlay(err, {
+              message,
+              origin: 'asset.watchdog',
+              kind: 'image',
+              thresholdKB,
+              sizeBytes: size,
+              url
+            });
+          }
+        } catch (_) {}
+      }
+      return next();
+    };
+    const starters = Array.from({ length: Math.min(limit, tasks.length) }, () => next());
+    await Promise.all(starters);
+  } catch (_) {}
+}
+
+function bindPostVersionSelectorsNative(documentRef = defaultDocument, windowRef = defaultWindow) {
+  try {
+    const root = documentRef ? documentRef.getElementById('mainview') : null;
+    if (!root) return;
+    const selects = Array.from(root.querySelectorAll('select.post-version-select'));
+    if (!selects.length) return;
+    selects.forEach((sel) => {
+      if (!sel || sel.dataset && sel.dataset.nsVersionBound === '1') return;
+      if (sel.dataset) sel.dataset.nsVersionBound = '1';
+      sel.addEventListener('change', (event) => {
+        try {
+          const target = event && event.target ? event.target : sel;
+          const loc = target && target.value ? String(target.value).trim() : '';
+          if (!loc) return;
+          const win = windowRef || (typeof window !== 'undefined' ? window : undefined);
+          if (!win || !win.location) return;
+          const url = new URL(win.location.href);
+          url.searchParams.set('id', loc);
+          const lang = (typeof getCurrentLang === 'function' && getCurrentLang()) || (win.document && win.document.documentElement && win.document.documentElement.getAttribute('lang')) || 'en';
+          if (lang) url.searchParams.set('lang', lang);
+          try {
+            win.history.pushState({}, '', url.toString());
+            try {
+              const evt = typeof win.PopStateEvent === 'function'
+                ? new win.PopStateEvent('popstate')
+                : (win.document && typeof win.document.createEvent === 'function'
+                  ? (function () {
+                    const e = win.document.createEvent('Event');
+                    e.initEvent('popstate', true, true);
+                    return e;
+                  })()
+                  : null);
+              if (evt) win.dispatchEvent(evt);
+            } catch (_) {}
+            try { win.scrollTo(0, 0); } catch (_) {}
+          } catch (_) {
+            try { win.location.assign(url.toString()); } catch (__) {}
+          }
+        } catch (_) {}
+      });
+    });
+  } catch (_) {}
 }
 
 function showElementNative(params = {}, windowRef = defaultWindow) {
@@ -329,12 +487,10 @@ function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, wi
   if (typeof params.applyLazyLoadingIn === 'function') {
     try { params.applyLazyLoadingIn(containerSelector); } catch (_) {}
   }
-  if (typeof params.warnLargeImagesIn === 'function') {
-    try {
-      const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
-      params.warnLargeImagesIn(containerSelector, cfg);
-    } catch (_) {}
-  }
+  try {
+    const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
+    warnLargeImagesInNative(containerSelector, cfg, documentRef, windowRef).catch(() => {});
+  } catch (_) {}
   sequentialLoadCoversNative(containerSelector, documentRef, windowRef, 1);
   if (typeof params.setupSearch === 'function') {
     try { params.setupSearch(Array.isArray(params.allEntries) ? params.allEntries : []); } catch (_) {}
@@ -670,13 +826,10 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
   const hydrateVideos = getUtility(params, 'hydratePostVideos', (selector) => hydratePostVideos(selector));
   try { hydrateVideos('#mainview'); } catch (_) {}
 
-  const warnLarge = getUtility(params, 'warnLargeImagesIn', null);
-  if (typeof warnLarge === 'function') {
-    try {
-      const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-      warnLarge('#mainview', cfg);
-    } catch (_) {}
-  }
+  try {
+    const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+    warnLargeImagesInNative('#mainview', cfg, documentRef, windowRef).catch(() => {});
+  } catch (_) {}
 
   const hydrateLinks = getUtility(params, 'hydrateInternalLinkCards', (selector, opts) => hydrateInternalLinkCards(selector, opts));
   const fetchMarkdown = getUtility(params, 'fetchMarkdown', () => Promise.resolve(''));
@@ -736,6 +889,8 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
     }, documentRef, windowRef);
   } catch (_) {}
 
+  try { bindPostVersionSelectorsNative(documentRef, windowRef); } catch (_) {}
+
   return { handled: true, tocHandled, decorated: true, title: articleTitle };
 }
 
@@ -759,13 +914,10 @@ function renderStaticTabViewNative(params = {}, documentRef = defaultDocument, w
   const hydrateVideos = getUtility(params, 'hydratePostVideos', (selector) => hydratePostVideos(selector));
   try { hydrateVideos('#mainview'); } catch (_) {}
 
-  const warnLarge = getUtility(params, 'warnLargeImagesIn', null);
-  if (typeof warnLarge === 'function') {
-    try {
-      const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
-      warnLarge('#mainview', cfg);
-    } catch (_) {}
-  }
+  try {
+    const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
+    warnLargeImagesInNative('#mainview', cfg, documentRef, windowRef).catch(() => {});
+  } catch (_) {}
 
   const hydrateLinks = getUtility(params, 'hydrateInternalLinkCards', (selector, opts) => hydrateInternalLinkCards(selector, opts));
   const fetchMarkdown = getUtility(params, 'fetchMarkdown', () => Promise.resolve(''));

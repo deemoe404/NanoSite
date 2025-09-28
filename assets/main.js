@@ -4,7 +4,7 @@ import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeContro
 import { ensureThemeLayout } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -87,38 +87,6 @@ function smoothHide(el, onDone) {
     if (typeof onDone === 'function') onDone();
   }
 }
-
-// Global delegate for version selector changes to survive re-renders
-try {
-  if (!window.__ns_version_select_bound) {
-    window.__ns_version_select_bound = true;
-    const handler = (e) => {
-      try {
-        const el = e && e.target;
-        if (!el || !el.classList || !el.classList.contains('post-version-select')) return;
-        const loc = String(el.value || '').trim();
-        if (!loc) return;
-        const url = new URL(window.location.href);
-        url.searchParams.set('id', loc);
-        const lang = (getCurrentLang && getCurrentLang()) || 'en';
-        url.searchParams.set('lang', lang);
-        // Use SPA navigation so back/forward keeps the selector in sync
-        try {
-          history.pushState({}, '', url.toString());
-          // Dispatch a popstate event so the unified handler routes and renders once
-          try { window.dispatchEvent(new PopStateEvent('popstate')); } catch (_) { /* older browsers may not support constructor */ }
-          // Scroll to top for a consistent version switch experience
-          try { window.scrollTo(0, 0); } catch (_) {}
-        } catch (_) {
-          // Fallback to full navigation if History API fails
-          window.location.assign(url.toString());
-        }
-      } catch (_) {}
-    };
-    document.addEventListener('change', handler, true);
-    document.addEventListener('input', handler, true);
-  }
-} catch (_) {}
 
 // Ensure element height fully resets to its natural auto height
 function ensureAutoHeight(el) {
@@ -213,100 +181,6 @@ function renderSiteIdentity(cfg) {
   } catch (_) { /* noop */ }
 }
 
-// Fade-in covers when each image loads; remove placeholder per-card
-// --- Asset watchdog: warn when image assets exceed configured threshold ---
-async function checkImageSize(url, timeoutMs = 4000) {
-  // Try HEAD first; fall back to range request when HEAD not allowed
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const r = await fetch(url, { method: 'HEAD', signal: controller.signal });
-    clearTimeout(t);
-    if (!r.ok) throw new Error(`HEAD ${r.status}`);
-    const len = r.headers.get('content-length');
-    return len ? parseInt(len, 10) : null;
-  } catch (_) {
-    clearTimeout(t);
-    // Range fetch 0-0 to read Content-Range when possible
-    try {
-      const r = await fetch(url, { method: 'GET', headers: { 'Range': 'bytes=0-0' } });
-      const cr = r.headers.get('content-range');
-      if (cr) {
-        const m = /\/(\d+)$/.exec(cr);
-        if (m) return parseInt(m[1], 10);
-      }
-      const len = r.headers.get('content-length');
-      return len ? parseInt(len, 10) : null;
-    } catch (_) {
-      return null;
-    }
-  }
-}
-
-// formatBytes moved to utils.js
-
-async function warnLargeImagesIn(container, cfg = {}) {
-  try {
-    const enabled = !!(cfg && cfg.enabled);
-    const thresholdKB = Math.max(1, parseInt((cfg && cfg.thresholdKB) || 500, 10));
-    if (!enabled) return;
-    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll('img'));
-    const seen = new Set();
-    // Resolve relative to page for consistent fetch URLs
-    const toAbs = (s) => {
-      try { return new URL(s, window.location.href).toString(); } catch { return s; }
-    };
-    const tasks = imgs
-      .map(img => img.getAttribute('src') || img.getAttribute('data-src'))
-      .filter(Boolean)
-      .map(u => toAbs(u))
-      .filter(u => { if (seen.has(u)) return false; seen.add(u); return true; });
-    const limit = 4;
-    let i = 0;
-    const next = async () => {
-      const idx = i++;
-      if (idx >= tasks.length) return;
-      const url = tasks[idx];
-      const size = await checkImageSize(url);
-      if (typeof size === 'number' && size > thresholdKB * 1024) {
-        try {
-          const lang = (document.documentElement && document.documentElement.getAttribute('lang')) || 'en';
-          const normalized = String(lang || '').toLowerCase();
-          const name = url.split('/').pop() || url;
-          const isZhCn = normalized === 'zh' || normalized === 'zh-cn' || normalized.startsWith('zh-cn') || normalized === 'zh-hans' || normalized.startsWith('zh-hans') || normalized === 'zh-sg' || normalized === 'zh-my';
-          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant');
-          const isZhHk = normalized === 'zh-hk' || normalized.startsWith('zh-hk') || normalized === 'zh-mo' || normalized.startsWith('zh-mo');
-          const msg = isZhCn
-            ? `发现大图资源：${name}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
-            : isZhTw
-              ? `發現大型圖片資源：${name}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
-              : isZhHk
-                ? `發現大型圖片資源：${name}（${formatBytes(size)}）超出上限 ${thresholdKB} KB`
-              : (normalized === 'ja' || normalized.startsWith('ja'))
-                ? `大きな画像を検出: ${name}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
-                : `Large image detected: ${name} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;
-          const e = new Error(msg);
-          try { e.name = 'Warning'; } catch(_) {}
-          showErrorOverlay(e, {
-            message: msg,
-            origin: 'asset.watchdog',
-            kind: 'image',
-            thresholdKB,
-            sizeBytes: size,
-            url
-          });
-        } catch (_) {}
-      }
-      return next();
-    };
-    const starters = Array.from({ length: Math.min(limit, tasks.length) }, () => next());
-    await Promise.all(starters);
-  } catch (_) { /* silent */ }
-}
-
-
 // Transform standalone internal links (?id=...) into rich article cards
 // Load cover images sequentially to reduce bandwidth contention
 function updateLayoutLoadingState({ view, contentElement, sidebarElement, containerElement } = {}, isLoading) {
@@ -379,7 +253,6 @@ function enhanceIndexLayout(params = {}) {
     ...params,
     hydrateCardCovers,
     applyLazyLoadingIn,
-    warnLargeImagesIn,
     applyMasonry,
     debounce,
     renderTagSidebar,
@@ -489,31 +362,6 @@ function displayPost(postname) {
     }
 
     const mainEl = document.getElementById('mainview');
-    const fallbackRender = () => {
-      if (!mainEl) return;
-      mainEl.innerHTML = output.post;
-      try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
-      try { hydratePostImages('#mainview'); } catch (_) {}
-      try { applyLazyLoadingIn('#mainview'); } catch (_) {}
-      try { applyLangHints('#mainview'); } catch (_) {}
-      try {
-        const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-        warnLargeImagesIn('#mainview', cfg);
-      } catch (_) {}
-      try {
-        hydrateInternalLinkCards('#mainview', {
-          allowedLocations,
-          locationAliasMap,
-          postsByLocationTitle,
-          postsIndexCache,
-          siteConfig,
-          translate: t,
-          makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
-          fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
-        });
-      } catch (_) {}
-      try { hydratePostVideos('#mainview'); } catch (_) {}
-    };
 
     const hookResult = callThemeHook('renderPostView', {
       container: mainEl,
@@ -538,7 +386,6 @@ function displayPost(postname) {
         hydrateInternalLinkCards,
         applyLazyLoadingIn,
         applyLangHints,
-        warnLargeImagesIn,
         renderPostTOC: (opts) => renderPostTOCBlock(opts),
         renderTagSidebar,
         getArticleTitleFromMain,
@@ -550,8 +397,7 @@ function displayPost(postname) {
         withLangParam,
         fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
         makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
-      },
-      fallbackRender
+      }
     }) || {};
 
     let articleTitle = fallbackTitle;
@@ -567,7 +413,7 @@ function displayPost(postname) {
       handled = true;
     }
 
-    if (!handled) fallbackRender();
+    if (!handled && mainEl) mainEl.innerHTML = output.post;
 
     if (!tocHandled) {
       const tocTarget = document.getElementById('tocview');
@@ -860,30 +706,6 @@ function displayStaticTab(slug) {
       const output = mdParse(md, baseDir);
       const mainEl = document.getElementById('mainview');
 
-      const fallbackRender = () => {
-        if (!mainEl) return;
-        mainEl.innerHTML = output.post;
-        try { hydratePostImages('#mainview'); } catch (_) {}
-        try { applyLazyLoadingIn('#mainview'); } catch (_) {}
-        try {
-          const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-          warnLargeImagesIn('#mainview', cfg);
-        } catch (_) {}
-        try {
-          hydrateInternalLinkCards('#mainview', {
-            allowedLocations,
-            locationAliasMap,
-            postsByLocationTitle,
-            postsIndexCache,
-            siteConfig,
-            translate: t,
-            makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
-            fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
-          });
-        } catch (_) {}
-        try { hydratePostVideos('#mainview'); } catch (_) {}
-      };
-
       const hookResult = callThemeHook('renderStaticTabView', {
         container: mainEl,
         markdownHtml: output.post,
@@ -904,7 +726,6 @@ function displayStaticTab(slug) {
           hydrateInternalLinkCards,
           applyLazyLoadingIn,
           applyLangHints,
-          warnLargeImagesIn,
           renderPostTOC: (opts) => renderPostTOCBlock(opts),
           renderTagSidebar,
           getArticleTitleFromMain,
@@ -916,8 +737,7 @@ function displayStaticTab(slug) {
           withLangParam,
           fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
           makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
-        },
-        fallbackRender
+        }
       }) || {};
 
       let pageTitle = tab.title;
@@ -931,7 +751,7 @@ function displayStaticTab(slug) {
         handled = true;
       }
 
-      if (!handled) fallbackRender();
+      if (!handled && mainEl) mainEl.innerHTML = output.post;
 
       if (!tocHandled) {
         const tocTarget = document.getElementById('tocview');
@@ -1219,24 +1039,6 @@ async function softResetToSiteDefaultLanguage() {
     }
   } catch (_) {}
   // Wire up version selector(s) (if multiple versions available)
-  try {
-    const verSels = Array.from(document.querySelectorAll('#mainview .post-meta-card select.post-version-select'));
-    verSels.forEach((verSel) => {
-      verSel.addEventListener('change', (e) => {
-        try {
-          const loc = String(e.target.value || '').trim();
-          if (!loc) return;
-          // Build an explicit URL to avoid any helper side effects
-          const url = new URL(window.location.href);
-          url.searchParams.set('id', loc);
-          const lang = (getCurrentLang && getCurrentLang()) || 'en';
-          url.searchParams.set('lang', lang);
-          window.location.assign(url.toString());
-        } catch (_) {}
-      });
-    });
-  } catch (_) {}
-    }
     allowedLocations = baseAllowed;
     postsByLocationTitle = {};
     for (const [title, meta] of Object.entries(posts)) {
@@ -1293,7 +1095,7 @@ async function softResetToSiteDefaultLanguage() {
     try { refreshLanguageSelector(); } catch (_) {}
     // Rebuild the Tools panel so all labels reflect the new language
     try {
-      const handled = callThemeHook('resetThemeControls', {
+      callThemeHook('resetThemeControls', {
         document,
         window,
         mountThemeControls,
@@ -1302,15 +1104,6 @@ async function softResetToSiteDefaultLanguage() {
         bindThemePackPicker,
         refreshLanguageSelector
       });
-      if (!handled) {
-        const tools = document.getElementById('tools');
-        if (tools && tools.parentElement) tools.parentElement.removeChild(tools);
-        mountThemeControls();
-        applySavedTheme();
-        bindThemeToggle();
-        bindThemePackPicker();
-        refreshLanguageSelector();
-      }
     } catch (_) {}
     try {
       renderSiteIdentity(siteConfig);
