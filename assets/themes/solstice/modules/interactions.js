@@ -10,7 +10,14 @@ import {
   sanitizeUrl,
   sanitizeImageUrl
 } from '../../../js/utils.js';
-import { applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor, refreshLanguageSelector } from '../../../js/theme.js';
+import {
+  applySavedTheme,
+  bindThemeToggle,
+  bindThemePackPicker,
+  bindPostEditor,
+  refreshLanguageSelector,
+  getSavedThemePack
+} from '../../../js/theme.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCovers } from '../../../js/post-render.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
@@ -339,6 +346,105 @@ function updateSearchPlaceholder(documentRef = defaultDocument) {
   input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
 }
 
+function sanitizePackValue(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+}
+
+function prettifyPackLabel(value, label) {
+  if (label && String(label).trim()) return String(label).trim();
+  if (!value) return '';
+  return value.replace(/[-_]+/g, ' ').replace(/\b([a-z])/g, (m, c) => c.toUpperCase());
+}
+
+function populateThemePackOptions(documentRef = defaultDocument, windowRef = defaultWindow) {
+  const select = documentRef ? documentRef.getElementById('themePack') : null;
+  if (!select || !documentRef) return false;
+
+  const fallbackOptions = [
+    { value: 'native', label: 'Native' },
+    { value: 'solstice', label: 'Solstice' }
+  ];
+
+  const seen = new Set();
+
+  const appendOption = (value, label) => {
+    const sanitized = sanitizePackValue(value);
+    if (!sanitized || seen.has(sanitized)) return;
+    const option = documentRef.createElement('option');
+    option.value = sanitized;
+    option.textContent = prettifyPackLabel(sanitized, label);
+    select.appendChild(option);
+    seen.add(sanitized);
+  };
+
+  const ensureSavedOptionVisible = () => {
+    let saved = '';
+    try {
+      saved = getSavedThemePack ? getSavedThemePack() : '';
+    } catch (_) {
+      saved = '';
+    }
+    const normalized = sanitizePackValue(saved) || (select.options[0] ? select.options[0].value : '');
+    if (normalized && !Array.from(select.options).some(opt => opt.value === normalized)) {
+      appendOption(normalized, null);
+    }
+    if (normalized) {
+      select.value = normalized;
+    } else if (select.options.length) {
+      select.selectedIndex = 0;
+    }
+  };
+
+  const applyOptions = (options) => {
+    select.innerHTML = '';
+    seen.clear();
+    (options || []).forEach(item => {
+      if (!item) return;
+      const sourceValue = item.value != null ? item.value : (item.slug != null ? item.slug : item.name);
+      appendOption(sourceValue, item.label);
+    });
+    if (!select.options.length) {
+      fallbackOptions.forEach(item => appendOption(item.value, item.label));
+    }
+  };
+
+  const fetcher = (windowRef && typeof windowRef.fetch === 'function')
+    ? windowRef.fetch.bind(windowRef)
+    : (typeof fetch === 'function' ? fetch : null);
+
+  if (!fetcher) {
+    applyOptions(fallbackOptions);
+    ensureSavedOptionVisible();
+    return true;
+  }
+
+  try {
+    fetcher('assets/themes/packs.json')
+      .then(response => {
+        if (!response || !response.ok) throw new Error('packs.json fetch failed');
+        return response.json();
+      })
+      .then(list => {
+        if (Array.isArray(list) && list.length) {
+          applyOptions(list);
+        } else {
+          applyOptions(fallbackOptions);
+        }
+      })
+      .catch(() => {
+        applyOptions(fallbackOptions);
+      })
+      .finally(() => {
+        ensureSavedOptionVisible();
+      });
+  } catch (_) {
+    applyOptions(fallbackOptions);
+    ensureSavedOptionVisible();
+  }
+
+  return true;
+}
+
 function setupToolsPanel(documentRef = defaultDocument, windowRef = defaultWindow) {
   const panel = documentRef && documentRef.getElementById('toolsPanel');
   if (!panel) return false;
@@ -368,6 +474,7 @@ function setupToolsPanel(documentRef = defaultDocument, windowRef = defaultWindo
   try { applySavedTheme(); } catch (_) {}
   try { bindThemeToggle(); } catch (_) {}
   try { bindPostEditor(); } catch (_) {}
+  try { populateThemePackOptions(documentRef, windowRef); } catch (_) {}
   try { bindThemePackPicker(); } catch (_) {}
   try { refreshLanguageSelector(); } catch (_) {}
   try {
