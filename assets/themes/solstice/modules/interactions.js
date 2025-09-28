@@ -435,11 +435,12 @@ function renderLoader(target, message) {
 
 function renderStaticView(container, title, html) {
   if (!container) return;
+  const safeHtml = html != null ? html : '';
   container.innerHTML = `<article class="solstice-static">
     <header class="solstice-static__header">
       <h1>${escapeHtml(title || '')}</h1>
     </header>
-    <div class="solstice-static__body">${html}</div>
+    <div class="solstice-static__body">${safeHtml}</div>
   </article>`;
 }
 
@@ -656,9 +657,58 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return true;
   };
 
-  hooks.renderStaticTabView = ({ containers, title, html }) => {
+  hooks.renderStaticTabView = ({
+    containers,
+    title,
+    html,
+    markdownHtml,
+    tocHtml,
+    tab,
+    translate,
+    utilities,
+    allowedLocations,
+    locationAliasMap,
+    postsByLocationTitle,
+    postsIndex,
+    siteConfig
+  }) => {
     const main = containers && containers.mainElement ? containers.mainElement : getRoleElement('main', documentRef);
-    renderStaticView(main, title, html);
+    if (!main) return false;
+    const heading = title || (tab && tab.title) || '';
+    const bodyHtml = markdownHtml != null ? markdownHtml : html;
+    renderStaticView(main, heading, bodyHtml);
+
+    const body = main.querySelector('.solstice-static__body') || main;
+    try { if (utilities && typeof utilities.hydratePostImages === 'function') utilities.hydratePostImages(body); } catch (_) {}
+    try { if (utilities && typeof utilities.hydratePostVideos === 'function') utilities.hydratePostVideos(body); } catch (_) {}
+    try { if (utilities && typeof utilities.applyLazyLoadingIn === 'function') utilities.applyLazyLoadingIn(body); } catch (_) {}
+    try { if (utilities && typeof utilities.applyLangHints === 'function') utilities.applyLangHints(body); } catch (_) {}
+    try {
+      if (utilities && typeof utilities.hydrateInternalLinkCards === 'function') {
+        const makeHref = utilities.makeLangHref || ((loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
+        const fetchMarkdown = utilities.fetchMarkdown || (() => Promise.resolve(''));
+        utilities.hydrateInternalLinkCards(body, {
+          allowedLocations: allowedLocations || new Set(),
+          locationAliasMap: locationAliasMap || new Map(),
+          postsByLocationTitle: postsByLocationTitle || {},
+          postsIndexCache: postsIndex || {},
+          siteConfig: siteConfig || {},
+          translate: translate || t,
+          makeHref,
+          fetchMarkdown
+        });
+      }
+    } catch (_) {}
+
+    const toc = containers && containers.tocElement ? containers.tocElement : getRoleElement('toc', documentRef);
+    if (toc) {
+      if (tocHtml) {
+        showToc(toc, tocHtml, heading);
+      } else {
+        toc.innerHTML = '';
+        toc.hidden = true;
+      }
+    }
     return true;
   };
 
