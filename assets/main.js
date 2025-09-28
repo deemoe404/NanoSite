@@ -12,7 +12,6 @@ import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips, attachHoverTooltip } from './js/tags.js';
-import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
@@ -1792,8 +1791,6 @@ applySavedTheme();
 bindThemeToggle();
 bindPostEditor();
 bindThemePackPicker();
-// Install lightweight image viewer (delegated; safe to call once)
-try { installLightbox({ root: '#mainview' }); } catch (_) {}
 // Localize search placeholder ASAP
 try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
 // Observe viewport changes for responsive tabs
