@@ -17,6 +17,7 @@
     pack = String(pack || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '') || 'native';
   } catch (_) { pack = 'native'; }
   var href = 'assets/themes/' + encodeURIComponent(pack) + '/theme.css';
+  try { document.documentElement.setAttribute('data-theme-pack', pack); } catch (_) {}
   window.__themePackHref = href;
 
   // If the link tag exists already, set it; otherwise try briefly until it does

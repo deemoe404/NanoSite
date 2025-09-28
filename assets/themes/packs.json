@@ -1,4 +1,5 @@
 [
-  { "value": "native", "label": "Native" },
-  { "value": "github", "label": "GitHub" }
+  { "value": "native", "label": "Native Classic" },
+  { "value": "github", "label": "GitHub" },
+  { "value": "nocturne", "label": "Nocturne Atelier" }
 ]

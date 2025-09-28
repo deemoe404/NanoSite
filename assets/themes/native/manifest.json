@@ -1,0 +1,7 @@
+{
+  "id": "native",
+  "name": "Native Classic",
+  "description": "Original NanoSite two-column layout with balanced cards and serif reading experience.",
+  "version": "1.0.0",
+  "entry": "runtime.js"
+}

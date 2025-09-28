@@ -1,0 +1,7 @@
+{
+  "id": "nocturne",
+  "name": "Nocturne Atelier",
+  "description": "Moody night-owl layout with immersive hero, left rail navigation, and golden accents inspired by mcyoun's blog style.",
+  "version": "1.0.0",
+  "entry": "runtime.js"
+}

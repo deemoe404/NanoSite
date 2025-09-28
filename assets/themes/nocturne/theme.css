@@ -1,0 +1,381 @@
+:root {
+  --bg: #0b0d14;
+  --bg-accent: rgba(245, 209, 113, 0.12);
+  --text: #f3f5ff;
+  --muted: #8b90a8;
+  --primary: #f5d171;
+  --primary-hover: #f8e6a0;
+  --card: rgba(16, 18, 27, 0.92);
+  --border: rgba(255, 255, 255, 0.08);
+  --code-bg: #0b0e17;
+  --code-text: #f7faff;
+  --shadow: 0 28px 64px rgba(4, 6, 12, 0.5);
+  --article-serif-stack: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, "Noto Serif", serif;
+}
+
+[data-theme="dark"] {
+  --bg: #06070c;
+  --bg-accent: rgba(245, 209, 113, 0.18);
+  --text: #f6f7ff;
+  --muted: #9ba2bf;
+  --primary: #f7d97e;
+  --primary-hover: #fde8aa;
+  --card: rgba(12, 14, 22, 0.92);
+  --border: rgba(255, 255, 255, 0.1);
+  --code-bg: #05060d;
+  --code-text: #f6f8ff;
+  --shadow: 0 30px 70px rgba(2, 3, 8, 0.62);
+}
+
+body {
+  color: var(--text);
+  background: radial-gradient(900px 500px at 0% 0%, var(--bg-accent), transparent),
+              radial-gradient(1200px 700px at 100% 0%, rgba(120, 155, 255, 0.08), transparent),
+              var(--bg);
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans", sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.container {
+  max-width: 76rem;
+  padding: 0 2rem 4rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.nocturne-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 3.25rem 2rem 2.25rem;
+  margin: 0 auto 1.5rem;
+  max-width: 76rem;
+  color: var(--text);
+}
+
+.nocturne-brand {
+  display: flex;
+  gap: 1.75rem;
+  align-items: center;
+}
+
+.nocturne-brand-mark {
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 1.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.35rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(245, 209, 113, 0.86), rgba(252, 242, 200, 0.9));
+  color: #201a0a;
+  box-shadow: 0 18px 42px rgba(245, 209, 113, 0.35);
+  letter-spacing: 0.05em;
+}
+
+.nocturne-brand-title {
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.nocturne-brand-subtitle {
+  margin-top: 0.4rem;
+  font-size: 1rem;
+  color: var(--muted);
+  max-width: 28rem;
+  line-height: 1.6;
+}
+
+.nocturne-route {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.65rem;
+  text-align: right;
+}
+
+.nocturne-route-type {
+  font-size: 0.75rem;
+  letter-spacing: 0.32em;
+  font-weight: 600;
+  color: rgba(245, 209, 113, 0.85);
+}
+
+.nocturne-route-label {
+  font-size: 1.05rem;
+  color: var(--muted);
+  max-width: 18rem;
+  line-height: 1.5;
+}
+
+.nocturne-grid {
+  display: grid;
+  grid-template-columns: minmax(15rem, 18.75rem) minmax(0, 1fr);
+  gap: 2.5rem;
+  align-items: start;
+}
+
+.nocturne-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  position: sticky;
+  top: 6.5rem;
+}
+
+.nocturne-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  box-shadow: var(--shadow);
+  padding: 1.75rem;
+}
+
+.box .section-title {
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+#mapview.box {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+#mapview .tabs {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  gap: 0.25rem;
+  position: relative;
+}
+
+#mapview .tab {
+  flex: 1;
+  text-align: center;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--muted);
+  border-radius: 999px;
+  transition: all 0.2s ease;
+}
+
+#mapview .tab.active {
+  color: var(--text);
+  background: rgba(245, 209, 113, 0.18);
+  box-shadow: 0 12px 28px rgba(245, 209, 113, 0.16);
+}
+
+#mapview .tab:hover {
+  color: var(--text);
+  background: rgba(245, 209, 113, 0.12);
+}
+
+.sidebar .box {
+  backdrop-filter: blur(20px);
+}
+
+.site-card {
+  text-align: left;
+  background: rgba(18, 20, 29, 0.88);
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.site-card .avatar {
+  border-radius: 1rem;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+}
+
+.site-card .site-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.site-card .site-subtitle {
+  color: var(--muted);
+  margin-top: 0.4rem;
+}
+
+#searchbox {
+  background: rgba(18, 20, 29, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#searchInput {
+  background: rgba(8, 9, 15, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.65rem 1.2rem;
+  color: var(--text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#searchInput:focus {
+  outline: none;
+  border-color: rgba(245, 209, 113, 0.6);
+  box-shadow: 0 0 0 3px rgba(245, 209, 113, 0.18);
+}
+
+#index, .index {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.index a {
+  display: block;
+  background: rgba(13, 15, 24, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.index a:hover {
+  transform: translateY(-6px);
+  border-color: rgba(245, 209, 113, 0.45);
+  box-shadow: 0 18px 45px rgba(245, 209, 113, 0.18);
+}
+
+.card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.card-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.card-sep {
+  color: rgba(255, 255, 255, 0.25);
+  margin: 0 0.35rem;
+}
+
+.card-cover-wrap {
+  overflow: hidden;
+  border-radius: 1rem;
+  margin-bottom: 1rem;
+}
+
+.card-cover {
+  border-radius: 1rem;
+  filter: saturate(0.92);
+}
+
+#mainview {
+  background: rgba(14, 16, 25, 0.88);
+  border-radius: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 2rem;
+  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.55);
+}
+
+#mainview h1 {
+  font-size: 2.4rem;
+}
+
+#mainview h2 {
+  font-size: 1.9rem;
+}
+
+#mainview h3 {
+  font-size: 1.45rem;
+}
+
+#mainview p {
+  line-height: 1.95;
+}
+
+pre, code {
+  background: var(--code-bg);
+  color: var(--code-text);
+  border-radius: 0.75rem;
+}
+
+.notice {
+  background: rgba(18, 20, 29, 0.9);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.site-footer {
+  margin-top: 4rem;
+  padding: 2.5rem 2rem 3rem;
+  background: linear-gradient(180deg, rgba(8, 9, 14, 0) 0%, rgba(8, 9, 14, 0.65) 100%);
+  color: var(--muted);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.site-footer .footer-inner {
+  max-width: 76rem;
+  margin: 0 auto;
+}
+
+.site-footer a {
+  color: var(--primary);
+}
+
+@media (max-width: 1100px) {
+  .nocturne-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+  .nocturne-route {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .nocturne-grid {
+    grid-template-columns: 1fr;
+  }
+  .nocturne-aside {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .nocturne-aside .box {
+    flex: 1 1 18rem;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    padding-top: 1.5rem;
+  }
+  .container {
+    padding: 0 1.25rem 3rem;
+  }
+  .nocturne-hero {
+    padding: 2.5rem 1.25rem 1.75rem;
+    margin-bottom: 1rem;
+  }
+  .nocturne-brand-mark {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+    font-size: 2rem;
+  }
+  #mainview {
+    padding: 1.5rem;
+  }
+}

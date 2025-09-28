@@ -1,6 +1,6 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
-import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
+import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor, notifyThemeRuntime } from './js/theme.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
@@ -959,6 +959,7 @@ function displayPost(postname) {
   }
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
+  notifyThemeRuntime('content:loading', { type: 'post', location: postname });
 
   return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
@@ -1105,6 +1106,12 @@ function displayPost(postname) {
         try { window.scrollTo(0, 0); } catch (_) {}
       }
     }
+    notifyThemeRuntime('content:rendered', {
+      type: 'post',
+      location: postname,
+      title: articleTitle,
+      metadata: postMetadata
+    });
   }).catch(() => {
     // Ignore stale errors if a newer navigation started
     if (reqId !== __activePostRequestId) return;
@@ -1134,6 +1141,7 @@ function displayPost(postname) {
   if (searchBox) smoothHide(searchBox);
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothHide(tagBox);
+    notifyThemeRuntime('content:error', { type: 'post', location: postname });
   });
 }
 
@@ -1149,6 +1157,7 @@ function displayIndex(parsed) {
   const start = (page - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   const pageEntries = entries.slice(start, end);
+  notifyThemeRuntime('content:loading', { type: 'index', page, totalPages, total });
 
   let html = '<div class="index">';
   for (const [key, value] of pageEntries) {
@@ -1212,6 +1221,18 @@ function displayIndex(parsed) {
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothShow(tagBox);
   setDocTitle(t('titles.allPosts'));
+  notifyThemeRuntime('content:rendered', {
+    type: 'index',
+    page,
+    totalPages,
+    total,
+    items: pageEntries.map(([title, meta]) => ({
+      title,
+      location: meta && meta.location ? String(meta.location) : '',
+      date: meta && meta.date ? String(meta.date) : '',
+      tags: meta ? meta.tag : undefined
+    }))
+  });
 
   const cards = Array.from(document.querySelectorAll('.index a'));
   pageEntries.forEach(([title, meta], idx) => {
@@ -1305,6 +1326,7 @@ function displaySearch(query) {
   const start = (page - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   const pageEntries = filtered.slice(start, end);
+  notifyThemeRuntime('content:loading', { type: 'search', query: q, tag: tagFilter, page, totalPages, total });
 
   let html = '<div class="index">';
   for (const [key, value] of pageEntries) {
@@ -1372,6 +1394,20 @@ function displaySearch(query) {
   // Apply masonry after search render
   requestAnimationFrame(() => applyMasonry('.index'));
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
+  notifyThemeRuntime('content:rendered', {
+    type: 'search',
+    query: q,
+    tag: tagFilter,
+    page,
+    totalPages,
+    total,
+    items: pageEntries.map(([title, meta]) => ({
+      title,
+      location: meta && meta.location ? String(meta.location) : '',
+      date: meta && meta.date ? String(meta.date) : '',
+      tags: meta ? meta.tag : undefined
+    }))
+  });
 
   const cards = Array.from(document.querySelectorAll('.index a'));
   pageEntries.forEach(([title, meta], idx) => {
@@ -1460,6 +1496,7 @@ function displayStaticTab(slug) {
   if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
+  notifyThemeRuntime('content:loading', { type: 'tab', slug });
   const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothHide(searchBox);
   const tagBox = document.getElementById('tagview');
@@ -1511,6 +1548,7 @@ function displayStaticTab(slug) {
       } catch (_) {}
       
       try { setDocTitle(pageTitle); } catch (_) {}
+      notifyThemeRuntime('content:rendered', { type: 'tab', slug, title: pageTitle });
     })
     .catch((e) => {
       // 移除加载状态类，即使出错也要移除
@@ -1528,6 +1566,7 @@ function displayStaticTab(slug) {
 
       document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.pageUnavailableTitle')}</h3><p>${t('errors.pageUnavailableBody')}</p></div>`;
       setDocTitle(t('ui.pageUnavailable'));
+      notifyThemeRuntime('content:error', { type: 'tab', slug, error: e && e.message ? String(e.message) : '' });
     });
 }
 
@@ -1568,6 +1607,7 @@ function routeAndRender() {
       return { view: 'posts', page: isNaN(page) ? 1 : page };
     })();
     setReporterContext({ route, routeUpdatedAt: new Date().toISOString() });
+    notifyThemeRuntime('route:change', route);
   } catch (_) { /* ignore */ }
 
   if (isValidId(id)) {
