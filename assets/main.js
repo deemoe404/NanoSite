@@ -1128,8 +1128,6 @@ function displayPost(postname) {
       smoothShow(toc);
   ensureAutoHeight(toc);
     }
-    const searchBox = document.getElementById('searchbox');
-    if (searchBox) smoothHide(searchBox);
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothHide(tagBox);
     try { setDocTitle(articleTitle); } catch (_) {}
@@ -1178,8 +1176,6 @@ function displayPost(postname) {
     const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
     document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
     setDocTitle(t('ui.notFound'));
-    const searchBox = document.getElementById('searchbox');
-  if (searchBox) smoothHide(searchBox);
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothHide(tagBox);
   });
@@ -1508,8 +1504,6 @@ function displayStaticTab(slug) {
   if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
   const main = document.getElementById('mainview');
   if (main) main.innerHTML = renderSkeletonArticle();
-  const searchBox = document.getElementById('searchbox');
-  if (searchBox) smoothHide(searchBox);
   const tagBox = document.getElementById('tagview');
   if (tagBox) smoothHide(tagBox);
   renderTabs(slug);
