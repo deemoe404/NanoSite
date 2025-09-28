@@ -336,6 +336,202 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
   } catch (_) {}
 }
 
+function updateLayoutLoadingState({ view, contentElement, sidebarElement, containerElement } = {}, isLoading) {
+  const handled = callThemeHook('updateLayoutLoadingState', {
+    view,
+    isLoading,
+    contentElement,
+    sidebarElement,
+    containerElement,
+    document,
+    window
+  });
+  if (handled) return;
+
+  const applyClassToggle = (el, classes = []) => {
+    if (!el || !el.classList) return;
+    classes.forEach(cls => {
+      if (!cls) return;
+      if (isLoading) el.classList.add(cls);
+      else el.classList.remove(cls);
+    });
+  };
+
+  applyClassToggle(contentElement, ['loading', 'layout-stable']);
+  applyClassToggle(sidebarElement, ['loading']);
+  applyClassToggle(containerElement, ['mainview-container']);
+}
+
+function renderPostTOCBlock({
+  tocElement,
+  articleTitle,
+  tocHtml
+} = {}) {
+  const handled = callThemeHook('renderPostTOC', {
+    tocElement,
+    articleTitle,
+    tocHtml,
+    translate: t,
+    document,
+    window
+  });
+  if (handled || !tocElement) return;
+  const title = articleTitle ? escapeHtml(articleTitle) : '';
+  const topLabel = t('ui.top');
+  const ariaLabel = t('ui.backToTop') || t('ui.top') || 'Back to top';
+  const header = `<div class="toc-header">${title ? `<span>${title}</span>` : ''}<a href="#" class="toc-top" aria-label="${escapeHtml(String(ariaLabel || 'Back to top'))}">${escapeHtml(String(topLabel || 'Top'))}</a></div>`;
+  tocElement.innerHTML = `${header}${tocHtml || ''}`;
+}
+
+function renderErrorState(targetElement, {
+  variant = 'error',
+  title,
+  message,
+  actions = [],
+  view
+} = {}) {
+  const handled = callThemeHook('renderErrorState', {
+    targetElement,
+    variant,
+    title,
+    message,
+    actions,
+    view,
+    translate: t,
+    document,
+    window
+  });
+  if (handled || !targetElement) return;
+
+  const safeVariant = String(variant || '').trim() || 'error';
+  const safeTitle = title ? `<h3>${escapeHtml(String(title))}</h3>` : '';
+  let body = '';
+  if (message || actions.length) {
+    const parts = [];
+    if (message) parts.push(escapeHtml(String(message)));
+    const links = actions.map(action => {
+      if (!action || !action.href || !action.label) return '';
+      const href = escapeHtml(String(action.href));
+      const label = escapeHtml(String(action.label));
+      const rel = action.rel ? ` rel="${escapeHtml(String(action.rel))}"` : '';
+      const target = action.target ? ` target="${escapeHtml(String(action.target))}"` : '';
+      return `<a href="${href}"${rel}${target}>${label}</a>`;
+    }).filter(Boolean);
+    if (links.length) {
+      const joined = links.join(' ');
+      if (parts.length) parts.push(joined);
+      else parts.push(joined);
+    }
+    if (parts.length) body = `<p>${parts.join(' ')}${links.length ? '.' : ''}</p>`;
+  }
+  targetElement.innerHTML = `<div class="notice ${safeVariant}">${safeTitle}${body}</div>`;
+}
+
+function updateSearchPanels({
+  showSearch,
+  showTags,
+  queryValue,
+  tagFilter,
+  view
+} = {}) {
+  const handled = callThemeHook('updateSearchPanels', {
+    showSearch,
+    showTags,
+    queryValue,
+    tagFilter,
+    view,
+    document,
+    window
+  });
+  if (handled) return;
+
+  const searchBox = document.getElementById('searchbox');
+  const tagBox = document.getElementById('tagview');
+  if (searchBox) {
+    if (showSearch) smoothShow(searchBox);
+    else smoothHide(searchBox);
+  }
+  if (tagBox) {
+    if (showTags) smoothShow(tagBox);
+    else smoothHide(tagBox);
+  }
+  if (typeof queryValue === 'string') {
+    const input = document.getElementById('searchInput');
+    if (input) input.value = queryValue;
+  }
+}
+
+let fallbackMasonryObserversBound = false;
+function fallbackEnhanceIndexLayout({
+  containerSelector = '#mainview',
+  indexSelector = '.index',
+  allEntries = [],
+  postsIndexMap = {},
+  siteConfig: cfg,
+  setupSearchFn,
+  renderTagSidebarFn
+} = {}) {
+  hydrateCardCovers(containerSelector);
+  applyLazyLoadingIn(containerSelector);
+  try {
+    const warnCfg = (cfg && cfg.assetWarnings && cfg.assetWarnings.largeImage) || {};
+    warnLargeImagesIn(containerSelector, warnCfg);
+  } catch (_) {}
+  sequentialLoadCovers(containerSelector, 1);
+
+  if (typeof setupSearchFn === 'function') {
+    try { setupSearchFn(allEntries); } catch (_) {}
+  }
+  if (typeof renderTagSidebarFn === 'function') {
+    try { renderTagSidebarFn(postsIndexMap); } catch (_) {}
+  }
+
+  const runMasonry = () => { try { applyMasonry(indexSelector); } catch (_) {} };
+  if (typeof window !== 'undefined' && window && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(runMasonry);
+  } else {
+    runMasonry();
+  }
+
+  if (!fallbackMasonryObserversBound) {
+    fallbackMasonryObserversBound = true;
+    const onResize = debounce(runMasonry, 150);
+    try { window.addEventListener('resize', onResize); } catch (_) {}
+    try {
+      if (document && document.fonts && typeof document.fonts.ready?.then === 'function') {
+        document.fonts.ready.then(runMasonry).catch(() => {});
+      }
+    } catch (_) {}
+  }
+}
+
+function enhanceIndexLayout(params = {}) {
+  const handled = callThemeHook('enhanceIndexLayout', {
+    ...params,
+    hydrateCardCovers,
+    applyLazyLoadingIn,
+    sequentialLoadCovers,
+    warnLargeImagesIn,
+    applyMasonry,
+    debounce,
+    renderTagSidebar,
+    setupSearch,
+    document,
+    window
+  });
+  if (handled) return;
+
+  fallbackEnhanceIndexLayout({
+    containerSelector: params.containerSelector,
+    indexSelector: params.indexSelector,
+    allEntries: params.allEntries,
+    postsIndexMap: params.postsIndexMap,
+    siteConfig: params.siteConfig,
+    setupSearchFn: setupSearch,
+    renderTagSidebarFn: renderTagSidebar
+  });
+}
+
 // renderSkeletonArticle moved to utils.js
 
 // RenderPostMetaCard moved to ./js/templates.js
@@ -378,9 +574,12 @@ function displayPost(postname) {
   const sidebarEl = document.querySelector('.sidebar');
   const mainviewContainer = document.getElementById('mainview')?.closest('.box');
   
-  if (contentEl) contentEl.classList.add('loading', 'layout-stable');
-  if (sidebarEl) sidebarEl.classList.add('loading');
-  if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
+  updateLayoutLoadingState({
+    view: 'post',
+    contentElement: contentEl,
+    sidebarElement: sidebarEl,
+    containerElement: mainviewContainer
+  }, true);
   
   // Loading state for post view
   const toc = document.getElementById('tocview');
@@ -409,8 +608,12 @@ function displayPost(postname) {
     // Ignore stale responses if a newer navigation started
     if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes
-    if (contentEl) contentEl.classList.remove('loading');
-    if (sidebarEl) sidebarEl.classList.remove('loading');
+    updateLayoutLoadingState({
+      view: 'post',
+      contentElement: contentEl,
+      sidebarElement: sidebarEl,
+      containerElement: mainviewContainer
+    }, false);
     
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
     const baseDir = `${getContentRoot()}/${dir}`;
@@ -519,20 +722,21 @@ function displayPost(postname) {
     } catch (_) { /* ignore SEO errors */ }
     
   renderTabs('post', articleTitle);
-    const toc = document.getElementById('tocview');
-    if (toc) {
-      toc.innerHTML = `<div class=\"toc-header\"><span>${escapeHtml(articleTitle)}</span><a href=\"#\" class=\"toc-top\" aria-label=\"Back to top\">${t('ui.top')}</a></div>${output.toc}`;
-      smoothShow(toc);
-  ensureAutoHeight(toc);
+  const tocTarget = document.getElementById('tocview');
+  if (tocTarget) {
+    if (output.toc) {
+      renderPostTOCBlock({ tocElement: tocTarget, articleTitle, tocHtml: output.toc });
+      smoothShow(tocTarget);
+      ensureAutoHeight(tocTarget);
+      try { setupAnchors(); } catch (_) {}
+      try { setupTOC(); } catch (_) {}
+    } else {
+      smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
     }
-    const searchBox = document.getElementById('searchbox');
-    if (searchBox) smoothHide(searchBox);
-  const tagBox = document.getElementById('tagview');
-  if (tagBox) smoothHide(tagBox);
-    try { setDocTitle(articleTitle); } catch (_) {}
-    try { setupAnchors(); } catch (_) {}
-    try { setupTOC(); } catch (_) {}
-    try { initSyntaxHighlighting(); } catch (_) {}
+  }
+  updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
+  try { setDocTitle(articleTitle); } catch (_) {}
+  try { initSyntaxHighlighting(); } catch (_) {}
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
     // If URL contains a hash, try to jump to it; if missing in this version, clear hash and scroll to top
     const currentHash = (location.hash || '').replace(/^#/, '');
@@ -554,9 +758,13 @@ function displayPost(postname) {
     // Ignore stale errors if a newer navigation started
     if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes even on error
-    if (contentEl) contentEl.classList.remove('loading');
-    if (sidebarEl) sidebarEl.classList.remove('loading');
-    
+    updateLayoutLoadingState({
+      view: 'post',
+      contentElement: contentEl,
+      sidebarElement: sidebarEl,
+      containerElement: mainviewContainer
+    }, false);
+
     // Surface an overlay for missing post (e.g., 404)
     try {
       const err = new Error((t('errors.postNotFoundBody') || 'The requested post could not be loaded.'));
@@ -570,15 +778,20 @@ function displayPost(postname) {
       });
     } catch (_) {}
 
-    document.getElementById('tocview').innerHTML = '';
+    const tocView = document.getElementById('tocview');
+    if (tocView) {
+      smoothHide(tocView, () => { try { tocView.innerHTML = ''; } catch (_) {}; });
+    }
     const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
     const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
-    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.postNotFoundTitle')}</h3><p>${t('errors.postNotFoundBody')} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
+    renderErrorState(document.getElementById('mainview'), {
+      title: t('errors.postNotFoundTitle'),
+      message: t('errors.postNotFoundBody'),
+      actions: [{ href: backHref, label: backText }],
+      view: 'post'
+    });
     setDocTitle(t('ui.notFound'));
-    const searchBox = document.getElementById('searchbox');
-  if (searchBox) smoothHide(searchBox);
-  const tagBox = document.getElementById('tagview');
-  if (tagBox) smoothHide(tagBox);
+    updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
   });
 }
 
@@ -614,22 +827,21 @@ function displayIndex(parsed) {
   });
   if (!handled && mainview) mainview.innerHTML = '';
 
-  hydrateCardCovers('#mainview');
-  applyLazyLoadingIn('#mainview');
-  try {
-    const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-    warnLargeImagesIn('#mainview', cfg);
-  } catch (_) {}
-  sequentialLoadCovers('#mainview', 1);
-  requestAnimationFrame(() => applyMasonry('.index'));
+  enhanceIndexLayout({
+    view: 'posts',
+    containerSelector: '#mainview',
+    indexSelector: '.index',
+    allEntries: entries,
+    pageEntries,
+    total,
+    page,
+    totalPages,
+    postsIndexMap: postsIndexCache,
+    siteConfig
+  });
 
-  setupSearch(entries);
-  try { renderTagSidebar(postsIndexCache); } catch (_) {}
   renderTabs('posts');
-  const searchBox = document.getElementById('searchbox');
-  if (searchBox) smoothShow(searchBox);
-  const tagBox = document.getElementById('tagview');
-  if (tagBox) smoothShow(tagBox);
+  updateSearchPanels({ view: 'posts', showSearch: true, showTags: true, queryValue: '' });
   setDocTitle(t('titles.allPosts'));
 
   callThemeHook('afterIndexRender', {
@@ -700,23 +912,24 @@ function displaySearch(query) {
   });
   if (!handled && mainview) mainview.innerHTML = '';
 
-  hydrateCardCovers('#mainview');
-  sequentialLoadCovers('#mainview', 1);
-  try {
-    const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-    warnLargeImagesIn('#mainview', cfg);
-  } catch (_) {}
+  enhanceIndexLayout({
+    view: 'search',
+    containerSelector: '#mainview',
+    indexSelector: '.index',
+    allEntries: Object.entries(postsIndexCache || {}),
+    pageEntries,
+    total,
+    page,
+    totalPages,
+    postsIndexMap: postsIndexCache,
+    siteConfig,
+    query: q,
+    tagFilter
+  });
+
   renderTabs('search', tagFilter ? t('ui.tagSearch', tagFilter) : q);
-  const searchBox = document.getElementById('searchbox');
-  if (searchBox) smoothShow(searchBox);
-  const tagBox = document.getElementById('tagview');
-  if (tagBox) smoothShow(tagBox);
-  const input = document.getElementById('searchInput');
-  if (input) input.value = q;
-  setupSearch(Object.entries(postsIndexCache || {}));
+  updateSearchPanels({ view: 'search', showSearch: true, showTags: true, queryValue: q, tagFilter });
   setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
-  requestAnimationFrame(() => applyMasonry('.index'));
-  try { renderTagSidebar(postsIndexCache); } catch (_) {}
 
   callThemeHook('afterSearchRender', {
     entries: pageEntries,
@@ -732,20 +945,6 @@ function displaySearch(query) {
   });
 }
 
-// --- Masonry helpers: keep gaps consistent while letting cards auto-height ---
-// Recalculate on resize for responsive columns
-window.addEventListener('resize', debounce(() => applyMasonry('.index'), 150));
-
-// Re-apply masonry after fonts load (text metrics can change heights slightly)
-try {
-  if (document && document.fonts && !window.__masonryFontsReadyApplied) {
-    window.__masonryFontsReadyApplied = true;
-    document.fonts.ready.then(() => applyMasonry('.index')).catch(() => {});
-  }
-} catch (_) { /* noop */ }
-
-// debounce and toPx are imported from './js/masonry.js'
-
 function displayStaticTab(slug) {
   const tab = tabsBySlug[slug];
   if (!tab) return displayIndex({});
@@ -755,9 +954,12 @@ function displayStaticTab(slug) {
   const sidebarEl = document.querySelector('.sidebar');
   const mainviewContainer = document.getElementById('mainview')?.closest('.box');
   
-  if (contentEl) contentEl.classList.add('loading', 'layout-stable');
-  if (sidebarEl) sidebarEl.classList.add('loading');
-  if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
+  updateLayoutLoadingState({
+    view: 'tab',
+    contentElement: contentEl,
+    sidebarElement: sidebarEl,
+    containerElement: mainviewContainer
+  }, true);
   
   const toc = document.getElementById('tocview');
   if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
@@ -769,16 +971,17 @@ function displayStaticTab(slug) {
     window
   });
   if (!handledLoading && main) main.innerHTML = renderSkeletonArticle();
-  const searchBox = document.getElementById('searchbox');
-  if (searchBox) smoothHide(searchBox);
-  const tagBox = document.getElementById('tagview');
-  if (tagBox) smoothHide(tagBox);
+  updateSearchPanels({ view: 'tab', showSearch: false, showTags: false });
   renderTabs(slug);
   getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
       // 移除加载状态类
-      if (contentEl) contentEl.classList.remove('loading');
-      if (sidebarEl) sidebarEl.classList.remove('loading');
+      updateLayoutLoadingState({
+        view: 'tab',
+        contentElement: contentEl,
+        sidebarElement: sidebarEl,
+        containerElement: mainviewContainer
+      }, false);
       
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `${getContentRoot()}/${dir}`;
@@ -823,8 +1026,12 @@ function displayStaticTab(slug) {
     })
     .catch((e) => {
       // 移除加载状态类，即使出错也要移除
-      if (contentEl) contentEl.classList.remove('loading');
-      if (sidebarEl) sidebarEl.classList.remove('loading');
+      updateLayoutLoadingState({
+        view: 'tab',
+        contentElement: contentEl,
+        sidebarElement: sidebarEl,
+        containerElement: mainviewContainer
+      }, false);
       
       // Surface an overlay for missing static tab page
       try {
@@ -835,7 +1042,11 @@ function displayStaticTab(slug) {
         showErrorOverlay(err, { message: msg, origin: 'view.tab.unavailable', tagName: 'md', filename: url, assetUrl: url, tab: slug });
       } catch (_) {}
 
-      document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('errors.pageUnavailableTitle')}</h3><p>${t('errors.pageUnavailableBody')}</p></div>`;
+      renderErrorState(document.getElementById('mainview'), {
+        title: t('errors.pageUnavailableTitle'),
+        message: t('errors.pageUnavailableBody'),
+        view: 'tab'
+      });
       setDocTitle(t('ui.pageUnavailable'));
     });
 }
@@ -1443,8 +1654,16 @@ loadSiteConfig()
   routeAndRender();
   })
   .catch((e) => {
-    document.getElementById('tocview').innerHTML = '';
-    document.getElementById('mainview').innerHTML = `<div class=\"notice error\"><h3>${t('ui.indexUnavailable')}</h3><p>${t('errors.indexUnavailableBody')}</p></div>`;
+    const tocView = document.getElementById('tocview');
+    if (tocView) {
+      smoothHide(tocView, () => { try { tocView.innerHTML = ''; } catch (_) {}; });
+    }
+    renderErrorState(document.getElementById('mainview'), {
+      title: t('ui.indexUnavailable'),
+      message: t('errors.indexUnavailableBody'),
+      view: 'boot'
+    });
+    updateSearchPanels({ view: 'boot', showSearch: false, showTags: false });
     // Surface an overlay for boot/index failures (network/unified JSON issues)
     try {
       const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
