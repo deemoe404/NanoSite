@@ -1,19 +1,15 @@
 import { installLightbox } from '../../../js/lightbox.js';
 import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
-import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle, getContentRoot } from '../../../js/utils.js';
-import { renderTagSidebar, attachHoverTooltip } from '../../../js/tags.js';
+import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
+import { attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { showErrorOverlay } from '../../../js/errors.js';
 import { renderPostNav } from '../../../js/post-nav.js';
-import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCovers } from '../../../js/post-render.js';
+import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { applyLangHints } from '../../../js/typography.js';
 import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor } from '../../../js/theme.js';
-import { setupAnchors, setupTOC } from '../../../js/toc.js';
-import { applyMasonry, updateMasonryItem, debounce } from '../../../js/masonry.js';
-import { setupSearch } from '../../../js/search.js';
-import { initSyntaxHighlighting } from '../../../js/syntax-highlight.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -40,69 +36,6 @@ function getFetcher(windowRef = defaultWindow) {
     ? windowRef.fetch.bind(windowRef)
     : (typeof fetch === 'function' ? fetch : null);
   return candidate || null;
-}
-
-function ensureAutoHeightNative(element, windowRef = defaultWindow) {
-  if (!element) return;
-  try {
-    const raf = windowRef && typeof windowRef.requestAnimationFrame === 'function'
-      ? windowRef.requestAnimationFrame.bind(windowRef)
-      : (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null);
-    if (raf) {
-      raf(() => {
-        raf(() => {
-          element.style.height = '';
-          element.style.minHeight = '';
-          element.style.overflow = '';
-        });
-      });
-    } else {
-      element.style.height = '';
-      element.style.minHeight = '';
-      element.style.overflow = '';
-    }
-  } catch (_) {}
-}
-
-function fetchMarkdownNative(location, windowRef = defaultWindow) {
-  const loc = String(location || '').trim();
-  if (!loc) return Promise.resolve('');
-  try {
-    const root = getContentRoot();
-    const url = `${root.replace(/\/+$/, '')}/${loc}`.replace(/\/+/g, '/');
-    const fetcher = getFetcher(windowRef);
-    if (!fetcher) return Promise.resolve('');
-    return fetcher(url, { cache: 'no-store' }).then(resp => (resp && resp.ok) ? resp.text() : '');
-  } catch (_) {
-    return Promise.resolve('');
-  }
-}
-
-function getDefaultSiteTitleNative(params = {}) {
-  const translate = params.translate || params.t || t;
-  try {
-    const value = translate('ui.defaultSiteTitle');
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  } catch (_) {}
-  return 'Untitled Site';
-}
-
-function getDefaultSiteDescriptionNative(params = {}) {
-  const translate = params.translate || params.t || t;
-  try {
-    const value = translate('ui.defaultSiteDescription');
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  } catch (_) {}
-  return 'A simple static site.';
-}
-
-function getDefaultAuthorNameNative(params = {}) {
-  const translate = params.translate || params.t || t;
-  try {
-    const value = translate('ui.defaultAuthorName');
-    if (typeof value === 'string' && value.trim()) return value.trim();
-  } catch (_) {}
-  return 'Unknown author';
 }
 
 function getContainerByRole(role, documentRef = defaultDocument) {
@@ -616,22 +549,17 @@ function handleViewChangeNative(params = {}, documentRef = defaultDocument, wind
 }
 
 function renderTagSidebarNative(params = {}, documentRef = defaultDocument) {
-  if (!documentRef) return false;
-  try {
-    renderTagSidebar(params.postsIndex || {});
-    return true;
-  } catch (_) {
-    return false;
-  }
+  const renderer = getUtility(params, 'renderTagSidebar');
+  if (typeof renderer !== 'function') return false;
+  try { renderer(params.postsIndex || {}); } catch (_) {}
+  return true;
 }
 
 function initializeSyntaxHighlightingNative(params = {}) {
-  try {
-    initSyntaxHighlighting();
-    return true;
-  } catch (_) {
-    return false;
-  }
+  const init = typeof params.initSyntaxHighlighting === 'function' ? params.initSyntaxHighlighting : null;
+  if (!init) return false;
+  try { init(); } catch (_) {}
+  return true;
 }
 
 function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocument, windowRef = defaultWindow, maxConcurrent = 1) {
@@ -668,34 +596,52 @@ function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocu
 
 function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   const containerEl = params.containerElement || getContainerByRole('main', documentRef);
+  const indexEl = params.indexElement || (containerEl ? containerEl.querySelector('.index') : null);
   const containerSelector = params.containerSelector || (containerEl && containerEl.id ? `#${containerEl.id}` : '#mainview');
   const indexSelector = params.indexSelector || (containerSelector ? `${containerSelector} .index` : '.index');
-  try { hydrateCardCovers(containerEl || containerSelector); } catch (_) {}
-  try { applyLazyLoadingIn(containerEl || containerSelector); } catch (_) {}
+  if (typeof params.hydrateCardCovers === 'function') {
+    try { params.hydrateCardCovers(containerEl || containerSelector); } catch (_) {}
+  }
+  if (typeof params.applyLazyLoadingIn === 'function') {
+    try { params.applyLazyLoadingIn(containerEl || containerSelector); } catch (_) {}
+  }
   try {
     const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
     warnLargeImagesInNative(containerEl || containerSelector, cfg, documentRef, windowRef).catch(() => {});
   } catch (_) {}
   sequentialLoadCoversNative(containerEl || containerSelector, documentRef, windowRef, 1);
-  try { setupSearch(Array.isArray(params.allEntries) ? params.allEntries : []); } catch (_) {}
-  try { renderTagSidebarNative({ postsIndex: params.postsIndexMap || {} }, documentRef); } catch (_) {}
-  const runMasonry = () => {
-    try { applyMasonry(indexSelector); } catch (_) {}
-  };
-  if (windowRef && typeof windowRef.requestAnimationFrame === 'function') {
-    windowRef.requestAnimationFrame(runMasonry);
-  } else {
-    runMasonry();
+  if (typeof params.setupSearch === 'function') {
+    try { params.setupSearch(Array.isArray(params.allEntries) ? params.allEntries : []); } catch (_) {}
   }
-  if (!masonryHandlersBound) {
-    masonryHandlersBound = true;
-    const handler = debounce(runMasonry, 150);
-    try { windowRef && windowRef.addEventListener && windowRef.addEventListener('resize', handler, { passive: true }); } catch (_) {}
-    try {
-      if (documentRef && documentRef.fonts && typeof documentRef.fonts.ready?.then === 'function') {
-        documentRef.fonts.ready.then(runMasonry).catch(() => {});
-      }
-    } catch (_) {}
+  if (typeof params.renderTagSidebar === 'function') {
+    try { params.renderTagSidebar(params.postsIndexMap || {}); } catch (_) {}
+  }
+  const runMasonry = () => {
+    if (typeof params.applyMasonry === 'function') {
+      try {
+        if (indexEl) params.applyMasonry(indexSelector);
+        else params.applyMasonry(indexSelector);
+      } catch (_) {}
+    }
+  };
+  if (typeof params.applyMasonry === 'function') {
+    if (windowRef && typeof windowRef.requestAnimationFrame === 'function') {
+      windowRef.requestAnimationFrame(runMasonry);
+    } else {
+      runMasonry();
+    }
+    if (!masonryHandlersBound) {
+      masonryHandlersBound = true;
+      const handler = (typeof params.debounce === 'function')
+        ? params.debounce(runMasonry, 150)
+        : runMasonry;
+      try { windowRef && windowRef.addEventListener && windowRef.addEventListener('resize', handler, { passive: true }); } catch (_) {}
+      try {
+        if (documentRef && documentRef.fonts && typeof documentRef.fonts.ready?.then === 'function') {
+          documentRef.fonts.ready.then(runMasonry).catch(() => {});
+        }
+      } catch (_) {}
+    }
   }
   return true;
 }
@@ -933,14 +879,14 @@ function renderFooterNavNative(params = {}, documentRef = defaultDocument, windo
   return true;
 }
 
-function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument) {
   if (!documentRef) return false;
   const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
   const toc = scope.tocElement || params.tocElement || documentRef.getElementById('tocview');
   const main = scope.mainElement || params.mainElement || documentRef.getElementById('mainview');
   const translate = params.translator || params.t || t;
   const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
-  const ensureAutoHeight = getUtility(params, 'ensureAutoHeight', (el) => ensureAutoHeightNative(el, windowRef));
+  const ensureAutoHeight = typeof params.ensureAutoHeight === 'function' ? params.ensureAutoHeight : (() => {});
   const show = typeof params.showElement === 'function' ? params.showElement : ((el) => { if (el) { el.style.display = ''; el.setAttribute('aria-hidden', 'false'); } });
 
   if (toc) {
@@ -1024,7 +970,7 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
   } catch (_) {}
 
   const hydrateLinks = getUtility(params, 'hydrateInternalLinkCards', (selector, opts) => hydrateInternalLinkCards(selector, opts));
-  const fetchMarkdown = getUtility(params, 'fetchMarkdown', (loc) => fetchMarkdownNative(loc, windowRef));
+  const fetchMarkdown = getUtility(params, 'fetchMarkdown', () => Promise.resolve(''));
   const makeHref = getUtility(params, 'makeLangHref', (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
   try {
     hydrateLinks('#mainview', {
@@ -1039,7 +985,14 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
     });
   } catch (_) {}
 
-  const ensureHeight = getUtility(params, 'ensureAutoHeight', (el) => ensureAutoHeightNative(el, windowRef));
+  const ensureHeight = getUtility(params, 'ensureAutoHeight', (el) => {
+    if (!el) return;
+    try {
+      el.style.height = '';
+      el.style.minHeight = '';
+      el.style.overflow = '';
+    } catch (_) {}
+  });
 
   const tocHtml = params.tocHtml || '';
   const tocElement = documentRef.getElementById('tocview');
@@ -1053,8 +1006,8 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
       renderPostTOCNative({ tocElement, articleTitle, tocHtml, translate }, documentRef, windowRef);
       try { showElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = ''; } catch (_) {} }
       try { ensureHeight(tocElement); } catch (_) {}
-      const setupAnchorsFn = getUtility(params, 'setupAnchors', setupAnchors);
-      const setupTocFn = getUtility(params, 'setupTOC', setupTOC);
+      const setupAnchorsFn = getUtility(params, 'setupAnchors', null);
+      const setupTocFn = getUtility(params, 'setupTOC', null);
       try { if (typeof setupAnchorsFn === 'function') setupAnchorsFn(); } catch (_) {}
       try { if (typeof setupTocFn === 'function') setupTocFn(); } catch (_) {}
     } else {
@@ -1106,7 +1059,7 @@ function renderStaticTabViewNative(params = {}, documentRef = defaultDocument, w
   } catch (_) {}
 
   const hydrateLinks = getUtility(params, 'hydrateInternalLinkCards', (selector, opts) => hydrateInternalLinkCards(selector, opts));
-  const fetchMarkdown = getUtility(params, 'fetchMarkdown', (loc) => fetchMarkdownNative(loc, windowRef));
+  const fetchMarkdown = getUtility(params, 'fetchMarkdown', () => Promise.resolve(''));
   const makeHref = getUtility(params, 'makeLangHref', (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
   try {
     hydrateLinks('#mainview', {
@@ -1247,7 +1200,6 @@ function updateCardMetadata(entries = [], context = {}) {
   const documentRef = context.document || defaultDocument;
   if (!documentRef) return;
   const translate = context.translate || t;
-  const indexContainer = documentRef.querySelector('.index');
   const cards = Array.from(documentRef.querySelectorAll('.index a'));
   entries.forEach(([title, meta], idx) => {
     const loc = meta && meta.location ? String(meta.location) : '';
@@ -1297,8 +1249,9 @@ function updateCardMetadata(entries = [], context = {}) {
           metaEl.appendChild(node);
         });
       }
-      if (indexContainer && el) {
-        try { updateMasonryItem(indexContainer, el); } catch (_) {}
+      if (typeof context.updateMasonryItem === 'function') {
+        const container = documentRef.querySelector('.index');
+        if (container && el) context.updateMasonryItem(container, el);
       }
     }).catch(() => {});
   });
@@ -1855,7 +1808,7 @@ export function mount(context = {}) {
   hooks.renderTagSidebar = (params = {}) => renderTagSidebarNative(params, documentRef);
   hooks.initializeSyntaxHighlighting = (params = {}) => initializeSyntaxHighlightingNative(params);
   hooks.updateSearchPlaceholder = (params = {}) => updateSearchPlaceholderNative(params, documentRef);
-  hooks.renderPostLoadingState = (params = {}) => renderPostLoadingStateNative(params, documentRef, windowRef);
+  hooks.renderPostLoadingState = (params = {}) => renderPostLoadingStateNative(params, documentRef);
   hooks.renderPostView = (params = {}) => renderPostViewNative(params, documentRef, windowRef);
   hooks.renderStaticTabLoadingState = (params = {}) => renderStaticTabLoadingStateNative(params, documentRef);
   hooks.renderStaticTabView = (params = {}) => renderStaticTabViewNative(params, documentRef, windowRef);
@@ -1871,9 +1824,6 @@ export function mount(context = {}) {
   hooks.resetThemeControls = (params = {}) => resetThemeControlsNative(params, documentRef);
   hooks.reflectThemeConfig = (params = {}) => reflectThemeConfigNative(params, documentRef);
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
-  hooks.getDefaultSiteTitle = (params = {}) => getDefaultSiteTitleNative(params);
-  hooks.getDefaultSiteDescription = (params = {}) => getDefaultSiteDescriptionNative(params);
-  hooks.getDefaultAuthorName = (params = {}) => getDefaultAuthorNameNative(params);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
   return context;

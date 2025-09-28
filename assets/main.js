@@ -1,6 +1,8 @@
 import { mdParse } from './js/markdown.js';
+import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
 import { ensureThemeLayout } from './js/theme-layout.js';
+import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
@@ -8,6 +10,14 @@ import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
+import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
+import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
+import { renderPostNav } from './js/post-nav.js';
+import { getArticleTitleFromMain } from './js/dom-utils.js';
+import { applyLangHints } from './js/typography.js';
+
+import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos, hydrateCardCovers } from './js/post-render.js';
+import { hydrateInternalLinkCards } from './js/link-cards.js';
 
 // Lightweight fetch helper (bypass caches without version params)
 const getFile = (filename) => fetch(String(filename || ''), { cache: 'no-store' })
@@ -179,37 +189,6 @@ async function loadSiteConfig() {
   } catch (_) { return {}; }
 }
 
-function getThemeFallbackValue(hookName, translationKey) {
-  const fromTheme = callThemeHook(hookName, {
-    siteConfig,
-    translate: t,
-    document,
-    window
-  });
-  if (typeof fromTheme === 'string' && fromTheme.trim()) {
-    return fromTheme.trim();
-  }
-  try {
-    const localized = translationKey ? t(translationKey) : '';
-    if (typeof localized === 'string' && localized.trim()) {
-      return localized.trim();
-    }
-  } catch (_) {}
-  return '';
-}
-
-function getDefaultSiteTitle() {
-  return getThemeFallbackValue('getDefaultSiteTitle', 'ui.defaultSiteTitle');
-}
-
-function getDefaultSiteDescription() {
-  return getThemeFallbackValue('getDefaultSiteDescription', 'ui.defaultSiteDescription');
-}
-
-function getDefaultAuthorName() {
-  return getThemeFallbackValue('getDefaultAuthorName', 'ui.defaultAuthorName');
-}
-
 function renderSiteLinks(cfg) {
   try {
     callThemeHook('renderSiteLinks', {
@@ -301,6 +280,11 @@ function refreshTagSidebar({
     view,
     containers,
     postsIndex: postsIndex === undefined ? postsIndexCache : postsIndex,
+    utilities: {
+      aggregateTags,
+      renderTagSidebar,
+      setupTagTooltips
+    },
     document,
     window
   });
@@ -310,6 +294,7 @@ function initializeSyntaxHighlightingForView(view, { containers } = {}) {
   const handled = callThemeHook('initializeSyntaxHighlighting', {
     view,
     containers,
+    initSyntaxHighlighting,
     document,
     window
   });
@@ -331,13 +316,27 @@ function resetTOCView(view, containers, { reason, immediate } = {}) {
   if (handled === undefined) {
     const toc = (containers && containers.tocElement) || getViewContainer(view, 'toc');
     if (!toc) return;
-    try { toc.innerHTML = ''; } catch (_) {}
+    const clear = () => { try { toc.innerHTML = ''; } catch (_) {}; };
+    if (immediate) {
+      clear();
+      try { toc.hidden = true; } catch (_) {}
+      try { toc.style.display = 'none'; } catch (_) {}
+      try { toc.setAttribute('aria-hidden', 'true'); } catch (_) {}
+      return;
+    }
+    smoothHide(toc, clear);
   }
 }
 
 function enhanceIndexLayout(params = {}) {
   callThemeHook('enhanceIndexLayout', {
     ...params,
+    hydrateCardCovers,
+    applyLazyLoadingIn,
+    applyMasonry,
+    debounce,
+    renderTagSidebar,
+    setupSearch,
     document,
     window
   });
@@ -435,7 +434,26 @@ function displayPost(postname) {
       locationAliasMap,
       translate: t,
       document,
-      window
+      window,
+      utilities: {
+        renderPostNav,
+        hydratePostImages,
+        hydratePostVideos,
+        hydrateInternalLinkCards,
+        applyLazyLoadingIn,
+        applyLangHints,
+        renderPostTOC: (opts) => renderPostTOCBlock(opts),
+        renderTagSidebar,
+        getArticleTitleFromMain,
+        setupAnchors,
+        setupTOC,
+        ensureAutoHeight,
+        getFile,
+        getContentRoot,
+        withLangParam,
+        fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
+        makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
+      }
     }) || {};
 
     let articleTitle = fallbackTitle;
@@ -581,6 +599,7 @@ function displayIndex(parsed) {
     computeReadTime,
     document,
     window,
+    updateMasonryItem,
     siteConfig
   });
 }
@@ -713,7 +732,25 @@ function displayStaticTab(slug) {
         locationAliasMap,
         translate: t,
         document,
-        window
+        window,
+        utilities: {
+          hydratePostImages,
+          hydratePostVideos,
+          hydrateInternalLinkCards,
+          applyLazyLoadingIn,
+          applyLangHints,
+          renderPostTOC: (opts) => renderPostTOCBlock(opts),
+          renderTagSidebar,
+          getArticleTitleFromMain,
+          setupAnchors,
+          setupTOC,
+          ensureAutoHeight,
+          getFile,
+          getContentRoot,
+          withLangParam,
+          fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
+          makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
+        }
       }) || {};
 
       let pageTitle = tab.title;
@@ -727,7 +764,7 @@ function displayStaticTab(slug) {
       try {
         const seoData = extractSEOFromMarkdown(md, {
           title: pageTitle,
-          author: tab.author || getDefaultAuthorName(),
+          author: tab.author || 'NanoSite',
           location: tab.location
         }, siteConfig);
         updateSEO(seoData, siteConfig);
@@ -832,10 +869,10 @@ function routeAndRender() {
     
     try {
       updateSEO({
-        title: page > 1 ?
-          `${getLocalizedValue(siteConfig.siteTitle) || 'All Posts'} - Page ${page}` :
-          getLocalizedValue(siteConfig.siteTitle) || getDefaultSiteTitle(),
-        description: getLocalizedValue(siteConfig.siteDescription) || getDefaultSiteDescription(),
+        title: page > 1 ? 
+          `${getLocalizedValue(siteConfig.siteTitle) || 'All Posts'} - Page ${page}` : 
+          getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
         type: 'website',
         url: window.location.href
       }, siteConfig);
@@ -1090,8 +1127,8 @@ async function softResetToSiteDefaultLanguage() {
         return (lang && val[lang]) || val.default || '';
       };
       updateSEO({
-        title: getLocalizedValue(siteConfig.siteTitle) || getDefaultSiteTitle(),
-        description: getLocalizedValue(siteConfig.siteDescription) || getDefaultSiteDescription(),
+        title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
         type: 'website', url: window.location.href
       }, siteConfig);
     } catch (_) {}
@@ -1304,7 +1341,7 @@ loadSiteConfig()
       };
       initErrorReporter({
         reportUrl: resolveReportUrl(siteConfig),
-        siteTitle: pick(siteConfig && siteConfig.siteTitle) || getDefaultSiteTitle(),
+        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite',
         enableOverlay: !!(siteConfig && siteConfig.errorOverlay === true)
       });
     } catch (_) {}
@@ -1320,8 +1357,8 @@ loadSiteConfig()
       
       // Update initial page meta tags with site config
       updateSEO({
-        title: getLocalizedValue(siteConfig.siteTitle) || getDefaultSiteTitle(),
-        description: getLocalizedValue(siteConfig.siteDescription) || getDefaultSiteDescription(),
+        title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
         type: 'website',
         url: window.location.href
       }, siteConfig);

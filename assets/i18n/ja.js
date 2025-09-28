@@ -38,10 +38,7 @@ const translations = {
       aiFlagLabel: 'AI 参加',
       aiFlagTooltip: 'AI 参加：本記事は生成系LLMで生成・編集されています',
       draftBadge: '下書き',
-      draftNotice: 'この記事は執筆中・編集中です。内容は変更される場合があります。',
-      defaultSiteTitle: '未設定のサイト',
-      defaultSiteDescription: 'シンプルな静的サイトです。',
-      defaultAuthorName: '作者不明'
+      draftNotice: 'この記事は執筆中・編集中です。内容は変更される場合があります。'
     },
     code: {
       copy: 'コピー',
