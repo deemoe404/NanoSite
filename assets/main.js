@@ -38,6 +38,16 @@ let __activePostRequestId = 0;
 // Track last route to harmonize scroll behavior on back/forward
 let __lastRouteKey = '';
 
+// Compute a simple route key to help unify scroll behavior across navigations
+function getCurrentRouteKey() {
+  try {
+    const id = getQueryVariable('id');
+    if (id) return `post:${id}`;
+    const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
+    return `tab:${tab}`;
+  } catch (_) { return ''; }
+}
+
 function getThemeHook(name) {
   try {
     const hooks = (typeof window !== 'undefined') ? window.__ns_themeHooks : null;
@@ -504,8 +514,16 @@ function displayPost(postname) {
 
     renderTabs('post', articleTitle);
 
+    // Let theme handle hash-based scrolling if desired; fallback to previous behavior
     const currentHash = (location.hash || '').replace(/^#/, '');
-    if (currentHash) {
+    const handledHash = callThemeHook('scrollToHash', {
+      hash: currentHash,
+      view: 'post',
+      containers,
+      document,
+      window
+    });
+    if (handledHash === undefined && currentHash) {
       const target = document.getElementById(currentHash);
       if (target) {
         requestAnimationFrame(() => { target.scrollIntoView({ block: 'start' }); });
@@ -559,11 +577,41 @@ function displayIndex(parsed) {
   const entries = Object.entries(parsed || {});
   const total = entries.length;
   const qPage = parseInt(getQueryVariable('page') || '1', 10);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = isNaN(qPage) ? 1 : Math.min(Math.max(1, qPage), totalPages);
+  let totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  let page = isNaN(qPage) ? 1 : Math.min(Math.max(1, qPage), totalPages);
   const start = (page - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
-  const pageEntries = entries.slice(start, end);
+  let pageEntries = entries.slice(start, end);
+  // Allow theme to customize pagination behavior (e.g., infinite scroll)
+  try {
+    const paginated = callThemeHook('paginateEntries', {
+      view: 'posts',
+      entries,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages,
+      document,
+      window
+    });
+    if (paginated && typeof paginated === 'object') {
+      if (Array.isArray(paginated.pageEntries)) pageEntries = paginated.pageEntries;
+      if (typeof paginated.page === 'number' && !isNaN(paginated.page)) {
+        // Keep local variables in sync so renderers receive consistent values
+        const newPage = Math.max(1, paginated.page);
+        if (newPage !== page) {
+          page = newPage;
+          totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+          const npStart = (newPage - 1) * PAGE_SIZE;
+          const npEnd = npStart + PAGE_SIZE;
+          if (!Array.isArray(paginated.pageEntries)) pageEntries = entries.slice(npStart, npEnd);
+        }
+      }
+      if (typeof paginated.totalPages === 'number' && !isNaN(paginated.totalPages)) {
+        totalPages = Math.max(1, paginated.totalPages);
+      }
+    }
+  } catch (_) { /* ignore pagination hook issues */ }
 
   const mainview = containers.mainElement || getViewContainer('posts', 'main');
   callThemeHook('renderIndexView', {
@@ -624,31 +672,79 @@ function displaySearch(query) {
   const containers = getViewContainers('search');
   resetTOCView('search', containers, { reason: 'search' });
 
-  // Filter by title or tags; if tagFilter present, restrict to exact tag match (case-insensitive)
+  // Filter by title or tags; allow theme to override
   const allEntries = Object.entries(postsIndexCache || {});
-  const ql = q.toLowerCase();
-  const tagl = tagFilter.toLowerCase();
-  const filtered = allEntries.filter(([title, meta]) => {
-    const tagVal = meta && meta.tag;
-    const tags = Array.isArray(tagVal)
-      ? tagVal.map(x => String(x))
-      : (typeof tagVal === 'string' ? String(tagVal).split(',') : (tagVal != null ? [String(tagVal)] : []));
-    const normTags = tags.map(s => s.trim()).filter(Boolean);
-    if (tagFilter) {
-      return normTags.some(tg => tg.toLowerCase() === tagl);
-    }
-    const inTitle = String(title || '').toLowerCase().includes(ql);
-    const inTags = normTags.some(tg => tg.toLowerCase().includes(ql));
-    return inTitle || inTags;
-  });
+  const defaultFilter = (entries, query, tag) => {
+    const ql = String(query || '').toLowerCase();
+    const tagl = String(tag || '').toLowerCase();
+    return entries.filter(([title, meta]) => {
+      const tagVal = meta && meta.tag;
+      const tags = Array.isArray(tagVal)
+        ? tagVal.map(x => String(x))
+        : (typeof tagVal === 'string' ? String(tagVal).split(',') : (tagVal != null ? [String(tagVal)] : []));
+      const normTags = tags.map(s => s.trim()).filter(Boolean);
+      if (tag) {
+        return normTags.some(tg => tg.toLowerCase() === tagl);
+      }
+      const inTitle = String(title || '').toLowerCase().includes(ql);
+      const inTags = normTags.some(tg => tg.toLowerCase().includes(ql));
+      return inTitle || inTags;
+    });
+  };
+  let filtered = null;
+  try {
+    const themed = callThemeHook('filterSearchEntries', {
+      view: 'search',
+      entries: allEntries,
+      query: q,
+      tagFilter,
+      postsIndexMap: postsIndexCache,
+      siteConfig,
+      utilities: { defaultFilter },
+      document,
+      window
+    });
+    if (Array.isArray(themed)) filtered = themed;
+  } catch (_) { /* ignore search hook issues */ }
+  if (!Array.isArray(filtered)) filtered = defaultFilter(allEntries, q, tagFilter);
 
   const total = filtered.length;
   const qPage = parseInt(getQueryVariable('page') || '1', 10);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = isNaN(qPage) ? 1 : Math.min(Math.max(1, qPage), totalPages);
+  let totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  let page = isNaN(qPage) ? 1 : Math.min(Math.max(1, qPage), totalPages);
   const start = (page - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
-  const pageEntries = filtered.slice(start, end);
+  let pageEntries = filtered.slice(start, end);
+  try {
+    const paginated = callThemeHook('paginateEntries', {
+      view: 'search',
+      entries: filtered,
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+      totalPages,
+      query: q,
+      tagFilter,
+      document,
+      window
+    });
+    if (paginated && typeof paginated === 'object') {
+      if (Array.isArray(paginated.pageEntries)) pageEntries = paginated.pageEntries;
+      if (typeof paginated.page === 'number' && !isNaN(paginated.page)) {
+        const newPage = Math.max(1, paginated.page);
+        if (newPage !== page) {
+          page = newPage;
+          totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+          const npStart = (newPage - 1) * PAGE_SIZE;
+          const npEnd = npStart + PAGE_SIZE;
+          if (!Array.isArray(paginated.pageEntries)) pageEntries = filtered.slice(npStart, npEnd);
+        }
+      }
+      if (typeof paginated.totalPages === 'number' && !isNaN(paginated.totalPages)) {
+        totalPages = Math.max(1, paginated.totalPages);
+      }
+    }
+  } catch (_) { /* ignore pagination hook issues */ }
 
   const mainview = containers.mainElement || getViewContainer('search', 'main');
   callThemeHook('renderSearchResults', {
@@ -917,25 +1013,44 @@ document.addEventListener('click', (e) => {
     const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
     if (!hasInAppParams) return;
     e.preventDefault();
+    const prevKey = __lastRouteKey || getCurrentRouteKey();
     history.pushState({}, '', url.toString());
     routeAndRender();
-    window.scrollTo(0, 0);
+    const nextKey = getCurrentRouteKey();
+    const handled = callThemeHook('handleRouteScroll', {
+      reason: 'push',
+      prevKey,
+      nextKey,
+      document,
+      window
+    });
+    if (handled === undefined) {
+      try { window.scrollTo(0, 0); } catch (_) {}
+    }
+    __lastRouteKey = nextKey;
   } catch (_) {
     // If URL parsing fails, fall through to default navigation
   }
 });
 
 window.addEventListener('popstate', () => {
-  const prevKey = __lastRouteKey || '';
+  const prevKey = __lastRouteKey || getCurrentRouteKey();
   routeAndRender();
   refreshTagSidebar({ postsIndex: postsIndexCache });
-  // Normalize scroll behavior: if navigating between different post IDs, scroll to top
   try {
-    const id = getQueryVariable('id');
-    const tab = (getQueryVariable('tab') || 'posts').toLowerCase();
-    const curKey = id ? `post:${id}` : `tab:${tab}`;
-    if (prevKey && prevKey.startsWith('post:') && curKey.startsWith('post:') && prevKey !== curKey) {
-      try { window.scrollTo(0, 0); } catch (_) {}
+    const curKey = getCurrentRouteKey();
+    const handled = callThemeHook('handleRouteScroll', {
+      reason: 'popstate',
+      prevKey,
+      nextKey: curKey,
+      document,
+      window
+    });
+    if (handled === undefined) {
+      // Fallback: if navigating between different post IDs, scroll to top
+      if (prevKey && prevKey.startsWith('post:') && curKey.startsWith('post:') && prevKey !== curKey) {
+        try { window.scrollTo(0, 0); } catch (_) {}
+      }
     }
     __lastRouteKey = curKey;
   } catch (_) {}
