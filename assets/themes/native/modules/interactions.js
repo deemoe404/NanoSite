@@ -9,6 +9,7 @@ import { renderPostNav } from '../../../js/post-nav.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { applyLangHints } from '../../../js/typography.js';
+import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor } from '../../../js/theme.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -35,6 +36,77 @@ function getFetcher(windowRef = defaultWindow) {
     ? windowRef.fetch.bind(windowRef)
     : (typeof fetch === 'function' ? fetch : null);
   return candidate || null;
+}
+
+function getContainerByRole(role, documentRef = defaultDocument) {
+  if (!documentRef) return null;
+  try {
+    switch (role) {
+      case 'main':
+        return documentRef.getElementById('mainview');
+      case 'toc':
+        return documentRef.getElementById('tocview');
+      case 'sidebar':
+        return documentRef.querySelector('.sidebar');
+      case 'content':
+        return documentRef.querySelector('.content');
+      case 'container': {
+        const main = getContainerByRole('main', documentRef);
+        return main ? main.closest('.box') : null;
+      }
+      default:
+        return null;
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
+function resolveViewContainersNative(params = {}, documentRef = defaultDocument) {
+  const view = params.view;
+  const base = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const result = { view };
+  if (base.mainElement) result.mainElement = base.mainElement;
+  if (base.tocElement) result.tocElement = base.tocElement;
+  if (base.sidebarElement) result.sidebarElement = base.sidebarElement;
+  if (base.contentElement) result.contentElement = base.contentElement;
+  if (base.containerElement) result.containerElement = base.containerElement;
+  if (!result.mainElement) result.mainElement = getContainerByRole('main', documentRef);
+  if (!result.tocElement) result.tocElement = getContainerByRole('toc', documentRef);
+  if (!result.sidebarElement) result.sidebarElement = getContainerByRole('sidebar', documentRef);
+  if (!result.contentElement) result.contentElement = getContainerByRole('content', documentRef);
+  if (!result.containerElement) result.containerElement = getContainerByRole('container', documentRef);
+  return result;
+}
+
+function updateSearchPlaceholderNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  const input = documentRef.getElementById('searchInput');
+  if (!input) return false;
+  const placeholder = params && params.placeholder != null ? String(params.placeholder) : '';
+  input.setAttribute('placeholder', placeholder);
+  return true;
+}
+
+function setupThemeControlsNative(params = {}) {
+  const mount = typeof params.mountThemeControls === 'function' ? params.mountThemeControls : mountThemeControls;
+  const apply = typeof params.applySavedTheme === 'function' ? params.applySavedTheme : applySavedTheme;
+  const bindToggle = typeof params.bindThemeToggle === 'function' ? params.bindThemeToggle : bindThemeToggle;
+  const bindEditor = typeof params.bindPostEditor === 'function' ? params.bindPostEditor : bindPostEditor;
+  const bindPack = typeof params.bindThemePackPicker === 'function' ? params.bindThemePackPicker : bindThemePackPicker;
+  try { mount(); } catch (_) {}
+  try { apply(); } catch (_) {}
+  try { bindToggle(); } catch (_) {}
+  try { bindEditor(); } catch (_) {}
+  try { bindPack(); } catch (_) {}
+  return true;
+}
+
+function handleWindowResizeNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  const nav = documentRef ? documentRef.getElementById('tabsNav') : null;
+  if (!nav) return false;
+  updateMovingHighlight(nav, windowRef, documentRef);
+  return true;
 }
 
 async function checkImageSizeNative(url, timeoutMs = 4000, windowRef = defaultWindow) {
@@ -349,9 +421,10 @@ function hideElementNative(params = {}, windowRef = defaultWindow) {
 }
 
 function updateLayoutLoadingStateNative(params = {}, documentRef = defaultDocument) {
-  const content = params.contentElement || (documentRef && documentRef.querySelector('.content'));
-  const sidebar = params.sidebarElement || (documentRef && documentRef.querySelector('.sidebar'));
-  const container = params.containerElement || (documentRef && documentRef.getElementById('mainview')?.closest('.box'));
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const content = scope.contentElement || params.contentElement || (documentRef && documentRef.querySelector('.content'));
+  const sidebar = scope.sidebarElement || params.sidebarElement || (documentRef && documentRef.querySelector('.sidebar'));
+  const container = scope.containerElement || params.containerElement || (documentRef && documentRef.getElementById('mainview')?.closest('.box'));
   const extra = Array.isArray(params.extraContentClasses) ? params.extraContentClasses : [];
   const toggle = (element, base = []) => {
     if (!element || !element.classList) return;
@@ -369,7 +442,8 @@ function updateLayoutLoadingStateNative(params = {}, documentRef = defaultDocume
 }
 
 function renderPostTOCNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
-  const toc = params.tocElement || (documentRef ? documentRef.getElementById('tocview') : null);
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const toc = scope.tocElement || params.tocElement || (documentRef ? documentRef.getElementById('tocview') : null);
   if (!toc) return false;
   const translate = params.translate || params.translator || t;
   const title = params.articleTitle != null ? String(params.articleTitle) : '';
@@ -397,7 +471,8 @@ function renderPostTOCNative(params = {}, documentRef = defaultDocument, windowR
 }
 
 function renderErrorStateNative(params = {}, documentRef = defaultDocument) {
-  const target = params.targetElement || (documentRef ? documentRef.getElementById('mainview') : null);
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const target = scope.mainElement || params.targetElement || (documentRef ? documentRef.getElementById('mainview') : null);
   if (!target) return false;
   const variant = String(params.variant || 'error').trim() || 'error';
   const title = params.title != null ? String(params.title) : '';
@@ -479,19 +554,21 @@ function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocu
 }
 
 function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
-  const containerSelector = params.containerSelector || '#mainview';
-  const indexSelector = params.indexSelector || '.index';
+  const containerEl = params.containerElement || getContainerByRole('main', documentRef);
+  const indexEl = params.indexElement || (containerEl ? containerEl.querySelector('.index') : null);
+  const containerSelector = params.containerSelector || (containerEl && containerEl.id ? `#${containerEl.id}` : '#mainview');
+  const indexSelector = params.indexSelector || (containerSelector ? `${containerSelector} .index` : '.index');
   if (typeof params.hydrateCardCovers === 'function') {
-    try { params.hydrateCardCovers(containerSelector); } catch (_) {}
+    try { params.hydrateCardCovers(containerEl || containerSelector); } catch (_) {}
   }
   if (typeof params.applyLazyLoadingIn === 'function') {
-    try { params.applyLazyLoadingIn(containerSelector); } catch (_) {}
+    try { params.applyLazyLoadingIn(containerEl || containerSelector); } catch (_) {}
   }
   try {
     const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
-    warnLargeImagesInNative(containerSelector, cfg, documentRef, windowRef).catch(() => {});
+    warnLargeImagesInNative(containerEl || containerSelector, cfg, documentRef, windowRef).catch(() => {});
   } catch (_) {}
-  sequentialLoadCoversNative(containerSelector, documentRef, windowRef, 1);
+  sequentialLoadCoversNative(containerEl || containerSelector, documentRef, windowRef, 1);
   if (typeof params.setupSearch === 'function') {
     try { params.setupSearch(Array.isArray(params.allEntries) ? params.allEntries : []); } catch (_) {}
   }
@@ -500,7 +577,10 @@ function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, wi
   }
   const runMasonry = () => {
     if (typeof params.applyMasonry === 'function') {
-      try { params.applyMasonry(indexSelector); } catch (_) {}
+      try {
+        if (indexEl) params.applyMasonry(indexSelector);
+        else params.applyMasonry(indexSelector);
+      } catch (_) {}
     }
   };
   if (typeof params.applyMasonry === 'function') {
@@ -527,7 +607,8 @@ function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, wi
 
 function decoratePostViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   if (!documentRef) return false;
-  const container = params.container || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const container = scope.mainElement || params.container || documentRef.getElementById('mainview');
   if (!container) return false;
   const translate = params.translate || params.t || t;
   const articleTitle = params.articleTitle != null ? String(params.articleTitle) : '';
@@ -746,8 +827,9 @@ function renderFooterNavNative(params = {}, documentRef = defaultDocument, windo
 
 function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument) {
   if (!documentRef) return false;
-  const toc = params.tocElement || documentRef.getElementById('tocview');
-  const main = params.mainElement || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const toc = scope.tocElement || params.tocElement || documentRef.getElementById('tocview');
+  const main = scope.mainElement || params.mainElement || documentRef.getElementById('mainview');
   const translate = params.translator || params.t || t;
   const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
   const ensureAutoHeight = typeof params.ensureAutoHeight === 'function' ? params.ensureAutoHeight : (() => {});
@@ -771,7 +853,8 @@ function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument
 
 function renderStaticTabLoadingStateNative(params = {}, documentRef = defaultDocument) {
   if (!documentRef) return false;
-  const main = params.mainElement || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const main = scope.mainElement || params.mainElement || documentRef.getElementById('mainview');
   const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
   if (main) main.innerHTML = renderSkeleton();
   return !!main;
@@ -779,7 +862,8 @@ function renderStaticTabLoadingStateNative(params = {}, documentRef = defaultDoc
 
 function renderPostViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   if (!documentRef) return { handled: false, title: params && params.fallbackTitle ? String(params.fallbackTitle) : '' };
-  const container = params.container || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const container = scope.mainElement || params.container || documentRef.getElementById('mainview');
   if (!container) return { handled: false, title: params && params.fallbackTitle ? String(params.fallbackTitle) : '' };
 
   const markdownHtml = params.markdownHtml || '';
@@ -896,7 +980,8 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
 
 function renderStaticTabViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   if (!documentRef) return { handled: false, title: params && params.tab && params.tab.title ? String(params.tab.title) : '' };
-  const container = params.container || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const container = scope.mainElement || params.container || documentRef.getElementById('mainview');
   if (!container) return { handled: false, title: params && params.tab && params.tab.title ? String(params.tab.title) : '' };
 
   const markdownHtml = params.markdownHtml || '';
@@ -1010,7 +1095,8 @@ function resolveCoverSource(value = {}, siteConfig = {}) {
 
 function renderIndexViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   if (!documentRef) return false;
-  const container = params.container || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const container = scope.mainElement || params.container || documentRef.getElementById('mainview');
   if (!container) return false;
   const pageEntries = Array.isArray(params.pageEntries) ? params.pageEntries : [];
   const totalPages = Math.max(1, parseInt(params.totalPages || 1, 10));
@@ -1125,7 +1211,8 @@ function afterIndexRenderNative(params = {}, documentRef = defaultDocument) {
 
 function renderSearchResultsNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   if (!documentRef) return false;
-  const container = params.container || documentRef.getElementById('mainview');
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const container = scope.mainElement || params.container || documentRef.getElementById('mainview');
   if (!container) return false;
   const entries = Array.isArray(params.entries) ? params.entries : [];
   const total = parseInt(params.total || entries.length, 10);
@@ -1647,6 +1734,8 @@ export function mount(context = {}) {
   }
 
   const hooks = (windowRef && windowRef.__ns_themeHooks) || {};
+  hooks.getViewContainer = (params = {}) => getContainerByRole(params.role, documentRef);
+  hooks.resolveViewContainers = (params = {}) => resolveViewContainersNative(params, documentRef);
   hooks.showElement = (params = {}) => showElementNative(params, windowRef);
   hooks.hideElement = (params = {}) => hideElementNative(params, windowRef);
   hooks.renderSiteLinks = (params = {}) => renderSiteLinksNative(params, documentRef);
@@ -1657,10 +1746,12 @@ export function mount(context = {}) {
   hooks.ensureTabOverlay = (nav) => ensureHighlightOverlay(nav, documentRef);
   hooks.setupResponsiveTabsObserver = (params = {}) => setupResponsiveTabsObserverNative({ ...params, window: windowRef, document: documentRef });
   hooks.onTabClick = (tab) => addTabClickAnimation(tab, windowRef);
+  hooks.handleWindowResize = (params = {}) => handleWindowResizeNative(params, documentRef, windowRef);
   hooks.updateLayoutLoadingState = (params = {}) => updateLayoutLoadingStateNative(params, documentRef);
   hooks.renderPostTOC = (params = {}) => renderPostTOCNative(params, documentRef, windowRef);
   hooks.renderErrorState = (params = {}) => renderErrorStateNative(params, documentRef);
   hooks.updateSearchPanels = (params = {}) => updateSearchPanelsNative(params, documentRef, windowRef);
+  hooks.updateSearchPlaceholder = (params = {}) => updateSearchPlaceholderNative(params, documentRef);
   hooks.renderPostLoadingState = (params = {}) => renderPostLoadingStateNative(params, documentRef);
   hooks.renderPostView = (params = {}) => renderPostViewNative(params, documentRef, windowRef);
   hooks.renderStaticTabLoadingState = (params = {}) => renderStaticTabLoadingStateNative(params, documentRef);
@@ -1672,6 +1763,7 @@ export function mount(context = {}) {
   hooks.enhanceIndexLayout = (params = {}) => enhanceIndexLayoutNative(params, documentRef, windowRef);
   hooks.decoratePostView = (params = {}) => decoratePostViewNative(params, documentRef, windowRef);
   hooks.handleDocumentClick = (params = {}) => handleDocumentClickNative(params, documentRef, windowRef);
+  hooks.setupThemeControls = (params = {}) => setupThemeControlsNative(params);
   hooks.resetThemeControls = (params = {}) => resetThemeControlsNative(params, documentRef);
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;

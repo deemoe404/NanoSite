@@ -4,7 +4,7 @@ import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeContro
 import { ensureThemeLayout } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -50,6 +50,69 @@ function callThemeHook(name, ...args) {
   const fn = getThemeHook(name);
   if (!fn) return undefined;
   try { return fn(...args); } catch (_) { return undefined; }
+}
+
+function getViewContainer(view, role) {
+  try {
+    const fromHook = callThemeHook('getViewContainer', {
+      view,
+      role,
+      document,
+      window
+    });
+    if (fromHook) return fromHook;
+  } catch (_) {}
+  try {
+    switch (role) {
+      case 'main':
+        return document.getElementById('mainview');
+      case 'toc':
+        return document.getElementById('tocview');
+      case 'sidebar':
+        return document.querySelector('.sidebar');
+      case 'content':
+        return document.querySelector('.content');
+      case 'container': {
+        const main = getViewContainer(view, 'main');
+        return main ? main.closest('.box') : null;
+      }
+      default:
+        return null;
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
+function getViewContainers(view) {
+  const container = {
+    view,
+    mainElement: null,
+    tocElement: null,
+    sidebarElement: null,
+    contentElement: null,
+    containerElement: null
+  };
+  try {
+    const hookResult = callThemeHook('resolveViewContainers', {
+      view,
+      document,
+      window
+    });
+    if (hookResult && typeof hookResult === 'object') {
+      if (hookResult.mainElement) container.mainElement = hookResult.mainElement;
+      if (hookResult.tocElement) container.tocElement = hookResult.tocElement;
+      if (hookResult.sidebarElement) container.sidebarElement = hookResult.sidebarElement;
+      if (hookResult.contentElement) container.contentElement = hookResult.contentElement;
+      if (hookResult.containerElement) container.containerElement = hookResult.containerElement;
+    }
+  } catch (_) {}
+  if (!container.mainElement) container.mainElement = getViewContainer(view, 'main');
+  if (!container.tocElement) container.tocElement = getViewContainer(view, 'toc');
+  if (!container.sidebarElement) container.sidebarElement = getViewContainer(view, 'sidebar');
+  if (!container.contentElement) container.contentElement = getViewContainer(view, 'content');
+  if (!container.containerElement) container.containerElement = getViewContainer(view, 'container');
+  return container;
 }
 
 // --- UI helpers: smooth show/hide delegated to theme ---
@@ -183,13 +246,15 @@ function renderSiteIdentity(cfg) {
 
 // Transform standalone internal links (?id=...) into rich article cards
 // Load cover images sequentially to reduce bandwidth contention
-function updateLayoutLoadingState({ view, contentElement, sidebarElement, containerElement } = {}, isLoading) {
+function updateLayoutLoadingState(view, isLoading, containers = null) {
+  const ctx = containers || getViewContainers(view);
   return callThemeHook('updateLayoutLoadingState', {
     view,
     isLoading,
-    contentElement,
-    sidebarElement,
-    containerElement,
+    contentElement: ctx.contentElement,
+    sidebarElement: ctx.sidebarElement,
+    containerElement: ctx.containerElement,
+    containers: ctx,
     document,
     window
   });
@@ -215,7 +280,8 @@ function renderErrorState(targetElement, {
   title,
   message,
   actions = [],
-  view
+  view,
+  containers
 } = {}) {
   return callThemeHook('renderErrorState', {
     targetElement,
@@ -224,6 +290,7 @@ function renderErrorState(targetElement, {
     message,
     actions,
     view,
+    containers,
     translate: t,
     document,
     window
@@ -299,26 +366,14 @@ function renderFooterNav() {
 function displayPost(postname) {
   // Bump request token to invalidate any in-flight older renders
   const reqId = (++__activePostRequestId);
-  // Add loading-state classes to keep layout stable
-  const contentEl = document.querySelector('.content');
-  const sidebarEl = document.querySelector('.sidebar');
-  const mainviewContainer = document.getElementById('mainview')?.closest('.box');
-  
-  updateLayoutLoadingState({
-    view: 'post',
-    contentElement: contentEl,
-    sidebarElement: sidebarEl,
-    containerElement: mainviewContainer
-  }, true);
-  
-  // Loading state for post view
-  const toc = document.getElementById('tocview');
-  const main = document.getElementById('mainview');
+  const containers = getViewContainers('post');
+
+  updateLayoutLoadingState('post', true, containers);
+
   const handledLoading = callThemeHook('renderPostLoadingState', {
-    tocElement: toc,
-    mainElement: main,
+    view: 'post',
+    containers,
     translator: t,
-    renderSkeletonArticle,
     ensureAutoHeight,
     showElement: basicShow,
     hideElement: basicHide,
@@ -326,25 +381,24 @@ function displayPost(postname) {
     window
   });
   if (!handledLoading) {
+    const toc = containers.tocElement;
     if (toc) {
-      toc.innerHTML = '';
+      try { toc.innerHTML = ''; } catch (_) {}
       smoothShow(toc);
       ensureAutoHeight(toc);
     }
-    if (main) main.innerHTML = renderSkeletonArticle();
+    const main = containers.mainElement;
+    if (main) {
+      try { main.textContent = t('ui.loading'); } catch (_) { main.textContent = 'Loading…'; }
+    }
   }
 
   return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
     if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes
-    updateLayoutLoadingState({
-      view: 'post',
-      contentElement: contentEl,
-      sidebarElement: sidebarEl,
-      containerElement: mainviewContainer
-    }, false);
-    
+    updateLayoutLoadingState('post', false, containers);
+
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
     const baseDir = `${getContentRoot()}/${dir}`;
     const output = mdParse(markdown, baseDir);
@@ -361,10 +415,9 @@ function displayPost(postname) {
       }
     }
 
-    const mainEl = document.getElementById('mainview');
-
     const hookResult = callThemeHook('renderPostView', {
-      container: mainEl,
+      view: 'post',
+      containers,
       markdownHtml: output.post,
       tocHtml: output.toc,
       markdown,
@@ -413,10 +466,13 @@ function displayPost(postname) {
       handled = true;
     }
 
-    if (!handled && mainEl) mainEl.innerHTML = output.post;
+    if (!handled) {
+      const mainEl = containers.mainElement || getViewContainer('post', 'main');
+      if (mainEl) mainEl.innerHTML = output.post;
+    }
 
     if (!tocHandled) {
-      const tocTarget = document.getElementById('tocview');
+      const tocTarget = containers.tocElement || getViewContainer('post', 'toc');
       if (tocTarget) {
         if (output.toc) {
           renderPostTOCBlock({ tocElement: tocTarget, articleTitle, tocHtml: output.toc });
@@ -431,7 +487,9 @@ function displayPost(postname) {
     }
 
     if (!decorated) {
+      const mainEl = containers.mainElement || getViewContainer('post', 'main');
       callThemeHook('decoratePostView', {
+        view: 'post',
         container: mainEl,
         articleTitle,
         postMetadata,
@@ -476,12 +534,7 @@ function displayPost(postname) {
     // Ignore stale errors if a newer navigation started
     if (reqId !== __activePostRequestId) return;
     // Remove loading-state classes even on error
-    updateLayoutLoadingState({
-      view: 'post',
-      contentElement: contentEl,
-      sidebarElement: sidebarEl,
-      containerElement: mainviewContainer
-    }, false);
+    updateLayoutLoadingState('post', false, containers);
 
     // Surface an overlay for missing post (e.g., 404)
     try {
@@ -496,17 +549,18 @@ function displayPost(postname) {
       });
     } catch (_) {}
 
-    const tocView = document.getElementById('tocview');
+    const tocView = containers.tocElement || getViewContainer('post', 'toc');
     if (tocView) {
       smoothHide(tocView, () => { try { tocView.innerHTML = ''; } catch (_) {}; });
     }
     const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
     const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
-    renderErrorState(document.getElementById('mainview'), {
+    renderErrorState(containers.mainElement || getViewContainer('post', 'main'), {
       title: t('errors.postNotFoundTitle'),
       message: t('errors.postNotFoundBody'),
       actions: [{ href: backHref, label: backText }],
-      view: 'post'
+      view: 'post',
+      containers
     });
     setDocTitle(t('ui.notFound'));
     updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
@@ -514,7 +568,8 @@ function displayPost(postname) {
 }
 
 function displayIndex(parsed) {
-  const toc = document.getElementById('tocview');
+  const containers = getViewContainers('posts');
+  const toc = containers.tocElement || getViewContainer('posts', 'toc');
   smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
 
   const entries = Object.entries(parsed || {});
@@ -526,8 +581,10 @@ function displayIndex(parsed) {
   const end = start + PAGE_SIZE;
   const pageEntries = entries.slice(start, end);
 
-  const mainview = document.getElementById('mainview');
+  const mainview = containers.mainElement || getViewContainer('posts', 'main');
   const handled = callThemeHook('renderIndexView', {
+    view: 'posts',
+    containers,
     container: mainview,
     entries,
     pageEntries,
@@ -547,8 +604,8 @@ function displayIndex(parsed) {
 
   enhanceIndexLayout({
     view: 'posts',
-    containerSelector: '#mainview',
-    indexSelector: '.index',
+    containers,
+    containerElement: mainview,
     allEntries: entries,
     pageEntries,
     total,
@@ -582,7 +639,8 @@ function displaySearch(query) {
   const tagFilter = rawTag ? String(rawTag).trim() : '';
   if (!q && !tagFilter) return displayIndex(postsIndexCache);
 
-  const toc = document.getElementById('tocview');
+  const containers = getViewContainers('search');
+  const toc = containers.tocElement || getViewContainer('search', 'toc');
   smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
 
   // Filter by title or tags; if tagFilter present, restrict to exact tag match (case-insensitive)
@@ -611,8 +669,10 @@ function displaySearch(query) {
   const end = start + PAGE_SIZE;
   const pageEntries = filtered.slice(start, end);
 
-  const mainview = document.getElementById('mainview');
+  const mainview = containers.mainElement || getViewContainer('search', 'main');
   const handled = callThemeHook('renderSearchResults', {
+    view: 'search',
+    containers,
     container: mainview,
     entries: pageEntries,
     total,
@@ -632,8 +692,8 @@ function displaySearch(query) {
 
   enhanceIndexLayout({
     view: 'search',
-    containerSelector: '#mainview',
-    indexSelector: '.index',
+    containers,
+    containerElement: mainview,
     allEntries: Object.entries(postsIndexCache || {}),
     pageEntries,
     total,
@@ -666,48 +726,37 @@ function displaySearch(query) {
 function displayStaticTab(slug) {
   const tab = tabsBySlug[slug];
   if (!tab) return displayIndex({});
-  
-  // Add loading state class to maintain layout stability
-  const contentEl = document.querySelector('.content');
-  const sidebarEl = document.querySelector('.sidebar');
-  const mainviewContainer = document.getElementById('mainview')?.closest('.box');
-  
-  updateLayoutLoadingState({
-    view: 'tab',
-    contentElement: contentEl,
-    sidebarElement: sidebarEl,
-    containerElement: mainviewContainer
-  }, true);
-  
-  const toc = document.getElementById('tocview');
+
+  const containers = getViewContainers('tab');
+
+  updateLayoutLoadingState('tab', true, containers);
+
+  const toc = containers.tocElement || getViewContainer('tab', 'toc');
   if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
-  const main = document.getElementById('mainview');
+  const main = containers.mainElement || getViewContainer('tab', 'main');
   const handledLoading = callThemeHook('renderStaticTabLoadingState', {
-    mainElement: main,
-    renderSkeletonArticle,
+    view: 'tab',
+    containers,
     document,
     window
   });
-  if (!handledLoading && main) main.innerHTML = renderSkeletonArticle();
+  if (!handledLoading && main) {
+    try { main.textContent = t('ui.loading'); } catch (_) { main.textContent = 'Loading…'; }
+  }
   updateSearchPanels({ view: 'tab', showSearch: false, showTags: false });
   renderTabs(slug);
   getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
       // 移除加载状态类
-      updateLayoutLoadingState({
-        view: 'tab',
-        contentElement: contentEl,
-        sidebarElement: sidebarEl,
-        containerElement: mainviewContainer
-      }, false);
-      
+      updateLayoutLoadingState('tab', false, containers);
+
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `${getContentRoot()}/${dir}`;
       const output = mdParse(md, baseDir);
-      const mainEl = document.getElementById('mainview');
 
       const hookResult = callThemeHook('renderStaticTabView', {
-        container: mainEl,
+        view: 'tab',
+        containers,
         markdownHtml: output.post,
         tocHtml: output.toc,
         markdown: md,
@@ -751,10 +800,13 @@ function displayStaticTab(slug) {
         handled = true;
       }
 
-      if (!handled && mainEl) mainEl.innerHTML = output.post;
+      if (!handled) {
+        const mainEl = containers.mainElement || getViewContainer('tab', 'main');
+        if (mainEl) mainEl.innerHTML = output.post;
+      }
 
       if (!tocHandled) {
-        const tocTarget = document.getElementById('tocview');
+        const tocTarget = containers.tocElement || getViewContainer('tab', 'toc');
         if (tocTarget) {
           smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
         }
@@ -776,13 +828,8 @@ function displayStaticTab(slug) {
     })
     .catch((e) => {
       // 移除加载状态类，即使出错也要移除
-      updateLayoutLoadingState({
-        view: 'tab',
-        contentElement: contentEl,
-        sidebarElement: sidebarEl,
-        containerElement: mainviewContainer
-      }, false);
-      
+      updateLayoutLoadingState('tab', false, containers);
+
       // Surface an overlay for missing static tab page
       try {
         const url = `${getContentRoot()}/${tab.location}`;
@@ -792,10 +839,11 @@ function displayStaticTab(slug) {
         showErrorOverlay(err, { message: msg, origin: 'view.tab.unavailable', tagName: 'md', filename: url, assetUrl: url, tab: slug });
       } catch (_) {}
 
-      renderErrorState(document.getElementById('mainview'), {
+      renderErrorState(containers.mainElement || getViewContainer('tab', 'main'), {
         title: t('errors.pageUnavailableTitle'),
         message: t('errors.pageUnavailableBody'),
-        view: 'tab'
+        view: 'tab',
+        containers
       });
       setDocTitle(t('ui.pageUnavailable'));
     });
@@ -897,11 +945,6 @@ document.addEventListener('click', (e) => {
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
   if (!a) return;
 
-  // Add animation for tab clicks
-  if (a.classList.contains('tab')) {
-    callThemeHook('onTabClick', a);
-  }
-  
   if (isModifiedClick(e)) return;
   const hrefAttr = a.getAttribute('href') || '';
   // Allow any in-page hash links (e.g., '#', '#heading' or '?id=...#heading')
@@ -942,11 +985,8 @@ window.addEventListener('popstate', () => {
 });
 
 // Update sliding indicator on window resize
-window.addEventListener('resize', () => {
-  const nav = document.getElementById('tabsNav');
-  if (nav) {
-    callThemeHook('updateTabHighlight', nav);
-  }
+window.addEventListener('resize', (event) => {
+  callThemeHook('handleWindowResize', { event, document, window });
 });
 
 // Boot
@@ -969,13 +1009,28 @@ try { initErrorReporter({}); } catch (_) {}
 await ensureThemeLayout();
 
 // Ensure theme controls are present, then apply and bind
-mountThemeControls();
-applySavedTheme();
-bindThemeToggle();
-bindPostEditor();
-bindThemePackPicker();
+const controlsHandled = callThemeHook('setupThemeControls', {
+  mountThemeControls,
+  applySavedTheme,
+  bindThemeToggle,
+  bindPostEditor,
+  bindThemePackPicker,
+  document,
+  window
+});
+if (!controlsHandled) {
+  mountThemeControls();
+  applySavedTheme();
+  bindThemeToggle();
+  bindPostEditor();
+  bindThemePackPicker();
+}
 // Localize search placeholder ASAP
-try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
+callThemeHook('updateSearchPlaceholder', {
+  placeholder: t('sidebar.searchPlaceholder'),
+  document,
+  window
+});
 // Observe viewport changes for responsive tabs
 callThemeHook('setupResponsiveTabsObserver', {
   getTabs: () => tabsBySlug,
@@ -991,7 +1046,11 @@ async function softResetToSiteDefaultLanguage() {
     // Switch language immediately (do not persist to mimic reset semantics)
     await initI18n({ lang: String(def), persist: false });
     // Reflect placeholder promptly
-    try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
+    callThemeHook('updateSearchPlaceholder', {
+      placeholder: t('sidebar.searchPlaceholder'),
+      document,
+      window
+    });
     // Update URL to drop any lang param so defaults apply going forward
     try { const u = new URL(window.location.href); u.searchParams.delete('lang'); history.replaceState(history.state, document.title, u.toString()); } catch (_) {}
   } catch (_) {}
@@ -1169,7 +1228,11 @@ loadSiteConfig()
         if (!hasUrlLang && (!hasSaved || savedIsHtmlDefault)) {
           // Force language to site default, not just the fallback
           await initI18n({ lang: String(cfgDefaultLang) });
-          try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
+          callThemeHook('updateSearchPlaceholder', {
+            placeholder: t('sidebar.searchPlaceholder'),
+            document,
+            window
+          });
         }
       }
     } catch (_) { /* ignore site default application errors */ }
@@ -1362,14 +1425,15 @@ loadSiteConfig()
   routeAndRender();
   })
   .catch((e) => {
-    const tocView = document.getElementById('tocview');
+    const tocView = getViewContainer('boot', 'toc');
     if (tocView) {
       smoothHide(tocView, () => { try { tocView.innerHTML = ''; } catch (_) {}; });
     }
-    renderErrorState(document.getElementById('mainview'), {
+    renderErrorState(getViewContainer('boot', 'main'), {
       title: t('ui.indexUnavailable'),
       message: t('errors.indexUnavailableBody'),
-      view: 'boot'
+      view: 'boot',
+      containers: getViewContainers('boot')
     });
     updateSearchPanels({ view: 'boot', showSearch: false, showTags: false });
     // Surface an overlay for boot/index failures (network/unified JSON issues)
@@ -1382,14 +1446,5 @@ loadSiteConfig()
 
 // Footer: set dynamic year once
 try {
-  const handled = callThemeHook('setupFooter', { translate: t, document, window });
-  if (!handled) {
-    const y = document.getElementById('footerYear');
-    if (y) y.textContent = String(new Date().getFullYear());
-    const top = document.getElementById('footerTop');
-    if (top) {
-      top.textContent = t('ui.top');
-      top.addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-    }
-  }
+  callThemeHook('setupFooter', { translate: t, document, window });
 } catch (_) {}
