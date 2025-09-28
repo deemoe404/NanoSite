@@ -38,7 +38,10 @@ const translations = {
       aiFlagLabel: 'AI 参与',
       aiFlagTooltip: 'AI 参与：本文由生成式 LLM 生成或修改',
       draftBadge: '草稿',
-      draftNotice: '本文仍在撰写/修改中，内容可能随时变更。'
+      draftNotice: '本文仍在撰写/修改中，内容可能随时变更。',
+      defaultSiteTitle: '未命名站点',
+      defaultSiteDescription: '一个简单的静态网站。',
+      defaultAuthorName: '未知作者'
     },
     code: {
       copy: '复制',

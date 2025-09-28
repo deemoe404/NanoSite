@@ -38,7 +38,10 @@ const translations = {
       aiFlagLabel: 'AI-assisted',
       aiFlagTooltip: 'AI-assisted: generated or edited with an LLM',
       draftBadge: 'Draft',
-      draftNotice: 'This post is a draft and may change.'
+      draftNotice: 'This post is a draft and may change.',
+      defaultSiteTitle: 'Untitled Site',
+      defaultSiteDescription: 'A simple static site.',
+      defaultAuthorName: 'Unknown author'
     },
     code: {
       copy: 'Copy',
