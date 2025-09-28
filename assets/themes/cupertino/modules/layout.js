@@ -32,8 +32,28 @@ export function mount(context = {}) {
   let content = main.querySelector('.cupertino-content');
   if (!content) {
     content = doc.createElement('div');
-    content.className = 'cupertino-content';
+    content.className = 'cupertino-content content';
     main.appendChild(content);
+  } else {
+    content.classList.add('cupertino-content');
+    content.classList.add('content');
+  }
+
+  let stageWrap = content.querySelector('.cupertino-stage-wrap');
+  if (!stageWrap) {
+    stageWrap = doc.createElement('div');
+    stageWrap.className = 'cupertino-stage-wrap';
+    content.insertBefore(stageWrap, content.firstChild);
+  }
+
+  let stageAside = stageWrap.querySelector('.cupertino-stage-aside');
+  if (!stageAside) {
+    stageAside = doc.createElement('aside');
+    stageAside.className = 'cupertino-stage-aside';
+    stageAside.setAttribute('aria-label', 'On this page');
+    stageAside.setAttribute('role', 'complementary');
+    stageAside.setAttribute('hidden', '');
+    stageWrap.appendChild(stageAside);
   }
 
   let utility = shell.querySelector('.cupertino-utility');
@@ -84,6 +104,8 @@ export function mount(context = {}) {
     header,
     main,
     content,
+    stageWrap,
+    stageAside,
     sidebar,
     footer
   };

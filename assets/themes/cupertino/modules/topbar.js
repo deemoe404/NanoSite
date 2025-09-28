@@ -66,12 +66,25 @@ export function mount(context = {}) {
     brand.className = 'cupertino-brand';
     brand.href = './';
     brand.setAttribute('aria-label', 'Home');
-    brand.innerHTML = `
-      <span class="brand-badge" aria-hidden="true"></span>
-      <span class="brand-text">
-        <span class="cupertino-brand-title">${doc.title || 'NanoSite'}</span>
-        <span class="cupertino-brand-subtitle"></span>
-      </span>`;
+
+    const badge = doc.createElement('span');
+    badge.className = 'brand-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    brand.appendChild(badge);
+
+    const textWrap = doc.createElement('span');
+    textWrap.className = 'brand-text';
+
+    const brandTitle = doc.createElement('span');
+    brandTitle.className = 'cupertino-brand-title';
+    brandTitle.textContent = doc.title || 'NanoSite';
+    textWrap.appendChild(brandTitle);
+
+    const brandSubtitle = doc.createElement('span');
+    brandSubtitle.className = 'cupertino-brand-subtitle';
+    textWrap.appendChild(brandSubtitle);
+
+    brand.appendChild(textWrap);
     topbar.appendChild(brand);
   }
 
