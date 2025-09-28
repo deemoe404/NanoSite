@@ -14,7 +14,6 @@ import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from 
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { renderPostNav } from './js/post-nav.js';
 import { getArticleTitleFromMain } from './js/dom-utils.js';
-import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
 import { applyLangHints } from './js/typography.js';
 
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos, hydrateCardCovers } from './js/post-render.js';
@@ -475,95 +474,150 @@ function displayPost(postname) {
     
     const dir = (postname.lastIndexOf('/') >= 0) ? postname.slice(0, postname.lastIndexOf('/') + 1) : '';
     const baseDir = `${getContentRoot()}/${dir}`;
-  const output = mdParse(markdown, baseDir);
-  // Compute fallback title using index cache before rendering
-  const fallback = postsByLocationTitle[postname] || postname;
-  // Try to get metadata for this post from index cache. Support versioned entries.
-  let postEntry = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname);
-  let postMetadata = postEntry ? postEntry[1] : {};
-  if (!postEntry) {
-    const found = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => Array.isArray(v && v.versions) && v.versions.some(ver => ver && ver.location === postname));
-    if (found) {
-      const baseMeta = found[1];
-      const match = (baseMeta.versions || []).find(ver => ver.location === postname) || {};
-      postMetadata = { ...match, versions: baseMeta.versions || [] };
+    const output = mdParse(markdown, baseDir);
+    const fallbackTitle = postsByLocationTitle[postname] || postname;
+
+    let postEntry = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname);
+    let postMetadata = postEntry ? postEntry[1] : {};
+    if (!postEntry) {
+      const found = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => Array.isArray(v && v.versions) && v.versions.some(ver => ver && ver.location === postname));
+      if (found) {
+        const baseMeta = found[1];
+        const match = (baseMeta.versions || []).find(ver => ver.location === postname) || {};
+        postMetadata = { ...match, versions: baseMeta.versions || [] };
+      }
     }
-  }
-  // Tentatively render meta card with fallback title first; we'll update title after reading h1
-  const preTitle = fallback;
-  const outdatedCardHtml = renderOutdatedCard(postMetadata, siteConfig);
-  const metaCardHtml = renderPostMetaCard(preTitle, postMetadata, markdown);
-  // Clone meta card for bottom and add a modifier class for styling hooks
-  const bottomMetaCardHtml = (metaCardHtml || '').replace('post-meta-card', 'post-meta-card post-meta-bottom');
-  // Render outdated card + meta card + main content + bottom meta card
-  const mainEl = document.getElementById('mainview');
-  if (mainEl) mainEl.innerHTML = outdatedCardHtml + metaCardHtml + output.post + bottomMetaCardHtml;
-  try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
-  try { hydratePostImages('#mainview'); } catch (_) {}
-    try { applyLazyLoadingIn('#mainview'); } catch (_) {}
-    try { applyLangHints('#mainview'); } catch (_) {}
-    // After images are in DOM, run large-image watchdog if enabled in site config
+
+    const mainEl = document.getElementById('mainview');
+    const fallbackRender = () => {
+      if (!mainEl) return;
+      mainEl.innerHTML = output.post;
+      try { renderPostNav('#mainview', postsIndexCache, postname); } catch (_) {}
+      try { hydratePostImages('#mainview'); } catch (_) {}
+      try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+      try { applyLangHints('#mainview'); } catch (_) {}
+      try {
+        const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+        warnLargeImagesIn('#mainview', cfg);
+      } catch (_) {}
+      try {
+        hydrateInternalLinkCards('#mainview', {
+          allowedLocations,
+          locationAliasMap,
+          postsByLocationTitle,
+          postsIndexCache,
+          siteConfig,
+          translate: t,
+          makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
+          fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
+        });
+      } catch (_) {}
+      try { hydratePostVideos('#mainview'); } catch (_) {}
+    };
+
+    const hookResult = callThemeHook('renderPostView', {
+      container: mainEl,
+      markdownHtml: output.post,
+      tocHtml: output.toc,
+      markdown,
+      fallbackTitle,
+      postMetadata,
+      postId: postname,
+      siteConfig,
+      postsIndex: postsIndexCache,
+      postsByLocationTitle,
+      allowedLocations,
+      locationAliasMap,
+      translate: t,
+      document,
+      window,
+      utilities: {
+        renderPostNav,
+        hydratePostImages,
+        hydratePostVideos,
+        hydrateInternalLinkCards,
+        applyLazyLoadingIn,
+        applyLangHints,
+        warnLargeImagesIn,
+        renderPostTOC: (opts) => renderPostTOCBlock(opts),
+        renderTagSidebar,
+        getArticleTitleFromMain,
+        setupAnchors,
+        setupTOC,
+        ensureAutoHeight,
+        getFile,
+        getContentRoot,
+        withLangParam,
+        fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
+        makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
+      },
+      fallbackRender
+    }) || {};
+
+    let articleTitle = fallbackTitle;
+    let handled = false;
+    let tocHandled = false;
+    let decorated = false;
+    if (typeof hookResult === 'object') {
+      handled = !!hookResult.handled;
+      tocHandled = !!hookResult.tocHandled;
+      decorated = !!hookResult.decorated;
+      if (hookResult.title) articleTitle = String(hookResult.title);
+    } else if (hookResult) {
+      handled = true;
+    }
+
+    if (!handled) fallbackRender();
+
+    if (!tocHandled) {
+      const tocTarget = document.getElementById('tocview');
+      if (tocTarget) {
+        if (output.toc) {
+          renderPostTOCBlock({ tocElement: tocTarget, articleTitle, tocHtml: output.toc });
+          smoothShow(tocTarget);
+          ensureAutoHeight(tocTarget);
+          try { setupAnchors(); } catch (_) {}
+          try { setupTOC(); } catch (_) {}
+        } else {
+          smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
+        }
+      }
+    }
+
+    if (!decorated) {
+      callThemeHook('decoratePostView', {
+        container: mainEl,
+        articleTitle,
+        postMetadata,
+        markdown,
+        translate: t,
+        document,
+        window
+      });
+    }
+
+    updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
+    try { setDocTitle(articleTitle); } catch (_) {}
+    try { initSyntaxHighlighting(); } catch (_) {}
+    try { renderTagSidebar(postsIndexCache); } catch (_) {}
+
     try {
-      const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-      warnLargeImagesIn('#mainview', cfg);
-    } catch (_) {}
-  try { hydrateInternalLinkCards('#mainview', {
-    allowedLocations,
-    locationAliasMap,
-    postsByLocationTitle,
-    postsIndexCache,
-    siteConfig,
-    translate: t,
-    makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
-    fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
-  }); } catch (_) {}
-  try { hydratePostVideos('#mainview'); } catch (_) {}
-  const articleTitle = fallback;
-    // Update SEO meta tags for the post
-    try {
-      const seoData = extractSEOFromMarkdown(markdown, { 
-        ...postMetadata, 
+      const seoData = extractSEOFromMarkdown(markdown, {
+        ...postMetadata,
         title: articleTitle,
-        // Ensure location present for relative image resolution
         location: postname
       }, siteConfig);
       updateSEO(seoData, siteConfig);
     } catch (_) { /* ignore SEO errors */ }
-    
-  renderTabs('post', articleTitle);
-  callThemeHook('decoratePostView', {
-    container: mainEl,
-    articleTitle,
-    postMetadata,
-    markdown,
-    translate: t,
-    document,
-    window
-  });
-  const tocTarget = document.getElementById('tocview');
-  if (tocTarget) {
-    if (output.toc) {
-      renderPostTOCBlock({ tocElement: tocTarget, articleTitle, tocHtml: output.toc });
-      smoothShow(tocTarget);
-      ensureAutoHeight(tocTarget);
-      try { setupAnchors(); } catch (_) {}
-      try { setupTOC(); } catch (_) {}
-    } else {
-      smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
-    }
-  }
-  updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
-  try { setDocTitle(articleTitle); } catch (_) {}
-  try { initSyntaxHighlighting(); } catch (_) {}
-  try { renderTagSidebar(postsIndexCache); } catch (_) {}
-    // If URL contains a hash, try to jump to it; if missing in this version, clear hash and scroll to top
+
+    renderTabs('post', articleTitle);
+
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
       const target = document.getElementById(currentHash);
       if (target) {
         requestAnimationFrame(() => { target.scrollIntoView({ block: 'start' }); });
       } else {
-        // Remove stale anchor to avoid unexpected jumps on future navigations
         try {
           const url = new URL(window.location.href);
           url.hash = '';
@@ -804,42 +858,100 @@ function displayStaticTab(slug) {
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `${getContentRoot()}/${dir}`;
       const output = mdParse(md, baseDir);
-  const mv = document.getElementById('mainview');
-  if (mv) mv.innerHTML = output.post;
-  try { hydratePostImages('#mainview'); } catch (_) {}
-      try { applyLazyLoadingIn('#mainview'); } catch (_) {}
-      // After images are in DOM, run large-image watchdog if enabled in site config
+      const mainEl = document.getElementById('mainview');
+
+      const fallbackRender = () => {
+        if (!mainEl) return;
+        mainEl.innerHTML = output.post;
+        try { hydratePostImages('#mainview'); } catch (_) {}
+        try { applyLazyLoadingIn('#mainview'); } catch (_) {}
+        try {
+          const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+          warnLargeImagesIn('#mainview', cfg);
+        } catch (_) {}
+        try {
+          hydrateInternalLinkCards('#mainview', {
+            allowedLocations,
+            locationAliasMap,
+            postsByLocationTitle,
+            postsIndexCache,
+            siteConfig,
+            translate: t,
+            makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
+            fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
+          });
+        } catch (_) {}
+        try { hydratePostVideos('#mainview'); } catch (_) {}
+      };
+
+      const hookResult = callThemeHook('renderStaticTabView', {
+        container: mainEl,
+        markdownHtml: output.post,
+        tocHtml: output.toc,
+        markdown: md,
+        tab,
+        slug,
+        siteConfig,
+        postsByLocationTitle,
+        allowedLocations,
+        locationAliasMap,
+        translate: t,
+        document,
+        window,
+        utilities: {
+          hydratePostImages,
+          hydratePostVideos,
+          hydrateInternalLinkCards,
+          applyLazyLoadingIn,
+          applyLangHints,
+          warnLargeImagesIn,
+          renderPostTOC: (opts) => renderPostTOCBlock(opts),
+          renderTagSidebar,
+          getArticleTitleFromMain,
+          setupAnchors,
+          setupTOC,
+          ensureAutoHeight,
+          getFile,
+          getContentRoot,
+          withLangParam,
+          fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
+          makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
+        },
+        fallbackRender
+      }) || {};
+
+      let pageTitle = tab.title;
+      let handled = false;
+      let tocHandled = false;
+      if (typeof hookResult === 'object') {
+        handled = !!hookResult.handled;
+        tocHandled = !!hookResult.tocHandled;
+        if (hookResult.title) pageTitle = String(hookResult.title);
+      } else if (hookResult) {
+        handled = true;
+      }
+
+      if (!handled) fallbackRender();
+
+      if (!tocHandled) {
+        const tocTarget = document.getElementById('tocview');
+        if (tocTarget) {
+          smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
+        }
+      }
+
+      try { initSyntaxHighlighting(); } catch (_) {}
+      try { renderTagSidebar(postsIndexCache); } catch (_) {}
+
       try {
-        const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
-        warnLargeImagesIn('#mainview', cfg);
-      } catch (_) {}
-  try { hydrateInternalLinkCards('#mainview', {
-    allowedLocations,
-    locationAliasMap,
-    postsByLocationTitle,
-    postsIndexCache,
-    siteConfig,
-    translate: t,
-    makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
-    fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
-  }); } catch (_) {}
-  try { hydratePostVideos('#mainview'); } catch (_) {}
-  try { initSyntaxHighlighting(); } catch (_) {}
-  try { renderTagSidebar(postsIndexCache); } catch (_) {}
-  // Always use the title defined in tabs.yaml for the browser/SEO title,
-  // instead of deriving it from the first heading in the markdown.
-  const pageTitle = tab.title;
-      
-      // Update SEO meta tags for the tab page
-      try {
-        const seoData = extractSEOFromMarkdown(md, { 
+        const seoData = extractSEOFromMarkdown(md, {
           title: pageTitle,
           author: tab.author || 'NanoSite',
           location: tab.location
         }, siteConfig);
         updateSEO(seoData, siteConfig);
       } catch (_) {}
-      
+
       try { setDocTitle(pageTitle); } catch (_) {}
     })
     .catch((e) => {
@@ -1181,14 +1293,24 @@ async function softResetToSiteDefaultLanguage() {
     try { refreshLanguageSelector(); } catch (_) {}
     // Rebuild the Tools panel so all labels reflect the new language
     try {
-      const tools = document.getElementById('tools');
-      if (tools && tools.parentElement) tools.parentElement.removeChild(tools);
-      // Recreate and rebind controls
-      mountThemeControls();
-      applySavedTheme();
-      bindThemeToggle();
-      bindThemePackPicker();
-      refreshLanguageSelector();
+      const handled = callThemeHook('resetThemeControls', {
+        document,
+        window,
+        mountThemeControls,
+        applySavedTheme,
+        bindThemeToggle,
+        bindThemePackPicker,
+        refreshLanguageSelector
+      });
+      if (!handled) {
+        const tools = document.getElementById('tools');
+        if (tools && tools.parentElement) tools.parentElement.removeChild(tools);
+        mountThemeControls();
+        applySavedTheme();
+        bindThemeToggle();
+        bindThemePackPicker();
+        refreshLanguageSelector();
+      }
     } catch (_) {}
     try {
       renderSiteIdentity(siteConfig);
@@ -1466,11 +1588,14 @@ loadSiteConfig()
 
 // Footer: set dynamic year once
 try {
-  const y = document.getElementById('footerYear');
-  if (y) y.textContent = String(new Date().getFullYear());
-  const top = document.getElementById('footerTop');
-  if (top) {
-    top.textContent = t('ui.top');
-    top.addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  const handled = callThemeHook('setupFooter', { translate: t, document, window });
+  if (!handled) {
+    const y = document.getElementById('footerYear');
+    if (y) y.textContent = String(new Date().getFullYear());
+    const top = document.getElementById('footerTop');
+    if (top) {
+      top.textContent = t('ui.top');
+      top.addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+    }
   }
 } catch (_) {}

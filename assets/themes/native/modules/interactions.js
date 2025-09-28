@@ -3,6 +3,11 @@ import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
 import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
 import { attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
+import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
+import { renderPostNav } from '../../../js/post-nav.js';
+import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
+import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
+import { applyLangHints } from '../../../js/typography.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -13,6 +18,16 @@ let tabsResizeTimer = 0;
 let responsiveObserverBound = false;
 let lightboxInstalled = false;
 let masonryHandlersBound = false;
+
+function getUtility(params = {}, key, fallback) {
+  try {
+    const utils = params && params.utilities;
+    const value = utils && utils[key];
+    return typeof value === 'function' ? value : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
 
 function showElementNative(params = {}, windowRef = defaultWindow) {
   const el = params.element;
@@ -604,6 +619,229 @@ function renderStaticTabLoadingStateNative(params = {}, documentRef = defaultDoc
   const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
   if (main) main.innerHTML = renderSkeleton();
   return !!main;
+}
+
+function renderPostViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return { handled: false, title: params && params.fallbackTitle ? String(params.fallbackTitle) : '' };
+  const container = params.container || documentRef.getElementById('mainview');
+  if (!container) return { handled: false, title: params && params.fallbackTitle ? String(params.fallbackTitle) : '' };
+
+  const markdownHtml = params.markdownHtml || '';
+  const fallbackTitle = params.fallbackTitle != null ? String(params.fallbackTitle) : '';
+  const metadata = params.postMetadata || {};
+  const markdown = params.markdown || '';
+  const translate = params.translate || params.t || t;
+  const siteConfig = params.siteConfig || {};
+  const postsIndex = params.postsIndex || {};
+  const postsByLocationTitle = params.postsByLocationTitle || {};
+  const allowedLocations = params.allowedLocations || new Set();
+  const locationAliasMap = params.locationAliasMap || new Map();
+  const postId = params.postId || '';
+
+  const renderMetaFn = typeof params.renderPostMetaCard === 'function' ? params.renderPostMetaCard : renderPostMetaCard;
+  const renderOutdatedFn = typeof params.renderOutdatedCard === 'function' ? params.renderOutdatedCard : renderOutdatedCard;
+
+  let topMeta = '';
+  let bottomMeta = '';
+  try {
+    topMeta = renderMetaFn(fallbackTitle, metadata, markdown) || '';
+    if (topMeta) bottomMeta = topMeta.replace('post-meta-card', 'post-meta-card post-meta-bottom');
+  } catch (_) {
+    topMeta = '';
+    bottomMeta = '';
+  }
+  let outdated = '';
+  try { outdated = renderOutdatedFn(metadata, siteConfig) || ''; } catch (_) { outdated = ''; }
+
+  container.innerHTML = `${outdated}${topMeta}${markdownHtml}${bottomMeta}`;
+
+  const renderNav = getUtility(params, 'renderPostNav', renderPostNav);
+  try { renderNav('#mainview', postsIndex, postId); } catch (_) {}
+
+  const hydrateImages = getUtility(params, 'hydratePostImages', (selector) => hydratePostImages(selector));
+  try { hydrateImages('#mainview'); } catch (_) {}
+
+  const lazyLoad = getUtility(params, 'applyLazyLoadingIn', (selector) => applyLazyLoadingIn(selector));
+  try { lazyLoad('#mainview'); } catch (_) {}
+
+  const langHints = getUtility(params, 'applyLangHints', (selector) => applyLangHints(selector));
+  try { langHints('#mainview'); } catch (_) {}
+
+  const hydrateVideos = getUtility(params, 'hydratePostVideos', (selector) => hydratePostVideos(selector));
+  try { hydrateVideos('#mainview'); } catch (_) {}
+
+  const warnLarge = getUtility(params, 'warnLargeImagesIn', null);
+  if (typeof warnLarge === 'function') {
+    try {
+      const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
+      warnLarge('#mainview', cfg);
+    } catch (_) {}
+  }
+
+  const hydrateLinks = getUtility(params, 'hydrateInternalLinkCards', (selector, opts) => hydrateInternalLinkCards(selector, opts));
+  const fetchMarkdown = getUtility(params, 'fetchMarkdown', () => Promise.resolve(''));
+  const makeHref = getUtility(params, 'makeLangHref', (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
+  try {
+    hydrateLinks('#mainview', {
+      allowedLocations,
+      locationAliasMap,
+      postsByLocationTitle,
+      postsIndexCache: postsIndex,
+      siteConfig,
+      translate,
+      makeHref,
+      fetchMarkdown
+    });
+  } catch (_) {}
+
+  const ensureHeight = getUtility(params, 'ensureAutoHeight', (el) => {
+    if (!el) return;
+    try {
+      el.style.height = '';
+      el.style.minHeight = '';
+      el.style.overflow = '';
+    } catch (_) {}
+  });
+
+  const tocHtml = params.tocHtml || '';
+  const tocElement = documentRef.getElementById('tocview');
+  const articleTitle = (() => {
+    try { return getArticleTitleFromMain() || fallbackTitle; } catch (_) { return fallbackTitle; }
+  })();
+
+  let tocHandled = false;
+  if (tocElement) {
+    if (tocHtml) {
+      renderPostTOCNative({ tocElement, articleTitle, tocHtml, translate }, documentRef, windowRef);
+      try { showElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = ''; } catch (_) {} }
+      try { ensureHeight(tocElement); } catch (_) {}
+      const setupAnchorsFn = getUtility(params, 'setupAnchors', null);
+      const setupTocFn = getUtility(params, 'setupTOC', null);
+      try { if (typeof setupAnchorsFn === 'function') setupAnchorsFn(); } catch (_) {}
+      try { if (typeof setupTocFn === 'function') setupTocFn(); } catch (_) {}
+    } else {
+      try { hideElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = 'none'; } catch (_) {} }
+      try { tocElement.innerHTML = ''; } catch (_) {}
+    }
+    tocHandled = true;
+  }
+
+  try {
+    decoratePostViewNative({
+      container,
+      articleTitle,
+      postMetadata: metadata,
+      markdown,
+      translate
+    }, documentRef, windowRef);
+  } catch (_) {}
+
+  return { handled: true, tocHandled, decorated: true, title: articleTitle };
+}
+
+function renderStaticTabViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return { handled: false, title: params && params.tab && params.tab.title ? String(params.tab.title) : '' };
+  const container = params.container || documentRef.getElementById('mainview');
+  if (!container) return { handled: false, title: params && params.tab && params.tab.title ? String(params.tab.title) : '' };
+
+  const markdownHtml = params.markdownHtml || '';
+  container.innerHTML = markdownHtml;
+
+  const hydrateImages = getUtility(params, 'hydratePostImages', (selector) => hydratePostImages(selector));
+  try { hydrateImages('#mainview'); } catch (_) {}
+
+  const lazyLoad = getUtility(params, 'applyLazyLoadingIn', (selector) => applyLazyLoadingIn(selector));
+  try { lazyLoad('#mainview'); } catch (_) {}
+
+  const langHints = getUtility(params, 'applyLangHints', (selector) => applyLangHints(selector));
+  try { langHints('#mainview'); } catch (_) {}
+
+  const hydrateVideos = getUtility(params, 'hydratePostVideos', (selector) => hydratePostVideos(selector));
+  try { hydrateVideos('#mainview'); } catch (_) {}
+
+  const warnLarge = getUtility(params, 'warnLargeImagesIn', null);
+  if (typeof warnLarge === 'function') {
+    try {
+      const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
+      warnLarge('#mainview', cfg);
+    } catch (_) {}
+  }
+
+  const hydrateLinks = getUtility(params, 'hydrateInternalLinkCards', (selector, opts) => hydrateInternalLinkCards(selector, opts));
+  const fetchMarkdown = getUtility(params, 'fetchMarkdown', () => Promise.resolve(''));
+  const makeHref = getUtility(params, 'makeLangHref', (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
+  try {
+    hydrateLinks('#mainview', {
+      allowedLocations: params.allowedLocations || new Set(),
+      locationAliasMap: params.locationAliasMap || new Map(),
+      postsByLocationTitle: params.postsByLocationTitle || {},
+      postsIndexCache: params.postsIndex || {},
+      siteConfig: params.siteConfig || {},
+      translate: params.translate || params.t || t,
+      makeHref,
+      fetchMarkdown
+    });
+  } catch (_) {}
+
+  const tocElement = documentRef.getElementById('tocview');
+  if (tocElement) {
+    try { hideElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = 'none'; } catch (_) {} }
+    try { tocElement.innerHTML = ''; } catch (_) {}
+  }
+
+  const articleTitle = (() => {
+    const tabTitle = params.tab && params.tab.title ? String(params.tab.title) : '';
+    try {
+      const derived = getArticleTitleFromMain();
+      return derived || tabTitle;
+    } catch (_) {
+      return tabTitle;
+    }
+  })();
+
+  return { handled: true, tocHandled: true, title: articleTitle };
+}
+
+function resetThemeControlsNative(params = {}, documentRef = defaultDocument) {
+  const mount = typeof params.mountThemeControls === 'function' ? params.mountThemeControls : (() => {});
+  const applyTheme = typeof params.applySavedTheme === 'function' ? params.applySavedTheme : (() => {});
+  const bindToggle = typeof params.bindThemeToggle === 'function' ? params.bindThemeToggle : (() => {});
+  const bindPack = typeof params.bindThemePackPicker === 'function' ? params.bindThemePackPicker : (() => {});
+  const refreshLang = typeof params.refreshLanguageSelector === 'function' ? params.refreshLanguageSelector : (() => {});
+  if (documentRef) {
+    try {
+      const tools = documentRef.getElementById('tools');
+      if (tools && tools.parentElement) tools.parentElement.removeChild(tools);
+    } catch (_) {}
+  }
+  try { mount(); } catch (_) {}
+  try { applyTheme(); } catch (_) {}
+  try { bindToggle(); } catch (_) {}
+  try { bindPack(); } catch (_) {}
+  try { refreshLang(); } catch (_) {}
+  return true;
+}
+
+function setupFooterNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  const translate = params.translate || params.t || t;
+  const yearEl = documentRef && documentRef.getElementById('footerYear');
+  if (yearEl) {
+    try { yearEl.textContent = String(new Date().getFullYear()); } catch (_) {}
+  }
+  const topEl = documentRef && documentRef.getElementById('footerTop');
+  if (topEl) {
+    try { topEl.textContent = translate('ui.top') || 'Top'; } catch (_) { topEl.textContent = 'Top'; }
+    const handler = (e) => {
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      if (!windowRef || typeof windowRef.scrollTo !== 'function') return;
+      const behavior = prefersReducedMotion(windowRef) ? 'auto' : 'smooth';
+      try { windowRef.scrollTo({ top: 0, behavior }); } catch (_) {
+        try { windowRef.scrollTo(0, 0); } catch (__) {}
+      }
+    };
+    try { topEl.onclick = handler; } catch (_) { topEl.onclick = handler; }
+  }
+  return true;
 }
 
 function resolveCoverSource(value = {}, siteConfig = {}) {
@@ -1272,7 +1510,9 @@ export function mount(context = {}) {
   hooks.renderErrorState = (params = {}) => renderErrorStateNative(params, documentRef);
   hooks.updateSearchPanels = (params = {}) => updateSearchPanelsNative(params, documentRef, windowRef);
   hooks.renderPostLoadingState = (params = {}) => renderPostLoadingStateNative(params, documentRef);
+  hooks.renderPostView = (params = {}) => renderPostViewNative(params, documentRef, windowRef);
   hooks.renderStaticTabLoadingState = (params = {}) => renderStaticTabLoadingStateNative(params, documentRef);
+  hooks.renderStaticTabView = (params = {}) => renderStaticTabViewNative(params, documentRef, windowRef);
   hooks.renderIndexView = (params = {}) => renderIndexViewNative(params, documentRef, windowRef);
   hooks.afterIndexRender = (params = {}) => afterIndexRenderNative(params, documentRef);
   hooks.renderSearchResults = (params = {}) => renderSearchResultsNative(params, documentRef, windowRef);
@@ -1280,6 +1520,8 @@ export function mount(context = {}) {
   hooks.enhanceIndexLayout = (params = {}) => enhanceIndexLayoutNative(params, documentRef, windowRef);
   hooks.decoratePostView = (params = {}) => decoratePostViewNative(params, documentRef, windowRef);
   hooks.handleDocumentClick = (params = {}) => handleDocumentClickNative(params, documentRef, windowRef);
+  hooks.resetThemeControls = (params = {}) => resetThemeControlsNative(params, documentRef);
+  hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
   return context;
