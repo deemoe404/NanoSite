@@ -1,6 +1,7 @@
 import { installLightbox } from '../../../js/lightbox.js';
 import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
 import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
+import { attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
@@ -272,6 +273,38 @@ function updateSearchPanelsNative(params = {}, documentRef = defaultDocument, wi
   return !!(search || tags || input);
 }
 
+function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocument, windowRef = defaultWindow, maxConcurrent = 1) {
+  try {
+    const root = typeof containerSelector === 'string'
+      ? (documentRef ? documentRef.querySelector(containerSelector) : null)
+      : containerSelector;
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('.index img.card-cover'));
+    let idx = 0;
+    let active = 0;
+    const limit = Math.max(1, maxConcurrent || 1);
+    const startNext = () => {
+      while (active < limit && idx < imgs.length) {
+        const img = imgs[idx++];
+        if (!img || !img.isConnected) continue;
+        const src = img.getAttribute('data-src');
+        if (!src) continue;
+        active++;
+        const done = () => {
+          active--;
+          img.removeEventListener('load', done);
+          img.removeEventListener('error', done);
+          startNext();
+        };
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        setImageSrcNoStore(img, src, windowRef);
+      }
+    };
+    startNext();
+  } catch (_) {}
+}
+
 function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   const containerSelector = params.containerSelector || '#mainview';
   const indexSelector = params.indexSelector || '.index';
@@ -287,9 +320,7 @@ function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, wi
       params.warnLargeImagesIn(containerSelector, cfg);
     } catch (_) {}
   }
-  if (typeof params.sequentialLoadCovers === 'function') {
-    try { params.sequentialLoadCovers(containerSelector, 1); } catch (_) {}
-  }
+  sequentialLoadCoversNative(containerSelector, documentRef, windowRef, 1);
   if (typeof params.setupSearch === 'function') {
     try { params.setupSearch(Array.isArray(params.allEntries) ? params.allEntries : []); } catch (_) {}
   }
@@ -320,6 +351,102 @@ function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, wi
       } catch (_) {}
     }
   }
+  return true;
+}
+
+function decoratePostViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return false;
+  const container = params.container || documentRef.getElementById('mainview');
+  if (!container) return false;
+  const translate = params.translate || params.t || t;
+  const articleTitle = params.articleTitle != null ? String(params.articleTitle) : '';
+  let handled = false;
+
+  try {
+    const copyBtns = Array.from(container.querySelectorAll('.post-meta-card .post-meta-copy'));
+    copyBtns.forEach((copyBtn) => {
+      copyBtn.addEventListener('click', async () => {
+        const loc = windowRef && windowRef.location ? windowRef.location.href : (typeof location !== 'undefined' ? location.href : '');
+        const url = String(loc || '').split('#')[0];
+        let ok = false;
+        try {
+          const nav = windowRef && windowRef.navigator;
+          if (nav && nav.clipboard && typeof nav.clipboard.writeText === 'function') {
+            await nav.clipboard.writeText(url);
+            ok = true;
+          } else if (documentRef) {
+            const tmp = documentRef.createElement('textarea');
+            tmp.value = url;
+            documentRef.body.appendChild(tmp);
+            tmp.select();
+            ok = documentRef.execCommand ? documentRef.execCommand('copy') : false;
+            documentRef.body.removeChild(tmp);
+          }
+        } catch (_) { ok = false; }
+        if (ok) {
+          const prevTitle = copyBtn.getAttribute('title') || '';
+          copyBtn.classList.add('copied');
+          copyBtn.setAttribute('title', translate('ui.linkCopied') || translate('code.copied'));
+          const delay = windowRef && typeof windowRef.setTimeout === 'function' ? windowRef.setTimeout.bind(windowRef) : setTimeout;
+          delay(() => {
+            copyBtn.classList.remove('copied');
+            copyBtn.setAttribute('title', prevTitle || translate('ui.copyLink'));
+          }, 1000);
+        }
+      });
+    });
+    if (copyBtns.length) handled = true;
+  } catch (_) {}
+
+  try {
+    const aiFlags = Array.from(container.querySelectorAll('.post-meta-card .ai-flag'));
+    aiFlags.forEach((aiFlag) => attachHoverTooltip(aiFlag, () => translate('ui.aiFlagTooltip'), { delay: 0 }));
+    if (aiFlags.length) handled = true;
+  } catch (_) {}
+
+  try {
+    const titleEls = Array.from(container.querySelectorAll('.post-meta-card .post-meta-title'));
+    titleEls.forEach((titleEl) => {
+      const ai = titleEl.querySelector('.ai-flag');
+      const aiClone = ai ? ai.cloneNode(true) : null;
+      titleEl.textContent = '';
+      if (aiClone) {
+        aiClone.removeAttribute('title');
+        titleEl.appendChild(aiClone);
+        try { attachHoverTooltip(aiClone, () => translate('ui.aiFlagTooltip'), { delay: 0 }); } catch (_) {}
+      }
+      titleEl.appendChild(documentRef.createTextNode(String(articleTitle || '')));
+    });
+    if (titleEls.length) handled = true;
+  } catch (_) {}
+
+  return handled;
+}
+
+function handleDocumentClickNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  const event = params.event;
+  if (!event) return false;
+  const target = event.target;
+  if (!target || typeof target.closest !== 'function') return false;
+  const closeBtn = target.closest('.post-outdated-close');
+  if (!closeBtn) return false;
+  const card = closeBtn.closest('.post-outdated-card');
+  if (!card) return false;
+  try { event.preventDefault(); } catch (_) {}
+  try { event.stopPropagation(); } catch (_) {}
+  try { event.stopImmediatePropagation && event.stopImmediatePropagation(); } catch (_) {}
+  const startHeight = card.scrollHeight;
+  card.style.height = `${startHeight}px`;
+  try { void card.getBoundingClientRect(); } catch (_) {}
+  card.classList.add('is-dismissing');
+  const raf = windowRef && typeof windowRef.requestAnimationFrame === 'function'
+    ? windowRef.requestAnimationFrame.bind(windowRef)
+    : (cb) => setTimeout(cb, 16);
+  raf(() => { card.style.height = '0px'; });
+  const cleanup = () => { try { card.remove(); } catch (_) {} };
+  card.addEventListener('transitionend', cleanup, { once: true });
+  const delay = windowRef && typeof windowRef.setTimeout === 'function' ? windowRef.setTimeout.bind(windowRef) : setTimeout;
+  delay(cleanup, 500);
   return true;
 }
 
@@ -1151,6 +1278,8 @@ export function mount(context = {}) {
   hooks.renderSearchResults = (params = {}) => renderSearchResultsNative(params, documentRef, windowRef);
   hooks.afterSearchRender = (params = {}) => afterSearchRenderNative(params, documentRef);
   hooks.enhanceIndexLayout = (params = {}) => enhanceIndexLayoutNative(params, documentRef, windowRef);
+  hooks.decoratePostView = (params = {}) => decoratePostViewNative(params, documentRef, windowRef);
+  hooks.handleDocumentClick = (params = {}) => handleDocumentClickNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
   return context;

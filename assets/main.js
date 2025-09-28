@@ -11,7 +11,7 @@ import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/er
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
-import { aggregateTags, renderTagSidebar, setupTagTooltips, attachHoverTooltip } from './js/tags.js';
+import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { renderPostNav } from './js/post-nav.js';
 import { getArticleTitleFromMain } from './js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
@@ -310,32 +310,6 @@ async function warnLargeImagesIn(container, cfg = {}) {
 
 // Transform standalone internal links (?id=...) into rich article cards
 // Load cover images sequentially to reduce bandwidth contention
-function sequentialLoadCovers(container, maxConcurrent = 1) {
-  try {
-    const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll('.index img.card-cover'));
-    let idx = 0;
-    let active = 0;
-    const startNext = () => {
-      while (active < maxConcurrent && idx < imgs.length) {
-        const img = imgs[idx++];
-        if (!img || !img.isConnected) continue;
-        const src = img.getAttribute('data-src');
-        if (!src) continue;
-        active++;
-        const done = () => { active--; img.removeEventListener('load', done); img.removeEventListener('error', done); startNext(); };
-        img.addEventListener('load', done, { once: true });
-        img.addEventListener('error', done, { once: true });
-        // Kick off the actual request
-        const safe = sanitizeImageUrl(src);
-        if (safe) img.src = safe;
-      }
-    };
-    startNext();
-  } catch (_) {}
-}
-
 function updateLayoutLoadingState({ view, contentElement, sidebarElement, containerElement } = {}, isLoading) {
   return callThemeHook('updateLayoutLoadingState', {
     view,
@@ -401,56 +375,11 @@ function updateSearchPanels({
   });
 }
 
-let fallbackMasonryObserversBound = false;
-function fallbackEnhanceIndexLayout({
-  containerSelector = '#mainview',
-  indexSelector = '.index',
-  allEntries = [],
-  postsIndexMap = {},
-  siteConfig: cfg,
-  setupSearchFn,
-  renderTagSidebarFn
-} = {}) {
-  hydrateCardCovers(containerSelector);
-  applyLazyLoadingIn(containerSelector);
-  try {
-    const warnCfg = (cfg && cfg.assetWarnings && cfg.assetWarnings.largeImage) || {};
-    warnLargeImagesIn(containerSelector, warnCfg);
-  } catch (_) {}
-  sequentialLoadCovers(containerSelector, 1);
-
-  if (typeof setupSearchFn === 'function') {
-    try { setupSearchFn(allEntries); } catch (_) {}
-  }
-  if (typeof renderTagSidebarFn === 'function') {
-    try { renderTagSidebarFn(postsIndexMap); } catch (_) {}
-  }
-
-  const runMasonry = () => { try { applyMasonry(indexSelector); } catch (_) {} };
-  if (typeof window !== 'undefined' && window && typeof window.requestAnimationFrame === 'function') {
-    window.requestAnimationFrame(runMasonry);
-  } else {
-    runMasonry();
-  }
-
-  if (!fallbackMasonryObserversBound) {
-    fallbackMasonryObserversBound = true;
-    const onResize = debounce(runMasonry, 150);
-    try { window.addEventListener('resize', onResize); } catch (_) {}
-    try {
-      if (document && document.fonts && typeof document.fonts.ready?.then === 'function') {
-        document.fonts.ready.then(runMasonry).catch(() => {});
-      }
-    } catch (_) {}
-  }
-}
-
 function enhanceIndexLayout(params = {}) {
-  const handled = callThemeHook('enhanceIndexLayout', {
+  callThemeHook('enhanceIndexLayout', {
     ...params,
     hydrateCardCovers,
     applyLazyLoadingIn,
-    sequentialLoadCovers,
     warnLargeImagesIn,
     applyMasonry,
     debounce,
@@ -458,17 +387,6 @@ function enhanceIndexLayout(params = {}) {
     setupSearch,
     document,
     window
-  });
-  if (handled) return;
-
-  fallbackEnhanceIndexLayout({
-    containerSelector: params.containerSelector,
-    indexSelector: params.indexSelector,
-    allEntries: params.allEntries,
-    postsIndexMap: params.postsIndexMap,
-    siteConfig: params.siteConfig,
-    setupSearchFn: setupSearch,
-    renderTagSidebarFn: renderTagSidebar
   });
 }
 
@@ -600,56 +518,7 @@ function displayPost(postname) {
     fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`)
   }); } catch (_) {}
   try { hydratePostVideos('#mainview'); } catch (_) {}
-  // Wire up copy-link buttons on all post meta cards
-  try {
-    const copyBtns = Array.from(document.querySelectorAll('#mainview .post-meta-card .post-meta-copy'));
-    copyBtns.forEach((copyBtn) => {
-      copyBtn.addEventListener('click', async () => {
-        const url = String(location.href || '').split('#')[0];
-        let ok = false;
-        try {
-          if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(url); ok = true;
-          } else {
-            const tmp = document.createElement('textarea');
-            tmp.value = url; document.body.appendChild(tmp); tmp.select();
-            ok = document.execCommand('copy'); document.body.removeChild(tmp);
-          }
-        } catch (_) { ok = false; }
-        if (ok) {
-          const prevTitle = copyBtn.getAttribute('title') || '';
-          copyBtn.classList.add('copied');
-          copyBtn.setAttribute('title', t('ui.linkCopied') || t('code.copied'));
-          setTimeout(() => { copyBtn.classList.remove('copied'); copyBtn.setAttribute('title', prevTitle || t('ui.copyLink')); }, 1000);
-        }
-      });
-    });
-  } catch (_) {}
-  // Attach floating tooltips to all AI flags (consistent with tag tooltips)
-  try {
-    const aiFlags = Array.from(document.querySelectorAll('#mainview .post-meta-card .ai-flag'));
-    aiFlags.forEach((aiFlag) => attachHoverTooltip(aiFlag, () => t('ui.aiFlagTooltip'), { delay: 0 }));
-  } catch (_) {}
-  // Always use the localized title from index.yaml for display/meta/tab labels
   const articleTitle = fallback;
-    // If title changed after parsing, update the card's title text
-    try {
-      const titleEls = Array.from(document.querySelectorAll('#mainview .post-meta-card .post-meta-title'));
-      titleEls.forEach((titleEl) => {
-        const ai = titleEl.querySelector('.ai-flag');
-        const aiClone = ai ? ai.cloneNode(true) : null;
-        // Rebuild title node content safely
-        titleEl.textContent = '';
-        if (aiClone) {
-          // Avoid native title tooltip overlap
-          aiClone.removeAttribute('title');
-          titleEl.appendChild(aiClone);
-          try { attachHoverTooltip(aiClone, () => t('ui.aiFlagTooltip'), { delay: 0 }); } catch (_) {}
-        }
-        titleEl.appendChild(document.createTextNode(String(articleTitle || '')));
-      });
-    } catch (_) {}
-    
     // Update SEO meta tags for the post
     try {
       const seoData = extractSEOFromMarkdown(markdown, { 
@@ -662,6 +531,15 @@ function displayPost(postname) {
     } catch (_) { /* ignore SEO errors */ }
     
   renderTabs('post', articleTitle);
+  callThemeHook('decoratePostView', {
+    container: mainEl,
+    articleTitle,
+    postMetadata,
+    markdown,
+    translate: t,
+    document,
+    window
+  });
   const tocTarget = document.getElementById('tocview');
   if (tocTarget) {
     if (output.toc) {
@@ -1083,30 +961,8 @@ function routeAndRender() {
 // isModifiedClick moved to utils.js
 
 document.addEventListener('click', (e) => {
+  if (callThemeHook('handleDocumentClick', { event: e, document, window })) return;
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
-  // Handle outdated card close button
-  const closeBtn = e.target && e.target.closest ? e.target.closest('.post-outdated-close') : null;
-  if (closeBtn) {
-    const card = closeBtn.closest('.post-outdated-card');
-    if (card) {
-      // Animate height collapse + fade/translate, then remove
-      const startHeight = card.scrollHeight;
-      card.style.height = startHeight + 'px';
-      // Force reflow so the browser acknowledges the starting height
-      // eslint-disable-next-line no-unused-expressions
-      card.getBoundingClientRect();
-      card.classList.add('is-dismissing');
-      // Next frame, set height to 0 to trigger transition
-      requestAnimationFrame(() => {
-        card.style.height = '0px';
-      });
-      const cleanup = () => { card.remove(); };
-      card.addEventListener('transitionend', cleanup, { once: true });
-      // Fallback removal in case transitionend doesn't fire
-      setTimeout(cleanup, 500);
-    }
-    return;
-  }
   if (!a) return;
 
   // Add animation for tab clicks
@@ -1586,10 +1442,6 @@ loadSiteConfig()
         url: window.location.href
       }, siteConfig);
     } catch (_) {}
-    
-    // 为mainview容器添加稳定性类
-    const mainviewContainer = document.getElementById('mainview')?.closest('.box');
-    if (mainviewContainer) mainviewContainer.classList.add('mainview-container');
     
   routeAndRender();
   })
