@@ -12,7 +12,6 @@ import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips, attachHoverTooltip } from './js/tags.js';
-import { installLightbox } from './js/lightbox.js';
 import { renderPostNav } from './js/post-nav.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
@@ -39,6 +38,20 @@ let PAGE_SIZE = 8;
 let __activePostRequestId = 0;
 // Track last route to harmonize scroll behavior on back/forward
 let __lastRouteKey = '';
+
+function getThemeHook(name) {
+  try {
+    const hooks = (typeof window !== 'undefined') ? window.__ns_themeHooks : null;
+    const fn = hooks && hooks[name];
+    return typeof fn === 'function' ? fn : null;
+  } catch (_) { return null; }
+}
+
+function callThemeHook(name, ...args) {
+  const fn = getThemeHook(name);
+  if (!fn) return undefined;
+  try { return fn(...args); } catch (_) { return undefined; }
+}
 
 // --- UI helpers: smooth show/hide (height + opacity) ---
 
@@ -482,387 +495,72 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
 
 // RenderOutdatedCard moved to ./js/templates.js
 
-let hasInitiallyRendered = false;
-
 function renderTabs(activeSlug, searchQuery) {
+  const themeRenderer = getThemeHook('renderTabs');
+  if (themeRenderer) {
+    themeRenderer({
+      activeSlug,
+      searchQuery,
+      tabsBySlug,
+      document,
+      window
+    });
+    return;
+  }
+
   const nav = document.getElementById('tabsNav');
   if (!nav) return;
 
-  // Safer helpers for building and injecting tabs without using innerHTML/DOMParser
-  const buildSafeTrackFromHtml = (markup) => {
-    const safeTrack = document.createElement('div');
-    safeTrack.className = 'tabs-track';
-    const src = String(markup || '');
-    // Very small, purpose-built tokenizer for our generated <a/span class="tab ..." data-slug="...">label</...>
-    const tagRe = /<(a|span)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
-    const getAttr = (attrs, name) => {
-      const m = attrs.match(new RegExp(name + '="([^"]*)"', 'i'));
-      return m ? m[1] : '';
-    };
-    const hasActive = (attrs) => /class="[^"]*\bactive\b[^"]*"/i.test(attrs);
-    // Decode the small set of entities we produce via escapeHtml
-    // Important: unescape ampersand last to avoid double-unescaping
-    const decodeEntities = (text) => String(text || '')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#0?39;/g, "'")
-      // Unescape ampersand last to avoid double-unescaping
-      .replace(/&amp;/g, '&');
-    // Minimal protocol whitelist for href attributes
-    const sanitizeHref = (value) => {
-      const raw = String(value || '').trim();
-      if (!raw) return '';
-      // Disallow control chars and whitespace
-      if (/[\u0000-\u001F\u007F\s]/.test(raw)) return '';
-      // Allow anchor-only, query-only, and root-relative links
-      if (raw.startsWith('#') || raw.startsWith('?') || raw.startsWith('/')) return raw;
-      try {
-        const u = new URL(raw, window.location.href);
-        const p = String(u.protocol || '').toLowerCase();
-        if (p === 'http:' || p === 'https:' || p === 'mailto:' || p === 'tel:') return u.toString();
-        return '';
-      } catch (_) {
-        // If it looks like a relative path without a scheme, allow it
-        return /^(?![a-z][a-z0-9+.-]*:)[^\s]*$/i.test(raw) ? raw : '';
-      }
-    };
-    let m;
-    while ((m = tagRe.exec(src)) !== null) {
-      // Only allow a minimal, safe tag set
-      const tagRaw = (m[1] || '').toLowerCase();
-      const tag = (tagRaw === 'a') ? 'a' : 'span';
-      const attrs = m[2] || '';
-      const inner = m[3] || '';
-      const slug = getAttr(attrs, 'data-slug');
-      // Intentionally ignore incoming href; rebuild from slug/current state to avoid tainted flow
-      let href = '';
-      if (tag === 'a') {
-        try {
-          const s = (slug ? slugifyTab(slug) : '');
-          if (s === 'search') {
-            const sp = new URLSearchParams(window.location.search);
-            const tagParam = (sp.get('tag') || '').trim();
-            const qParam = (sp.get('q') || String(searchQuery || '')).trim();
-            href = withLangParam(`?tab=search${tagParam ? `&tag=${encodeURIComponent(tagParam)}` : (qParam ? `&q=${encodeURIComponent(qParam)}` : '')}`);
-          } else if (s) {
-            href = withLangParam(`?tab=${encodeURIComponent(s)}`);
-          }
-        } catch (_) { /* ignore */ }
-      }
-      const el = document.createElement(tag);
-      el.className = `tab${hasActive(attrs) ? ' active' : ''}`;
-      if (slug) {
-        try {
-          const safeSlug = slugifyTab(slug);
-          if (safeSlug) el.setAttribute('data-slug', safeSlug);
-        } catch (_) {
-          const fallback = String(slug || '').toLowerCase().replace(/[^a-z0-9\-]/g, '').slice(0, 64);
-          if (fallback) el.setAttribute('data-slug', fallback);
-        }
-      }
-      if (href && tag === 'a') {
-        el.setAttribute('href', href);
-      }
-      // Decode basic entities and assign as textContent (no HTML parsing)
-      const label = decodeEntities(inner);
-      el.textContent = label;
-      safeTrack.appendChild(el);
-    }
-    return safeTrack;
-  };
-
-  const setTrackHtml = (targetNav, markup) => {
-    const safeTrack = buildSafeTrackFromHtml(markup);
-    const existing = targetNav.querySelector('.tabs-track');
-    if (!existing) {
-      while (targetNav.firstChild) targetNav.removeChild(targetNav.firstChild);
-      targetNav.appendChild(safeTrack);
-    } else {
-      while (existing.firstChild) existing.removeChild(existing.firstChild);
-      Array.from(safeTrack.children).forEach(ch => existing.appendChild(ch));
-    }
-  };
-  
-  const make = (slug, label) => {
-    const href = withLangParam(`?tab=${encodeURIComponent(slug)}`);
-  return `<a class="tab${activeSlug===slug?' active':''}" data-slug="${slug}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-  };
-  
-  // Build full tab list first (home first, optionally include All Posts if enabled), then other tabs
   const homeSlug = getHomeSlug();
   const homeLabel = getHomeLabel();
-  let html = make(homeSlug, homeLabel);
+  const make = (slug, label, isActive) => {
+    const safeSlug = slugifyTab(slug) || slug;
+    const href = withLangParam(`?tab=${encodeURIComponent(safeSlug)}`);
+    return `<a class="tab${isActive ? ' active' : ''}" data-slug="${escapeHtml(safeSlug)}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
+  };
+
+  let html = '';
+  html += make(homeSlug, homeLabel, activeSlug === homeSlug);
   if (postsEnabled() && homeSlug !== 'posts') {
-    html += make('posts', t('ui.allPosts'));
+    html += make('posts', t('ui.allPosts'), activeSlug === 'posts');
   }
   for (const [slug, info] of Object.entries(tabsBySlug)) {
     if (slug === homeSlug) continue;
-    html += make(slug, info.title);
+    const label = info && info.title ? info.title : slug;
+    html += make(slug, label, activeSlug === slug);
   }
+
   if (activeSlug === 'search') {
-    const sp = new URLSearchParams(window.location.search);
-    const tag = (sp.get('tag') || '').trim();
-    const q = (sp.get('q') || String(searchQuery || '')).trim();
-    const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-    const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-  html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-  } else if (activeSlug === 'post') {
-    const raw = String(searchQuery || t('ui.postTab')).trim();
-    const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
-  html += `<span class="tab active" data-slug="post">${label}</span>`;
-  }
-
-  // Helper: measure width of given markup inside a temporary element
-  const measureWidth = (markup) => {
-    try {
-      const tempNav = nav.cloneNode(false);
-      setTrackHtml(tempNav, markup);
-      tempNav.style.position = 'absolute';
-      tempNav.style.visibility = 'hidden';
-      tempNav.style.pointerEvents = 'none';
-      tempNav.style.width = 'auto';
-      tempNav.style.zIndex = '-1000';
-      // Use the same parent to ensure identical CSS context
-      (nav.parentNode || document.body).appendChild(tempNav);
-      const w = tempNav.offsetWidth;
-      tempNav.parentNode.removeChild(tempNav);
-      return w;
-    } catch (_) {
-      return 0;
-    }
-  };
-
-  // If full tab list doesn't fit, collapse to minimal: All Posts + active tab
-  try {
-    const containerWidth = ((nav.parentElement && nav.parentElement.getBoundingClientRect && nav.parentElement.getBoundingClientRect().width) || nav.clientWidth || 0);
-    const fullWidth = measureWidth(html);
-    // Build compact HTML candidate: Home + active only
-    let compact = make(homeSlug, homeLabel);
-    if (activeSlug === 'search') {
-      const sp = new URLSearchParams(window.location.search);
-      const tag = (sp.get('tag') || '').trim();
-      const q = (sp.get('q') || String(searchQuery || '')).trim();
-      const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-      const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-      compact += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-    } else if (activeSlug === 'post') {
-      const raw = String(searchQuery || t('ui.postTab')).trim();
-      const label = raw ? escapeHtml(raw.length > 28 ? raw.slice(0,25) + '…' : raw) : t('ui.postTab');
-      compact += `<span class="tab active" data-slug="post">${label}</span>`;
-    } else if (activeSlug && activeSlug !== 'posts') {
-      // Active static tab from tabs.yaml
-      const info = tabsBySlug[activeSlug];
-      const label = info && info.title ? info.title : activeSlug;
-      compact += make(activeSlug, label).replace('"tab ', '"tab active ');
-    }
-    // If compact still doesn't fit (e.g. very long post title), truncate active label harder
-    if (containerWidth && measureWidth(compact) > containerWidth - 8) {
-      if (activeSlug === 'post') {
-        const raw = String(searchQuery || t('ui.postTab')).trim();
-        const label = raw ? escapeHtml(raw.length > 16 ? raw.slice(0,13) + '…' : raw) : t('ui.postTab');
-        compact = make(homeSlug, homeLabel) + `<span class="tab active" data-slug="post">${label}</span>`;
-      } else if (activeSlug === 'search') {
+    const labelRaw = (() => {
+      try {
         const sp = new URLSearchParams(window.location.search);
         const tag = (sp.get('tag') || '').trim();
-        const q = (sp.get('q') || String(searchQuery || '')).trim();
-        const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
-        const label = escapeHtml(labelRaw.length > 16 ? labelRaw.slice(0,13) + '…' : labelRaw);
-        const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
-        compact = make(homeSlug, homeLabel) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
-      }
-    }
-
-    // Hysteresis to avoid flicker on tiny viewport changes (e.g., mobile URL bar show/hide)
-    const currentlyCompact = nav.classList.contains('compact');
-    const fullFits = !!(containerWidth && fullWidth && (fullWidth <= containerWidth - 8));
-    const fullFitsComfortably = !!(containerWidth && fullWidth && (fullWidth <= containerWidth - 40));
-
-    let useCompact = currentlyCompact ? !fullFitsComfortably : !fullFits;
-    // Choose markup accordingly
-    if (useCompact) {
-      html = compact;
-      nav.classList.add('compact');
-    } else {
-      // Keep/return to full list
-      nav.classList.remove('compact');
-    }
-  } catch (_) {
-    // On any error, fall back to current mode without forcing reflow
-  }
-  
-  // No transition on first load - just set content
-  if (!hasInitiallyRendered) {
-    // Create a persistent track so overlay (and ::before/::after) aren't recreated
-    setTrackHtml(nav, html);
-    // Create the highlight overlay element
-    ensureHighlightOverlay(nav);
-    hasInitiallyRendered = true;
-    updateMovingHighlight(nav);
-    return;
-  }
-  
-  // Smooth transition only after initial render
-  const currentTrack = nav.querySelector('.tabs-track');
-  const currentMarkup = currentTrack ? currentTrack.innerHTML : '';
-  if (currentMarkup !== html) {
-    // Mark currently active tab for deactivation animation (only dynamic tabs)
-    const currentActiveTab = nav.querySelector('.tab.active');
-    if (currentActiveTab) {
-      const curSlug = (currentActiveTab.dataset && currentActiveTab.dataset.slug) || '';
-      if (curSlug === 'post' || curSlug === 'search') {
-        currentActiveTab.classList.add('deactivating');
-      }
-    }
-    
-    // Measure current width only
-    const currentWidth = nav.offsetWidth;
-    
-    // Create a temporary hidden element to measure new width
-    const newWidth = measureWidth(html);
-    
-  // Set explicit width only and start transition (no opacity changes)
-  nav.style.width = `${currentWidth}px`;
-  const shrinking = newWidth < currentWidth;
-  const growing = newWidth > currentWidth;
-  // Faster expansion, slightly delayed shrink
-  nav.style.transition = `${growing ? 'width 0.38s cubic-bezier(0.16, 1, 0.3, 1) 0s' : `width 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${shrinking ? '0.06s' : '0s'}`}`;
-    
-    // Use Apple-style timing for more elegant perception
-  // Wait a bit longer so the deactivating animation can play smoothly
-  setTimeout(() => {
-      // Only replace inner track content, keep wrapper/overlay
-      setTrackHtml(nav, html);
-  // Ensure highlight overlay exists after content change
-  ensureHighlightOverlay(nav);
-  nav.style.width = `${newWidth}px`;
-      
-      // Update highlight immediately when content changes
-      updateMovingHighlight(nav);
-      // Trigger activating->in sequence only for dynamic tabs (post/search)
-      try {
-        const newActive = nav.querySelector('.tab.active');
-        const newSlug = (newActive && newActive.dataset && newActive.dataset.slug) || '';
-        if (newActive && (newSlug === 'post' || newSlug === 'search')) {
-          newActive.classList.add('activating');
-          // next frame add .in to play entrance animation
-          requestAnimationFrame(() => {
-            newActive.classList.add('in');
-            // cleanup after animation completes
-            setTimeout(() => {
-              newActive.classList.remove('activating', 'in');
-            }, 260);
-          });
-        }
+        const q = (sp.get('q') || '').trim();
+        if (tag) return t('ui.tagSearch', tag);
+        if (q) return t('titles.search', q);
       } catch (_) {}
-      
-  // Reset width to auto after transition
-  const resetDelay = growing ? 380 : (shrinking ? 660 : 600);
-  setTimeout(() => {
-        nav.style.width = 'auto';
-        nav.style.transition = ''; // Reset transition
-  }, resetDelay); // Match the width transition duration used above
-  }, 180); // Snappy swap timed with ~0.14–0.2s poof
-  } else {
-    // Just update highlight position if content hasn't changed
-    updateMovingHighlight(nav);
-  }
-}
-
-let _pendingHighlightRaf = 0;
-
-// Ensure the highlight overlay element exists
-function ensureHighlightOverlay(nav) {
-  if (!nav) return;
-  
-  let overlay = nav.querySelector('.highlight-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.className = 'highlight-overlay';
-    // Place overlay before the track so it sits visually beneath text but above background
-    nav.appendChild(overlay);
-  }
-  return overlay;
-}
-
-// Update the moving highlight overlay position
-function updateMovingHighlight(nav) {
-  if (!nav) return;
-
-  ensureHighlightOverlay(nav);
-
-  // Coalesce multiple calls into a single rAF to avoid flicker
-  if (_pendingHighlightRaf) cancelAnimationFrame(_pendingHighlightRaf);
-  _pendingHighlightRaf = requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const activeTab = nav.querySelector('.tab.active');
-
-      // Clean up any previous transition classes once per tick
-      nav.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('activating', 'deactivating');
-      });
-
-      if (activeTab) {
-        const tabRect = activeTab.getBoundingClientRect();
-        const navRect = nav.getBoundingClientRect();
-        const left = Math.max(0, tabRect.left - navRect.left);
-        const width = tabRect.width;
-
-        nav.style.setProperty('--highlight-left', `${left}px`);
-        nav.style.setProperty('--highlight-width', `${width}px`);
-        nav.style.setProperty('--highlight-opacity', '1');
-
-        nav.style.setProperty('--indicator-left', `${left}px`);
-        nav.style.setProperty('--indicator-width', `${Math.max(0, width * 0.85)}px`);
-        nav.style.setProperty('--indicator-opacity', '1');
-
-        activeTab.classList.add('activating');
-        setTimeout(() => activeTab.classList.remove('activating'), 420);
-      } else {
-        nav.style.setProperty('--highlight-opacity', '0');
-        nav.style.setProperty('--indicator-opacity', '0');
+      return t('ui.searchTab');
+    })();
+    const label = searchQuery ? String(searchQuery) : labelRaw;
+    const href = (() => {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const tag = (sp.get('tag') || '').trim();
+        const q = (sp.get('q') || '').trim();
+        const effectiveQ = q || (searchQuery ? String(searchQuery) : '');
+        return withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (effectiveQ ? `&q=${encodeURIComponent(effectiveQ)}` : '')}`);
+      } catch (_) {
+        return withLangParam('?tab=search');
       }
+    })();
+    html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
+  } else if (activeSlug === 'post') {
+    const raw = String(searchQuery || t('ui.postTab') || '').trim();
+    const label = raw || t('ui.postTab');
+    html += `<span class="tab active" data-slug="post">${escapeHtml(String(label || ''))}</span>`;
+  }
 
-      setupTabHoverEffects(nav);
-      _pendingHighlightRaf = 0;
-    });
-  });
-}
-
-// Setup hover preview effects for tabs
-function setupTabHoverEffects(nav) {
-  if (!nav) return;
-  
-  // Remove existing listeners
-  nav.querySelectorAll('.tab').forEach(tab => {
-    tab.removeEventListener('mouseenter', tab._hoverHandler);
-    tab.removeEventListener('mouseleave', tab._leaveHandler);
-  });
-  
-  nav.querySelectorAll('.tab').forEach(tab => {
-    // Store handlers for cleanup
-    tab._hoverHandler = function() {
-      if (this.classList.contains('active')) return;
-      
-      const tabRect = this.getBoundingClientRect();
-      const navRect = nav.getBoundingClientRect();
-      
-      const left = tabRect.left - navRect.left;
-      const width = tabRect.width;
-      
-      // Show preview for both overlay and indicator
-      nav.style.setProperty('--preview-left', `${left}px`);
-      nav.style.setProperty('--preview-width', `${width * 0.85}px`);
-      nav.style.setProperty('--preview-opacity', '0.4'); // More subtle Apple-style preview
-    };
-    
-    tab._leaveHandler = function() {
-      nav.style.setProperty('--preview-opacity', '0');
-    };
-    
-    tab.addEventListener('mouseenter', tab._hoverHandler);
-    tab.addEventListener('mouseleave', tab._leaveHandler);
-  });
+  nav.innerHTML = `<div class="tabs-track">${html}</div>`;
 }
 
 // Render footer navigation: Home (All Posts) + custom tabs
@@ -888,48 +586,6 @@ function renderFooterNav() {
     html += ' ' + make(href, label, isActive(slug) ? 'active' : '');
   }
   nav.innerHTML = html;
-}
-
-// Re-evaluate and collapse/expand tabs on viewport changes (debounced)
-let _tabsResizeTimer = 0;
-function setupResponsiveTabsObserver() {
-  try {
-    if (setupResponsiveTabsObserver.__done) return;
-    setupResponsiveTabsObserver.__done = true;
-    const getCurrentPostTitle = () => {
-      try {
-        const el = document.querySelector('#mainview .post-meta-card .post-meta-title');
-        const txt = (el && el.textContent) ? el.textContent.trim() : '';
-        if (txt) return txt;
-      } catch (_) {}
-      try { return getArticleTitleFromMain() || ''; } catch (_) { return ''; }
-    };
-    const rerender = () => {
-      try {
-        const id = getQueryVariable('id');
-        const tab = (getQueryVariable('tab') || '').toLowerCase();
-        const q = getQueryVariable('q') || '';
-        const tag = getQueryVariable('tag') || '';
-        if (id) {
-          // Preserve the current article title on responsive re-render
-          const title = getCurrentPostTitle();
-          renderTabs('post', title);
-        } else if (tab === 'search') {
-          renderTabs('search', tag || q);
-        } else if (tab && tab !== 'posts' && tabsBySlug[tab]) {
-          renderTabs(tab);
-        } else {
-          renderTabs('posts');
-        }
-      } catch (_) {}
-    };
-    const handler = () => {
-      clearTimeout(_tabsResizeTimer);
-      _tabsResizeTimer = setTimeout(rerender, 140);
-    };
-    window.addEventListener('resize', handler, { passive: true });
-    window.addEventListener('orientationchange', handler, { passive: true });
-  } catch (_) {}
 }
 
 function displayPost(postname) {
@@ -1620,42 +1276,6 @@ function routeAndRender() {
 }
 
 
-
-// Enhanced smooth click feedback with immediate highlight movement
-function addTabClickAnimation(tab) {
-  if (!tab || !tab.classList.contains('tab')) return;
-  
-  // Immediate visual feedback before navigation
-  const nav = tab.closest('#tabsNav');
-  if (nav && nav.id === 'tabsNav') {
-    // Mark current active tab for deactivation
-    const currentActive = nav.querySelector('.tab.active');
-    if (currentActive && currentActive !== tab) {
-      currentActive.classList.add('deactivating');
-    }
-    
-    // Pre-move highlight to clicked tab for immediate feedback
-    if (!tab.classList.contains('active')) {
-      const tabRect = tab.getBoundingClientRect();
-      const navRect = nav.getBoundingClientRect();
-      
-      const left = tabRect.left - navRect.left;
-      const width = tabRect.width;
-      
-      // Immediately start moving the highlight overlay
-      nav.style.setProperty('--highlight-left', `${left}px`);
-      nav.style.setProperty('--highlight-width', `${width}px`);
-      nav.style.setProperty('--highlight-opacity', '0.7'); // Slightly dimmer during transition for Apple-style elegance
-      
-      // Also move the bottom indicator
-      nav.style.setProperty('--indicator-left', `${left}px`);
-      nav.style.setProperty('--indicator-width', `${width * 0.85}px`);
-      
-      tab.classList.add('activating');
-    }
-  }
-}
-
 // Intercept in-app navigation and use History API
 // isModifiedClick moved to utils.js
 
@@ -1685,10 +1305,10 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (!a) return;
-  
+
   // Add animation for tab clicks
   if (a.classList.contains('tab')) {
-    addTabClickAnimation(a);
+    callThemeHook('onTabClick', a);
   }
   
   if (isModifiedClick(e)) return;
@@ -1734,7 +1354,7 @@ window.addEventListener('popstate', () => {
 window.addEventListener('resize', () => {
   const nav = document.getElementById('tabsNav');
   if (nav) {
-  updateMovingHighlight(nav);
+    callThemeHook('updateTabHighlight', nav);
   }
 });
 
@@ -1763,12 +1383,15 @@ applySavedTheme();
 bindThemeToggle();
 bindPostEditor();
 bindThemePackPicker();
-// Install lightweight image viewer (delegated; safe to call once)
-try { installLightbox({ root: '#mainview' }); } catch (_) {}
 // Localize search placeholder ASAP
 try { const input = document.getElementById('searchInput'); if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder')); } catch (_) {}
 // Observe viewport changes for responsive tabs
-setupResponsiveTabsObserver();
+callThemeHook('setupResponsiveTabsObserver', {
+  getTabs: () => tabsBySlug,
+  document,
+  window,
+  renderTabs
+});
 
 // Soft reset to the site's default language without full reload
 async function softResetToSiteDefaultLanguage() {
