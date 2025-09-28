@@ -4,7 +4,7 @@ import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeContro
 import { ensureThemeLayout } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
-import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
+import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
@@ -337,7 +337,7 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
 }
 
 function updateLayoutLoadingState({ view, contentElement, sidebarElement, containerElement } = {}, isLoading) {
-  const handled = callThemeHook('updateLayoutLoadingState', {
+  return callThemeHook('updateLayoutLoadingState', {
     view,
     isLoading,
     contentElement,
@@ -346,20 +346,6 @@ function updateLayoutLoadingState({ view, contentElement, sidebarElement, contai
     document,
     window
   });
-  if (handled) return;
-
-  const applyClassToggle = (el, classes = []) => {
-    if (!el || !el.classList) return;
-    classes.forEach(cls => {
-      if (!cls) return;
-      if (isLoading) el.classList.add(cls);
-      else el.classList.remove(cls);
-    });
-  };
-
-  applyClassToggle(contentElement, ['loading', 'layout-stable']);
-  applyClassToggle(sidebarElement, ['loading']);
-  applyClassToggle(containerElement, ['mainview-container']);
 }
 
 function renderPostTOCBlock({
@@ -367,7 +353,7 @@ function renderPostTOCBlock({
   articleTitle,
   tocHtml
 } = {}) {
-  const handled = callThemeHook('renderPostTOC', {
+  return callThemeHook('renderPostTOC', {
     tocElement,
     articleTitle,
     tocHtml,
@@ -375,12 +361,6 @@ function renderPostTOCBlock({
     document,
     window
   });
-  if (handled || !tocElement) return;
-  const title = articleTitle ? escapeHtml(articleTitle) : '';
-  const topLabel = t('ui.top');
-  const ariaLabel = t('ui.backToTop') || t('ui.top') || 'Back to top';
-  const header = `<div class="toc-header">${title ? `<span>${title}</span>` : ''}<a href="#" class="toc-top" aria-label="${escapeHtml(String(ariaLabel || 'Back to top'))}">${escapeHtml(String(topLabel || 'Top'))}</a></div>`;
-  tocElement.innerHTML = `${header}${tocHtml || ''}`;
 }
 
 function renderErrorState(targetElement, {
@@ -390,7 +370,7 @@ function renderErrorState(targetElement, {
   actions = [],
   view
 } = {}) {
-  const handled = callThemeHook('renderErrorState', {
+  return callThemeHook('renderErrorState', {
     targetElement,
     variant,
     title,
@@ -401,30 +381,6 @@ function renderErrorState(targetElement, {
     document,
     window
   });
-  if (handled || !targetElement) return;
-
-  const safeVariant = String(variant || '').trim() || 'error';
-  const safeTitle = title ? `<h3>${escapeHtml(String(title))}</h3>` : '';
-  let body = '';
-  if (message || actions.length) {
-    const parts = [];
-    if (message) parts.push(escapeHtml(String(message)));
-    const links = actions.map(action => {
-      if (!action || !action.href || !action.label) return '';
-      const href = escapeHtml(String(action.href));
-      const label = escapeHtml(String(action.label));
-      const rel = action.rel ? ` rel="${escapeHtml(String(action.rel))}"` : '';
-      const target = action.target ? ` target="${escapeHtml(String(action.target))}"` : '';
-      return `<a href="${href}"${rel}${target}>${label}</a>`;
-    }).filter(Boolean);
-    if (links.length) {
-      const joined = links.join(' ');
-      if (parts.length) parts.push(joined);
-      else parts.push(joined);
-    }
-    if (parts.length) body = `<p>${parts.join(' ')}${links.length ? '.' : ''}</p>`;
-  }
-  targetElement.innerHTML = `<div class="notice ${safeVariant}">${safeTitle}${body}</div>`;
 }
 
 function updateSearchPanels({
@@ -434,7 +390,7 @@ function updateSearchPanels({
   tagFilter,
   view
 } = {}) {
-  const handled = callThemeHook('updateSearchPanels', {
+  return callThemeHook('updateSearchPanels', {
     showSearch,
     showTags,
     queryValue,
@@ -443,22 +399,6 @@ function updateSearchPanels({
     document,
     window
   });
-  if (handled) return;
-
-  const searchBox = document.getElementById('searchbox');
-  const tagBox = document.getElementById('tagview');
-  if (searchBox) {
-    if (showSearch) smoothShow(searchBox);
-    else smoothHide(searchBox);
-  }
-  if (tagBox) {
-    if (showTags) smoothShow(tagBox);
-    else smoothHide(tagBox);
-  }
-  if (typeof queryValue === 'string') {
-    const input = document.getElementById('searchInput');
-    if (input) input.value = queryValue;
-  }
 }
 
 let fallbackMasonryObserversBound = false;
