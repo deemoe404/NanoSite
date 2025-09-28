@@ -11,13 +11,9 @@ import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/er
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
 import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
-import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
-import { renderPostNav } from './js/post-nav.js';
 import { getArticleTitleFromMain } from './js/dom-utils.js';
-import { applyLangHints } from './js/typography.js';
 
-import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos, hydrateCardCovers } from './js/post-render.js';
-import { hydrateInternalLinkCards } from './js/link-cards.js';
+import { applyLazyLoadingIn, hydrateCardCovers } from './js/post-render.js';
 
 // Lightweight fetch helper (bypass caches without version params)
 const getFile = (filename) => fetch(String(filename || ''), { cache: 'no-store' })
@@ -117,17 +113,14 @@ function smoothHide(el, onDone, options) {
 }
 
 // Ensure element height fully resets to its natural auto height
-function ensureAutoHeight(el) {
+function ensureAutoHeight(el, options = {}) {
   if (!el) return;
-  try {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.style.height = '';
-        el.style.minHeight = '';
-        el.style.overflow = '';
-      });
-    });
-  } catch (_) {}
+  callThemeHook('ensureAutoHeight', {
+    element: el,
+    options,
+    document,
+    window
+  });
 }
 
 // --- Site config (root-level site.yaml) ---
@@ -280,10 +273,12 @@ function refreshTagSidebar({
     view,
     containers,
     postsIndex: postsIndex === undefined ? postsIndexCache : postsIndex,
-    utilities: {
-      aggregateTags,
-      renderTagSidebar,
-      setupTagTooltips
+    query: {
+      tab: getQueryVariable('tab') || '',
+      id: getQueryVariable('id') || '',
+      q: getQueryVariable('q') || '',
+      tag: getQueryVariable('tag') || '',
+      page: getQueryVariable('page') || ''
     },
     document,
     window
@@ -304,7 +299,7 @@ function initializeSyntaxHighlightingForView(view, { containers } = {}) {
 }
 
 function resetTOCView(view, containers, { reason, immediate } = {}) {
-  const handled = callThemeHook('resetTOC', {
+  callThemeHook('resetTOC', {
     view,
     containers,
     reason,
@@ -313,19 +308,6 @@ function resetTOCView(view, containers, { reason, immediate } = {}) {
     document,
     window
   });
-  if (handled === undefined) {
-    const toc = (containers && containers.tocElement) || getViewContainer(view, 'toc');
-    if (!toc) return;
-    const clear = () => { try { toc.innerHTML = ''; } catch (_) {}; };
-    if (immediate) {
-      clear();
-      try { toc.hidden = true; } catch (_) {}
-      try { toc.style.display = 'none'; } catch (_) {}
-      try { toc.setAttribute('aria-hidden', 'true'); } catch (_) {}
-      return;
-    }
-    smoothHide(toc, clear);
-  }
 }
 
 function enhanceIndexLayout(params = {}) {
@@ -348,32 +330,62 @@ function enhanceIndexLayout(params = {}) {
 
 // RenderOutdatedCard moved to ./js/templates.js
 
-function renderTabs(activeSlug, searchQuery) {
-  callThemeHook('renderTabs', {
-    activeSlug,
-    searchQuery,
+function updateNavigationState(view, { activeSlug, searchQuery } = {}) {
+  const normalizedActive = (() => {
+    if (activeSlug) return String(activeSlug);
+    switch (view) {
+      case 'post':
+        return 'post';
+      case 'search':
+        return 'search';
+      case 'tab':
+        return (getQueryVariable('tab') || '').toLowerCase() || getHomeSlug();
+      default:
+        return getHomeSlug();
+    }
+  })();
+  const payload = {
+    view,
+    activeSlug: normalizedActive,
+    searchQuery: searchQuery == null ? '' : String(searchQuery),
     tabsBySlug,
-    getHomeSlug: () => getHomeSlug(),
-    getHomeLabel: () => getHomeLabel(),
-    postsEnabled: () => postsEnabled(),
+    homeSlug: getHomeSlug(),
+    homeLabel: getHomeLabel(),
+    postsEnabled: postsEnabled(),
+    query: {
+      tab: getQueryVariable('tab') || '',
+      id: getQueryVariable('id') || '',
+      q: getQueryVariable('q') || '',
+      tag: getQueryVariable('tag') || '',
+      page: getQueryVariable('page') || ''
+    },
     document,
     window
-  });
-}
-
-// Render footer navigation: Home (All Posts) + custom tabs
-function renderFooterNav() {
-  callThemeHook('renderFooterNav', {
-    tabsBySlug,
-    getHomeSlug: () => getHomeSlug(),
-    getHomeLabel: () => getHomeLabel(),
-    postsEnabled: () => postsEnabled(),
-    getQueryVariable,
-    withLangParam,
-    t,
-    document,
-    window
-  });
+  };
+  const handled = callThemeHook('updateNavigationState', payload);
+  if (handled === undefined) {
+    callThemeHook('renderTabs', {
+      activeSlug: payload.activeSlug,
+      searchQuery: payload.searchQuery,
+      tabsBySlug,
+      getHomeSlug: () => getHomeSlug(),
+      getHomeLabel: () => getHomeLabel(),
+      postsEnabled: () => postsEnabled(),
+      document,
+      window
+    });
+    callThemeHook('renderFooterNav', {
+      tabsBySlug,
+      getHomeSlug: () => getHomeSlug(),
+      getHomeLabel: () => getHomeLabel(),
+      postsEnabled: () => postsEnabled(),
+      getQueryVariable,
+      withLangParam,
+      t,
+      document,
+      window
+    });
+  }
 }
 
 function displayPost(postname) {
@@ -434,26 +446,7 @@ function displayPost(postname) {
       locationAliasMap,
       translate: t,
       document,
-      window,
-      utilities: {
-        renderPostNav,
-        hydratePostImages,
-        hydratePostVideos,
-        hydrateInternalLinkCards,
-        applyLazyLoadingIn,
-        applyLangHints,
-        renderPostTOC: (opts) => renderPostTOCBlock(opts),
-        renderTagSidebar,
-        getArticleTitleFromMain,
-        setupAnchors,
-        setupTOC,
-        ensureAutoHeight,
-        getFile,
-        getContentRoot,
-        withLangParam,
-        fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
-        makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
-      }
+      window
     }) || {};
 
     let articleTitle = fallbackTitle;
@@ -491,7 +484,7 @@ function displayPost(postname) {
       updateSEO(seoData, siteConfig);
     } catch (_) { /* ignore SEO errors */ }
 
-    renderTabs('post', articleTitle);
+    updateNavigationState('post', { activeSlug: 'post', searchQuery: articleTitle });
 
     const currentHash = (location.hash || '').replace(/^#/, '');
     if (currentHash) {
@@ -586,7 +579,7 @@ function displayIndex(parsed) {
     siteConfig
   });
 
-  renderTabs('posts');
+  updateNavigationState('posts', { activeSlug: 'posts' });
   notifyThemeViewChange('posts', { showSearch: true, showTags: true, queryValue: '' });
   setDocTitle(t('titles.allPosts'));
 
@@ -673,7 +666,10 @@ function displaySearch(query) {
     tagFilter
   });
 
-  renderTabs('search', tagFilter ? t('ui.tagSearch', tagFilter) : q);
+  updateNavigationState('search', {
+    activeSlug: 'search',
+    searchQuery: tagFilter ? t('ui.tagSearch', tagFilter) : q
+  });
   notifyThemeViewChange('search', { showSearch: true, showTags: true, queryValue: q, tagFilter });
   setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
 
@@ -708,7 +704,7 @@ function displayStaticTab(slug) {
     window
   });
   notifyThemeViewChange('tab', { showSearch: false, showTags: false });
-  renderTabs(slug);
+  updateNavigationState('tab', { activeSlug: slug });
   getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
       // 移除加载状态类
@@ -732,25 +728,7 @@ function displayStaticTab(slug) {
         locationAliasMap,
         translate: t,
         document,
-        window,
-        utilities: {
-          hydratePostImages,
-          hydratePostVideos,
-          hydrateInternalLinkCards,
-          applyLazyLoadingIn,
-          applyLangHints,
-          renderPostTOC: (opts) => renderPostTOCBlock(opts),
-          renderTagSidebar,
-          getArticleTitleFromMain,
-          setupAnchors,
-          setupTOC,
-          ensureAutoHeight,
-          getFile,
-          getContentRoot,
-          withLangParam,
-          fetchMarkdown: (loc) => getFile(`${getContentRoot()}/${loc}`),
-          makeLangHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`)
-        }
+        window
       }) || {};
 
       let pageTitle = tab.title;
@@ -835,12 +813,12 @@ function routeAndRender() {
   } catch (_) { /* ignore */ }
 
   if (isValidId(id)) {
-    renderTabs('post');
+    updateNavigationState('post', { activeSlug: 'post' });
     displayPost(id);
   } else if (tab === 'search') {
     const q = getQueryVariable('q') || '';
     const tag = getQueryVariable('tag') || '';
-  renderTabs('search', tag || q);
+  updateNavigationState('search', { activeSlug: 'search', searchQuery: tag || q });
     displaySearch(q);
     // Update SEO for search page
     try {
@@ -856,7 +834,7 @@ function routeAndRender() {
   } else if (tab !== 'posts' && tabsBySlug[tab]) {
     displayStaticTab(tab);
   } else {
-    renderTabs('posts');
+    updateNavigationState('posts', { activeSlug: 'posts' });
     displayIndex(postsIndexCache);
     // Update SEO for home/posts page
     const page = parseInt(getQueryVariable('page') || '1', 10);
@@ -878,41 +856,54 @@ function routeAndRender() {
       }, siteConfig);
     } catch (_) { /* ignore SEO errors to avoid breaking UI */ }
   }
-  // Keep footer nav in sync as route/tabs may impact labels
-  renderFooterNav();
 }
 
 
-// Intercept in-app navigation and use History API
-// isModifiedClick moved to utils.js
+function setupGlobalInteractions() {
+  const handled = callThemeHook('setupGlobalInteractions', {
+    document,
+    window,
+    routeAndRender: () => routeAndRender(),
+    isModifiedClick,
+    refreshTagSidebar: () => refreshTagSidebar({ postsIndex: postsIndexCache }),
+    updateNavigationState: (view, options) => updateNavigationState(view, options)
+  });
+  if (handled) return;
 
-document.addEventListener('click', (e) => {
-  if (callThemeHook('handleDocumentClick', { event: e, document, window })) return;
-  const a = e.target && e.target.closest ? e.target.closest('a') : null;
-  if (!a) return;
+  const defaultClickHandler = (e) => {
+    if (callThemeHook('handleDocumentClick', { event: e, document, window })) return;
+    const a = e.target && e.target.closest ? e.target.closest('a') : null;
+    if (!a) return;
 
-  if (isModifiedClick(e)) return;
-  const hrefAttr = a.getAttribute('href') || '';
-  // Allow any in-page hash links (e.g., '#', '#heading' or '?id=...#heading')
-  if (hrefAttr.includes('#')) return;
-  // External targets or explicit new tab
-  if (a.target && a.target === '_blank') return;
-  try {
-    const url = new URL(a.href, window.location.href);
-    // Only handle same-origin and same-path navigations
-    if (url.origin !== window.location.origin) return;
-    if (url.pathname !== window.location.pathname) return;
-    const sp = url.searchParams;
-    const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
-    if (!hasInAppParams) return;
-    e.preventDefault();
-    history.pushState({}, '', url.toString());
-    routeAndRender();
-    window.scrollTo(0, 0);
-  } catch (_) {
-    // If URL parsing fails, fall through to default navigation
-  }
-});
+    if (isModifiedClick(e)) return;
+    const hrefAttr = a.getAttribute('href') || '';
+    if (hrefAttr.includes('#')) return;
+    if (a.target && a.target === '_blank') return;
+    try {
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname !== window.location.pathname) return;
+      const sp = url.searchParams;
+      const hasInAppParams = sp.has('id') || sp.has('tab') || url.search === '';
+      if (!hasInAppParams) return;
+      e.preventDefault();
+      history.pushState({}, '', url.toString());
+      routeAndRender();
+      try { window.scrollTo(0, 0); } catch (_) {}
+    } catch (_) {
+      // Fall through to default navigation
+    }
+  };
+
+  const defaultResizeHandler = (event) => {
+    callThemeHook('handleWindowResize', { event, document, window });
+  };
+
+  document.addEventListener('click', defaultClickHandler);
+  window.addEventListener('resize', defaultResizeHandler);
+}
+
+setupGlobalInteractions();
 
 window.addEventListener('popstate', () => {
   const prevKey = __lastRouteKey || '';
@@ -928,11 +919,6 @@ window.addEventListener('popstate', () => {
     }
     __lastRouteKey = curKey;
   } catch (_) {}
-});
-
-// Update sliding indicator on window resize
-window.addEventListener('resize', (event) => {
-  callThemeHook('handleWindowResize', { event, document, window });
 });
 
 // Boot
@@ -978,7 +964,7 @@ callThemeHook('setupResponsiveTabsObserver', {
   getTabs: () => tabsBySlug,
   document,
   window,
-  renderTabs
+  updateNavigation: (view, options) => updateNavigationState(view, options)
 });
 
 // Soft reset to the site's default language without full reload
