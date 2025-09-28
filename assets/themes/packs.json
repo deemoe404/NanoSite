@@ -1,3 +1,4 @@
 [
-  { "value": "native", "label": "Native" }
+  { "value": "native", "label": "Native" },
+  { "value": "cupertino", "label": "Cupertino" }
 ]
