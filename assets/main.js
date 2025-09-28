@@ -60,25 +60,7 @@ function getViewContainer(view, role) {
       document,
       window
     });
-    if (fromHook) return fromHook;
-  } catch (_) {}
-  try {
-    switch (role) {
-      case 'main':
-        return document.getElementById('mainview');
-      case 'toc':
-        return document.getElementById('tocview');
-      case 'sidebar':
-        return document.querySelector('.sidebar');
-      case 'content':
-        return document.querySelector('.content');
-      case 'container': {
-        const main = getViewContainer(view, 'main');
-        return main ? main.closest('.box') : null;
-      }
-      default:
-        return null;
-    }
+    return fromHook || null;
   } catch (_) {
     return null;
   }
@@ -117,38 +99,39 @@ function getViewContainers(view) {
 
 // --- UI helpers: smooth show/hide delegated to theme ---
 
-function basicShow(el) {
+function showElementDefault(el) {
   if (!el) return;
-  el.style.display = '';
-  el.style.removeProperty('overflow');
-  el.style.removeProperty('height');
-  el.setAttribute('aria-hidden', 'false');
+  const handled = callThemeHook('showElement', { element: el, document, window });
+  if (!handled) {
+    try { el.hidden = false; } catch (_) {}
+    try { el.style.removeProperty('display'); } catch (_) {}
+    try { el.removeAttribute('aria-hidden'); } catch (_) {}
+  }
 }
 
-function basicHide(el) {
-  if (!el) return;
-  el.style.display = 'none';
-  el.style.removeProperty('overflow');
-  el.style.removeProperty('height');
-  el.setAttribute('aria-hidden', 'true');
+function hideElementDefault(el, onDone) {
+  if (!el) { if (typeof onDone === 'function') onDone(); return; }
+  const handled = callThemeHook('hideElement', { element: el, onDone, document, window });
+  if (!handled) {
+    try { el.hidden = true; } catch (_) {}
+    try { el.style.display = 'none'; } catch (_) {}
+    try { el.setAttribute('aria-hidden', 'true'); } catch (_) {}
+    if (typeof onDone === 'function') {
+      try { onDone(); } catch (_) {}
+    }
+  }
 }
 
 function smoothShow(el) {
   if (!el) return;
-  const handled = callThemeHook('showElement', { element: el, fallback: basicShow });
-  if (!handled) basicShow(el);
+  const handled = callThemeHook('showElement', { element: el, document, window });
+  if (!handled) showElementDefault(el);
 }
 
 function smoothHide(el, onDone) {
   if (!el) { if (typeof onDone === 'function') onDone(); return; }
-  const handled = callThemeHook('hideElement', { element: el, onDone, fallback: (target, done) => {
-    basicHide(target);
-    if (typeof done === 'function') done();
-  } });
-  if (!handled) {
-    basicHide(el);
-    if (typeof onDone === 'function') onDone();
-  }
+  const handled = callThemeHook('hideElement', { element: el, onDone, document, window });
+  if (!handled) hideElementDefault(el, onDone);
 }
 
 // Ensure element height fully resets to its natural auto height
@@ -370,28 +353,16 @@ function displayPost(postname) {
 
   updateLayoutLoadingState('post', true, containers);
 
-  const handledLoading = callThemeHook('renderPostLoadingState', {
+  callThemeHook('renderPostLoadingState', {
     view: 'post',
     containers,
     translator: t,
     ensureAutoHeight,
-    showElement: basicShow,
-    hideElement: basicHide,
+    showElement: showElementDefault,
+    hideElement: hideElementDefault,
     document,
     window
   });
-  if (!handledLoading) {
-    const toc = containers.tocElement;
-    if (toc) {
-      try { toc.innerHTML = ''; } catch (_) {}
-      smoothShow(toc);
-      ensureAutoHeight(toc);
-    }
-    const main = containers.mainElement;
-    if (main) {
-      try { main.textContent = t('ui.loading'); } catch (_) { main.textContent = 'Loading…'; }
-    }
-  }
 
   return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
@@ -454,36 +425,10 @@ function displayPost(postname) {
     }) || {};
 
     let articleTitle = fallbackTitle;
-    let handled = false;
-    let tocHandled = false;
     let decorated = false;
     if (typeof hookResult === 'object') {
-      handled = !!hookResult.handled;
-      tocHandled = !!hookResult.tocHandled;
       decorated = !!hookResult.decorated;
       if (hookResult.title) articleTitle = String(hookResult.title);
-    } else if (hookResult) {
-      handled = true;
-    }
-
-    if (!handled) {
-      const mainEl = containers.mainElement || getViewContainer('post', 'main');
-      if (mainEl) mainEl.innerHTML = output.post;
-    }
-
-    if (!tocHandled) {
-      const tocTarget = containers.tocElement || getViewContainer('post', 'toc');
-      if (tocTarget) {
-        if (output.toc) {
-          renderPostTOCBlock({ tocElement: tocTarget, articleTitle, tocHtml: output.toc });
-          smoothShow(tocTarget);
-          ensureAutoHeight(tocTarget);
-          try { setupAnchors(); } catch (_) {}
-          try { setupTOC(); } catch (_) {}
-        } else {
-          smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
-        }
-      }
     }
 
     if (!decorated) {
@@ -582,7 +527,7 @@ function displayIndex(parsed) {
   const pageEntries = entries.slice(start, end);
 
   const mainview = containers.mainElement || getViewContainer('posts', 'main');
-  const handled = callThemeHook('renderIndexView', {
+  callThemeHook('renderIndexView', {
     view: 'posts',
     containers,
     container: mainview,
@@ -600,8 +545,6 @@ function displayIndex(parsed) {
     window,
     document
   });
-  if (!handled && mainview) mainview.innerHTML = '';
-
   enhanceIndexLayout({
     view: 'posts',
     containers,
@@ -670,7 +613,7 @@ function displaySearch(query) {
   const pageEntries = filtered.slice(start, end);
 
   const mainview = containers.mainElement || getViewContainer('search', 'main');
-  const handled = callThemeHook('renderSearchResults', {
+  callThemeHook('renderSearchResults', {
     view: 'search',
     containers,
     container: mainview,
@@ -688,8 +631,6 @@ function displaySearch(query) {
     window,
     document
   });
-  if (!handled && mainview) mainview.innerHTML = '';
-
   enhanceIndexLayout({
     view: 'search',
     containers,
@@ -734,15 +675,12 @@ function displayStaticTab(slug) {
   const toc = containers.tocElement || getViewContainer('tab', 'toc');
   if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
   const main = containers.mainElement || getViewContainer('tab', 'main');
-  const handledLoading = callThemeHook('renderStaticTabLoadingState', {
+  callThemeHook('renderStaticTabLoadingState', {
     view: 'tab',
     containers,
     document,
     window
   });
-  if (!handledLoading && main) {
-    try { main.textContent = t('ui.loading'); } catch (_) { main.textContent = 'Loading…'; }
-  }
   updateSearchPanels({ view: 'tab', showSearch: false, showTags: false });
   renderTabs(slug);
   getFile(`${getContentRoot()}/${tab.location}`)
@@ -790,26 +728,8 @@ function displayStaticTab(slug) {
       }) || {};
 
       let pageTitle = tab.title;
-      let handled = false;
-      let tocHandled = false;
       if (typeof hookResult === 'object') {
-        handled = !!hookResult.handled;
-        tocHandled = !!hookResult.tocHandled;
         if (hookResult.title) pageTitle = String(hookResult.title);
-      } else if (hookResult) {
-        handled = true;
-      }
-
-      if (!handled) {
-        const mainEl = containers.mainElement || getViewContainer('tab', 'main');
-        if (mainEl) mainEl.innerHTML = output.post;
-      }
-
-      if (!tocHandled) {
-        const tocTarget = containers.tocElement || getViewContainer('tab', 'toc');
-        if (tocTarget) {
-          smoothHide(tocTarget, () => { try { tocTarget.innerHTML = ''; } catch (_) {}; });
-        }
       }
 
       try { initSyntaxHighlighting(); } catch (_) {}
