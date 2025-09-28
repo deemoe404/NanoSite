@@ -1,7 +1,7 @@
 import { installLightbox } from '../../../js/lightbox.js';
-import { t, withLangParam } from '../../../js/i18n.js';
-import { slugifyTab, escapeHtml, getQueryVariable } from '../../../js/utils.js';
-import { getArticleTitleFromMain } from '../../../js/dom-utils.js';
+import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
+import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
+import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -11,6 +11,519 @@ let pendingHighlightRaf = 0;
 let tabsResizeTimer = 0;
 let responsiveObserverBound = false;
 let lightboxInstalled = false;
+
+function showElementNative(params = {}, windowRef = defaultWindow) {
+  const el = params.element;
+  if (!el) return false;
+  const fallback = typeof params.fallback === 'function' ? params.fallback : ((target) => {
+    if (!target) return;
+    target.style.display = 'block';
+    target.setAttribute('aria-hidden', 'false');
+  });
+  try {
+    const cs = windowRef && typeof windowRef.getComputedStyle === 'function'
+      ? windowRef.getComputedStyle(el)
+      : null;
+    if (!cs || cs.display !== 'none') {
+      el.setAttribute('aria-hidden', 'false');
+      return true;
+    }
+    if (prefersReducedMotion(windowRef)) {
+      fallback(el);
+      return true;
+    }
+    const savedMargin = el.dataset.prevMarginBottom || (cs && cs.marginBottom) || '1.25rem';
+    const savedPadTop = el.dataset.prevPaddingTop || (cs && cs.paddingTop) || '1.25rem';
+    const savedPadBottom = el.dataset.prevPaddingBottom || (cs && cs.paddingBottom) || '1.25rem';
+    el.dataset.prevPaddingTop = savedPadTop;
+    el.dataset.prevPaddingBottom = savedPadBottom;
+    const prevMin = cs ? cs.minHeight : '';
+    if (prevMin) el.dataset.prevMinHeight = prevMin;
+    el.style.display = 'block';
+    el.style.overflow = 'hidden';
+    el.style.minHeight = '0px';
+    el.style.paddingTop = '0px';
+    el.style.paddingBottom = '0px';
+    el.style.height = '0px';
+    el.style.marginBottom = '0px';
+    el.style.opacity = '0';
+    el.style.willChange = 'height, margin-bottom, padding-top, padding-bottom, opacity';
+    el.style.paddingTop = savedPadTop;
+    el.style.paddingBottom = savedPadBottom;
+    void el.getBoundingClientRect();
+    const target = el.scrollHeight;
+    el.style.paddingTop = '0px';
+    el.style.paddingBottom = '0px';
+    const HEIGHT_MS = 240; const MARGIN_MS = 240; const PADDING_MS = 240; const OPACITY_MS = 180; const BUFFER_MS = 80;
+    el.style.transition = `height ${HEIGHT_MS}ms ease, margin-bottom ${MARGIN_MS}ms ease, padding-top ${PADDING_MS}ms ease, padding-bottom ${PADDING_MS}ms ease, opacity ${OPACITY_MS}ms ease-out`;
+    el.style.height = target + 'px';
+    el.style.paddingTop = savedPadTop;
+    el.style.paddingBottom = savedPadBottom;
+    el.style.marginBottom = savedMargin;
+    el.style.opacity = '1';
+    el.setAttribute('aria-hidden', 'false');
+    const ended = new Set();
+    let done = false;
+    const finalize = () => {
+      if (done) return; done = true;
+      el.style.transition = '';
+      el.style.height = '';
+      el.style.overflow = '';
+      el.style.willChange = '';
+      el.style.minHeight = '';
+      el.style.opacity = '';
+      el.style.marginBottom = '';
+      el.style.paddingTop = '';
+      el.style.paddingBottom = '';
+      el.removeEventListener('transitionend', onEnd);
+    };
+    const onEnd = (e) => {
+      if (!e || typeof e.propertyName !== 'string') return;
+      const p = e.propertyName.trim();
+      if (p === 'height' || p === 'padding-bottom') {
+        ended.add(p);
+        if (ended.has('height') && ended.has('padding-bottom')) finalize();
+      }
+    };
+    el.addEventListener('transitionend', onEnd);
+    const delay = (windowRef && typeof windowRef.setTimeout === 'function') ? windowRef.setTimeout.bind(windowRef) : setTimeout;
+    delay(finalize, Math.max(HEIGHT_MS, PADDING_MS) + BUFFER_MS);
+    return true;
+  } catch (_) {
+    try { fallback(el); } catch (__) {}
+    return true;
+  }
+}
+
+function hideElementNative(params = {}, windowRef = defaultWindow) {
+  const el = params.element;
+  const onDone = typeof params.onDone === 'function' ? params.onDone : null;
+  if (!el) { if (onDone) onDone(); return false; }
+  const fallback = typeof params.fallback === 'function' ? params.fallback : ((target, done) => {
+    if (!target) return;
+    target.style.display = 'none';
+    target.setAttribute('aria-hidden', 'true');
+    if (typeof done === 'function') done();
+  });
+  try {
+    const cs = windowRef && typeof windowRef.getComputedStyle === 'function'
+      ? windowRef.getComputedStyle(el)
+      : null;
+    if (!cs || cs.display === 'none') {
+      el.setAttribute('aria-hidden', 'true');
+      if (onDone) onDone();
+      return true;
+    }
+    if (prefersReducedMotion(windowRef)) {
+      fallback(el, onDone);
+      return true;
+    }
+    el.dataset.prevMarginBottom = cs.marginBottom;
+    el.dataset.prevPaddingTop = cs.paddingTop;
+    el.dataset.prevPaddingBottom = cs.paddingBottom;
+    el.dataset.prevMinHeight = cs.minHeight;
+    const startHeight = el.scrollHeight;
+    el.style.overflow = 'hidden';
+    el.style.minHeight = '0px';
+    el.style.height = startHeight + 'px';
+    el.style.marginBottom = cs.marginBottom;
+    el.style.paddingTop = cs.paddingTop;
+    el.style.paddingBottom = cs.paddingBottom;
+    el.style.opacity = '1';
+    el.style.willChange = 'height, margin-bottom, padding-top, padding-bottom, opacity';
+    void el.getBoundingClientRect();
+    const HEIGHT_MS = 240; const MARGIN_MS = 240; const PADDING_MS = 240; const OPACITY_MS = 180; const BUFFER_MS = 80;
+    el.style.transition = `height ${HEIGHT_MS}ms ease, margin-bottom ${MARGIN_MS}ms ease, padding-top ${PADDING_MS}ms ease, padding-bottom ${PADDING_MS}ms ease, opacity ${OPACITY_MS}ms ease-out`;
+    el.style.height = '0px';
+    el.style.marginBottom = '0px';
+    el.style.paddingTop = '0px';
+    el.style.paddingBottom = '0px';
+    el.style.opacity = '0';
+    el.setAttribute('aria-hidden', 'true');
+    let done = false;
+    const ended = new Set();
+    const finalize = () => {
+      if (done) return; done = true;
+      el.style.display = 'none';
+      el.style.transition = '';
+      el.style.height = '';
+      el.style.opacity = '';
+      el.style.overflow = '';
+      el.style.willChange = '';
+      el.style.minHeight = '';
+      el.style.marginBottom = '';
+      el.removeEventListener('transitionend', onEnd);
+      if (onDone) { try { onDone(); } catch (_) {} }
+    };
+    const onEnd = (e) => {
+      if (!e || typeof e.propertyName !== 'string') return;
+      const p = e.propertyName.trim();
+      if (p === 'height' || p === 'margin-bottom' || p === 'padding-bottom') {
+        ended.add(p);
+        if (ended.has('height') && ended.has('margin-bottom') && ended.has('padding-bottom')) finalize();
+      }
+    };
+    el.addEventListener('transitionend', onEnd);
+    const delay = (windowRef && typeof windowRef.setTimeout === 'function') ? windowRef.setTimeout.bind(windowRef) : setTimeout;
+    delay(finalize, Math.max(HEIGHT_MS, MARGIN_MS, PADDING_MS) + BUFFER_MS);
+    return true;
+  } catch (_) {
+    try { fallback(el, onDone); } catch (__) {}
+    return true;
+  }
+}
+
+function setImageSrcNoStore(img, src, windowRef = defaultWindow) {
+  try {
+    if (!img) return;
+    const val = String(src || '').trim();
+    if (!val) return;
+    const safeVal = sanitizeImageUrl(val);
+    if (!safeVal) return;
+    if (/^(data:|blob:)/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
+    let abs = safeVal;
+    try { abs = new URL(safeVal, windowRef && windowRef.location ? windowRef.location.href : undefined).toString(); } catch (_) {}
+    fetch(abs, { cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(b => {
+        const url = URL.createObjectURL(b);
+        try { const prev = img.dataset.blobUrl; if (prev) URL.revokeObjectURL(prev); } catch (_) {}
+        img.dataset.blobUrl = url;
+        img.setAttribute('src', url);
+      })
+      .catch(() => { img.setAttribute('src', safeVal); });
+  } catch (_) {
+    try { img.setAttribute('src', sanitizeImageUrl(src)); } catch (__) {}
+  }
+}
+
+function renderSiteLinksNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  const cfg = params.config;
+  const root = documentRef.querySelector('.site-card .social-links');
+  if (!root || !cfg) return false;
+  const linksVal = (cfg && (cfg.profileLinks || cfg.links)) || [];
+  let items = [];
+  if (Array.isArray(linksVal)) {
+    items = linksVal
+      .filter(x => x && x.href && x.label)
+      .map(x => ({ href: String(x.href), label: String(x.label) }));
+  } else if (linksVal && typeof linksVal === 'object') {
+    items = Object.entries(linksVal).map(([label, href]) => ({ label: String(label), href: String(href) }));
+  }
+  if (!items.length) { root.innerHTML = ''; return true; }
+  const sep = '<span class="link-sep">•</span>';
+  const anchors = items.map(({ href, label }) => `<a href="${escapeHtml(href)}" target="_blank" rel="me noopener">${escapeHtml(String(label || ''))}</a>`);
+  root.innerHTML = `<li>${anchors.join(sep)}</li>`;
+  return true;
+}
+
+function renderSiteIdentityNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return false;
+  const cfg = params.config;
+  if (!cfg) return false;
+  const pick = (val) => {
+    if (val == null) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object') {
+      const lang = getCurrentLang && getCurrentLang();
+      const langVal = (lang && val[lang]) || val.default || '';
+      return typeof langVal === 'string' ? langVal : '';
+    }
+    return '';
+  };
+  const title = pick(cfg.siteTitle);
+  const subtitle = pick(cfg.siteSubtitle);
+  const avatar = pick(cfg.avatar);
+  if (title) {
+    const el = documentRef.querySelector('.site-card .site-title');
+    if (el) el.textContent = title;
+    const fs = documentRef.querySelector('.footer-site');
+    if (fs) fs.textContent = title;
+  }
+  if (subtitle) {
+    const el2 = documentRef.querySelector('.site-card .site-subtitle');
+    if (el2) el2.textContent = subtitle;
+  }
+  if (avatar) {
+    const img = documentRef.querySelector('.site-card .avatar');
+    if (img) setImageSrcNoStore(img, avatar, windowRef);
+  }
+  return true;
+}
+
+function renderFooterNavNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return false;
+  const nav = documentRef.getElementById('footerNav');
+  if (!nav) return false;
+  const tabs = params.tabsBySlug || {};
+  const getHome = typeof params.getHomeSlug === 'function'
+    ? params.getHomeSlug
+    : () => getHomeSlug(tabs, windowRef);
+  const getLabel = typeof params.getHomeLabel === 'function'
+    ? params.getHomeLabel
+    : () => computeHomeLabel(getHome(), tabs);
+  const postsEnabledFn = typeof params.postsEnabled === 'function'
+    ? params.postsEnabled
+    : () => postsEnabled(windowRef);
+  const queryGetter = typeof params.getQueryVariable === 'function'
+    ? params.getQueryVariable
+    : (name) => getQueryVariable(name, windowRef);
+  const makeLangUrl = typeof params.withLangParam === 'function' ? params.withLangParam : withLangParam;
+  const translate = params.t || params.translate || t;
+
+  const homeSlug = (() => { try { return slugifyTab(getHome()) || 'posts'; } catch (_) { return 'posts'; }})();
+  const defaultTab = homeSlug || 'posts';
+  const currentTabRaw = queryGetter ? (queryGetter('tab') || (queryGetter('id') ? 'post' : defaultTab)) : defaultTab;
+  const currentTab = String(currentTabRaw || '').toLowerCase();
+  const makeLink = (href, label, cls = '') => `<a class="${cls}" href="${makeLangUrl(href)}">${escapeHtml(String(label || ''))}</a>`;
+  const isActive = (slug) => currentTab === slug;
+  let html = '';
+  const homeLabel = (() => {
+    try { const lbl = getLabel(); return lbl || computeHomeLabel(homeSlug, tabs); } catch (_) { return computeHomeLabel(homeSlug, tabs); }
+  })();
+  html += makeLink(`?tab=${encodeURIComponent(homeSlug)}`, homeLabel, isActive(homeSlug) ? 'active' : '');
+  if (postsEnabledFn() && homeSlug !== 'posts') {
+    html += ' ' + makeLink('?tab=posts', translate('ui.allPosts'), isActive('posts') ? 'active' : '');
+  }
+  for (const [slug, info] of Object.entries(tabs)) {
+    if (slug === homeSlug) continue;
+    const label = info && info.title ? info.title : slug;
+    html += ' ' + makeLink(`?tab=${encodeURIComponent(slug)}`, label, isActive(slug) ? 'active' : '');
+  }
+  nav.innerHTML = html;
+  return true;
+}
+
+function renderPostLoadingStateNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  const toc = params.tocElement || documentRef.getElementById('tocview');
+  const main = params.mainElement || documentRef.getElementById('mainview');
+  const translate = params.translator || params.t || t;
+  const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
+  const ensureAutoHeight = typeof params.ensureAutoHeight === 'function' ? params.ensureAutoHeight : (() => {});
+  const show = typeof params.showElement === 'function' ? params.showElement : ((el) => { if (el) { el.style.display = ''; el.setAttribute('aria-hidden', 'false'); } });
+
+  if (toc) {
+    toc.innerHTML = `<div class="toc-header"><span>${escapeHtml(translate('ui.contents'))}</span><span class="toc-loading">${escapeHtml(translate('ui.loading'))}</span></div>`
+      + '<ul class="toc-skeleton">'
+      + '<li><div class="skeleton-block skeleton-line w-90"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-80"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-85"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-70"></div></li>'
+      + '<li><div class="skeleton-block skeleton-line w-60"></div></li>'
+      + '</ul>';
+    show(toc);
+    ensureAutoHeight(toc);
+  }
+  if (main) main.innerHTML = renderSkeleton();
+  return true;
+}
+
+function renderStaticTabLoadingStateNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  const main = params.mainElement || documentRef.getElementById('mainview');
+  const renderSkeleton = typeof params.renderSkeletonArticle === 'function' ? params.renderSkeletonArticle : renderSkeletonArticle;
+  if (main) main.innerHTML = renderSkeleton();
+  return !!main;
+}
+
+function resolveCoverSource(value = {}, siteConfig = {}) {
+  let coverSrc = value && (value.thumb || value.cover || value.image);
+  if (coverSrc && typeof coverSrc === 'string' && !/^https?:\/\//i.test(coverSrc) && !coverSrc.startsWith('/') && !coverSrc.includes('/')) {
+    const baseLoc = value && value.location ? String(value.location) : '';
+    const lastSlash = baseLoc.lastIndexOf('/');
+    const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
+    coverSrc = (baseDir + coverSrc).replace(/\/+/, '/');
+  }
+  const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
+  return { coverSrc, useFallbackCover };
+}
+
+function renderIndexViewNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return false;
+  const container = params.container || documentRef.getElementById('mainview');
+  if (!container) return false;
+  const pageEntries = Array.isArray(params.pageEntries) ? params.pageEntries : [];
+  const totalPages = Math.max(1, parseInt(params.totalPages || 1, 10));
+  const page = Math.max(1, parseInt(params.page || 1, 10));
+  const translate = params.translate || params.t || t;
+  const makeLangUrl = typeof params.withLangParam === 'function' ? params.withLangParam : withLangParam;
+  const siteConfig = params.siteConfig || {};
+
+  let html = '<div class="index">';
+  for (const [key, value] of pageEntries) {
+    const tag = value ? renderTags(value.tag) : '';
+    const { coverSrc, useFallbackCover } = resolveCoverSource(value, siteConfig);
+    const cover = (value && coverSrc)
+      ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" data-src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
+      : (useFallbackCover ? fallbackCover(key) : '');
+    const hasDate = value && value.date;
+    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
+    const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
+    const versionsHtml = verCount > 1 ? `<span class="card-versions" title="${escapeHtml(translate('ui.versionLabel'))}">${escapeHtml(translate('ui.versionsCount', verCount))}</span>` : '';
+    const draftHtml = (value && value.draft) ? `<span class="card-draft">${escapeHtml(translate('ui.draftBadge'))}</span>` : '';
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (versionsHtml) parts.push(versionsHtml);
+    if (draftHtml) parts.push(draftHtml);
+    const metaInner = parts.join('<span class="card-sep">•</span>');
+    const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
+    html += `<a href="${href}" data-idx="${escapeHtml(encodeURIComponent(key))}">${cover}<div class="card-title">${escapeHtml(String(key || ''))}</div><div class="card-excerpt"></div><div class="card-meta">${metaInner}</div>${tag}</a>`;
+  }
+  html += '</div>';
+  if (totalPages > 1) {
+    const makeLink = (p, label, cls = '') => `<a class="${cls}" href="${makeLangUrl(`?tab=posts&page=${p}`)}">${escapeHtml(String(label || ''))}</a>`;
+    const makeSpan = (label, cls = '') => `<span class="${cls}">${escapeHtml(String(label || ''))}</span>`;
+    let pager = '<nav class="pagination" aria-label="Pagination">';
+    pager += (page > 1) ? makeLink(page - 1, translate('ui.prev'), 'page-prev') : makeSpan(translate('ui.prev'), 'page-prev disabled');
+    for (let i = 1; i <= totalPages; i++) {
+      pager += (i === page) ? `<span class="page-num active">${i}</span>` : makeLink(i, String(i), 'page-num');
+    }
+    pager += (page < totalPages) ? makeLink(page + 1, translate('ui.next'), 'page-next') : makeSpan(translate('ui.next'), 'page-next disabled');
+    pager += '</nav>';
+    html += pager;
+  }
+  container.innerHTML = html;
+  return true;
+}
+
+function updateCardMetadata(entries = [], context = {}) {
+  const documentRef = context.document || defaultDocument;
+  if (!documentRef) return;
+  const translate = context.translate || t;
+  const cards = Array.from(documentRef.querySelectorAll('.index a'));
+  entries.forEach(([title, meta], idx) => {
+    const loc = meta && meta.location ? String(meta.location) : '';
+    if (!loc) return;
+    const el = cards[idx];
+    if (!el) return;
+    const exEl = el.querySelector('.card-excerpt');
+    if (exEl && meta && meta.excerpt) {
+      try { exEl.textContent = String(meta.excerpt); } catch (_) {}
+    }
+    if (typeof context.getFile !== 'function' || typeof context.getContentRoot !== 'function' || typeof context.extractExcerpt !== 'function' || typeof context.computeReadTime !== 'function') return;
+    context.getFile(`${context.getContentRoot()}/${loc}`).then(md => {
+      const ex = context.extractExcerpt(md, 50);
+      if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
+      const minutes = context.computeReadTime(md, 200);
+      const metaEl = el.querySelector('.card-meta');
+      if (metaEl) {
+        const items = [];
+        const dateEl = metaEl.querySelector('.card-date');
+        if (dateEl && dateEl.textContent.trim()) items.push(dateEl.cloneNode(true));
+        const read = documentRef.createElement('span');
+        read.className = 'card-read';
+        read.textContent = `${minutes} ${translate('ui.minRead')}`;
+        items.push(read);
+        const verCount = (meta && Array.isArray(meta.versions)) ? meta.versions.length : 0;
+        if (verCount > 1) {
+          const v = documentRef.createElement('span');
+          v.className = 'card-versions';
+          v.setAttribute('title', translate('ui.versionLabel'));
+          v.textContent = translate('ui.versionsCount', verCount);
+          items.push(v);
+        }
+        if (meta && meta.draft) {
+          const d = documentRef.createElement('span');
+          d.className = 'card-draft';
+          d.textContent = translate('ui.draftBadge');
+          items.push(d);
+        }
+        metaEl.textContent = '';
+        items.forEach((node, nodeIdx) => {
+          if (nodeIdx > 0) {
+            const sep = documentRef.createElement('span');
+            sep.className = 'card-sep';
+            sep.textContent = '•';
+            metaEl.appendChild(sep);
+          }
+          metaEl.appendChild(node);
+        });
+      }
+      if (typeof context.updateMasonryItem === 'function') {
+        const container = documentRef.querySelector('.index');
+        if (container && el) context.updateMasonryItem(container, el);
+      }
+    }).catch(() => {});
+  });
+}
+
+function afterIndexRenderNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  updateCardMetadata(params.entries || [], { ...params, document: documentRef });
+  return true;
+}
+
+function renderSearchResultsNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef) return false;
+  const container = params.container || documentRef.getElementById('mainview');
+  if (!container) return false;
+  const entries = Array.isArray(params.entries) ? params.entries : [];
+  const total = parseInt(params.total || entries.length, 10);
+  const totalPages = Math.max(1, parseInt(params.totalPages || 1, 10));
+  const page = Math.max(1, parseInt(params.page || 1, 10));
+  const query = String(params.query || '');
+  const tagFilter = String(params.tagFilter || '');
+  const translate = params.translate || params.t || t;
+  const makeLangUrl = typeof params.withLangParam === 'function' ? params.withLangParam : withLangParam;
+  const siteConfig = params.siteConfig || {};
+
+  if (total === 0) {
+    const backHref = makeLangUrl(`?tab=${encodeURIComponent(typeof params.getHomeSlug === 'function' ? params.getHomeSlug() : getHomeSlug({}, windowRef))}`);
+    const backText = (typeof params.postsEnabled === 'function' ? params.postsEnabled() : postsEnabled(windowRef))
+      ? translate('ui.backToAllPosts')
+      : (translate('ui.backToHome') || translate('ui.backToAllPosts'));
+    container.innerHTML = `<div class="notice"><h3>${escapeHtml(translate('ui.noResultsTitle'))}</h3><p>${escapeHtml(translate('ui.noResultsBody', query))} <a href="${backHref}">${escapeHtml(backText)}</a>.</p></div>`;
+    return true;
+  }
+
+  let html = '<div class="index">';
+  for (const [key, value] of entries) {
+    const tag = value ? renderTags(value.tag) : '';
+    const { coverSrc, useFallbackCover } = resolveCoverSource(value, siteConfig);
+    const cover = (value && coverSrc)
+      ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" data-src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
+      : (useFallbackCover ? fallbackCover(key) : '');
+    const hasDate = value && value.date;
+    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
+    const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
+    const versionsHtml = verCount > 1 ? `<span class="card-versions" title="${escapeHtml(translate('ui.versionLabel'))}">${escapeHtml(translate('ui.versionsCount', verCount))}</span>` : '';
+    const draftHtml = (value && value.draft) ? `<span class="card-draft">${escapeHtml(translate('ui.draftBadge'))}</span>` : '';
+    const parts = [];
+    if (dateHtml) parts.push(dateHtml);
+    if (versionsHtml) parts.push(versionsHtml);
+    if (draftHtml) parts.push(draftHtml);
+    const metaInner = parts.join('<span class="card-sep">•</span>');
+    const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
+    html += `<a href="${href}" data-idx="${escapeHtml(encodeURIComponent(key))}">${cover}<div class="card-title">${escapeHtml(String(key || ''))}</div><div class="card-excerpt"></div><div class="card-meta">${metaInner}</div>${tag}</a>`;
+  }
+  html += '</div>';
+
+  if (totalPages > 1) {
+    const encQ = encodeURIComponent(query);
+    const makeLink = (p, label, cls = '') => `<a class="${cls}" href="${makeLangUrl(`?tab=search&q=${encQ}&page=${p}`)}">${escapeHtml(String(label || ''))}</a>`;
+    const makeSpan = (label, cls = '') => `<span class="${cls}">${escapeHtml(String(label || ''))}</span>`;
+    let pager = '<nav class="pagination" aria-label="Pagination">';
+    pager += (page > 1) ? makeLink(page - 1, translate('ui.prev'), 'page-prev') : makeSpan(translate('ui.prev'), 'page-prev disabled');
+    for (let i = 1; i <= totalPages; i++) {
+      pager += (i === page) ? `<span class="page-num active">${i}</span>` : makeLink(i, String(i), 'page-num');
+    }
+    pager += (page < totalPages) ? makeLink(page + 1, translate('ui.next'), 'page-next') : makeSpan(translate('ui.next'), 'page-next disabled');
+    pager += '</nav>';
+    html += pager;
+  }
+
+  container.innerHTML = html;
+  return true;
+}
+
+function afterSearchRenderNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  updateCardMetadata(params.entries || [], { ...params, document: documentRef });
+  return true;
+}
 
 function getHomeSlug(tabs, windowRef = defaultWindow) {
   if (windowRef && typeof windowRef.__ns_get_home_slug === 'function') {
@@ -198,18 +711,33 @@ function renderTabsNative(params = {}) {
   const activeSlug = params.activeSlug;
   const searchQuery = params.searchQuery;
 
-  const homeSlug = getHomeSlug(tabs, windowRef);
-  const homeLabel = computeHomeLabel(homeSlug, tabs);
+  const getHomeFn = typeof params.getHomeSlug === 'function'
+    ? params.getHomeSlug
+    : () => getHomeSlug(tabs, windowRef);
+  let homeSlugRaw;
+  try { homeSlugRaw = getHomeFn(); } catch (_) { homeSlugRaw = getHomeSlug(tabs, windowRef); }
+  const safeHome = slugifyTab(homeSlugRaw);
+  const homeSlug = safeHome || homeSlugRaw || 'posts';
+  const getHomeLabelFn = typeof params.getHomeLabel === 'function'
+    ? params.getHomeLabel
+    : () => computeHomeLabel(homeSlugRaw || homeSlug, tabs);
+  let homeLabel;
+  try { homeLabel = getHomeLabelFn(); } catch (_) { homeLabel = computeHomeLabel(homeSlugRaw || homeSlug, tabs); }
+  if (!homeLabel) homeLabel = computeHomeLabel(homeSlugRaw || homeSlug, tabs);
+  const postsEnabledFn = typeof params.postsEnabled === 'function'
+    ? params.postsEnabled
+    : () => postsEnabled(windowRef);
+  const makeLangUrl = typeof params.withLangParam === 'function' ? params.withLangParam : withLangParam;
 
   const make = (slug, label) => {
     const safeSlug = slugifyTab(slug) || slug;
-    const href = withLangParam(`?tab=${encodeURIComponent(safeSlug)}`);
+    const href = makeLangUrl(`?tab=${encodeURIComponent(safeSlug)}`);
     return `<a class="tab${activeSlug === slug ? ' active' : ''}" data-slug="${escapeHtml(safeSlug)}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
   };
 
   let html = '';
   html += make(homeSlug, homeLabel);
-  if (postsEnabled(windowRef) && homeSlug !== 'posts') {
+  if (postsEnabledFn() && homeSlug !== 'posts') {
     html += make('posts', t('ui.allPosts'));
   }
   for (const [slug, info] of Object.entries(tabs)) {
@@ -223,7 +751,7 @@ function renderTabsNative(params = {}) {
     const sp = new URLSearchParams(search);
     const tag = (sp.get('tag') || '').trim();
     const q = (sp.get('q') || String(searchQuery || '')).trim();
-    const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+    const href = makeLangUrl(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
     const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
     html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
   } else if (activeSlug === 'post') {
@@ -259,7 +787,7 @@ function renderTabsNative(params = {}) {
       const sp = new URLSearchParams(search);
       const tag = (sp.get('tag') || '').trim();
       const q = (sp.get('q') || String(searchQuery || '')).trim();
-      const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+      const href = makeLangUrl(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
       const label = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
       compact += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
     } else if (activeSlug === 'post') {
@@ -283,7 +811,7 @@ function renderTabsNative(params = {}) {
         const q = (sp.get('q') || String(searchQuery || '')).trim();
         const labelRaw = tag ? t('ui.tagSearch', tag) : (q ? t('titles.search', q) : t('ui.searchTab'));
         const label = escapeHtml(labelRaw.length > 16 ? `${labelRaw.slice(0, 13)}…` : labelRaw);
-        const href = withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
+        const href = makeLangUrl(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (q ? `&q=${encodeURIComponent(q)}` : '')}`);
         compact = make(homeSlug, homeLabel) + `<a class="tab active" data-slug="search" href="${href}">${label}</a>`;
       }
     }
@@ -451,11 +979,22 @@ export function mount(context = {}) {
   }
 
   const hooks = (windowRef && windowRef.__ns_themeHooks) || {};
+  hooks.showElement = (params = {}) => showElementNative(params, windowRef);
+  hooks.hideElement = (params = {}) => hideElementNative(params, windowRef);
+  hooks.renderSiteLinks = (params = {}) => renderSiteLinksNative(params, documentRef);
+  hooks.renderSiteIdentity = (params = {}) => renderSiteIdentityNative(params, documentRef, windowRef);
+  hooks.renderFooterNav = (params = {}) => renderFooterNavNative(params, documentRef, windowRef);
   hooks.renderTabs = (params = {}) => renderTabsNative({ ...params, window: windowRef, document: documentRef });
   hooks.updateTabHighlight = (nav) => updateMovingHighlight(nav, windowRef, documentRef);
   hooks.ensureTabOverlay = (nav) => ensureHighlightOverlay(nav, documentRef);
   hooks.setupResponsiveTabsObserver = (params = {}) => setupResponsiveTabsObserverNative({ ...params, window: windowRef, document: documentRef });
   hooks.onTabClick = (tab) => addTabClickAnimation(tab, windowRef);
+  hooks.renderPostLoadingState = (params = {}) => renderPostLoadingStateNative(params, documentRef);
+  hooks.renderStaticTabLoadingState = (params = {}) => renderStaticTabLoadingStateNative(params, documentRef);
+  hooks.renderIndexView = (params = {}) => renderIndexViewNative(params, documentRef, windowRef);
+  hooks.afterIndexRender = (params = {}) => afterIndexRenderNative(params, documentRef);
+  hooks.renderSearchResults = (params = {}) => renderSearchResultsNative(params, documentRef, windowRef);
+  hooks.afterSearchRender = (params = {}) => afterSearchRenderNative(params, documentRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
   return context;

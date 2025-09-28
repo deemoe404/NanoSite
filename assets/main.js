@@ -13,7 +13,7 @@ import { fetchConfigWithYamlFallback } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips, attachHoverTooltip } from './js/tags.js';
 import { renderPostNav } from './js/post-nav.js';
-import { prefersReducedMotion, getArticleTitleFromMain } from './js/dom-utils.js';
+import { getArticleTitleFromMain } from './js/dom-utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from './js/templates.js';
 import { applyLangHints } from './js/typography.js';
 
@@ -53,133 +53,40 @@ function callThemeHook(name, ...args) {
   try { return fn(...args); } catch (_) { return undefined; }
 }
 
-// --- UI helpers: smooth show/hide (height + opacity) ---
+// --- UI helpers: smooth show/hide delegated to theme ---
+
+function basicShow(el) {
+  if (!el) return;
+  el.style.display = '';
+  el.style.removeProperty('overflow');
+  el.style.removeProperty('height');
+  el.setAttribute('aria-hidden', 'false');
+}
+
+function basicHide(el) {
+  if (!el) return;
+  el.style.display = 'none';
+  el.style.removeProperty('overflow');
+  el.style.removeProperty('height');
+  el.setAttribute('aria-hidden', 'true');
+}
 
 function smoothShow(el) {
   if (!el) return;
-  const cs = window.getComputedStyle(el);
-  if (cs.display !== 'none') { el.setAttribute('aria-hidden', 'false'); return; }
-  if (prefersReducedMotion()) { el.style.display = 'block'; el.setAttribute('aria-hidden', 'false'); return; }
-  // Restore margin/padding if previously saved, else use computed
-  const savedMargin = el.dataset.prevMarginBottom || cs.marginBottom || '1.25rem';
-  const savedPadTop = el.dataset.prevPaddingTop || cs.paddingTop || '1.25rem';
-  const savedPadBottom = el.dataset.prevPaddingBottom || cs.paddingBottom || '1.25rem';
-  // Persist for next cycle
-  el.dataset.prevPaddingTop = savedPadTop;
-  el.dataset.prevPaddingBottom = savedPadBottom;
-  const prevMin = cs.minHeight;
-  el.dataset.prevMinHeight = prevMin;
-  el.style.display = 'block';
-  el.style.overflow = 'hidden';
-  el.style.minHeight = '0px';
-  // Start with collapsed paddings and size
-  el.style.paddingTop = '0px';
-  el.style.paddingBottom = '0px';
-  el.style.height = '0px';
-  el.style.marginBottom = '0px';
-  el.style.opacity = '0';
-  el.style.willChange = 'height, margin-bottom, padding-top, padding-bottom, opacity';
-  // Measure target height including padding: temporarily set paddings
-  el.style.paddingTop = savedPadTop;
-  el.style.paddingBottom = savedPadBottom;
-  void el.getBoundingClientRect();
-  const target = el.scrollHeight;
-  // Reset to collapsed paddings before animating
-  el.style.paddingTop = '0px';
-  el.style.paddingBottom = '0px';
-  // Animate
-  const HEIGHT_MS = 240; const MARGIN_MS = 240; const PADDING_MS = 240; const OPACITY_MS = 180; const BUFFER_MS = 80;
-  el.style.transition = `height ${HEIGHT_MS}ms ease, margin-bottom ${MARGIN_MS}ms ease, padding-top ${PADDING_MS}ms ease, padding-bottom ${PADDING_MS}ms ease, opacity ${OPACITY_MS}ms ease-out`;
-  el.style.height = target + 'px';
-  el.style.paddingTop = savedPadTop;
-  el.style.paddingBottom = savedPadBottom;
-  el.style.marginBottom = savedMargin;
-  el.style.opacity = '1';
-  el.setAttribute('aria-hidden', 'false');
-  const ended = new Set();
-  let done = false;
-  const finalize = () => {
-    if (done) return; done = true;
-    el.style.transition = '';
-    el.style.height = '';
-    el.style.overflow = '';
-    el.style.willChange = '';
-    el.style.minHeight = '';
-    el.style.opacity = '';
-    el.style.marginBottom = '';
-    el.style.paddingTop = '';
-    el.style.paddingBottom = '';
-    el.removeEventListener('transitionend', onEnd);
-  };
-  const onEnd = (e) => {
-    if (!e || typeof e.propertyName !== 'string') return;
-    const p = e.propertyName.trim();
-    if (p === 'height' || p === 'padding-bottom') {
-      ended.add(p);
-      if (ended.has('height') && ended.has('padding-bottom')) finalize();
-    }
-  };
-  el.addEventListener('transitionend', onEnd);
-  // Fallback in case a transitionend is missed
-  setTimeout(finalize, Math.max(HEIGHT_MS, PADDING_MS) + BUFFER_MS);
+  const handled = callThemeHook('showElement', { element: el, fallback: basicShow });
+  if (!handled) basicShow(el);
 }
 
 function smoothHide(el, onDone) {
-  if (!el) return;
-  const cs = window.getComputedStyle(el);
-  if (cs.display === 'none') { el.setAttribute('aria-hidden', 'true'); if (typeof onDone === 'function') onDone(); return; }
-  if (prefersReducedMotion()) { el.style.display = 'none'; el.setAttribute('aria-hidden', 'true'); if (typeof onDone === 'function') onDone(); return; }
-  // Save current margin-bottom to restore on show
-  el.dataset.prevMarginBottom = cs.marginBottom;
-  el.dataset.prevPaddingTop = cs.paddingTop;
-  el.dataset.prevPaddingBottom = cs.paddingBottom;
-  const prevMin = cs.minHeight;
-  el.dataset.prevMinHeight = prevMin;
-  const startHeight = el.scrollHeight;
-  el.style.overflow = 'hidden';
-  el.style.minHeight = '0px';
-  el.style.height = startHeight + 'px';
-  el.style.marginBottom = cs.marginBottom;
-  el.style.paddingTop = cs.paddingTop;
-  el.style.paddingBottom = cs.paddingBottom;
-  el.style.opacity = '1';
-  el.style.willChange = 'height, margin-bottom, padding-top, padding-bottom, opacity';
-  // Reflow then collapse
-  void el.getBoundingClientRect();
-  const HEIGHT_MS = 240; const MARGIN_MS = 240; const PADDING_MS = 240; const OPACITY_MS = 180; const BUFFER_MS = 80;
-  el.style.transition = `height ${HEIGHT_MS}ms ease, margin-bottom ${MARGIN_MS}ms ease, padding-top ${PADDING_MS}ms ease, padding-bottom ${PADDING_MS}ms ease, opacity ${OPACITY_MS}ms ease-out`;
-  el.style.height = '0px';
-  el.style.marginBottom = '0px';
-  el.style.paddingTop = '0px';
-  el.style.paddingBottom = '0px';
-  el.style.opacity = '0';
-  el.setAttribute('aria-hidden', 'true');
-  let done = false;
-  const ended = new Set();
-  const finalize = () => {
-    if (done) return; done = true;
-    el.style.display = 'none';
-    el.style.transition = '';
-    el.style.height = '';
-    el.style.opacity = '';
-    el.style.overflow = '';
-    el.style.willChange = '';
-    el.style.minHeight = '';
-    el.style.marginBottom = '';
-    el.removeEventListener('transitionend', onEnd);
-    if (typeof onDone === 'function') try { onDone(); } catch (_) {}
-  };
-  const onEnd = (e) => {
-    if (!e || typeof e.propertyName !== 'string') return;
-    const p = e.propertyName.trim();
-    if (p === 'height' || p === 'margin-bottom' || p === 'padding-bottom') {
-      ended.add(p);
-      if (ended.has('height') && ended.has('margin-bottom') && ended.has('padding-bottom')) finalize();
-    }
-  };
-  el.addEventListener('transitionend', onEnd);
-  // Fallback in case transitionend is missed on some properties
-  setTimeout(finalize, Math.max(HEIGHT_MS, MARGIN_MS, PADDING_MS) + BUFFER_MS);
+  if (!el) { if (typeof onDone === 'function') onDone(); return; }
+  const handled = callThemeHook('hideElement', { element: el, onDone, fallback: (target, done) => {
+    basicHide(target);
+    if (typeof done === 'function') done();
+  } });
+  if (!handled) {
+    basicHide(el);
+    if (typeof onDone === 'function') onDone();
+  }
 }
 
 // Global delegate for version selector changes to survive re-renders
@@ -287,83 +194,23 @@ async function loadSiteConfig() {
   } catch (_) { return {}; }
 }
 
-// For critical UI images (like avatar), fetch with no-store and set a blob URL
-function setImageSrcNoStore(img, src) {
-  try {
-    if (!img) return;
-    const val = String(src || '').trim();
-    if (!val) return;
-    // Sanitize before applying
-    const safeVal = sanitizeImageUrl(val);
-    if (!safeVal) return;
-    // data:/blob:/absolute URLs — leave as-is
-    if (/^(data:|blob:)/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
-    if (/^[a-z][a-z0-9+.-]*:/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
-    // Relative or same-origin absolute: fetch fresh and use an object URL
-    let abs = safeVal;
-    try { abs = new URL(safeVal, window.location.href).toString(); } catch (_) {}
-    fetch(abs, { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-      .then(b => {
-        const url = URL.createObjectURL(b);
-        try { const prev = img.dataset.blobUrl; if (prev) URL.revokeObjectURL(prev); } catch (_) {}
-        img.dataset.blobUrl = url;
-        img.setAttribute('src', url);
-      })
-      .catch(() => { img.setAttribute('src', safeVal); });
-  } catch (_) { try { img.setAttribute('src', sanitizeImageUrl(src)); } catch(__) {} }
-}
-
 function renderSiteLinks(cfg) {
   try {
-    const root = document.querySelector('.site-card .social-links');
-    if (!root) return;
-    const linksVal = (cfg && (cfg.profileLinks || cfg.links)) || [];
-    let items = [];
-    if (Array.isArray(linksVal)) {
-      items = linksVal
-        .filter(x => x && x.href && x.label)
-        .map(x => ({ href: String(x.href), label: String(x.label) }));
-    } else if (linksVal && typeof linksVal === 'object') {
-      items = Object.entries(linksVal).map(([label, href]) => ({ label: String(label), href: String(href) }));
-    }
-    if (!items.length) return;
-    const sep = '<span class="link-sep">•</span>';
-    const anchors = items.map(({ href, label }) => `<a href="${escapeHtml(href)}" target="_blank" rel="me noopener">${escapeHtml(label)}</a>`);
-    root.innerHTML = `<li>${anchors.join(sep)}</li>`;
+    callThemeHook('renderSiteLinks', {
+      config: cfg,
+      document,
+      window
+    });
   } catch (_) { /* noop */ }
 }
 
 function renderSiteIdentity(cfg) {
   try {
-    if (!cfg) return;
-    const pick = (val) => {
-      if (val == null) return '';
-      if (typeof val === 'string') return val;
-      if (typeof val === 'object') {
-        const lang = getCurrentLang && getCurrentLang();
-        const langVal = (lang && val[lang]) || val.default || '';
-        return typeof langVal === 'string' ? langVal : '';
-      }
-      return '';
-    };
-    const title = pick(cfg.siteTitle);
-    const subtitle = pick(cfg.siteSubtitle);
-    const avatar = pick(cfg.avatar);
-    if (title) {
-      const el = document.querySelector('.site-card .site-title');
-      if (el) el.textContent = title;
-      const fs = document.querySelector('.footer-site');
-      if (fs) fs.textContent = title;
-    }
-    if (subtitle) {
-      const el2 = document.querySelector('.site-card .site-subtitle');
-      if (el2) el2.textContent = subtitle;
-    }
-    if (avatar) {
-      const img = document.querySelector('.site-card .avatar');
-      if (img) setImageSrcNoStore(img, avatar);
-    }
+    callThemeHook('renderSiteIdentity', {
+      config: cfg,
+      document,
+      window
+    });
   } catch (_) { /* noop */ }
 }
 
@@ -496,96 +343,31 @@ function sequentialLoadCovers(container, maxConcurrent = 1) {
 // RenderOutdatedCard moved to ./js/templates.js
 
 function renderTabs(activeSlug, searchQuery) {
-  const themeRenderer = getThemeHook('renderTabs');
-  if (themeRenderer) {
-    themeRenderer({
-      activeSlug,
-      searchQuery,
-      tabsBySlug,
-      document,
-      window
-    });
-    return;
-  }
-
-  const nav = document.getElementById('tabsNav');
-  if (!nav) return;
-
-  const homeSlug = getHomeSlug();
-  const homeLabel = getHomeLabel();
-  const make = (slug, label, isActive) => {
-    const safeSlug = slugifyTab(slug) || slug;
-    const href = withLangParam(`?tab=${encodeURIComponent(safeSlug)}`);
-    return `<a class="tab${isActive ? ' active' : ''}" data-slug="${escapeHtml(safeSlug)}" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-  };
-
-  let html = '';
-  html += make(homeSlug, homeLabel, activeSlug === homeSlug);
-  if (postsEnabled() && homeSlug !== 'posts') {
-    html += make('posts', t('ui.allPosts'), activeSlug === 'posts');
-  }
-  for (const [slug, info] of Object.entries(tabsBySlug)) {
-    if (slug === homeSlug) continue;
-    const label = info && info.title ? info.title : slug;
-    html += make(slug, label, activeSlug === slug);
-  }
-
-  if (activeSlug === 'search') {
-    const labelRaw = (() => {
-      try {
-        const sp = new URLSearchParams(window.location.search);
-        const tag = (sp.get('tag') || '').trim();
-        const q = (sp.get('q') || '').trim();
-        if (tag) return t('ui.tagSearch', tag);
-        if (q) return t('titles.search', q);
-      } catch (_) {}
-      return t('ui.searchTab');
-    })();
-    const label = searchQuery ? String(searchQuery) : labelRaw;
-    const href = (() => {
-      try {
-        const sp = new URLSearchParams(window.location.search);
-        const tag = (sp.get('tag') || '').trim();
-        const q = (sp.get('q') || '').trim();
-        const effectiveQ = q || (searchQuery ? String(searchQuery) : '');
-        return withLangParam(`?tab=search${tag ? `&tag=${encodeURIComponent(tag)}` : (effectiveQ ? `&q=${encodeURIComponent(effectiveQ)}` : '')}`);
-      } catch (_) {
-        return withLangParam('?tab=search');
-      }
-    })();
-    html += `<a class="tab active" data-slug="search" href="${href}">${escapeHtml(String(label || ''))}</a>`;
-  } else if (activeSlug === 'post') {
-    const raw = String(searchQuery || t('ui.postTab') || '').trim();
-    const label = raw || t('ui.postTab');
-    html += `<span class="tab active" data-slug="post">${escapeHtml(String(label || ''))}</span>`;
-  }
-
-  nav.innerHTML = `<div class="tabs-track">${html}</div>`;
+  callThemeHook('renderTabs', {
+    activeSlug,
+    searchQuery,
+    tabsBySlug,
+    getHomeSlug: () => getHomeSlug(),
+    getHomeLabel: () => getHomeLabel(),
+    postsEnabled: () => postsEnabled(),
+    document,
+    window
+  });
 }
 
 // Render footer navigation: Home (All Posts) + custom tabs
 function renderFooterNav() {
-  const nav = document.getElementById('footerNav');
-  if (!nav) return;
-  const defaultTab = getHomeSlug();
-  const currentTab = (getQueryVariable('tab') || (getQueryVariable('id') ? 'post' : defaultTab)).toLowerCase();
-  const make = (href, label, cls = '') => `<a class="${cls}" href="${withLangParam(href)}">${label}</a>`;
-  const isActive = (slug) => currentTab === slug;
-  let html = '';
-  const homeSlug = getHomeSlug();
-  const homeLabel = getHomeLabel();
-  html += make(`?tab=${encodeURIComponent(homeSlug)}`, homeLabel, isActive(homeSlug) ? 'active' : '');
-  if (postsEnabled() && homeSlug !== 'posts') {
-    html += ' ' + make('?tab=posts', t('ui.allPosts'), isActive('posts') ? 'active' : '');
-  }
-  // (Search link intentionally omitted in footer)
-  for (const [slug, info] of Object.entries(tabsBySlug)) {
-    if (slug === homeSlug) continue;
-    const href = `?tab=${encodeURIComponent(slug)}`;
-    const label = info && info.title ? info.title : slug;
-    html += ' ' + make(href, label, isActive(slug) ? 'active' : '');
-  }
-  nav.innerHTML = html;
+  callThemeHook('renderFooterNav', {
+    tabsBySlug,
+    getHomeSlug: () => getHomeSlug(),
+    getHomeLabel: () => getHomeLabel(),
+    postsEnabled: () => postsEnabled(),
+    getQueryVariable,
+    withLangParam,
+    t,
+    document,
+    window
+  });
 }
 
 function displayPost(postname) {
@@ -602,20 +384,26 @@ function displayPost(postname) {
   
   // Loading state for post view
   const toc = document.getElementById('tocview');
-  if (toc) {
-  toc.innerHTML = `<div class=\"toc-header\"><span>${t('ui.contents')}</span><span style=\"font-size:.85rem; color: var(--muted);\">${t('ui.loading')}</span></div>`
-      + '<ul class="toc-skeleton">'
-      + '<li><div class="skeleton-block skeleton-line w-90"></div></li>'
-      + '<li><div class="skeleton-block skeleton-line w-80"></div></li>'
-      + '<li><div class="skeleton-block skeleton-line w-85"></div></li>'
-      + '<li><div class="skeleton-block skeleton-line w-70"></div></li>'
-      + '<li><div class="skeleton-block skeleton-line w-60"></div></li>'
-      + '</ul>';
-  smoothShow(toc);
-  ensureAutoHeight(toc);
-  }
   const main = document.getElementById('mainview');
-  if (main) main.innerHTML = renderSkeletonArticle();
+  const handledLoading = callThemeHook('renderPostLoadingState', {
+    tocElement: toc,
+    mainElement: main,
+    translator: t,
+    renderSkeletonArticle,
+    ensureAutoHeight,
+    showElement: basicShow,
+    hideElement: basicHide,
+    document,
+    window
+  });
+  if (!handledLoading) {
+    if (toc) {
+      toc.innerHTML = '';
+      smoothShow(toc);
+      ensureAutoHeight(toc);
+    }
+    if (main) main.innerHTML = renderSkeletonArticle();
+  }
 
   return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
@@ -807,58 +595,32 @@ function displayIndex(parsed) {
   const end = start + PAGE_SIZE;
   const pageEntries = entries.slice(start, end);
 
-  let html = '<div class="index">';
-  for (const [key, value] of pageEntries) {
-    const tag = value ? renderTags(value.tag) : '';
-    // Prefer a smaller thumbnail if provided: `thumb` or `cover`; fallback to `image`
-    let coverSrc = value && (value.thumb || value.cover || value.image);
-  if (coverSrc && typeof coverSrc === 'string' && !/^https?:\/\//i.test(coverSrc) && !coverSrc.startsWith('/') && !coverSrc.includes('/')) {
-      const baseLoc = value && value.location ? String(value.location) : '';
-      const lastSlash = baseLoc.lastIndexOf('/');
-      const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
-      coverSrc = (baseDir + coverSrc).replace(/\/+/, '/');
-    }
-    const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
-    const cover = (value && coverSrc)
-      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${escapeHtml(cardImageSrc(coverSrc))}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
-      : (useFallbackCover ? fallbackCover(key) : '');
-    // pre-render meta line with date if available; read time appended after fetch
-    const hasDate = value && value.date;
-    const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
-    const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
-    const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
-    const draftHtml = (value && value.draft) ? `<span class=\"card-draft\">${t('ui.draftBadge')}</span>` : '';
-    const parts = [];
-    if (dateHtml) parts.push(dateHtml);
-    if (versionsHtml) parts.push(versionsHtml);
-    if (draftHtml) parts.push(draftHtml);
-    const metaInner = parts.join('<span class=\"card-sep\">•</span>');
-    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
-  }
-  html += '</div>';
-  // Pagination controls
-  if (totalPages > 1) {
-    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=posts&page=${p}`)}\">${label}</a>`;
-    const makeSpan = (label, cls = '') => `<span class=\"${cls}\">${label}</span>`;
-    let pager = '<nav class="pagination" aria-label="Pagination">';
-    pager += (page > 1) ? makeLink(page - 1, t('ui.prev'), 'page-prev') : makeSpan(t('ui.prev'), 'page-prev disabled');
-    for (let i = 1; i <= totalPages; i++) {
-      pager += (i === page) ? `<span class=\"page-num active\">${i}</span>` : makeLink(i, String(i), 'page-num');
-    }
-    pager += (page < totalPages) ? makeLink(page + 1, t('ui.next'), 'page-next') : makeSpan(t('ui.next'), 'page-next disabled');
-    pager += '</nav>';
-    html += pager;
-  }
-  document.getElementById('mainview').innerHTML = html;
+  const mainview = document.getElementById('mainview');
+  const handled = callThemeHook('renderIndexView', {
+    container: mainview,
+    entries,
+    pageEntries,
+    page,
+    total,
+    totalPages,
+    pageSize: PAGE_SIZE,
+    siteConfig,
+    withLangParam,
+    translate: t,
+    getHomeSlug: () => getHomeSlug(),
+    postsEnabled: () => postsEnabled(),
+    window,
+    document
+  });
+  if (!handled && mainview) mainview.innerHTML = '';
+
   hydrateCardCovers('#mainview');
   applyLazyLoadingIn('#mainview');
-  // Check potential large thumbnails on index view
   try {
     const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
     warnLargeImagesIn('#mainview', cfg);
   } catch (_) {}
   sequentialLoadCovers('#mainview', 1);
-  // Apply masonry layout after initial paint
   requestAnimationFrame(() => applyMasonry('.index'));
 
   setupSearch(entries);
@@ -870,61 +632,17 @@ function displayIndex(parsed) {
   if (tagBox) smoothShow(tagBox);
   setDocTitle(t('titles.allPosts'));
 
-  const cards = Array.from(document.querySelectorAll('.index a'));
-  pageEntries.forEach(([title, meta], idx) => {
-    const loc = meta && meta.location ? String(meta.location) : '';
-    if (!loc) return;
-    const el = cards[idx];
-    if (!el) return;
-    const exEl = el.querySelector('.card-excerpt');
-    // Prefer explicit excerpt from index.yaml when available
-    if (exEl && meta && meta.excerpt) {
-      try { exEl.textContent = String(meta.excerpt); } catch (_) {}
-    }
-    getFile(`${getContentRoot()}/${loc}`).then(md => {
-      const ex = extractExcerpt(md, 50);
-      // Only set excerpt from markdown if no explicit excerpt in metadata
-      if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
-      // compute and render read time
-      const minutes = computeReadTime(md, 200);
-      const metaEl = el.querySelector('.card-meta');
-      if (metaEl) {
-        const items = [];
-        const dateEl = metaEl.querySelector('.card-date');
-        if (dateEl && dateEl.textContent.trim()) items.push(dateEl.cloneNode(true));
-        const read = document.createElement('span');
-        read.className = 'card-read';
-        read.textContent = `${minutes} ${t('ui.minRead')}`;
-        items.push(read);
-        const verCount = (meta && Array.isArray(meta.versions)) ? meta.versions.length : 0;
-        if (verCount > 1) {
-          const v = document.createElement('span');
-          v.className = 'card-versions';
-          v.setAttribute('title', t('ui.versionLabel'));
-          v.textContent = t('ui.versionsCount', verCount);
-          items.push(v);
-        }
-        if (meta && meta.draft) {
-          const d = document.createElement('span');
-          d.className = 'card-draft';
-          d.textContent = t('ui.draftBadge');
-          items.push(d);
-        }
-        metaEl.textContent = '';
-        items.forEach((node, idx) => {
-          if (idx > 0) {
-            const sep = document.createElement('span');
-            sep.className = 'card-sep';
-            sep.textContent = '•';
-            metaEl.appendChild(sep);
-          }
-          metaEl.appendChild(node);
-        });
-      }
-  // Recompute masonry span for the updated card
-  const container = document.querySelector('.index');
-  if (container && el) updateMasonryItem(container, el);
-    }).catch(() => {});
+  callThemeHook('afterIndexRender', {
+    entries: pageEntries,
+    translate: t,
+    getFile,
+    getContentRoot,
+    extractExcerpt,
+    computeReadTime,
+    document,
+    window,
+    updateMasonryItem,
+    siteConfig
   });
 }
 
@@ -963,56 +681,27 @@ function displaySearch(query) {
   const end = start + PAGE_SIZE;
   const pageEntries = filtered.slice(start, end);
 
-  let html = '<div class="index">';
-  for (const [key, value] of pageEntries) {
-    const tag = value ? renderTags(value.tag) : '';
-    let coverSrc = value && (value.thumb || value.cover || value.image);
-  if (coverSrc && typeof coverSrc === 'string' && !/^https?:\/\//i.test(coverSrc) && !coverSrc.startsWith('/') && !coverSrc.includes('/')) {
-      const baseLoc = value && value.location ? String(value.location) : '';
-      const lastSlash = baseLoc.lastIndexOf('/');
-      const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
-      coverSrc = (baseDir + coverSrc).replace(/\/+/, '/');
-    }
-    const useFallbackCover = !(siteConfig && siteConfig.cardCoverFallback === false);
-    const cover = (value && coverSrc)
-      ? `<div class=\"card-cover-wrap\"><div class=\"ph-skeleton\" aria-hidden=\"true\"></div><img class=\"card-cover\" alt=\"${key}\" data-src=\"${escapeHtml(cardImageSrc(coverSrc))}\" loading=\"lazy\" decoding=\"async\" fetchpriority=\"low\" width=\"1600\" height=\"1000\"></div>`
-      : (useFallbackCover ? fallbackCover(key) : '');
-    const hasDate = value && value.date;
-    const dateHtml = hasDate ? `<span class=\"card-date\">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
-    const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
-    const versionsHtml = verCount > 1 ? `<span class=\"card-versions\" title=\"${t('ui.versionLabel')}\">${t('ui.versionsCount', verCount)}</span>` : '';
-    const draftHtml = (value && value.draft) ? `<span class=\"card-draft\">${t('ui.draftBadge')}</span>` : '';
-    const parts = [];
-    if (dateHtml) parts.push(dateHtml);
-    if (versionsHtml) parts.push(versionsHtml);
-    if (draftHtml) parts.push(draftHtml);
-    const metaInner = parts.join('<span class=\"card-sep\">•</span>');
-    html += `<a href=\"${withLangParam(`?id=${encodeURIComponent(value['location'])}`)}\" data-idx=\"${encodeURIComponent(key)}\">${cover}<div class=\"card-title\">${key}</div><div class=\"card-excerpt\"></div><div class=\"card-meta\">${metaInner}</div>${tag}</a>`;
-  }
-  html += '</div>';
+  const mainview = document.getElementById('mainview');
+  const handled = callThemeHook('renderSearchResults', {
+    container: mainview,
+    entries: pageEntries,
+    total,
+    page,
+    totalPages,
+    query: q,
+    tagFilter,
+    siteConfig,
+    withLangParam,
+    translate: t,
+    getHomeSlug: () => getHomeSlug(),
+    postsEnabled: () => postsEnabled(),
+    window,
+    document
+  });
+  if (!handled && mainview) mainview.innerHTML = '';
 
-  if (total === 0) {
-    const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
-    const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
-    html = `<div class=\"notice\"><h3>${t('ui.noResultsTitle')}</h3><p>${t('ui.noResultsBody', escapeHtml(q))} <a href=\"${backHref}\">${backText}</a>.</p></div>`;
-  } else if (totalPages > 1) {
-    const encQ = encodeURIComponent(q);
-    const makeLink = (p, label, cls = '') => `<a class=\"${cls}\" href=\"${withLangParam(`?tab=search&q=${encQ}&page=${p}`)}\">${label}</a>`;
-    const makeSpan = (label, cls = '') => `<span class=\"${cls}\">${label}</span>`;
-    let pager = '<nav class="pagination" aria-label="Pagination">';
-    pager += (page > 1) ? makeLink(page - 1, t('ui.prev'), 'page-prev') : makeSpan(t('ui.prev'), 'page-prev disabled');
-    for (let i = 1; i <= totalPages; i++) {
-      pager += (i === page) ? `<span class=\"page-num active\">${i}</span>` : makeLink(i, String(i), 'page-num');
-    }
-    pager += (page < totalPages) ? makeLink(page + 1, t('ui.next'), 'page-next') : makeSpan(t('ui.next'), 'page-next disabled');
-    pager += '</nav>';
-    html += pager;
-  }
-
-  document.getElementById('mainview').innerHTML = html;
   hydrateCardCovers('#mainview');
   sequentialLoadCovers('#mainview', 1);
-  // Check potential large thumbnails on search view
   try {
     const cfg = (siteConfig && siteConfig.assetWarnings && siteConfig.assetWarnings.largeImage) || {};
     warnLargeImagesIn('#mainview', cfg);
@@ -1026,63 +715,20 @@ function displaySearch(query) {
   if (input) input.value = q;
   setupSearch(Object.entries(postsIndexCache || {}));
   setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
-  // Apply masonry after search render
   requestAnimationFrame(() => applyMasonry('.index'));
   try { renderTagSidebar(postsIndexCache); } catch (_) {}
 
-  const cards = Array.from(document.querySelectorAll('.index a'));
-  pageEntries.forEach(([title, meta], idx) => {
-    const loc = meta && meta.location ? String(meta.location) : '';
-    if (!loc) return;
-    const el = cards[idx];
-    if (!el) return;
-    const exEl = el.querySelector('.card-excerpt');
-    // Prefer explicit excerpt from index.yaml when available
-    if (exEl && meta && meta.excerpt) {
-      try { exEl.textContent = String(meta.excerpt); } catch (_) {}
-    }
-    getFile(`${getContentRoot()}/${loc}`).then(md => {
-      const ex = extractExcerpt(md, 50);
-      // Only set excerpt from markdown if no explicit excerpt in metadata
-      if (exEl && !(meta && meta.excerpt)) exEl.textContent = ex;
-      const minutes = computeReadTime(md, 200);
-      const metaEl = el.querySelector('.card-meta');
-      if (metaEl) {
-        const items = [];
-        const dateEl = metaEl.querySelector('.card-date');
-        if (dateEl && dateEl.textContent.trim()) items.push(dateEl.cloneNode(true));
-        const read = document.createElement('span');
-        read.className = 'card-read';
-        read.textContent = `${minutes} ${t('ui.minRead')}`;
-        items.push(read);
-        const verCount = (meta && Array.isArray(meta.versions)) ? meta.versions.length : 0;
-        if (verCount > 1) {
-          const v = document.createElement('span');
-          v.className = 'card-versions';
-          v.setAttribute('title', t('ui.versionLabel'));
-          v.textContent = t('ui.versionsCount', verCount);
-          items.push(v);
-        }
-        if (meta && meta.draft) {
-          const d = document.createElement('span');
-          d.className = 'card-draft';
-          d.textContent = t('ui.draftBadge');
-          items.push(d);
-        }
-        metaEl.textContent = '';
-        items.forEach((node, idx) => {
-          if (idx > 0) {
-            const sep = document.createElement('span');
-            sep.className = 'card-sep';
-            sep.textContent = '•';
-            metaEl.appendChild(sep);
-          }
-          metaEl.appendChild(node);
-        });
-      }
-  const container = document.querySelector('.index');
-  if (container && el) updateMasonryItem(container, el);
-    }).catch(() => {});
+  callThemeHook('afterSearchRender', {
+    entries: pageEntries,
+    translate: t,
+    getFile,
+    getContentRoot,
+    extractExcerpt,
+    computeReadTime,
+    document,
+    window,
+    updateMasonryItem,
+    siteConfig
   });
 }
 
@@ -1116,7 +762,13 @@ function displayStaticTab(slug) {
   const toc = document.getElementById('tocview');
   if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
   const main = document.getElementById('mainview');
-  if (main) main.innerHTML = renderSkeletonArticle();
+  const handledLoading = callThemeHook('renderStaticTabLoadingState', {
+    mainElement: main,
+    renderSkeletonArticle,
+    document,
+    window
+  });
+  if (!handledLoading && main) main.innerHTML = renderSkeletonArticle();
   const searchBox = document.getElementById('searchbox');
   if (searchBox) smoothHide(searchBox);
   const tagBox = document.getElementById('tagview');
