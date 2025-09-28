@@ -113,7 +113,10 @@ export function bindThemePackPicker() {
   sel.value = saved;
   sel.addEventListener('change', () => {
     const val = sanitizePack(sel.value) || 'native';
+    const current = getSavedThemePack();
+    if (val === current) return;
     loadThemePack(val);
+    try { window.location.reload(); } catch (_) {}
   });
 }
 
@@ -158,10 +161,7 @@ export function mountThemeControls() {
   const sel = wrapper.querySelector('#themePack');
   const saved = getSavedThemePack();
   const fallback = [
-    { value: 'native', label: 'Native' },
-    { value: 'github', label: 'GitHub' },
-    { value: 'apple', label: 'Apple' },
-    { value: 'openai', label: 'OpenAI' },
+    { value: 'native', label: 'Native' }
   ];
 
   // Try to load from JSON; if it fails, use fallback

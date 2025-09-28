@@ -1,6 +1,7 @@
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
+import { ensureThemeLayout } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, escapeHtml, formatDisplayDate, formatBytes, renderSkeletonArticle, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
@@ -1752,6 +1753,9 @@ try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 
 // Install error reporter early to catch resource 404s (e.g., theme CSS, images)
 try { initErrorReporter({}); } catch (_) {}
+
+// Build layout according to the active theme pack before binding UI logic
+await ensureThemeLayout();
 
 // Ensure theme controls are present, then apply and bind
 mountThemeControls();
