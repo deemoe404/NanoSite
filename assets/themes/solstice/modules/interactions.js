@@ -1,5 +1,15 @@
 import { t, withLangParam, getCurrentLang, switchLanguage } from '../../../js/i18n.js';
-import { renderTags, escapeHtml, formatDisplayDate, cardImageSrc, fallbackCover, isModifiedClick, getQueryVariable, sanitizeUrl, sanitizeImageUrl } from '../../../js/utils.js';
+import {
+  renderTags,
+  escapeHtml,
+  formatDisplayDate,
+  cardImageSrc,
+  fallbackCover,
+  getContentRoot,
+  getQueryVariable,
+  sanitizeUrl,
+  sanitizeImageUrl
+} from '../../../js/utils.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor, refreshLanguageSelector } from '../../../js/theme.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCovers } from '../../../js/post-render.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
@@ -30,10 +40,28 @@ function resolveCoverSource(meta = {}, siteConfig = {}) {
     const isProtocolRelative = coverSrc.startsWith('//');
     const hasScheme = /^[a-z][a-z0-9+.-]*:/i.test(coverSrc);
     if (!hasScheme && !isProtocolRelative && !coverSrc.startsWith('/') && !coverSrc.startsWith('#')) {
-      const baseLoc = meta && meta.location ? String(meta.location) : '';
-      const lastSlash = baseLoc.lastIndexOf('/');
-      const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
-      coverSrc = `${baseDir}${coverSrc}`.replace(/\/+/, '/');
+      const hasDirectorySegment = coverSrc.includes('/');
+      const isDotRelative = coverSrc.startsWith('./') || coverSrc.startsWith('../');
+      if (isDotRelative || !hasDirectorySegment) {
+        const baseLoc = meta && meta.location ? String(meta.location) : '';
+        const lastSlash = baseLoc.lastIndexOf('/');
+        const baseDir = lastSlash >= 0 ? baseLoc.slice(0, lastSlash + 1) : '';
+        if (isDotRelative) {
+          try {
+            const resolved = new URL(coverSrc, `https://example.invalid/${baseDir}`);
+            coverSrc = resolved.pathname.replace(/^\/+/, '');
+          } catch (_) {
+            coverSrc = `${baseDir}${coverSrc}`.replace(/\/+/g, '/');
+          }
+        } else {
+          coverSrc = `${baseDir}${coverSrc}`.replace(/\/+/g, '/');
+        }
+      }
+    }
+    const root = typeof getContentRoot === 'function' ? getContentRoot() : '';
+    const normalizedRoot = String(root || '').replace(/^\/+|\/+$/g, '');
+    if (normalizedRoot && coverSrc.startsWith(`${normalizedRoot}/`)) {
+      coverSrc = coverSrc.slice(normalizedRoot.length + 1);
     }
     const safeSrc = sanitizeImageUrl ? sanitizeImageUrl(coverSrc) : coverSrc;
     if (safeSrc) {
@@ -635,16 +663,10 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
   };
 
   hooks.handleDocumentClick = ({ event }) => {
-    const target = event.target;
+    const target = event && event.target;
     if (!target) return false;
     if (target.closest('.solstice-nav__item')) {
-      if (isModifiedClick(event)) return false;
-      event.preventDefault();
-      const href = target.getAttribute('href');
-      if (href && windowRef) {
-        windowRef.location.href = href;
-      }
-      return true;
+      return false;
     }
     return false;
   };
