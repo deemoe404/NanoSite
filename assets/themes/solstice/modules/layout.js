@@ -35,12 +35,6 @@ export function mount(context = {}) {
           <div class="solstice-brand__subtitle" data-site-subtitle></div>
         </a>
         <nav id="${NAV_ID}" class="solstice-nav" aria-label="Primary navigation"></nav>
-        <div class="solstice-header__actions">
-          <label class="solstice-search" for="searchInput">
-            <span class="solstice-search__icon" aria-hidden="true">🔍</span>
-            <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-          </label>
-        </div>
       </div>`;
     return el;
   });
@@ -84,6 +78,12 @@ export function mount(context = {}) {
     el.innerHTML = `
       <div class="solstice-footer__inner">
         <section class="solstice-footer__tools" id="toolsPanel" aria-label="Quick tools"></section>
+        <section class="solstice-footer__search" aria-label="Search">
+          <label class="solstice-search" for="searchInput">
+            <span class="solstice-search__icon" aria-hidden="true">🔍</span>
+            <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+          </label>
+        </section>
         <section class="solstice-footer__nav" aria-label="Secondary navigation">
           <div id="${FOOTER_NAV_ID}" class="solstice-footer-nav"></div>
         </section>

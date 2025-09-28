@@ -301,7 +301,6 @@ function renderNavLinks(nav, tabsBySlug, activeSlug, postsEnabled, getHomeSlug) 
   if (postsEnabled()) {
     items.push({ slug: 'posts', label: t('ui.allPosts'), href: withLangParam('?tab=posts') });
   }
-  items.push({ slug: 'search', label: t('ui.searchTab'), href: withLangParam('?tab=search') });
   Object.entries(tabsBySlug || {}).forEach(([slug, info]) => {
     const label = info && info.title ? String(info.title) : slug;
     items.push({ slug, label, href: withLangParam(`?tab=${encodeURIComponent(slug)}`) });
