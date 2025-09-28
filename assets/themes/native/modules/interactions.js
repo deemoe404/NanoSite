@@ -454,14 +454,13 @@ function resetTOCNative(params = {}, documentRef = defaultDocument, windowRef = 
     return true;
   }
   const smoothHideFn = typeof params.smoothHide === 'function' ? params.smoothHide : null;
-  const hideFn = typeof params.hideElement === 'function' ? params.hideElement : null;
   if (smoothHideFn) {
     try { smoothHideFn(toc, clear); return true; } catch (_) {}
   }
-  if (hideFn) {
-    try { hideFn(toc, clear); return true; } catch (_) {}
-  }
-  try { toc.style.display = 'none'; } catch (_) {}
+  try {
+    hideElementNative({ element: toc, onDone: clear }, windowRef);
+    return true;
+  } catch (_) {}
   clear();
   return true;
 }
@@ -526,11 +525,15 @@ function renderErrorStateNative(params = {}, documentRef = defaultDocument) {
   return true;
 }
 
-function updateSearchPanelsNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
-  const search = params.searchElement || (documentRef ? documentRef.getElementById('searchbox') : null);
-  const tags = params.tagElement || (documentRef ? documentRef.getElementById('tagview') : null);
-  const showSearch = !!params.showSearch;
-  const showTags = !!params.showTags;
+function handleViewChangeNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  const context = params && params.context && typeof params.context === 'object' ? params.context : {};
+  const search = context.searchElement || params.searchElement || (documentRef ? documentRef.getElementById('searchbox') : null);
+  const tags = context.tagElement || params.tagElement || (documentRef ? documentRef.getElementById('tagview') : null);
+  const input = context.searchInput || params.searchInput || (documentRef ? documentRef.getElementById('searchInput') : null);
+  const showSearch = context.showSearch != null ? !!context.showSearch : !!params.showSearch;
+  const showTags = context.showTags != null ? !!context.showTags : !!params.showTags;
+  const queryValue = context.queryValue != null ? context.queryValue : params.queryValue;
+
   if (search) {
     if (showSearch) showElementNative({ element: search }, windowRef);
     else hideElementNative({ element: search }, windowRef);
@@ -539,9 +542,8 @@ function updateSearchPanelsNative(params = {}, documentRef = defaultDocument, wi
     if (showTags) showElementNative({ element: tags }, windowRef);
     else hideElementNative({ element: tags }, windowRef);
   }
-  const input = params.searchInput || (documentRef ? documentRef.getElementById('searchInput') : null);
-  if (input && typeof params.queryValue === 'string') {
-    try { input.value = params.queryValue; } catch (_) {}
+  if (input && typeof queryValue === 'string') {
+    try { input.value = queryValue; } catch (_) {}
   }
   return !!(search || tags || input);
 }
@@ -818,6 +820,19 @@ function renderSiteIdentityNative(params = {}, documentRef = defaultDocument, wi
     const img = documentRef.querySelector('.site-card .avatar');
     if (img) setImageSrcNoStore(img, avatar, windowRef);
   }
+  return true;
+}
+
+function reflectThemeConfigNative(params = {}, documentRef = defaultDocument) {
+  if (!documentRef) return false;
+  const cfg = params.config || params.siteConfig;
+  if (!cfg || typeof cfg !== 'object') return false;
+  const sel = documentRef.getElementById('themePack');
+  if (!sel) return false;
+  if (cfg.themeOverride === false) return false;
+  const pack = cfg.themePack;
+  if (!pack) return false;
+  try { sel.value = String(pack); } catch (_) {}
   return true;
 }
 
@@ -1789,7 +1804,7 @@ export function mount(context = {}) {
   hooks.updateLayoutLoadingState = (params = {}) => updateLayoutLoadingStateNative(params, documentRef);
   hooks.renderPostTOC = (params = {}) => renderPostTOCNative(params, documentRef, windowRef);
   hooks.renderErrorState = (params = {}) => renderErrorStateNative(params, documentRef);
-  hooks.updateSearchPanels = (params = {}) => updateSearchPanelsNative(params, documentRef, windowRef);
+  hooks.handleViewChange = (params = {}) => handleViewChangeNative(params, documentRef, windowRef);
   hooks.renderTagSidebar = (params = {}) => renderTagSidebarNative(params, documentRef);
   hooks.initializeSyntaxHighlighting = (params = {}) => initializeSyntaxHighlightingNative(params);
   hooks.updateSearchPlaceholder = (params = {}) => updateSearchPlaceholderNative(params, documentRef);
@@ -1807,6 +1822,7 @@ export function mount(context = {}) {
   hooks.resetTOC = (params = {}) => resetTOCNative(params, documentRef, windowRef);
   hooks.setupThemeControls = (params = {}) => setupThemeControlsNative(params);
   hooks.resetThemeControls = (params = {}) => resetThemeControlsNative(params, documentRef);
+  hooks.reflectThemeConfig = (params = {}) => reflectThemeConfigNative(params, documentRef);
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 

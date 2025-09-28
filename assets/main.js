@@ -99,39 +99,21 @@ function getViewContainers(view) {
 
 // --- UI helpers: smooth show/hide delegated to theme ---
 
-function showElementDefault(el) {
+function smoothShow(el, options) {
   if (!el) return;
-  const handled = callThemeHook('showElement', { element: el, document, window });
-  if (!handled) {
-    try { el.hidden = false; } catch (_) {}
-    try { el.style.removeProperty('display'); } catch (_) {}
-    try { el.removeAttribute('aria-hidden'); } catch (_) {}
+  const payload = { element: el, document, window };
+  if (options && typeof options === 'object') Object.assign(payload, options);
+  callThemeHook('showElement', payload);
+}
+
+function smoothHide(el, onDone, options) {
+  if (!el) { if (typeof onDone === 'function') { try { onDone(); } catch (_) {} } return; }
+  const payload = { element: el, onDone, document, window };
+  if (options && typeof options === 'object') Object.assign(payload, options);
+  const handled = callThemeHook('hideElement', payload);
+  if (!handled && typeof onDone === 'function') {
+    try { onDone(); } catch (_) {}
   }
-}
-
-function hideElementDefault(el, onDone) {
-  if (!el) { if (typeof onDone === 'function') onDone(); return; }
-  const handled = callThemeHook('hideElement', { element: el, onDone, document, window });
-  if (!handled) {
-    try { el.hidden = true; } catch (_) {}
-    try { el.style.display = 'none'; } catch (_) {}
-    try { el.setAttribute('aria-hidden', 'true'); } catch (_) {}
-    if (typeof onDone === 'function') {
-      try { onDone(); } catch (_) {}
-    }
-  }
-}
-
-function smoothShow(el) {
-  if (!el) return;
-  const handled = callThemeHook('showElement', { element: el, document, window });
-  if (!handled) showElementDefault(el);
-}
-
-function smoothHide(el, onDone) {
-  if (!el) { if (typeof onDone === 'function') onDone(); return; }
-  const handled = callThemeHook('hideElement', { element: el, onDone, document, window });
-  if (!handled) hideElementDefault(el, onDone);
 }
 
 // Ensure element height fully resets to its natural auto height
@@ -280,19 +262,10 @@ function renderErrorState(targetElement, {
   });
 }
 
-function updateSearchPanels({
-  showSearch,
-  showTags,
-  queryValue,
-  tagFilter,
-  view
-} = {}) {
-  return callThemeHook('updateSearchPanels', {
-    showSearch,
-    showTags,
-    queryValue,
-    tagFilter,
+function notifyThemeViewChange(view, context = {}) {
+  return callThemeHook('handleViewChange', {
     view,
+    context,
     document,
     window
   });
@@ -337,7 +310,6 @@ function resetTOCView(view, containers, { reason, immediate } = {}) {
     reason,
     immediate,
     smoothHide,
-    hideElement: hideElementDefault,
     document,
     window
   });
@@ -416,11 +388,13 @@ function displayPost(postname) {
     containers,
     translator: t,
     ensureAutoHeight,
-    showElement: showElementDefault,
-    hideElement: hideElementDefault,
+    showElement: smoothShow,
+    hideElement: smoothHide,
     document,
     window
   });
+
+  notifyThemeViewChange('post', { showSearch: false, showTags: false });
 
   return getFile(`${getContentRoot()}/${postname}`).then(markdown => {
     // Ignore stale responses if a newer navigation started
@@ -503,7 +477,7 @@ function displayPost(postname) {
       });
     }
 
-    updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
+    notifyThemeViewChange('post', { showSearch: false, showTags: false });
     try { setDocTitle(articleTitle); } catch (_) {}
     initializeSyntaxHighlightingForView('post', { containers });
     refreshTagSidebar({ view: 'post', containers, postsIndex: postsIndexCache });
@@ -563,7 +537,7 @@ function displayPost(postname) {
       containers
     });
     setDocTitle(t('ui.notFound'));
-    updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
+    notifyThemeViewChange('post', { showSearch: false, showTags: false });
   });
 }
 
@@ -613,7 +587,7 @@ function displayIndex(parsed) {
   });
 
   renderTabs('posts');
-  updateSearchPanels({ view: 'posts', showSearch: true, showTags: true, queryValue: '' });
+  notifyThemeViewChange('posts', { showSearch: true, showTags: true, queryValue: '' });
   setDocTitle(t('titles.allPosts'));
 
   callThemeHook('afterIndexRender', {
@@ -700,7 +674,7 @@ function displaySearch(query) {
   });
 
   renderTabs('search', tagFilter ? t('ui.tagSearch', tagFilter) : q);
-  updateSearchPanels({ view: 'search', showSearch: true, showTags: true, queryValue: q, tagFilter });
+  notifyThemeViewChange('search', { showSearch: true, showTags: true, queryValue: q, tagFilter });
   setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
 
   callThemeHook('afterSearchRender', {
@@ -733,7 +707,7 @@ function displayStaticTab(slug) {
     document,
     window
   });
-  updateSearchPanels({ view: 'tab', showSearch: false, showTags: false });
+  notifyThemeViewChange('tab', { showSearch: false, showTags: false });
   renderTabs(slug);
   getFile(`${getContentRoot()}/${tab.location}`)
     .then(md => {
@@ -1338,11 +1312,11 @@ loadSiteConfig()
     // Apply site-controlled theme after loading config
     try {
       applyThemeConfig(siteConfig);
-      // If site enforces a specific pack, ensure the selector reflects it
-      const sel = document.getElementById('themePack');
-      if (sel && siteConfig && siteConfig.themeOverride !== false && siteConfig.themePack) {
-        sel.value = siteConfig.themePack;
-      }
+      callThemeHook('reflectThemeConfig', {
+        config: siteConfig,
+        document,
+        window
+      });
     } catch (_) {}
 
     // Initialize global error reporter with optional report URL from site config
@@ -1401,7 +1375,7 @@ loadSiteConfig()
       view: 'boot',
       containers: bootContainers
     });
-    updateSearchPanels({ view: 'boot', showSearch: false, showTags: false });
+    notifyThemeViewChange('boot', { showSearch: false, showTags: false });
     // Surface an overlay for boot/index failures (network/unified JSON issues)
     try {
       const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
