@@ -1,4 +1,8 @@
 /* Native theme pack - 原生 */
+/* Load base layout styles that used to live in assets/styles.css so the native theme
+   owns all presentation concerns. */
+@import "./base.css";
+
 :root {
   /* 极简色彩 - 浅色模式 */
   /* 报纸纸张底色（温暖的米白） */
