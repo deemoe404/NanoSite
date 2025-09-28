@@ -10,6 +10,7 @@ const FALLBACK_MANIFEST = {
   modules: [
     'modules/layout.js',
     'modules/nav-tabs.js',
+    'modules/interactions.js',
     'modules/mainview.js',
     'modules/search-box.js',
     'modules/site-card.js',
