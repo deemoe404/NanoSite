@@ -1,4 +1,38 @@
 [
-  { "value": "native", "label": "Native" },
-  { "value": "github", "label": "GitHub" }
+  {
+    "id": "native",
+    "value": "native",
+    "label": {
+      "default": "Native",
+      "zh": "原生"
+    },
+    "description": {
+      "default": "Balanced NanoSite default theme with print-inspired surfaces.",
+      "zh": "平衡的默认布局，带有轻微的报刊质感。"
+    }
+  },
+  {
+    "id": "github",
+    "value": "github",
+    "label": {
+      "default": "GitHub",
+      "zh": "GitHub"
+    },
+    "description": {
+      "default": "GitHub-inspired list layout with restrained surfaces.",
+      "zh": "受 GitHub 启发的列表式布局，平坦而克制。"
+    }
+  },
+  {
+    "id": "nocturne",
+    "value": "nocturne",
+    "label": {
+      "default": "Nocturne",
+      "zh": "夜曲"
+    },
+    "description": {
+      "default": "Warm charcoal palette, left sidebar, and condensed typography for night reading.",
+      "zh": "温暖的炭灰配色，左侧侧栏与紧凑排版，适合夜间阅读。"
+    }
+  }
 ]

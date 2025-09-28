@@ -1,6 +1,13 @@
-import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage } from './i18n.js';
+import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, normalizeLangKey } from './i18n.js';
 
 const PACK_LINK_ID = 'theme-pack';
+const LAYOUT_STATE_KEY = '__ns_theme_layout_state';
+const THEME_MANIFEST_URL = 'assets/themes/packs.json';
+
+const DEFAULT_THEME_MANIFEST = [
+  { id: 'native', label: 'Native', description: 'Balanced default layout with a right-aligned sidebar.' },
+  { id: 'github', label: 'GitHub', description: 'GitHub-inspired list layout with flatter surfaces.' }
+];
 
 // Restrict theme pack names to safe slug format and default to 'native'.
 function sanitizePack(input) {
@@ -9,12 +16,263 @@ function sanitizePack(input) {
   return clean || 'native';
 }
 
+const themeConfigCache = new Map();
+let themeManifest = DEFAULT_THEME_MANIFEST.map(entry => ({ ...entry }));
+let manifestPromise = null;
+let activeThemeVariables = new Set();
+let activeThemeBodyClasses = new Set();
+
+function resolveTextByLang(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    const lang = (getCurrentLang && getCurrentLang()) || 'en';
+    const normalized = normalizeLangKey ? normalizeLangKey(lang) : lang;
+    const candidates = [lang, normalized, normalized?.replace('_', '-'), 'default', 'en'];
+    for (const key of candidates) {
+      if (!key) continue;
+      if (Object.prototype.hasOwnProperty.call(value, key) && value[key] != null) {
+        return String(value[key]);
+      }
+    }
+    const first = Object.values(value).find(v => v != null);
+    return first != null ? String(first) : '';
+  }
+  return '';
+}
+
+function sanitizeBodyClass(cls) {
+  const token = String(cls || '').trim();
+  if (!token) return '';
+  const clean = token.replace(/[^a-z0-9_-]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return clean ? clean.toLowerCase() : '';
+}
+
+function sanitizeSidebar(value) {
+  const val = String(value || '').toLowerCase();
+  if (val === 'left') return 'left';
+  if (val === 'hidden' || val === 'none' || val === 'off') return 'hidden';
+  if (val === 'right') return 'right';
+  return '';
+}
+
+function clearAppliedThemeDecorations() {
+  const root = document.documentElement;
+  const body = document.body;
+  if (!root || !body) return;
+  activeThemeVariables.forEach(name => root.style.removeProperty(name));
+  activeThemeVariables.clear();
+  activeThemeBodyClasses.forEach(cls => {
+    body.classList.remove(cls);
+    root.classList.remove(cls);
+  });
+  activeThemeBodyClasses.clear();
+  delete body.dataset.layoutSidebar;
+}
+
+function persistLayoutState(state) {
+  try {
+    const payload = { pack: sanitizePack(state.pack) };
+    if (state.sidebar) payload.sidebar = sanitizeSidebar(state.sidebar);
+    if (state.vars && Object.keys(state.vars).length) payload.vars = state.vars;
+    if (state.bodyClasses && state.bodyClasses.length) payload.bodyClasses = state.bodyClasses;
+    localStorage.setItem(LAYOUT_STATE_KEY, JSON.stringify(payload));
+  } catch (_) { /* ignore */ }
+}
+
+function restoreLayoutState(pack) {
+  if (!pack) return false;
+  try {
+    const raw = localStorage.getItem(LAYOUT_STATE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || sanitizePack(data.pack) !== pack) return false;
+    const root = document.documentElement;
+    const body = document.body;
+    if (!root || !body) return false;
+    clearAppliedThemeDecorations();
+    const sidebar = sanitizeSidebar(data.sidebar);
+    if (sidebar) body.dataset.layoutSidebar = sidebar;
+    if (data.vars && typeof data.vars === 'object') {
+      for (const [key, value] of Object.entries(data.vars)) {
+        const name = String(key || '').trim();
+        if (!name.startsWith('--')) continue;
+        const val = String(value ?? '');
+        root.style.setProperty(name, val);
+        activeThemeVariables.add(name);
+      }
+    }
+    if (Array.isArray(data.bodyClasses)) {
+      data.bodyClasses.map(sanitizeBodyClass).filter(Boolean).forEach(cls => {
+        document.body.classList.add(cls);
+        activeThemeBodyClasses.add(cls);
+      });
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function normalizeThemeEntry(entry) {
+  if (!entry) return null;
+  const rawId = entry.id ?? entry.value ?? entry.name ?? entry.slug ?? entry.pack;
+  const id = sanitizePack(rawId);
+  if (!id) return null;
+  return {
+    id,
+    label: entry.label ?? entry.name ?? rawId ?? id,
+    description: entry.description ?? entry.desc ?? '',
+    order: typeof entry.order === 'number' ? entry.order : 0
+  };
+}
+
+function loadThemeManifestOnce() {
+  if (manifestPromise) return manifestPromise;
+  manifestPromise = fetch(THEME_MANIFEST_URL, { cache: 'no-store' })
+    .then(resp => (resp.ok ? resp.json() : Promise.reject()))
+    .then(json => {
+      const arr = Array.isArray(json) ? json : [];
+      const normalized = arr.map(normalizeThemeEntry).filter(Boolean);
+      if (!normalized.length) return DEFAULT_THEME_MANIFEST.map(entry => ({ ...entry }));
+      normalized.sort((a, b) => (a.order - b.order) || resolveTextByLang(a.label).localeCompare(resolveTextByLang(b.label)));
+      themeManifest = normalized;
+      return normalized;
+    })
+    .catch(() => {
+      themeManifest = DEFAULT_THEME_MANIFEST.map(entry => ({ ...entry }));
+      return themeManifest;
+    });
+  return manifestPromise;
+}
+
+function fetchThemeConfig(pack) {
+  if (!pack) return Promise.resolve(null);
+  if (themeConfigCache.has(pack)) {
+    const cached = themeConfigCache.get(pack);
+    if (cached && typeof cached.then === 'function') return cached;
+    return Promise.resolve(cached);
+  }
+  const url = `assets/themes/${encodeURIComponent(pack)}/theme.json`;
+  const promise = fetch(url, { cache: 'no-store' })
+    .then(resp => {
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.json();
+    })
+    .then(json => {
+      const cfg = (json && typeof json === 'object' && !Array.isArray(json)) ? json : null;
+      themeConfigCache.set(pack, cfg);
+      return cfg;
+    })
+    .catch(() => {
+      themeConfigCache.set(pack, null);
+      return null;
+    });
+  themeConfigCache.set(pack, promise);
+  return promise;
+}
+
+function applyThemePresentation(pack, cfg) {
+  const config = (cfg && typeof cfg === 'object') ? cfg : {};
+  const root = document.documentElement;
+  const body = document.body;
+  if (!root || !body) {
+    persistLayoutState({ pack });
+    return;
+  }
+  clearAppliedThemeDecorations();
+  const state = { pack };
+  const layout = config.layout || {};
+  const sidebar = sanitizeSidebar(layout.sidebar ?? layout.sidebarPosition ?? layout.position);
+  if (sidebar) {
+    body.dataset.layoutSidebar = sidebar;
+    state.sidebar = sidebar;
+  }
+  const vars = config.variables;
+  if (vars && typeof vars === 'object') {
+    const appliedVars = {};
+    for (const [key, value] of Object.entries(vars)) {
+      const name = String(key || '').trim();
+      if (!name.startsWith('--')) continue;
+      if (value == null) continue;
+      const strVal = String(value);
+      root.style.setProperty(name, strVal);
+      activeThemeVariables.add(name);
+      appliedVars[name] = strVal;
+    }
+    if (Object.keys(appliedVars).length) state.vars = appliedVars;
+  }
+  const rawClasses = config.bodyClass ?? config.bodyClasses ?? config.classes;
+  const tokens = Array.isArray(rawClasses)
+    ? rawClasses
+    : typeof rawClasses === 'string'
+      ? rawClasses.split(/\s+/)
+      : [];
+  const appliedClasses = tokens.map(sanitizeBodyClass).filter(Boolean);
+  appliedClasses.forEach(cls => {
+    body.classList.add(cls);
+    root.classList.add(cls);
+    activeThemeBodyClasses.add(cls);
+  });
+  if (appliedClasses.length) state.bodyClasses = appliedClasses;
+  persistLayoutState(state);
+}
+
+function updateThemePackOptions(selectedId) {
+  const sel = document.getElementById('themePack');
+  if (!sel) return;
+  const targetValue = sanitizePack(selectedId || sel.value || getSavedThemePack());
+  sel.innerHTML = '';
+  themeManifest.forEach(entry => {
+    const opt = document.createElement('option');
+    opt.value = entry.id;
+    opt.textContent = resolveTextByLang(entry.label) || entry.id;
+    sel.appendChild(opt);
+  });
+  if (!sel.options.length) return;
+  const match = Array.from(sel.options).some(opt => opt.value === targetValue);
+  sel.value = match ? targetValue : sel.options[0].value;
+  updateThemeDescription(sel.value);
+}
+
+function updateThemeDescription(packId) {
+  const note = document.getElementById('themePackDescription');
+  if (!note) return;
+  const id = sanitizePack(packId || getSavedThemePack());
+  const entry = themeManifest.find(item => item.id === id);
+  let desc = entry ? resolveTextByLang(entry.description) : '';
+  const cached = themeConfigCache.get(id);
+  if (!desc && cached && typeof cached === 'object' && !(cached instanceof Promise)) {
+    desc = resolveTextByLang(cached.description);
+  }
+  note.textContent = desc || '';
+  note.style.display = desc ? '' : 'none';
+}
+
 export function loadThemePack(name) {
   const pack = sanitizePack(name);
   try { localStorage.setItem('themePack', pack); } catch (_) {}
   const link = document.getElementById(PACK_LINK_ID);
   const href = `assets/themes/${encodeURIComponent(pack)}/theme.css`;
-  if (link) link.setAttribute('href', href);
+  if (link && link.getAttribute('href') !== href) link.setAttribute('href', href);
+  const restored = restoreLayoutState(pack);
+  if (!restored) {
+    clearAppliedThemeDecorations();
+    persistLayoutState({ pack });
+  }
+  updateThemeDescription(pack);
+  fetchThemeConfig(pack)
+    .then(cfg => {
+      if (cfg) {
+        applyThemePresentation(pack, cfg);
+        updateThemeDescription(pack);
+      } else {
+        persistLayoutState({ pack });
+      }
+    })
+    .catch(() => {
+      persistLayoutState({ pack });
+    });
 }
 
 export function getSavedThemePack() {
@@ -30,7 +288,6 @@ export function applySavedTheme() {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
   } catch (_) { /* ignore */ }
-  // Ensure pack is applied too
   loadThemePack(getSavedThemePack());
 }
 
@@ -50,7 +307,6 @@ export function applyThemeConfig(siteConfig) {
       document.documentElement.removeAttribute('data-theme');
       try { localStorage.setItem('theme', 'light'); } catch (_) {}
     } else { // auto
-      // Remove explicit choice to allow system preference to drive
       try { localStorage.removeItem('theme'); } catch (_) {}
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         document.documentElement.setAttribute('data-theme', 'dark');
@@ -63,23 +319,17 @@ export function applyThemeConfig(siteConfig) {
   if (override) {
     if (mode === 'dark' || mode === 'light' || mode === 'auto') setMode(mode);
     else if (mode === 'user') {
-      // Respect user choice entirely; if none, fall back to system preference
       applySavedTheme();
     }
     if (pack) {
-      // Force pack and persist
       try { localStorage.setItem('themePack', pack); } catch (_) {}
       loadThemePack(pack);
     }
   } else {
-    // Respect user choice; but if site provides a default and no user choice exists,
-    // apply it once without persisting as an override
     const hasUserTheme = (() => { try { return !!localStorage.getItem('theme'); } catch (_) { return false; } })();
     const hasUserPack = (() => { try { return !!localStorage.getItem('themePack'); } catch (_) { return false; } })();
     if (!hasUserTheme) {
       if (mode === 'dark' || mode === 'light' || mode === 'auto') setMode(mode);
-      // When mode is 'user' and there's no saved user theme, do nothing here;
-      // the boot code/applySavedTheme already applied system preference as a soft default.
     }
     if (!hasUserPack && pack) loadThemePack(pack);
   }
@@ -108,19 +358,17 @@ export function bindPostEditor() {
 export function bindThemePackPicker() {
   const sel = document.getElementById('themePack');
   if (!sel) return;
-  // Initialize selection
   const saved = getSavedThemePack();
-  sel.value = saved;
+  if (sel.value !== saved) sel.value = saved;
   sel.addEventListener('change', () => {
     const val = sanitizePack(sel.value) || 'native';
     loadThemePack(val);
+    updateThemeDescription(val);
   });
 }
 
 // Render theme tools UI (button + select) into the sidebar, before TOC.
-// Options are sourced from assets/themes/packs.json; falls back to defaults.
 export function mountThemeControls() {
-  // If already present, do nothing
   if (document.getElementById('tools')) return;
   const sidebar = document.querySelector('.sidebar');
   if (!sidebar) return;
@@ -140,6 +388,7 @@ export function mountThemeControls() {
       <div class="tool-item">
         <label for="themePack" class="tool-label">${t('tools.themePack')}</label>
         <select id="themePack" aria-label="${t('tools.themePack')}" title="${t('tools.themePack')}"></select>
+        <p class="tool-note" id="themePackDescription" aria-live="polite"></p>
       </div>
       <div class="tool-item">
         <label for="langSelect" class="tool-label">${t('tools.language')}</label>
@@ -154,43 +403,11 @@ export function mountThemeControls() {
   if (toc && toc.parentElement === sidebar) sidebar.insertBefore(wrapper, toc);
   else sidebar.appendChild(wrapper);
 
-  // Populate theme packs
-  const sel = wrapper.querySelector('#themePack');
-  const saved = getSavedThemePack();
-  const fallback = [
-    { value: 'native', label: 'Native' },
-    { value: 'github', label: 'GitHub' },
-    { value: 'apple', label: 'Apple' },
-    { value: 'openai', label: 'OpenAI' },
-  ];
-
-  // Try to load from JSON; if it fails, use fallback
-  fetch('assets/themes/packs.json').then(r => r.ok ? r.json() : Promise.reject()).then(list => {
-    try {
-      sel.innerHTML = '';
-      (Array.isArray(list) ? list : []).forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = sanitizePack(p.value);
-        opt.textContent = String(p.label || p.value || 'Theme');
-        sel.appendChild(opt);
-      });
-      if (!sel.options.length) throw new Error('empty options');
-    } catch (_) {
-      throw _;
-    }
-  }).catch(() => {
-    sel.innerHTML = '';
-    fallback.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.value;
-      opt.textContent = p.label;
-      sel.appendChild(opt);
-    });
-  }).finally(() => {
-    sel.value = saved;
+  updateThemePackOptions(getSavedThemePack());
+  loadThemeManifestOnce().then(() => {
+    updateThemePackOptions(getSavedThemePack());
   });
 
-  // Populate language selector
   const langSel = wrapper.querySelector('#langSelect');
   if (langSel) {
     const langs = getAvailableLangs();
@@ -208,15 +425,16 @@ export function mountThemeControls() {
     });
   }
 
-  // Bind language reset button
   const resetBtn = wrapper.querySelector('#langReset');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
-      // Clear saved language and drop URL param, then soft-reset without full reload
       try { localStorage.removeItem('lang'); } catch (_) {}
-      try { const url = new URL(window.location.href); url.searchParams.delete('lang'); history.replaceState(history.state, document.title, url.toString()); } catch (_) {}
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('lang');
+        history.replaceState(history.state, document.title, url.toString());
+      } catch (_) {}
       try { (window.__ns_softResetLang && window.__ns_softResetLang()); } catch (_) { /* fall through */ }
-      // If soft reset isn't available for some reason, fall back to reload
       if (!window.__ns_softResetLang) {
         try { window.location.reload(); } catch (_) {}
       }
@@ -227,15 +445,17 @@ export function mountThemeControls() {
 // Rebuild language selector options based on current available content langs
 export function refreshLanguageSelector() {
   const sel = document.getElementById('langSelect');
-  if (!sel) return;
-  const current = getCurrentLang();
-  const langs = getAvailableLangs();
-  sel.innerHTML = '';
-  langs.forEach(code => {
-    const opt = document.createElement('option');
-    opt.value = code;
-    opt.textContent = getLanguageLabel(code);
-    sel.appendChild(opt);
-  });
-  sel.value = current;
+  if (sel) {
+    const current = getCurrentLang();
+    const langs = getAvailableLangs();
+    sel.innerHTML = '';
+    langs.forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = getLanguageLabel(code);
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  }
+  updateThemePackOptions();
 }

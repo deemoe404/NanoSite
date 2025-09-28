@@ -1,0 +1,10 @@
+{
+  "label": {
+    "default": "GitHub",
+    "zh": "GitHub"
+  },
+  "description": {
+    "default": "GitHub-inspired list layout with restrained surfaces.",
+    "zh": "受 GitHub 启发的列表式布局，平坦而克制。"
+  }
+}

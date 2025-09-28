@@ -1,0 +1,22 @@
+{
+  "label": {
+    "default": "Nocturne",
+    "zh": "夜曲"
+  },
+  "description": {
+    "default": "Warm charcoal palette with a left sidebar and condensed typography.",
+    "zh": "温暖的炭灰色调，左侧侧栏与紧凑排版。"
+  },
+  "layout": {
+    "sidebar": "left"
+  },
+  "variables": {
+    "--layout-container-max-width": "70rem",
+    "--layout-content-width": "42rem",
+    "--layout-sidebar-width": "16rem",
+    "--layout-gutter": "2rem",
+    "--layout-container-padding": "2rem",
+    "--layout-box-padding": "1.5rem"
+  },
+  "bodyClass": ["theme-nocturne"]
+}

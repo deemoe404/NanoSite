@@ -30,4 +30,72 @@
     if (tries++ < 20) requestAnimationFrame(trySet);
   }
   trySet();
+
+  // Restore layout variables/classes as early as possible
+  var LAYOUT_STATE_KEY = '__ns_theme_layout_state';
+  function scheduleBodyWork(cb) {
+    if (document.body) {
+      try { cb(document.body); } catch (_) {}
+    } else {
+      document.addEventListener('DOMContentLoaded', function () {
+        try { cb(document.body); } catch (_) {}
+      }, { once: true });
+    }
+  }
+  function applySidebar(sidebar) {
+    var value = String(sidebar || '').toLowerCase();
+    if (value === 'right' || value === 'left' || value === 'hidden') {
+      document.documentElement.setAttribute('data-layout-sidebar', value);
+      scheduleBodyWork(function (body) {
+        if (!body) return;
+        if (value) body.setAttribute('data-layout-sidebar', value);
+      });
+    } else {
+      document.documentElement.removeAttribute('data-layout-sidebar');
+      scheduleBodyWork(function (body) {
+        if (body) body.removeAttribute('data-layout-sidebar');
+      });
+    }
+  }
+  function applyBodyClasses(classes) {
+    if (!Array.isArray(classes) || !classes.length) return;
+    var root = document.documentElement;
+    classes.forEach(function (cls) {
+      if (typeof cls === 'string' && root && root.classList) {
+        root.classList.add(cls);
+      }
+    });
+    scheduleBodyWork(function (body) {
+      if (!body || !body.classList) return;
+      classes.forEach(function (cls) {
+        if (typeof cls !== 'string') return;
+        body.classList.add(cls);
+      });
+    });
+  }
+  function applyVariables(vars) {
+    if (!vars || typeof vars !== 'object') return;
+    var root = document.documentElement;
+    Object.keys(vars).forEach(function (key) {
+      if (typeof key !== 'string') return;
+      if (!/^--/.test(key)) return;
+      var val = vars[key];
+      if (val == null) return;
+      try { root.style.setProperty(key, String(val)); } catch (_) {}
+    });
+  }
+  try {
+    var raw = localStorage.getItem(LAYOUT_STATE_KEY);
+    if (raw) {
+      var state = JSON.parse(raw);
+      if (state && state.pack) {
+        var storedPack = String(state.pack || '').toLowerCase().trim().replace(/[^a-z0-9_-]/g, '') || 'native';
+        if (storedPack === pack) {
+          applySidebar(state.sidebar);
+          applyVariables(state.vars);
+          applyBodyClasses(state.bodyClasses);
+        }
+      }
+    }
+  } catch (_) { /* ignore layout restore */ }
 })();

@@ -1,0 +1,10 @@
+{
+  "label": {
+    "default": "Native",
+    "zh": "原生"
+  },
+  "description": {
+    "default": "Balanced NanoSite default theme with print-inspired surfaces.",
+    "zh": "平衡的默认布局，带有轻微的报刊质感。"
+  }
+}
