@@ -441,6 +441,31 @@ function updateLayoutLoadingStateNative(params = {}, documentRef = defaultDocume
   return !!(content || sidebar || container);
 }
 
+function resetTOCNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
+  const toc = scope.tocElement || params.tocElement || (documentRef ? documentRef.getElementById('tocview') : null);
+  if (!toc) return false;
+  const clear = () => { try { toc.innerHTML = ''; } catch (_) {}; };
+  if (params.immediate) {
+    clear();
+    try { toc.setAttribute('aria-hidden', 'true'); } catch (_) {}
+    try { toc.style.display = 'none'; } catch (_) {}
+    try { toc.hidden = true; } catch (_) {}
+    return true;
+  }
+  const smoothHideFn = typeof params.smoothHide === 'function' ? params.smoothHide : null;
+  const hideFn = typeof params.hideElement === 'function' ? params.hideElement : null;
+  if (smoothHideFn) {
+    try { smoothHideFn(toc, clear); return true; } catch (_) {}
+  }
+  if (hideFn) {
+    try { hideFn(toc, clear); return true; } catch (_) {}
+  }
+  try { toc.style.display = 'none'; } catch (_) {}
+  clear();
+  return true;
+}
+
 function renderPostTOCNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
   const toc = scope.tocElement || params.tocElement || (documentRef ? documentRef.getElementById('tocview') : null);
@@ -519,6 +544,20 @@ function updateSearchPanelsNative(params = {}, documentRef = defaultDocument, wi
     try { input.value = params.queryValue; } catch (_) {}
   }
   return !!(search || tags || input);
+}
+
+function renderTagSidebarNative(params = {}, documentRef = defaultDocument) {
+  const renderer = getUtility(params, 'renderTagSidebar');
+  if (typeof renderer !== 'function') return false;
+  try { renderer(params.postsIndex || {}); } catch (_) {}
+  return true;
+}
+
+function initializeSyntaxHighlightingNative(params = {}) {
+  const init = typeof params.initSyntaxHighlighting === 'function' ? params.initSyntaxHighlighting : null;
+  if (!init) return false;
+  try { init(); } catch (_) {}
+  return true;
 }
 
 function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocument, windowRef = defaultWindow, maxConcurrent = 1) {
@@ -1751,6 +1790,8 @@ export function mount(context = {}) {
   hooks.renderPostTOC = (params = {}) => renderPostTOCNative(params, documentRef, windowRef);
   hooks.renderErrorState = (params = {}) => renderErrorStateNative(params, documentRef);
   hooks.updateSearchPanels = (params = {}) => updateSearchPanelsNative(params, documentRef, windowRef);
+  hooks.renderTagSidebar = (params = {}) => renderTagSidebarNative(params, documentRef);
+  hooks.initializeSyntaxHighlighting = (params = {}) => initializeSyntaxHighlightingNative(params);
   hooks.updateSearchPlaceholder = (params = {}) => updateSearchPlaceholderNative(params, documentRef);
   hooks.renderPostLoadingState = (params = {}) => renderPostLoadingStateNative(params, documentRef);
   hooks.renderPostView = (params = {}) => renderPostViewNative(params, documentRef, windowRef);
@@ -1763,6 +1804,7 @@ export function mount(context = {}) {
   hooks.enhanceIndexLayout = (params = {}) => enhanceIndexLayoutNative(params, documentRef, windowRef);
   hooks.decoratePostView = (params = {}) => decoratePostViewNative(params, documentRef, windowRef);
   hooks.handleDocumentClick = (params = {}) => handleDocumentClickNative(params, documentRef, windowRef);
+  hooks.resetTOC = (params = {}) => resetTOCNative(params, documentRef, windowRef);
   hooks.setupThemeControls = (params = {}) => setupThemeControlsNative(params);
   hooks.resetThemeControls = (params = {}) => resetThemeControlsNative(params, documentRef);
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);

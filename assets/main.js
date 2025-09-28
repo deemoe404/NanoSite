@@ -298,6 +298,64 @@ function updateSearchPanels({
   });
 }
 
+function refreshTagSidebar({
+  view,
+  containers,
+  postsIndex
+} = {}) {
+  callThemeHook('renderTagSidebar', {
+    view,
+    containers,
+    postsIndex: postsIndex === undefined ? postsIndexCache : postsIndex,
+    utilities: {
+      aggregateTags,
+      renderTagSidebar,
+      setupTagTooltips
+    },
+    document,
+    window
+  });
+}
+
+function initializeSyntaxHighlightingForView(view, { containers } = {}) {
+  const handled = callThemeHook('initializeSyntaxHighlighting', {
+    view,
+    containers,
+    initSyntaxHighlighting,
+    document,
+    window
+  });
+  if (handled === undefined) {
+    try { initSyntaxHighlighting(); } catch (_) {}
+  }
+}
+
+function resetTOCView(view, containers, { reason, immediate } = {}) {
+  const handled = callThemeHook('resetTOC', {
+    view,
+    containers,
+    reason,
+    immediate,
+    smoothHide,
+    hideElement: hideElementDefault,
+    document,
+    window
+  });
+  if (handled === undefined) {
+    const toc = (containers && containers.tocElement) || getViewContainer(view, 'toc');
+    if (!toc) return;
+    const clear = () => { try { toc.innerHTML = ''; } catch (_) {}; };
+    if (immediate) {
+      clear();
+      try { toc.hidden = true; } catch (_) {}
+      try { toc.style.display = 'none'; } catch (_) {}
+      try { toc.setAttribute('aria-hidden', 'true'); } catch (_) {}
+      return;
+    }
+    smoothHide(toc, clear);
+  }
+}
+
 function enhanceIndexLayout(params = {}) {
   callThemeHook('enhanceIndexLayout', {
     ...params,
@@ -447,8 +505,8 @@ function displayPost(postname) {
 
     updateSearchPanels({ view: 'post', showSearch: false, showTags: false });
     try { setDocTitle(articleTitle); } catch (_) {}
-    try { initSyntaxHighlighting(); } catch (_) {}
-    try { renderTagSidebar(postsIndexCache); } catch (_) {}
+    initializeSyntaxHighlightingForView('post', { containers });
+    refreshTagSidebar({ view: 'post', containers, postsIndex: postsIndexCache });
 
     try {
       const seoData = extractSEOFromMarkdown(markdown, {
@@ -494,10 +552,7 @@ function displayPost(postname) {
       });
     } catch (_) {}
 
-    const tocView = containers.tocElement || getViewContainer('post', 'toc');
-    if (tocView) {
-      smoothHide(tocView, () => { try { tocView.innerHTML = ''; } catch (_) {}; });
-    }
+    resetTOCView('post', containers, { reason: 'postError' });
     const backHref = withLangParam(`?tab=${encodeURIComponent(getHomeSlug())}`);
     const backText = postsEnabled() ? t('ui.backToAllPosts') : (t('ui.backToHome') || t('ui.backToAllPosts'));
     renderErrorState(containers.mainElement || getViewContainer('post', 'main'), {
@@ -514,8 +569,7 @@ function displayPost(postname) {
 
 function displayIndex(parsed) {
   const containers = getViewContainers('posts');
-  const toc = containers.tocElement || getViewContainer('posts', 'toc');
-  smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
+  resetTOCView('posts', containers, { reason: 'index' });
 
   const entries = Object.entries(parsed || {});
   const total = entries.length;
@@ -583,8 +637,7 @@ function displaySearch(query) {
   if (!q && !tagFilter) return displayIndex(postsIndexCache);
 
   const containers = getViewContainers('search');
-  const toc = containers.tocElement || getViewContainer('search', 'toc');
-  smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} });
+  resetTOCView('search', containers, { reason: 'search' });
 
   // Filter by title or tags; if tagFilter present, restrict to exact tag match (case-insensitive)
   const allEntries = Object.entries(postsIndexCache || {});
@@ -672,8 +725,7 @@ function displayStaticTab(slug) {
 
   updateLayoutLoadingState('tab', true, containers);
 
-  const toc = containers.tocElement || getViewContainer('tab', 'toc');
-  if (toc) { smoothHide(toc, () => { try { toc.innerHTML = ''; } catch (_) {} }); }
+  resetTOCView('tab', containers, { reason: 'staticTab' });
   const main = containers.mainElement || getViewContainer('tab', 'main');
   callThemeHook('renderStaticTabLoadingState', {
     view: 'tab',
@@ -732,8 +784,8 @@ function displayStaticTab(slug) {
         if (hookResult.title) pageTitle = String(hookResult.title);
       }
 
-      try { initSyntaxHighlighting(); } catch (_) {}
-      try { renderTagSidebar(postsIndexCache); } catch (_) {}
+      initializeSyntaxHighlightingForView('tab', { containers });
+      refreshTagSidebar({ view: 'tab', containers, postsIndex: postsIndexCache });
 
       try {
         const seoData = extractSEOFromMarkdown(md, {
@@ -891,7 +943,7 @@ document.addEventListener('click', (e) => {
 window.addEventListener('popstate', () => {
   const prevKey = __lastRouteKey || '';
   routeAndRender();
-  try { renderTagSidebar(postsIndexCache); } catch (_) {}
+  refreshTagSidebar({ postsIndex: postsIndexCache });
   // Normalize scroll behavior: if navigating between different post IDs, scroll to top
   try {
     const id = getQueryVariable('id');
@@ -938,12 +990,8 @@ const controlsHandled = callThemeHook('setupThemeControls', {
   document,
   window
 });
-if (!controlsHandled) {
-  mountThemeControls();
-  applySavedTheme();
-  bindThemeToggle();
-  bindPostEditor();
-  bindThemePackPicker();
+if (controlsHandled === undefined) {
+  try { applySavedTheme(); } catch (_) {}
 }
 // Localize search placeholder ASAP
 callThemeHook('updateSearchPlaceholder', {
@@ -1345,15 +1393,13 @@ loadSiteConfig()
   routeAndRender();
   })
   .catch((e) => {
-    const tocView = getViewContainer('boot', 'toc');
-    if (tocView) {
-      smoothHide(tocView, () => { try { tocView.innerHTML = ''; } catch (_) {}; });
-    }
-    renderErrorState(getViewContainer('boot', 'main'), {
+    const bootContainers = getViewContainers('boot');
+    resetTOCView('boot', bootContainers, { reason: 'bootError' });
+    renderErrorState(bootContainers.mainElement || getViewContainer('boot', 'main'), {
       title: t('ui.indexUnavailable'),
       message: t('errors.indexUnavailableBody'),
       view: 'boot',
-      containers: getViewContainers('boot')
+      containers: bootContainers
     });
     updateSearchPanels({ view: 'boot', showSearch: false, showTags: false });
     // Surface an overlay for boot/index failures (network/unified JSON issues)
