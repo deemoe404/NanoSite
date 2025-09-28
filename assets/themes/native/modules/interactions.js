@@ -923,6 +923,7 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
   const markdownHtml = params.markdownHtml || '';
   const fallbackTitle = params.fallbackTitle != null ? String(params.fallbackTitle) : '';
   const metadata = params.postMetadata || {};
+  const metadataTitle = metadata && metadata.title != null ? String(metadata.title) : '';
   const markdown = params.markdown || '';
   const translate = params.translate || params.t || t;
   const siteConfig = params.siteConfig || {};
@@ -938,7 +939,8 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
   let topMeta = '';
   let bottomMeta = '';
   try {
-    topMeta = renderMetaFn(fallbackTitle, metadata, markdown) || '';
+    const titleForMeta = metadataTitle || fallbackTitle;
+    topMeta = renderMetaFn(titleForMeta, metadata, markdown) || '';
     if (topMeta) bottomMeta = topMeta.replace('post-meta-card', 'post-meta-card post-meta-bottom');
   } catch (_) {
     topMeta = '';
@@ -996,8 +998,28 @@ function renderPostViewNative(params = {}, documentRef = defaultDocument, window
 
   const tocHtml = params.tocHtml || '';
   const tocElement = documentRef.getElementById('tocview');
+  const { headingEl: firstHeadingEl, headingText: firstHeadingText } = (() => {
+    try {
+      const el = documentRef.querySelector('#mainview h1, #mainview h2, #mainview h3');
+      if (!el) return { headingEl: null, headingText: '' };
+      const clone = el.cloneNode(true);
+      const anchors = clone.querySelectorAll('a.anchor');
+      anchors.forEach(a => a.remove());
+      const text = (clone.textContent || '').replace(/\s+/g, ' ').trim().replace(/^#+\s*/, '').trim();
+      return { headingEl: el, headingText: text };
+    } catch (_) {
+      return { headingEl: null, headingText: '' };
+    }
+  })();
+  const preferredTitle = metadataTitle || fallbackTitle;
   const articleTitle = (() => {
-    try { return getArticleTitleFromMain() || fallbackTitle; } catch (_) { return fallbackTitle; }
+    if (!firstHeadingText) return preferredTitle;
+    const fallbackLooksLikePath = /\//.test(preferredTitle || '');
+    if (preferredTitle && preferredTitle.trim() && !fallbackLooksLikePath) {
+      const level = firstHeadingEl && firstHeadingEl.tagName ? String(firstHeadingEl.tagName).toLowerCase() : '';
+      if (level && level !== 'h1') return preferredTitle;
+    }
+    return firstHeadingText || preferredTitle;
   })();
 
   let tocHandled = false;
