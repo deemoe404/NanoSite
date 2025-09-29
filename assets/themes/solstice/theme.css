@@ -1992,6 +1992,10 @@ body {
   justify-content: flex-start;
 }
 
+.solstice-footer__meta > .solstice-footer__search {
+  margin-left: auto;
+}
+
 .solstice-footer__search .solstice-search {
   width: 100%;
   max-width: 360px;
@@ -2110,6 +2114,11 @@ body {
   .solstice-footer__meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .solstice-footer__meta > .solstice-footer__search {
+    margin-left: 0;
+    width: 100%;
   }
 }
 

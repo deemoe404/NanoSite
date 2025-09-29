@@ -72,12 +72,6 @@ export function mount(context = {}) {
         <div class="solstice-footer__columns">
           <div class="solstice-footer__column solstice-footer__column--tools" data-footer-column="tools">
             <section class="solstice-footer__tools" id="toolsPanel" aria-label="Quick tools"></section>
-            <section class="solstice-footer__search" aria-label="Search">
-              <label class="solstice-search" for="searchInput">
-                <span class="solstice-search__icon" aria-hidden="true">🔍</span>
-                <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-              </label>
-            </section>
           </div>
           <div class="solstice-footer__column solstice-footer__column--nav" data-footer-column="nav">
             <section class="solstice-footer__nav" aria-label="Secondary navigation">
@@ -92,6 +86,12 @@ export function mount(context = {}) {
         </div>
         <section class="solstice-footer__meta" aria-label="Site meta">
           <div class="solstice-footer__credit">NanoSite</div>
+          <section class="solstice-footer__search" aria-label="Search">
+            <label class="solstice-search" for="searchInput">
+              <span class="solstice-search__icon" aria-hidden="true">🔍</span>
+              <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+            </label>
+          </section>
         </section>
       </div>`;
     return el;
