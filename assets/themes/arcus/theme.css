@@ -129,9 +129,9 @@ body {
 .arcus-brand {
   position: relative;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 1.2rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.9rem;
   text-decoration: none;
   color: inherit;
 }
