@@ -206,7 +206,9 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const date = meta && meta.date ? formatDisplayDate(meta.date) : '';
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
-  return `<article class="solstice-card">
+  const hasCover = Boolean(coverHtml);
+  const cardClasses = `solstice-card${hasCover ? ' solstice-card--with-cover' : ''}`;
+  return `<article class="${cardClasses}">
     <a class="solstice-card__link" href="${escapeHtml(link)}">
       ${coverHtml}
       <div class="solstice-card__body">
