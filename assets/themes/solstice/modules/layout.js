@@ -39,14 +39,6 @@ export function mount(context = {}) {
     return el;
   });
 
-  const tagBand = ensureElement(container, `#${TAGVIEW_ID}`, () => {
-    const el = doc.createElement('section');
-    el.id = TAGVIEW_ID;
-    el.className = 'solstice-tagband';
-    el.setAttribute('aria-label', 'Tag filters');
-    return el;
-  });
-
   const main = ensureElement(container, '.solstice-main', () => {
     const el = doc.createElement('main');
     el.className = 'solstice-main';
@@ -77,25 +69,49 @@ export function mount(context = {}) {
     el.setAttribute('role', 'contentinfo');
     el.innerHTML = `
       <div class="solstice-footer__inner">
-        <section class="solstice-footer__tools" id="toolsPanel" aria-label="Quick tools"></section>
-        <section class="solstice-footer__search" aria-label="Search">
-          <label class="solstice-search" for="searchInput">
-            <span class="solstice-search__icon" aria-hidden="true">🔍</span>
-            <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-          </label>
-        </section>
-        <section class="solstice-footer__nav" aria-label="Secondary navigation">
-          <div id="${FOOTER_NAV_ID}" class="solstice-footer-nav"></div>
-        </section>
-        <section class="solstice-footer__links" aria-label="Profile links">
-          <ul class="solstice-linklist" data-site-links></ul>
-        </section>
+        <div class="solstice-footer__columns">
+          <div class="solstice-footer__column solstice-footer__column--tools" data-footer-column="tools">
+            <section class="solstice-footer__tools" id="toolsPanel" aria-label="Quick tools"></section>
+            <section class="solstice-footer__search" aria-label="Search">
+              <label class="solstice-search" for="searchInput">
+                <span class="solstice-search__icon" aria-hidden="true">🔍</span>
+                <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+              </label>
+            </section>
+          </div>
+          <div class="solstice-footer__column solstice-footer__column--nav" data-footer-column="nav">
+            <section class="solstice-footer__nav" aria-label="Secondary navigation">
+              <div id="${FOOTER_NAV_ID}" class="solstice-footer-nav"></div>
+            </section>
+          </div>
+          <div class="solstice-footer__column solstice-footer__column--links" data-footer-column="links">
+            <section class="solstice-footer__links" aria-label="Profile links">
+              <ul class="solstice-linklist" data-site-links></ul>
+            </section>
+          </div>
+        </div>
         <section class="solstice-footer__meta" aria-label="Site meta">
           <div class="solstice-footer__credit">NanoSite</div>
         </section>
       </div>`;
     return el;
   });
+
+  const footerInner = footer.querySelector('.solstice-footer__inner') || footer;
+  const metaSection = footerInner.querySelector('.solstice-footer__meta');
+
+  let tagBand = doc.getElementById(TAGVIEW_ID);
+  if (!tagBand) {
+    tagBand = doc.createElement('section');
+    tagBand.id = TAGVIEW_ID;
+  }
+
+  tagBand.className = 'solstice-tagband solstice-footer__tagband';
+  tagBand.setAttribute('aria-label', 'Tag filters');
+
+  if (tagBand.parentElement !== footerInner || (metaSection && tagBand.nextElementSibling !== metaSection)) {
+    footerInner.insertBefore(tagBand, metaSection || null);
+  }
 
   context.document = doc;
   context.regions = {
