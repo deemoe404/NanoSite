@@ -333,6 +333,7 @@ body {
   backdrop-filter: blur(24px);
   background: rgba(245, 245, 247, 0.72);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  --solstice-header-collapse: 0;
   transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease;
 }
 
@@ -342,6 +343,7 @@ body {
 }
 
 .solstice-header.is-condensed {
+  --solstice-header-collapse: 1;
   transform: translateY(-12px);
   background: rgba(245, 245, 247, 0.9);
 }
@@ -353,38 +355,80 @@ body {
 .solstice-header__inner {
   max-width: 960px;
   margin: 0 auto;
-  padding: 1.25rem 1.5rem;
+  padding: calc(1.25rem - 0.45rem * var(--solstice-header-collapse)) 1.5rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   align-items: center;
+  gap: 1.5rem;
+  transition: padding 0.3s ease;
+}
+
+.solstice-header__inner > * {
+  min-width: 0;
 }
 
 .solstice-brand {
   display: inline-flex;
   flex-direction: column;
+  justify-content: center;
   gap: 0.15rem;
   text-decoration: none;
   color: inherit;
 }
 
 .solstice-brand__title {
-  font-size: clamp(1.35rem, 2vw + 0.5rem, 2rem);
-  font-weight: 700;
+  font-size: clamp(1.2rem, calc(1.25rem + 0.85vw - 0.45rem * var(--solstice-header-collapse)), 2rem);
+  font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.05;
+  transition: font-size 0.3s ease, font-weight 0.3s ease;
 }
 
 .solstice-brand__subtitle {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: var(--solstice-muted);
+  max-height: 3rem;
+  opacity: 1;
+  overflow: hidden;
+  transition: opacity 0.25s ease, max-height 0.3s ease, transform 0.3s ease;
+}
+
+.solstice-header.is-condensed .solstice-brand {
+  gap: 0;
+}
+
+.solstice-header.is-condensed .solstice-brand__title {
+  font-size: clamp(0.85rem, calc(0.8rem + 0.55vw), 1.15rem);
+  font-weight: 400;
+}
+
+.solstice-header.is-condensed .solstice-brand__subtitle {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-0.35rem);
+}
+
+.solstice-header__inner #tabsNav,
+.solstice-header__inner .solstice-nav {
+  margin-left: auto;
+  justify-self: end;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 1.25rem;
+  row-gap: 0.5rem;
 }
 
 .solstice-nav {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
   justify-content: flex-end;
   flex-wrap: wrap;
+  align-content: center;
 }
 
 .solstice-nav__item {
@@ -2103,12 +2147,21 @@ body {
 
 @media (max-width: 720px) {
   .solstice-header__inner {
-    grid-template-columns: 1fr;
-    justify-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .solstice-header__inner #tabsNav,
+  .solstice-header__inner .solstice-nav {
+    margin-left: 0;
+    width: 100%;
+    align-self: stretch;
+    justify-content: flex-start;
   }
 
   .solstice-nav {
-    width: 100%;
     justify-content: flex-start;
     overflow-x: auto;
   }
