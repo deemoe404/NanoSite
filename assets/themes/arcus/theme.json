@@ -1,0 +1,7 @@
+{
+  "name": "Arcus",
+  "modules": [
+    "modules/layout.js",
+    "modules/interactions.js"
+  ]
+}
