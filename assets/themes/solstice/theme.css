@@ -30,6 +30,14 @@
   --solstice-quote-border: rgba(0, 113, 227, 0.18);
   --solstice-quote-text: #1d1d1f;
   --solstice-quote-shadow: 0 22px 44px rgba(0, 0, 0, 0.12);
+  --solstice-table-bg: rgba(255, 255, 255, 0.92);
+  --solstice-table-border: rgba(0, 0, 0, 0.08);
+  --solstice-table-head-bg: rgba(0, 113, 227, 0.1);
+  --solstice-table-head-text: #1d1d1f;
+  --solstice-table-stripe: rgba(0, 0, 0, 0.03);
+  --solstice-table-hover: rgba(0, 113, 227, 0.06);
+  --solstice-table-caption: var(--solstice-muted);
+  --solstice-table-shadow: 0 26px 55px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme='dark'] {
@@ -61,6 +69,14 @@
   --solstice-quote-border: rgba(41, 151, 255, 0.32);
   --solstice-quote-text: rgba(245, 245, 247, 0.92);
   --solstice-quote-shadow: 0 28px 55px rgba(0, 0, 0, 0.55);
+  --solstice-table-bg: rgba(30, 30, 32, 0.88);
+  --solstice-table-border: rgba(255, 255, 255, 0.08);
+  --solstice-table-head-bg: rgba(41, 151, 255, 0.18);
+  --solstice-table-head-text: rgba(245, 245, 247, 0.95);
+  --solstice-table-stripe: rgba(255, 255, 255, 0.05);
+  --solstice-table-hover: rgba(41, 151, 255, 0.16);
+  --solstice-table-caption: rgba(255, 255, 255, 0.65);
+  --solstice-table-shadow: 0 30px 65px rgba(0, 0, 0, 0.6);
 }
 
 body {
@@ -724,6 +740,122 @@ body {
   box-shadow: var(--solstice-quote-shadow);
   position: relative;
   overflow: hidden;
+}
+
+.solstice-article__body table,
+.solstice-static__body table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: clamp(1.75rem, 1.25rem + 1.5vw, 2.75rem) 0;
+  background: var(--solstice-table-bg);
+  border: 1px solid var(--solstice-table-border);
+  border-radius: calc(var(--solstice-radius) - 6px);
+  box-shadow: var(--solstice-table-shadow);
+  overflow: hidden;
+}
+
+.solstice-article__body table caption,
+.solstice-static__body table caption {
+  caption-side: bottom;
+  padding: 1rem 1.25rem 1.4rem;
+  font-size: 0.9rem;
+  color: var(--solstice-table-caption);
+  text-align: left;
+}
+
+.solstice-article__body table thead th,
+.solstice-static__body table thead th {
+  background: var(--solstice-table-head-bg);
+  color: var(--solstice-table-head-text);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.solstice-article__body table th,
+.solstice-static__body table th,
+.solstice-article__body table td,
+.solstice-static__body table td {
+  padding: 0.85rem 1.2rem;
+  border-bottom: 1px solid var(--solstice-table-border);
+  vertical-align: top;
+  text-align: left;
+  transition: background 0.2s ease;
+}
+
+.solstice-article__body table tbody tr:last-child td,
+.solstice-static__body table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.solstice-article__body table tbody tr:nth-child(even),
+.solstice-static__body table tbody tr:nth-child(even) {
+  background: var(--solstice-table-stripe);
+}
+
+.solstice-article__body table tbody tr:hover,
+.solstice-static__body table tbody tr:hover {
+  background: var(--solstice-table-hover);
+}
+
+.solstice-article__body table a,
+.solstice-static__body table a {
+  color: var(--solstice-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.solstice-article__body table a:hover,
+.solstice-static__body table a:hover,
+.solstice-article__body table a:focus-visible,
+.solstice-static__body table a:focus-visible {
+  text-decoration: underline;
+}
+
+.solstice-article__body table::-webkit-scrollbar,
+.solstice-static__body table::-webkit-scrollbar {
+  height: 8px;
+}
+
+.solstice-article__body table::-webkit-scrollbar-track,
+.solstice-static__body table::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.solstice-article__body table::-webkit-scrollbar-thumb,
+.solstice-static__body table::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 110, 0.35);
+  border-radius: 999px;
+}
+
+[data-theme='dark'] .solstice-article__body table::-webkit-scrollbar-thumb,
+[data-theme='dark'] .solstice-static__body table::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+@media (max-width: 720px) {
+  .solstice-article__body table,
+  .solstice-static__body table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .solstice-article__body table thead,
+  .solstice-static__body table thead,
+  .solstice-article__body table tbody,
+  .solstice-static__body table tbody {
+    display: table;
+    width: 100%;
+  }
+
+  .solstice-article__body table tr,
+  .solstice-static__body table tr {
+    display: table;
+    width: 100%;
+  }
 }
 
 .solstice-article__body blockquote::before,
