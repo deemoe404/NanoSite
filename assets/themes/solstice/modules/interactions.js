@@ -30,6 +30,30 @@ const CLASS_HIDDEN = 'is-hidden';
 
 let currentSiteConfig = null;
 
+function scrollViewportToTop(documentRef = defaultDocument, windowRef = defaultWindow) {
+  const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
+  try {
+    if (windowRef && typeof windowRef.scrollTo === 'function') {
+      windowRef.scrollTo({ top: 0, left: 0, behavior });
+      return true;
+    }
+  } catch (_) { /* fall through to legacy handling */ }
+  try {
+    if (windowRef && typeof windowRef.scrollTo === 'function') {
+      windowRef.scrollTo(0, 0);
+      return true;
+    }
+  } catch (_) { /* fall through to DOM fallback */ }
+  try {
+    if (documentRef) {
+      if (documentRef.documentElement) documentRef.documentElement.scrollTop = 0;
+      if (documentRef.body) documentRef.body.scrollTop = 0;
+      return true;
+    }
+  } catch (_) { /* no-op */ }
+  return false;
+}
+
 function resolveCoverSource(meta = {}, siteConfig = {}) {
   const allowFallback = !(siteConfig && siteConfig.cardCoverFallback === false);
   if (!meta) return { coverSrc: '', allowFallback };
@@ -693,6 +717,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
 
     try { if (utilities && typeof utilities.renderPostNav === 'function') utilities.renderPostNav(main.querySelector('[data-post-nav]'), postsIndex || {}, postMetadata && postMetadata.location); } catch (_) {}
     decorateArticle(main, translate || t, { hydratePostImages, hydratePostVideos, applyLazyLoadingIn }, markdown, postMetadata, title);
+    scrollViewportToTop(documentRef, windowRef);
     return { decorated: true, title };
   };
 
@@ -723,6 +748,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       <div class="solstice-index__grid">${cards || `<p class="solstice-empty">${t('ui.noResultsTitle')}</p>`}</div>
       ${buildPagination({ page, totalPages, baseHref, query: {} })}
     </div>`;
+    scrollViewportToTop(documentRef, windowRef);
     return true;
   };
 
@@ -749,6 +775,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       <div class="solstice-index__grid">${cards || `<p class="solstice-empty">${t('ui.noResultsTitle')}</p>`}</div>
       ${buildPagination({ page, totalPages, baseHref, query: { q: query, tag: tagFilter } })}
     </div>`;
+    scrollViewportToTop(documentRef, windowRef);
     return true;
   };
 
@@ -783,6 +810,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     const heading = title || (tab && tab.title) || '';
     const bodyHtml = markdownHtml != null ? markdownHtml : html;
     renderStaticView(main, heading, bodyHtml);
+    scrollViewportToTop(documentRef, windowRef);
 
     const body = main.querySelector('.solstice-static__body') || main;
     try { if (utilities && typeof utilities.hydratePostImages === 'function') utilities.hydratePostImages(body); } catch (_) {}
@@ -827,8 +855,9 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return false;
   };
 
-  hooks.handleRouteScroll = () => {
-    return false;
+  hooks.handleRouteScroll = ({ document: doc, window: win } = {}) => {
+    const scrolled = scrollViewportToTop(doc || documentRef, win || windowRef);
+    return scrolled ? true : undefined;
   };
 
   hooks.handleWindowResize = () => {
