@@ -685,6 +685,33 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     const subtitleEl = documentRef.querySelector('[data-site-subtitle]');
     if (titleEl) titleEl.textContent = title || 'NanoSite';
     if (subtitleEl) subtitleEl.textContent = subtitle || '';
+
+    const markEl = documentRef.querySelector('.arcus-brand__mark');
+    const logoEl = documentRef.querySelector('[data-site-logo]');
+    let logoSrc = '';
+    if (config && typeof config.avatar === 'string') {
+      logoSrc = config.avatar;
+    } else if (config && config.avatar && typeof config.avatar === 'object') {
+      const lang = typeof getCurrentLang === 'function' ? getCurrentLang() : null;
+      logoSrc = (lang && config.avatar[lang]) || config.avatar.default || '';
+    }
+    const safeLogoSrc = logoSrc && typeof sanitizeImageUrl === 'function' ? sanitizeImageUrl(logoSrc) : logoSrc;
+
+    if (logoEl) {
+      if (safeLogoSrc) {
+        logoEl.setAttribute('src', safeLogoSrc);
+        logoEl.setAttribute('alt', title ? `${title}` : 'Site logo');
+        logoEl.removeAttribute('hidden');
+        if (markEl) markEl.classList.remove('arcus-brand__mark--placeholder');
+      } else {
+        logoEl.removeAttribute('src');
+        logoEl.setAttribute('alt', '');
+        logoEl.setAttribute('hidden', '');
+        if (markEl) markEl.classList.add('arcus-brand__mark--placeholder');
+      }
+    } else if (markEl && !safeLogoSrc) {
+      markEl.classList.add('arcus-brand__mark--placeholder');
+    }
   };
 
   hooks.renderSiteLinks = ({ config }) => {
