@@ -1082,6 +1082,19 @@ body {
   background: rgba(0, 0, 0, 0.55);
 }
 
+.solstice-static__body {
+  line-height: 1.75;
+  font-size: 1.05rem;
+  color: var(--solstice-text);
+  width: 100%;
+  max-width: min(100%, 780px);
+  margin: 0 auto;
+}
+
+.solstice-static__header {
+  margin-bottom: clamp(1.75rem, 1.25rem + 2vw, 2.8rem);
+}
+
 .solstice-article__body {
   line-height: 1.8;
   font-size: 1.05rem;
@@ -2056,6 +2069,10 @@ body {
 
   .solstice-article__body {
     padding: 1.5rem;
+  }
+
+  .solstice-static__body {
+    font-size: 1rem;
   }
 
   .solstice-footer__inner {
