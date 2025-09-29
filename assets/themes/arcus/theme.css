@@ -130,16 +130,18 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 0.9rem;
+  align-items: center;
+  align-self: center;
+  text-align: center;
+  gap: 1.2rem;
   text-decoration: none;
   color: inherit;
 }
 
 .arcus-brand__mark {
-  width: 54px;
-  height: 54px;
-  border-radius: 20px;
+  width: 88px;
+  height: 88px;
+  border-radius: 28px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
