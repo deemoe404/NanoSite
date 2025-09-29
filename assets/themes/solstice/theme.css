@@ -1089,6 +1089,7 @@ body {
   display: grid;
   gap: 0.85rem;
   align-content: start;
+  grid-template-columns: minmax(0, 1fr) auto;
   border-radius: calc(var(--solstice-radius) + 6px);
   border: 1px solid var(--solstice-meta-border);
   padding: 1.5rem 1.75rem;
@@ -1096,6 +1097,10 @@ body {
   box-shadow: var(--solstice-meta-shadow);
   backdrop-filter: blur(18px);
   overflow: hidden;
+}
+
+.post-meta-card > :not(.post-meta-title):not(.post-meta-copy) {
+  grid-column: 1 / -1;
 }
 
 .post-meta-card::before {
