@@ -14,6 +14,16 @@
   --solstice-code-border: rgba(0, 0, 0, 0.07);
   --solstice-code-text: #1c1c1f;
   --solstice-code-shadow: 0 16px 36px rgba(15, 23, 42, 0.12);
+  --solstice-code-gutter-bg: rgba(255, 255, 255, 0.75);
+  --solstice-code-gutter-border: rgba(0, 0, 0, 0.08);
+  --solstice-code-gutter-text: rgba(29, 29, 31, 0.45);
+  --solstice-code-label-bg: rgba(0, 113, 227, 0.08);
+  --solstice-code-label-border: rgba(0, 113, 227, 0.18);
+  --solstice-code-label-text: rgba(0, 27, 95, 0.75);
+  --solstice-code-label-hover-bg: rgba(0, 113, 227, 0.18);
+  --solstice-code-label-hover-text: #0057b8;
+  --solstice-code-label-copied-bg: rgba(16, 185, 129, 0.18);
+  --solstice-code-label-copied-text: #0f5132;
   --solstice-inline-code-bg: rgba(0, 0, 0, 0.06);
   --solstice-inline-code-text: inherit;
 }
@@ -31,6 +41,16 @@
   --solstice-code-border: rgba(255, 255, 255, 0.08);
   --solstice-code-text: rgba(255, 255, 255, 0.92);
   --solstice-code-shadow: 0 22px 45px rgba(0, 0, 0, 0.55);
+  --solstice-code-gutter-bg: rgba(36, 38, 43, 0.85);
+  --solstice-code-gutter-border: rgba(255, 255, 255, 0.08);
+  --solstice-code-gutter-text: rgba(245, 245, 247, 0.6);
+  --solstice-code-label-bg: rgba(41, 151, 255, 0.16);
+  --solstice-code-label-border: rgba(41, 151, 255, 0.28);
+  --solstice-code-label-text: rgba(255, 255, 255, 0.82);
+  --solstice-code-label-hover-bg: rgba(10, 132, 255, 0.32);
+  --solstice-code-label-hover-text: rgba(255, 255, 255, 0.95);
+  --solstice-code-label-copied-bg: rgba(52, 199, 89, 0.28);
+  --solstice-code-label-copied-text: rgba(12, 64, 31, 0.92);
   --solstice-inline-code-bg: rgba(255, 255, 255, 0.12);
   --solstice-inline-code-text: rgba(255, 255, 255, 0.92);
 }
@@ -691,7 +711,10 @@ body {
   color: var(--solstice-code-text);
   border: 1px solid var(--solstice-code-border);
   border-radius: 16px;
-  padding: 1.35rem clamp(1.25rem, 1vw + 1rem, 1.65rem);
+  --solstice-code-pad-x: clamp(1.35rem, 1vw + 1.1rem, 1.85rem);
+  --solstice-code-pad-top: clamp(1.85rem, 1.25rem + 1.4vw, 2.6rem);
+  --solstice-code-pad-bottom: clamp(1.65rem, 1vw + 1.25rem, 2.25rem);
+  padding: var(--solstice-code-pad-top) var(--solstice-code-pad-x) var(--solstice-code-pad-bottom);
   margin: 1.75rem 0;
   overflow-x: auto;
   font-family: 'SFMono-Regular', ui-monospace, 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
@@ -699,6 +722,77 @@ body {
   line-height: 1.7;
   box-shadow: var(--solstice-code-shadow);
   position: relative;
+}
+
+.solstice-article__body pre.with-code-scroll,
+.solstice-static__body pre.with-code-scroll {
+  overflow: hidden;
+}
+
+.solstice-article__body pre.with-code-scroll .code-scroll,
+.solstice-static__body pre.with-code-scroll .code-scroll {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.15rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.35rem;
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.solstice-article__body pre.with-code-scroll .code-scroll code,
+.solstice-static__body pre.with-code-scroll .code-scroll code {
+  min-width: max-content;
+  flex: 1 1 auto;
+}
+
+.solstice-article__body pre.with-code-scroll .code-gutter,
+.solstice-static__body pre.with-code-scroll .code-gutter {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.7;
+  text-align: right;
+  color: var(--solstice-code-gutter-text);
+  background: var(--solstice-code-gutter-bg);
+  border: 1px solid var(--solstice-code-gutter-border);
+  border-radius: 12px;
+  padding: 0.45rem 0.85rem 0.45rem 0.55rem;
+  margin: -0.25rem 0;
+  position: sticky;
+  left: 0;
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  z-index: 1;
+}
+
+.solstice-article__body pre.with-code-scroll .code-gutter span,
+.solstice-static__body pre.with-code-scroll .code-gutter span {
+  display: block;
+  padding-right: 0.25rem;
+}
+
+.solstice-article__body pre.with-code-scroll .code-scroll::-webkit-scrollbar,
+.solstice-static__body pre.with-code-scroll .code-scroll::-webkit-scrollbar {
+  height: 9px;
+}
+
+.solstice-article__body pre.with-code-scroll .code-scroll::-webkit-scrollbar-track,
+.solstice-static__body pre.with-code-scroll .code-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.solstice-article__body pre.with-code-scroll .code-scroll::-webkit-scrollbar-thumb,
+.solstice-static__body pre.with-code-scroll .code-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 100, 110, 0.35);
+  border-radius: 999px;
+}
+
+[data-theme='dark'] .solstice-article__body pre.with-code-scroll .code-scroll::-webkit-scrollbar-thumb,
+[data-theme='dark'] .solstice-static__body pre.with-code-scroll .code-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .solstice-article__body pre code,
@@ -720,6 +814,75 @@ body {
   border-radius: 10px;
   padding: 0.1rem 0.4rem;
   font-size: 0.9em;
+}
+
+.solstice-article__body .syntax-language-label,
+.solstice-static__body .syntax-language-label {
+  position: absolute;
+  top: clamp(0.9rem, 0.4rem + 0.8vw, 1.2rem);
+  right: clamp(1rem, 0.6rem + 1vw, 1.6rem);
+  background: var(--solstice-code-label-bg);
+  color: var(--solstice-code-label-text);
+  border: 1px solid var(--solstice-code-label-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+}
+
+.solstice-article__body .syntax-language-label::before,
+.solstice-static__body .syntax-language-label::before {
+  content: '⎘';
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.solstice-article__body .syntax-language-label.is-hover,
+.solstice-static__body .syntax-language-label.is-hover,
+.solstice-article__body .syntax-language-label:hover,
+.solstice-static__body .syntax-language-label:hover {
+  background: var(--solstice-code-label-hover-bg);
+  color: var(--solstice-code-label-hover-text);
+  border-color: var(--solstice-code-label-hover-bg);
+  transform: translateY(-1px);
+}
+
+.solstice-article__body .syntax-language-label.is-hover::before,
+.solstice-static__body .syntax-language-label.is-hover::before,
+.solstice-article__body .syntax-language-label:hover::before,
+.solstice-static__body .syntax-language-label:hover::before {
+  opacity: 1;
+}
+
+.solstice-article__body .syntax-language-label.is-copied,
+.solstice-static__body .syntax-language-label.is-copied {
+  background: var(--solstice-code-label-copied-bg);
+  color: var(--solstice-code-label-copied-text);
+  border-color: transparent;
+  box-shadow: 0 14px 26px rgba(16, 185, 129, 0.32);
+}
+
+.solstice-article__body .syntax-language-label.is-copied::before,
+.solstice-static__body .syntax-language-label.is-copied::before {
+  content: '✔';
+  opacity: 0.9;
+}
+
+.solstice-article__body .syntax-language-label:focus-visible,
+.solstice-static__body .syntax-language-label:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 .solstice-article__body pre::-webkit-scrollbar,
