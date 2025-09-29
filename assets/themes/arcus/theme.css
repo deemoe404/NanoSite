@@ -83,8 +83,8 @@ body {
   grid-area: rail;
   position: sticky;
   top: 0;
-  align-self: stretch;
-  height: 100vh;
+  align-self: start;
+  height: auto;
   display: flex;
   align-items: stretch;
   z-index: 5;
@@ -102,6 +102,7 @@ body {
   backdrop-filter: blur(18px);
   position: relative;
   overflow: hidden;
+  min-height: 100vh;
 }
 
 .arcus-header__inner::after {
@@ -881,6 +882,7 @@ body {
     border-right: none;
     border-bottom: 1px solid var(--arcus-rail-border);
     border-radius: 0 0 var(--arcus-radius-lg) var(--arcus-radius-lg);
+    min-height: 0;
   }
   .arcus-main {
     padding: 2.6rem 1.8rem 2rem;
