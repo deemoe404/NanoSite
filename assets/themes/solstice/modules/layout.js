@@ -98,15 +98,19 @@ export function mount(context = {}) {
   });
 
   const footerInner = footer.querySelector('.solstice-footer__inner') || footer;
-  const navColumn = footerInner.querySelector('[data-footer-column="nav"]') || footerInner;
+  const metaSection = footerInner.querySelector('.solstice-footer__meta');
 
-  const tagBand = ensureElement(navColumn, `#${TAGVIEW_ID}`, () => {
+  const tagBand = ensureElement(footerInner, `#${TAGVIEW_ID}`, () => {
     const el = doc.createElement('section');
     el.id = TAGVIEW_ID;
     el.className = 'solstice-tagband solstice-footer__tagband';
     el.setAttribute('aria-label', 'Tag filters');
     return el;
   });
+
+  if (tagBand.parentElement !== footerInner || (metaSection && tagBand.nextElementSibling !== metaSection)) {
+    footerInner.insertBefore(tagBand, metaSection || null);
+  }
 
   context.document = doc;
   context.regions = {
