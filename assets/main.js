@@ -1077,6 +1077,49 @@ try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
 // Install error reporter early to catch resource 404s (e.g., theme CSS, images)
 try { initErrorReporter({}); } catch (_) {}
 
+let siteConfigResult = {};
+try {
+  siteConfigResult = await loadSiteConfig();
+} catch (_) {
+  siteConfigResult = {};
+}
+siteConfig = siteConfigResult || {};
+
+// Apply content root override early so subsequent loads honor it
+try {
+  const rawRoot = (siteConfig && (siteConfig.contentRoot || siteConfig.contentBase || siteConfig.contentPath)) || 'wwwroot';
+  if (typeof window !== 'undefined') window.__ns_content_root = String(rawRoot).replace(/^\/+|\/+$/g, '');
+} catch (_) {}
+
+// Apply site-configured defaults early
+try {
+  // 1) Page size (pagination)
+  const cfgPageSize = (siteConfig && (siteConfig.pageSize || siteConfig.postsPerPage));
+  if (cfgPageSize != null) {
+    const n = parseInt(cfgPageSize, 10);
+    if (!isNaN(n) && n > 0) PAGE_SIZE = n;
+  }
+  // 2) Default language: honor only when user hasn't chosen via URL/localStorage
+  const cfgDefaultLang = (siteConfig && (siteConfig.defaultLanguage || siteConfig.defaultLang));
+  if (cfgDefaultLang) {
+    let hasUrlLang = false;
+    try { const u = new URL(window.location.href); hasUrlLang = !!u.searchParams.get('lang'); } catch (_) {}
+    let savedLang = '';
+    try { savedLang = String(localStorage.getItem('lang') || ''); } catch (_) {}
+    const hasSaved = !!savedLang;
+    const htmlDefault = String(defaultLang || 'en').toLowerCase();
+    const savedIsHtmlDefault = savedLang && savedLang.toLowerCase() === htmlDefault;
+    if (!hasUrlLang && (!hasSaved || savedIsHtmlDefault)) {
+      await initI18n({ lang: String(cfgDefaultLang) });
+    }
+  }
+} catch (_) { /* ignore site default application errors */ }
+
+// Apply site-controlled theme after loading config
+try {
+  applyThemeConfig(siteConfig);
+} catch (_) {}
+
 // Build layout according to the active theme pack before binding UI logic
 await ensureThemeLayout();
 
@@ -1093,12 +1136,14 @@ const controlsHandled = callThemeHook('setupThemeControls', {
 if (controlsHandled === undefined) {
   try { applySavedTheme(); } catch (_) {}
 }
+
 // Localize search placeholder ASAP
 callThemeHook('updateSearchPlaceholder', {
   placeholder: t('sidebar.searchPlaceholder'),
   document,
   window
 });
+
 // Observe viewport changes for responsive tabs
 callThemeHook('setupResponsiveTabsObserver', {
   getTabs: () => tabsBySlug,
@@ -1106,6 +1151,15 @@ callThemeHook('setupResponsiveTabsObserver', {
   window,
   renderTabs
 });
+
+// Reflect theme config in the layout (e.g., data attributes)
+try {
+  callThemeHook('reflectThemeConfig', {
+    config: siteConfig,
+    document,
+    window
+  });
+} catch (_) {}
 
 // Soft reset to the site's default language without full reload
 async function softResetToSiteDefaultLanguage() {
@@ -1266,62 +1320,23 @@ async function softResetToSiteDefaultLanguage() {
 // Expose as a global so the UI can call it
 try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catch (_) {}
 
-// Load site config first so we can honor defaultLanguage before fetching localized content
-loadSiteConfig()
-  .then(async (cfg) => {
-    siteConfig = cfg || {};
-    // Apply content root override early so subsequent loads honor it
+// Now fetch localized content and tabs for the (possibly updated) language
+const loadResults = await Promise.allSettled([
+  loadContentJson(getContentRoot(), 'index'),
+  loadTabsJson(getContentRoot(), 'tabs'),
+  (async () => {
     try {
-      const rawRoot = (siteConfig && (siteConfig.contentRoot || siteConfig.contentBase || siteConfig.contentPath)) || 'wwwroot';
-      if (typeof window !== 'undefined') window.__ns_content_root = String(rawRoot).replace(/^\/+|\/+$/g, '');
-    } catch (_) {}
-    // Apply site-configured defaults early
-    try {
-      // 1) Page size (pagination)
-      const cfgPageSize = (siteConfig && (siteConfig.pageSize || siteConfig.postsPerPage));
-      if (cfgPageSize != null) {
-        const n = parseInt(cfgPageSize, 10);
-        if (!isNaN(n) && n > 0) PAGE_SIZE = n;
-      }
-      // 2) Default language: honor only when user hasn't chosen via URL/localStorage
-      const cfgDefaultLang = (siteConfig && (siteConfig.defaultLanguage || siteConfig.defaultLang));
-      if (cfgDefaultLang) {
-        let hasUrlLang = false;
-        try { const u = new URL(window.location.href); hasUrlLang = !!u.searchParams.get('lang'); } catch (_) {}
-        let savedLang = '';
-        try { savedLang = String(localStorage.getItem('lang') || ''); } catch (_) {}
-        const hasSaved = !!savedLang;
-        const htmlDefault = String(defaultLang || 'en').toLowerCase();
-        const savedIsHtmlDefault = savedLang && savedLang.toLowerCase() === htmlDefault;
-        if (!hasUrlLang && (!hasSaved || savedIsHtmlDefault)) {
-          // Force language to site default, not just the fallback
-          await initI18n({ lang: String(cfgDefaultLang) });
-          callThemeHook('updateSearchPlaceholder', {
-            placeholder: t('sidebar.searchPlaceholder'),
-            document,
-            window
-          });
-        }
-      }
-    } catch (_) { /* ignore site default application errors */ }
+      const cr = getContentRoot();
+      const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`, `${cr}/index.yml`]);
+      return (obj && typeof obj === 'object') ? obj : null;
+    } catch (_) { return null; }
+  })()
+]);
 
-    // Now fetch localized content and tabs for the (possibly updated) language
-    return Promise.allSettled([
-      loadContentJson(getContentRoot(), 'index'),
-      loadTabsJson(getContentRoot(), 'tabs'),
-      (async () => {
-        try {
-          const cr = getContentRoot();
-          const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]);
-          return (obj && typeof obj === 'object') ? obj : null;
-        } catch (_) { return null; }
-      })()
-    ]);
-  })
-  .then(results => {
-    const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
-    const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
-    const rawIndex = results[2] && results[2].status === 'fulfilled' ? (results[2].value || null) : null;
+try {
+  const posts = loadResults[0].status === 'fulfilled' ? (loadResults[0].value || {}) : {};
+  const tabs = loadResults[1].status === 'fulfilled' ? (loadResults[1].value || {}) : {};
+  const rawIndex = loadResults[2] && loadResults[2].status === 'fulfilled' ? (loadResults[2].value || null) : null;
     tabsBySlug = {};
     stableToCurrentTabSlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {
@@ -1491,24 +1506,22 @@ loadSiteConfig()
     } catch (_) {}
     
   routeAndRender();
-  })
-  .catch((e) => {
-    const bootContainers = getViewContainers('boot');
-    resetTOCView('boot', bootContainers, { reason: 'bootError' });
-    renderErrorState(bootContainers.mainElement || getViewContainer('boot', 'main'), {
-      title: t('ui.indexUnavailable'),
-      message: t('errors.indexUnavailableBody'),
-      view: 'boot',
-      containers: bootContainers
-    });
-    notifyThemeViewChange('boot', { showSearch: false, showTags: false });
-    // Surface an overlay for boot/index failures (network/unified JSON issues)
-    try {
-      const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
-      try { err.name = 'Warning'; } catch(_) {}
-      showErrorOverlay(err, { message: err.message, origin: 'boot.indexUnavailable', error: (e && e.message) || String(e || '') });
-    } catch (_) {}
+} catch (e) {
+  const bootContainers = getViewContainers('boot');
+  resetTOCView('boot', bootContainers, { reason: 'bootError' });
+  renderErrorState(bootContainers.mainElement || getViewContainer('boot', 'main'), {
+    title: t('ui.indexUnavailable'),
+    message: t('errors.indexUnavailableBody'),
+    view: 'boot',
+    containers: bootContainers
   });
+  notifyThemeViewChange('boot', { showSearch: false, showTags: false });
+  try {
+    const err = new Error((t('errors.indexUnavailableBody') || 'Could not load the post index.'));
+    try { err.name = 'Warning'; } catch(_) {}
+    showErrorOverlay(err, { message: err.message, origin: 'boot.indexUnavailable', error: (e && e.message) || String(e || '') });
+  } catch (_) {}
+}
 
 // Footer: set dynamic year once
 try {
