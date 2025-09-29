@@ -100,13 +100,14 @@ export function mount(context = {}) {
   const footerInner = footer.querySelector('.solstice-footer__inner') || footer;
   const metaSection = footerInner.querySelector('.solstice-footer__meta');
 
-  const tagBand = ensureElement(footerInner, `#${TAGVIEW_ID}`, () => {
-    const el = doc.createElement('section');
-    el.id = TAGVIEW_ID;
-    el.className = 'solstice-tagband solstice-footer__tagband';
-    el.setAttribute('aria-label', 'Tag filters');
-    return el;
-  });
+  let tagBand = doc.getElementById(TAGVIEW_ID);
+  if (!tagBand) {
+    tagBand = doc.createElement('section');
+    tagBand.id = TAGVIEW_ID;
+  }
+
+  tagBand.className = 'solstice-tagband solstice-footer__tagband';
+  tagBand.setAttribute('aria-label', 'Tag filters');
 
   if (tagBand.parentElement !== footerInner || (metaSection && tagBand.nextElementSibling !== metaSection)) {
     footerInner.insertBefore(tagBand, metaSection || null);
