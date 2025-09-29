@@ -2024,19 +2024,46 @@ body {
   color: #f5f5f7;
   text-align: center;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.65) 100%);
-  opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 180ms ease, transform 220ms ease;
-  pointer-events: none;
-}
-
-.solstice-article__body figure:hover figcaption,
-.solstice-static__body figure:hover figcaption,
-.solstice-article__body figure:focus-within figcaption,
-.solstice-static__body figure:focus-within figcaption {
   opacity: 1;
   transform: translateY(0);
+  transition: opacity 180ms ease, transform 220ms ease;
   pointer-events: auto;
+}
+
+@media (hover: hover) {
+  .solstice-article__body figure figcaption,
+  .solstice-static__body figure figcaption {
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+  }
+
+  .solstice-article__body figure:hover figcaption,
+  .solstice-static__body figure:hover figcaption,
+  .solstice-article__body figure:focus-within figcaption,
+  .solstice-static__body figure:focus-within figcaption {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  @supports selector(:has(*)) {
+    .solstice-article__body figure:not(:has(:is(a, button, input, textarea, select, summary, details, [tabindex]:not([tabindex="-1"])))) figcaption,
+    .solstice-static__body figure:not(:has(:is(a, button, input, textarea, select, summary, details, [tabindex]:not([tabindex="-1"])))) figcaption {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+  }
+}
+
+@media (hover: none) {
+  .solstice-article__body figure figcaption,
+  .solstice-static__body figure figcaption {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
 .solstice-article__footer {
