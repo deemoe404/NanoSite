@@ -39,19 +39,6 @@ export function mount(context = {}) {
         </a>
         <div class="arcus-header__divider" aria-hidden="true"></div>
         <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
-        <section class="arcus-header__search" aria-label="Search">
-          <label class="arcus-search" for="searchInput">
-            <span class="arcus-search__icon" aria-hidden="true">🔍</span>
-            <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-          </label>
-        </section>
-        <section class="arcus-header__tools" aria-label="Quick tools">
-          <div id="toolsPanel" class="arcus-tools"></div>
-        </section>
-        <section class="arcus-header__links" aria-label="Profile links">
-          <ul class="arcus-linklist" data-site-links></ul>
-        </section>
-        <div class="arcus-header__credit arcus-footer__credit" aria-label="Site credit"></div>
       </div>`;
     return el;
   });
@@ -128,6 +115,35 @@ export function mount(context = {}) {
     rightColumn.insertBefore(tagBand, footer);
   }
 
+  const utilities = ensureElement(rightColumn, '.arcus-utility', () => {
+    const el = doc.createElement('section');
+    el.className = 'arcus-utility';
+    el.setAttribute('aria-label', 'Site utilities');
+    el.innerHTML = `
+      <div class="arcus-utility__inner">
+        <section class="arcus-utility__search" aria-label="Search">
+          <label class="arcus-search" for="searchInput">
+            <span class="arcus-search__icon" aria-hidden="true">🔍</span>
+            <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+          </label>
+        </section>
+        <section class="arcus-utility__tools" aria-label="Quick tools">
+          <div id="toolsPanel" class="arcus-tools"></div>
+        </section>
+        <section class="arcus-utility__links" aria-label="Profile links">
+          <ul class="arcus-linklist" data-site-links></ul>
+        </section>
+        <div class="arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>
+      </div>`;
+    return el;
+  });
+
+  if (utilities.parentElement !== rightColumn) {
+    rightColumn.insertBefore(utilities, footer);
+  } else if (utilities.nextElementSibling !== footer) {
+    rightColumn.insertBefore(utilities, footer);
+  }
+
   if (footer.parentElement !== rightColumn) {
     rightColumn.appendChild(footer);
   } else if (footer.nextElementSibling) {
@@ -144,9 +160,10 @@ export function mount(context = {}) {
     mainview,
     toc: tocview,
     footer,
+    utilities,
     footerNav: footer.querySelector(`#${FOOTER_NAV_ID}`),
     tagBand,
-    toolsPanel: header.querySelector('#toolsPanel'),
+    toolsPanel: utilities.querySelector('#toolsPanel'),
     scrollContainer: rightColumn
   };
 

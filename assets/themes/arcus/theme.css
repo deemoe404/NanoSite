@@ -107,7 +107,7 @@ body {
   padding: 3.2rem 2.6rem;
   display: flex;
   flex-direction: column;
-  gap: 2.4rem;
+  gap: 1.8rem;
   width: 100%;
   backdrop-filter: blur(18px);
   position: relative;
@@ -292,14 +292,6 @@ body {
   font-style: italic;
 }
 
-.arcus-header__credit {
-  margin-top: auto;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  color: var(--arcus-text-soft);
-}
-
 .arcus-main {
   padding: 3.5rem 4rem 2.5rem;
   background: var(--arcus-main-bg);
@@ -350,6 +342,61 @@ body {
 .arcus-tagband .tag-chip:hover {
   border-color: rgba(123, 139, 255, 0.35);
   transform: translateY(-2px);
+}
+
+.arcus-utility {
+  flex: 0 0 auto;
+  padding: 0 4rem 2.8rem;
+  background: var(--arcus-main-bg);
+  border-top: 1px solid var(--arcus-outline);
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.arcus-utility::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(140% 120% at 50% 0%, rgba(123, 139, 255, 0.08), transparent 60%);
+  pointer-events: none;
+}
+
+.arcus-utility__inner {
+  position: relative;
+  width: min(960px, 100%);
+  display: grid;
+  gap: 1.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-items: start;
+}
+
+.arcus-utility__search,
+.arcus-utility__tools,
+.arcus-utility__links,
+.arcus-utility__credit {
+  position: relative;
+  z-index: 1;
+}
+
+.arcus-utility__links {
+  grid-column: 1 / -1;
+}
+
+.arcus-utility__links .arcus-linklist {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.4rem;
+}
+
+.arcus-utility__credit {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--arcus-text-soft);
+  text-align: center;
+  padding-top: 0.6rem;
 }
 
 .arcus-footer {
@@ -875,6 +922,9 @@ body {
   .arcus-tagband {
     padding: 0 3rem 2rem;
   }
+  .arcus-utility {
+    padding: 0 3rem 2.4rem;
+  }
 }
 
 @media (max-width: 960px) {
@@ -908,6 +958,16 @@ body {
   .arcus-tagband {
     padding: 0 1.8rem 2rem;
     justify-content: flex-start;
+  }
+  .arcus-utility {
+    padding: 0 1.8rem 2.4rem;
+  }
+  .arcus-utility__inner {
+    grid-template-columns: 1fr;
+  }
+  .arcus-utility__links .arcus-linklist {
+    flex-direction: column;
+    gap: 0.4rem;
   }
   .arcus-footer {
     padding: 1.6rem 1.8rem 2.8rem;
