@@ -461,6 +461,17 @@ body {
   padding: 1.5rem 1.5rem 0;
 }
 
+.solstice-footer__tagband {
+  grid-column: 1 / -1;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.solstice-footer .solstice-tagband {
+  width: 100%;
+}
+
 #tagview .section-title {
   font-size: 0.95rem;
   font-weight: 600;

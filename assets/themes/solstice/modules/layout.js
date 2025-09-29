@@ -39,14 +39,6 @@ export function mount(context = {}) {
     return el;
   });
 
-  const tagBand = ensureElement(container, `#${TAGVIEW_ID}`, () => {
-    const el = doc.createElement('section');
-    el.id = TAGVIEW_ID;
-    el.className = 'solstice-tagband';
-    el.setAttribute('aria-label', 'Tag filters');
-    return el;
-  });
-
   const main = ensureElement(container, '.solstice-main', () => {
     const el = doc.createElement('main');
     el.className = 'solstice-main';
@@ -94,6 +86,16 @@ export function mount(context = {}) {
           <div class="solstice-footer__credit">NanoSite</div>
         </section>
       </div>`;
+    return el;
+  });
+
+  const footerInner = footer.querySelector('.solstice-footer__inner') || footer;
+
+  const tagBand = ensureElement(footerInner, `#${TAGVIEW_ID}`, () => {
+    const el = doc.createElement('section');
+    el.id = TAGVIEW_ID;
+    el.className = 'solstice-tagband solstice-footer__tagband';
+    el.setAttribute('aria-label', 'Tag filters');
     return el;
   });
 
