@@ -26,6 +26,17 @@
   --solstice-code-label-copied-text: #0f5132;
   --solstice-inline-code-bg: rgba(0, 0, 0, 0.06);
   --solstice-inline-code-text: inherit;
+  --solstice-syntax-keyword: #0057b8;
+  --solstice-syntax-string: #0f7b4d;
+  --solstice-syntax-number: #6941c6;
+  --solstice-syntax-comment: rgba(29, 29, 31, 0.55);
+  --solstice-syntax-operator: #0071e3;
+  --solstice-syntax-punctuation: rgba(29, 29, 31, 0.62);
+  --solstice-syntax-tag: #0f7b4d;
+  --solstice-syntax-property: #8b2bb9;
+  --solstice-syntax-selector: #c2410c;
+  --solstice-syntax-preprocessor: #9c2c6a;
+  --solstice-syntax-variable: #b54708;
   --solstice-media-bg: rgba(255, 255, 255, 0.92);
   --solstice-media-border: rgba(0, 0, 0, 0.08);
   --solstice-media-shadow: 0 28px 55px rgba(15, 23, 42, 0.12);
@@ -110,6 +121,17 @@
   --solstice-code-label-copied-text: rgba(12, 64, 31, 0.92);
   --solstice-inline-code-bg: rgba(255, 255, 255, 0.12);
   --solstice-inline-code-text: rgba(255, 255, 255, 0.92);
+  --solstice-syntax-keyword: #82c8ff;
+  --solstice-syntax-string: #4ade80;
+  --solstice-syntax-number: #c4b5fd;
+  --solstice-syntax-comment: rgba(196, 200, 210, 0.68);
+  --solstice-syntax-operator: #4da6ff;
+  --solstice-syntax-punctuation: rgba(229, 231, 235, 0.72);
+  --solstice-syntax-tag: #5eead4;
+  --solstice-syntax-property: #c084fc;
+  --solstice-syntax-selector: #f97316;
+  --solstice-syntax-preprocessor: #f472b6;
+  --solstice-syntax-variable: #facc15;
   --solstice-media-bg: rgba(28, 28, 30, 0.82);
   --solstice-media-border: rgba(255, 255, 255, 0.08);
   --solstice-media-shadow: 0 32px 65px rgba(0, 0, 0, 0.62);
@@ -175,6 +197,121 @@ body {
   color: var(--solstice-text);
   background: var(--solstice-bg);
   transition: background 0.3s ease, color 0.3s ease;
+}
+
+.syntax-keyword,
+.syntax-keywords {
+  color: var(--solstice-syntax-keyword);
+  font-weight: 600;
+}
+
+.syntax-operator,
+.syntax-operators {
+  color: var(--solstice-syntax-operator);
+}
+
+.syntax-string,
+.syntax-strings {
+  color: var(--solstice-syntax-string);
+}
+
+.syntax-number,
+.syntax-numbers {
+  color: var(--solstice-syntax-number);
+}
+
+.syntax-comment,
+.syntax-comments {
+  color: var(--solstice-syntax-comment);
+  font-style: italic;
+}
+
+.syntax-punctuation {
+  color: var(--solstice-syntax-punctuation);
+}
+
+.syntax-tag,
+.syntax-tags {
+  color: var(--solstice-syntax-tag);
+  font-weight: 600;
+}
+
+.syntax-property,
+.syntax-properties {
+  color: var(--solstice-syntax-property);
+}
+
+.syntax-attribute,
+.syntax-attributes {
+  color: var(--solstice-syntax-property);
+}
+
+.syntax-selector,
+.syntax-selectors {
+  color: var(--solstice-syntax-selector);
+  font-weight: 600;
+}
+
+.syntax-preprocessor {
+  color: var(--solstice-syntax-preprocessor);
+  font-weight: 600;
+}
+
+.syntax-variables,
+.syntax-variable {
+  color: var(--solstice-syntax-variable);
+}
+
+.syntax-language-label {
+  font-family: var(--solstice-font);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--solstice-code-label-border);
+  background: var(--solstice-code-label-bg);
+  color: var(--solstice-code-label-text);
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.syntax-language-label::before {
+  content: '⧉';
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.syntax-language-label:hover,
+.syntax-language-label.is-hover {
+  background: var(--solstice-code-label-hover-bg);
+  color: var(--solstice-code-label-hover-text);
+  border-color: var(--solstice-code-label-border);
+  box-shadow: 0 12px 26px rgba(0, 113, 227, 0.2);
+  transform: translateY(-1px);
+}
+
+.syntax-language-label.is-copied {
+  background: var(--solstice-code-label-copied-bg);
+  color: var(--solstice-code-label-copied-text);
+  border-color: rgba(16, 185, 129, 0.32);
+}
+
+.syntax-language-label.is-copied::before {
+  content: '✔';
+  opacity: 0.9;
+}
+
+.syntax-language-label:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 .solstice-shell {
