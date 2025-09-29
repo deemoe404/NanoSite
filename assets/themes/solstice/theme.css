@@ -1982,6 +1982,15 @@ body {
   gap: 1.5rem;
 }
 
+.solstice-footer__column-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--solstice-muted);
+}
+
 .solstice-footer__tools {
   display: flex;
   flex-wrap: wrap;
