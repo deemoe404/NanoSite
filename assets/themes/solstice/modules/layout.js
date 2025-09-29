@@ -97,9 +97,6 @@ export function mount(context = {}) {
     return el;
   });
 
-  const footerInner = footer.querySelector('.solstice-footer__inner') || footer;
-  const metaSection = footerInner.querySelector('.solstice-footer__meta');
-
   let tagBand = doc.getElementById(TAGVIEW_ID);
   if (!tagBand) {
     tagBand = doc.createElement('section');
@@ -109,8 +106,8 @@ export function mount(context = {}) {
   tagBand.className = 'solstice-tagband solstice-footer__tagband';
   tagBand.setAttribute('aria-label', 'Tag filters');
 
-  if (tagBand.parentElement !== footerInner || (metaSection && tagBand.nextElementSibling !== metaSection)) {
-    footerInner.insertBefore(tagBand, metaSection || null);
+  if (tagBand.parentElement !== container || tagBand.nextElementSibling !== footer) {
+    container.insertBefore(tagBand, footer);
   }
 
   context.document = doc;
