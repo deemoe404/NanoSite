@@ -63,6 +63,13 @@
   --solstice-tag-text: #0057b8;
   --solstice-tag-hover-bg: rgba(0, 113, 227, 0.2);
   --solstice-tag-hover-border: rgba(0, 113, 227, 0.32);
+  --solstice-gradient-start: #f6f9ff;
+  --solstice-gradient-middle: #ffffff;
+  --solstice-gradient-end: #f0f4ff;
+  --solstice-line-color: rgba(0, 113, 227, 0.12);
+  --solstice-line-highlight: rgba(0, 113, 227, 0.2);
+  --solstice-scroll-offset: 0px;
+  --solstice-scroll-tilt: 0deg;
 
   /* Bridge variables consumed by shared tools (composer, index editor, etc.) */
   --bg: var(--solstice-bg);
@@ -158,6 +165,13 @@
   --solstice-tag-text: rgba(245, 245, 247, 0.88);
   --solstice-tag-hover-bg: rgba(41, 151, 255, 0.28);
   --solstice-tag-hover-border: rgba(41, 151, 255, 0.45);
+  --solstice-gradient-start: #050a16;
+  --solstice-gradient-middle: #0a0a0a;
+  --solstice-gradient-end: #101322;
+  --solstice-line-color: rgba(41, 151, 255, 0.18);
+  --solstice-line-highlight: rgba(10, 132, 255, 0.28);
+  --solstice-scroll-offset: 0px;
+  --solstice-scroll-tilt: 0deg;
 
   /* Bridge variables consumed by shared tools (composer, index editor, etc.) */
   --bg: var(--solstice-bg);
@@ -195,7 +209,13 @@ body {
   margin: 0;
   font-family: var(--solstice-font);
   color: var(--solstice-text);
-  background: var(--solstice-bg);
+  background-color: var(--solstice-bg);
+  background-image:
+    radial-gradient(120% 120% at 0% 0%, var(--solstice-gradient-start) 0%, transparent 60%),
+    linear-gradient(180deg, var(--solstice-gradient-middle) 0%, var(--solstice-gradient-end) 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
   transition: background 0.3s ease, color 0.3s ease;
 }
 
@@ -318,12 +338,49 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.65) 60%, rgba(255,255,255,0.45) 100%);
-  backdrop-filter: blur(20px);
+  position: relative;
+  background: transparent;
+  isolation: isolate;
 }
 
-[data-theme='dark'] .solstice-shell {
-  background: linear-gradient(180deg, rgba(18,18,18,0.95) 0%, rgba(18,18,18,0.8) 60%, rgba(18,18,18,0.65) 100%);
+.solstice-shell::before,
+.solstice-shell::after {
+  content: '';
+  position: fixed;
+  inset: -10vh -20vw;
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.solstice-shell::before {
+  background-image:
+    radial-gradient(90% 90% at 10% 0%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(120% 120% at 85% 10%, rgba(0, 113, 227, 0.18) 0%, rgba(0, 113, 227, 0) 72%),
+    linear-gradient(180deg, var(--solstice-gradient-start) 0%, var(--solstice-gradient-middle) 45%, var(--solstice-gradient-end) 100%);
+  filter: saturate(110%);
+}
+
+[data-theme='dark'] .solstice-shell::before {
+  background-image:
+    radial-gradient(85% 85% at 15% 5%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(120% 120% at 90% 15%, rgba(41, 151, 255, 0.25) 0%, rgba(41, 151, 255, 0) 75%),
+    linear-gradient(180deg, var(--solstice-gradient-start) 0%, var(--solstice-gradient-middle) 45%, var(--solstice-gradient-end) 100%);
+  filter: saturate(140%);
+}
+
+.solstice-shell::after {
+  opacity: 0.55;
+  background-image:
+    repeating-linear-gradient(calc(115deg + var(--solstice-scroll-tilt)), transparent 0 92px, var(--solstice-line-color) 92px 94px),
+    repeating-linear-gradient(calc(115deg - var(--solstice-scroll-tilt)), transparent 0 120px, var(--solstice-line-highlight) 120px 122px);
+  background-size: 320px 320px, 420px 420px;
+  background-position: center calc(var(--solstice-scroll-offset) * -0.3);
+}
+
+[data-theme='dark'] .solstice-shell::after {
+  opacity: 0.38;
+  mix-blend-mode: screen;
 }
 
 .solstice-header {

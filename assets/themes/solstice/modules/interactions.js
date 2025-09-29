@@ -54,6 +54,52 @@ function scrollViewportToTop(documentRef = defaultDocument, windowRef = defaultW
   return false;
 }
 
+function setupDynamicBackground(documentRef = defaultDocument, windowRef = defaultWindow) {
+  const root = documentRef && documentRef.querySelector ? documentRef.querySelector('.solstice-shell') : null;
+  if (!root) return false;
+
+  if (typeof prefersReducedMotion === 'function' && prefersReducedMotion()) {
+    root.style.setProperty('--solstice-scroll-offset', '0px');
+    root.style.setProperty('--solstice-scroll-tilt', '0deg');
+    return false;
+  }
+
+  let frame = null;
+
+  const readScrollPosition = () => {
+    frame = null;
+    let scrollY = 0;
+    if (windowRef && typeof windowRef.scrollY === 'number') {
+      scrollY = windowRef.scrollY;
+    } else if (documentRef && documentRef.documentElement) {
+      scrollY = documentRef.documentElement.scrollTop || 0;
+    }
+    const clampedOffset = Math.max(-800, Math.min(1600, scrollY));
+    const tilt = Math.max(-6, Math.min(10, clampedOffset * 0.01));
+    root.style.setProperty('--solstice-scroll-offset', `${clampedOffset}px`);
+    root.style.setProperty('--solstice-scroll-tilt', `${tilt}deg`);
+  };
+
+  const queueUpdate = () => {
+    if (frame != null) return;
+    if (windowRef && typeof windowRef.requestAnimationFrame === 'function') {
+      frame = windowRef.requestAnimationFrame(readScrollPosition);
+    } else {
+      frame = setTimeout(readScrollPosition, 16);
+    }
+  };
+
+  readScrollPosition();
+  queueUpdate();
+
+  if (windowRef && typeof windowRef.addEventListener === 'function') {
+    windowRef.addEventListener('scroll', queueUpdate, { passive: true });
+    windowRef.addEventListener('resize', queueUpdate);
+  }
+
+  return true;
+}
+
 function resolveCoverSource(meta = {}, siteConfig = {}) {
   const allowFallback = !(siteConfig && siteConfig.cardCoverFallback === false);
   if (!meta) return { coverSrc: '', allowFallback };
@@ -918,5 +964,6 @@ export function mount(context = {}) {
   mountHooks(doc, win);
   updateSearchPlaceholder(doc);
   setupToolsPanel(doc, win);
+  setupDynamicBackground(doc, win);
   return context;
 }
