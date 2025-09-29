@@ -52,6 +52,37 @@
   --solstice-tag-text: #0057b8;
   --solstice-tag-hover-bg: rgba(0, 113, 227, 0.2);
   --solstice-tag-hover-border: rgba(0, 113, 227, 0.32);
+
+  /* Bridge variables consumed by shared tools (composer, index editor, etc.) */
+  --bg: var(--solstice-bg);
+  --text: var(--solstice-text);
+  --muted: var(--solstice-muted);
+  --primary: var(--solstice-accent);
+  --primary-hover: var(--solstice-accent-strong);
+  --card: var(--solstice-surface);
+  --border: var(--solstice-border);
+  --shadow: var(--solstice-shadow);
+  --code-bg: var(--solstice-code-bg);
+  --code-text: var(--solstice-code-text);
+  --code-border: var(--solstice-code-border);
+  --inline-code-bg: var(--solstice-inline-code-bg);
+  --inline-code-text: var(--solstice-inline-code-text);
+  --media-bg: var(--solstice-media-bg);
+  --media-border: var(--solstice-media-border);
+  --media-shadow: var(--solstice-media-shadow);
+  --media-radius: var(--solstice-media-radius);
+  --quote-bg: var(--solstice-quote-bg);
+  --quote-border: var(--solstice-quote-border);
+  --quote-text: var(--solstice-quote-text);
+  --quote-shadow: var(--solstice-quote-shadow);
+  --table-bg: var(--solstice-table-bg);
+  --table-border: var(--solstice-table-border);
+  --table-head-bg: var(--solstice-table-head-bg);
+  --table-head-text: var(--solstice-table-head-text);
+  --table-stripe: var(--solstice-table-stripe);
+  --table-hover: var(--solstice-table-hover);
+  --table-caption: var(--solstice-table-caption);
+  --table-shadow: var(--solstice-table-shadow);
 }
 
 [data-theme='dark'] {
@@ -105,6 +136,37 @@
   --solstice-tag-text: rgba(245, 245, 247, 0.88);
   --solstice-tag-hover-bg: rgba(41, 151, 255, 0.28);
   --solstice-tag-hover-border: rgba(41, 151, 255, 0.45);
+
+  /* Bridge variables consumed by shared tools (composer, index editor, etc.) */
+  --bg: var(--solstice-bg);
+  --text: var(--solstice-text);
+  --muted: var(--solstice-muted);
+  --primary: var(--solstice-accent);
+  --primary-hover: var(--solstice-accent-strong);
+  --card: var(--solstice-surface);
+  --border: var(--solstice-border);
+  --shadow: var(--solstice-shadow);
+  --code-bg: var(--solstice-code-bg);
+  --code-text: var(--solstice-code-text);
+  --code-border: var(--solstice-code-border);
+  --inline-code-bg: var(--solstice-inline-code-bg);
+  --inline-code-text: var(--solstice-inline-code-text);
+  --media-bg: var(--solstice-media-bg);
+  --media-border: var(--solstice-media-border);
+  --media-shadow: var(--solstice-media-shadow);
+  --media-radius: var(--solstice-media-radius);
+  --quote-bg: var(--solstice-quote-bg);
+  --quote-border: var(--solstice-quote-border);
+  --quote-text: var(--solstice-quote-text);
+  --quote-shadow: var(--solstice-quote-shadow);
+  --table-bg: var(--solstice-table-bg);
+  --table-border: var(--solstice-table-border);
+  --table-head-bg: var(--solstice-table-head-bg);
+  --table-head-text: var(--solstice-table-head-text);
+  --table-stripe: var(--solstice-table-stripe);
+  --table-hover: var(--solstice-table-hover);
+  --table-caption: var(--solstice-table-caption);
+  --table-shadow: var(--solstice-table-shadow);
 }
 
 body {
