@@ -1078,8 +1078,8 @@ body {
 }
 
 .solstice-article__meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: clamp(1.25rem, 1rem + 1vw, 2rem);
   align-items: stretch;
 }
