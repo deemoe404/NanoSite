@@ -41,7 +41,7 @@ contentRoot: wwwroot      # Root directory for content files
 
 # Theme override configurations
 themeMode: user
-themePack: solstice
+themePack: bivium
 themeOverride: true
 
 # Repository information used for internal linking of "report issue" etc.

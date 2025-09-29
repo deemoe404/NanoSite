@@ -1,0 +1,1008 @@
+:root {
+  --bivium-bg: #f3f3f8;
+  --bivium-surface: rgba(255, 255, 255, 0.82);
+  --bivium-surface-strong: #ffffff;
+  --bivium-border: rgba(69, 56, 117, 0.12);
+  --bivium-border-strong: rgba(69, 56, 117, 0.25);
+  --bivium-shadow: 0 28px 60px rgba(27, 18, 66, 0.15);
+  --bivium-text: #282642;
+  --bivium-muted: #6b688b;
+  --bivium-accent: #7057ff;
+  --bivium-accent-strong: #4f2dff;
+  --bivium-highlight: rgba(112, 87, 255, 0.08);
+  --bivium-card-radius: 26px;
+  --bivium-font-ui: "Poppins", "SF Pro Display", "Segoe UI", sans-serif;
+  --bivium-font-body: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  --bivium-font-serif: "Iowan Old Style", "Times New Roman", Times, serif;
+  --bivium-code-bg: #15142a;
+  --bivium-code-border: rgba(255, 255, 255, 0.08);
+  --bivium-code-text: #f5f5ff;
+  --bivium-code-shadow: 0 18px 42px rgba(18, 12, 40, 0.4);
+  --bivium-code-accent: #ffaf45;
+  --bivium-scroll-track: rgba(112, 87, 255, 0.06);
+  --bivium-scroll-thumb: rgba(112, 87, 255, 0.35);
+  --bivium-callout-note: #7057ff;
+  --bivium-callout-info: #3298ff;
+  --bivium-callout-tip: #35c56c;
+  --bivium-callout-caution: #ffb347;
+  --bivium-callout-danger: #f55b7d;
+}
+
+[data-theme='dark'] {
+  --bivium-bg: radial-gradient(circle at top left, #141424 0%, #0b0b16 45%, #06060d 100%);
+  --bivium-surface: rgba(18, 17, 36, 0.86);
+  --bivium-surface-strong: rgba(25, 23, 54, 0.96);
+  --bivium-border: rgba(190, 180, 255, 0.08);
+  --bivium-border-strong: rgba(190, 180, 255, 0.18);
+  --bivium-shadow: 0 26px 48px rgba(4, 5, 15, 0.6);
+  --bivium-text: #e9e7ff;
+  --bivium-muted: #a8a5d4;
+  --bivium-accent: #a88bff;
+  --bivium-accent-strong: #cdb3ff;
+  --bivium-highlight: rgba(168, 139, 255, 0.12);
+  --bivium-code-bg: #0f0f1f;
+  --bivium-code-border: rgba(168, 139, 255, 0.18);
+  --bivium-code-text: #fdfcff;
+  --bivium-code-shadow: 0 22px 60px rgba(0, 0, 0, 0.5);
+  --bivium-code-accent: #ffd280;
+  --bivium-scroll-track: rgba(255, 255, 255, 0.08);
+  --bivium-scroll-thumb: rgba(168, 139, 255, 0.36);
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--bivium-font-body);
+  color: var(--bivium-text);
+  background: var(--bivium-bg);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+a {
+  color: var(--bivium-accent-strong);
+}
+
+a:hover,
+a:focus-visible {
+  color: var(--bivium-accent);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(112, 87, 255, 0.12);
+  color: var(--bivium-accent-strong);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(112, 87, 255, 0.18), transparent 55%),
+              radial-gradient(120% 70% at 100% 0%, rgba(255, 143, 214, 0.16), transparent 60%);
+  pointer-events: none;
+  z-index: -2;
+}
+
+.bivium-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+}
+
+.bivium-shell::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 60%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  z-index: -1;
+}
+
+[data-theme='dark'] .bivium-shell::after {
+  opacity: 0.25;
+  mix-blend-mode: normal;
+}
+
+.bivium-sidebar {
+  width: min(340px, 28vw);
+  padding: 48px 36px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  backdrop-filter: blur(22px);
+  background: var(--bivium-surface);
+  border-right: 1px solid var(--bivium-border);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.12);
+  z-index: 4;
+}
+
+.bivium-sidebar__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  height: 100%;
+}
+
+.bivium-brand {
+  display: flex;
+  gap: 16px;
+  text-decoration: none;
+  align-items: center;
+  color: inherit;
+}
+
+.bivium-brand__emblem {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  background: linear-gradient(150deg, var(--bivium-accent), rgba(255, 143, 214, 0.8));
+  box-shadow: 0 12px 35px rgba(112, 87, 255, 0.45);
+  position: relative;
+}
+
+.bivium-brand__emblem::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(6px);
+}
+
+.bivium-brand__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bivium-brand__title {
+  font-family: var(--bivium-font-ui);
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.bivium-brand__subtitle {
+  font-size: 0.95rem;
+  color: var(--bivium-muted);
+}
+
+.bivium-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.bivium-links li a {
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.95rem;
+  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bivium-links li a:hover,
+.bivium-links li a:focus-visible {
+  opacity: 1;
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-links__empty {
+  font-size: 0.9rem;
+  color: var(--bivium-muted);
+  opacity: 0.7;
+}
+
+.bivium-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bivium-nav__item {
+  text-decoration: none;
+  color: inherit;
+  font-family: var(--bivium-font-ui);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+  border-radius: 16px;
+  position: relative;
+  transition: transform 160ms ease, color 160ms ease, background 160ms ease;
+  background: transparent;
+}
+
+.bivium-nav__item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(112, 87, 255, 0.18), rgba(255, 143, 214, 0.14));
+  opacity: 0;
+  transition: opacity 160ms ease;
+  z-index: -1;
+}
+
+.bivium-nav__item:hover,
+.bivium-nav__item:focus-visible {
+  transform: translateX(6px);
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-nav__item.is-current {
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-nav__item.is-current::before,
+.bivium-nav__item:hover::before,
+.bivium-nav__item:focus-visible::before {
+  opacity: 1;
+}
+
+.bivium-sidebar__tools {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--bivium-border);
+}
+
+.bivium-tools {
+  display: grid;
+  gap: 12px;
+}
+
+.bivium-tool {
+  width: 100%;
+  border: none;
+  border-radius: 18px;
+  background: var(--bivium-surface-strong);
+  color: inherit;
+  padding: 12px 16px;
+  font-family: var(--bivium-font-ui);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.bivium-tool:hover,
+.bivium-tool:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(112, 87, 255, 0.18);
+  outline: none;
+}
+
+.bivium-tool--select {
+  cursor: default;
+}
+
+.bivium-tool--select select {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  appearance: none;
+}
+
+.bivium-tool__icon {
+  font-size: 1.1rem;
+}
+
+.bivium-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 56px 56px;
+  position: relative;
+}
+
+.bivium-body__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 48px;
+  align-items: start;
+}
+
+.bivium-mainpanel {
+  background: var(--bivium-surface);
+  border-radius: 32px;
+  box-shadow: var(--bivium-shadow);
+  padding: 36px 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.bivium-mainpanel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.bivium-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 28px;
+}
+
+.bivium-search {
+  width: min(320px, 100%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--bivium-border);
+  background: var(--bivium-surface-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.bivium-search__icon {
+  opacity: 0.6;
+}
+
+.bivium-search input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.bivium-mainview {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.bivium-cardgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 28px;
+}
+
+.bivium-card {
+  border-radius: var(--bivium-card-radius);
+  background: var(--bivium-surface-strong);
+  border: 1px solid var(--bivium-border);
+  overflow: hidden;
+  box-shadow: 0 18px 32px rgba(17, 12, 45, 0.15);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.bivium-card:hover,
+.bivium-card:focus-within {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 52px rgba(17, 12, 45, 0.22);
+}
+
+.bivium-card__link {
+  color: inherit;
+  text-decoration: none;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+.bivium-card__cover {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: var(--bivium-highlight);
+}
+
+.card-cover-wrap,
+.bivium-card__cover {
+  border-radius: inherit;
+}
+
+.card-cover-wrap {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+
+.ph-skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.22));
+  animation: bivium-shimmer 1.6s linear infinite;
+}
+
+.bivium-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bivium-card__body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bivium-card__title {
+  font-family: var(--bivium-font-ui);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.bivium-card__meta {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--bivium-muted);
+}
+
+.bivium-card__excerpt {
+  color: color-mix(in srgb, var(--bivium-text) 70%, transparent);
+  font-style: italic;
+  transform: skewY(-2deg);
+  transform-origin: left;
+}
+
+.bivium-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bivium-card__tags .tag {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bivium-highlight);
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.bivium-page {
+  text-decoration: none;
+  font-family: var(--bivium-font-ui);
+  font-size: 0.9rem;
+  color: var(--bivium-text);
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.bivium-page.is-current {
+  background: var(--bivium-accent);
+  color: #fff;
+  box-shadow: 0 18px 36px rgba(112, 87, 255, 0.28);
+}
+
+.bivium-page:hover,
+.bivium-page:focus-visible {
+  border-color: var(--bivium-accent);
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-page.is-disabled {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.bivium-tagpanel {
+  margin-top: 36px;
+  border-radius: 20px;
+  background: rgba(112, 87, 255, 0.12);
+  border: 1px dashed var(--bivium-border);
+  padding: 18px;
+}
+
+.bivium-tagpanel .taglist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.bivium-tagpanel .tag {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bivium-surface-strong);
+  border: 1px solid transparent;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.bivium-tagpanel .tag:hover,
+.bivium-tagpanel .tag:focus-visible {
+  border-color: var(--bivium-accent);
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-toc {
+  position: sticky;
+  top: 48px;
+  background: var(--bivium-surface);
+  border-radius: 24px;
+  padding: 24px;
+  border: 1px solid var(--bivium-border);
+  box-shadow: var(--bivium-shadow);
+  max-height: calc(100vh - 96px);
+  overflow: hidden;
+}
+
+.bivium-toc__inner {
+  overflow-y: auto;
+  max-height: inherit;
+  padding-right: 8px;
+}
+
+.bivium-toc__inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bivium-toc__inner::-webkit-scrollbar-track {
+  background: var(--bivium-scroll-track);
+}
+
+.bivium-toc__inner::-webkit-scrollbar-thumb {
+  background: var(--bivium-scroll-thumb);
+  border-radius: 999px;
+}
+
+.bivium-toc__title {
+  font-family: var(--bivium-font-ui);
+  font-weight: 600;
+  margin-bottom: 12px;
+  letter-spacing: 0.02em;
+}
+
+.bivium-toc nav ul {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.bivium-toc nav a {
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  opacity: 0.78;
+}
+
+.bivium-toc nav a:hover,
+.bivium-toc nav a:focus-visible {
+  opacity: 1;
+  color: var(--bivium-accent-strong);
+}
+
+.bivium-article__header {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.bivium-article__hero {
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--bivium-highlight);
+  box-shadow: 0 20px 44px rgba(17, 12, 45, 0.28);
+}
+
+.bivium-article__hero img,
+.bivium-article__hero .card-cover {
+  width: 100%;
+  display: block;
+}
+
+.bivium-article__title {
+  font-family: var(--bivium-font-serif);
+  font-weight: 600;
+  font-size: clamp(2.2rem, 3vw, 3rem);
+  letter-spacing: 0.01em;
+}
+
+.bivium-article__content {
+  display: grid;
+  gap: 20px;
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.bivium-article__content p {
+  margin: 0;
+}
+
+.bivium-article__content h2,
+.bivium-article__content h3,
+.bivium-article__content h4 {
+  font-family: var(--bivium-font-serif);
+  margin-top: 32px;
+  margin-bottom: 12px;
+}
+
+.bivium-article__content blockquote {
+  margin: 0;
+  padding: 20px 24px;
+  border-left: 4px solid var(--bivium-accent);
+  background: rgba(112, 87, 255, 0.08);
+  border-radius: 14px;
+  font-style: italic;
+}
+
+.bivium-article__content a {
+  color: var(--bivium-accent-strong);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-color: color-mix(in srgb, var(--bivium-accent-strong) 50%, transparent);
+}
+
+.bivium-article__content pre {
+  background: var(--bivium-code-bg);
+  color: var(--bivium-code-text);
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--bivium-code-border);
+  box-shadow: var(--bivium-code-shadow);
+  overflow: auto;
+  font-size: 0.92rem;
+}
+
+.bivium-article__content code {
+  font-family: "JetBrains Mono", "Fira Code", "Menlo", monospace;
+  background: rgba(112, 87, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.bivium-article__content pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.bivium-article__content table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px var(--bivium-border);
+}
+
+.bivium-article__content th,
+.bivium-article__content td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--bivium-border);
+  text-align: left;
+}
+
+.bivium-article__content tr:nth-child(odd) {
+  background: rgba(112, 87, 255, 0.05);
+}
+
+.post-meta-card {
+  border-radius: 20px;
+  padding: 18px 22px;
+  background: rgba(112, 87, 255, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.post-meta-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+.post-meta-title {
+  font-family: var(--bivium-font-ui);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.post-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--bivium-muted);
+}
+
+.post-meta-copy {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--bivium-surface-strong);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--bivium-accent-strong);
+  box-shadow: 0 8px 18px rgba(112, 87, 255, 0.24);
+}
+
+.post-meta-copy.copied {
+  background: var(--bivium-accent);
+  color: #fff;
+}
+
+.post-outdated-card {
+  margin-top: 36px;
+  padding: 18px 22px;
+  border-radius: 18px;
+  background: rgba(255, 176, 92, 0.15);
+  border: 1px solid rgba(255, 176, 92, 0.35);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.post-outdated-close {
+  background: transparent;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+}
+
+.bivium-error {
+  text-align: center;
+  padding: 64px 32px;
+  border-radius: 24px;
+  border: 1px solid var(--bivium-border-strong);
+  background: rgba(255, 96, 139, 0.08);
+  box-shadow: 0 18px 34px rgba(255, 96, 139, 0.24);
+}
+
+.bivium-error__actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.bivium-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--bivium-accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 18px 32px rgba(112, 87, 255, 0.24);
+}
+
+.bivium-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  padding: 64px 0;
+}
+
+.bivium-loader__spinner {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 4px solid rgba(112, 87, 255, 0.15);
+  border-top-color: var(--bivium-accent);
+  animation: bivium-spin 720ms linear infinite;
+}
+
+@keyframes bivium-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bivium-shimmer {
+  0% { transform: translateX(-60%); }
+  100% { transform: translateX(60%); }
+}
+
+.bivium-search__header {
+  margin-bottom: 28px;
+  display: grid;
+  gap: 6px;
+}
+
+.bivium-empty {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--bivium-muted);
+}
+
+.bivium-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--bivium-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--bivium-muted);
+  font-size: 0.9rem;
+}
+
+.bivium-footernav__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 18px;
+}
+
+.bivium-footernav__list a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.bivium-footernav__list a:hover,
+.bivium-footernav__list a:focus-visible {
+  color: var(--bivium-accent-strong);
+}
+
+.is-loading {
+  position: relative;
+  min-height: 160px;
+}
+
+.is-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+  animation: bivium-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes bivium-pulse {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.25; }
+}
+
+[data-theme='dark'] .bivium-card,
+[data-theme='dark'] .bivium-mainpanel,
+[data-theme='dark'] .bivium-toc,
+[data-theme='dark'] .bivium-sidebar,
+[data-theme='dark'] .bivium-tool,
+[data-theme='dark'] .bivium-search {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.48);
+}
+
+[data-theme='dark'] .bivium-card__tags .tag,
+[data-theme='dark'] .bivium-tagpanel .tag {
+  background: rgba(168, 139, 255, 0.12);
+}
+
+[data-theme='dark'] .bivium-card__meta,
+[data-theme='dark'] .bivium-links li a,
+[data-theme='dark'] .bivium-footer {
+  color: var(--bivium-muted);
+}
+
+[data-theme='dark'] .post-meta-card {
+  background: rgba(168, 139, 255, 0.16);
+}
+
+[data-theme='dark'] .post-meta-copy {
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--bivium-accent-strong);
+}
+
+[data-theme='dark'] .post-meta-copy.copied {
+  background: var(--bivium-accent-strong);
+  color: #140f2a;
+}
+
+[data-theme='dark'] .bivium-article__content code {
+  background: rgba(168, 139, 255, 0.18);
+}
+
+[data-theme='dark'] .bivium-article__content tr:nth-child(odd) {
+  background: rgba(168, 139, 255, 0.08);
+}
+
+[data-theme='dark'] .bivium-error {
+  background: rgba(255, 96, 139, 0.18);
+  border-color: rgba(255, 96, 139, 0.32);
+}
+
+@media (max-width: 1280px) {
+  .bivium-body {
+    padding: 36px 32px 48px;
+  }
+
+  .bivium-body__inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bivium-toc {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .bivium-shell {
+    flex-direction: column;
+  }
+
+  .bivium-sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 28px 24px;
+    border-right: none;
+    border-bottom: 1px solid var(--bivium-border);
+    flex-direction: column;
+  }
+
+  .bivium-body {
+    padding: 28px 24px 48px;
+  }
+}
+
+@media (max-width: 640px) {
+  .bivium-mainpanel {
+    padding: 26px 24px;
+  }
+
+  .bivium-toolbar {
+    justify-content: center;
+  }
+
+  .bivium-cardgrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bivium-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

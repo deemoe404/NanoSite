@@ -1,4 +1,5 @@
 [
   { "value": "native", "label": "Native" },
-  { "value": "solstice", "label": "Solstice" }
+  { "value": "solstice", "label": "Solstice" },
+  { "value": "bivium", "label": "Bivium" }
 ]
