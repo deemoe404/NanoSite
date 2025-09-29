@@ -507,9 +507,9 @@ body {
 
 .solstice-footer__tagband {
   width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 1rem 0 0;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 0;
 }
 
 .solstice-footer .solstice-tagband {
@@ -527,6 +527,7 @@ body {
   border: 1px solid var(--solstice-border);
   border-radius: var(--solstice-radius);
   padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
   background: var(--solstice-surface);
   backdrop-filter: blur(20px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
