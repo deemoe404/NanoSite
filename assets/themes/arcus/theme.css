@@ -68,16 +68,13 @@ body {
   position: relative;
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  grid-template-rows: auto 1fr auto;
-  grid-template-areas:
-    "rail main"
-    "rail tag"
-    "rail footer";
+  grid-template-areas: "rail content";
+  height: 100vh;
   min-height: 100vh;
   background: transparent;
-  overflow-x: hidden;
+  overflow: hidden;
   transition: background 0.4s ease;
-  align-items: start;
+  align-items: stretch;
 }
 
 .arcus-header {
@@ -90,6 +87,17 @@ body {
   display: flex;
   align-items: stretch;
   z-index: 5;
+}
+
+.arcus-rightcol {
+  grid-area: content;
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  scrollbar-gutter: stable both-edges;
 }
 
 .arcus-header__inner {
@@ -293,11 +301,12 @@ body {
 }
 
 .arcus-main {
-  grid-area: main;
   padding: 3.5rem 4rem 2.5rem;
   background: var(--arcus-main-bg);
   backdrop-filter: blur(20px);
   box-shadow: inset 0 1px 0 var(--arcus-outline);
+  flex: 1 0 auto;
+  min-height: 0;
 }
 
 .arcus-mainview {
@@ -309,7 +318,7 @@ body {
 }
 
 .arcus-tagband {
-  grid-area: tag;
+  flex: 0 0 auto;
   padding: 0 4rem 2rem;
   display: flex;
   justify-content: center;
@@ -344,7 +353,7 @@ body {
 }
 
 .arcus-footer {
-  grid-area: footer;
+  flex: 0 0 auto;
   padding: 1.6rem 4rem 3rem;
   background: transparent;
 }
@@ -855,6 +864,7 @@ body {
 @media (max-width: 1200px) {
   .arcus-shell {
     grid-template-columns: minmax(240px, 320px) 1fr;
+    grid-template-areas: "rail content";
   }
   .arcus-header__inner {
     padding: 2.6rem 2.2rem;
@@ -872,9 +882,9 @@ body {
     grid-template-columns: 1fr;
     grid-template-areas:
       "rail"
-      "main"
-      "tag"
-      "footer";
+      "content";
+    height: auto;
+    overflow: visible;
   }
   .arcus-header {
     position: relative;
@@ -886,6 +896,11 @@ body {
     border-bottom: 1px solid var(--arcus-rail-border);
     border-radius: 0 0 var(--arcus-radius-lg) var(--arcus-radius-lg);
     min-height: 0;
+  }
+  .arcus-rightcol {
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
   .arcus-main {
     padding: 2.6rem 1.8rem 2rem;

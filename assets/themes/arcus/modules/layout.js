@@ -56,12 +56,29 @@ export function mount(context = {}) {
     return el;
   });
 
-  const main = ensureElement(container, '.arcus-main', () => {
-    const el = doc.createElement('main');
-    el.className = 'arcus-main';
-    el.setAttribute('role', 'main');
+  const rightColumn = ensureElement(container, '.arcus-rightcol', () => {
+    const el = doc.createElement('div');
+    el.className = 'arcus-rightcol';
+    el.setAttribute('data-arcus-scroll', 'content');
     return el;
   });
+
+  if (rightColumn.parentElement !== container) {
+    container.appendChild(rightColumn);
+  }
+
+  let main = rightColumn.querySelector('.arcus-main');
+  if (!main) {
+    const existingMain = container.querySelector('.arcus-main');
+    if (existingMain) {
+      main = existingMain;
+    } else {
+      main = doc.createElement('main');
+      main.className = 'arcus-main';
+      main.setAttribute('role', 'main');
+    }
+    rightColumn.insertBefore(main, rightColumn.firstChild);
+  }
 
   const mainview = ensureElement(main, `#${MAINVIEW_ID}`, () => {
     const el = doc.createElement('section');
@@ -80,35 +97,48 @@ export function mount(context = {}) {
     return el;
   });
 
-  const tagBand = ensureElement(container, `#${TAGVIEW_ID}`, () => {
-    const el = doc.createElement('section');
-    el.id = TAGVIEW_ID;
-    return el;
-  });
+  let tagBand = rightColumn.querySelector(`#${TAGVIEW_ID}`);
+  if (!tagBand) {
+    tagBand = container.querySelector(`#${TAGVIEW_ID}`) || doc.createElement('section');
+    tagBand.id = TAGVIEW_ID;
+    if (!tagBand.parentElement || tagBand.parentElement !== rightColumn) {
+      rightColumn.appendChild(tagBand);
+    }
+  }
   tagBand.className = 'arcus-tagband';
   tagBand.setAttribute('aria-label', 'Tag filters');
 
-  const footer = ensureElement(container, '.arcus-footer', () => {
-    const el = doc.createElement('footer');
-    el.className = 'arcus-footer';
-    el.setAttribute('role', 'contentinfo');
-    el.innerHTML = `
-      <div class="arcus-footer__inner">
-        <nav class="arcus-footer__nav" aria-label="Secondary navigation">
-          <div id="${FOOTER_NAV_ID}" class="arcus-footer-nav"></div>
-        </nav>
-      </div>`;
-    return el;
-  });
+  let footer = rightColumn.querySelector('.arcus-footer');
+  if (!footer) {
+    footer = container.querySelector('.arcus-footer') || doc.createElement('footer');
+    footer.className = 'arcus-footer';
+    footer.setAttribute('role', 'contentinfo');
+    if (!footer.querySelector(`#${FOOTER_NAV_ID}`)) {
+      footer.innerHTML = `
+        <div class="arcus-footer__inner">
+          <nav class="arcus-footer__nav" aria-label="Secondary navigation">
+            <div id="${FOOTER_NAV_ID}" class="arcus-footer-nav"></div>
+          </nav>
+        </div>`;
+    }
+    rightColumn.appendChild(footer);
+  }
 
-  if (tagBand.parentElement !== container || tagBand.nextElementSibling !== footer) {
-    container.insertBefore(tagBand, footer);
+  if (main.nextElementSibling !== tagBand) {
+    rightColumn.insertBefore(tagBand, footer);
+  }
+
+  if (footer.parentElement !== rightColumn) {
+    rightColumn.appendChild(footer);
+  } else if (footer.nextElementSibling) {
+    rightColumn.appendChild(footer);
   }
 
   context.document = doc;
   context.regions = {
     container,
     header,
+    rightColumn,
     main,
     content: main,
     mainview,
@@ -116,7 +146,8 @@ export function mount(context = {}) {
     footer,
     footerNav: footer.querySelector(`#${FOOTER_NAV_ID}`),
     tagBand,
-    toolsPanel: header.querySelector('#toolsPanel')
+    toolsPanel: header.querySelector('#toolsPanel'),
+    scrollContainer: rightColumn
   };
 
   return context;

@@ -30,8 +30,33 @@ const CLASS_HIDDEN = 'is-hidden';
 
 let currentSiteConfig = null;
 
+function getScrollContainer(documentRef = defaultDocument) {
+  if (!documentRef || typeof documentRef.querySelector !== 'function') return null;
+  return documentRef.querySelector('.arcus-rightcol');
+}
+
+function scrollElementToTop(element, behavior) {
+  if (!element) return false;
+  try {
+    if (typeof element.scrollTo === 'function') {
+      element.scrollTo({ top: 0, behavior });
+      return true;
+    }
+  } catch (_) { /* fall back to direct assignment */ }
+  try {
+    element.scrollTop = 0;
+    return true;
+  } catch (_) { /* ignore */ }
+  return false;
+}
+
 function scrollViewportToTop(documentRef = defaultDocument, windowRef = defaultWindow) {
   const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
+  const scroller = getScrollContainer(documentRef);
+  let didScroll = false;
+  if (scroller && scrollElementToTop(scroller, behavior)) {
+    didScroll = true;
+  }
   try {
     if (windowRef && typeof windowRef.scrollTo === 'function') {
       windowRef.scrollTo({ top: 0, left: 0, behavior });
@@ -51,7 +76,7 @@ function scrollViewportToTop(documentRef = defaultDocument, windowRef = defaultW
       return true;
     }
   } catch (_) { /* no-op */ }
-  return false;
+  return didScroll;
 }
 
 function setupDynamicBackground(documentRef = defaultDocument, windowRef = defaultWindow) {
@@ -64,12 +89,16 @@ function setupDynamicBackground(documentRef = defaultDocument, windowRef = defau
     return false;
   }
 
+  const scroller = getScrollContainer(documentRef);
   let frame = null;
 
   const readScrollPosition = () => {
     frame = null;
     let scrollY = 0;
-    if (windowRef && typeof windowRef.scrollY === 'number') {
+    const canUseScroller = scroller && (scroller.scrollHeight - scroller.clientHeight > 1);
+    if (canUseScroller) {
+      scrollY = scroller.scrollTop || 0;
+    } else if (windowRef && typeof windowRef.scrollY === 'number') {
       scrollY = windowRef.scrollY;
     } else if (documentRef && documentRef.documentElement) {
       scrollY = documentRef.documentElement.scrollTop || 0;
@@ -84,6 +113,8 @@ function setupDynamicBackground(documentRef = defaultDocument, windowRef = defau
     if (frame != null) return;
     if (windowRef && typeof windowRef.requestAnimationFrame === 'function') {
       frame = windowRef.requestAnimationFrame(readScrollPosition);
+    } else if (typeof requestAnimationFrame === 'function') {
+      frame = requestAnimationFrame(readScrollPosition);
     } else {
       frame = setTimeout(readScrollPosition, 16);
     }
@@ -91,6 +122,10 @@ function setupDynamicBackground(documentRef = defaultDocument, windowRef = defau
 
   readScrollPosition();
   queueUpdate();
+
+  if (scroller && typeof scroller.addEventListener === 'function') {
+    scroller.addEventListener('scroll', queueUpdate, { passive: true });
+  }
 
   if (windowRef && typeof windowRef.addEventListener === 'function') {
     windowRef.addEventListener('scroll', queueUpdate, { passive: true });
