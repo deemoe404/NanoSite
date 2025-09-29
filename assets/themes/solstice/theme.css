@@ -364,6 +364,7 @@ body {
 .solstice-brand {
   display: inline-flex;
   flex-direction: column;
+  justify-content: center;
   gap: 0.15rem;
   text-decoration: none;
   color: inherit;
@@ -373,6 +374,7 @@ body {
   font-size: clamp(1.35rem, 2vw + 0.5rem, 2rem);
   font-weight: 700;
   letter-spacing: -0.02em;
+  line-height: 1.05;
   transition: font-size 0.3s ease;
 }
 
@@ -386,11 +388,23 @@ body {
 }
 
 .solstice-header.is-condensed .solstice-brand__title {
-  font-size: clamp(1.05rem, 1.5vw + 0.35rem, 1.6rem);
+  font-size: clamp(0.95rem, 1.1vw + 0.35rem, 1.4rem);
+  font-weight: 500;
 }
 
 .solstice-header.is-condensed .solstice-brand__subtitle {
   display: none;
+}
+
+.solstice-header__inner #tabsNav,
+.solstice-header__inner .solstice-nav {
+  align-self: center;
+}
+
+.solstice-header.is-condensed #tabsNav,
+.solstice-header.is-condensed .solstice-nav {
+  display: flex;
+  align-items: center;
 }
 
 .solstice-nav {
