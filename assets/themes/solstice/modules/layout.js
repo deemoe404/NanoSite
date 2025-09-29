@@ -70,15 +70,15 @@ export function mount(context = {}) {
     el.innerHTML = `
       <div class="solstice-footer__inner">
         <div class="solstice-footer__columns">
-          <div class="solstice-footer__column solstice-footer__column--tools" data-footer-column="tools">
+          <div class="solstice-footer__column solstice-footer__column--tools" data-footer-column="tools" title="Quick tools">
             <section class="solstice-footer__tools" id="toolsPanel" aria-label="Quick tools"></section>
           </div>
-          <div class="solstice-footer__column solstice-footer__column--nav" data-footer-column="nav">
+          <div class="solstice-footer__column solstice-footer__column--nav" data-footer-column="nav" title="Secondary navigation">
             <section class="solstice-footer__nav" aria-label="Secondary navigation">
               <div id="${FOOTER_NAV_ID}" class="solstice-footer-nav"></div>
             </section>
           </div>
-          <div class="solstice-footer__column solstice-footer__column--links" data-footer-column="links">
+          <div class="solstice-footer__column solstice-footer__column--links" data-footer-column="links" title="Profile links">
             <section class="solstice-footer__links" aria-label="Profile links">
               <ul class="solstice-linklist" data-site-links></ul>
             </section>

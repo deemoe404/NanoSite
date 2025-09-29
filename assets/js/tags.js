@@ -24,7 +24,7 @@ export function aggregateTags(indexMap) {
   return Array.from(counts.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-// Render the tag sidebar with collapse/expand and ensure the active tag remains visible
+// Render the tag sidebar with tag counts and ensure tooltips are initialized
 export function renderTagSidebar(indexMap) {
   const root = document.getElementById('tagview');
   if (!root) return;
@@ -32,48 +32,21 @@ export function renderTagSidebar(indexMap) {
   const currentTag = (getQueryVariable('tag') || '').trim().toLowerCase();
   const total = items.reduce((s, x) => s + x.count, 0);
   const allHref = withLangParam('?tab=search');
-  const header = `<div class="section-title">${t('ui.tags')}</div>`;
-  if (!items.length) { root.innerHTML = header + `<div class="muted">${t('ui.allTags')}</div>`; return; }
+  if (!items.length) { root.innerHTML = `<div class="muted">${t('ui.allTags')}</div>`; return; }
   const lis = items.map(({ label, count }) => {
     const isActive = label.trim().toLowerCase() === currentTag;
     const href = withLangParam(`?tab=search&tag=${encodeURIComponent(label)}`);
     return `<li><a class="tag-link${isActive ? ' active' : ''}" href="${href}"><span class="tag-name">${escapeHtml(label)}</span><span class="tag-count">${count}</span></a></li>`;
   }).join('');
   const allItem = `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}"><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>`;
-  root.innerHTML = header + `
+  root.innerHTML = `
     <div class="tagbox">
-      <ul class="tag-list compact" data-collapsed="true">
+      <ul class="tag-list compact">
         ${allItem}
         ${lis}
       </ul>
-      <button type="button" class="tag-toggle" aria-expanded="false">${t('ui.more')}</button>
     </div>`;
   try {
-    const list = root.querySelector('.tag-list');
-    const active = root.querySelector('.tag-link.active');
-    const toggle = root.querySelector('.tag-toggle');
-    const ensureVisible = () => {
-      if (!list || !active || !toggle) return;
-      if (!list.classList.contains('is-collapsed')) return; // class set by CSS init below
-      const rect = active.getBoundingClientRect();
-      const lrect = list.getBoundingClientRect();
-      if (rect.bottom > lrect.bottom) {
-        list.classList.remove('is-collapsed');
-        list.dataset.collapsed = 'false';
-        toggle.setAttribute('aria-expanded', 'true');
-        toggle.textContent = t('ui.less');
-      }
-    };
-    // Initialize collapse class and wire toggle
-    list.classList.add('is-collapsed');
-    toggle.addEventListener('click', () => {
-      const collapsed = list.classList.toggle('is-collapsed');
-      list.dataset.collapsed = collapsed ? 'true' : 'false';
-      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      toggle.textContent = collapsed ? t('ui.more') : t('ui.less');
-    });
-    requestAnimationFrame(() => ensureVisible());
-
     // Setup tag tooltips for truncated text
     setupTagTooltips(root);
   } catch (_) {}
@@ -182,16 +155,6 @@ export function setupTagTooltips(tagRoot) {
   const onScrollOrResize = () => { hideTooltip(); };
   window.addEventListener('scroll', onScrollOrResize, { passive: true });
   window.addEventListener('resize', onScrollOrResize);
-
-  try {
-    const toggleBtn = tagRoot.querySelector('.tag-toggle');
-    if (toggleBtn) {
-      toggleBtn.addEventListener('click', () => {
-        clearTimeout(tooltipTimeout);
-        hideTooltip();
-      });
-    }
-  } catch (_) {}
 
   tagRoot.addEventListener('click', () => {
     clearTimeout(tooltipTimeout);

@@ -132,7 +132,6 @@ export function mountThemeControls() {
   wrapper.className = 'box';
   wrapper.id = 'tools';
   wrapper.innerHTML = `
-    <div class="section-title">${t('tools.sectionTitle')}</div>
     <div class="tools tools-panel">
       <div class="tool-item">
         <button id="themeToggle" class="btn icon-btn" aria-label="Toggle light/dark" title="${t('tools.toggleTheme')}"><span class="icon">🌓</span><span class="btn-text">${t('tools.toggleTheme')}</span></button>
