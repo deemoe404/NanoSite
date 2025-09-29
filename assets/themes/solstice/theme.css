@@ -1000,11 +1000,14 @@ body {
   border-radius: calc(var(--solstice-radius) + 6px);
   overflow: hidden;
   box-shadow: var(--solstice-shadow);
+  max-height: 66vh;
 }
 
 .solstice-article__hero img {
   width: 100%;
   height: auto;
+  max-height: inherit;
+  object-fit: cover;
   display: block;
 }
 
