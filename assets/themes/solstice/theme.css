@@ -2027,6 +2027,11 @@ body {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 180ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.solstice-article__body figure figcaption :is(a, button, input, textarea, select, summary, details, [tabindex]:not([tabindex="-1"])),
+.solstice-static__body figure figcaption :is(a, button, input, textarea, select, summary, details, [tabindex]:not([tabindex="-1"])) {
   pointer-events: auto;
 }
 
@@ -2044,7 +2049,6 @@ body {
   .solstice-static__body figure:focus-within figcaption {
     opacity: 1;
     transform: translateY(0);
-    pointer-events: auto;
   }
 
   @supports selector(:has(*)) {
@@ -2052,7 +2056,6 @@ body {
     .solstice-static__body figure:not(:has(:is(a, button, input, textarea, select, summary, details, [tabindex]:not([tabindex="-1"])))) figcaption {
       opacity: 1;
       transform: translateY(0);
-      pointer-events: auto;
     }
   }
 }
@@ -2062,7 +2065,6 @@ body {
   .solstice-static__body figure figcaption {
     opacity: 1;
     transform: translateY(0);
-    pointer-events: auto;
   }
 }
 
