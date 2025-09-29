@@ -26,6 +26,10 @@
   --solstice-code-label-copied-text: #0f5132;
   --solstice-inline-code-bg: rgba(0, 0, 0, 0.06);
   --solstice-inline-code-text: inherit;
+  --solstice-quote-bg: rgba(0, 113, 227, 0.08);
+  --solstice-quote-border: rgba(0, 113, 227, 0.18);
+  --solstice-quote-text: #1d1d1f;
+  --solstice-quote-shadow: 0 22px 44px rgba(0, 0, 0, 0.12);
 }
 
 [data-theme='dark'] {
@@ -53,6 +57,10 @@
   --solstice-code-label-copied-text: rgba(12, 64, 31, 0.92);
   --solstice-inline-code-bg: rgba(255, 255, 255, 0.12);
   --solstice-inline-code-text: rgba(255, 255, 255, 0.92);
+  --solstice-quote-bg: rgba(41, 151, 255, 0.12);
+  --solstice-quote-border: rgba(41, 151, 255, 0.32);
+  --solstice-quote-text: rgba(245, 245, 247, 0.92);
+  --solstice-quote-shadow: 0 28px 55px rgba(0, 0, 0, 0.55);
 }
 
 body {
@@ -703,6 +711,68 @@ body {
   background: var(--solstice-surface);
   padding: clamp(1.5rem, 2vw + 1rem, 3rem);
   box-shadow: 0 30px 60px rgba(0,0,0,0.1);
+}
+
+.solstice-article__body blockquote,
+.solstice-static__body blockquote {
+  margin: 2rem 0;
+  padding: 1.75rem 2.25rem 1.75rem 2.75rem;
+  background: var(--solstice-quote-bg);
+  border: 1px solid var(--solstice-quote-border);
+  border-radius: calc(var(--solstice-radius) + 2px);
+  color: var(--solstice-quote-text);
+  box-shadow: var(--solstice-quote-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.solstice-article__body blockquote::before,
+.solstice-static__body blockquote::before {
+  content: '';
+  position: absolute;
+  inset: 1.15rem auto 1.15rem 1.5rem;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--solstice-accent), var(--solstice-accent-strong));
+  box-shadow: 0 12px 24px rgba(0, 113, 227, 0.2);
+}
+
+.solstice-article__body blockquote::after,
+.solstice-static__body blockquote::after {
+  content: '“';
+  position: absolute;
+  top: -1.5rem;
+  left: 2.4rem;
+  font-size: 6rem;
+  color: rgba(0, 113, 227, 0.14);
+  font-family: var(--solstice-font);
+  pointer-events: none;
+}
+
+.solstice-article__body blockquote > :first-child,
+.solstice-static__body blockquote > :first-child {
+  margin-top: 0;
+}
+
+.solstice-article__body blockquote > :last-child,
+.solstice-static__body blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.solstice-article__body blockquote cite,
+.solstice-static__body blockquote cite {
+  display: block;
+  margin-top: 1.35rem;
+  padding-top: 0.9rem;
+  font-size: 0.9rem;
+  color: var(--solstice-muted);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  font-style: normal;
+}
+
+[data-theme='dark'] .solstice-article__body blockquote cite,
+[data-theme='dark'] .solstice-static__body blockquote cite {
+  border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 .solstice-article__body pre,
