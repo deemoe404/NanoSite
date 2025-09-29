@@ -47,6 +47,11 @@
   --solstice-meta-border: rgba(0, 0, 0, 0.05);
   --solstice-meta-shadow: 0 26px 55px rgba(0, 0, 0, 0.14);
   --solstice-meta-highlight: rgba(0, 113, 227, 0.18);
+  --solstice-tag-bg: rgba(0, 113, 227, 0.12);
+  --solstice-tag-border: rgba(0, 113, 227, 0.24);
+  --solstice-tag-text: #0057b8;
+  --solstice-tag-hover-bg: rgba(0, 113, 227, 0.2);
+  --solstice-tag-hover-border: rgba(0, 113, 227, 0.32);
 }
 
 [data-theme='dark'] {
@@ -95,6 +100,11 @@
   --solstice-meta-border: rgba(255, 255, 255, 0.08);
   --solstice-meta-shadow: 0 32px 70px rgba(0, 0, 0, 0.7);
   --solstice-meta-highlight: rgba(41, 151, 255, 0.22);
+  --solstice-tag-bg: rgba(41, 151, 255, 0.16);
+  --solstice-tag-border: rgba(41, 151, 255, 0.32);
+  --solstice-tag-text: rgba(245, 245, 247, 0.88);
+  --solstice-tag-hover-bg: rgba(41, 151, 255, 0.28);
+  --solstice-tag-hover-border: rgba(41, 151, 255, 0.45);
 }
 
 body {
@@ -644,6 +654,50 @@ body {
   display: flex;
   gap: 0.65rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.solstice-article__tags .tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.solstice-article__tags .tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: var(--solstice-tag-bg);
+  border: 1px solid var(--solstice-tag-border);
+  color: var(--solstice-tag-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 10px 28px rgba(0, 113, 227, 0.12);
+}
+
+.solstice-article__tags .tag:hover,
+.solstice-article__tags .tag:focus-visible {
+  background: var(--solstice-tag-hover-bg);
+  border-color: var(--solstice-tag-hover-border);
+  color: var(--solstice-accent);
+  box-shadow: 0 14px 32px rgba(0, 113, 227, 0.22);
+  transform: translateY(-1px);
+}
+
+[data-theme='dark'] .solstice-article__tags .tag {
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.38);
+}
+
+[data-theme='dark'] .solstice-article__tags .tag:hover,
+[data-theme='dark'] .solstice-article__tags .tag:focus-visible {
+  color: rgba(245, 245, 247, 0.95);
+  box-shadow: 0 20px 40px rgba(10, 132, 255, 0.35);
 }
 
 .solstice-article__meta {
