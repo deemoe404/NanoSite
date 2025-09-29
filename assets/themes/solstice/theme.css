@@ -726,8 +726,7 @@ body {
 
 .solstice-card--with-cover .solstice-card__cover {
   border-radius: 0;
-  aspect-ratio: auto;
-  min-height: clamp(220px, 35vw, 320px);
+  aspect-ratio: 18 / 9;
 }
 
 .solstice-card--with-cover .solstice-card__cover img,
