@@ -358,6 +358,7 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1.5rem;
   align-items: center;
+  transition: padding 0.3s ease;
 }
 
 .solstice-brand {
@@ -372,11 +373,24 @@ body {
   font-size: clamp(1.35rem, 2vw + 0.5rem, 2rem);
   font-weight: 700;
   letter-spacing: -0.02em;
+  transition: font-size 0.3s ease;
 }
 
 .solstice-brand__subtitle {
   font-size: 0.95rem;
   color: var(--solstice-muted);
+}
+
+.solstice-header.is-condensed .solstice-header__inner {
+  padding: 0.75rem 1.5rem;
+}
+
+.solstice-header.is-condensed .solstice-brand__title {
+  font-size: clamp(1.05rem, 1.5vw + 0.35rem, 1.6rem);
+}
+
+.solstice-header.is-condensed .solstice-brand__subtitle {
+  display: none;
 }
 
 .solstice-nav {
