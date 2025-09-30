@@ -1087,6 +1087,76 @@ body {
   color: var(--arcus-text);
 }
 
+.error-actions {
+  margin-top: 1.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.error-actions button {
+  appearance: none;
+  border-radius: var(--arcus-radius-sm);
+  border: 1px solid rgba(242, 100, 100, 0.28);
+  background: rgba(242, 100, 100, 0.1);
+  color: var(--arcus-text);
+  padding: 0.5rem 0.95rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: var(--arcus-font-sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  box-shadow: 0 12px 22px rgba(15, 22, 52, 0.16), 0 6px 12px rgba(15, 22, 52, 0.12);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease,
+    transform 0.12s ease;
+}
+
+.error-actions button:hover,
+.error-actions button:focus-visible {
+  background: rgba(242, 100, 100, 0.18);
+  border-color: rgba(242, 100, 100, 0.45);
+  box-shadow: 0 18px 30px rgba(15, 22, 52, 0.22), 0 10px 18px rgba(15, 22, 52, 0.16);
+  transform: translateY(-1px);
+}
+
+.error-actions button:focus-visible {
+  outline: 3px solid rgba(123, 139, 255, 0.5);
+  outline-offset: 2px;
+}
+
+.error-actions .btn-copy,
+.error-actions .btn-report {
+  background: var(--arcus-accent-soft);
+  border-color: rgba(123, 139, 255, 0.45);
+  color: var(--arcus-accent-strong);
+}
+
+.error-actions .btn-copy:hover,
+.error-actions .btn-copy:focus-visible,
+.error-actions .btn-report:hover,
+.error-actions .btn-report:focus-visible {
+  background: rgba(123, 139, 255, 0.28);
+  border-color: rgba(123, 139, 255, 0.65);
+}
+
+.error-actions .btn-dismiss {
+  background: transparent;
+  border-color: rgba(29, 36, 55, 0.18);
+  color: var(--arcus-text-soft);
+  box-shadow: none;
+}
+
+.error-actions .btn-dismiss:hover,
+.error-actions .btn-dismiss:focus-visible {
+  background: rgba(29, 36, 55, 0.08);
+  border-color: rgba(29, 36, 55, 0.3);
+  color: var(--arcus-text);
+  box-shadow: 0 10px 20px rgba(15, 22, 52, 0.16), 0 4px 10px rgba(15, 22, 52, 0.12);
+}
+
 .error-pre {
   font-family: var(--arcus-font-mono);
   font-size: 0.75rem;
@@ -1101,6 +1171,47 @@ body {
 
 [data-theme="dark"] .error-pre {
   background: rgba(15, 22, 52, 0.6);
+  color: var(--arcus-text);
+}
+
+[data-theme="dark"] .error-actions button {
+  border-color: rgba(255, 138, 138, 0.32);
+  background: rgba(255, 138, 138, 0.14);
+  box-shadow: 0 18px 34px rgba(7, 10, 19, 0.55), 0 10px 20px rgba(7, 10, 19, 0.42);
+}
+
+[data-theme="dark"] .error-actions button:hover,
+[data-theme="dark"] .error-actions button:focus-visible {
+  background: rgba(255, 138, 138, 0.22);
+  border-color: rgba(255, 138, 138, 0.45);
+  box-shadow: 0 24px 42px rgba(7, 10, 19, 0.65), 0 12px 24px rgba(7, 10, 19, 0.5);
+}
+
+[data-theme="dark"] .error-actions .btn-copy,
+[data-theme="dark"] .error-actions .btn-report {
+  background: rgba(158, 167, 255, 0.22);
+  border-color: rgba(158, 167, 255, 0.45);
+  color: var(--arcus-accent);
+}
+
+[data-theme="dark"] .error-actions .btn-copy:hover,
+[data-theme="dark"] .error-actions .btn-copy:focus-visible,
+[data-theme="dark"] .error-actions .btn-report:hover,
+[data-theme="dark"] .error-actions .btn-report:focus-visible {
+  background: rgba(158, 167, 255, 0.34);
+  border-color: rgba(158, 167, 255, 0.65);
+}
+
+[data-theme="dark"] .error-actions .btn-dismiss {
+  background: transparent;
+  border-color: rgba(158, 167, 255, 0.22);
+  color: rgba(232, 236, 255, 0.7);
+}
+
+[data-theme="dark"] .error-actions .btn-dismiss:hover,
+[data-theme="dark"] .error-actions .btn-dismiss:focus-visible {
+  background: rgba(21, 26, 44, 0.72);
+  border-color: rgba(158, 167, 255, 0.36);
   color: var(--arcus-text);
 }
 
