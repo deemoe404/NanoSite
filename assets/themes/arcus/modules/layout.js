@@ -41,7 +41,8 @@ export function mount(context = {}) {
         </a>
         <div class="arcus-header__divider" aria-hidden="true"></div>
         <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
-      </div>`;
+      </div>
+      <div class="arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>`;
     return el;
   });
 
@@ -135,7 +136,6 @@ export function mount(context = {}) {
         <section class="arcus-utility__links" aria-label="Profile links">
           <ul class="arcus-linklist" data-site-links></ul>
         </section>
-        <div class="arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>
       </div>`;
     return el;
   });
