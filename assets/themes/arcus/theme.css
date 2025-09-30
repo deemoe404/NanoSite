@@ -808,7 +808,7 @@ body {
   background: var(--arcus-surface);
   border-radius: var(--arcus-radius-lg);
   box-shadow: var(--arcus-shadow-subtle);
-  border: 1px solid var(--arcus-outline);
+  border: none;
   padding: 3rem 3.4rem;
   display: flex;
   flex-direction: column;
