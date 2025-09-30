@@ -1902,16 +1902,32 @@ body {
   display: block;
   object-fit: cover;
   transition: transform 0.4s ease, opacity 0.4s ease;
-  opacity: 0;
+  opacity: 1;
 }
 
-:where(.arcus-article__body, .arcus-static__body) .link-card .card-cover.is-loaded {
-  opacity: 1;
+:where(.arcus-article__body, .arcus-static__body) .link-card .card-cover:not(.is-loaded) {
+  opacity: 0;
 }
 
 :where(.arcus-article__body, .arcus-static__body) .link-card:hover .card-cover,
 :where(.arcus-article__body, .arcus-static__body) .link-card:focus-visible .card-cover {
   transform: scale(1.04);
+}
+
+:where(.arcus-article__body, .arcus-static__body) .link-card .card-cover-wrap.card-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cover-bg, rgba(123, 139, 255, 0.22));
+}
+
+:where(.arcus-article__body, .arcus-static__body) .link-card .card-cover-wrap.card-fallback .cover-initial {
+  font-family: var(--arcus-font-serif);
+  font-size: clamp(2rem, 6vw, 3.1rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 0.18rem 0.6rem rgba(17, 23, 41, 0.32);
 }
 
 :where(.arcus-article__body, .arcus-static__body) .link-card .ph-skeleton {
