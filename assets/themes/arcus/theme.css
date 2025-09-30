@@ -123,6 +123,52 @@ body {
   scrollbar-gutter: stable both-edges;
 }
 
+.arcus-backtotop {
+  position: fixed;
+  inset-inline-end: clamp(1rem, 3vw, 2.6rem);
+  inset-block-end: clamp(1.25rem, 4vh, 3rem);
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  border: 1px solid var(--arcus-outline-strong);
+  background: var(--arcus-main-bg);
+  color: var(--arcus-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--arcus-shadow-subtle);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(12px) scale(0.94);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease, background-color 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
+  z-index: 24;
+  backdrop-filter: blur(18px);
+}
+
+.arcus-backtotop svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.arcus-backtotop:hover,
+.arcus-backtotop:focus-visible {
+  background: rgba(123, 139, 255, 0.16);
+  color: var(--arcus-accent-strong);
+  box-shadow: 0 12px 28px rgba(15, 22, 52, 0.18);
+}
+
+.arcus-backtotop:focus-visible {
+  outline: 2px solid var(--arcus-accent);
+  outline-offset: 2px;
+}
+
+.arcus-backtotop.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
 .arcus-header__inner {
   background: var(--arcus-rail-bg);
   box-shadow: var(--arcus-shadow-soft);
@@ -2261,6 +2307,15 @@ body {
 
 .arcus-header-sentinel {
   height: 1px;
+}
+
+@media (max-width: 720px) {
+  .arcus-backtotop {
+    inset-inline-end: 1rem;
+    inset-block-end: 1rem;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
 @media (max-width: 1200px) {
