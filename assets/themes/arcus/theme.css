@@ -803,7 +803,7 @@ body {
 .arcus-search-toggle {
   position: relative;
   align-self: flex-end;
-  margin: 1.25rem 1.5rem 0 auto;
+  margin: 0 1.5rem 0 auto;
   background: var(--arcus-accent);
   color: #fff;
   border: none;
@@ -834,7 +834,7 @@ body {
 }
 
 .arcus-search-toggle.is-active {
-  background: var(--arcus-accent-strong);
+  background: transparent;
 }
 
 .arcus-search-toggle__icon {
