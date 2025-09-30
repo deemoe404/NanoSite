@@ -1396,9 +1396,8 @@ body {
   background: linear-gradient(
     120deg,
     color-mix(in srgb, var(--arcus-accent) 26%, transparent) 0%,
-    color-mix(in srgb, var(--arcus-accent) 20%, transparent) 38%,
-    color-mix(in srgb, var(--arcus-accent) 12%, transparent) 68%,
-    color-mix(in srgb, var(--arcus-accent) 6%, transparent) 88%,
+    color-mix(in srgb, var(--arcus-accent) 18%, transparent) 45%,
+    color-mix(in srgb, var(--arcus-accent) 8%, transparent) 80%,
     transparent 100%
   );
   padding: 0 0.2rem;
