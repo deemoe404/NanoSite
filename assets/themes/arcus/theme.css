@@ -778,7 +778,7 @@ body {
 .arcus-utility__search:focus-within {
   pointer-events: auto;
   max-height: 9rem;
-  padding: 0.75rem 0;
+  padding: 0.75rem 4rem;
   margin-bottom: 1.5rem;
 }
 
