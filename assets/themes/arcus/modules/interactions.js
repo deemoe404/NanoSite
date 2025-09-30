@@ -870,15 +870,7 @@ function enhanceArcusTocDock(tocEl) {
 
     const handleClick = (event) => {
       event.preventDefault();
-      try {
-        anchor.dispatchEvent(new MouseEvent('click', {
-          bubbles: true,
-          cancelable: true,
-          view: winRef || window
-        }));
-      } catch (_) {
-        try { anchor.click(); } catch (_) {}
-      }
+      scrollToHeading(index);
     };
 
     const handleEnter = () => setHover(index);
@@ -928,6 +920,59 @@ function enhanceArcusTocDock(tocEl) {
     const id = href.slice(1);
     return id ? docRef.getElementById(id) : null;
   });
+
+  function scrollToHeading(index) {
+    if (index == null || index < 0 || index >= headings.length) return false;
+    const target = headings[index];
+    if (!target) return false;
+
+    const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
+    const scrollIntoViewOptions = { behavior, block: 'start', inline: 'nearest' };
+    let scrolled = false;
+
+    try {
+      if (typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView(scrollIntoViewOptions);
+        scrolled = true;
+      }
+    } catch (_) { /* ignore */ }
+
+    if (!scrolled) {
+      const rect = target.getBoundingClientRect();
+      const absoluteTop = rect.top + getScrollTop();
+      if (scroller && typeof scroller.scrollTo === 'function') {
+        try {
+          scroller.scrollTo({ top: absoluteTop, behavior });
+          scrolled = true;
+        } catch (_) { /* ignore */ }
+      }
+      if (!scrolled && winRef && typeof winRef.scrollTo === 'function') {
+        try {
+          winRef.scrollTo({ top: absoluteTop, behavior });
+          scrolled = true;
+        } catch (_) { /* ignore */ }
+      }
+      if (!scrolled) {
+        try { target.scrollIntoView(); } catch (_) {}
+      }
+    }
+
+    const id = target.getAttribute('id');
+    if (!id) return scrolled;
+    const hash = `#${id}`;
+    try {
+      if (winRef && winRef.history && typeof winRef.history.replaceState === 'function') {
+        const loc = winRef.location;
+        const base = loc ? `${loc.pathname || ''}${loc.search || ''}` : '';
+        winRef.history.replaceState(null, '', `${base}${hash}`);
+      } else if (winRef && winRef.location) {
+        winRef.location.hash = id;
+      } else if (docRef && docRef.location) {
+        docRef.location.hash = id;
+      }
+    } catch (_) { /* ignore */ }
+    return scrolled;
+  }
 
   const scroller = docRef ? docRef.querySelector('.arcus-rightcol') : null;
 
