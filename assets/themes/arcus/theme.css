@@ -1444,6 +1444,104 @@ body {
   gap: 1rem;
 }
 
+.arcus-article__nav .post-nav {
+  flex: 1 1 100%;
+}
+
+.post-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  width: 100%;
+  padding: 1.4rem;
+  border-radius: var(--arcus-radius-lg);
+  border: 1px solid var(--arcus-outline);
+  background: var(--arcus-surface);
+  box-shadow: var(--arcus-shadow-subtle);
+  backdrop-filter: blur(14px);
+}
+
+.post-nav > a,
+.post-nav > span {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.15rem 1.25rem;
+  text-decoration: none;
+  color: var(--arcus-text);
+  border-radius: var(--arcus-radius-md);
+  border: 1px solid transparent;
+  background: linear-gradient(140deg, rgba(123, 139, 255, 0.18), rgba(255, 255, 255, 0.18));
+  box-sizing: border-box;
+  width: 100%;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+[data-theme="dark"] .post-nav > a,
+[data-theme="dark"] .post-nav > span {
+  background: linear-gradient(140deg, rgba(53, 62, 104, 0.6), rgba(21, 26, 44, 0.6));
+}
+
+.post-nav > a:hover,
+.post-nav > a:focus-visible {
+  border-color: var(--arcus-accent);
+  box-shadow: 0 16px 28px rgba(123, 139, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.post-nav > a:focus-visible {
+  outline: 3px solid rgba(123, 139, 255, 0.35);
+  outline-offset: 3px;
+}
+
+.post-nav .nav-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--arcus-text-soft);
+}
+
+.post-nav .nav-title {
+  font-size: 1.05rem;
+  font-family: var(--arcus-font-serif);
+  line-height: 1.4;
+  color: var(--arcus-text);
+}
+
+.post-nav-prev {
+  justify-self: start;
+}
+
+.post-nav-next {
+  justify-self: end;
+  text-align: right;
+  align-items: flex-end;
+}
+
+.post-nav .disabled {
+  opacity: 0.45;
+  border-color: var(--arcus-outline);
+  background: rgba(123, 139, 255, 0.12);
+}
+
+.post-nav .disabled .nav-title {
+  color: var(--arcus-text-muted);
+}
+
+@media (max-width: 860px) {
+  .post-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .post-nav-next,
+  .post-nav-prev {
+    justify-self: stretch;
+    text-align: left;
+    align-items: flex-start;
+  }
+}
+
 .arcus-article__meta-line {
   display: inline-flex;
   align-items: center;
