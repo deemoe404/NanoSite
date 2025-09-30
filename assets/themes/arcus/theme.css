@@ -1822,7 +1822,7 @@ body {
 .arcus-article__body .link-card .card-cover-wrap,
 .arcus-static__body .link-card .card-cover-wrap {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 18 / 9;
   background: rgba(123, 139, 255, 0.12);
   overflow: hidden;
   position: relative;
