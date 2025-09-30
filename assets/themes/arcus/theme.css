@@ -1785,6 +1785,157 @@ body {
   line-height: 1.7;
 }
 
+.arcus-article__body .link-card-wrap,
+.arcus-static__body .link-card-wrap {
+  margin: 2.2rem 0;
+}
+
+.arcus-article__body .link-card,
+.arcus-static__body .link-card {
+  display: block;
+  border-radius: var(--arcus-radius-md);
+  background: var(--arcus-main-bg);
+  color: var(--arcus-text);
+  text-decoration: none;
+  border: 1px solid var(--arcus-outline);
+  box-shadow: var(--arcus-shadow-subtle);
+  overflow: hidden;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  backdrop-filter: blur(18px);
+}
+
+.arcus-article__body .link-card:hover,
+.arcus-article__body .link-card:focus-visible,
+.arcus-static__body .link-card:hover,
+.arcus-static__body .link-card:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: var(--arcus-shadow-soft);
+  border-color: color-mix(in srgb, var(--arcus-accent) 40%, var(--arcus-outline));
+}
+
+.arcus-article__body .link-card:focus-visible,
+.arcus-static__body .link-card:focus-visible {
+  outline: 2px solid var(--arcus-accent);
+  outline-offset: 3px;
+}
+
+.arcus-article__body .link-card .card-cover-wrap,
+.arcus-static__body .link-card .card-cover-wrap {
+  width: 100%;
+  aspect-ratio: 18 / 9;
+  background: rgba(123, 139, 255, 0.12);
+  overflow: hidden;
+  position: relative;
+}
+
+.arcus-article__body .link-card .card-cover,
+.arcus-static__body .link-card .card-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transform: scale(1.02);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.arcus-article__body .link-card .card-cover.is-loaded,
+.arcus-static__body .link-card .card-cover.is-loaded {
+  opacity: 1;
+  margin: 0;
+}
+
+.arcus-article__body .link-card:hover .card-cover.is-loaded,
+.arcus-article__body .link-card:focus-visible .card-cover.is-loaded,
+.arcus-static__body .link-card:hover .card-cover.is-loaded,
+.arcus-static__body .link-card:focus-visible .card-cover.is-loaded {
+  transform: scale(1.06);
+}
+
+.arcus-article__body .link-card .card-title,
+.arcus-static__body .link-card .card-title {
+  padding: 1.35rem 1.6rem 0.4rem;
+  font-size: 1.38rem;
+  font-family: var(--arcus-font-serif);
+  line-height: 1.35;
+  color: inherit;
+  transition: color 0.22s ease;
+}
+
+.arcus-article__body .link-card:hover .card-title,
+.arcus-article__body .link-card:focus-visible .card-title,
+.arcus-static__body .link-card:hover .card-title,
+.arcus-static__body .link-card:focus-visible .card-title {
+  color: var(--arcus-accent);
+}
+
+.arcus-article__body .link-card .card-excerpt,
+.arcus-static__body .link-card .card-excerpt {
+  padding: 0 1.6rem 1.2rem;
+  color: var(--arcus-text-muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.arcus-article__body .link-card .card-meta,
+.arcus-static__body .link-card .card-meta {
+  padding: 0.85rem 1.6rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--arcus-text-soft);
+  border-top: 1px solid var(--arcus-outline);
+}
+
+.arcus-article__body .link-card .card-sep,
+.arcus-static__body .link-card .card-sep {
+  opacity: 0.6;
+}
+
+.arcus-article__body .link-card .tags,
+.arcus-static__body .link-card .tags {
+  padding: 0 1.6rem 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.arcus-article__body .link-card .tag,
+.arcus-article__body .link-card .tags a,
+.arcus-static__body .link-card .tag,
+.arcus-static__body .link-card .tags a {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--arcus-accent-soft);
+  color: var(--arcus-accent);
+  text-decoration: none;
+}
+
+.arcus-article__body .link-card .card-draft,
+.arcus-static__body .link-card .card-draft {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #f26464;
+  background: rgba(242, 100, 100, 0.14);
+  border: 1px solid rgba(242, 100, 100, 0.35);
+}
+
 .arcus-article__body ul ul,
 .arcus-article__body ul ol,
 .arcus-article__body ol ul,
