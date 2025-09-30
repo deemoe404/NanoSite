@@ -606,6 +606,7 @@ body {
   display: block;
 }
 
+
 .arcus-card__body {
   display: flex;
   flex-direction: column;
@@ -613,18 +614,30 @@ body {
   justify-content: center;
 }
 
+.arcus-card__meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--arcus-text-soft);
+}
+
+.arcus-card__meta-date {
+  white-space: nowrap;
+}
+
+.arcus-card__meta-separator {
+  color: var(--arcus-text-soft);
+}
+
 .arcus-card__title {
   font-size: 1.4rem;
   font-family: var(--arcus-font-serif);
   line-height: 1.35;
   letter-spacing: 0.01em;
-}
-
-.arcus-card__meta {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--arcus-text-soft);
 }
 
 .arcus-card__excerpt {
@@ -643,8 +656,15 @@ body {
 
 .arcus-card__tags {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+.arcus-card__tags .tags {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .arcus-card__tags .tag,
