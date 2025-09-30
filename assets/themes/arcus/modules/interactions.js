@@ -806,15 +806,223 @@ function resetToolsPanel(documentRef = defaultDocument, windowRef = defaultWindo
   return setupToolsPanel(documentRef, windowRef);
 }
 
+function resolveTocTarget(documentRef, href) {
+  if (!documentRef || !href || typeof href !== 'string') return null;
+  const trimmed = href.trim();
+  if (!trimmed.startsWith('#')) return null;
+  const rawId = trimmed.slice(1);
+  if (!rawId) return null;
+  let target = documentRef.getElementById(rawId);
+  if (!target && rawId.includes('%')) {
+    try {
+      const decoded = decodeURIComponent(rawId);
+      target = documentRef.getElementById(decoded);
+    } catch (_) {}
+  }
+  return target;
+}
+
 function showToc(tocEl, tocHtml, articleTitle) {
   if (!tocEl) return;
+  if (typeof tocEl.__arcusTocCleanup === 'function') {
+    try { tocEl.__arcusTocCleanup(); } catch (_) {}
+    tocEl.__arcusTocCleanup = null;
+  }
   if (!tocHtml) {
     tocEl.innerHTML = '';
     tocEl.hidden = true;
     return;
   }
-  tocEl.innerHTML = `<div class="arcus-toc__inner"><div class="arcus-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
+
+  const doc = tocEl.ownerDocument || defaultDocument;
+  const temp = doc.createElement('div');
+  temp.innerHTML = tocHtml;
+  const anchors = Array.from(temp.querySelectorAll('a[href^="#"]'));
+  const items = anchors.map(link => {
+    const href = link.getAttribute('href');
+    const text = (link.textContent || '').trim();
+    return href && text ? { href, text } : null;
+  }).filter(Boolean);
+
+  if (!items.length) {
+    tocEl.innerHTML = '';
+    tocEl.hidden = true;
+    return;
+  }
+
+  const labelBase = t('ui.tableOfContents');
+  const navLabel = articleTitle ? `${articleTitle} – ${labelBase}` : labelBase;
+  const nav = doc.createElement('nav');
+  nav.className = 'arcus-toc__dock';
+  nav.setAttribute('role', 'navigation');
+  nav.setAttribute('aria-label', navLabel);
+
+  const list = doc.createElement('ol');
+  list.className = 'arcus-toc__dock-list';
+  nav.appendChild(list);
+
+  const listItems = [];
+  const headingTargets = [];
+
+  items.forEach((item, index) => {
+    const li = doc.createElement('li');
+    li.className = 'arcus-toc__dock-item';
+    li.dataset.index = String(index);
+
+    const anchor = doc.createElement('a');
+    anchor.className = 'arcus-toc__dock-dot';
+    anchor.href = item.href;
+    anchor.setAttribute('aria-label', item.text);
+    anchor.innerHTML = `<span class="arcus-toc__dock-circle" aria-hidden="true"></span><span class="arcus-toc__dock-title">${escapeHtml(item.text)}</span>`;
+
+    li.appendChild(anchor);
+    list.appendChild(li);
+    listItems.push(li);
+
+    const target = resolveTocTarget(doc, item.href);
+    headingTargets.push(target || null);
+  });
+
+  tocEl.classList.add('arcus-toc--dock');
+  tocEl.innerHTML = '';
+  tocEl.appendChild(nav);
   tocEl.hidden = false;
+
+  const win = (doc && doc.defaultView) ? doc.defaultView : defaultWindow;
+  const scrollContainer = getScrollContainer(doc) || (doc && doc.scrollingElement) || win;
+
+  let currentIndex = -1;
+  const setActive = (index) => {
+    if (!listItems.length) return;
+    let nextIndex = typeof index === 'number' && !Number.isNaN(index) ? index : 0;
+    if (nextIndex < 0) nextIndex = 0;
+    if (nextIndex >= listItems.length) nextIndex = listItems.length - 1;
+    if (currentIndex === nextIndex) return;
+    listItems.forEach((item, idx) => {
+      item.classList.toggle('is-current', idx === nextIndex);
+    });
+    currentIndex = nextIndex;
+  };
+
+  const requestFrame = win && typeof win.requestAnimationFrame === 'function'
+    ? win.requestAnimationFrame.bind(win)
+    : (fn) => setTimeout(fn, 16);
+  const cancelFrame = win && typeof win.cancelAnimationFrame === 'function'
+    ? win.cancelAnimationFrame.bind(win)
+    : (id) => clearTimeout(id);
+
+  let rafId = null;
+  const updateActiveFromPositions = () => {
+    let hasTargets = false;
+    const targetLine = win && typeof win.innerHeight === 'number' ? win.innerHeight * 0.3 : 240;
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    headingTargets.forEach((heading, idx) => {
+      if (!heading || typeof heading.getBoundingClientRect !== 'function') return;
+      const rect = heading.getBoundingClientRect();
+      if (!rect) return;
+      hasTargets = true;
+      if (rect.top <= targetLine) {
+        const distance = targetLine - rect.top;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = idx;
+        }
+      } else if (bestDistance === Number.POSITIVE_INFINITY) {
+        const distance = rect.top - targetLine;
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = idx;
+        }
+      }
+    });
+
+    if (!hasTargets) {
+      setActive(0);
+      return;
+    }
+
+    setActive(bestIndex);
+  };
+
+  const queueActiveUpdate = () => {
+    if (rafId != null) return;
+    rafId = requestFrame(() => {
+      rafId = null;
+      updateActiveFromPositions();
+    });
+  };
+
+  const handleScroll = () => queueActiveUpdate();
+  const handleResize = () => queueActiveUpdate();
+
+  if (scrollContainer && typeof scrollContainer.addEventListener === 'function') {
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+  }
+  if (win && typeof win.addEventListener === 'function') {
+    win.addEventListener('resize', handleResize);
+  }
+
+  const applyHoverState = (hoverIndex) => {
+    listItems.forEach((item, idx) => {
+      const isHovered = idx === hoverIndex;
+      const isAdjacent = idx === hoverIndex - 1 || idx === hoverIndex + 1;
+      item.classList.toggle('is-hovered', isHovered);
+      item.classList.toggle('is-adjacent', isAdjacent);
+    });
+  };
+
+  const handlePointerOver = (event) => {
+    if (!event || !event.target || typeof event.target.closest !== 'function') return;
+    const item = event.target.closest('.arcus-toc__dock-item');
+    if (!item || !item.dataset) return;
+    const index = Number(item.dataset.index);
+    if (Number.isNaN(index)) return;
+    applyHoverState(index);
+  };
+
+  const handlePointerLeave = () => { applyHoverState(-1); };
+
+  const handleFocusOut = (event) => {
+    if (!event) return;
+    const next = event.relatedTarget && typeof event.relatedTarget.closest === 'function'
+      ? event.relatedTarget.closest('.arcus-toc__dock-item')
+      : null;
+    if (next && next.dataset) {
+      const index = Number(next.dataset.index);
+      if (!Number.isNaN(index)) {
+        applyHoverState(index);
+        return;
+      }
+    }
+    applyHoverState(-1);
+  };
+
+  list.addEventListener('mouseover', handlePointerOver);
+  list.addEventListener('focusin', handlePointerOver);
+  list.addEventListener('mouseleave', handlePointerLeave);
+  list.addEventListener('focusout', handleFocusOut);
+
+  queueActiveUpdate();
+
+  tocEl.__arcusTocCleanup = () => {
+    if (scrollContainer && typeof scrollContainer.removeEventListener === 'function') {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+    if (win && typeof win.removeEventListener === 'function') {
+      win.removeEventListener('resize', handleResize);
+    }
+    list.removeEventListener('mouseover', handlePointerOver);
+    list.removeEventListener('focusin', handlePointerOver);
+    list.removeEventListener('mouseleave', handlePointerLeave);
+    list.removeEventListener('focusout', handleFocusOut);
+    if (rafId != null) {
+      cancelFrame(rafId);
+      rafId = null;
+    }
+  };
+
   fadeIn(tocEl);
 }
 
@@ -931,6 +1139,10 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     documentRef.body.setAttribute('data-active-view', view || 'posts');
     const toc = getRoleElement('toc', documentRef);
     if (toc && view !== 'post') {
+      if (typeof toc.__arcusTocCleanup === 'function') {
+        try { toc.__arcusTocCleanup(); } catch (_) {}
+        toc.__arcusTocCleanup = null;
+      }
       toc.hidden = true;
       toc.innerHTML = '';
     }
