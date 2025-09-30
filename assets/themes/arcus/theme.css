@@ -438,6 +438,16 @@ body {
   min-height: 0;
 }
 
+.arcus-main__search-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.arcus-main__search-toggle .arcus-search-toggle {
+  margin: 0;
+}
+
 .arcus-mainview {
   max-width: 960px;
   margin: 0 auto;
