@@ -373,28 +373,88 @@ body {
 
 .arcus-tools {
   display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.arcus-tools__groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.arcus-tools__group {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: calc(var(--arcus-radius-sm) * 1.05);
+  background: rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(123, 139, 255, 0.18), 0 14px 30px rgba(26, 36, 90, 0.08);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.arcus-tools__group--solo {
+  padding-inline: 0.75rem;
+}
+
+[data-theme="dark"] .arcus-tools__group {
+  background: rgba(36, 43, 71, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(158, 167, 255, 0.22), 0 16px 36px rgba(7, 10, 24, 0.45);
 }
 
 .arcus-tool {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.8rem;
-  border-radius: var(--arcus-radius-sm);
-  background: rgba(255, 255, 255, 0.24);
-  box-shadow: inset 0 0 0 1px rgba(123, 139, 255, 0.16);
+  gap: 0.55rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: calc(var(--arcus-radius-sm) / 1.2);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(123, 139, 255, 0.12);
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   flex: 0 0 auto;
 }
 
+.arcus-tools__group .arcus-tool {
+  position: relative;
+}
+
 .arcus-tool:focus-visible,
 .arcus-tool:hover {
-  background: rgba(255, 255, 255, 0.32);
-  box-shadow: inset 0 0 0 1px rgba(123, 139, 255, 0.26), 0 6px 18px rgba(28, 40, 120, 0.12);
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(123, 139, 255, 0.32), 0 6px 18px rgba(28, 40, 120, 0.14);
   transform: translateY(-1px);
+}
+
+[data-theme="dark"] .arcus-tool:focus-visible,
+[data-theme="dark"] .arcus-tool:hover {
+  background: rgba(158, 167, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(158, 167, 255, 0.4), 0 8px 20px rgba(9, 14, 28, 0.42);
+}
+
+[data-theme="dark"] .arcus-tool {
+  background: rgba(26, 32, 60, 0.75);
+  box-shadow: inset 0 0 0 1px rgba(158, 167, 255, 0.18);
+}
+
+@media (max-width: 768px) {
+  .arcus-tools__groups {
+    gap: 0.75rem;
+  }
+
+  .arcus-tools__group {
+    justify-content: center;
+    flex: 1 1 100%;
+  }
+
+  .arcus-tools__group--solo {
+    justify-content: center;
+  }
 }
 
 .arcus-tool--select {
@@ -413,6 +473,11 @@ body {
   box-shadow: inset 0 0 0 1px rgba(123, 139, 255, 0.24);
   appearance: none;
   min-width: 7.5rem;
+}
+
+[data-theme="dark"] .arcus-tool--select select {
+  background: rgba(26, 32, 60, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(158, 167, 255, 0.26);
 }
 
 .arcus-tool--select select:focus-visible {

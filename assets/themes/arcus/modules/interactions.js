@@ -640,27 +640,33 @@ function setupToolsPanel(documentRef = defaultDocument, windowRef = defaultWindo
   const panel = documentRef && documentRef.getElementById('toolsPanel');
   if (!panel) return false;
   panel.innerHTML = `
-    <div class="arcus-tools" id="tools">
-      <button id="themeToggle" class="arcus-tool" type="button" aria-label="${t('tools.toggleTheme')}">
-        <span class="arcus-tool__icon">🌓</span>
-        <span class="arcus-tool__label">${t('tools.toggleTheme')}</span>
-      </button>
-      <button id="postEditor" class="arcus-tool" type="button" aria-label="${t('tools.postEditor')}">
-        <span class="arcus-tool__icon">📝</span>
-        <span class="arcus-tool__label">${t('tools.postEditor')}</span>
-      </button>
-      <label class="arcus-tool arcus-tool--select" for="themePack">
-        <span class="arcus-tool__label">${t('tools.themePack')}</span>
-        <select id="themePack"></select>
-      </label>
-      <label class="arcus-tool arcus-tool--select" for="langSelect">
-        <span class="arcus-tool__label">${t('tools.language')}</span>
-        <select id="langSelect"></select>
-      </label>
-      <button id="langReset" class="arcus-tool" type="button" aria-label="${t('tools.resetLanguage')}">
-        <span class="arcus-tool__icon">♻️</span>
-        <span class="arcus-tool__label">${t('tools.resetLanguage')}</span>
-      </button>
+    <div class="arcus-tools__groups" id="tools">
+      <div class="arcus-tools__group" role="group" data-group="theme" aria-label="${t('tools.toggleTheme')} & ${t('tools.themePack')}">
+        <button id="themeToggle" class="arcus-tool" type="button" aria-label="${t('tools.toggleTheme')}">
+          <span class="arcus-tool__icon">🌓</span>
+          <span class="arcus-tool__label">${t('tools.toggleTheme')}</span>
+        </button>
+        <label class="arcus-tool arcus-tool--select" for="themePack">
+          <span class="arcus-tool__label">${t('tools.themePack')}</span>
+          <select id="themePack"></select>
+        </label>
+      </div>
+      <div class="arcus-tools__group" role="group" data-group="language" aria-label="${t('tools.language')} & ${t('tools.resetLanguage')}">
+        <label class="arcus-tool arcus-tool--select" for="langSelect">
+          <span class="arcus-tool__label">${t('tools.language')}</span>
+          <select id="langSelect"></select>
+        </label>
+        <button id="langReset" class="arcus-tool" type="button" aria-label="${t('tools.resetLanguage')}">
+          <span class="arcus-tool__icon">♻️</span>
+          <span class="arcus-tool__label">${t('tools.resetLanguage')}</span>
+        </button>
+      </div>
+      <div class="arcus-tools__group arcus-tools__group--solo" role="group" data-group="editor" aria-label="${t('tools.postEditor')}">
+        <button id="postEditor" class="arcus-tool" type="button" aria-label="${t('tools.postEditor')}">
+          <span class="arcus-tool__icon">📝</span>
+          <span class="arcus-tool__label">${t('tools.postEditor')}</span>
+        </button>
+      </div>
     </div>`;
   try { applySavedTheme(); } catch (_) {}
   try { bindThemeToggle(); } catch (_) {}
