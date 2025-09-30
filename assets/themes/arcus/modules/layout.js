@@ -120,6 +120,22 @@ export function mount(context = {}) {
     container.appendChild(rightColumn);
   }
 
+  ensureElement(container, '[data-arcus-backtotop]', () => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.className = 'arcus-backtotop';
+    button.setAttribute('data-arcus-backtotop', '');
+    button.setAttribute('aria-label', 'Back to top');
+    button.setAttribute('title', 'Back to top');
+    button.setAttribute('aria-hidden', 'true');
+    button.tabIndex = -1;
+    button.innerHTML = `
+      <svg viewBox="0 0 24 24" role="img" aria-hidden="true" focusable="false">
+        <path d="M12 4.25a1 1 0 0 1 .78.36l6 7a1 1 0 1 1-1.56 1.28L13 7.72V19a1 1 0 1 1-2 0V7.72l-4.22 5.17a1 1 0 1 1-1.56-1.28l6-7a1 1 0 0 1 .78-.36Z" fill="currentColor" />
+      </svg>`;
+    return button;
+  });
+
   let main = rightColumn.querySelector('.arcus-main');
   if (!main) {
     const existingMain = container.querySelector('.arcus-main');

@@ -135,6 +135,95 @@ function setupDynamicBackground(documentRef = defaultDocument, windowRef = defau
   return true;
 }
 
+function setupBackToTop(documentRef = defaultDocument, windowRef = defaultWindow) {
+  if (!documentRef || typeof documentRef.querySelector !== 'function') return false;
+  const button = documentRef.querySelector('[data-arcus-backtotop]');
+  if (!button) return false;
+
+  let frame = null;
+  let lastVisible = false;
+
+  const getMetrics = () => {
+    const scroller = getScrollContainer(documentRef);
+    if (scroller && scroller.scrollHeight - scroller.clientHeight > 32) {
+      return {
+        scroller,
+        offset: scroller.scrollTop || 0,
+        hasOverflow: true,
+        maxScroll: Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+      };
+    }
+    const docEl = documentRef.documentElement;
+    const body = documentRef.body;
+    const offset = windowRef && typeof windowRef.scrollY === 'number'
+      ? windowRef.scrollY
+      : (docEl && typeof docEl.scrollTop === 'number' ? docEl.scrollTop : (body ? body.scrollTop || 0 : 0));
+    const viewport = windowRef && typeof windowRef.innerHeight === 'number'
+      ? windowRef.innerHeight
+      : (docEl ? docEl.clientHeight : 0);
+    const fullHeight = docEl ? docEl.scrollHeight : (body ? body.scrollHeight : 0);
+    return {
+      scroller: null,
+      offset,
+      hasOverflow: fullHeight - viewport > 48,
+      maxScroll: Math.max(0, fullHeight - viewport)
+    };
+  };
+
+  const updateVisibility = () => {
+    frame = null;
+    const { offset, hasOverflow, maxScroll } = getMetrics();
+    const available = typeof maxScroll === 'number' ? maxScroll : 0;
+    const baseThreshold = available > 0 ? Math.min(320, Math.max(160, available * 0.35)) : 320;
+    const reachableThreshold = available > 0 ? Math.min(baseThreshold, Math.max(56, available - 24)) : baseThreshold;
+    const threshold = Math.max(56, reachableThreshold);
+    const shouldShow = hasOverflow && offset > threshold;
+    if (shouldShow !== lastVisible) {
+      lastVisible = shouldShow;
+      button.classList.toggle('is-visible', shouldShow);
+      button.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+      button.tabIndex = shouldShow ? 0 : -1;
+    }
+  };
+
+  const requestUpdate = () => {
+    if (frame != null) return;
+    const raf = windowRef && typeof windowRef.requestAnimationFrame === 'function'
+      ? windowRef.requestAnimationFrame.bind(windowRef)
+      : (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null);
+    if (raf) {
+      frame = raf(() => {
+        frame = null;
+        updateVisibility();
+      });
+    } else {
+      frame = setTimeout(() => {
+        frame = null;
+        updateVisibility();
+      }, 120);
+    }
+  };
+
+  updateVisibility();
+
+  const scroller = getScrollContainer(documentRef);
+  if (scroller && typeof scroller.addEventListener === 'function') {
+    scroller.addEventListener('scroll', requestUpdate, { passive: true });
+  }
+  if (windowRef && typeof windowRef.addEventListener === 'function') {
+    windowRef.addEventListener('scroll', requestUpdate, { passive: true });
+    windowRef.addEventListener('resize', requestUpdate);
+  }
+
+  button.addEventListener('click', (event) => {
+    event.preventDefault();
+    scrollViewportToTop(documentRef, windowRef);
+    requestUpdate();
+  });
+
+  return true;
+}
+
 function resolveCoverSource(meta = {}, siteConfig = {}) {
   const allowFallback = !(siteConfig && siteConfig.cardCoverFallback === false);
   if (!meta) return { coverSrc: '', allowFallback };
@@ -1118,5 +1207,6 @@ export function mount(context = {}) {
   updateSearchPlaceholder(doc);
   setupToolsPanel(doc, win);
   setupDynamicBackground(doc, win);
+  setupBackToTop(doc, win);
   return context;
 }
