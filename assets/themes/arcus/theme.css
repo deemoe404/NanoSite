@@ -1342,7 +1342,7 @@ body {
 
 .arcus-article__body figcaption,
 .arcus-static__body figcaption {
-  margin-top: 0.8rem;
+  margin-top: 0rem;
   font-size: 0.9rem;
   color: var(--arcus-text-soft);
 }
