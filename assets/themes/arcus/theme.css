@@ -1297,6 +1297,43 @@ body {
   border-bottom: 1px solid var(--arcus-outline);
 }
 
+.arcus-card::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 11rem;
+  height: 11rem;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--arcus-accent) 55%, transparent) 0%,
+    color-mix(in srgb, var(--arcus-accent) 22%, transparent) 45%,
+    transparent 72%
+  );
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.15);
+  filter: blur(0.5px);
+}
+
+@keyframes arcus-card-hover-glow {
+  0% {
+    transform: translate(-50%, -50%) scale(0.15);
+    opacity: 0.85;
+  }
+
+  65% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 0.35;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0;
+  }
+}
+
 .arcus-card:first-child {
   padding-top: 0;
 }
@@ -1313,6 +1350,11 @@ body {
 .arcus-card:focus-within {
   transform: none;
   box-shadow: none;
+}
+
+.arcus-card:hover::before,
+.arcus-card:focus-within::before {
+  animation: arcus-card-hover-glow 0.95s ease-out forwards;
 }
 
 .arcus-card__link {
