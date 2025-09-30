@@ -198,17 +198,16 @@ export function mount(context = {}) {
     const el = doc.createElement('section');
     el.className = 'arcus-utility__search';
     el.setAttribute('aria-label', 'Search');
+    el.innerHTML = `
+      <label class="arcus-search" for="searchInput">
+        <span class="arcus-search__icon" aria-hidden="true">🔍</span>
+        <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+      </label>`;
     return el;
   });
 
-  const searchPanel = ensureElement(searchSection, '.arcus-search__panel', () => {
-    const panel = doc.createElement('div');
-    panel.className = 'arcus-search__panel';
-    return panel;
-  });
-
-  if (!searchPanel.querySelector('.arcus-search')) {
-    searchPanel.innerHTML = `
+  if (!searchSection.querySelector('.arcus-search')) {
+    searchSection.innerHTML = `
       <label class="arcus-search" for="searchInput">
         <span class="arcus-search__icon" aria-hidden="true">🔍</span>
         <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
@@ -224,12 +223,7 @@ export function mount(context = {}) {
     }
   }
 
-  const strayToggle = container.querySelector('.arcus-search-toggle');
-  if (strayToggle && !searchSection.contains(strayToggle)) {
-    strayToggle.remove();
-  }
-
-  const searchToggle = ensureElement(searchSection, '.arcus-search-toggle', () => {
+  const searchToggle = ensureElement(container, '.arcus-search-toggle', () => {
     const button = doc.createElement('button');
     button.type = 'button';
     button.className = 'arcus-search-toggle';
@@ -241,14 +235,10 @@ export function mount(context = {}) {
     return button;
   });
 
-  if (searchPanel.nextElementSibling !== searchToggle) {
-    searchSection.insertBefore(searchToggle, searchPanel.nextSibling);
-  }
-
   if (!searchSection.dataset.toggleBound) {
     searchSection.dataset.toggleBound = 'true';
 
-    const getInput = () => searchPanel.querySelector('input[type="search"]');
+    const getInput = () => searchSection.querySelector('input[type="search"]');
     const setOpen = (open) => {
       const isOpen = Boolean(open);
       searchSection.classList.toggle('is-open', isOpen);

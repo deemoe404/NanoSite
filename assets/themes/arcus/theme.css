@@ -749,29 +749,18 @@ body {
 }
 
 .arcus-utility__search {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  flex: 0 0 auto;
-  width: 100%;
-  display: grid;
-  gap: 0;
-  margin: 0;
-  pointer-events: auto;
-}
-
-.arcus-search__panel {
   position: relative;
   overflow: hidden;
   max-height: 0;
   padding: 0;
   margin: 0;
   box-sizing: border-box;
-  transition: max-height 0.32s ease, padding 0.32s ease;
+  pointer-events: none;
+  transition: max-height 0.32s ease, padding 0.32s ease, margin 0.32s ease;
+  flex: 0 0 auto;
+  width: 100%;
   display: flex;
   justify-content: center;
-  width: 100%;
-  pointer-events: none;
 }
 
 .arcus-utility__search .arcus-search {
@@ -783,14 +772,15 @@ body {
   opacity: 0;
   transform: translateY(-0.75rem);
   transition: opacity 0.24s ease, transform 0.28s ease;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
-.arcus-utility__search.is-open .arcus-search__panel,
-.arcus-utility__search:focus-within .arcus-search__panel {
-  max-height: 9rem;
-  padding: 0.75rem 4rem 0;
+.arcus-utility__search.is-open,
+.arcus-utility__search:focus-within {
   pointer-events: auto;
+  max-height: 9rem;
+  padding: 0.75rem 4rem;
+  margin-bottom: 0;
 }
 
 .arcus-utility__search.is-open .arcus-search,
@@ -798,19 +788,22 @@ body {
 .arcus-utility__search:hover .arcus-search {
   opacity: 1;
   transform: translateY(0);
-  pointer-events: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arcus-search__panel,
+  .arcus-utility__search {
+    transition: none;
+  }
+
   .arcus-utility__search .arcus-search {
     transition: none;
   }
 }
 
 .arcus-search-toggle {
-  justify-self: end;
-  margin: 0 1.5rem 1.5rem;
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
   z-index: 20;
   background: var(--arcus-accent);
   color: #fff;
