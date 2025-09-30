@@ -806,8 +806,287 @@ function resetToolsPanel(documentRef = defaultDocument, windowRef = defaultWindo
   return setupToolsPanel(documentRef, windowRef);
 }
 
+function enhanceArcusTocDock(tocEl) {
+  if (!tocEl || !tocEl.classList || !tocEl.classList.contains('arcus-toc')) return null;
+
+  const docRef = tocEl.ownerDocument || defaultDocument;
+  const winRef = docRef ? (docRef.defaultView || defaultWindow) : defaultWindow;
+
+  const srContainer = tocEl.querySelector('.arcus-toc__inner');
+  if (!srContainer) return null;
+
+  srContainer.classList.add('arcus-toc__inner--sr');
+  srContainer.setAttribute('aria-hidden', 'true');
+
+  const anchors = Array.from(srContainer.querySelectorAll('a[href^="#"]:not(.toc-anchor):not(.toc-top)'));
+  if (!anchors.length) return null;
+
+  const existingDock = tocEl.querySelector('.arcus-toc-dock');
+  if (existingDock) existingDock.remove();
+
+  const dock = docRef.createElement('nav');
+  dock.className = 'arcus-toc-dock';
+  dock.setAttribute('role', 'navigation');
+
+  const titleEl = srContainer.querySelector('.arcus-toc__title');
+  const dockLabel = titleEl && titleEl.textContent ? titleEl.textContent.trim() : '';
+  if (dockLabel) {
+    dock.setAttribute('aria-label', dockLabel);
+  } else {
+    dock.setAttribute('aria-label', t('ui.tableOfContents'));
+  }
+
+  dock.setAttribute('data-arcus-toc-dock', '');
+
+  const list = docRef.createElement('ol');
+  list.className = 'arcus-toc-dock__list';
+  dock.appendChild(list);
+  tocEl.appendChild(dock);
+
+  const items = anchors.map((anchor, index) => {
+    const labelText = anchor.textContent ? anchor.textContent.trim() : '';
+    const item = docRef.createElement('li');
+    item.className = 'arcus-toc-dock__item';
+    item.dataset.index = String(index);
+
+    const dot = docRef.createElement('a');
+    dot.className = 'arcus-toc-dock__dot';
+    dot.href = anchor.getAttribute('href') || '#';
+    dot.dataset.index = String(index);
+    dot.setAttribute('role', 'link');
+    if (labelText) {
+      dot.setAttribute('aria-label', labelText);
+      dot.title = labelText;
+    } else {
+      dot.setAttribute('aria-label', t('ui.tableOfContents'));
+    }
+
+    const label = docRef.createElement('span');
+    label.className = 'arcus-toc-dock__label';
+    label.textContent = labelText;
+
+    item.appendChild(dot);
+    item.appendChild(label);
+    list.appendChild(item);
+
+    const handleClick = (event) => {
+      event.preventDefault();
+      try {
+        anchor.dispatchEvent(new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: winRef || window
+        }));
+      } catch (_) {
+        try { anchor.click(); } catch (_) {}
+      }
+    };
+
+    const handleEnter = () => setHover(index);
+    const handleLeave = () => {
+      if (!dock.matches(':hover')) clearHover();
+    };
+
+    dot.addEventListener('click', handleClick);
+    dot.addEventListener('mouseenter', handleEnter);
+    dot.addEventListener('focus', handleEnter);
+    dot.addEventListener('mouseleave', clearHover);
+    dot.addEventListener('blur', handleLeave);
+
+    return {
+      anchor,
+      item,
+      dot,
+      cleanup() {
+        dot.removeEventListener('click', handleClick);
+        dot.removeEventListener('mouseenter', handleEnter);
+        dot.removeEventListener('focus', handleEnter);
+        dot.removeEventListener('mouseleave', clearHover);
+        dot.removeEventListener('blur', handleLeave);
+      }
+    };
+  });
+
+  const setHover = (index) => {
+    items.forEach(({ item }, idx) => {
+      item.classList.toggle('is-hover', idx === index);
+      item.classList.toggle('is-near', idx === index - 1 || idx === index + 1);
+    });
+  };
+
+  function clearHover() {
+    items.forEach(({ item }) => {
+      item.classList.remove('is-hover');
+      item.classList.remove('is-near');
+    });
+  }
+
+  dock.addEventListener('mouseleave', clearHover);
+
+  const headings = items.map(({ anchor }) => {
+    const href = anchor.getAttribute('href') || '';
+    if (!href.startsWith('#')) return null;
+    const id = href.slice(1);
+    return id ? docRef.getElementById(id) : null;
+  });
+
+  const scroller = docRef ? docRef.querySelector('.arcus-rightcol') : null;
+
+  const getScrollTop = () => {
+    if (scroller) return scroller.scrollTop || 0;
+    if (winRef && typeof winRef.scrollY === 'number') return winRef.scrollY;
+    const docEl = docRef && docRef.documentElement;
+    const body = docRef && docRef.body;
+    return (docEl && docEl.scrollTop) || (body && body.scrollTop) || 0;
+  };
+
+  const getViewportHeight = () => {
+    if (scroller) return scroller.clientHeight || 0;
+    if (winRef && typeof winRef.innerHeight === 'number') return winRef.innerHeight;
+    const docEl = docRef && docRef.documentElement;
+    return (docEl && docEl.clientHeight) || 0;
+  };
+
+  let positions = [];
+
+  const computePositions = () => {
+    const scrollTop = getScrollTop();
+    positions = headings.map((node) => {
+      if (!node) return Number.POSITIVE_INFINITY;
+      const rect = node.getBoundingClientRect();
+      return rect.top + scrollTop;
+    });
+  };
+
+  let currentIndex = -1;
+
+  const updateCurrent = () => {
+    if (!positions.length) return;
+    const offset = getScrollTop() + Math.max(120, Math.min(getViewportHeight() * 0.4, 320));
+    const available = positions
+      .map((pos, idx) => ({ pos, idx }))
+      .filter(({ pos }) => Number.isFinite(pos));
+    if (!available.length) {
+      if (currentIndex !== -1) {
+        currentIndex = -1;
+        items.forEach(({ item }) => item.classList.remove('is-current'));
+      }
+      return;
+    }
+    let nextIndex = available[0].idx;
+    for (let i = 0; i < available.length; i += 1) {
+      if (available[i].pos <= offset) {
+        nextIndex = available[i].idx;
+      } else {
+        break;
+      }
+    }
+    if (nextIndex === currentIndex) return;
+    currentIndex = nextIndex;
+    items.forEach(({ item }, idx) => {
+      item.classList.toggle('is-current', idx === currentIndex);
+    });
+  };
+
+  let pendingFrame = null;
+  let frameIsTimeout = false;
+
+  const scheduleUpdate = () => {
+    if (pendingFrame != null) return;
+    const raf = winRef && typeof winRef.requestAnimationFrame === 'function'
+      ? winRef.requestAnimationFrame.bind(winRef)
+      : (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null);
+    if (raf) {
+      frameIsTimeout = false;
+      pendingFrame = raf(() => {
+        pendingFrame = null;
+        updateCurrent();
+      });
+    } else {
+      frameIsTimeout = true;
+      pendingFrame = setTimeout(() => {
+        pendingFrame = null;
+        updateCurrent();
+      }, 16);
+    }
+  };
+
+  const handleScroll = () => {
+    scheduleUpdate();
+  };
+
+  const handleResize = () => {
+    computePositions();
+    updateCurrent();
+  };
+
+  const handleLoad = () => {
+    computePositions();
+    updateCurrent();
+  };
+
+  if (scroller && typeof scroller.addEventListener === 'function') {
+    scroller.addEventListener('scroll', handleScroll, { passive: true });
+  } else if (winRef && typeof winRef.addEventListener === 'function') {
+    winRef.addEventListener('scroll', handleScroll, { passive: true });
+  }
+
+  if (winRef && typeof winRef.addEventListener === 'function') {
+    winRef.addEventListener('resize', handleResize);
+    winRef.addEventListener('orientationchange', handleResize);
+    winRef.addEventListener('load', handleLoad);
+    if (typeof winRef.setTimeout === 'function') {
+      winRef.setTimeout(() => {
+        computePositions();
+        updateCurrent();
+      }, 80);
+    }
+  }
+
+  computePositions();
+  updateCurrent();
+
+  const observer = (typeof ResizeObserver !== 'undefined' && headings.some(Boolean))
+    ? new ResizeObserver(() => {
+        computePositions();
+        updateCurrent();
+      })
+    : null;
+  if (observer) {
+    headings.filter(Boolean).forEach(node => observer.observe(node));
+  }
+
+  return () => {
+    items.forEach(({ cleanup }) => cleanup());
+    dock.removeEventListener('mouseleave', clearHover);
+    if (scroller && typeof scroller.removeEventListener === 'function') {
+      scroller.removeEventListener('scroll', handleScroll);
+    } else if (winRef && typeof winRef.removeEventListener === 'function') {
+      winRef.removeEventListener('scroll', handleScroll);
+    }
+    if (winRef && typeof winRef.removeEventListener === 'function') {
+      winRef.removeEventListener('resize', handleResize);
+      winRef.removeEventListener('orientationchange', handleResize);
+      winRef.removeEventListener('load', handleLoad);
+    }
+    if (observer) observer.disconnect();
+    if (pendingFrame != null) {
+      if (!frameIsTimeout && winRef && typeof winRef.cancelAnimationFrame === 'function') {
+        winRef.cancelAnimationFrame(pendingFrame);
+      } else if (frameIsTimeout) {
+        clearTimeout(pendingFrame);
+      }
+      pendingFrame = null;
+    }
+  };
+}
+
 function showToc(tocEl, tocHtml, articleTitle) {
   if (!tocEl) return;
+  if (typeof tocEl.__arcusTocCleanup === 'function') {
+    try { tocEl.__arcusTocCleanup(); } catch (_) {}
+    tocEl.__arcusTocCleanup = null;
+  }
   if (!tocHtml) {
     tocEl.innerHTML = '';
     tocEl.hidden = true;
@@ -816,6 +1095,8 @@ function showToc(tocEl, tocHtml, articleTitle) {
   tocEl.innerHTML = `<div class="arcus-toc__inner"><div class="arcus-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
   tocEl.hidden = false;
   fadeIn(tocEl);
+  const cleanup = enhanceArcusTocDock(tocEl);
+  if (cleanup) tocEl.__arcusTocCleanup = cleanup;
 }
 
 function renderLoader(target, message) {
@@ -931,6 +1212,10 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     documentRef.body.setAttribute('data-active-view', view || 'posts');
     const toc = getRoleElement('toc', documentRef);
     if (toc && view !== 'post') {
+      if (typeof toc.__arcusTocCleanup === 'function') {
+        try { toc.__arcusTocCleanup(); } catch (_) {}
+        toc.__arcusTocCleanup = null;
+      }
       toc.hidden = true;
       toc.innerHTML = '';
     }
@@ -975,7 +1260,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return true;
   };
 
-  hooks.renderPostView = ({ containers, markdownHtml, fallbackTitle, postMetadata, markdown, postsIndex, postId, siteConfig, translate, utilities }) => {
+  hooks.renderPostView = ({ containers, markdownHtml, fallbackTitle, postMetadata, markdown, postsIndex, postId, siteConfig, translate, utilities, tocHtml }) => {
     const main = containers && containers.mainElement ? containers.mainElement : getRoleElement('main', documentRef);
     if (!main) return;
     const title = (postMetadata && postMetadata.title) || fallbackTitle || '';
@@ -1004,6 +1289,17 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
           <div class="arcus-article__nav" data-post-nav></div>
         </footer>
       </article>`;
+
+    const tocTarget = containers && containers.tocElement ? containers.tocElement : getRoleElement('toc', documentRef);
+    try {
+      if (utilities && typeof utilities.renderPostTOC === 'function') {
+        utilities.renderPostTOC({ tocElement: tocTarget, tocHtml, articleTitle: title });
+      } else {
+        showToc(tocTarget, tocHtml, title);
+      }
+    } catch (_) {
+      showToc(tocTarget, tocHtml, title);
+    }
 
     try { if (utilities && typeof utilities.renderPostNav === 'function') utilities.renderPostNav(main.querySelector('[data-post-nav]'), postsIndex || {}, postMetadata && postMetadata.location); } catch (_) {}
     decorateArticle(main, translate || t, { hydratePostImages, hydratePostVideos, applyLazyLoadingIn }, markdown, postMetadata, title);
@@ -1129,6 +1425,10 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       if (tocHtml) {
         showToc(toc, tocHtml, heading);
       } else {
+        if (typeof toc.__arcusTocCleanup === 'function') {
+          try { toc.__arcusTocCleanup(); } catch (_) {}
+          toc.__arcusTocCleanup = null;
+        }
         toc.innerHTML = '';
         toc.hidden = true;
       }
