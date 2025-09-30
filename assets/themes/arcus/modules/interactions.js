@@ -401,6 +401,81 @@ function decorateArticle(container, translate, utilities, markdown, meta, title)
   } catch (_) {}
 }
 
+const NAV_OVERFLOW_NONE = 'none';
+const NAV_OVERFLOW_START = 'start';
+const NAV_OVERFLOW_END = 'end';
+const NAV_OVERFLOW_BOTH = 'both';
+
+function getNavScroller(nav) {
+  if (!nav || typeof nav.closest !== 'function') return null;
+  return nav.closest('.arcus-nav__scroller');
+}
+
+function computeNavOverflowState(nav) {
+  if (!nav) return NAV_OVERFLOW_NONE;
+  const maxScroll = (nav.scrollHeight || 0) - (nav.clientHeight || 0);
+  if (maxScroll <= 1) return NAV_OVERFLOW_NONE;
+  const top = nav.scrollTop <= 1;
+  const bottom = nav.scrollTop >= maxScroll - 1;
+  if (top && bottom) return NAV_OVERFLOW_NONE;
+  if (top) return NAV_OVERFLOW_END;
+  if (bottom) return NAV_OVERFLOW_START;
+  return NAV_OVERFLOW_BOTH;
+}
+
+function updateNavOverflowState(nav, scroller) {
+  if (!nav) return;
+  const target = scroller || getNavScroller(nav);
+  if (!target) return;
+  const state = computeNavOverflowState(nav);
+  target.setAttribute('data-overflow', state);
+}
+
+function observeNavOverflow(nav, windowRef = defaultWindow) {
+  if (!nav) return;
+  if (typeof nav.__arcusOverflowCleanup === 'function') {
+    try { nav.__arcusOverflowCleanup(); } catch (_) { /* ignore */ }
+  }
+  const scroller = getNavScroller(nav);
+  if (!scroller) return;
+  const update = () => updateNavOverflowState(nav, scroller);
+  const onScroll = () => update();
+  nav.addEventListener('scroll', onScroll, { passive: true });
+  const ResizeObserverCtor = windowRef && typeof windowRef.ResizeObserver === 'function'
+    ? windowRef.ResizeObserver
+    : (typeof ResizeObserver === 'function' ? ResizeObserver : undefined);
+  let resizeObserver;
+  let resizeHandler;
+  if (typeof ResizeObserverCtor === 'function') {
+    try {
+      resizeObserver = new ResizeObserverCtor(() => update());
+      resizeObserver.observe(nav);
+    } catch (_) {
+      resizeObserver = undefined;
+    }
+  }
+  if (!resizeObserver && windowRef && typeof windowRef.addEventListener === 'function') {
+    resizeHandler = () => update();
+    windowRef.addEventListener('resize', resizeHandler);
+  }
+  update();
+  if (windowRef && typeof windowRef.requestAnimationFrame === 'function') {
+    windowRef.requestAnimationFrame(update);
+  } else if (typeof setTimeout === 'function') {
+    setTimeout(update, 0);
+  }
+  nav.__arcusOverflowCleanup = () => {
+    nav.removeEventListener('scroll', onScroll);
+    if (resizeObserver && typeof resizeObserver.disconnect === 'function') {
+      resizeObserver.disconnect();
+    }
+    if (resizeHandler && windowRef && typeof windowRef.removeEventListener === 'function') {
+      windowRef.removeEventListener('resize', resizeHandler);
+    }
+    delete nav.__arcusOverflowCleanup;
+  };
+}
+
 function renderNavLinks(nav, tabsBySlug, activeSlug, postsEnabled, getHomeSlug) {
   if (!nav) return;
   const items = [];
@@ -414,6 +489,7 @@ function renderNavLinks(nav, tabsBySlug, activeSlug, postsEnabled, getHomeSlug) 
   });
   nav.innerHTML = items.map(item => `<a class="arcus-nav__item${item.slug === activeSlug ? ' is-current' : ''}" data-tab="${escapeHtml(item.slug)}" href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a>`).join('');
   nav.setAttribute('data-active', activeSlug || homeSlug);
+  observeNavOverflow(nav);
 }
 
 function renderFooterLinks(root, tabsBySlug, postsEnabled, getHomeSlug, getHomeLabel) {

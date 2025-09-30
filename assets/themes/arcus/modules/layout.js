@@ -40,7 +40,9 @@ export function mount(context = {}) {
           </div>
         </a>
         <div class="arcus-header__divider" aria-hidden="true"></div>
-        <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
+        <div class="arcus-nav__scroller" data-overflow="none">
+          <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
+        </div>
       </div>`;
     return el;
   });
