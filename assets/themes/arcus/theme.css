@@ -992,6 +992,7 @@ body {
   border-radius: 6px;
 }
 
+
 .arcus-article__body :where(img),
 .arcus-static__body :where(img) {
   display: block;
@@ -1000,6 +1001,40 @@ body {
   border-radius: var(--arcus-radius-md);
   box-shadow: var(--arcus-shadow-subtle);
   margin: 2rem auto;
+}
+
+.arcus-article__body .post-image-wrap,
+.arcus-static__body .post-image-wrap {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 2.4rem auto;
+  border-radius: var(--arcus-radius-lg);
+  overflow: hidden;
+  background: var(--arcus-surface);
+  box-shadow: var(--arcus-shadow-subtle);
+}
+
+.arcus-article__body .post-image-wrap::after,
+.arcus-static__body .post-image-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(123, 139, 255, 0.15);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.arcus-article__body .post-image-wrap .post-img,
+.arcus-static__body .post-image-wrap .post-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  object-fit: contain;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .arcus-article__body figure,
