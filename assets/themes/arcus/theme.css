@@ -780,7 +780,7 @@ body {
   pointer-events: auto;
   max-height: 9rem;
   padding: 0.75rem 4rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .arcus-utility__search.is-open .arcus-search,
