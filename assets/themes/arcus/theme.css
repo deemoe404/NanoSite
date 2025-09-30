@@ -2322,6 +2322,11 @@ body {
   overflow: hidden;
 }
 
+.arcus-article__body pre.code-block.with-code-scroll,
+.arcus-static__body pre.code-block.with-code-scroll {
+  padding: 0;
+}
+
 .arcus-article__body pre.with-code-scroll .code-scroll,
 .arcus-static__body pre.with-code-scroll .code-scroll {
   display: flex;
