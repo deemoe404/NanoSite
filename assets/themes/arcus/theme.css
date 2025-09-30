@@ -2349,8 +2349,8 @@ body {
   margin-right: 1rem;
   user-select: none;
   font-family: var(--arcus-font-mono);
-  font-size: 0.88em;
-  line-height: 1.6;
+  font-size: inherit;
+  line-height: inherit;
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--arcus-text) 55%, transparent);
   border-right: 1px solid color-mix(in srgb, var(--arcus-code-border) 90%, transparent);
