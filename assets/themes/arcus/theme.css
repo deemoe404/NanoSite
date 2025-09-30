@@ -610,7 +610,7 @@ body {
 .arcus-card__body {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.3rem;
   justify-content: center;
 }
 
@@ -618,10 +618,10 @@ body {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  font-size: 0.85rem;
+  gap: 0.35rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   color: var(--arcus-text-soft);
 }
 
@@ -634,7 +634,7 @@ body {
 }
 
 .arcus-card__title {
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   font-family: var(--arcus-font-serif);
   line-height: 1.35;
   letter-spacing: 0.01em;
@@ -643,7 +643,7 @@ body {
 .arcus-card__excerpt {
   font-size: 1rem;
   color: var(--arcus-text-muted);
-  margin-top: 0.2rem;
+  margin-top: 0.4rem;
 }
 
 .arcus-card__excerpt-tilt {
@@ -670,9 +670,9 @@ body {
 
 .arcus-card__tags .tag,
 .arcus-card__tags a {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: var(--arcus-accent);
   text-decoration: none;
   padding: 0.3rem 0.6rem;
