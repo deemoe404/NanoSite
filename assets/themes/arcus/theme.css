@@ -747,6 +747,10 @@ body {
   z-index: 1;
 }
 
+.arcus-utility__search {
+  padding: 0.75rem 4rem;
+}
+
 .arcus-utility__links {
   grid-column: 1 / -1;
 }
