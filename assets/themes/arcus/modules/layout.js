@@ -187,18 +187,41 @@ export function mount(context = {}) {
     el.setAttribute('aria-label', 'Site utilities');
     el.innerHTML = `
       <div class="arcus-utility__inner">
-        <section class="arcus-utility__search" aria-label="Search">
-          <label class="arcus-search" for="searchInput">
-            <span class="arcus-search__icon" aria-hidden="true">🔍</span>
-            <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-          </label>
-        </section>
         <section class="arcus-utility__tools" aria-label="Quick tools">
           <div id="toolsPanel" class="arcus-tools"></div>
         </section>
       </div>`;
     return el;
   });
+
+  const searchSection = ensureElement(rightColumn, '.arcus-utility__search', () => {
+    const el = doc.createElement('section');
+    el.className = 'arcus-utility__search';
+    el.setAttribute('aria-label', 'Search');
+    el.innerHTML = `
+      <label class="arcus-search" for="searchInput">
+        <span class="arcus-search__icon" aria-hidden="true">🔍</span>
+        <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+      </label>`;
+    return el;
+  });
+
+  if (!searchSection.querySelector('.arcus-search')) {
+    searchSection.innerHTML = `
+      <label class="arcus-search" for="searchInput">
+        <span class="arcus-search__icon" aria-hidden="true">🔍</span>
+        <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
+      </label>`;
+  }
+
+  if (searchSection.parentElement !== rightColumn) {
+    rightColumn.insertBefore(searchSection, rightColumn.firstElementChild);
+  } else {
+    const firstElement = rightColumn.firstElementChild;
+    if (firstElement && firstElement !== searchSection) {
+      rightColumn.insertBefore(searchSection, firstElement);
+    }
+  }
 
   const orphanCredit = utilities.querySelector('.arcus-utility__credit');
   if (orphanCredit && orphanCredit !== headerCredit) {
