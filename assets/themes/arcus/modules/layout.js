@@ -41,10 +41,21 @@ export function mount(context = {}) {
         </a>
         <div class="arcus-header__divider" aria-hidden="true"></div>
         <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
-        <div class="arcus-header__credit arcus-footer__credit" aria-label="Site credit"></div>
-      </div>`;
+      </div>
+      <div class="arcus-header__credit arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>`;
     return el;
   });
+
+  const headerCredit = ensureElement(header, '.arcus-footer__credit', () => {
+    const el = doc.createElement('div');
+    el.className = 'arcus-header__credit arcus-utility__credit arcus-footer__credit';
+    el.setAttribute('aria-label', 'Site credit');
+    return el;
+  });
+  headerCredit.classList.add('arcus-header__credit', 'arcus-utility__credit', 'arcus-footer__credit');
+  if (headerCredit.parentElement !== header || header.lastElementChild !== headerCredit) {
+    header.appendChild(headerCredit);
+  }
 
   const rightColumn = ensureElement(container, '.arcus-rightcol', () => {
     const el = doc.createElement('div');

@@ -85,8 +85,26 @@ body {
   height: 100vh;
   max-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   z-index: 5;
+  background: var(--arcus-rail-bg);
+  box-shadow: var(--arcus-shadow-soft);
+  border-right: 1px solid var(--arcus-rail-border);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+.arcus-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 150% at 120% -10%, rgba(123, 139, 255, 0.26), transparent 60%);
+  opacity: 0.75;
+  pointer-events: none;
+  transform: translateY(calc(var(--arcus-scroll-offset, 0px) * 0.08)) rotate(calc(var(--arcus-scroll-tilt, 0deg) * 0.4));
+  transition: opacity 0.4s ease;
+  z-index: 0;
 }
 
 .arcus-rightcol {
@@ -101,29 +119,14 @@ body {
 }
 
 .arcus-header__inner {
-  background: var(--arcus-rail-bg);
-  box-shadow: var(--arcus-shadow-soft);
-  border-right: 1px solid var(--arcus-rail-border);
-  padding: 3.2rem 2.6rem;
+  padding: 3.2rem 2.6rem 2.2rem;
   display: flex;
   flex-direction: column;
   gap: 1.8rem;
   width: 100%;
-  backdrop-filter: blur(18px);
   position: relative;
-  overflow: hidden;
-  min-height: 100%;
-}
-
-.arcus-header__inner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 150% at 120% -10%, rgba(123, 139, 255, 0.26), transparent 60%);
-  opacity: 0.75;
-  pointer-events: none;
-  transform: translateY(calc(var(--arcus-scroll-offset, 0px) * 0.08)) rotate(calc(var(--arcus-scroll-tilt, 0deg) * 0.4));
-  transition: opacity 0.4s ease;
+  z-index: 1;
+  flex: 1 1 auto;
 }
 
 .arcus-brand {
@@ -212,13 +215,20 @@ body {
 }
 
 .arcus-header__credit {
-  margin-top: auto;
+  margin-top: 0;
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.22em;
   color: var(--arcus-text-soft);
   text-align: center;
-  padding-top: 1.2rem;
+  padding: 1.2rem 2.6rem 2.6rem;
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(29, 36, 55, 0.08);
+}
+
+[data-theme="dark"] .arcus-header__credit {
+  border-top-color: rgba(158, 167, 255, 0.18);
 }
 
 .arcus-nav__item {
