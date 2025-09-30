@@ -119,6 +119,7 @@ body {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -745,6 +746,105 @@ body {
 .arcus-utility__credit {
   position: relative;
   z-index: 1;
+}
+
+.arcus-utility__search {
+  position: relative;
+  overflow: hidden;
+  max-height: 0;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  transition: max-height 0.32s ease, padding 0.32s ease, margin 0.32s ease;
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.arcus-utility__search .arcus-search {
+  width: 100%;
+  max-width: min(960px, 100%);
+  box-sizing: border-box;
+  padding: 0.75rem 4rem;
+  margin: 0 auto;
+  opacity: 0;
+  transform: translateY(-0.75rem);
+  transition: opacity 0.24s ease, transform 0.28s ease;
+  pointer-events: auto;
+}
+
+.arcus-utility__search.is-open,
+.arcus-utility__search:focus-within {
+  pointer-events: auto;
+  max-height: 9rem;
+  padding: 0.75rem 4rem;
+  margin-bottom: 0;
+}
+
+.arcus-utility__search.is-open .arcus-search,
+.arcus-utility__search:focus-within .arcus-search,
+.arcus-utility__search:hover .arcus-search {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arcus-utility__search {
+    transition: none;
+  }
+
+  .arcus-utility__search .arcus-search {
+    transition: none;
+  }
+}
+
+.arcus-search-toggle {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
+  z-index: 20;
+  background: var(--arcus-accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.4rem 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15, 22, 52, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.arcus-search-toggle:hover,
+.arcus-search-toggle:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(15, 22, 52, 0.24);
+}
+
+.arcus-search-toggle:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.65);
+  outline-offset: 2px;
+}
+
+.arcus-search-toggle.is-active {
+  background: var(--arcus-accent-strong);
+}
+
+.arcus-search-toggle__icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.arcus-search-toggle__label {
+  line-height: 1;
 }
 
 .arcus-utility__links {
