@@ -25,6 +25,7 @@
   --arcus-code-border: rgba(19, 23, 37, 0.12);
   --arcus-tag-bg: rgba(123, 139, 255, 0.08);
   --arcus-tag-text: #414b70;
+  --arcus-nav-fade: rgba(244, 245, 251, 0.95);
   color-scheme: light;
 }
 
@@ -46,6 +47,7 @@
   --arcus-code-border: rgba(158, 167, 255, 0.12);
   --arcus-tag-bg: rgba(158, 167, 255, 0.16);
   --arcus-tag-text: #c3cbff;
+  --arcus-nav-fade: rgba(21, 26, 44, 0.94);
   color-scheme: dark;
 }
 
@@ -205,6 +207,47 @@ body {
   opacity: 0.75;
 }
 
+.arcus-nav__scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.arcus-nav__scroller::before,
+.arcus-nav__scroller::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2.4rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: linear-gradient(180deg, var(--arcus-nav-fade), rgba(0, 0, 0, 0));
+  z-index: 1;
+}
+
+.arcus-nav__scroller::before {
+  top: 0;
+}
+
+.arcus-nav__scroller::after {
+  bottom: 0;
+  background: linear-gradient(0deg, var(--arcus-nav-fade), rgba(0, 0, 0, 0));
+}
+
+.arcus-nav__scroller[data-overflow='start']::before,
+.arcus-nav__scroller[data-overflow='both']::before {
+  opacity: 1;
+}
+
+.arcus-nav__scroller[data-overflow='end']::after,
+.arcus-nav__scroller[data-overflow='both']::after {
+  opacity: 1;
+}
+
 .arcus-nav {
   display: flex;
   flex-direction: column;
@@ -213,7 +256,11 @@ body {
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.35rem;
+  padding-bottom: 0.4rem;
+  width: 100%;
   scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .arcus-nav__item {
