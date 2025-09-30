@@ -1,0 +1,7 @@
+{
+  "name": "Solstice",
+  "modules": [
+    "modules/layout.js",
+    "modules/interactions.js"
+  ]
+}

@@ -1,4 +1,14 @@
 [
-  { "value": "native", "label": "Native" },
-  { "value": "github", "label": "GitHub" }
+  {
+    "value": "native",
+    "label": "Native"
+  },
+  {
+    "value": "solstice",
+    "label": "Solstice"
+  },
+  {
+    "value": "arcus",
+    "label": "Arcus"
+  }
 ]
