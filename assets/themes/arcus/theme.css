@@ -620,13 +620,22 @@ body {
 .arcus-tagband .tag-list,
 .arcus-tagband .tag-items {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.75rem;
+  align-items: stretch;
+}
+
+.arcus-tagband .tag-list > li,
+.arcus-tagband .tag-items > li {
+  width: 100%;
 }
 
 .arcus-tagband a,
 .arcus-tagband button,
 .arcus-tagband .tag-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   border-radius: 999px;
   padding: 0.45rem 1rem;
   font-size: 0.85rem;
@@ -687,10 +696,9 @@ body {
 }
 
 #tagview .tag-list {
-  --tag-columns: repeat(auto-fit, minmax(220px, 1fr));
   list-style: none;
-  display: grid;
-  grid-template-columns: var(--tag-columns);
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
   margin: 0;
   padding: 0;
