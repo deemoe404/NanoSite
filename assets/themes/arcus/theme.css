@@ -211,6 +211,16 @@ body {
   gap: 0.6rem;
 }
 
+.arcus-header__credit {
+  margin-top: auto;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--arcus-text-soft);
+  text-align: center;
+  padding-top: 1.2rem;
+}
+
 .arcus-nav__item {
   display: flex;
   align-items: center;
@@ -409,8 +419,7 @@ body {
 
 .arcus-utility__search,
 .arcus-utility__tools,
-.arcus-utility__links,
-.arcus-utility__credit {
+.arcus-utility__links {
   position: relative;
   z-index: 1;
 }
@@ -423,16 +432,6 @@ body {
   flex-direction: row;
   flex-wrap: wrap;
   gap: 0.6rem 1.4rem;
-}
-
-.arcus-utility__credit {
-  grid-column: 1 / -1;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  color: var(--arcus-text-soft);
-  text-align: center;
-  padding-top: 0.6rem;
 }
 
 .arcus-footer {
