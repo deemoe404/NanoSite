@@ -64,7 +64,7 @@ export function hydrateInternalLinkCards(container, options = {}) {
   try {
     const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
     if (!root) return;
-    const anchors = Array.from(root.querySelectorAll('a[href^="?id="]'));
+    const anchors = Array.from(root.querySelectorAll('a[href]'));
     if (!anchors.length) return;
 
     const isWhitespaceOnlySiblings = (el) => {
