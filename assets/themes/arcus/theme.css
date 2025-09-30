@@ -220,6 +220,7 @@ body {
   position: relative;
   display: flex;
   width: 100%;
+  background: transparent;
 }
 
 .arcus-nav__scroller::before,
