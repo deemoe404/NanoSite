@@ -43,6 +43,10 @@ export function mount(context = {}) {
         <div class="arcus-nav__scroller" data-overflow="none">
           <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
         </div>
+        <div class="arcus-header__meta">
+          <div class="arcus-header__divider" aria-hidden="true"></div>
+          <div class="arcus-header__credit arcus-footer__credit" aria-label="Site credit"></div>
+        </div>
       </div>`;
     return el;
   });
@@ -137,7 +141,6 @@ export function mount(context = {}) {
         <section class="arcus-utility__links" aria-label="Profile links">
           <ul class="arcus-linklist" data-site-links></ul>
         </section>
-        <div class="arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>
       </div>`;
     return el;
   });
