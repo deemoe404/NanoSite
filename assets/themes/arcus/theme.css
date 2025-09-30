@@ -122,6 +122,16 @@ body {
   box-sizing: border-box;
 }
 
+.arcus-header__credit {
+  margin-top: auto;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--arcus-text-soft);
+  text-align: center;
+  padding-top: 1.2rem;
+}
+
 .arcus-header__inner::after {
   content: "";
   position: absolute;

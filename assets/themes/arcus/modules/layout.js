@@ -43,9 +43,31 @@ export function mount(context = {}) {
         <div class="arcus-nav__scroller" data-overflow="none">
           <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
         </div>
+        <div class="arcus-utility__credit arcus-footer__credit arcus-header__credit" aria-label="Site credit"></div>
       </div>`;
     return el;
   });
+
+  const headerInner = header.querySelector('.arcus-header__inner');
+  let headerCredit = headerInner.querySelector('.arcus-utility__credit');
+
+  if (!headerCredit) {
+    const existingCredit = container.querySelector('.arcus-utility .arcus-utility__credit');
+    if (existingCredit) {
+      headerCredit = existingCredit;
+      headerCredit.classList.add('arcus-header__credit');
+      headerInner.appendChild(headerCredit);
+    }
+  } else {
+    headerCredit.classList.add('arcus-header__credit');
+  }
+
+  if (!headerCredit) {
+    headerCredit = doc.createElement('div');
+    headerCredit.className = 'arcus-utility__credit arcus-footer__credit arcus-header__credit';
+    headerCredit.setAttribute('aria-label', 'Site credit');
+    headerInner.appendChild(headerCredit);
+  }
 
   const rightColumn = ensureElement(container, '.arcus-rightcol', () => {
     const el = doc.createElement('div');
@@ -137,10 +159,14 @@ export function mount(context = {}) {
         <section class="arcus-utility__links" aria-label="Profile links">
           <ul class="arcus-linklist" data-site-links></ul>
         </section>
-        <div class="arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>
       </div>`;
     return el;
   });
+
+  const orphanCredit = utilities.querySelector('.arcus-utility__credit');
+  if (orphanCredit && orphanCredit !== headerCredit) {
+    orphanCredit.remove();
+  }
 
   if (utilities.parentElement !== rightColumn) {
     rightColumn.insertBefore(utilities, footer);
