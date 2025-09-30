@@ -1293,7 +1293,10 @@ body {
   overflow: visible;
   border: none;
   padding: 1.8rem 0;
-  transition: color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 520ms cubic-bezier(0.22, 1, 0.36, 1);
   border-bottom: 1px solid var(--arcus-outline);
 }
 
@@ -1311,8 +1314,10 @@ body {
 
 .arcus-card:hover,
 .arcus-card:focus-within {
-  transform: none;
-  box-shadow: none;
+  transform: translate3d(0, -6px, 0);
+  box-shadow:
+    0 14px 26px -18px color-mix(in srgb, var(--arcus-text) 65%, transparent),
+    0 24px 48px -26px color-mix(in srgb, var(--arcus-accent) 60%, transparent);
 }
 
 .arcus-card__link {
@@ -1335,15 +1340,15 @@ body {
 .arcus-card__link:focus-visible .arcus-card__title {
   color: transparent;
   background-image: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--arcus-accent) 40%, white) 0%,
+    118deg,
+    color-mix(in srgb, var(--arcus-accent) 30%, white) 0%,
     var(--arcus-accent) 50%,
-    color-mix(in srgb, var(--arcus-accent-strong) 60%, white) 100%
+    color-mix(in srgb, var(--arcus-accent-strong) 68%, white) 100%
   );
-  background-size: 200% 200%;
+  background-size: 220% 220%;
   -webkit-background-clip: text;
   background-clip: text;
-  animation: arcusCardTitleGlow 0.8s ease forwards;
+  animation: arcusCardTitleGlow 1s cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
 .arcus-card__cover {
@@ -1394,25 +1399,55 @@ body {
   position: relative;
   display: inline-block;
   text-shadow: none;
-  transition: text-shadow 0.6s ease;
+  filter: drop-shadow(0 0 0 transparent);
+  transition:
+    text-shadow 720ms cubic-bezier(0.33, 1, 0.68, 1),
+    filter 720ms cubic-bezier(0.33, 1, 0.68, 1);
   animation: none;
 }
 
 @keyframes arcusCardTitleGlow {
   0% {
     background-position: 0% 50%;
-    text-shadow: 0 0 0 color-mix(in srgb, var(--arcus-accent) 50%, transparent);
+    text-shadow: 0 0 0 color-mix(in srgb, var(--arcus-accent) 45%, transparent);
+    filter: drop-shadow(0 0 0 color-mix(in srgb, var(--arcus-accent) 40%, transparent));
+  }
+
+  35% {
+    background-position: 40% 50%;
+    text-shadow:
+      0 0 10px color-mix(in srgb, var(--arcus-accent) 50%, transparent),
+      0 0 20px color-mix(in srgb, var(--arcus-accent) 58%, transparent);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--arcus-accent) 55%, transparent));
+  }
+
+  65% {
+    background-position: 70% 50%;
+    text-shadow:
+      0 0 16px color-mix(in srgb, var(--arcus-accent) 58%, transparent),
+      0 0 34px color-mix(in srgb, var(--arcus-accent-strong) 70%, transparent);
+    filter: drop-shadow(0 0 12px color-mix(in srgb, var(--arcus-accent-strong) 65%, transparent));
   }
 
   100% {
     background-position: 100% 50%;
     text-shadow:
-      0 0 6px color-mix(in srgb, var(--arcus-accent) 45%, transparent),
-      0 0 18px color-mix(in srgb, var(--arcus-accent) 60%, transparent);
+      0 0 20px color-mix(in srgb, var(--arcus-accent) 60%, transparent),
+      0 0 46px color-mix(in srgb, var(--arcus-accent-strong) 75%, transparent);
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--arcus-accent-strong) 70%, transparent));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .arcus-card {
+    transition: color 0.2s ease;
+  }
+
+  .arcus-card:hover,
+  .arcus-card:focus-within {
+    transform: none;
+  }
+
   .arcus-card__title {
     transition: none;
   }
@@ -1422,8 +1457,9 @@ body {
     animation: none;
     background-position: 100% 50%;
     text-shadow:
-      0 0 6px color-mix(in srgb, var(--arcus-accent) 45%, transparent),
-      0 0 18px color-mix(in srgb, var(--arcus-accent) 60%, transparent);
+      0 0 20px color-mix(in srgb, var(--arcus-accent) 60%, transparent),
+      0 0 46px color-mix(in srgb, var(--arcus-accent-strong) 75%, transparent);
+    filter: drop-shadow(0 0 18px color-mix(in srgb, var(--arcus-accent-strong) 70%, transparent));
   }
 }
 
