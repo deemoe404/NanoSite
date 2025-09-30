@@ -223,6 +223,63 @@ export function mount(context = {}) {
     }
   }
 
+  const searchToggle = ensureElement(container, '.arcus-search-toggle', () => {
+    const button = doc.createElement('button');
+    button.type = 'button';
+    button.className = 'arcus-search-toggle';
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', 'searchInput');
+    button.innerHTML = `
+      <span class="arcus-search-toggle__icon" aria-hidden="true">🔍</span>
+      <span class="arcus-search-toggle__label">Search</span>`;
+    return button;
+  });
+
+  if (!searchSection.dataset.toggleBound) {
+    searchSection.dataset.toggleBound = 'true';
+
+    const getInput = () => searchSection.querySelector('input[type="search"]');
+    const setOpen = (open) => {
+      const isOpen = Boolean(open);
+      searchSection.classList.toggle('is-open', isOpen);
+      searchToggle.classList.toggle('is-active', isOpen);
+      searchToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (isOpen) {
+        const input = getInput();
+        if (input) {
+          input.focus({ preventScroll: true });
+        }
+      } else if (doc.activeElement && searchSection.contains(doc.activeElement)) {
+        doc.activeElement.blur();
+      }
+    };
+
+    searchToggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      const nextState = !searchSection.classList.contains('is-open');
+      setOpen(nextState);
+    });
+
+    searchSection.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        searchToggle.focus({ preventScroll: true });
+      }
+    });
+
+    searchSection.addEventListener('focusin', () => {
+      setOpen(true);
+    });
+
+    doc.addEventListener('click', (event) => {
+      if (!searchSection.classList.contains('is-open')) return;
+      const target = event.target;
+      if (searchSection.contains(target)) return;
+      if (searchToggle.contains(target)) return;
+      setOpen(false);
+    });
+  }
+
   const orphanCredit = utilities.querySelector('.arcus-utility__credit');
   if (orphanCredit && orphanCredit !== headerCredit) {
     orphanCredit.remove();
