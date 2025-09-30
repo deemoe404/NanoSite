@@ -1300,30 +1300,35 @@ body {
 .arcus-card::before {
   content: '';
   position: absolute;
-  inset: 50%;
-  width: 1.5rem;
+  top: 50%;
+  left: 0;
+  width: 10rem;
   aspect-ratio: 1;
   border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--arcus-accent) 70%, transparent) 0%,
-      color-mix(in srgb, var(--arcus-accent) 35%, transparent) 45%, transparent 70%);
+  background: radial-gradient(130% 80% at 20% 50%,
+      color-mix(in srgb, var(--arcus-accent) 76%, transparent) 0%,
+      color-mix(in srgb, var(--arcus-accent) 44%, transparent) 42%,
+      color-mix(in srgb, var(--arcus-accent) 16%, transparent) 78%,
+      transparent 100%);
   opacity: 0;
-  transform: translate(-50%, -50%) scale(0);
+  transform: translate(-80%, -50%) scaleX(0.1) scaleY(0.35);
+  transform-origin: left center;
   pointer-events: none;
 }
 
 @keyframes arcus-card-glow {
   0% {
-    transform: translate(-50%, -50%) scale(0.2);
-    opacity: 0.8;
+    transform: translate(-80%, -50%) scaleX(0.2) scaleY(0.4);
+    opacity: 0.9;
   }
 
-  60% {
-    opacity: 0.5;
+  55% {
+    opacity: 0.65;
   }
 
   100% {
-    transform: translate(-50%, -50%) scale(12);
-    opacity: 0;
+    transform: translate(-80%, -50%) scaleX(6.5) scaleY(1.2);
+    opacity: 0.45;
   }
 }
 
