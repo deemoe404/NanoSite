@@ -289,14 +289,22 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const coverHtml = renderCardCover(meta, title, siteConfig);
   const hasCover = Boolean(coverHtml);
   const cardClasses = `arcus-card${hasCover ? ' arcus-card--with-cover' : ''}`;
+  const metaLine = () => {
+    if (!date && !tags) return '';
+    let html = '<div class="arcus-card__meta-line">';
+    if (date) html += `<span class="arcus-card__meta-date">${escapeHtml(date)}</span>`;
+    if (date && tags) html += '<span class="arcus-card__meta-separator" aria-hidden="true">·</span>';
+    if (tags) html += `<div class="arcus-card__tags">${tags}</div>`;
+    html += '</div>';
+    return html;
+  };
   return `<article class="${cardClasses}">
     <a class="arcus-card__link" href="${escapeHtml(link)}">
       ${coverHtml}
       <div class="arcus-card__body">
+        ${metaLine()}
         <h3 class="arcus-card__title">${safeTitle}</h3>
-        ${date ? `<div class="arcus-card__meta">${escapeHtml(date)}</div>` : ''}
         ${excerpt ? `<p class="arcus-card__excerpt"><span class="arcus-card__excerpt-tilt">${excerpt}</span></p>` : ''}
-        ${tags ? `<div class="arcus-card__tags">${tags}</div>` : ''}
       </div>
     </a>
   </article>`;
