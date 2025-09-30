@@ -855,24 +855,106 @@ body {
   color: var(--arcus-text);
 }
 
+.arcus-article__body a,
+.arcus-static__body a {
+  color: var(--arcus-accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(123, 139, 255, 0.5);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.2em;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.arcus-article__body a:hover,
+.arcus-article__body a:focus-visible,
+.arcus-static__body a:hover,
+.arcus-static__body a:focus-visible {
+  color: var(--arcus-accent-strong);
+  text-decoration-color: currentColor;
+}
+
 .arcus-article__body h2,
 .arcus-article__body h3,
-.arcus-article__body h4 {
+.arcus-article__body h4,
+.arcus-article__body h5,
+.arcus-article__body h6,
+.arcus-static__body h2,
+.arcus-static__body h3,
+.arcus-static__body h4,
+.arcus-static__body h5,
+.arcus-static__body h6 {
   font-family: var(--arcus-font-serif);
   margin-top: 2.4rem;
   margin-bottom: 1rem;
   line-height: 1.3;
 }
 
-.arcus-article__body h2 { font-size: 1.9rem; }
-.arcus-article__body h3 { font-size: 1.45rem; }
-.arcus-article__body h4 { font-size: 1.2rem; }
+.arcus-article__body h2,
+.arcus-static__body h2 { font-size: 1.9rem; }
+.arcus-article__body h3,
+.arcus-static__body h3 { font-size: 1.45rem; }
+.arcus-article__body h4,
+.arcus-static__body h4 { font-size: 1.2rem; }
+.arcus-article__body h5,
+.arcus-static__body h5 { font-size: 1.05rem; }
+.arcus-article__body h6,
+.arcus-static__body h6 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.18em; }
 
-.arcus-article__body p {
+.arcus-article__body p,
+.arcus-static__body p {
   margin: 1rem 0;
 }
 
-.arcus-article__body blockquote {
+.arcus-article__body :where(ul, ol),
+.arcus-static__body :where(ul, ol) {
+  margin: 1.2rem 0 1.2rem 1.4rem;
+  padding-left: 1.2rem;
+  list-style-position: outside;
+  line-height: 1.7;
+}
+
+.arcus-article__body ul ul,
+.arcus-article__body ul ol,
+.arcus-article__body ol ul,
+.arcus-article__body ol ol,
+.arcus-static__body ul ul,
+.arcus-static__body ul ol,
+.arcus-static__body ol ul,
+.arcus-static__body ol ol {
+  margin: 0.6rem 0 0.6rem 1.4rem;
+}
+
+.arcus-article__body li + li,
+.arcus-static__body li + li {
+  margin-top: 0.4rem;
+}
+
+.arcus-article__body dl,
+.arcus-static__body dl {
+  margin: 1.4rem 0;
+}
+
+.arcus-article__body dt,
+.arcus-static__body dt {
+  font-weight: 600;
+  margin-top: 0.8rem;
+}
+
+.arcus-article__body dd,
+.arcus-static__body dd {
+  margin-left: 1.2rem;
+  color: var(--arcus-text-muted);
+}
+
+.arcus-article__body :where(hr),
+.arcus-static__body :where(hr) {
+  border: none;
+  border-top: 1px solid var(--arcus-outline);
+  margin: 2.4rem 0;
+}
+
+.arcus-article__body blockquote,
+.arcus-static__body blockquote {
   margin: 1.6rem 0;
   padding: 1.2rem 1.6rem;
   border-left: 4px solid var(--arcus-accent);
@@ -882,7 +964,8 @@ body {
   font-style: italic;
 }
 
-.arcus-article__body pre {
+.arcus-article__body pre,
+.arcus-static__body pre {
   margin: 1.6rem 0;
   padding: 1.4rem 1.6rem;
   border-radius: var(--arcus-radius-sm);
@@ -894,14 +977,97 @@ body {
   line-height: 1.6;
 }
 
-.arcus-article__body code {
+.arcus-article__body pre code,
+.arcus-static__body pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.arcus-article__body code,
+.arcus-static__body code {
   font-family: var(--arcus-font-mono);
   background: rgba(123, 139, 255, 0.12);
   padding: 0.05rem 0.3rem;
   border-radius: 6px;
 }
 
-.arcus-article__body table {
+.arcus-article__body :where(img),
+.arcus-static__body :where(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--arcus-radius-md);
+  box-shadow: var(--arcus-shadow-subtle);
+  margin: 2rem auto;
+}
+
+.arcus-article__body figure,
+.arcus-static__body figure {
+  margin: 2.2rem 0;
+  text-align: center;
+}
+
+.arcus-article__body figure > :where(img),
+.arcus-static__body figure > :where(img) {
+  margin: 0 auto;
+}
+
+.arcus-article__body figcaption,
+.arcus-static__body figcaption {
+  margin-top: 0.8rem;
+  font-size: 0.9rem;
+  color: var(--arcus-text-soft);
+}
+
+.arcus-article__body mark,
+.arcus-static__body mark {
+  background: rgba(255, 211, 94, 0.35);
+  padding: 0 0.2em;
+  border-radius: 4px;
+}
+
+.arcus-article__body kbd,
+.arcus-static__body kbd {
+  font-family: var(--arcus-font-mono);
+  font-size: 0.85em;
+  background: var(--arcus-code-bg);
+  border: 1px solid var(--arcus-code-border);
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
+  box-shadow: inset 0 -1px 0 rgba(19, 23, 37, 0.12);
+}
+
+.arcus-article__body sup,
+.arcus-article__body sub,
+.arcus-static__body sup,
+.arcus-static__body sub {
+  font-size: 0.82em;
+}
+
+.arcus-article__body sup,
+.arcus-static__body sup {
+  vertical-align: super;
+}
+
+.arcus-article__body sub,
+.arcus-static__body sub {
+  vertical-align: sub;
+}
+
+.arcus-article__body del,
+.arcus-static__body del {
+  color: var(--arcus-text-soft);
+}
+
+.arcus-article__body abbr,
+.arcus-static__body abbr {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.arcus-article__body table,
+.arcus-static__body table {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
@@ -912,12 +1078,21 @@ body {
 }
 
 .arcus-article__body th,
-.arcus-article__body td {
+.arcus-article__body td,
+.arcus-static__body th,
+.arcus-static__body td {
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--arcus-outline);
 }
 
-.arcus-article__body tr:nth-child(even) {
+.arcus-article__body thead th,
+.arcus-static__body thead th {
+  background: rgba(123, 139, 255, 0.12);
+  color: var(--arcus-accent);
+}
+
+.arcus-article__body tr:nth-child(even),
+.arcus-static__body tr:nth-child(even) {
   background: rgba(123, 139, 255, 0.08);
 }
 
@@ -1029,6 +1204,8 @@ body {
 .arcus-static__body {
   margin-top: 1.4rem;
   font-size: 1rem;
+  line-height: 1.7;
+  color: var(--arcus-text);
 }
 
 .arcus-empty {
