@@ -1392,7 +1392,7 @@ body {
 .arcus-card__excerpt-tilt {
   display: inline-block;
   transform: none;
-  font-style: italic;
+  font-style: normal;
   background: linear-gradient(120deg, rgba(123, 139, 255, 0.12), transparent 80%);
   padding: 0 0.2rem;
 }
