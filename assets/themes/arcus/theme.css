@@ -410,6 +410,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2.4rem;
+  --arcus-radius-lg: 0;
+  --arcus-radius-md: 0;
+  --arcus-radius-sm: 0;
+  --arcus-shadow-subtle: none;
+  --arcus-shadow-soft: none;
 }
 
 .arcus-tagband {
@@ -803,7 +808,7 @@ body {
   background: var(--arcus-surface);
   border-radius: var(--arcus-radius-lg);
   box-shadow: var(--arcus-shadow-subtle);
-  border: 1px solid var(--arcus-outline);
+  border: none;
   padding: 3rem 3.4rem;
   display: flex;
   flex-direction: column;
