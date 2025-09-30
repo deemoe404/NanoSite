@@ -1442,6 +1442,11 @@ body {
   margin-top: 1rem;
 }
 
+.arcus-page__list {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .arcus-page {
   padding: 0.45rem 0.9rem;
   border-radius: 999px;
