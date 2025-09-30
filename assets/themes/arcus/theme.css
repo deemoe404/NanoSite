@@ -542,7 +542,7 @@ body {
   overflow: hidden;
   transition: max-height 0.28s ease;
   position: relative;
-  padding: 0.5rem;
+  padding: 1.5rem;
   background: transparent;
 }
 
