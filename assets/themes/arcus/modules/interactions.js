@@ -19,6 +19,7 @@ import {
   getSavedThemePack
 } from '../../../js/theme.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCovers } from '../../../js/post-render.js';
+import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
@@ -1335,7 +1336,22 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return true;
   };
 
-  hooks.renderPostView = ({ containers, markdownHtml, fallbackTitle, postMetadata, markdown, postsIndex, postId, siteConfig, translate, utilities, tocHtml }) => {
+  hooks.renderPostView = ({
+    containers,
+    markdownHtml,
+    fallbackTitle,
+    postMetadata,
+    markdown,
+    postsIndex,
+    postId,
+    siteConfig,
+    translate,
+    utilities,
+    tocHtml,
+    allowedLocations,
+    locationAliasMap,
+    postsByLocationTitle
+  }) => {
     const main = containers && containers.mainElement ? containers.mainElement : getRoleElement('main', documentRef);
     if (!main) return;
     const title = (postMetadata && postMetadata.title) || fallbackTitle || '';
@@ -1378,6 +1394,30 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
 
     try { if (utilities && typeof utilities.renderPostNav === 'function') utilities.renderPostNav(main.querySelector('[data-post-nav]'), postsIndex || {}, postMetadata && postMetadata.location); } catch (_) {}
     decorateArticle(main, translate || t, { hydratePostImages, hydratePostVideos, applyLazyLoadingIn }, markdown, postMetadata, title);
+
+    try {
+      const hydrate = (utilities && typeof utilities.hydrateInternalLinkCards === 'function')
+        ? utilities.hydrateInternalLinkCards
+        : ((root, opts) => hydrateInternalLinkCards(root, opts));
+      const makeHref = (utilities && typeof utilities.makeLangHref === 'function')
+        ? utilities.makeLangHref
+        : ((loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
+      const fetchMarkdown = (utilities && typeof utilities.fetchMarkdown === 'function')
+        ? utilities.fetchMarkdown
+        : null;
+      const target = main.querySelector('.arcus-article__body') || main;
+      const options = {
+        allowedLocations: allowedLocations || new Set(),
+        locationAliasMap: locationAliasMap || new Map(),
+        postsByLocationTitle: postsByLocationTitle || {},
+        postsIndexCache: postsIndex || {},
+        siteConfig: siteConfig || {},
+        translate: translate || t,
+        makeHref
+      };
+      if (fetchMarkdown) options.fetchMarkdown = fetchMarkdown;
+      hydrate(target, options);
+    } catch (_) {}
     scrollViewportToTop(documentRef, windowRef);
     return { decorated: true, title };
   };
@@ -1479,20 +1519,26 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     try { if (utilities && typeof utilities.applyLazyLoadingIn === 'function') utilities.applyLazyLoadingIn(body); } catch (_) {}
     try { if (utilities && typeof utilities.applyLangHints === 'function') utilities.applyLangHints(body); } catch (_) {}
     try {
-      if (utilities && typeof utilities.hydrateInternalLinkCards === 'function') {
-        const makeHref = utilities.makeLangHref || ((loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
-        const fetchMarkdown = utilities.fetchMarkdown || (() => Promise.resolve(''));
-        utilities.hydrateInternalLinkCards(body, {
-          allowedLocations: allowedLocations || new Set(),
-          locationAliasMap: locationAliasMap || new Map(),
-          postsByLocationTitle: postsByLocationTitle || {},
-          postsIndexCache: postsIndex || {},
-          siteConfig: siteConfig || {},
-          translate: translate || t,
-          makeHref,
-          fetchMarkdown
-        });
-      }
+      const hydrate = (utilities && typeof utilities.hydrateInternalLinkCards === 'function')
+        ? utilities.hydrateInternalLinkCards
+        : ((root, opts) => hydrateInternalLinkCards(root, opts));
+      const makeHref = (utilities && typeof utilities.makeLangHref === 'function')
+        ? utilities.makeLangHref
+        : ((loc) => withLangParam(`?id=${encodeURIComponent(loc)}`));
+      const fetchMarkdown = (utilities && typeof utilities.fetchMarkdown === 'function')
+        ? utilities.fetchMarkdown
+        : null;
+      const options = {
+        allowedLocations: allowedLocations || new Set(),
+        locationAliasMap: locationAliasMap || new Map(),
+        postsByLocationTitle: postsByLocationTitle || {},
+        postsIndexCache: postsIndex || {},
+        siteConfig: siteConfig || {},
+        translate: translate || t,
+        makeHref
+      };
+      if (fetchMarkdown) options.fetchMarkdown = fetchMarkdown;
+      hydrate(body, options);
     } catch (_) {}
 
     const toc = containers && containers.tocElement ? containers.tocElement : getRoleElement('toc', documentRef);
