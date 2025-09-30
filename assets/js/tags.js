@@ -32,15 +32,14 @@ export function renderTagSidebar(indexMap) {
   const currentTag = (getQueryVariable('tag') || '').trim().toLowerCase();
   const total = items.reduce((s, x) => s + x.count, 0);
   const allHref = withLangParam('?tab=search');
-  const header = `<div class="section-title">${t('ui.tags')}</div>`;
-  if (!items.length) { root.innerHTML = header + `<div class="muted">${t('ui.allTags')}</div>`; return; }
+  if (!items.length) { root.innerHTML = `<div class="muted">${t('ui.allTags')}</div>`; return; }
   const lis = items.map(({ label, count }) => {
     const isActive = label.trim().toLowerCase() === currentTag;
     const href = withLangParam(`?tab=search&tag=${encodeURIComponent(label)}`);
     return `<li><a class="tag-link${isActive ? ' active' : ''}" href="${href}"><span class="tag-name">${escapeHtml(label)}</span><span class="tag-count">${count}</span></a></li>`;
   }).join('');
   const allItem = `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}"><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>`;
-  root.innerHTML = header + `
+  root.innerHTML = `
     <div class="tagbox">
       <ul class="tag-list compact" data-collapsed="true">
         ${allItem}
