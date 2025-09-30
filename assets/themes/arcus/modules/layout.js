@@ -223,7 +223,7 @@ export function mount(context = {}) {
     }
   }
 
-  const searchToggle = ensureElement(container, '.arcus-search-toggle', () => {
+  const searchToggle = ensureElement(rightColumn, '.arcus-search-toggle', () => {
     const button = doc.createElement('button');
     button.type = 'button';
     button.className = 'arcus-search-toggle';
@@ -234,6 +234,12 @@ export function mount(context = {}) {
       <span class="arcus-search-toggle__label">Search</span>`;
     return button;
   });
+
+  if (searchToggle.parentElement !== rightColumn) {
+    rightColumn.insertBefore(searchToggle, searchSection);
+  } else if (searchToggle.nextElementSibling !== searchSection) {
+    rightColumn.insertBefore(searchToggle, searchSection);
+  }
 
   if (!searchSection.dataset.toggleBound) {
     searchSection.dataset.toggleBound = 'true';

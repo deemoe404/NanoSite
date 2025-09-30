@@ -801,10 +801,9 @@ body {
 }
 
 .arcus-search-toggle {
-  position: fixed;
-  top: 1.25rem;
-  right: 1.5rem;
-  z-index: 20;
+  position: relative;
+  align-self: flex-end;
+  margin: 1.5rem 1.5rem 0 auto;
   background: var(--arcus-accent);
   color: #fff;
   border: none;
