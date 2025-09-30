@@ -651,6 +651,7 @@ body {
   background: var(--arcus-main-bg);
   border-top: 1px solid var(--arcus-outline);
   display: flex;
+  flex-direction: column;
   justify-content: center;
   overflow: hidden;
 }
