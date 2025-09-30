@@ -1842,6 +1842,7 @@ body {
 .arcus-article__body .link-card .card-cover.is-loaded,
 .arcus-static__body .link-card .card-cover.is-loaded {
   opacity: 1;
+  margin: 0;
 }
 
 .arcus-article__body .link-card:hover .card-cover.is-loaded,
