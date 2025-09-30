@@ -410,6 +410,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2.4rem;
+  --arcus-radius-lg: 0;
+  --arcus-radius-md: 0;
+  --arcus-radius-sm: 0;
+  --arcus-shadow-subtle: none;
+  --arcus-shadow-soft: none;
 }
 
 .arcus-tagband {
