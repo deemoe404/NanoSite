@@ -26,6 +26,14 @@
   --arcus-tag-bg: rgba(123, 139, 255, 0.08);
   --arcus-tag-text: #414b70;
   --arcus-nav-fade: rgba(244, 245, 251, 0.95);
+  --arcus-callout-note: #7b8bff;
+  --arcus-callout-info: #5ba8ff;
+  --arcus-callout-tip: #3ecf9b;
+  --arcus-callout-success: #2fb67e;
+  --arcus-callout-warning: #f5a449;
+  --arcus-callout-caution: #f0823c;
+  --arcus-callout-danger: #f26464;
+  --arcus-callout-important: #a987ff;
   color-scheme: light;
 }
 
@@ -48,6 +56,14 @@
   --arcus-tag-bg: rgba(158, 167, 255, 0.16);
   --arcus-tag-text: #c3cbff;
   --arcus-nav-fade: rgba(21, 26, 44, 0.94);
+  --arcus-callout-note: #b5bdff;
+  --arcus-callout-info: #7fbaff;
+  --arcus-callout-tip: #4be2ad;
+  --arcus-callout-success: #45d293;
+  --arcus-callout-warning: #ffc96b;
+  --arcus-callout-caution: #ff9a5e;
+  --arcus-callout-danger: #ff8a8a;
+  --arcus-callout-important: #c8b4ff;
   color-scheme: dark;
 }
 
@@ -962,6 +978,101 @@ body {
   border-radius: var(--arcus-radius-sm);
   color: var(--arcus-text-muted);
   font-style: italic;
+}
+
+.arcus-article__body :where(.callout),
+.arcus-static__body :where(.callout) {
+  --callout-accent: var(--arcus-accent);
+  margin: 2rem 0;
+  padding: 1.4rem 1.6rem;
+  border-radius: var(--arcus-radius-md);
+  border: 1px solid color-mix(in srgb, var(--callout-accent) 28%, transparent);
+  border-left-width: 6px;
+  border-left-color: var(--callout-accent);
+  background: color-mix(in srgb, var(--callout-accent) 12%, transparent);
+  box-shadow: var(--arcus-shadow-subtle);
+  position: relative;
+  color: color-mix(in srgb, var(--arcus-text) 88%, transparent);
+}
+
+.arcus-article__body :where(.callout-title),
+.arcus-static__body :where(.callout-title) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--callout-accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.arcus-article__body :where(.callout-icon),
+.arcus-static__body :where(.callout-icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
+  color: var(--callout-accent);
+  font-size: 1.1rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.arcus-article__body :where(.callout-label),
+.arcus-static__body :where(.callout-label) {
+  line-height: 1.2;
+  letter-spacing: inherit;
+}
+
+.arcus-article__body :where(.callout-body),
+.arcus-static__body :where(.callout-body) {
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--arcus-text) 80%, transparent);
+}
+
+.arcus-article__body :where(.callout-body p),
+.arcus-static__body :where(.callout-body p) {
+  margin: 0.6rem 0;
+}
+
+.arcus-article__body :where(.callout-body > *:first-child),
+.arcus-static__body :where(.callout-body > *:first-child) {
+  margin-top: 0;
+}
+
+.arcus-article__body :where(.callout-body > *:last-child),
+.arcus-static__body :where(.callout-body > *:last-child) {
+  margin-bottom: 0;
+}
+
+.arcus-article__body :where(.callout-note, .callout-info),
+.arcus-static__body :where(.callout-note, .callout-info) {
+  --callout-accent: var(--arcus-callout-note);
+}
+
+.arcus-article__body :where(.callout-tip, .callout-success),
+.arcus-static__body :where(.callout-tip, .callout-success) {
+  --callout-accent: var(--arcus-callout-success);
+}
+
+.arcus-article__body :where(.callout-warning, .callout-caution),
+.arcus-static__body :where(.callout-warning, .callout-caution) {
+  --callout-accent: var(--arcus-callout-warning);
+}
+
+.arcus-article__body :where(.callout-danger, .callout-error),
+.arcus-static__body :where(.callout-danger, .callout-error) {
+  --callout-accent: var(--arcus-callout-danger);
+}
+
+.arcus-article__body :where(.callout-important),
+.arcus-static__body :where(.callout-important) {
+  --callout-accent: var(--arcus-callout-important);
 }
 
 .arcus-article__body pre,
