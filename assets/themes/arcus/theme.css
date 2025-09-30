@@ -209,6 +209,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  scrollbar-gutter: stable;
 }
 
 .arcus-nav__item {
