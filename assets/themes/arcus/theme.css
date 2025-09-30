@@ -862,8 +862,8 @@ body {
 }
 
 .arcus-article__meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1.2rem;
   margin-top: 0.5rem;
 }
