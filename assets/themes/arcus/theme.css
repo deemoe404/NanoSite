@@ -34,6 +34,25 @@
   --arcus-callout-caution: #f0823c;
   --arcus-callout-danger: #f26464;
   --arcus-callout-important: #a987ff;
+  --arcus-syntax-keyword: #5f6dff;
+  --arcus-syntax-string: #2fb67e;
+  --arcus-syntax-number: #8b5cf6;
+  --arcus-syntax-comment: rgba(29, 36, 55, 0.52);
+  --arcus-syntax-operator: #7b8bff;
+  --arcus-syntax-punctuation: rgba(29, 36, 55, 0.58);
+  --arcus-syntax-tag: #5ba8ff;
+  --arcus-syntax-property: #a987ff;
+  --arcus-syntax-selector: #f0823c;
+  --arcus-syntax-preprocessor: #f26464;
+  --arcus-syntax-variable: #f5a449;
+  --arcus-syntax-label-bg: rgba(123, 139, 255, 0.12);
+  --arcus-syntax-label-border: rgba(123, 139, 255, 0.24);
+  --arcus-syntax-label-text: #343d65;
+  --arcus-syntax-label-hover-bg: rgba(123, 139, 255, 0.22);
+  --arcus-syntax-label-hover-text: #273056;
+  --arcus-syntax-label-copied-bg: rgba(47, 182, 126, 0.16);
+  --arcus-syntax-label-copied-text: #114936;
+  --arcus-syntax-label-ring: rgba(123, 139, 255, 0.32);
 
   /* Bridge variables consumed by shared tooling (composer, editor, etc.) */
   --bg: var(--arcus-bg);
@@ -95,6 +114,25 @@
   --arcus-callout-caution: #ff9a5e;
   --arcus-callout-danger: #ff8a8a;
   --arcus-callout-important: #c8b4ff;
+  --arcus-syntax-keyword: #b5bdff;
+  --arcus-syntax-string: #45d293;
+  --arcus-syntax-number: #d0c1ff;
+  --arcus-syntax-comment: rgba(232, 236, 255, 0.65);
+  --arcus-syntax-operator: #c3cbff;
+  --arcus-syntax-punctuation: rgba(232, 236, 255, 0.78);
+  --arcus-syntax-tag: #7fbaff;
+  --arcus-syntax-property: #d3c4ff;
+  --arcus-syntax-selector: #ffb36f;
+  --arcus-syntax-preprocessor: #ff9a9a;
+  --arcus-syntax-variable: #ffd27f;
+  --arcus-syntax-label-bg: rgba(123, 139, 255, 0.18);
+  --arcus-syntax-label-border: rgba(158, 167, 255, 0.28);
+  --arcus-syntax-label-text: rgba(232, 236, 255, 0.86);
+  --arcus-syntax-label-hover-bg: rgba(123, 139, 255, 0.3);
+  --arcus-syntax-label-hover-text: rgba(232, 236, 255, 0.96);
+  --arcus-syntax-label-copied-bg: rgba(69, 210, 147, 0.22);
+  --arcus-syntax-label-copied-text: rgba(12, 64, 31, 0.92);
+  --arcus-syntax-label-ring: rgba(158, 167, 255, 0.38);
 
   /* Shared tooling bridge (dark mode values) */
   --bg: var(--arcus-bg);
@@ -142,6 +180,122 @@ html, body {
 
 body {
   background-attachment: fixed;
+}
+
+/* Syntax highlighting for editors and composer */
+.syntax-keyword,
+.syntax-keywords {
+  color: var(--arcus-syntax-keyword);
+  font-weight: 600;
+}
+
+.syntax-operator,
+.syntax-operators {
+  color: var(--arcus-syntax-operator);
+}
+
+.syntax-string,
+.syntax-strings {
+  color: var(--arcus-syntax-string);
+}
+
+.syntax-number,
+.syntax-numbers {
+  color: var(--arcus-syntax-number);
+}
+
+.syntax-comment,
+.syntax-comments {
+  color: var(--arcus-syntax-comment);
+  font-style: italic;
+}
+
+.syntax-punctuation {
+  color: var(--arcus-syntax-punctuation);
+}
+
+.syntax-tag,
+.syntax-tags {
+  color: var(--arcus-syntax-tag);
+  font-weight: 600;
+}
+
+.syntax-property,
+.syntax-properties {
+  color: var(--arcus-syntax-property);
+}
+
+.syntax-attribute,
+.syntax-attributes {
+  color: var(--arcus-syntax-property);
+}
+
+.syntax-selector,
+.syntax-selectors {
+  color: var(--arcus-syntax-selector);
+  font-weight: 600;
+}
+
+.syntax-preprocessor {
+  color: var(--arcus-syntax-preprocessor);
+  font-weight: 600;
+}
+
+.syntax-variables,
+.syntax-variable {
+  color: var(--arcus-syntax-variable);
+}
+
+.syntax-language-label {
+  font-family: var(--arcus-font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--arcus-syntax-label-border);
+  background: var(--arcus-syntax-label-bg);
+  color: var(--arcus-syntax-label-text);
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.syntax-language-label::before {
+  content: '⧉';
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
+.syntax-language-label:hover,
+.syntax-language-label.is-hover {
+  background: var(--arcus-syntax-label-hover-bg);
+  color: var(--arcus-syntax-label-hover-text);
+  border-color: var(--arcus-syntax-label-border);
+  box-shadow: 0 12px 26px rgba(15, 22, 52, 0.18);
+  transform: translateY(-1px);
+}
+
+.syntax-language-label.is-copied {
+  background: var(--arcus-syntax-label-copied-bg);
+  color: var(--arcus-syntax-label-copied-text);
+  border-color: color-mix(in srgb, var(--arcus-syntax-label-copied-bg) 70%, var(--arcus-syntax-label-border));
+}
+
+.syntax-language-label.is-copied::before {
+  content: '✔';
+  opacity: 0.9;
+}
+
+.syntax-language-label:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--arcus-syntax-label-ring);
 }
 
 .arcus-shell {
