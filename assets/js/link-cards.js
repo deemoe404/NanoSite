@@ -141,14 +141,32 @@ export function hydrateInternalLinkCards(container, options = {}) {
       return nodes.every(n => (n === el) || (n.nodeType === Node.TEXT_NODE && !String(n.textContent || '').trim()));
     };
 
-    const parseId = (href) => {
-      try { const u = new URL(href, window.location.href); return u.searchParams.get('id'); }
-      catch (_) { return null; }
+    const parseInternalLink = (href) => {
+      if (!href) return null;
+      const trimmed = String(href).trim();
+      if (!trimmed || trimmed.startsWith('#')) return null;
+      if (/^(mailto:|javascript:)/i.test(trimmed)) return null;
+
+      const startsWithQuery = trimmed.startsWith('?');
+      let url;
+      try {
+        url = new URL(trimmed, window.location.href);
+      } catch (_) {
+        return null;
+      }
+
+      if (!startsWithQuery && url.origin !== window.location.origin) return null;
+
+      const id = url.searchParams.get('id');
+      if (!id) return null;
+
+      return { id, url };
     };
 
     anchors.forEach(a => {
-      const rawLoc = parseId(a.getAttribute('href') || '');
-      if (!rawLoc) return;
+      const parsed = parseInternalLink(a.getAttribute('href') || '');
+      if (!parsed) return;
+      const rawLoc = parsed.id;
       const aliased = locationAliasMap.has(rawLoc) ? locationAliasMap.get(rawLoc) : rawLoc;
       const allowSet = allowedLocations instanceof Set ? allowedLocations : null;
       if (allowSet && allowSet.size > 0) {
