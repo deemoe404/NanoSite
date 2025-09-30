@@ -1393,7 +1393,13 @@ body {
   display: inline-block;
   transform: none;
   font-style: normal;
-  background: linear-gradient(120deg, rgba(123, 139, 255, 0.12), transparent 80%);
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--arcus-accent) 26%, transparent) 0%,
+    color-mix(in srgb, var(--arcus-accent) 18%, transparent) 45%,
+    color-mix(in srgb, var(--arcus-accent) 8%, transparent) 80%,
+    transparent 100%
+  );
   padding: 0 0.2rem;
 }
 
