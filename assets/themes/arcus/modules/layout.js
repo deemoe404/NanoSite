@@ -235,6 +235,14 @@ export function mount(context = {}) {
     return button;
   });
 
+  if (searchToggle.parentElement !== rightColumn) {
+    if (searchSection.nextSibling) {
+      rightColumn.insertBefore(searchToggle, searchSection.nextSibling);
+    } else {
+      rightColumn.appendChild(searchToggle);
+    }
+  }
+
   if (!searchSection.dataset.toggleBound) {
     searchSection.dataset.toggleBound = 'true';
 
