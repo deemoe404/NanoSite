@@ -1290,11 +1290,41 @@ body {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  overflow: visible;
+  overflow: hidden;
   border: none;
   padding: 1.8rem 0;
   transition: color 0.2s ease;
   border-bottom: 1px solid var(--arcus-outline);
+}
+
+.arcus-card::before {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  width: 1.5rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--arcus-accent) 70%, transparent) 0%,
+      color-mix(in srgb, var(--arcus-accent) 35%, transparent) 45%, transparent 70%);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+}
+
+@keyframes arcus-card-glow {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.8;
+  }
+
+  60% {
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(12);
+    opacity: 0;
+  }
 }
 
 .arcus-card:first-child {
@@ -1313,6 +1343,11 @@ body {
 .arcus-card:focus-within {
   transform: none;
   box-shadow: none;
+}
+
+.arcus-card:hover::before,
+.arcus-card:focus-within::before {
+  animation: arcus-card-glow 0.9s ease-out forwards;
 }
 
 .arcus-card__link {
