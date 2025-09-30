@@ -119,6 +119,7 @@ body {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -748,7 +749,32 @@ body {
 }
 
 .arcus-utility__search {
+  position: sticky;
+  top: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  z-index: 3;
+}
+
+.arcus-utility__search .arcus-search {
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.75rem 4rem;
+  transform: translateY(calc(-100% - 1.5rem));
+  transition: transform 0.28s ease;
+}
+
+.arcus-utility__search:focus-within .arcus-search,
+.arcus-utility__search:hover .arcus-search {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arcus-utility__search .arcus-search {
+    transition: none;
+  }
 }
 
 .arcus-utility__links {
