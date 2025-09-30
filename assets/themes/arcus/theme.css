@@ -1442,6 +1442,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
+  border: none;
 }
 
 .arcus-article__nav .post-nav {
@@ -1455,7 +1456,6 @@ body {
   width: 100%;
   padding: 1.4rem;
   border-radius: var(--arcus-radius-lg);
-  border: 1px solid var(--arcus-outline);
   background: var(--arcus-surface);
   box-shadow: var(--arcus-shadow-subtle);
   backdrop-filter: blur(14px);
