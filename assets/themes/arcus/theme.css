@@ -542,6 +542,8 @@ body {
   overflow: hidden;
   transition: max-height 0.28s ease;
   position: relative;
+  padding: 0.5rem;
+  background: transparent;
 }
 
 #tagview .tag-list.compact.is-collapsed {
