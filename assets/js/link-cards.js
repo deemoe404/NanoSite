@@ -160,7 +160,70 @@ export function hydrateInternalLinkCards(container, options = {}) {
       const id = url.searchParams.get('id');
       if (!id) return null;
 
-      return { id, url };
+      return { id, url, startsWithQuery, originalHref: trimmed };
+    };
+
+    const buildCardHref = (loc, parsed) => {
+      let baseHref = '';
+      try {
+        baseHref = makeHref ? makeHref(loc, parsed) : defaultMakeHref(loc);
+      } catch (_) {
+        baseHref = defaultMakeHref(loc);
+      }
+      if (baseHref == null || baseHref === false) baseHref = '';
+      baseHref = String(baseHref);
+
+      if (!parsed || !parsed.url) {
+        return baseHref || defaultMakeHref(loc);
+      }
+
+      let extras = '';
+      try {
+        const params = new URLSearchParams(parsed.url.search || '');
+        params.delete('id');
+        extras = params.toString();
+      } catch (_) {
+        extras = '';
+      }
+
+      const originalHash = (parsed.url && parsed.url.hash) || '';
+      let base = baseHref;
+      let baseHash = '';
+      const hashIdx = base.indexOf('#');
+      if (hashIdx >= 0) {
+        baseHash = base.slice(hashIdx);
+        base = base.slice(0, hashIdx);
+      }
+
+      if (!base) {
+        try {
+          const clone = new URL(parsed.url.href);
+          clone.searchParams.set('id', loc);
+          if (!extras) {
+            // extras already included via clone search params
+          }
+          if (parsed.startsWithQuery) {
+            return `${clone.search || ''}${clone.hash || ''}` || defaultMakeHref(loc);
+          }
+          if (clone.origin === window.location.origin) {
+            return `${clone.pathname}${clone.search}${clone.hash || ''}` || defaultMakeHref(loc);
+          }
+          return clone.href || defaultMakeHref(loc);
+        } catch (_) {
+          return parsed.originalHref || defaultMakeHref(loc);
+        }
+      }
+
+      if (extras) {
+        if (base.includes('?')) {
+          base += (base.endsWith('?') || base.endsWith('&')) ? extras : `&${extras}`;
+        } else {
+          base += `?${extras}`;
+        }
+      }
+
+      const hashToUse = baseHash || (originalHash && !baseHash ? originalHash : '');
+      return `${base}${hashToUse}`;
     };
 
     anchors.forEach(a => {
@@ -181,7 +244,7 @@ export function hydrateInternalLinkCards(container, options = {}) {
       if (!isStandalone && !forceCard) return;
 
       const { title: resolvedTitle = loc, meta = {} } = resolveMetaForLocation(loc, postsIndexCache, postsByLocationTitle) || {};
-      const href = makeHref(loc);
+      const href = buildCardHref(loc, parsed);
       const tagsHtml = renderTags(meta.tag);
       const dateHtml = meta && meta.date ? `<span class="card-date">${escapeHtml(formatDisplayDate(meta.date))}</span>` : '';
       const draftHtml = meta && meta.draft ? `<span class="card-draft">${escapeHtml(translate('ui.draftBadge'))}</span>` : '';
