@@ -34,6 +34,37 @@
   --arcus-callout-caution: #f0823c;
   --arcus-callout-danger: #f26464;
   --arcus-callout-important: #a987ff;
+
+  /* Bridge variables consumed by shared tooling (composer, editor, etc.) */
+  --bg: var(--arcus-bg);
+  --text: var(--arcus-text);
+  --muted: var(--arcus-text-muted);
+  --primary: var(--arcus-accent);
+  --primary-hover: var(--arcus-accent-strong);
+  --card: var(--arcus-surface);
+  --border: var(--arcus-outline);
+  --shadow: var(--arcus-shadow-subtle);
+  --hr: color-mix(in srgb, var(--arcus-text) 18%, transparent);
+  --code-bg: var(--arcus-code-bg);
+  --code-border: var(--arcus-code-border);
+  --code-text: color-mix(in srgb, var(--arcus-text) 94%, transparent);
+  --inline-code-bg: var(--arcus-accent-soft);
+  --inline-code-text: var(--arcus-text);
+  --cover-bg: var(--arcus-accent-soft);
+  --font-mono: var(--arcus-font-mono);
+  --code-font: var(--arcus-font-mono);
+  --serif: var(--arcus-font-serif);
+  --display: var(--arcus-font-serif);
+  --article-serif-stack: var(--arcus-font-serif);
+  --callout-note: var(--arcus-callout-note);
+  --callout-info: var(--arcus-callout-info);
+  --callout-tip: var(--arcus-callout-tip);
+  --callout-success: var(--arcus-callout-success);
+  --callout-warning: var(--arcus-callout-warning);
+  --callout-caution: var(--arcus-callout-caution);
+  --callout-danger: var(--arcus-callout-danger);
+  --callout-error: var(--arcus-callout-danger);
+  --callout-important: var(--arcus-callout-important);
   color-scheme: light;
 }
 
@@ -64,6 +95,37 @@
   --arcus-callout-caution: #ff9a5e;
   --arcus-callout-danger: #ff8a8a;
   --arcus-callout-important: #c8b4ff;
+
+  /* Shared tooling bridge (dark mode values) */
+  --bg: var(--arcus-bg);
+  --text: var(--arcus-text);
+  --muted: var(--arcus-text-muted);
+  --primary: var(--arcus-accent);
+  --primary-hover: var(--arcus-accent-strong);
+  --card: var(--arcus-surface);
+  --border: var(--arcus-outline-strong);
+  --shadow: var(--arcus-shadow-subtle);
+  --hr: color-mix(in srgb, var(--arcus-outline-strong) 70%, transparent);
+  --code-bg: var(--arcus-code-bg);
+  --code-border: var(--arcus-code-border);
+  --code-text: color-mix(in srgb, var(--arcus-text) 94%, transparent);
+  --inline-code-bg: color-mix(in srgb, var(--arcus-accent) 32%, transparent);
+  --inline-code-text: var(--arcus-text);
+  --cover-bg: color-mix(in srgb, var(--arcus-accent) 26%, transparent);
+  --font-mono: var(--arcus-font-mono);
+  --code-font: var(--arcus-font-mono);
+  --serif: var(--arcus-font-serif);
+  --display: var(--arcus-font-serif);
+  --article-serif-stack: var(--arcus-font-serif);
+  --callout-note: var(--arcus-callout-note);
+  --callout-info: var(--arcus-callout-info);
+  --callout-tip: var(--arcus-callout-tip);
+  --callout-success: var(--arcus-callout-success);
+  --callout-warning: var(--arcus-callout-warning);
+  --callout-caution: var(--arcus-callout-caution);
+  --callout-danger: var(--arcus-callout-danger);
+  --callout-error: var(--arcus-callout-danger);
+  --callout-important: var(--arcus-callout-important);
   color-scheme: dark;
 }
 
