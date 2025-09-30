@@ -1301,7 +1301,7 @@ body {
   display: block;
   width: fit-content;
   max-width: 100%;
-  margin: 2.4rem auto;
+  margin: 2.4rem auto 0;
   border-radius: var(--arcus-radius-lg);
   overflow: hidden;
   background: var(--arcus-surface);
