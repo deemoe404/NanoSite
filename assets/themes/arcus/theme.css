@@ -834,7 +834,9 @@ body {
 }
 
 .arcus-search-toggle.is-active {
-  background: transparent;
+  background: var(--arcus-surface);
+  color: var(--arcus-text);
+  box-shadow: var(--arcus-shadow-subtle);
 }
 
 .arcus-search-toggle__icon {
