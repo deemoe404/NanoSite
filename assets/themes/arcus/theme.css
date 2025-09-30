@@ -1302,33 +1302,35 @@ body {
   position: absolute;
   top: 50%;
   left: 0;
-  width: 10rem;
+  width: 100%;
   aspect-ratio: 1;
   border-radius: 999px;
-  background: radial-gradient(130% 80% at 20% 50%,
-      color-mix(in srgb, var(--arcus-accent) 76%, transparent) 0%,
-      color-mix(in srgb, var(--arcus-accent) 44%, transparent) 42%,
-      color-mix(in srgb, var(--arcus-accent) 16%, transparent) 78%,
+  background: radial-gradient(140% 80% at 8% 50%,
+      color-mix(in srgb, var(--arcus-accent) 54%, transparent) 0%,
+      color-mix(in srgb, var(--arcus-accent) 34%, transparent) 30%,
+      color-mix(in srgb, var(--arcus-accent) 18%, transparent) 62%,
+      color-mix(in srgb, var(--arcus-accent) 10%, transparent) 82%,
       transparent 100%);
   opacity: 0;
-  transform: translate(-80%, -50%) scaleX(0.1) scaleY(0.35);
+  transform: translate(-88%, -50%) scaleX(0.02) scaleY(0.4);
   transform-origin: left center;
   pointer-events: none;
 }
 
 @keyframes arcus-card-glow {
   0% {
-    transform: translate(-80%, -50%) scaleX(0.2) scaleY(0.4);
-    opacity: 0.9;
+    transform: translate(-88%, -50%) scaleX(0.04) scaleY(0.42);
+    opacity: 0.85;
   }
 
   55% {
-    opacity: 0.65;
+    transform: translate(-87%, -50%) scaleX(0.12) scaleY(0.5);
+    opacity: 0.55;
   }
 
   100% {
-    transform: translate(-80%, -50%) scaleX(6.5) scaleY(1.2);
-    opacity: 0.45;
+    transform: translate(-86%, -50%) scaleX(0.18) scaleY(0.58);
+    opacity: 0.35;
   }
 }
 
