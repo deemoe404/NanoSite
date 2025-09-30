@@ -2261,7 +2261,8 @@ body {
 
 .arcus-toc-dock {
   position: fixed;
-  inset-block-start: 50%;
+  top: var(--arcus-toc-dock-top, 50%);
+  inset-block-start: var(--arcus-toc-dock-top, 50%);
   inset-inline-end: clamp(0.75rem, 3vw, 3.25rem);
   transform: translateY(-50%);
   display: flex;

@@ -821,9 +821,6 @@ function enhanceArcusTocDock(tocEl) {
   const anchors = Array.from(srContainer.querySelectorAll('a[href^="#"]:not(.toc-anchor):not(.toc-top)'));
   if (!anchors.length) return null;
 
-  const existingDock = tocEl.querySelector('.arcus-toc-dock');
-  if (existingDock) existingDock.remove();
-
   const dock = docRef.createElement('nav');
   dock.className = 'arcus-toc-dock';
   dock.setAttribute('role', 'navigation');
@@ -841,7 +838,9 @@ function enhanceArcusTocDock(tocEl) {
   const list = docRef.createElement('ol');
   list.className = 'arcus-toc-dock__list';
   dock.appendChild(list);
-  tocEl.appendChild(dock);
+
+  const host = docRef && docRef.body ? docRef.body : tocEl;
+  host.appendChild(dock);
 
   const items = anchors.map((anchor, index) => {
     const labelText = anchor.textContent ? anchor.textContent.trim() : '';
@@ -932,6 +931,22 @@ function enhanceArcusTocDock(tocEl) {
 
   const scroller = docRef ? docRef.querySelector('.arcus-rightcol') : null;
 
+  const alignDockToViewport = () => {
+    if (!dock || !dock.style) return;
+    const visualViewport = winRef && winRef.visualViewport;
+    if (visualViewport) {
+      const midpoint = (visualViewport.offsetTop || 0) + visualViewport.height / 2;
+      dock.style.setProperty('--arcus-toc-dock-top', `${midpoint}px`);
+    } else if (winRef && typeof winRef.innerHeight === 'number') {
+      dock.style.setProperty('--arcus-toc-dock-top', `${winRef.innerHeight / 2}px`);
+    } else {
+      const viewportHeight = getViewportHeight();
+      if (viewportHeight) {
+        dock.style.setProperty('--arcus-toc-dock-top', `${viewportHeight / 2}px`);
+      }
+    }
+  };
+
   const getScrollTop = () => {
     if (scroller) return scroller.scrollTop || 0;
     if (winRef && typeof winRef.scrollY === 'number') return winRef.scrollY;
@@ -1018,11 +1033,13 @@ function enhanceArcusTocDock(tocEl) {
   const handleResize = () => {
     computePositions();
     updateCurrent();
+    alignDockToViewport();
   };
 
   const handleLoad = () => {
     computePositions();
     updateCurrent();
+    alignDockToViewport();
   };
 
   if (scroller && typeof scroller.addEventListener === 'function') {
@@ -1035,16 +1052,22 @@ function enhanceArcusTocDock(tocEl) {
     winRef.addEventListener('resize', handleResize);
     winRef.addEventListener('orientationchange', handleResize);
     winRef.addEventListener('load', handleLoad);
+    if (winRef.visualViewport && typeof winRef.visualViewport.addEventListener === 'function') {
+      winRef.visualViewport.addEventListener('resize', alignDockToViewport);
+      winRef.visualViewport.addEventListener('scroll', alignDockToViewport, { passive: true });
+    }
     if (typeof winRef.setTimeout === 'function') {
       winRef.setTimeout(() => {
         computePositions();
         updateCurrent();
+        alignDockToViewport();
       }, 80);
     }
   }
 
   computePositions();
   updateCurrent();
+  alignDockToViewport();
 
   const observer = (typeof ResizeObserver !== 'undefined' && headings.some(Boolean))
     ? new ResizeObserver(() => {
@@ -1068,6 +1091,10 @@ function enhanceArcusTocDock(tocEl) {
       winRef.removeEventListener('resize', handleResize);
       winRef.removeEventListener('orientationchange', handleResize);
       winRef.removeEventListener('load', handleLoad);
+      if (winRef.visualViewport && typeof winRef.visualViewport.removeEventListener === 'function') {
+        winRef.visualViewport.removeEventListener('resize', alignDockToViewport);
+        winRef.visualViewport.removeEventListener('scroll', alignDockToViewport);
+      }
     }
     if (observer) observer.disconnect();
     if (pendingFrame != null) {
@@ -1077,6 +1104,9 @@ function enhanceArcusTocDock(tocEl) {
         clearTimeout(pendingFrame);
       }
       pendingFrame = null;
+    }
+    if (dock && typeof dock.remove === 'function') {
+      dock.remove();
     }
   };
 }
