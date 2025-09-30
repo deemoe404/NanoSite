@@ -1308,16 +1308,6 @@ body {
   box-shadow: var(--arcus-shadow-subtle);
 }
 
-.arcus-article__body .post-image-wrap::after,
-.arcus-static__body .post-image-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 1px solid rgba(123, 139, 255, 0.15);
-  border-radius: inherit;
-  pointer-events: none;
-}
-
 .arcus-article__body .post-image-wrap .post-img,
 .arcus-static__body .post-image-wrap .post-img {
   display: block;
