@@ -1444,6 +1444,7 @@ body {
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   padding: 0.35rem 0.8rem;
+  margin: 0 0.4rem;
   border-radius: 999px;
   background: var(--arcus-accent-soft);
   color: var(--arcus-accent);
