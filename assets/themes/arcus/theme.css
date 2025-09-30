@@ -438,6 +438,16 @@ body {
   min-height: 0;
 }
 
+.arcus-main__search-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0;
+}
+
+.arcus-main__search-toggle .arcus-search-toggle {
+  margin: 0;
+}
+
 .arcus-mainview {
   max-width: 960px;
   margin: 0 auto;
@@ -801,10 +811,9 @@ body {
 }
 
 .arcus-search-toggle {
-  position: fixed;
-  top: 1.25rem;
-  right: 1.5rem;
-  z-index: 20;
+  position: relative;
+  align-self: flex-end;
+  margin: 0 1.5rem 0 auto;
   background: var(--arcus-accent);
   color: #fff;
   border: none;
@@ -835,7 +844,9 @@ body {
 }
 
 .arcus-search-toggle.is-active {
-  background: var(--arcus-accent-strong);
+  background: var(--arcus-surface);
+  color: var(--arcus-text);
+  box-shadow: var(--arcus-shadow-subtle);
 }
 
 .arcus-search-toggle__icon {

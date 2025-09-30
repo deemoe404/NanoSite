@@ -223,17 +223,32 @@ export function mount(context = {}) {
     }
   }
 
-  const searchToggle = ensureElement(container, '.arcus-search-toggle', () => {
-    const button = doc.createElement('button');
-    button.type = 'button';
-    button.className = 'arcus-search-toggle';
-    button.setAttribute('aria-expanded', 'false');
-    button.setAttribute('aria-controls', 'searchInput');
-    button.innerHTML = `
-      <span class="arcus-search-toggle__icon" aria-hidden="true">🔍</span>
-      <span class="arcus-search-toggle__label">Search</span>`;
-    return button;
+  let searchToggle = container.querySelector('.arcus-search-toggle');
+  if (!searchToggle) {
+    searchToggle = doc.createElement('button');
+  }
+
+  searchToggle.type = 'button';
+  searchToggle.className = 'arcus-search-toggle';
+  searchToggle.setAttribute('aria-expanded', searchToggle.getAttribute('aria-expanded') || 'false');
+  searchToggle.setAttribute('aria-controls', 'searchInput');
+  searchToggle.innerHTML = `
+    <span class="arcus-search-toggle__icon" aria-hidden="true">🔍</span>
+    <span class="arcus-search-toggle__label">Search</span>`;
+
+  const searchToggleContainer = ensureElement(main, '.arcus-main__search-toggle', () => {
+    const wrapper = doc.createElement('div');
+    wrapper.className = 'arcus-main__search-toggle';
+    return wrapper;
   });
+
+  if (!searchToggleContainer.contains(searchToggle)) {
+    searchToggleContainer.appendChild(searchToggle);
+  }
+
+  if (searchToggleContainer.nextElementSibling !== mainview) {
+    main.insertBefore(searchToggleContainer, mainview);
+  }
 
   if (!searchSection.dataset.toggleBound) {
     searchSection.dataset.toggleBound = 'true';
