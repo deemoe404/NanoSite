@@ -30,15 +30,20 @@ export function mount(context = {}) {
     el.setAttribute('role', 'banner');
     el.innerHTML = `
       <div class="arcus-header__inner">
-        <a class="arcus-brand" href="?tab=posts" data-site-home>
-          <div class="arcus-brand__mark arcus-brand__mark--placeholder">
-            <img class="arcus-brand__logo" data-site-logo alt="" loading="lazy" decoding="async" hidden />
-          </div>
-          <div class="arcus-brand__text">
-            <div class="arcus-brand__title" data-site-title></div>
-            <div class="arcus-brand__subtitle" data-site-subtitle></div>
-          </div>
-        </a>
+        <div class="arcus-header__brand">
+          <a class="arcus-brand" href="?tab=posts" data-site-home>
+            <div class="arcus-brand__mark arcus-brand__mark--placeholder">
+              <img class="arcus-brand__logo" data-site-logo alt="" loading="lazy" decoding="async" hidden />
+            </div>
+            <div class="arcus-brand__text">
+              <div class="arcus-brand__title" data-site-title></div>
+              <div class="arcus-brand__subtitle" data-site-subtitle></div>
+            </div>
+          </a>
+          <section class="arcus-utility__links" aria-label="Profile links">
+            <ul class="arcus-linklist" data-site-links></ul>
+          </section>
+        </div>
         <div class="arcus-header__divider" aria-hidden="true"></div>
         <div class="arcus-nav__scroller" data-overflow="none">
           <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
@@ -49,6 +54,41 @@ export function mount(context = {}) {
   });
 
   const headerInner = header.querySelector('.arcus-header__inner');
+  const brandWrapper = headerInner.querySelector('.arcus-header__brand') || (() => {
+    const wrapper = doc.createElement('div');
+    wrapper.className = 'arcus-header__brand';
+    const brandLink = headerInner.querySelector('.arcus-brand');
+    if (brandLink) {
+      headerInner.insertBefore(wrapper, brandLink);
+      wrapper.appendChild(brandLink);
+    } else {
+      headerInner.insertBefore(wrapper, headerInner.firstChild);
+    }
+    return wrapper;
+  })();
+
+  const brandLink = brandWrapper.querySelector('.arcus-brand') || headerInner.querySelector('.arcus-brand');
+  if (brandLink && brandLink.parentElement !== brandWrapper) {
+    brandWrapper.insertBefore(brandLink, brandWrapper.firstChild);
+  }
+
+  let profileLinks = brandWrapper.querySelector('.arcus-utility__links[aria-label="Profile links"]');
+  if (!profileLinks) {
+    profileLinks = headerInner.querySelector('.arcus-utility__links[aria-label="Profile links"]')
+      || container.querySelector('.arcus-utility__links[aria-label="Profile links"]');
+    if (profileLinks) {
+      brandWrapper.appendChild(profileLinks);
+    } else {
+      profileLinks = doc.createElement('section');
+      profileLinks.className = 'arcus-utility__links';
+      profileLinks.setAttribute('aria-label', 'Profile links');
+      profileLinks.innerHTML = '<ul class="arcus-linklist" data-site-links></ul>';
+      brandWrapper.appendChild(profileLinks);
+    }
+  } else if (profileLinks.parentElement !== brandWrapper) {
+    brandWrapper.appendChild(profileLinks);
+  }
+
   let headerCredit = headerInner.querySelector('.arcus-utility__credit');
 
   if (!headerCredit) {
@@ -155,9 +195,6 @@ export function mount(context = {}) {
         </section>
         <section class="arcus-utility__tools" aria-label="Quick tools">
           <div id="toolsPanel" class="arcus-tools"></div>
-        </section>
-        <section class="arcus-utility__links" aria-label="Profile links">
-          <ul class="arcus-linklist" data-site-links></ul>
         </section>
       </div>`;
     return el;
