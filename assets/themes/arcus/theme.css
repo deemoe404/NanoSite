@@ -435,6 +435,16 @@ body {
   padding-top: 0.6rem;
 }
 
+.arcus-header__credit {
+  margin-top: auto;
+  padding-top: 2.4rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--arcus-text-soft);
+  text-align: center;
+}
+
 .arcus-footer {
   flex: 0 0 auto;
   padding: 1.6rem 4rem 3rem;

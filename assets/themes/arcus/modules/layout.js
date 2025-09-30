@@ -45,6 +45,20 @@ export function mount(context = {}) {
     return el;
   });
 
+  const headerInner = header.querySelector('.arcus-header__inner') || header;
+  let siteCredit = container.querySelector('.arcus-utility__credit.arcus-footer__credit');
+  if (!siteCredit) {
+    siteCredit = doc.createElement('div');
+    siteCredit.className = 'arcus-utility__credit arcus-footer__credit';
+    siteCredit.setAttribute('aria-label', 'Site credit');
+  }
+  siteCredit.classList.add('arcus-header__credit');
+  if (siteCredit.parentElement !== headerInner) {
+    headerInner.appendChild(siteCredit);
+  } else if (siteCredit.nextElementSibling) {
+    headerInner.appendChild(siteCredit);
+  }
+
   const rightColumn = ensureElement(container, '.arcus-rightcol', () => {
     const el = doc.createElement('div');
     el.className = 'arcus-rightcol';
@@ -135,7 +149,6 @@ export function mount(context = {}) {
         <section class="arcus-utility__links" aria-label="Profile links">
           <ul class="arcus-linklist" data-site-links></ul>
         </section>
-        <div class="arcus-utility__credit arcus-footer__credit" aria-label="Site credit"></div>
       </div>`;
     return el;
   });
