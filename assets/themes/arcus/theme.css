@@ -756,12 +756,18 @@ body {
   margin: 0;
   pointer-events: none;
   transition: max-height 0.32s ease, padding 0.32s ease, margin 0.32s ease;
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .arcus-utility__search .arcus-search {
   width: 100%;
+  max-width: min(960px, 100%);
   box-sizing: border-box;
   padding: 0.75rem 4rem;
+  margin: 0 auto;
   opacity: 0;
   transform: translateY(-0.75rem);
   transition: opacity 0.24s ease, transform 0.28s ease;
