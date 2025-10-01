@@ -36,6 +36,10 @@ const languageModuleUrls = new Map();
 const bundleLoadPromises = new Map();
 let manifestBaseUrl = null;
 
+// Limit for concurrent front matter fetches when resolving simplified content entries.
+// Set to a positive integer to chunk requests; falsy values disable the limit.
+const FRONTMATTER_FETCH_BATCH_SIZE = 6;
+
 const FALLBACK_LANGUAGE_LABEL = (enLanguageMeta && enLanguageMeta.label) ? enLanguageMeta.label : 'English';
 translations[DEFAULT_LANG] = enTranslations;
 languageNames[DEFAULT_LANG] = FALLBACK_LANGUAGE_LABEL;
@@ -395,11 +399,15 @@ async function loadContentFromFrontMatter(obj, lang) {
     if (!paths.length) continue;
 
     const variants = [];
-    for (const p of paths) {
+    const batchSize = (Number.isFinite(FRONTMATTER_FETCH_BATCH_SIZE) && FRONTMATTER_FETCH_BATCH_SIZE > 0)
+      ? FRONTMATTER_FETCH_BATCH_SIZE
+      : paths.length;
+
+    const fetchVariant = async (p) => {
       try {
         const url = `${getContentRoot()}/${p}`;
         const response = await fetch(url, { cache: 'no-store' });
-        if (!response || !response.ok) { continue; }
+        if (!response || !response.ok) { return null; }
         const content = await response.text();
         const { frontMatter } = parseFrontMatter(content);
 
@@ -413,7 +421,7 @@ async function loadContentFromFrontMatter(obj, lang) {
           return (baseDir + s).replace(/\/+/g, '/');
         };
 
-        variants.push({
+        return {
           location: p,
           image: resolveImagePath(frontMatter.image) || undefined,
           tag: frontMatter.tags || frontMatter.tag || undefined,
@@ -423,13 +431,26 @@ async function loadContentFromFrontMatter(obj, lang) {
           ai: truthy(frontMatter.ai || frontMatter.aiGenerated || frontMatter.llm) || undefined,
           draft: truthy(frontMatter.draft || frontMatter.wip || frontMatter.unfinished || frontMatter.inprogress) || undefined,
           __title: frontMatter.title || undefined
-        });
+        };
       } catch (error) {
         console.warn(`Failed to load content from ${p}:`, error);
-        variants.push({ location: p });
+        return { location: p };
       }
-    }
+    };
 
+    for (let i = 0; i < paths.length; i += batchSize) {
+      const slice = paths.slice(i, i + batchSize);
+      const settled = await Promise.allSettled(slice.map((p) => fetchVariant(p)));
+      settled.forEach((result, idx) => {
+        const pathForResult = slice[idx];
+        if (result.status === 'fulfilled') {
+          if (result.value) variants.push(result.value);
+        } else {
+          console.warn(`Failed to load content from ${pathForResult}:`, result.reason);
+          variants.push({ location: pathForResult });
+        }
+      });
+    }
     // Choose the latest by date as the primary version
     const toTime = (d) => { const t = new Date(String(d || '')).getTime(); return Number.isFinite(t) ? t : -Infinity; };
     variants.sort((a, b) => toTime(b.date) - toTime(a.date));
