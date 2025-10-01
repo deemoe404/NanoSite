@@ -92,6 +92,10 @@ const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
 // Track pending binary assets associated with markdown drafts
 const markdownAssetStore = new Map();
 
+// Shared caches for metadata hydration
+const composerFrontMatterCache = new Map();
+const indexFrontMatterHydrationTimers = new Map();
+
 const MARKDOWN_PUSH_LABEL_KEYS = {
   default: 'editor.composer.markdown.push.labelDefault',
   create: 'editor.composer.markdown.push.labelCreate',
@@ -2051,7 +2055,8 @@ async function hydrateIndexMetadataFromFrontMatter(index, options = {}) {
   if (!index || typeof index !== 'object') return;
   const contentRoot = safeString(options.contentRoot || 'wwwroot').replace(/\\+/g, '/').replace(/\/+$/, '');
   const rootPrefix = contentRoot ? `${contentRoot}/` : '';
-  const frontMatterCache = new Map();
+  const sharedCache = options && options.frontMatterCache instanceof Map ? options.frontMatterCache : null;
+  const frontMatterCache = sharedCache || new Map();
 
   const fetchFrontMatterForPath = async (path) => {
     const normalized = normalizeContentPath(path);
@@ -2151,6 +2156,58 @@ async function hydrateIndexMetadataFromFrontMatter(index, options = {}) {
     if (Object.keys(nextMetaMap).length) entry.__meta = nextMetaMap;
     else if (entry.__meta) delete entry.__meta;
   }
+}
+
+function cancelScheduledIndexEntryFrontMatterHydration(key) {
+  if (!key) return;
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) return;
+  const timer = indexFrontMatterHydrationTimers.get(normalizedKey);
+  if (timer != null) {
+    try { clearTimeout(timer); } catch (_) {}
+    indexFrontMatterHydrationTimers.delete(normalizedKey);
+  }
+}
+
+function scheduleIndexEntryFrontMatterHydration(key, options = {}) {
+  if (!key) return;
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey) return;
+  const state = activeComposerState;
+  if (!state || !state.index || !state.index[normalizedKey]) return;
+  const delay = Number.isFinite(options.delay) ? Math.max(0, options.delay) : 480;
+  const existing = indexFrontMatterHydrationTimers.get(normalizedKey);
+  if (existing != null) {
+    try { clearTimeout(existing); } catch (_) {}
+    indexFrontMatterHydrationTimers.delete(normalizedKey);
+  }
+
+  const run = async () => {
+    indexFrontMatterHydrationTimers.delete(normalizedKey);
+    const currentState = activeComposerState;
+    if (!currentState || !currentState.index) return;
+    const entry = currentState.index[normalizedKey];
+    if (!entry || typeof entry !== 'object') return;
+    const subset = { __order: [normalizedKey] };
+    subset[normalizedKey] = entry;
+    try {
+      await hydrateIndexMetadataFromFrontMatter(subset, {
+        contentRoot: getContentRootSafe(),
+        frontMatterCache: composerFrontMatterCache
+      });
+      notifyComposerChange('index');
+    } catch (error) {
+      console.warn('Composer: failed to hydrate metadata for entry', normalizedKey, error);
+    }
+  };
+
+  if (delay <= 0) {
+    run();
+    return;
+  }
+
+  const timer = setTimeout(run, delay);
+  indexFrontMatterHydrationTimers.set(normalizedKey, timer);
 }
 
 function prepareTabsState(raw) {
@@ -10740,6 +10797,7 @@ function buildIndexUI(root, state) {
               if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
               if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
               markDirty();
+              scheduleIndexEntryFrontMatterHydration(key);
             });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
@@ -10777,6 +10835,7 @@ function buildIndexUI(root, state) {
               syncVersionMeta();
               renderVers(prev);
               markDirty();
+              scheduleIndexEntryFrontMatterHydration(key);
             });
             verList.appendChild(row);
           });
@@ -10891,6 +10950,7 @@ function buildIndexUI(root, state) {
     btnDel.addEventListener('click', () => {
       const i = state.index.__order.indexOf(key);
       if (i >= 0) state.index.__order.splice(i, 1);
+      cancelScheduledIndexEntryFrontMatterHydration(key);
       delete state.index[key];
       row.remove();
       markDirty();
@@ -11257,6 +11317,7 @@ async function addComposerEntry(kind, anchor) {
       const defaultPath = buildDefaultEntryPath('index', key, lang);
       slice[key][lang] = [defaultPath];
     }
+    scheduleIndexEntryFrontMatterHydration(key, { delay: 0 });
   }
 
   slice.__order.unshift(key);
@@ -11804,7 +11865,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
     ]);
     const remoteIndex = prepareIndexState(idx || {});
-    await hydrateIndexMetadataFromFrontMatter(remoteIndex, { contentRoot: root });
+    await hydrateIndexMetadataFromFrontMatter(remoteIndex, { contentRoot: root, frontMatterCache: composerFrontMatterCache });
     const remoteTabs = prepareTabsState(tbs || {});
     remoteBaseline.index = deepClone(remoteIndex);
     remoteBaseline.tabs = deepClone(remoteTabs);
