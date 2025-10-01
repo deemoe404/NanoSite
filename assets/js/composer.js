@@ -10238,7 +10238,7 @@ function buildIndexUI(root, state) {
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ci-lang-menu ns-menu" role="listbox" hidden>
-            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${displayLangName(l)}</button>`).join('')}
+            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${escapeHtml(displayLangName(l))}</button>`).join('')}
           </div>
         `;
         const btn = $('.ci-add-lang-btn', addLangWrap);
@@ -10473,7 +10473,7 @@ function buildTabsUI(root, state) {
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ct-lang-menu ns-menu" role="listbox" hidden>
-            ${available.map(l => `<button type=\"button\" role=\"option\" class=\"ns-menu-item\" data-lang=\"${l}\">${displayLangName(l)}</button>`).join('')}
+            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(l)}">${escapeHtml(displayLangName(l))}</button>`).join('')}
           </div>
         `;
         const btn = $('.ct-add-lang-btn', addLangWrap);
@@ -11983,12 +11983,14 @@ function buildSiteUI(root, state) {
         return a.localeCompare(b);
       });
 
-      const available = supported.filter((code) => !used.has(code));
+      // Filter only valid language codes that match LANG_CODE_PATTERN
+      const available = supported.filter((code) => !used.has(code) && LANG_CODE_PATTERN.test(code));
 
       menu.innerHTML = available
-        .map((code) => `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`)
+        .map((code) =>
+          `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
+        )
         .join('');
-
       if (!available.length) {
         addBtn.setAttribute('disabled', '');
         addWrap.classList.add('is-disabled');

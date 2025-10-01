@@ -32,83 +32,156 @@ const translations = {};
 const languageNames = {};
 let languageManifest = [];
 let manifestLoadPromise = null;
+const languageModuleUrls = new Map();
+const bundleLoadPromises = new Map();
+let manifestBaseUrl = null;
+
+// Limit for concurrent front matter fetches when resolving simplified content entries.
+// Set to a positive integer to chunk requests; falsy values disable the limit.
+const FRONTMATTER_FETCH_BATCH_SIZE = 6;
 
 const FALLBACK_LANGUAGE_LABEL = (enLanguageMeta && enLanguageMeta.label) ? enLanguageMeta.label : 'English';
 translations[DEFAULT_LANG] = enTranslations;
 languageNames[DEFAULT_LANG] = FALLBACK_LANGUAGE_LABEL;
 languageManifest = [{ value: DEFAULT_LANG, label: FALLBACK_LANGUAGE_LABEL }];
 
-async function ensureLanguageBundlesLoaded() {
-  if (manifestLoadPromise) return manifestLoadPromise;
-  manifestLoadPromise = (async () => {
-    const manifestUrl = new URL('../i18n/languages.json', import.meta.url);
-    let manifest = [];
+function emitBundleLoaded(lang) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent('ns:i18n-bundle-loaded', { detail: { lang } }));
+  } catch (_) { /* ignore */ }
+}
+
+function upsertManifestEntry(value, label, { preferFront = false } = {}) {
+  if (!value) return;
+  const normalized = String(value).toLowerCase();
+  const display = label || languageNames[normalized] || normalized;
+  const idx = languageManifest.findIndex((item) => item && item.value === normalized);
+  if (idx >= 0) {
+    const existing = languageManifest[idx];
+    if (!existing || existing.label !== display) {
+      languageManifest[idx] = { value: normalized, label: display };
+    }
+  } else if (preferFront) {
+    languageManifest.unshift({ value: normalized, label: display });
+  } else {
+    languageManifest.push({ value: normalized, label: display });
+  }
+}
+
+async function loadLanguageBundle(langCode) {
+  const code = String(langCode || '').toLowerCase();
+  if (!code) return null;
+  if (translations[code]) return translations[code];
+  if (bundleLoadPromises.has(code)) return bundleLoadPromises.get(code);
+  if (manifestLoadPromise) await manifestLoadPromise;
+  const moduleHref = languageModuleUrls.get(code);
+  if (!moduleHref) {
+    if (code === DEFAULT_LANG) return translations[DEFAULT_LANG] || null;
+    // Attempt implicit fallback to ./<code>.js relative to manifest when not registered
+    if (manifestBaseUrl) {
+      try {
+        const implicitUrl = new URL(`./${code}.js`, manifestBaseUrl);
+        languageModuleUrls.set(code, implicitUrl.href);
+        return loadLanguageBundle(code);
+      } catch (_) {
+        // ignore
+      }
+    }
+    return null;
+  }
+  const loader = (async () => {
     try {
-      const resp = await fetch(manifestUrl, { cache: 'no-store' });
-      if (resp && resp.ok) {
-        const data = await resp.json();
-        if (Array.isArray(data)) manifest = data;
+      const mod = await import(moduleHref);
+      const bundle = (mod && typeof mod.default === 'object') ? mod.default : (mod && typeof mod.translations === 'object' ? mod.translations : null);
+      if (!bundle) {
+        console.warn(`[i18n] Language module ${moduleHref} did not export a translations object`);
+        return null;
       }
+      translations[code] = bundle;
+      const metaLabel = languageNames[code] || mod.languageLabel || (mod.languageMeta && mod.languageMeta.label);
+      if (metaLabel) languageNames[code] = metaLabel;
+      upsertManifestEntry(code, languageNames[code]);
+      emitBundleLoaded(code);
+      return bundle;
     } catch (err) {
-      console.warn('[i18n] Failed to load language manifest', err);
+      console.warn("[i18n] Failed to load language bundle for %s", code, err);
+      return null;
     }
-    if (!manifest.length) {
-      manifest = [{ value: DEFAULT_LANG, label: 'English', module: './en.js' }];
-    }
-    const seen = new Set();
-    const sanitized = [];
-    for (const entry of manifest) {
-      if (!entry) continue;
-      const value = String(entry.value || '').toLowerCase().trim();
-      if (!value || seen.has(value)) continue;
-      let moduleUrl;
-      const modulePath = entry.module || `./${value}.js`;
+  })().finally(() => {
+    bundleLoadPromises.delete(code);
+  });
+  bundleLoadPromises.set(code, loader);
+  return loader;
+}
+
+async function ensureLanguageBundlesLoaded(langToEnsure) {
+  if (!manifestLoadPromise) {
+    manifestLoadPromise = (async () => {
+      const manifestUrl = new URL('../i18n/languages.json', import.meta.url);
+      manifestBaseUrl = manifestUrl;
+      let manifest = [];
       try {
-        moduleUrl = new URL(modulePath, manifestUrl);
+        const resp = await fetch(manifestUrl, { cache: 'no-store' });
+        if (resp && resp.ok) {
+          const data = await resp.json();
+          if (Array.isArray(data)) manifest = data;
+        }
       } catch (err) {
-        console.warn(`[i18n] Invalid module path for ${value}`, err);
-        continue;
+        console.warn('[i18n] Failed to load language manifest', err);
       }
-      try {
-        const mod = await import(moduleUrl.href);
-        const bundle = (mod && typeof mod.default === 'object') ? mod.default : (mod && typeof mod.translations === 'object' ? mod.translations : null);
-        if (!bundle) {
-          console.warn(`[i18n] Language module ${moduleUrl.href} did not export a translations object`);
+      if (!manifest.length) {
+        manifest = [{ value: DEFAULT_LANG, label: 'English', module: './en.js' }];
+      }
+      const seen = new Set();
+      languageManifest = [];
+      for (const entry of manifest) {
+        if (!entry) continue;
+        const value = String(entry.value || '').toLowerCase().trim();
+        if (!value || seen.has(value)) continue;
+        const modulePath = entry.module || `./${value}.js`;
+        let moduleUrl = null;
+        try {
+          moduleUrl = new URL(modulePath, manifestUrl);
+        } catch (err) {
+          console.warn(`[i18n] Invalid module path for ${value}`, err);
           continue;
         }
-        translations[value] = bundle;
-        const metaLabel = entry.label || mod.languageLabel || (mod.languageMeta && mod.languageMeta.label);
-        if (metaLabel) languageNames[value] = metaLabel;
-        sanitized.push({ value, label: languageNames[value] || metaLabel || value });
+        languageModuleUrls.set(value, moduleUrl.href);
+        if (entry.label) languageNames[value] = entry.label;
+        upsertManifestEntry(value, entry.label || value);
         seen.add(value);
-      } catch (err) {
-        console.warn(`[i18n] Failed to load language bundle for ${value}`, err);
       }
-    }
-    if (!translations[DEFAULT_LANG]) {
-      try {
-        const fallbackUrl = new URL('./en.js', manifestUrl);
-        const mod = await import(fallbackUrl.href);
-        const bundle = (mod && typeof mod.default === 'object') ? mod.default : (mod && typeof mod.translations === 'object' ? mod.translations : null);
-        if (bundle) {
-          translations[DEFAULT_LANG] = bundle;
-          const label = mod.languageLabel || (mod.languageMeta && mod.languageMeta.label) || 'English';
-          languageNames[DEFAULT_LANG] = label;
-          if (!seen.has(DEFAULT_LANG)) {
-            sanitized.unshift({ value: DEFAULT_LANG, label });
-            seen.add(DEFAULT_LANG);
-          }
+      if (!languageModuleUrls.has(DEFAULT_LANG)) {
+        try {
+          const fallbackUrl = new URL('./en.js', manifestUrl);
+          languageModuleUrls.set(DEFAULT_LANG, fallbackUrl.href);
+        } catch (err) {
+          console.warn('[i18n] Unable to register fallback English bundle', err);
         }
-      } catch (err) {
-        console.error('[i18n] Unable to load fallback English bundle', err);
       }
-    }
-    if (!sanitized.length) {
-      sanitized.push({ value: DEFAULT_LANG, label: languageNames[DEFAULT_LANG] || FALLBACK_LANGUAGE_LABEL || DEFAULT_LANG });
-    }
-    languageManifest = sanitized;
+      if (!languageNames[DEFAULT_LANG]) languageNames[DEFAULT_LANG] = FALLBACK_LANGUAGE_LABEL;
+      upsertManifestEntry(DEFAULT_LANG, languageNames[DEFAULT_LANG] || FALLBACK_LANGUAGE_LABEL || DEFAULT_LANG, { preferFront: true });
+      languageManifest = languageManifest.reduce((acc, entry) => {
+        if (!entry || !entry.value) return acc;
+        if (acc.find((item) => item.value === entry.value)) return acc;
+        acc.push(entry);
+        return acc;
+      }, []);
   })();
-  return manifestLoadPromise;
+}
+  await manifestLoadPromise;
+
+  if (!translations[DEFAULT_LANG]) {
+    await loadLanguageBundle(DEFAULT_LANG);
+  }
+
+  const target = String(langToEnsure || currentLang || DEFAULT_LANG).toLowerCase();
+  if (target && !translations[target]) {
+    await loadLanguageBundle(target);
+  }
+
+  return translations[target] || translations[DEFAULT_LANG] || null;
 }
 
 
@@ -129,10 +202,11 @@ function detectLang() {
 }
 
 export async function initI18n(opts = {}) {
-  await ensureLanguageBundlesLoaded();
-  const desired = (opts.lang || detectLang() || '').toLowerCase();
+  const desiredInput = (opts.lang || detectLang() || '').toLowerCase();
   const def = (opts.defaultLang || DEFAULT_LANG).toLowerCase();
-  currentLang = desired || def;
+  const desired = desiredInput || def;
+  await ensureLanguageBundlesLoaded(desired);
+  currentLang = desiredInput || def;
   baseDefaultLang = def || DEFAULT_LANG;
   // If translation bundle missing, fall back to default bundle for UI
   if (!translations[currentLang]) currentLang = def;
@@ -150,6 +224,16 @@ export async function initI18n(opts = {}) {
 }
 
 export function getCurrentLang() { return currentLang; }
+
+export async function ensureLanguageBundle(langCode) {
+  const code = String(langCode || '').toLowerCase();
+  if (code) {
+    await ensureLanguageBundlesLoaded(code);
+    if (translations[code]) return translations[code];
+  }
+  await ensureLanguageBundlesLoaded(baseDefaultLang || DEFAULT_LANG);
+  return translations[code] || translations[currentLang] || translations[DEFAULT_LANG] || null;
+}
 
 // Translate helper: fetches a nested value from the current language bundle,
 // with graceful fallback to the default language.
@@ -315,11 +399,15 @@ async function loadContentFromFrontMatter(obj, lang) {
     if (!paths.length) continue;
 
     const variants = [];
-    for (const p of paths) {
+    const batchSize = (Number.isFinite(FRONTMATTER_FETCH_BATCH_SIZE) && FRONTMATTER_FETCH_BATCH_SIZE > 0)
+      ? FRONTMATTER_FETCH_BATCH_SIZE
+      : paths.length;
+
+    const fetchVariant = async (p) => {
       try {
         const url = `${getContentRoot()}/${p}`;
         const response = await fetch(url, { cache: 'no-store' });
-        if (!response || !response.ok) { continue; }
+        if (!response || !response.ok) { return null; }
         const content = await response.text();
         const { frontMatter } = parseFrontMatter(content);
 
@@ -333,7 +421,7 @@ async function loadContentFromFrontMatter(obj, lang) {
           return (baseDir + s).replace(/\/+/g, '/');
         };
 
-        variants.push({
+        return {
           location: p,
           image: resolveImagePath(frontMatter.image) || undefined,
           tag: frontMatter.tags || frontMatter.tag || undefined,
@@ -343,13 +431,26 @@ async function loadContentFromFrontMatter(obj, lang) {
           ai: truthy(frontMatter.ai || frontMatter.aiGenerated || frontMatter.llm) || undefined,
           draft: truthy(frontMatter.draft || frontMatter.wip || frontMatter.unfinished || frontMatter.inprogress) || undefined,
           __title: frontMatter.title || undefined
-        });
+        };
       } catch (error) {
         console.warn(`Failed to load content from ${p}:`, error);
-        variants.push({ location: p });
+        return { location: p };
       }
-    }
+    };
 
+    for (let i = 0; i < paths.length; i += batchSize) {
+      const slice = paths.slice(i, i + batchSize);
+      const settled = await Promise.allSettled(slice.map((p) => fetchVariant(p)));
+      settled.forEach((result, idx) => {
+        const pathForResult = slice[idx];
+        if (result.status === 'fulfilled') {
+          if (result.value) variants.push(result.value);
+        } else {
+          console.warn(`Failed to load content from ${pathForResult}:`, result.reason);
+          variants.push({ location: pathForResult });
+        }
+      });
+    }
     // Choose the latest by date as the primary version
     const toTime = (d) => { const t = new Date(String(d || '')).getTime(); return Number.isFinite(t) ? t : -Infinity; };
     variants.sort((a, b) => toTime(b.date) - toTime(a.date));
@@ -558,6 +659,10 @@ function __setContentLangs(list) {
 }
 export function getAvailableLangs() {
   // Prefer languages discovered from content (unified index), else manifest order, else loaded bundle keys
+  const current = getCurrentLang();
+  if (current && !translations[current]) {
+    ensureLanguageBundle(current).catch(() => {});
+  }
   if (__contentLangs && __contentLangs.length) return __contentLangs;
   if (languageManifest && languageManifest.length) return languageManifest.map((entry) => entry.value);
   return Object.keys(translations);
