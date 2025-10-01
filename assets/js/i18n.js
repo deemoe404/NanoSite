@@ -40,12 +40,6 @@ let manifestBaseUrl = null;
 // Set to a positive integer to chunk requests; falsy values disable the limit.
 const FRONTMATTER_FETCH_BATCH_SIZE = 6;
 
-const EMBEDDED_METADATA_FIELDS = new Set([
-  'title', 'titles', 'date', 'excerpt', 'summary', 'image', 'cover', 'thumb',
-  'tag', 'tags', 'version', 'versionlabel', 'ai', 'aigenerated', 'llm',
-  'draft', 'wip', 'unfinished', 'inprogress'
-]);
-
 const FALLBACK_LANGUAGE_LABEL = (enLanguageMeta && enLanguageMeta.label) ? enLanguageMeta.label : 'English';
 translations[DEFAULT_LANG] = enTranslations;
 languageNames[DEFAULT_LANG] = FALLBACK_LANGUAGE_LABEL;
@@ -473,254 +467,8 @@ async function loadContentFromFrontMatter(obj, lang) {
       return rest;
     });
     out[title] = meta;
-}
-
-  return { entries: out, availableLangs: Array.from(langsSeen).sort() };
-}
-
-function mergeMetadata(...sources) {
-  const merged = {};
-  for (const src of sources) {
-    if (!src || typeof src !== 'object') continue;
-    if (src.title != null) merged.title = String(src.title);
-    if (src.date != null) merged.date = src.date;
-    if (src.excerpt != null) merged.excerpt = String(src.excerpt);
-    if (src.summary != null && merged.excerpt == null) merged.excerpt = String(src.summary);
-    if (src.image != null) merged.image = src.image;
-    if (merged.image == null && src.cover != null) merged.image = src.cover;
-    if (merged.image == null && src.thumb != null) merged.image = src.thumb;
-    if (src.tag != null) merged.tag = src.tag;
-    if (src.tags != null && merged.tag == null) merged.tag = src.tags;
-    if (src.versionLabel != null) merged.versionLabel = src.versionLabel;
-    if (src.version != null && merged.versionLabel == null) merged.versionLabel = src.version;
-    if (src.ai != null) merged.ai = src.ai;
-    if (src.aiGenerated != null && merged.ai == null) merged.ai = src.aiGenerated;
-    if (src.llm != null && merged.ai == null) merged.ai = src.llm;
-    if (src.draft != null) merged.draft = src.draft;
-    if (src.wip != null && merged.draft == null) merged.draft = src.wip;
-    if (src.unfinished != null && merged.draft == null) merged.draft = src.unfinished;
-    if (src.inprogress != null && merged.draft == null) merged.draft = src.inprogress;
   }
-  return merged;
-}
-
-function normalizeVersionEntries(raw) {
-  if (Array.isArray(raw)) return raw;
-  if (raw == null) return [];
-  return [raw];
-}
-
-function truthyMetaFlag(value) {
-  if (value === true) return true;
-  if (value === false) return false;
-  const s = String(value ?? '').trim().toLowerCase();
-  if (!s) return false;
-  return ['true', '1', 'yes', 'y', 'on', 'enabled'].includes(s);
-}
-
-function resolveImageRelative(location, image) {
-  const src = String(image ?? '').trim();
-  if (!src) return undefined;
-  if (/^(https?:|data:)/i.test(src) || src.startsWith('/')) return src;
-  const loc = String(location || '');
-  const lastSlash = loc.lastIndexOf('/');
-  const baseDir = lastSlash >= 0 ? loc.slice(0, lastSlash + 1) : '';
-  return (baseDir + src).replace(/\\+/g, '/');
-}
-
-function normalizeVersionsWithMeta(raw, baseMeta = {}) {
-  const versions = [];
-  const items = normalizeVersionEntries(raw);
-  for (const item of items) {
-    if (typeof item === 'string') {
-      if (!item) continue;
-      const merged = { ...baseMeta };
-      versions.push({ location: item, ...merged });
-      continue;
-    }
-    if (!item || typeof item !== 'object') continue;
-    const location = String(item.location || item.path || '').trim();
-    if (!location) continue;
-    const merged = mergeMetadata(baseMeta, item);
-    versions.push({ location, ...merged });
-  }
-  return versions;
-}
-
-function pickPreferredBucket(entry, lang) {
-  if (!entry || typeof entry !== 'object') return null;
-  const nlang = normalizeLangKey(lang);
-  if (entry[nlang] != null) return { key: nlang, value: entry[nlang] };
-  if (entry[baseDefaultLang] != null) return { key: baseDefaultLang, value: entry[baseDefaultLang] };
-  if (entry.en != null) return { key: 'en', value: entry.en };
-  if (entry.default != null) return { key: 'default', value: entry.default };
-  const firstKey = Object.keys(entry).find((k) => entry[k] != null);
-  if (!firstKey) return null;
-  return { key: firstKey, value: entry[firstKey] };
-}
-
-function normalizeBucketMetadata(value, fallbackMeta = {}) {
-  if (value == null) return { versions: [] };
-  if (typeof value === 'string') {
-    const merged = { ...fallbackMeta };
-    return { versions: value ? [{ location: value, ...merged }] : [] };
-  }
-  if (Array.isArray(value)) {
-    const versions = value
-      .filter((item) => typeof item === 'string')
-      .map((loc) => ({ location: loc, ...fallbackMeta }));
-    return { versions };
-  }
-  if (typeof value === 'object') {
-    const mergedMeta = mergeMetadata(fallbackMeta, value);
-    if (Array.isArray(value.versions) && value.versions.length) {
-      const versions = normalizeVersionsWithMeta(value.versions, mergedMeta);
-      return { versions, meta: mergedMeta };
-    }
-    const location = String(value.location || value.path || '').trim();
-    if (location) {
-      const meta = mergeMetadata(mergedMeta, value);
-      return { versions: [{ location, ...meta }], meta };
-    }
-    const versions = normalizeVersionsWithMeta(value, mergedMeta);
-    return { versions, meta: mergedMeta };
-  }
-  return { versions: [] };
-}
-
-function wrapMetadataSourceForMerge(key, value) {
-  if (value == null) return null;
-  if (typeof value === 'object' && !Array.isArray(value)) return value;
-  return { [key]: value };
-}
-
-function hasEmbeddedMetadata(candidate) {
-  return candidate && typeof candidate === 'object' && !Array.isArray(candidate);
-}
-
-function deriveSimplifiedEntryFallbackMeta(entry, langKeys, chosen) {
-  const fallbackSources = [];
-  const normalizedLangs = new Set((langKeys || []).map((lk) => normalizeLangKey(lk)));
-
-  for (const [innerKey, innerVal] of Object.entries(entry || {})) {
-    const normalizedInner = normalizeLangKey(innerKey);
-    if (normalizedLangs.has(normalizedInner)) continue;
-    const wrapped = wrapMetadataSourceForMerge(innerKey, innerVal);
-    if (wrapped) fallbackSources.push(wrapped);
-  }
-
-  const chosenValue = chosen ? chosen.value : undefined;
-  if (!hasEmbeddedMetadata(chosenValue)) {
-    const defaultBucket = entry && entry.default;
-    if (hasEmbeddedMetadata(defaultBucket)) {
-      fallbackSources.push(defaultBucket);
-    }
-  }
-
-  return mergeMetadata(...fallbackSources);
-}
-
-function containsEmbeddedMetadataFields(candidate) {
-  if (!candidate || typeof candidate !== 'object') return false;
-  return Object.keys(candidate).some((key) => {
-    const lower = String(key).toLowerCase();
-    if (lower === 'location' || lower === 'path' || lower === 'versions') return false;
-    return EMBEDDED_METADATA_FIELDS.has(lower);
-  });
-}
-
-function bucketProvidesEmbeddedMetadata(entryMeta, bucket) {
-  if (containsEmbeddedMetadataFields(entryMeta)) return true;
-  if (bucket && containsEmbeddedMetadataFields(bucket.meta)) return true;
-  if (bucket && Array.isArray(bucket.versions)) {
-    for (const version of bucket.versions) {
-      if (containsEmbeddedMetadataFields(version)) return true;
-    }
-  }
-  return false;
-}
-
-async function loadContentFromSimplifiedMetadata(obj, lang) {
-  const out = {};
-  const langsSeen = new Set();
-  const entries = Object.entries(obj || {});
-
-  for (const [key, val] of entries) {
-    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
-
-    const langKeys = Object.keys(val).filter((k) => {
-      const nk = normalizeLangKey(k);
-      if (nk === 'default') return true;
-      if (nk !== k) return true;
-      return /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i.test(String(k || ''));
-    });
-    langKeys.forEach((lk) => {
-      const normalized = normalizeLangKey(lk);
-      if (normalized !== 'default') langsSeen.add(normalized);
-    });
-
-    const chosen = pickPreferredBucket(val, lang);
-    if (!chosen || chosen.value == null) continue;
-
-    const entryMeta = deriveSimplifiedEntryFallbackMeta(val, langKeys, chosen);
-    const bucket = normalizeBucketMetadata(chosen.value, entryMeta);
-    const hasEmbedded = bucketProvidesEmbeddedMetadata(entryMeta, bucket);
-
-    if (!hasEmbedded) {
-      const fallback = await loadContentFromFrontMatter({ [key]: val }, lang);
-      (fallback.availableLangs || []).forEach((lk) => langsSeen.add(lk));
-      for (const [fallbackTitle, meta] of Object.entries(fallback.entries || {})) {
-        out[fallbackTitle] = meta;
-      }
-      continue;
-    }
-    if (!bucket.versions.length) continue;
-
-    const toTime = (d) => {
-      const t = new Date(String(d || '')).getTime();
-      return Number.isFinite(t) ? t : -Infinity;
-    };
-
-    const versions = bucket.versions
-      .map((ver) => {
-        const meta = mergeMetadata(entryMeta, bucket.meta || {}, ver);
-        const normalized = { ...meta };
-        normalized.location = ver.location;
-        normalized.image = resolveImageRelative(ver.location, normalized.image);
-        normalized.tag = normalized.tag != null ? normalized.tag : undefined;
-        normalized.ai = truthyMetaFlag(normalized.ai);
-        normalized.draft = truthyMetaFlag(normalized.draft);
-        return normalized;
-      })
-      .filter((ver) => ver.location);
-
-    if (!versions.length) continue;
-
-    versions.sort((a, b) => toTime(b.date) - toTime(a.date));
-    const primary = versions[0];
-    const title = primary.title || (bucket.meta && bucket.meta.title) || entryMeta.title || key;
-
-    const versionsForUi = versions.map((ver) => {
-      const { title: _t, ...rest } = ver;
-      return rest;
-    });
-
-    const meta = {
-      location: primary.location,
-      image: primary.image || undefined,
-      tag: primary.tag != null ? primary.tag : undefined,
-      date: primary.date || undefined,
-      excerpt: primary.excerpt || undefined,
-      versionLabel: primary.versionLabel || primary.version || undefined,
-      ai: primary.ai ? true : undefined,
-      draft: primary.draft ? true : undefined,
-      title,
-      versions: versionsForUi
-    };
-
-    out[title] = meta;
-  }
-
+  
   return { entries: out, availableLangs: Array.from(langsSeen).sort() };
 }
 
@@ -738,73 +486,7 @@ export async function loadContentJson(basePath, baseName) {
       const keys = Object.keys(obj || {});
       let isUnified = false;
       let isSimplified = false;
-      let simplifiedHasEmbeddedMeta = false;
-
-      const LANG_KEY_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
-      const RESERVED_SIMPLIFIED_KEYS = new Set(['location', 'path', 'versions']);
-      EMBEDDED_METADATA_FIELDS.forEach((field) => RESERVED_SIMPLIFIED_KEYS.add(field));
-      const looksLikeLang = (key) => {
-        if (!key) return false;
-        const normalized = normalizeLangKey(key);
-        const lower = String(normalized || '').toLowerCase();
-        if (lower === 'default') return true;
-        if (RESERVED_SIMPLIFIED_KEYS.has(lower)) return false;
-        if (normalized !== key) return true;
-        return LANG_KEY_PATTERN.test(String(key || ''));
-      };
-
-      const hasMetadataFields = (value) => {
-        if (!value || typeof value !== 'object') return false;
-        return Object.keys(value).some((k) => {
-          if (k === 'location' || k === 'path') return false;
-          if (k === 'versions') return false;
-          if (looksLikeLang(k)) return false;
-          return EMBEDDED_METADATA_FIELDS.has(String(k).toLowerCase());
-        });
-      };
-
-      const isMetadataBucket = (value) => {
-        if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-        const keysInBucket = Object.keys(value);
-        if (!keysInBucket.length) return false;
-        let valid = false;
-        for (const key of keysInBucket) {
-          const lower = String(key).toLowerCase();
-          if (looksLikeLang(key)) return false;
-          if (key === 'location' || key === 'path') {
-            if (typeof value[key] === 'string') valid = true;
-            else return false;
-            continue;
-          }
-          if (key === 'versions') {
-            const arr = value[key];
-            if (!Array.isArray(arr)) return false;
-            const ok = arr.every((item) => {
-              if (typeof item === 'string') return true;
-              if (!item || typeof item !== 'object') return false;
-              if (looksLikeLang(Object.keys(item)[0] || '')) return false;
-              if (item.location && typeof item.location === 'string') return true;
-              if (item.path && typeof item.path === 'string') return true;
-              return false;
-            });
-            if (!ok) return false;
-            if (arr.some((item) => item && typeof item === 'object' && hasMetadataFields(item))) {
-              simplifiedHasEmbeddedMeta = true;
-            }
-            valid = true;
-            continue;
-          }
-          if (EMBEDDED_METADATA_FIELDS.has(lower)) {
-            simplifiedHasEmbeddedMeta = true;
-            valid = true;
-            continue;
-          }
-          return false;
-        }
-        if (hasMetadataFields(value)) simplifiedHasEmbeddedMeta = true;
-        return valid;
-      };
-
+      
       // Check if it's a simplified format (just path mappings) or unified format
       for (const k of keys) {
         const v = obj[k];
@@ -812,46 +494,27 @@ export async function loadContentJson(basePath, baseName) {
           // Check for simplified format (language -> path mapping)
           const innerKeys = Object.keys(v);
           const hasOnlyPaths = innerKeys.every(ik => {
-            if (!looksLikeLang(ik) && EMBEDDED_METADATA_FIELDS.has(String(ik).toLowerCase())) {
-              simplifiedHasEmbeddedMeta = true;
-              return true;
-            }
             const val = v[ik];
             if (typeof val === 'string') return true;
             if (Array.isArray(val)) return val.every(item => typeof item === 'string');
-            if (looksLikeLang(ik) && val && typeof val === 'object' && !Array.isArray(val)) {
-              if (isMetadataBucket(val)) return true;
-            }
-            if (!looksLikeLang(ik) && val && typeof val === 'object' && !Array.isArray(val) && isMetadataBucket(val)) {
-              return true;
-            }
             return false;
           });
-
+          
           if (hasOnlyPaths) {
             isSimplified = true;
             break;
           }
-
+          
           // Check for unified format
           if ('default' in v) { isUnified = true; break; }
-          if (innerKeys.some(ik => {
-            if (['tag','tags','image','date','excerpt','location','title','version','versionLabel','ai','draft'].includes(ik)) {
-              simplifiedHasEmbeddedMeta = true;
-              return false;
-            }
-            return !looksLikeLang(ik);
-          })) { isUnified = true; break; }
+          if (innerKeys.some(ik => !['tag','tags','image','date','excerpt','location'].includes(ik))) { isUnified = true; break; }
         }
       }
-
+      
       if (isSimplified) {
         // Handle simplified format - load metadata from front matter
         const current = getCurrentLang();
-        const handler = simplifiedHasEmbeddedMeta
-          ? loadContentFromSimplifiedMetadata
-          : loadContentFromFrontMatter;
-        const { entries, availableLangs } = await handler(obj, current);
+        const { entries, availableLangs } = await loadContentFromFrontMatter(obj, current);
         __setContentLangs(availableLangs);
         return entries;
       }

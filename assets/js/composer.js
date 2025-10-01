@@ -1696,190 +1696,18 @@ function prepareIndexState(raw) {
 function normalizeIndexEntry(entry) {
   const out = {};
   if (!entry || typeof entry !== 'object') return out;
-
-  const existingMeta = (entry.__meta && typeof entry.__meta === 'object') ? entry.__meta : {};
-  const metaOut = {};
-
-  const cloneMeta = (meta) => {
-    if (!meta || typeof meta !== 'object') return {};
-    const copy = {};
-    if (meta.title != null) copy.title = safeString(meta.title);
-    if (meta.date != null) copy.date = safeString(meta.date);
-    if (meta.excerpt != null) copy.excerpt = safeString(meta.excerpt);
-    if (meta.image != null) copy.image = safeString(meta.image);
-    if (meta.tag != null) {
-      copy.tag = Array.isArray(meta.tag) ? meta.tag.map(item => safeString(item)) : safeString(meta.tag);
-    }
-    if (meta.versionLabel != null) copy.versionLabel = safeString(meta.versionLabel);
-    if (meta.version != null) copy.version = safeString(meta.version);
-    if (meta.ai != null) {
-      const ai = normalizeBoolean(meta.ai, null);
-      if (ai !== null) copy.ai = ai;
-    }
-    if (meta.draft != null) {
-      const draft = normalizeBoolean(meta.draft, null);
-      if (draft !== null) copy.draft = draft;
-    }
-    if (Array.isArray(meta.__versions)) {
-      const versions = meta.__versions
-        .map((item) => {
-          if (!item || typeof item !== 'object') return null;
-          const normalized = {};
-          if (item.location != null) normalized.location = safeString(item.location);
-          if (!normalized.location) return null;
-          if (item.date != null) normalized.date = safeString(item.date);
-          if (item.excerpt != null) normalized.excerpt = safeString(item.excerpt);
-          if (item.image != null) normalized.image = safeString(item.image);
-          if (item.tag != null) {
-            normalized.tag = Array.isArray(item.tag) ? item.tag.map(v => safeString(v)) : safeString(item.tag);
-          }
-          if (item.versionLabel != null) normalized.versionLabel = safeString(item.versionLabel);
-          if (item.version != null) normalized.version = safeString(item.version);
-          if (item.ai != null) {
-            const aiFlag = normalizeBoolean(item.ai, null);
-            if (aiFlag !== null) normalized.ai = aiFlag;
-          }
-          if (item.draft != null) {
-            const draftFlag = normalizeBoolean(item.draft, null);
-            if (draftFlag !== null) normalized.draft = draftFlag;
-          }
-          return normalized;
-        })
-        .filter(Boolean);
-      if (versions.length) copy.__versions = versions;
-    }
-    return copy;
-  };
-
-  const mergeMeta = (target, updates) => {
-    if (!updates || typeof updates !== 'object') return target;
-    if (updates.title != null) target.title = safeString(updates.title);
-    if (updates.date != null) target.date = safeString(updates.date);
-    if (updates.excerpt != null) target.excerpt = safeString(updates.excerpt);
-    if (updates.image != null) target.image = safeString(updates.image);
-    if (updates.tag != null) {
-      target.tag = Array.isArray(updates.tag) ? updates.tag.map(item => safeString(item)) : safeString(updates.tag);
-    } else if (updates.tags != null && target.tag == null) {
-      target.tag = Array.isArray(updates.tags) ? updates.tags.map(item => safeString(item)) : safeString(updates.tags);
-    }
-    if (updates.versionLabel != null) target.versionLabel = safeString(updates.versionLabel);
-    if (updates.version != null && target.versionLabel == null) target.version = safeString(updates.version);
-    if (updates.ai != null) {
-      const ai = normalizeBoolean(updates.ai, null);
-      if (ai !== null) target.ai = ai;
-    }
-    if (updates.aiGenerated != null && target.ai == null) {
-      const ai = normalizeBoolean(updates.aiGenerated, null);
-      if (ai !== null) target.ai = ai;
-    }
-    if (updates.llm != null && target.ai == null) {
-      const ai = normalizeBoolean(updates.llm, null);
-      if (ai !== null) target.ai = ai;
-    }
-    if (updates.draft != null) {
-      const draft = normalizeBoolean(updates.draft, null);
-      if (draft !== null) target.draft = draft;
-    }
-    if (updates.wip != null && target.draft == null) {
-      const draft = normalizeBoolean(updates.wip, null);
-      if (draft !== null) target.draft = draft;
-    }
-    if (updates.unfinished != null && target.draft == null) {
-      const draft = normalizeBoolean(updates.unfinished, null);
-      if (draft !== null) target.draft = draft;
-    }
-    if (updates.inprogress != null && target.draft == null) {
-      const draft = normalizeBoolean(updates.inprogress, null);
-      if (draft !== null) target.draft = draft;
-    }
-    return target;
-  };
-
-  const extractLangMeta = (value) => {
-    const meta = {};
-    mergeMeta(meta, value);
-    return meta;
-  };
-
-  const sanitizeVersionMeta = (value) => {
-    if (!value || typeof value !== 'object') return [];
-    const versions = [];
-    if (Array.isArray(value.versions) && value.versions.length) {
-      value.versions.forEach((item) => {
-        if (typeof item === 'string') return;
-        if (!item || typeof item !== 'object') return;
-        const location = safeString(item.location || item.path || '');
-        if (!location) return;
-        const meta = extractLangMeta(item);
-        if (Object.keys(meta).length) {
-          const clean = cloneMeta(meta);
-          delete clean.title;
-          clean.location = location;
-          versions.push(clean);
-        }
-      });
-    } else {
-      const location = safeString(value.location || value.path || '');
-      if (location) {
-        const meta = extractLangMeta(value);
-        const clean = cloneMeta(meta);
-        delete clean.title;
-        if (Object.keys(clean).length) {
-          clean.location = location;
-          versions.push(clean);
-        }
-      }
-    }
-    return versions;
-  };
-
   Object.keys(entry).forEach(lang => {
-    if (lang === '__order' || lang === '__meta') return;
+    if (lang === '__order') return;
     const value = entry[lang];
-    const existing = cloneMeta(existingMeta[lang]);
-
     if (Array.isArray(value)) {
       out[lang] = value.map(item => safeString(item));
     } else if (value != null && typeof value === 'object') {
-      const arr = [];
-      if (Array.isArray(value.versions) && value.versions.length) {
-        value.versions.forEach((item) => {
-          if (typeof item === 'string') arr.push(safeString(item));
-          else if (item && typeof item === 'object') {
-            const loc = safeString(item.location || item.path || '');
-            if (loc) arr.push(loc);
-          }
-        });
-      }
-      if (!arr.length) {
-        const loc = safeString(value.location || value.path || '');
-        if (loc) arr.push(loc);
-      }
-      if (!arr.length && typeof value.default === 'string') {
-        arr.push(safeString(value.default));
-      }
-      if (!arr.length) out[lang] = '';
-      else if (arr.length === 1) out[lang] = arr[0];
-      else out[lang] = arr;
-
-      const meta = extractLangMeta(value);
-      mergeMeta(existing, meta);
-      const versionMeta = sanitizeVersionMeta(value);
-      if (versionMeta.length) existing.__versions = versionMeta;
+      // Unexpected object -> stringify to keep placeholder
+      out[lang] = safeString(value.location || value.path || '');
     } else {
       out[lang] = safeString(value);
     }
-
-    if (existing && Object.keys(existing).length) metaOut[lang] = existing;
   });
-
-  Object.keys(existingMeta).forEach((lang) => {
-    if (metaOut[lang]) return;
-    const clone = cloneMeta(existingMeta[lang]);
-    if (clone && Object.keys(clone).length) metaOut[lang] = clone;
-  });
-
-  if (Object.keys(metaOut).length) out.__meta = metaOut;
   return out;
 }
 
@@ -9889,7 +9717,7 @@ function slideToggle(el, toOpen) {
 }
 
 function sortLangKeys(obj) {
-  const keys = Object.keys(obj || {}).filter((key) => key !== '__meta');
+  const keys = Object.keys(obj || {});
   return keys.sort((a, b) => {
     const ia = PREFERRED_LANG_ORDER.indexOf(normalizeLangCode(a));
     const ib = PREFERRED_LANG_ORDER.indexOf(normalizeLangCode(b));
@@ -9931,138 +9759,29 @@ function q(s) {
 }
 
 function toIndexYaml(data) {
-  const pushKeyValue = (lines, indent, keyName, value) => {
-    const pad = '  '.repeat(indent);
-    if (value == null) return;
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      lines.push(`${pad}${keyName}: ${yamlScalar(value)}`);
-      return;
-    }
-    if (Array.isArray(value) && !value.length) {
-      lines.push(`${pad}${keyName}: []`);
-      return;
-    }
-    lines.push(`${pad}${keyName}:`);
-    writeYamlValue(lines, indent + 1, value);
-  };
-
-  const sanitizeGeneralMeta = (meta) => {
-    const out = {};
-    if (!meta || typeof meta !== 'object') return out;
-    if (meta.title != null && meta.title !== '') out.title = safeString(meta.title);
-    if (meta.date != null && meta.date !== '') out.date = safeString(meta.date);
-    if (meta.excerpt != null && meta.excerpt !== '') out.excerpt = safeString(meta.excerpt);
-    if (meta.image != null && meta.image !== '') out.image = safeString(meta.image);
-    if (meta.tag != null) {
-      out.tag = Array.isArray(meta.tag) ? meta.tag.map(item => safeString(item)) : safeString(meta.tag);
-    }
-    if (meta.versionLabel != null && meta.versionLabel !== '') out.versionLabel = safeString(meta.versionLabel);
-    if (meta.version != null && meta.version !== '') out.version = safeString(meta.version);
-    const ai = normalizeBoolean(meta.ai, null);
-    if (ai !== null) out.ai = ai;
-    const draft = normalizeBoolean(meta.draft, null);
-    if (draft !== null) out.draft = draft;
-    return out;
-  };
-
-  const sanitizeVersionMetaEntries = (meta) => {
-    if (!meta || typeof meta !== 'object' || !Array.isArray(meta.__versions)) return [];
-    return meta.__versions
-      .map((item) => {
-        if (!item || typeof item !== 'object') return null;
-        const location = safeString(item.location || '');
-        if (!location) return null;
-        const entry = { location };
-        if (item.date != null && item.date !== '') entry.date = safeString(item.date);
-        if (item.excerpt != null && item.excerpt !== '') entry.excerpt = safeString(item.excerpt);
-        if (item.image != null && item.image !== '') entry.image = safeString(item.image);
-        if (item.tag != null) {
-          entry.tag = Array.isArray(item.tag) ? item.tag.map(v => safeString(v)) : safeString(item.tag);
-        }
-        if (item.versionLabel != null && item.versionLabel !== '') entry.versionLabel = safeString(item.versionLabel);
-        if (item.version != null && item.version !== '') entry.version = safeString(item.version);
-        const ai = normalizeBoolean(item.ai, null);
-        if (ai !== null) entry.ai = ai;
-        const draft = normalizeBoolean(item.draft, null);
-        if (draft !== null) entry.draft = draft;
-        return Object.keys(entry).length > 1 ? entry : null;
-      })
-      .filter(Boolean);
-  };
-
   const lines = [
     '# yaml-language-server: $schema=../assets/schema/index.json',
     ''
   ];
   const keys = data.__order && Array.isArray(data.__order) ? data.__order.slice() : Object.keys(data).filter(k => k !== '__order');
-  keys.forEach((key) => {
+  keys.forEach(key => {
     const entry = data[key];
     if (!entry || typeof entry !== 'object') return;
     lines.push(`${key}:`);
     const langs = sortLangKeys(entry);
-    const metaMap = (entry.__meta && typeof entry.__meta === 'object') ? entry.__meta : {};
-    langs.forEach((lang) => {
-      const raw = entry[lang];
-      const meta = metaMap[lang];
-      const paths = Array.isArray(raw)
-        ? raw.map(item => safeString(item))
-        : (raw != null ? [safeString(raw)] : []);
-      const generalMeta = sanitizeGeneralMeta(meta);
-      const versionMeta = sanitizeVersionMetaEntries(meta);
-      const needsObject = Object.keys(generalMeta).length > 0 || versionMeta.length > 0;
-
-      if (!needsObject) {
-        if (paths.length <= 1) {
-          const scalar = paths[0] != null ? paths[0] : '';
-          lines.push(`  ${lang}: ${scalar ? scalar : '""'}`);
+    langs.forEach(lang => {
+      const v = entry[lang];
+      if (Array.isArray(v)) {
+        if (v.length <= 1) {
+          const one = v[0] ?? '';
+          lines.push(`  ${lang}: ${one ? one : '""'}`);
         } else {
           lines.push(`  ${lang}:`);
-          paths.forEach((p) => {
-            const val = p != null ? p : '';
-            lines.push(`    - ${val ? val : '""'}`);
-          });
+          v.forEach(p => lines.push(`    - ${p}`));
         }
-        return;
+      } else if (typeof v === 'string') {
+        lines.push(`  ${lang}: ${v}`);
       }
-
-      const langObj = {};
-      if (paths.length <= 1) {
-        const location = paths[0] != null ? paths[0] : '';
-        langObj.location = location;
-        const versionEntry = versionMeta.find((item) => item.location === location);
-        if (versionEntry) {
-          const { location: _loc, ...rest } = versionEntry;
-          Object.assign(langObj, rest);
-        }
-      } else {
-        langObj.versions = paths.map((loc) => {
-          const safeLoc = loc != null ? loc : '';
-          const vm = versionMeta.find((item) => item.location === safeLoc);
-          const payload = { location: safeLoc };
-          if (vm) {
-            const { location: _l, ...rest } = vm;
-            Object.assign(payload, rest);
-          }
-          return payload;
-        });
-      }
-
-      Object.entries(generalMeta).forEach(([field, value]) => {
-        if (value != null) langObj[field] = value;
-      });
-
-      lines.push(`  ${lang}:`);
-      const orderedFields = [];
-      if (Object.prototype.hasOwnProperty.call(langObj, 'location')) orderedFields.push(['location', langObj.location]);
-      if (Object.prototype.hasOwnProperty.call(langObj, 'versions')) orderedFields.push(['versions', langObj.versions]);
-      ['title', 'date', 'excerpt', 'image', 'tag', 'version', 'versionLabel', 'ai', 'draft'].forEach((field) => {
-        if (Object.prototype.hasOwnProperty.call(langObj, field)) {
-          orderedFields.push([field, langObj[field]]);
-        }
-      });
-      orderedFields.forEach(([field, value]) => {
-        pushKeyValue(lines, 2, field, value);
-      });
     });
   });
   return lines.join('\n') + '\n';
@@ -10301,7 +10020,7 @@ function buildIndexUI(root, state) {
     row.className = 'ci-item';
     row.setAttribute('data-key', key);
     row.setAttribute('draggable', 'true');
-    const langCount = sortLangKeys(entry).length;
+    const langCount = Object.keys(entry).length;
     const langCountText = tComposerLang('count', { count: langCount });
     const detailsLabel = tComposerEntryRow('details');
     const deleteLabel = tComposerEntryRow('delete');
@@ -10352,25 +10071,6 @@ function buildIndexUI(root, state) {
         const val = entry[lang];
         // Normalize to array for UI
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
-        const syncVersionMeta = () => {
-          if (!entry.__meta || !entry.__meta[lang]) return;
-          const meta = entry.__meta[lang];
-          if (!meta || typeof meta !== 'object' || !Array.isArray(meta.__versions)) return;
-          const byLocation = new Map();
-          meta.__versions.forEach((item) => {
-            if (item && item.location) byLocation.set(item.location, item);
-          });
-          const normalized = arr.map((p) => safeString(p)).filter((loc) => !!loc);
-          const next = [];
-          normalized.forEach((loc) => {
-            if (byLocation.has(loc)) next.push(byLocation.get(loc));
-          });
-          meta.__versions = next;
-          if (!meta.__versions.length) delete meta.__versions;
-          const hasOtherMeta = Object.keys(meta).some((k) => k !== '__versions');
-          if (!hasOtherMeta && !meta.__versions) delete entry.__meta[lang];
-          if (entry.__meta && !Object.keys(entry.__meta).length) delete entry.__meta;
-        };
         block.innerHTML = `
           <div class="ci-lang-head">
             <strong>${escapeHtml(lang.toUpperCase())}</strong>
@@ -10427,7 +10127,6 @@ function buildIndexUI(root, state) {
         };
 
         const renderVers = (prevRects = null) => {
-          syncVersionMeta();
           verList.innerHTML = '';
           arr.forEach((p, i) => {
             const id = verIds[i] || (verIds[i] = Math.random().toString(36).slice(2));
@@ -10461,7 +10160,6 @@ function buildIndexUI(root, state) {
               const prevPath = row.dataset.mdPath || '';
               arr[i] = e.target.value;
               entry[lang] = arr.slice();
-              syncVersionMeta();
               row.dataset.value = arr[i] || '';
               const nextPath = normalizeRelPath(arr[i]);
               if (nextPath) row.dataset.mdPath = nextPath;
@@ -10485,7 +10183,6 @@ function buildIndexUI(root, state) {
               [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
               [verIds[i - 1], verIds[i]] = [verIds[i], verIds[i - 1]];
               entry[lang] = arr.slice();
-              syncVersionMeta();
               renderVers(prev);
               markDirty();
             });
@@ -10495,7 +10192,6 @@ function buildIndexUI(root, state) {
               [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
               [verIds[i + 1], verIds[i]] = [verIds[i], verIds[i + 1]];
               entry[lang] = arr.slice();
-              syncVersionMeta();
               renderVers(prev);
               markDirty();
             });
@@ -10504,7 +10200,6 @@ function buildIndexUI(root, state) {
               arr.splice(i, 1);
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
-              syncVersionMeta();
               renderVers(prev);
               markDirty();
             });
@@ -10519,18 +10214,13 @@ function buildIndexUI(root, state) {
           arr.push('');
           verIds.push(Math.random().toString(36).slice(2));
           entry[lang] = arr.slice();
-          syncVersionMeta();
           renderVers(prev);
           markDirty();
         });
         $('.ci-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
-          if (entry.__meta && entry.__meta[lang]) {
-            delete entry.__meta[lang];
-            if (!Object.keys(entry.__meta).length) delete entry.__meta;
-          }
-          const metaLabel = row.querySelector('.ci-meta');
-          if (metaLabel) metaLabel.textContent = tComposerLang('count', { count: sortLangKeys(entry).length });
+          const meta = row.querySelector('.ci-meta');
+          if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
           renderBody();
           broadcastLanguagePoolChange();
           markDirty();
@@ -10596,8 +10286,8 @@ function buildIndexUI(root, state) {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
             entry[code] = [''];
-            const metaLabel = row.querySelector('.ci-meta');
-            if (metaLabel) metaLabel.textContent = tComposerLang('count', { count: sortLangKeys(entry).length });
+            const meta = row.querySelector('.ci-meta');
+            if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
             renderBody();
             broadcastLanguagePoolChange();
