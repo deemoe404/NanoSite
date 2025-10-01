@@ -2057,11 +2057,31 @@ async function hydrateIndexMetadataFromFrontMatter(index, options = {}) {
   const rootPrefix = contentRoot ? `${contentRoot}/` : '';
   const sharedCache = options && options.frontMatterCache instanceof Map ? options.frontMatterCache : null;
   const frontMatterCache = sharedCache || new Map();
+  const forceRefresh = options && options.forceRefresh === true;
+  const FRONT_MATTER_CACHE_TTL = 30_000;
 
   const fetchFrontMatterForPath = async (path) => {
     const normalized = normalizeContentPath(path);
     if (!normalized) return null;
-    if (frontMatterCache.has(normalized)) return frontMatterCache.get(normalized);
+
+    if (forceRefresh) {
+      frontMatterCache.delete(normalized);
+    }
+
+    const now = Date.now();
+    const cached = frontMatterCache.get(normalized);
+    if (cached) {
+      if (typeof cached === 'object' && cached && Object.prototype.hasOwnProperty.call(cached, 'promise')) {
+        if (!cached.expiry || cached.expiry > now) {
+          return cached.promise;
+        }
+        frontMatterCache.delete(normalized);
+      } else if (typeof cached.then === 'function') {
+        return cached;
+      }
+    }
+
+    const record = { promise: null, expiry: 0 };
     const promise = (async () => {
       try {
         const response = await fetch(`${rootPrefix}${normalized}`, { cache: 'no-store' });
@@ -2074,8 +2094,25 @@ async function hydrateIndexMetadataFromFrontMatter(index, options = {}) {
         return null;
       }
     })();
-    frontMatterCache.set(normalized, promise);
-    return promise;
+
+    record.promise = promise
+      .then((result) => {
+        const hasMeta = result && typeof result === 'object' && Object.keys(result).length > 0;
+        if (hasMeta) {
+          record.expiry = Date.now() + FRONT_MATTER_CACHE_TTL;
+          frontMatterCache.set(normalized, record);
+        } else {
+          frontMatterCache.delete(normalized);
+        }
+        return result;
+      })
+      .catch((error) => {
+        frontMatterCache.delete(normalized);
+        throw error;
+      });
+
+    frontMatterCache.set(normalized, record);
+    return record.promise;
   };
 
   const keys = Array.isArray(index.__order) ? index.__order.slice() : Object.keys(index).filter(k => k !== '__order');
@@ -2193,7 +2230,8 @@ function scheduleIndexEntryFrontMatterHydration(key, options = {}) {
     try {
       await hydrateIndexMetadataFromFrontMatter(subset, {
         contentRoot: getContentRootSafe(),
-        frontMatterCache: composerFrontMatterCache
+        frontMatterCache: composerFrontMatterCache,
+        forceRefresh: true
       });
       notifyComposerChange('index');
     } catch (error) {
@@ -3012,7 +3050,8 @@ async function ensureIndexMetadataForExport(state) {
   try {
     await hydrateIndexMetadataFromFrontMatter(state, {
       contentRoot: getContentRootSafe(),
-      frontMatterCache: composerFrontMatterCache
+      frontMatterCache: composerFrontMatterCache,
+      forceRefresh: true
     });
   } catch (error) {
     console.warn('Composer: failed to hydrate metadata before export', error);
