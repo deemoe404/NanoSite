@@ -77,15 +77,26 @@ async function mountPack(pack, allowFallback = true) {
     pack
   };
 
-  for (const entry of manifest.modules) {
-    try {
-      await mountModule(pack, entry, context);
-    } catch (err) {
-      console.error('[theme] Failed to mount module', entry, err);
-      if (allowFallback && pack !== DEFAULT_PACK) {
-        forceNativePack();
-        return mountPack(DEFAULT_PACK, false);
-      }
+  try {
+    await Promise.all(
+      manifest.modules.map((entry) =>
+        (async () => {
+          try {
+            await mountModule(pack, entry, context);
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
+            error.entry = entry;
+            throw error;
+          }
+        })()
+      )
+    );
+  } catch (err) {
+    const failedEntry = err && err.entry ? err.entry : '(unknown)';
+    console.error('[theme] Failed to mount module', failedEntry, err);
+    if (allowFallback && pack !== DEFAULT_PACK) {
+      forceNativePack();
+      return mountPack(DEFAULT_PACK, false);
     }
   }
 
