@@ -1,4 +1,4 @@
-import { initI18n, t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage } from './i18n.js';
+import { initI18n, t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js';
 
 function applyAttributeTranslation(el, target, value) {
   if (value == null) return;
@@ -53,6 +53,7 @@ function populateLanguageSelect() {
   const select = document.getElementById('editorLangSelect');
   if (!select) return;
   const current = getCurrentLang();
+  try { ensureLanguageBundle(current).catch(() => {}); } catch (_) {}
   const langs = getAvailableLangs();
   const prev = select.value;
   select.innerHTML = '';
@@ -64,8 +65,11 @@ function populateLanguageSelect() {
   });
   select.value = langs.includes(current) ? current : current || prev;
   if (!select.dataset.boundChange) {
-    select.addEventListener('change', () => {
+    select.addEventListener('change', async () => {
       const value = select.value || 'en';
+      try {
+        await ensureLanguageBundle(value);
+      } catch (_) {}
       switchLanguage(value);
     });
     select.dataset.boundChange = '1';
@@ -78,17 +82,29 @@ function applyEditorLanguage() {
   document.dispatchEvent(new CustomEvent('ns-editor-language-applied'));
 }
 
-function bootstrap() {
-  initI18n();
+async function bootstrap() {
+  await initI18n();
   applyEditorLanguage();
-  window.__ns_softResetLang = () => {
-    initI18n({ persist: false });
+  window.__ns_softResetLang = async () => {
+    await initI18n({ persist: false });
     applyEditorLanguage();
   };
 }
 
+try {
+  window.addEventListener('ns:i18n-bundle-loaded', (event) => {
+    const detail = event && event.detail ? event.detail : {};
+    const lang = (detail.lang || '').toLowerCase();
+    if (!lang) return;
+    const current = (getCurrentLang && getCurrentLang()) || '';
+    if (lang && current && current.toLowerCase() === lang) {
+      try { populateLanguageSelect(); } catch (_) {}
+    }
+  });
+} catch (_) {}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootstrap);
+  document.addEventListener('DOMContentLoaded', () => { bootstrap().catch(() => {}); });
 } else {
-  bootstrap();
+  bootstrap().catch(() => {});
 }
