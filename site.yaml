@@ -26,14 +26,6 @@ siteKeywords:
 
 avatar: assets/avatar.jpeg
 
-profileLinks:
-  -
-    label: GitHub
-    href: "https://github.com/deemoe404/NanoSite"
-  -
-    label: Demo
-    href: "https://deemoe404.github.io/NanoSite"
-
 contentRoot: wwwroot
 
 contentOutdatedDays: 180
@@ -50,7 +42,7 @@ themeMode: user
 
 themePack: native
 
-themeOverride: true
+themeOverride: false
 
 showAllPosts: true
 
