@@ -101,7 +101,7 @@ async function loadLanguageBundle(langCode) {
       emitBundleLoaded(code);
       return bundle;
     } catch (err) {
-      console.warn(`[i18n] Failed to load language bundle for ${code}`, err);
+      console.warn("[i18n] Failed to load language bundle for %s", code, err);
       return null;
     }
   })().finally(() => {
