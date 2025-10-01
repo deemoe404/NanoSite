@@ -2060,12 +2060,60 @@ async function hydrateIndexMetadataFromFrontMatter(index, options = {}) {
   const forceRefresh = options && options.forceRefresh === true;
   const FRONT_MATTER_CACHE_TTL = 30_000;
 
+  const resolveFrontMatterFromLocalSources = (path) => {
+    const normalized = normalizeRelPath(path);
+    if (!normalized) return null;
+
+    const candidates = [];
+    const seen = new Set();
+    const pushCandidate = (text) => {
+      const value = typeof text === 'string' ? normalizeMarkdownContent(text) : '';
+      if (!value) return;
+      if (seen.has(value)) return;
+      seen.add(value);
+      candidates.push(value);
+    };
+
+    const tab = findDynamicTabByPath(normalized);
+    if (tab) {
+      if (tab.localDraft && tab.localDraft.content != null) pushCandidate(tab.localDraft.content);
+      if (tab.content != null) pushCandidate(tab.content);
+      if (tab.remoteContent != null) pushCandidate(tab.remoteContent);
+    }
+
+    const draftEntry = getMarkdownDraftEntry(normalized);
+    if (draftEntry && draftEntry.content != null) pushCandidate(draftEntry.content);
+
+    for (const candidate of candidates) {
+      try {
+        const { frontMatter } = parseFrontMatter(candidate);
+        if (frontMatter && typeof frontMatter === 'object' && Object.keys(frontMatter).length) {
+          return frontMatter;
+        }
+      } catch (error) {
+        console.warn('Composer: failed to parse front matter from draft', normalized, error);
+      }
+    }
+
+    return null;
+  };
+
   const fetchFrontMatterForPath = async (path) => {
     const normalized = normalizeContentPath(path);
     if (!normalized) return null;
 
     if (forceRefresh) {
       frontMatterCache.delete(normalized);
+    }
+
+    const localFrontMatter = resolveFrontMatterFromLocalSources(normalized);
+    if (localFrontMatter) {
+      const record = {
+        expiry: Date.now() + FRONT_MATTER_CACHE_TTL,
+        promise: Promise.resolve(localFrontMatter)
+      };
+      frontMatterCache.set(normalized, record);
+      return record.promise;
     }
 
     const now = Date.now();
