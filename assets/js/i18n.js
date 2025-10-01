@@ -741,9 +741,14 @@ export async function loadContentJson(basePath, baseName) {
       let simplifiedHasEmbeddedMeta = false;
 
       const LANG_KEY_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
+      const RESERVED_SIMPLIFIED_KEYS = new Set(['location', 'path', 'versions']);
+      EMBEDDED_METADATA_FIELDS.forEach((field) => RESERVED_SIMPLIFIED_KEYS.add(field));
       const looksLikeLang = (key) => {
+        if (!key) return false;
         const normalized = normalizeLangKey(key);
-        if (normalized === 'default') return true;
+        const lower = String(normalized || '').toLowerCase();
+        if (lower === 'default') return true;
+        if (RESERVED_SIMPLIFIED_KEYS.has(lower)) return false;
         if (normalized !== key) return true;
         return LANG_KEY_PATTERN.test(String(key || ''));
       };
