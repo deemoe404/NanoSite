@@ -1,3 +1,4 @@
+import './cache-control.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { getContentRoot, setSafeHtml } from './utils.js';
