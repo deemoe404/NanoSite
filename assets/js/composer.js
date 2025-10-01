@@ -2995,6 +2995,30 @@ function readDraftStore() {
   }
 }
 
+function flushScheduledIndexFrontMatterHydrations() {
+  const timers = Array.from(indexFrontMatterHydrationTimers.values());
+  indexFrontMatterHydrationTimers.clear();
+  timers.forEach((timer) => {
+    if (timer != null) {
+      try { clearTimeout(timer); }
+      catch (_) {}
+    }
+  });
+}
+
+async function ensureIndexMetadataForExport(state) {
+  if (!state || typeof state !== 'object') return;
+  flushScheduledIndexFrontMatterHydrations();
+  try {
+    await hydrateIndexMetadataFromFrontMatter(state, {
+      contentRoot: getContentRootSafe(),
+      frontMatterCache: composerFrontMatterCache
+    });
+  } catch (error) {
+    console.warn('Composer: failed to hydrate metadata before export', error);
+  }
+}
+
 function writeDraftStore(store) {
   try {
     if (!store || !Object.keys(store).length) {
@@ -5170,7 +5194,7 @@ async function generateSeoCommitFiles() {
 
 async function gatherCommitPayload(options = {}) {
   const { showSeoStatus = false } = options;
-  const base = gatherLocalChangesForCommit(options);
+  const base = await gatherLocalChangesForCommit(options);
   const files = Array.isArray(base.files) ? base.files.slice() : [];
   if (showSeoStatus) {
     try {
@@ -5184,7 +5208,7 @@ async function gatherCommitPayload(options = {}) {
   return { files, seoFiles };
 }
 
-function gatherLocalChangesForCommit(options = {}) {
+async function gatherLocalChangesForCommit(options = {}) {
   const { cleanupUnusedAssets = true } = options;
   const files = [];
   const seenPaths = new Set();
@@ -5214,6 +5238,7 @@ function gatherLocalChangesForCommit(options = {}) {
 
   if (composerDiffCache.index && composerDiffCache.index.hasChanges) {
     const state = getStateSlice('index') || { __order: [] };
+    await ensureIndexMetadataForExport(state);
     const yaml = toIndexYaml(state);
     addFile({ kind: 'index', label: 'index.yaml', path: `${rootPrefix}index.yaml`, content: yaml });
   }
@@ -11661,7 +11686,12 @@ function bindComposerUI(state) {
           const normalizedTarget = normalizeTarget(targetKind) || (getActiveComposerFile() === 'tabs' ? 'tabs' : 'index');
           // Also copy YAML snapshot here to leverage the user gesture
           try {
-            const text = normalizedTarget === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+            let text;
+            if (normalizedTarget === 'tabs') text = toTabsYaml(state.tabs || {});
+            else {
+              await ensureIndexMetadataForExport(state.index || {});
+              text = toIndexYaml(state.index || {});
+            }
             nsCopyToClipboard(text);
           } catch(_) {}
           const now = await computeMissingFiles(normalizedTarget);
@@ -11680,7 +11710,12 @@ function bindComposerUI(state) {
       const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const fallback = getActiveComposerFile();
       const target = normalizeTarget(targetKind) || (fallback === 'tabs' ? 'tabs' : 'index');
-      const desired = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+      let desired;
+      if (target === 'tabs') desired = toTabsYaml(state.tabs || {});
+      else {
+        await ensureIndexMetadataForExport(state.index || {});
+        desired = toIndexYaml(state.index || {});
+      }
       async function fetchText(url){ try { const r = await fetch(url, { cache: 'no-store' }); if (r && r.ok) return await r.text(); } catch(_){} return ''; }
       const baseName = target === 'tabs' ? 'tabs' : 'index';
       const url1 = `${contentRoot}/${baseName}.yaml`; const url2 = `${contentRoot}/${baseName}.yml`;
@@ -11759,7 +11794,12 @@ function bindComposerUI(state) {
         const target = targetKind === 'tabs' ? 'tabs' : 'index';
         // Copy YAML snapshot up-front to retain user-activation for clipboard
         try {
-          const text = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
+          let text;
+          if (target === 'tabs') text = toTabsYaml(state.tabs || {});
+          else {
+            await ensureIndexMetadataForExport(state.index || {});
+            text = toIndexYaml(state.index || {});
+          }
           nsCopyToClipboard(text);
         } catch(_) {}
         const missing = await computeMissingFiles(target);
