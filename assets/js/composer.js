@@ -11988,7 +11988,7 @@ function buildSiteUI(root, state) {
 
       menu.innerHTML = available
         .map((code) =>
-          `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`
+          `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
         )
         .join('');
       if (!available.length) {
