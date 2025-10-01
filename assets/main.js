@@ -5,7 +5,17 @@ import { ensureThemeLayout } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
 import { extractExcerpt, computeReadTime } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
-import { initI18n, t, withLangParam, loadLangJson, loadContentJson, loadTabsJson, getCurrentLang, normalizeLangKey } from './js/i18n.js';
+import {
+  initI18n,
+  t,
+  withLangParam,
+  loadLangJson,
+  loadContentJson,
+  loadTabsJson,
+  getCurrentLang,
+  normalizeLangKey,
+  POSTS_METADATA_READY_EVENT
+} from './js/i18n.js';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
@@ -31,6 +41,7 @@ let postsIndexCache = {};
 let allowedLocations = new Set();
 // Cross-language location aliases: any known variant -> preferred for current lang
 let locationAliasMap = new Map();
+let postsMetadataListenerBound = false;
 // Default page size; can be overridden by site.yaml (pageSize/postsPerPage)
 let PAGE_SIZE = 8;
 // Guard against overlapping post loads (rapid version switches/back-forward)
@@ -60,6 +71,80 @@ function callThemeHook(name, ...args) {
   const fn = getThemeHook(name);
   if (!fn) return undefined;
   try { return fn(...args); } catch (_) { return undefined; }
+}
+
+function handlePostsMetadataReady(event) {
+  const detail = event && event.detail;
+  const entries = (detail && typeof detail === 'object') ? detail.entries : null;
+  if (!entries || typeof entries !== 'object') return;
+
+  postsIndexCache = entries;
+
+  const newAllowed = new Set();
+  const byLocation = {};
+  const aliasUpdates = new Map();
+
+  for (const [title, meta] of Object.entries(entries)) {
+    if (!meta || typeof meta !== 'object') continue;
+    const canonical = (meta.location != null ? String(meta.location) : '').trim();
+    if (canonical) {
+      newAllowed.add(canonical);
+      byLocation[canonical] = title;
+      aliasUpdates.set(canonical, canonical);
+    }
+    if (Array.isArray(meta.versions)) {
+      meta.versions.forEach((ver) => {
+        if (!ver || ver.location == null) return;
+        const loc = String(ver.location).trim();
+        if (!loc) return;
+        newAllowed.add(loc);
+        byLocation[loc] = title;
+        if (canonical) aliasUpdates.set(loc, canonical);
+      });
+    }
+  }
+
+  allowedLocations = newAllowed;
+  postsByLocationTitle = byLocation;
+
+  if (aliasUpdates.size) {
+    const merged = new Map(locationAliasMap || []);
+    aliasUpdates.forEach((value, key) => {
+      merged.set(key, value);
+    });
+    locationAliasMap = merged;
+  }
+
+  try {
+    callThemeHook('handlePostsMetadataUpdate', {
+      entries,
+      lang: detail && detail.lang,
+      document,
+      window
+    });
+  } catch (_) { /* ignore theme hook errors */ }
+
+  const rawId = getQueryVariable('id');
+  const tabParam = (getQueryVariable('tab') || '').toLowerCase();
+  const homeSlug = getHomeSlug();
+  const onSearch = tabParam === 'search';
+  const onPosts = !rawId && (tabParam ? tabParam === 'posts' : homeSlug === 'posts');
+
+  if (onPosts) {
+    displayIndex(postsIndexCache);
+  } else if (onSearch) {
+    const q = getQueryVariable('q') || '';
+    displaySearch(q);
+  }
+}
+
+function bindPostsMetadataListener() {
+  if (postsMetadataListenerBound) return;
+  if (typeof window === 'undefined') return;
+  try {
+    window.addEventListener(POSTS_METADATA_READY_EVENT, handlePostsMetadataReady);
+    postsMetadataListenerBound = true;
+  } catch (_) { /* ignore */ }
 }
 
 function getViewContainer(view, role) {
@@ -1313,6 +1398,7 @@ async function softResetToSiteDefaultLanguage() {
       }, siteConfig);
     } catch (_) {}
     routeAndRender();
+    bindPostsMetadataListener();
   } catch (_) {
     try { window.location.reload(); } catch (__) {}
   }
@@ -1506,6 +1592,7 @@ try {
     } catch (_) {}
     
   routeAndRender();
+  bindPostsMetadataListener();
 } catch (e) {
   const bootContainers = getViewContainers('boot');
   resetTOCView('boot', bootContainers, { reason: 'bootError' });

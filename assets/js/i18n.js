@@ -40,6 +40,120 @@ let manifestBaseUrl = null;
 // Set to a positive integer to chunk requests; falsy values disable the limit.
 const FRONTMATTER_FETCH_BATCH_SIZE = 6;
 
+export const POSTS_METADATA_READY_EVENT = 'ns:posts-metadata-ready';
+
+const frontMatterMetadataCache = new Map();
+const frontMatterPromiseCache = new Map();
+const frontMatterFetchQueue = [];
+let frontMatterActiveFetches = 0;
+
+function interpretTruthyFlag(v) {
+  if (v === true) return true;
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'on' || s === 'enabled';
+}
+
+function normalizeMarkdownPath(path) {
+  if (typeof path === 'string') return path.trim();
+  return String(path || '').trim();
+}
+
+function getFrontMatterConcurrencyLimit() {
+  if (Number.isFinite(FRONTMATTER_FETCH_BATCH_SIZE) && FRONTMATTER_FETCH_BATCH_SIZE > 0) {
+    return FRONTMATTER_FETCH_BATCH_SIZE;
+  }
+  return Infinity;
+}
+
+async function performFrontMatterFetch(markdownPath) {
+  const path = normalizeMarkdownPath(markdownPath);
+  if (!path) return { location: path };
+  try {
+    const url = `${getContentRoot()}/${path}`;
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response || !response.ok) {
+      console.warn(`Failed to load content from ${path}: HTTP ${response ? response.status : 'unknown'}`);
+      return { location: path };
+    }
+    const content = await response.text();
+    const { frontMatter } = parseFrontMatter(content);
+    const resolveImagePath = (img) => {
+      const raw = String(img || '').trim();
+      if (!raw) return undefined;
+      if (/^(https?:|data:)/i.test(raw) || raw.startsWith('/')) return raw;
+      const lastSlash = path.lastIndexOf('/');
+      const baseDir = lastSlash >= 0 ? path.slice(0, lastSlash + 1) : '';
+      return (baseDir + raw).replace(/\\+/g, '/');
+    };
+    const fm = frontMatter || {};
+    return {
+      location: path,
+      image: resolveImagePath(fm.image) || undefined,
+      tag: fm.tags || fm.tag || undefined,
+      date: fm.date || undefined,
+      excerpt: fm.excerpt || undefined,
+      versionLabel: fm.version || undefined,
+      ai: interpretTruthyFlag(fm.ai || fm.aiGenerated || fm.llm) || undefined,
+      draft: interpretTruthyFlag(fm.draft || fm.wip || fm.unfinished || fm.inprogress) || undefined,
+      __title: fm.title || undefined
+    };
+  } catch (error) {
+    console.warn(`Failed to load content from ${path}:`, error);
+    return { location: path };
+  }
+}
+
+function processFrontMatterQueue() {
+  const limit = getFrontMatterConcurrencyLimit();
+  while (frontMatterFetchQueue.length && frontMatterActiveFetches < limit) {
+    const job = frontMatterFetchQueue.shift();
+    if (!job || typeof job.resolve !== 'function') {
+      continue;
+    }
+    const path = normalizeMarkdownPath(job.path);
+    if (!path) {
+      try { job.resolve({ location: path }); } catch (_) {}
+      continue;
+    }
+    frontMatterActiveFetches += 1;
+    performFrontMatterFetch(path)
+      .then((meta) => {
+        const data = meta && meta.location ? meta : { location: path };
+        const stable = Object.freeze({ ...data });
+        frontMatterMetadataCache.set(path, stable);
+        try { job.resolve(stable); } catch (_) {}
+      })
+      .catch((err) => {
+        console.warn(`Failed to load content from ${path}:`, err);
+        const fallback = Object.freeze({ location: path });
+        frontMatterMetadataCache.set(path, fallback);
+        try { job.resolve(fallback); } catch (_) {}
+      })
+      .finally(() => {
+        frontMatterActiveFetches = Math.max(0, frontMatterActiveFetches - 1);
+        frontMatterPromiseCache.delete(path);
+        processFrontMatterQueue();
+      });
+  }
+}
+
+function getFrontMatterMetadata(path) {
+  const normalized = normalizeMarkdownPath(path);
+  if (!normalized) return Promise.resolve({ location: normalized });
+  if (frontMatterMetadataCache.has(normalized)) {
+    return Promise.resolve(frontMatterMetadataCache.get(normalized));
+  }
+  if (frontMatterPromiseCache.has(normalized)) {
+    return frontMatterPromiseCache.get(normalized);
+  }
+  const promise = new Promise((resolve) => {
+    frontMatterFetchQueue.push({ path: normalized, resolve });
+    processFrontMatterQueue();
+  });
+  frontMatterPromiseCache.set(normalized, promise);
+  return promise;
+}
+
 const FALLBACK_LANGUAGE_LABEL = (enLanguageMeta && enLanguageMeta.label) ? enLanguageMeta.label : 'English';
 translations[DEFAULT_LANG] = enTranslations;
 languageNames[DEFAULT_LANG] = FALLBACK_LANGUAGE_LABEL;
@@ -356,18 +470,51 @@ function transformUnifiedContent(obj, lang) {
 
 // Load content metadata from simplified JSON and Markdown front matter
 // Supports per-language single path (string) OR multiple versions (array of strings)
+function buildEntryFromVariants(rawVariants, fallbackTitle) {
+  if (!Array.isArray(rawVariants) || !rawVariants.length) return null;
+  const variants = [];
+  for (const variant of rawVariants) {
+    if (!variant) continue;
+    const location = normalizeMarkdownPath(variant.location);
+    if (!location) continue;
+    const item = {
+      location,
+      image: variant.image || undefined,
+      tag: variant.tag || undefined,
+      date: variant.date || undefined,
+      excerpt: variant.excerpt || undefined,
+      versionLabel: variant.versionLabel || undefined,
+      ai: variant.ai || undefined,
+      draft: variant.draft || undefined
+    };
+    if (variant.__title) item.__title = variant.__title;
+    variants.push(item);
+  }
+  if (!variants.length) return null;
+  const toTime = (d) => {
+    const t = new Date(String(d || '')).getTime();
+    return Number.isFinite(t) ? t : -Infinity;
+  };
+  variants.sort((a, b) => toTime(b.date) - toTime(a.date));
+  const primary = variants[0];
+  if (!primary || !primary.location) return null;
+  const resolvedTitle = primary.__title || fallbackTitle;
+  const { __title, ...restPrimary } = primary;
+  const meta = { ...restPrimary, title: resolvedTitle };
+  meta.versions = variants.map((variant) => {
+    const { __title: _ignored, ...rest } = variant;
+    return { ...rest };
+  });
+  return { title: resolvedTitle, meta };
+}
+
 async function loadContentFromFrontMatter(obj, lang) {
   const out = {};
   const langsSeen = new Set();
   const nlang = normalizeLangKey(lang);
-  const truthy = (v) => {
-    if (v === true) return true;
-    const s = String(v ?? '').trim().toLowerCase();
-    return s === 'true' || s === '1' || s === 'yes' || s === 'y' || s === 'on' || s === 'enabled';
-  };
-  
-  // Collect all available languages from the simplified JSON
-  for (const [key, val] of Object.entries(obj || {})) {
+  const entries = Object.entries(obj || {});
+
+  for (const [, val] of entries) {
     if (val && typeof val === 'object' && !Array.isArray(val)) {
       Object.keys(val).forEach(k => {
         const nk = normalizeLangKey(k);
@@ -375,18 +522,17 @@ async function loadContentFromFrontMatter(obj, lang) {
       });
     }
   }
-  
-  // Process each entry
-  for (const [key, val] of Object.entries(obj || {})) {
+
+  const updatePromises = [];
+
+  for (const [key, val] of entries) {
     if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
-    
-    // Resolve the best language bucket first
+
     let chosenBucketKey = null;
     if (val[nlang] != null) chosenBucketKey = nlang;
     else if (val[baseDefaultLang] != null) chosenBucketKey = baseDefaultLang;
     else if (val['en'] != null) chosenBucketKey = 'en';
     else if (val['default'] != null) chosenBucketKey = 'default';
-    // Fallback to first available key when none matched
     if (!chosenBucketKey) {
       const firstKey = Object.keys(val)[0];
       if (firstKey) chosenBucketKey = firstKey;
@@ -394,83 +540,64 @@ async function loadContentFromFrontMatter(obj, lang) {
     if (!chosenBucketKey) continue;
 
     const raw = val[chosenBucketKey];
-    // Normalize to an array of paths (versions)
-    const paths = Array.isArray(raw) ? raw.filter(x => typeof x === 'string') : (typeof raw === 'string' ? [raw] : []);
-    if (!paths.length) continue;
+    const rawPaths = Array.isArray(raw)
+      ? raw.filter(x => typeof x === 'string')
+      : (typeof raw === 'string' ? [raw] : []);
+    const normalizedPaths = rawPaths.map(normalizeMarkdownPath).filter(Boolean);
+    if (!normalizedPaths.length) continue;
 
-    const variants = [];
-    const batchSize = (Number.isFinite(FRONTMATTER_FETCH_BATCH_SIZE) && FRONTMATTER_FETCH_BATCH_SIZE > 0)
-      ? FRONTMATTER_FETCH_BATCH_SIZE
-      : paths.length;
+    const variantSources = normalizedPaths.map((path) => frontMatterMetadataCache.get(path) || { location: path });
+    const placeholderEntry = buildEntryFromVariants(variantSources, key);
+    if (!placeholderEntry) continue;
 
-    const fetchVariant = async (p) => {
-      try {
-        const url = `${getContentRoot()}/${p}`;
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response || !response.ok) { return null; }
-        const content = await response.text();
-        const { frontMatter } = parseFrontMatter(content);
+    out[placeholderEntry.title] = placeholderEntry.meta;
 
-        // Resolve relative image (e.g., 'cover.jpg') against this markdown's folder
-        const resolveImagePath = (img) => {
-          const s = String(img || '').trim();
-          if (!s) return undefined;
-          if (/^(https?:|data:)/i.test(s) || s.startsWith('/')) return s;
-          const lastSlash = p.lastIndexOf('/');
-          const baseDir = lastSlash >= 0 ? p.slice(0, lastSlash + 1) : '';
-          return (baseDir + s).replace(/\/+/g, '/');
-        };
+    const needsAsync = normalizedPaths.some((path) => !frontMatterMetadataCache.has(path));
+    if (!needsAsync) continue;
 
-        return {
-          location: p,
-          image: resolveImagePath(frontMatter.image) || undefined,
-          tag: frontMatter.tags || frontMatter.tag || undefined,
-          date: frontMatter.date || undefined,
-          excerpt: frontMatter.excerpt || undefined,
-          versionLabel: frontMatter.version || undefined,
-          ai: truthy(frontMatter.ai || frontMatter.aiGenerated || frontMatter.llm) || undefined,
-          draft: truthy(frontMatter.draft || frontMatter.wip || frontMatter.unfinished || frontMatter.inprogress) || undefined,
-          __title: frontMatter.title || undefined
-        };
-      } catch (error) {
-        console.warn(`Failed to load content from ${p}:`, error);
-        return { location: p };
-      }
-    };
+    const fetchPromises = normalizedPaths.map((path) =>
+      getFrontMatterMetadata(path).catch(() => ({ location: path }))
+    );
 
-    for (let i = 0; i < paths.length; i += batchSize) {
-      const slice = paths.slice(i, i + batchSize);
-      const settled = await Promise.allSettled(slice.map((p) => fetchVariant(p)));
-      settled.forEach((result, idx) => {
-        const pathForResult = slice[idx];
-        if (result.status === 'fulfilled') {
-          if (result.value) variants.push(result.value);
-        } else {
-          console.warn(`Failed to load content from ${pathForResult}:`, result.reason);
-          variants.push({ location: pathForResult });
+    const previousTitle = placeholderEntry.title;
+    const enrichPromise = Promise.allSettled(fetchPromises).then((settled) => {
+      const resolvedVariants = settled.map((result, idx) => {
+        if (result.status === 'fulfilled' && result.value && result.value.location) {
+          return result.value;
         }
+        return { location: normalizedPaths[idx] };
       });
-    }
-    // Choose the latest by date as the primary version
-    const toTime = (d) => { const t = new Date(String(d || '')).getTime(); return Number.isFinite(t) ? t : -Infinity; };
-    variants.sort((a, b) => toTime(b.date) - toTime(a.date));
-    const primary = variants[0];
-    if (!primary) continue;
-
-    // The displayed title prefers the primary's title
-    const title = (primary.__title) || key;
-    const { __title, versionLabel, ...restPrimary } = primary;
-    const meta = { ...restPrimary, versionLabel, title };
-    // Attach versions list for UI switching (omit internal title field)
-    meta.versions = variants.map(v => {
-      const { __title: _t, ...rest } = v;
-      return rest;
+      const finalEntry = buildEntryFromVariants(resolvedVariants, key);
+      if (!finalEntry) return;
+      const oldKey = previousTitle;
+      const newKey = finalEntry.title;
+      if (newKey !== oldKey && Object.prototype.hasOwnProperty.call(out, oldKey)) {
+        delete out[oldKey];
+      }
+      out[newKey] = finalEntry.meta;
+    }).catch((err) => {
+      console.warn(`[i18n] Failed to enrich metadata for ${key}`, err);
     });
-    out[title] = meta;
+    updatePromises.push(enrichPromise);
   }
-  
+
+  if (updatePromises.length) {
+    Promise.allSettled(updatePromises).then(() => {
+      if (typeof window === 'undefined') return;
+      try {
+        window.dispatchEvent(new CustomEvent(POSTS_METADATA_READY_EVENT, {
+          detail: {
+            entries: out,
+            lang: nlang
+          }
+        }));
+      } catch (_) { /* ignore */ }
+    });
+  }
+
   return { entries: out, availableLangs: Array.from(langsSeen).sort() };
 }
+
 
 // Try to load unified YAML (`base.yaml`) first; if not unified or missing, fallback to legacy
 // per-language files (base.<currentLang>.yaml -> base.<default>.yaml -> base.yaml)
