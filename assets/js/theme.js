@@ -1,4 +1,4 @@
-import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage } from './i18n.js';
+import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js';
 
 const PACK_LINK_ID = 'theme-pack';
 
@@ -193,6 +193,7 @@ export function mountThemeControls() {
   // Populate language selector
   const langSel = wrapper.querySelector('#langSelect');
   if (langSel) {
+    try { ensureLanguageBundle(getCurrentLang()).catch(() => {}); } catch (_) {}
     const langs = getAvailableLangs();
     langSel.innerHTML = '';
     langs.forEach(code => {
@@ -202,8 +203,11 @@ export function mountThemeControls() {
       langSel.appendChild(opt);
     });
     langSel.value = getCurrentLang();
-    langSel.addEventListener('change', () => {
+    langSel.addEventListener('change', async () => {
       const val = langSel.value || 'en';
+      try {
+        await ensureLanguageBundle(val);
+      } catch (_) {}
       switchLanguage(val);
     });
   }
@@ -239,3 +243,17 @@ export function refreshLanguageSelector() {
   });
   sel.value = current;
 }
+
+try {
+  window.addEventListener('ns:i18n-bundle-loaded', (event) => {
+    const sel = document.getElementById('langSelect');
+    if (!sel) return;
+    const detail = event && event.detail ? event.detail : {};
+    const lang = (detail.lang || '').toLowerCase();
+    if (!lang) return;
+    const current = (getCurrentLang && getCurrentLang()) || '';
+    if ((sel.value && sel.value.toLowerCase() === lang) || (current && current.toLowerCase() === lang)) {
+      try { refreshLanguageSelector(); } catch (_) {}
+    }
+  });
+} catch (_) {}
