@@ -11983,12 +11983,14 @@ function buildSiteUI(root, state) {
         return a.localeCompare(b);
       });
 
-      const available = supported.filter((code) => !used.has(code));
+      // Filter only valid language codes that match LANG_CODE_PATTERN
+      const available = supported.filter((code) => !used.has(code) && LANG_CODE_PATTERN.test(code));
 
       menu.innerHTML = available
-        .map((code) => `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`)
+        .map((code) =>
+          `<button type="button" role="option" class="ns-menu-item" data-lang="${code}">${escapeHtml(displayLangName(code))}</button>`
+        )
         .join('');
-
       if (!available.length) {
         addBtn.setAttribute('disabled', '');
         addWrap.classList.add('is-disabled');
