@@ -40,6 +40,12 @@ let manifestBaseUrl = null;
 // Set to a positive integer to chunk requests; falsy values disable the limit.
 const FRONTMATTER_FETCH_BATCH_SIZE = 6;
 
+const EMBEDDED_METADATA_FIELDS = new Set([
+  'title', 'titles', 'date', 'excerpt', 'summary', 'image', 'cover', 'thumb',
+  'tag', 'tags', 'version', 'versionlabel', 'ai', 'aigenerated', 'llm',
+  'draft', 'wip', 'unfinished', 'inprogress'
+]);
+
 const FALLBACK_LANGUAGE_LABEL = (enLanguageMeta && enLanguageMeta.label) ? enLanguageMeta.label : 'English';
 translations[DEFAULT_LANG] = enTranslations;
 languageNames[DEFAULT_LANG] = FALLBACK_LANGUAGE_LABEL;
@@ -614,6 +620,26 @@ function deriveSimplifiedEntryFallbackMeta(entry, langKeys, chosen) {
   return mergeMetadata(...fallbackSources);
 }
 
+function containsEmbeddedMetadataFields(candidate) {
+  if (!candidate || typeof candidate !== 'object') return false;
+  return Object.keys(candidate).some((key) => {
+    const lower = String(key).toLowerCase();
+    if (lower === 'location' || lower === 'path' || lower === 'versions') return false;
+    return EMBEDDED_METADATA_FIELDS.has(lower);
+  });
+}
+
+function bucketProvidesEmbeddedMetadata(entryMeta, bucket) {
+  if (containsEmbeddedMetadataFields(entryMeta)) return true;
+  if (bucket && containsEmbeddedMetadataFields(bucket.meta)) return true;
+  if (bucket && Array.isArray(bucket.versions)) {
+    for (const version of bucket.versions) {
+      if (containsEmbeddedMetadataFields(version)) return true;
+    }
+  }
+  return false;
+}
+
 async function loadContentFromSimplifiedMetadata(obj, lang) {
   const out = {};
   const langsSeen = new Set();
@@ -638,6 +664,16 @@ async function loadContentFromSimplifiedMetadata(obj, lang) {
 
     const entryMeta = deriveSimplifiedEntryFallbackMeta(val, langKeys, chosen);
     const bucket = normalizeBucketMetadata(chosen.value, entryMeta);
+    const hasEmbedded = bucketProvidesEmbeddedMetadata(entryMeta, bucket);
+
+    if (!hasEmbedded) {
+      const fallback = await loadContentFromFrontMatter({ [key]: val }, lang);
+      (fallback.availableLangs || []).forEach((lk) => langsSeen.add(lk));
+      for (const [fallbackTitle, meta] of Object.entries(fallback.entries || {})) {
+        out[fallbackTitle] = meta;
+      }
+      continue;
+    }
     if (!bucket.versions.length) continue;
 
     const toTime = (d) => {
@@ -705,12 +741,6 @@ export async function loadContentJson(basePath, baseName) {
       let simplifiedHasEmbeddedMeta = false;
 
       const LANG_KEY_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
-      const METADATA_KEYS = new Set([
-        'title', 'titles', 'date', 'excerpt', 'summary', 'image', 'cover', 'thumb',
-        'tag', 'tags', 'version', 'versionlabel', 'ai', 'aigenerated', 'llm',
-        'draft', 'wip', 'unfinished', 'inprogress'
-      ]);
-
       const looksLikeLang = (key) => {
         const normalized = normalizeLangKey(key);
         if (normalized === 'default') return true;
@@ -724,7 +754,7 @@ export async function loadContentJson(basePath, baseName) {
           if (k === 'location' || k === 'path') return false;
           if (k === 'versions') return false;
           if (looksLikeLang(k)) return false;
-          return METADATA_KEYS.has(String(k).toLowerCase());
+          return EMBEDDED_METADATA_FIELDS.has(String(k).toLowerCase());
         });
       };
 
@@ -759,7 +789,7 @@ export async function loadContentJson(basePath, baseName) {
             valid = true;
             continue;
           }
-          if (METADATA_KEYS.has(lower)) {
+          if (EMBEDDED_METADATA_FIELDS.has(lower)) {
             simplifiedHasEmbeddedMeta = true;
             valid = true;
             continue;
@@ -777,7 +807,7 @@ export async function loadContentJson(basePath, baseName) {
           // Check for simplified format (language -> path mapping)
           const innerKeys = Object.keys(v);
           const hasOnlyPaths = innerKeys.every(ik => {
-            if (!looksLikeLang(ik) && METADATA_KEYS.has(String(ik).toLowerCase())) {
+            if (!looksLikeLang(ik) && EMBEDDED_METADATA_FIELDS.has(String(ik).toLowerCase())) {
               simplifiedHasEmbeddedMeta = true;
               return true;
             }
