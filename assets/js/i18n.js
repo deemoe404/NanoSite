@@ -47,6 +47,9 @@ const frontMatterPromiseCache = new Map();
 const frontMatterFetchQueue = [];
 let frontMatterActiveFetches = 0;
 
+const FRONTMATTER_RETRY_DELAY_MS = 2000;
+const FRONTMATTER_MAX_RETRIES = 2;
+
 function interpretTruthyFlag(v) {
   if (v === true) return true;
   const s = String(v ?? '').trim().toLowerCase();
@@ -67,13 +70,13 @@ function getFrontMatterConcurrencyLimit() {
 
 async function performFrontMatterFetch(markdownPath) {
   const path = normalizeMarkdownPath(markdownPath);
-  if (!path) return { location: path };
+  if (!path) return { location: path, __placeholder: true };
   try {
     const url = `${getContentRoot()}/${path}`;
     const response = await fetch(url, { cache: 'no-store' });
     if (!response || !response.ok) {
       console.warn(`Failed to load content from ${path}: HTTP ${response ? response.status : 'unknown'}`);
-      return { location: path };
+      return { location: path, __placeholder: true };
     }
     const content = await response.text();
     const { frontMatter } = parseFrontMatter(content);
@@ -95,11 +98,12 @@ async function performFrontMatterFetch(markdownPath) {
       versionLabel: fm.version || undefined,
       ai: interpretTruthyFlag(fm.ai || fm.aiGenerated || fm.llm) || undefined,
       draft: interpretTruthyFlag(fm.draft || fm.wip || fm.unfinished || fm.inprogress) || undefined,
-      __title: fm.title || undefined
+      __title: fm.title || undefined,
+      __placeholder: false
     };
   } catch (error) {
     console.warn(`Failed to load content from ${path}:`, error);
-    return { location: path };
+    return { location: path, __placeholder: true };
   }
 }
 
@@ -118,14 +122,14 @@ function processFrontMatterQueue() {
     frontMatterActiveFetches += 1;
     performFrontMatterFetch(path)
       .then((meta) => {
-        const data = meta && meta.location ? meta : { location: path };
+        const data = meta && meta.location ? meta : { location: path, __placeholder: true };
         const stable = Object.freeze({ ...data });
         frontMatterMetadataCache.set(path, stable);
         try { job.resolve(stable); } catch (_) {}
       })
       .catch((err) => {
         console.warn(`Failed to load content from ${path}:`, err);
-        const fallback = Object.freeze({ location: path });
+        const fallback = Object.freeze({ location: path, __placeholder: true });
         frontMatterMetadataCache.set(path, fallback);
         try { job.resolve(fallback); } catch (_) {}
       })
@@ -152,6 +156,52 @@ function getFrontMatterMetadata(path) {
   });
   frontMatterPromiseCache.set(normalized, promise);
   return promise;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    try {
+      setTimeout(resolve, ms);
+    } catch (_) {
+      resolve();
+    }
+  });
+}
+
+async function enrichFrontMatterVariants(paths, key, previousTitle, out, attempt = 0) {
+  const fetchPromises = paths.map((path) =>
+    getFrontMatterMetadata(path).catch(() => ({ location: path, __placeholder: true }))
+  );
+
+  try {
+    const settled = await Promise.allSettled(fetchPromises);
+    const resolvedVariants = settled.map((result, idx) => {
+      if (result.status === 'fulfilled' && result.value && result.value.location) {
+        return result.value;
+      }
+      return { location: paths[idx], __placeholder: true };
+    });
+    const finalEntry = buildEntryFromVariants(resolvedVariants, key);
+    if (!finalEntry) return;
+
+    const oldKey = previousTitle;
+    const newKey = finalEntry.title;
+    if (newKey !== oldKey && Object.prototype.hasOwnProperty.call(out, oldKey)) {
+      delete out[oldKey];
+    }
+    out[newKey] = finalEntry.meta;
+
+    const allPlaceholders = resolvedVariants.every((variant) => variant && variant.__placeholder);
+    if (allPlaceholders && attempt < FRONTMATTER_MAX_RETRIES) {
+      paths.forEach((path) => {
+        frontMatterMetadataCache.delete(path);
+      });
+      await delay(FRONTMATTER_RETRY_DELAY_MS);
+      return enrichFrontMatterVariants(paths, key, newKey, out, attempt + 1);
+    }
+  } catch (err) {
+    console.warn(`[i18n] Failed to enrich metadata for ${key}`, err);
+  }
 }
 
 const FALLBACK_LANGUAGE_LABEL = (enLanguageMeta && enLanguageMeta.label) ? enLanguageMeta.label : 'English';
@@ -546,38 +596,20 @@ async function loadContentFromFrontMatter(obj, lang) {
     const normalizedPaths = rawPaths.map(normalizeMarkdownPath).filter(Boolean);
     if (!normalizedPaths.length) continue;
 
-    const variantSources = normalizedPaths.map((path) => frontMatterMetadataCache.get(path) || { location: path });
+    const variantSources = normalizedPaths.map((path) => frontMatterMetadataCache.get(path) || { location: path, __placeholder: true });
     const placeholderEntry = buildEntryFromVariants(variantSources, key);
     if (!placeholderEntry) continue;
 
     out[placeholderEntry.title] = placeholderEntry.meta;
 
-    const needsAsync = normalizedPaths.some((path) => !frontMatterMetadataCache.has(path));
+    const needsAsync = normalizedPaths.some((path) => {
+      const cached = frontMatterMetadataCache.get(path);
+      return !cached || cached.__placeholder;
+    });
     if (!needsAsync) continue;
 
-    const fetchPromises = normalizedPaths.map((path) =>
-      getFrontMatterMetadata(path).catch(() => ({ location: path }))
-    );
-
     const previousTitle = placeholderEntry.title;
-    const enrichPromise = Promise.allSettled(fetchPromises).then((settled) => {
-      const resolvedVariants = settled.map((result, idx) => {
-        if (result.status === 'fulfilled' && result.value && result.value.location) {
-          return result.value;
-        }
-        return { location: normalizedPaths[idx] };
-      });
-      const finalEntry = buildEntryFromVariants(resolvedVariants, key);
-      if (!finalEntry) return;
-      const oldKey = previousTitle;
-      const newKey = finalEntry.title;
-      if (newKey !== oldKey && Object.prototype.hasOwnProperty.call(out, oldKey)) {
-        delete out[oldKey];
-      }
-      out[newKey] = finalEntry.meta;
-    }).catch((err) => {
-      console.warn(`[i18n] Failed to enrich metadata for ${key}`, err);
-    });
+    const enrichPromise = enrichFrontMatterVariants(normalizedPaths, key, previousTitle, out, 0);
     updatePromises.push(enrichPromise);
   }
 
