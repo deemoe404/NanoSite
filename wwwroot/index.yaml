@@ -1,8 +1,52 @@
 # yaml-language-server: $schema=../assets/schema/index.json
-
 hello_world:
-  en: post/main_en.md
-  zh: post/main_zh.md
-  zh-tw: post/main_zh-tw.md
-  zh-hk: post/main_zh-hk.md
-  ja: post/main_ja.md
+  en:
+    location: post/main_en.md
+    title: Hello, World!
+    date: 2025-08-23
+    excerpt: Hello, World!
+    tag:
+      - NanoSite
+    version: v1.0
+    ai: true
+    draft: true
+  zh:
+    location: post/main_zh.md
+    title: 你好，世界！
+    date: 2025-08-23
+    excerpt: 你好，世界！
+    tag:
+      - NanoSite
+    version: v1.0
+    ai: true
+    draft: true
+  zh-tw:
+    location: post/main_zh-tw.md
+    title: 你好，世界！
+    date: 2025-08-23
+    excerpt: 你好，世界！
+    tag:
+      - NanoSite
+    version: v1.0
+    ai: true
+    draft: true
+  zh-hk:
+    location: post/main_zh-hk.md
+    title: 你好，世界！
+    date: 2025-08-23
+    excerpt: 你好，世界！
+    tag:
+      - NanoSite
+    version: v1.0
+    ai: true
+    draft: true
+  ja:
+    location: post/main_ja.md
+    title: こんにちは、世界！
+    date: 2025-08-23
+    excerpt: こんにちは、世界！
+    tag:
+      - NanoSite
+    version: v1.0
+    ai: true
+    draft: true

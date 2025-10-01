@@ -1,6 +1,7 @@
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
+import { parseFrontMatter } from './content.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 
 // Utility helpers
@@ -1696,19 +1697,460 @@ function prepareIndexState(raw) {
 function normalizeIndexEntry(entry) {
   const out = {};
   if (!entry || typeof entry !== 'object') return out;
+
+  const existingMeta = (entry.__meta && typeof entry.__meta === 'object') ? entry.__meta : {};
+  const metaOut = {};
+
+  const cloneMeta = (meta) => {
+    if (!meta || typeof meta !== 'object') return {};
+    const copy = {};
+    if (meta.title != null) copy.title = safeString(meta.title);
+    if (meta.date != null) copy.date = safeString(meta.date);
+    if (meta.excerpt != null) copy.excerpt = safeString(meta.excerpt);
+    if (meta.image != null) copy.image = safeString(meta.image);
+    if (meta.tag != null) {
+      copy.tag = Array.isArray(meta.tag) ? meta.tag.map(item => safeString(item)) : safeString(meta.tag);
+    }
+    if (meta.versionLabel != null) copy.versionLabel = safeString(meta.versionLabel);
+    if (meta.version != null) copy.version = safeString(meta.version);
+    if (meta.ai != null) {
+      const ai = normalizeBoolean(meta.ai, null);
+      if (ai !== null) copy.ai = ai;
+    }
+    if (meta.draft != null) {
+      const draft = normalizeBoolean(meta.draft, null);
+      if (draft !== null) copy.draft = draft;
+    }
+    if (Array.isArray(meta.__versions)) {
+      const versions = meta.__versions
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const normalized = {};
+          if (item.location != null) normalized.location = safeString(item.location);
+          if (!normalized.location) return null;
+          if (item.date != null) normalized.date = safeString(item.date);
+          if (item.excerpt != null) normalized.excerpt = safeString(item.excerpt);
+          if (item.image != null) normalized.image = safeString(item.image);
+          if (item.tag != null) {
+            normalized.tag = Array.isArray(item.tag) ? item.tag.map(v => safeString(v)) : safeString(item.tag);
+          }
+          if (item.versionLabel != null) normalized.versionLabel = safeString(item.versionLabel);
+          if (item.version != null) normalized.version = safeString(item.version);
+          if (item.ai != null) {
+            const aiFlag = normalizeBoolean(item.ai, null);
+            if (aiFlag !== null) normalized.ai = aiFlag;
+          }
+          if (item.draft != null) {
+            const draftFlag = normalizeBoolean(item.draft, null);
+            if (draftFlag !== null) normalized.draft = draftFlag;
+          }
+          return normalized;
+        })
+        .filter(Boolean);
+      if (versions.length) copy.__versions = versions;
+    }
+    return copy;
+  };
+
+  const mergeMeta = (target, updates) => {
+    if (!updates || typeof updates !== 'object') return target;
+    if (updates.title != null) target.title = safeString(updates.title);
+    if (updates.date != null) target.date = safeString(updates.date);
+    if (updates.excerpt != null) target.excerpt = safeString(updates.excerpt);
+    if (updates.image != null) target.image = safeString(updates.image);
+    if (updates.tag != null) {
+      target.tag = Array.isArray(updates.tag) ? updates.tag.map(item => safeString(item)) : safeString(updates.tag);
+    } else if (updates.tags != null && target.tag == null) {
+      target.tag = Array.isArray(updates.tags) ? updates.tags.map(item => safeString(item)) : safeString(updates.tags);
+    }
+    if (updates.versionLabel != null) target.versionLabel = safeString(updates.versionLabel);
+    if (updates.version != null && target.versionLabel == null) target.version = safeString(updates.version);
+    if (updates.ai != null) {
+      const ai = normalizeBoolean(updates.ai, null);
+      if (ai !== null) target.ai = ai;
+    }
+    if (updates.aiGenerated != null && target.ai == null) {
+      const ai = normalizeBoolean(updates.aiGenerated, null);
+      if (ai !== null) target.ai = ai;
+    }
+    if (updates.llm != null && target.ai == null) {
+      const ai = normalizeBoolean(updates.llm, null);
+      if (ai !== null) target.ai = ai;
+    }
+    if (updates.draft != null) {
+      const draft = normalizeBoolean(updates.draft, null);
+      if (draft !== null) target.draft = draft;
+    }
+    if (updates.wip != null && target.draft == null) {
+      const draft = normalizeBoolean(updates.wip, null);
+      if (draft !== null) target.draft = draft;
+    }
+    if (updates.unfinished != null && target.draft == null) {
+      const draft = normalizeBoolean(updates.unfinished, null);
+      if (draft !== null) target.draft = draft;
+    }
+    if (updates.inprogress != null && target.draft == null) {
+      const draft = normalizeBoolean(updates.inprogress, null);
+      if (draft !== null) target.draft = draft;
+    }
+    return target;
+  };
+
+  const extractLangMeta = (value) => {
+    const meta = {};
+    mergeMeta(meta, value);
+    return meta;
+  };
+
+  const sanitizeVersionMeta = (value) => {
+    if (!value || typeof value !== 'object') return [];
+    const versions = [];
+    if (Array.isArray(value.versions) && value.versions.length) {
+      value.versions.forEach((item) => {
+        if (typeof item === 'string') return;
+        if (!item || typeof item !== 'object') return;
+        const location = safeString(item.location || item.path || '');
+        if (!location) return;
+        const meta = extractLangMeta(item);
+        if (Object.keys(meta).length) {
+          const clean = cloneMeta(meta);
+          delete clean.title;
+          clean.location = location;
+          versions.push(clean);
+        }
+      });
+    } else {
+      const location = safeString(value.location || value.path || '');
+      if (location) {
+        const meta = extractLangMeta(value);
+        const clean = cloneMeta(meta);
+        delete clean.title;
+        if (Object.keys(clean).length) {
+          clean.location = location;
+          versions.push(clean);
+        }
+      }
+    }
+    return versions;
+  };
+
   Object.keys(entry).forEach(lang => {
-    if (lang === '__order') return;
+    if (lang === '__order' || lang === '__meta') return;
     const value = entry[lang];
+    const existing = cloneMeta(existingMeta[lang]);
+
     if (Array.isArray(value)) {
       out[lang] = value.map(item => safeString(item));
     } else if (value != null && typeof value === 'object') {
-      // Unexpected object -> stringify to keep placeholder
-      out[lang] = safeString(value.location || value.path || '');
+      const arr = [];
+      if (Array.isArray(value.versions) && value.versions.length) {
+        value.versions.forEach((item) => {
+          if (typeof item === 'string') arr.push(safeString(item));
+          else if (item && typeof item === 'object') {
+            const loc = safeString(item.location || item.path || '');
+            if (loc) arr.push(loc);
+          }
+        });
+      }
+      if (!arr.length) {
+        const loc = safeString(value.location || value.path || '');
+        if (loc) arr.push(loc);
+      }
+      if (!arr.length && typeof value.default === 'string') {
+        arr.push(safeString(value.default));
+      }
+      if (!arr.length) out[lang] = '';
+      else if (arr.length === 1) out[lang] = arr[0];
+      else out[lang] = arr;
+
+      const meta = extractLangMeta(value);
+      mergeMeta(existing, meta);
+      const versionMeta = sanitizeVersionMeta(value);
+      if (versionMeta.length) existing.__versions = versionMeta;
     } else {
       out[lang] = safeString(value);
     }
+
+    if (existing && Object.keys(existing).length) metaOut[lang] = existing;
   });
+
+  Object.keys(existingMeta).forEach((lang) => {
+    if (metaOut[lang]) return;
+    const clone = cloneMeta(existingMeta[lang]);
+    if (clone && Object.keys(clone).length) metaOut[lang] = clone;
+  });
+
+  if (Object.keys(metaOut).length) out.__meta = metaOut;
   return out;
+}
+
+function normalizeContentPath(path) {
+  const raw = safeString(path).trim();
+  if (!raw) return '';
+  return raw.replace(/\\+/g, '/').replace(/^\/+/, '');
+}
+
+function resolveFrontMatterImage(value, location) {
+  const raw = safeString(value).trim();
+  if (!raw) return '';
+  if (/^(https?:|data:)/i.test(raw) || raw.startsWith('/')) return raw;
+  const normalizedLoc = normalizeContentPath(location);
+  const lastSlash = normalizedLoc.lastIndexOf('/');
+  const baseDir = lastSlash >= 0 ? normalizedLoc.slice(0, lastSlash + 1) : '';
+  return `${baseDir}${raw}`.replace(/\\+/g, '/');
+}
+
+function normalizeTagList(value) {
+  if (value == null) return null;
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map(item => safeString(item).trim())
+      .filter(Boolean);
+    return normalized.length ? normalized : null;
+  }
+  const str = safeString(value).trim();
+  if (!str) return null;
+  if (str.includes(',')) {
+    const parts = str.split(',').map(part => part.trim()).filter(Boolean);
+    if (parts.length > 1) return parts;
+  }
+  return str;
+}
+
+function frontMatterBoolean(value) {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (value == null) return null;
+  const normalized = safeString(value).trim().toLowerCase();
+  if (!normalized) return null;
+  if (['true', '1', 'yes', 'y', 'on', 'enabled'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'n', 'off', 'disabled'].includes(normalized)) return false;
+  return null;
+}
+
+function hasMetaValue(value) {
+  if (value == null) return false;
+  if (typeof value === 'boolean') return true;
+  if (Array.isArray(value)) {
+    return value.some(item => hasMetaValue(item));
+  }
+  return safeString(value).trim() !== '';
+}
+
+function applyMetaField(target, key, value) {
+  if (!target || !hasMetaValue(value)) return false;
+  if (hasMetaValue(target[key])) return false;
+  if (Array.isArray(value)) {
+    const normalized = value.map(item => safeString(item).trim()).filter(Boolean);
+    if (!normalized.length) return false;
+    target[key] = normalized;
+    return true;
+  }
+  if (typeof value === 'boolean') {
+    target[key] = value;
+    return true;
+  }
+  const str = safeString(value).trim();
+  if (!str) return false;
+  target[key] = str;
+  return true;
+}
+
+function hasVariantMeta(meta) {
+  if (!meta || typeof meta !== 'object') return false;
+  return Object.keys(meta).some((key) => {
+    if (key === 'location' || key === 'path') return false;
+    return hasMetaValue(meta[key]);
+  });
+}
+
+function pruneVariantMeta(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  const location = normalizeContentPath(meta.location || meta.path || '');
+  if (!location) return null;
+  const out = { location };
+  const fields = ['title', 'date', 'excerpt', 'image', 'tag', 'versionLabel', 'version', 'ai', 'draft'];
+  fields.forEach((field) => {
+    if (!Object.prototype.hasOwnProperty.call(meta, field)) return;
+    const value = meta[field];
+    if (!hasMetaValue(value)) return;
+    if (Array.isArray(value)) out[field] = value.map(item => safeString(item).trim()).filter(Boolean);
+    else if (typeof value === 'boolean') out[field] = value;
+    else out[field] = safeString(value).trim();
+  });
+  return Object.keys(out).length > 1 ? out : null;
+}
+
+function pruneMeta(meta) {
+  if (!meta || typeof meta !== 'object') return {};
+  const out = {};
+  const generalFields = ['title', 'date', 'excerpt', 'image', 'tag', 'versionLabel', 'version', 'ai', 'draft'];
+  generalFields.forEach((field) => {
+    if (!Object.prototype.hasOwnProperty.call(meta, field)) return;
+    const value = meta[field];
+    if (!hasMetaValue(value)) return;
+    if (Array.isArray(value)) out[field] = value.map(item => safeString(item).trim()).filter(Boolean);
+    else if (typeof value === 'boolean') out[field] = value;
+    else out[field] = safeString(value).trim();
+  });
+  const versions = Array.isArray(meta.__versions)
+    ? meta.__versions.map(pruneVariantMeta).filter(Boolean)
+    : [];
+  if (versions.length) out.__versions = versions;
+  return out;
+}
+
+function extractFrontMatterMeta(frontMatter, location) {
+  const meta = { location: normalizeContentPath(location) };
+  if (!frontMatter || typeof frontMatter !== 'object') return meta;
+
+  const title = safeString(frontMatter.title || frontMatter.name || '').trim();
+  if (title) meta.title = title;
+
+  const date = safeString(frontMatter.date || frontMatter.published || frontMatter.publishedAt || '').trim();
+  if (date) meta.date = date;
+
+  const excerptRaw = frontMatter.excerpt ?? frontMatter.summary ?? frontMatter.description ?? null;
+  const excerpt = safeString(excerptRaw || '').trim();
+  if (excerpt) meta.excerpt = excerpt;
+
+  const image = resolveFrontMatterImage(frontMatter.image ?? frontMatter.cover ?? frontMatter.thumbnail ?? frontMatter.hero, location);
+  if (image) meta.image = image;
+
+  const tags = normalizeTagList(frontMatter.tags ?? frontMatter.tag ?? frontMatter.categories ?? frontMatter.category);
+  if (hasMetaValue(tags)) meta.tag = tags;
+
+  const rawVersionLabel = frontMatter.versionLabel ?? frontMatter.versionName ?? frontMatter.releaseLabel ?? frontMatter.release ?? null;
+  const rawVersion = frontMatter.version ?? null;
+  const versionLabel = safeString(rawVersionLabel || rawVersion || '').trim();
+  if (versionLabel) meta.versionLabel = versionLabel;
+
+  const versionId = frontMatter.versionId
+    ?? frontMatter.versionCode
+    ?? frontMatter.versionNumber
+    ?? frontMatter.build
+    ?? frontMatter.buildNumber
+    ?? null;
+  const version = safeString(versionId || '').trim();
+  if (version) meta.version = version;
+  else if (!version && rawVersion && typeof rawVersion !== 'object') {
+    const numeric = safeString(rawVersion).trim();
+    if (numeric && /^\d+(?:[.-]\d+)*$/.test(numeric)) meta.version = numeric;
+  }
+
+  const ai = frontMatterBoolean(frontMatter.ai ?? frontMatter.aiGenerated ?? frontMatter.generated ?? frontMatter.llm);
+  if (ai !== null) meta.ai = ai;
+
+  const draft = frontMatterBoolean(frontMatter.draft ?? frontMatter.wip ?? frontMatter.unfinished ?? frontMatter.inprogress ?? frontMatter.private ?? frontMatter.unpublished);
+  if (draft !== null) meta.draft = draft;
+
+  return meta;
+}
+
+async function hydrateIndexMetadataFromFrontMatter(index, options = {}) {
+  if (!index || typeof index !== 'object') return;
+  const contentRoot = safeString(options.contentRoot || 'wwwroot').replace(/\\+/g, '/').replace(/\/+$/, '');
+  const rootPrefix = contentRoot ? `${contentRoot}/` : '';
+  const frontMatterCache = new Map();
+
+  const fetchFrontMatterForPath = async (path) => {
+    const normalized = normalizeContentPath(path);
+    if (!normalized) return null;
+    if (frontMatterCache.has(normalized)) return frontMatterCache.get(normalized);
+    const promise = (async () => {
+      try {
+        const response = await fetch(`${rootPrefix}${normalized}`, { cache: 'no-store' });
+        if (!response || !response.ok) return null;
+        const text = await response.text();
+        const { frontMatter } = parseFrontMatter(text);
+        return frontMatter && typeof frontMatter === 'object' ? frontMatter : {};
+      } catch (error) {
+        console.warn('Composer: failed to read front matter for', normalized, error);
+        return null;
+      }
+    })();
+    frontMatterCache.set(normalized, promise);
+    return promise;
+  };
+
+  const keys = Array.isArray(index.__order) ? index.__order.slice() : Object.keys(index).filter(k => k !== '__order');
+  for (const key of keys) {
+    const entry = index[key];
+    if (!entry || typeof entry !== 'object') continue;
+    const existingMetaMap = (entry.__meta && typeof entry.__meta === 'object') ? entry.__meta : {};
+    const nextMetaMap = {};
+    const langSet = new Set();
+    Object.keys(existingMetaMap).forEach(lang => langSet.add(lang));
+    Object.keys(entry).forEach((lang) => {
+      if (lang === '__meta' || lang === '__order') return;
+      langSet.add(lang);
+    });
+
+    for (const lang of langSet) {
+      if (lang === '__meta' || lang === '__order') continue;
+      const rawValue = entry[lang];
+      const existingMeta = (existingMetaMap[lang] && typeof existingMetaMap[lang] === 'object')
+        ? deepClone(existingMetaMap[lang])
+        : {};
+      const versionMap = new Map();
+      if (existingMeta.__versions && Array.isArray(existingMeta.__versions)) {
+        existingMeta.__versions.forEach((item) => {
+          if (!item || typeof item !== 'object') return;
+          const locKey = normalizeContentPath(item.location || item.path || '');
+          if (!locKey) return;
+          const clone = deepClone(item);
+          if (!clone.location) clone.location = locKey;
+          versionMap.set(locKey, clone);
+        });
+      }
+      delete existingMeta.__versions;
+
+      if (rawValue == null) {
+        const prunedMeta = pruneMeta(existingMeta);
+        if (Object.keys(prunedMeta).length) nextMetaMap[lang] = prunedMeta;
+        continue;
+      }
+
+      const valueList = Array.isArray(rawValue) ? rawValue : [rawValue];
+      const paths = Array.from(new Set(valueList.map(item => normalizeContentPath(item)).filter(Boolean)));
+      if (!paths.length) {
+        const prunedMeta = pruneMeta(existingMeta);
+        if (Object.keys(prunedMeta).length) nextMetaMap[lang] = prunedMeta;
+        continue;
+      }
+
+      const results = await Promise.all(paths.map(async (p) => {
+        const fm = await fetchFrontMatterForPath(p);
+        return { path: p, frontMatter: fm };
+      }));
+
+      results.forEach(({ path, frontMatter }) => {
+        if (!frontMatter || typeof frontMatter !== 'object') return;
+        const fmMeta = extractFrontMatterMeta(frontMatter, path);
+        const general = { ...fmMeta };
+        delete general.location;
+        Object.keys(general).forEach((field) => {
+          applyMetaField(existingMeta, field, general[field]);
+        });
+        if (hasVariantMeta(fmMeta)) {
+          const variant = versionMap.get(path) || { location: path };
+          Object.keys(general).forEach((field) => {
+            applyMetaField(variant, field, general[field]);
+          });
+          if (!variant.location) variant.location = path;
+          versionMap.set(path, variant);
+        }
+      });
+
+      const versions = Array.from(versionMap.values()).map(pruneVariantMeta).filter(Boolean);
+      if (versions.length) existingMeta.__versions = versions;
+      const prunedMeta = pruneMeta(existingMeta);
+      if (Object.keys(prunedMeta).length) nextMetaMap[lang] = prunedMeta;
+    }
+
+    if (Object.keys(nextMetaMap).length) entry.__meta = nextMetaMap;
+    else if (entry.__meta) delete entry.__meta;
+  }
 }
 
 function prepareTabsState(raw) {
@@ -9717,7 +10159,7 @@ function slideToggle(el, toOpen) {
 }
 
 function sortLangKeys(obj) {
-  const keys = Object.keys(obj || {});
+  const keys = Object.keys(obj || {}).filter((key) => key !== '__meta');
   return keys.sort((a, b) => {
     const ia = PREFERRED_LANG_ORDER.indexOf(normalizeLangCode(a));
     const ib = PREFERRED_LANG_ORDER.indexOf(normalizeLangCode(b));
@@ -9759,29 +10201,138 @@ function q(s) {
 }
 
 function toIndexYaml(data) {
+  const pushKeyValue = (lines, indent, keyName, value) => {
+    const pad = '  '.repeat(indent);
+    if (value == null) return;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${pad}${keyName}: ${yamlScalar(value)}`);
+      return;
+    }
+    if (Array.isArray(value) && !value.length) {
+      lines.push(`${pad}${keyName}: []`);
+      return;
+    }
+    lines.push(`${pad}${keyName}:`);
+    writeYamlValue(lines, indent + 1, value);
+  };
+
+  const sanitizeGeneralMeta = (meta) => {
+    const out = {};
+    if (!meta || typeof meta !== 'object') return out;
+    if (meta.title != null && meta.title !== '') out.title = safeString(meta.title);
+    if (meta.date != null && meta.date !== '') out.date = safeString(meta.date);
+    if (meta.excerpt != null && meta.excerpt !== '') out.excerpt = safeString(meta.excerpt);
+    if (meta.image != null && meta.image !== '') out.image = safeString(meta.image);
+    if (meta.tag != null) {
+      out.tag = Array.isArray(meta.tag) ? meta.tag.map(item => safeString(item)) : safeString(meta.tag);
+    }
+    if (meta.versionLabel != null && meta.versionLabel !== '') out.versionLabel = safeString(meta.versionLabel);
+    if (meta.version != null && meta.version !== '') out.version = safeString(meta.version);
+    const ai = normalizeBoolean(meta.ai, null);
+    if (ai !== null) out.ai = ai;
+    const draft = normalizeBoolean(meta.draft, null);
+    if (draft !== null) out.draft = draft;
+    return out;
+  };
+
+  const sanitizeVersionMetaEntries = (meta) => {
+    if (!meta || typeof meta !== 'object' || !Array.isArray(meta.__versions)) return [];
+    return meta.__versions
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const location = safeString(item.location || '');
+        if (!location) return null;
+        const entry = { location };
+        if (item.date != null && item.date !== '') entry.date = safeString(item.date);
+        if (item.excerpt != null && item.excerpt !== '') entry.excerpt = safeString(item.excerpt);
+        if (item.image != null && item.image !== '') entry.image = safeString(item.image);
+        if (item.tag != null) {
+          entry.tag = Array.isArray(item.tag) ? item.tag.map(v => safeString(v)) : safeString(item.tag);
+        }
+        if (item.versionLabel != null && item.versionLabel !== '') entry.versionLabel = safeString(item.versionLabel);
+        if (item.version != null && item.version !== '') entry.version = safeString(item.version);
+        const ai = normalizeBoolean(item.ai, null);
+        if (ai !== null) entry.ai = ai;
+        const draft = normalizeBoolean(item.draft, null);
+        if (draft !== null) entry.draft = draft;
+        return Object.keys(entry).length > 1 ? entry : null;
+      })
+      .filter(Boolean);
+  };
+
   const lines = [
     '# yaml-language-server: $schema=../assets/schema/index.json',
     ''
   ];
   const keys = data.__order && Array.isArray(data.__order) ? data.__order.slice() : Object.keys(data).filter(k => k !== '__order');
-  keys.forEach(key => {
+  keys.forEach((key) => {
     const entry = data[key];
     if (!entry || typeof entry !== 'object') return;
     lines.push(`${key}:`);
     const langs = sortLangKeys(entry);
-    langs.forEach(lang => {
-      const v = entry[lang];
-      if (Array.isArray(v)) {
-        if (v.length <= 1) {
-          const one = v[0] ?? '';
-          lines.push(`  ${lang}: ${one ? one : '""'}`);
+    const metaMap = (entry.__meta && typeof entry.__meta === 'object') ? entry.__meta : {};
+    langs.forEach((lang) => {
+      const raw = entry[lang];
+      const meta = metaMap[lang];
+      const paths = Array.isArray(raw)
+        ? raw.map(item => safeString(item))
+        : (raw != null ? [safeString(raw)] : []);
+      const generalMeta = sanitizeGeneralMeta(meta);
+      const versionMeta = sanitizeVersionMetaEntries(meta);
+      const needsObject = Object.keys(generalMeta).length > 0 || versionMeta.length > 0;
+
+      if (!needsObject) {
+        if (paths.length <= 1) {
+          const scalar = paths[0] != null ? paths[0] : '';
+          lines.push(`  ${lang}: ${scalar ? scalar : '""'}`);
         } else {
           lines.push(`  ${lang}:`);
-          v.forEach(p => lines.push(`    - ${p}`));
+          paths.forEach((p) => {
+            const val = p != null ? p : '';
+            lines.push(`    - ${val ? val : '""'}`);
+          });
         }
-      } else if (typeof v === 'string') {
-        lines.push(`  ${lang}: ${v}`);
+        return;
       }
+
+      const langObj = {};
+      if (paths.length <= 1) {
+        const location = paths[0] != null ? paths[0] : '';
+        langObj.location = location;
+        const versionEntry = versionMeta.find((item) => item.location === location);
+        if (versionEntry) {
+          const { location: _loc, ...rest } = versionEntry;
+          Object.assign(langObj, rest);
+        }
+      } else {
+        langObj.versions = paths.map((loc) => {
+          const safeLoc = loc != null ? loc : '';
+          const vm = versionMeta.find((item) => item.location === safeLoc);
+          const payload = { location: safeLoc };
+          if (vm) {
+            const { location: _l, ...rest } = vm;
+            Object.assign(payload, rest);
+          }
+          return payload;
+        });
+      }
+
+      Object.entries(generalMeta).forEach(([field, value]) => {
+        if (value != null) langObj[field] = value;
+      });
+
+      lines.push(`  ${lang}:`);
+      const orderedFields = [];
+      if (Object.prototype.hasOwnProperty.call(langObj, 'location')) orderedFields.push(['location', langObj.location]);
+      if (Object.prototype.hasOwnProperty.call(langObj, 'versions')) orderedFields.push(['versions', langObj.versions]);
+      ['title', 'date', 'excerpt', 'image', 'tag', 'version', 'versionLabel', 'ai', 'draft'].forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(langObj, field)) {
+          orderedFields.push([field, langObj[field]]);
+        }
+      });
+      orderedFields.forEach(([field, value]) => {
+        pushKeyValue(lines, 2, field, value);
+      });
     });
   });
   return lines.join('\n') + '\n';
@@ -10020,7 +10571,7 @@ function buildIndexUI(root, state) {
     row.className = 'ci-item';
     row.setAttribute('data-key', key);
     row.setAttribute('draggable', 'true');
-    const langCount = Object.keys(entry).length;
+    const langCount = sortLangKeys(entry).length;
     const langCountText = tComposerLang('count', { count: langCount });
     const detailsLabel = tComposerEntryRow('details');
     const deleteLabel = tComposerEntryRow('delete');
@@ -10071,6 +10622,25 @@ function buildIndexUI(root, state) {
         const val = entry[lang];
         // Normalize to array for UI
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
+        const syncVersionMeta = () => {
+          if (!entry.__meta || !entry.__meta[lang]) return;
+          const meta = entry.__meta[lang];
+          if (!meta || typeof meta !== 'object' || !Array.isArray(meta.__versions)) return;
+          const byLocation = new Map();
+          meta.__versions.forEach((item) => {
+            if (item && item.location) byLocation.set(item.location, item);
+          });
+          const normalized = arr.map((p) => safeString(p)).filter((loc) => !!loc);
+          const next = [];
+          normalized.forEach((loc) => {
+            if (byLocation.has(loc)) next.push(byLocation.get(loc));
+          });
+          meta.__versions = next;
+          if (!meta.__versions.length) delete meta.__versions;
+          const hasOtherMeta = Object.keys(meta).some((k) => k !== '__versions');
+          if (!hasOtherMeta && !meta.__versions) delete entry.__meta[lang];
+          if (entry.__meta && !Object.keys(entry.__meta).length) delete entry.__meta;
+        };
         block.innerHTML = `
           <div class="ci-lang-head">
             <strong>${escapeHtml(lang.toUpperCase())}</strong>
@@ -10127,6 +10697,7 @@ function buildIndexUI(root, state) {
         };
 
         const renderVers = (prevRects = null) => {
+          syncVersionMeta();
           verList.innerHTML = '';
           arr.forEach((p, i) => {
             const id = verIds[i] || (verIds[i] = Math.random().toString(36).slice(2));
@@ -10160,6 +10731,7 @@ function buildIndexUI(root, state) {
               const prevPath = row.dataset.mdPath || '';
               arr[i] = e.target.value;
               entry[lang] = arr.slice();
+              syncVersionMeta();
               row.dataset.value = arr[i] || '';
               const nextPath = normalizeRelPath(arr[i]);
               if (nextPath) row.dataset.mdPath = nextPath;
@@ -10183,6 +10755,7 @@ function buildIndexUI(root, state) {
               [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
               [verIds[i - 1], verIds[i]] = [verIds[i], verIds[i - 1]];
               entry[lang] = arr.slice();
+              syncVersionMeta();
               renderVers(prev);
               markDirty();
             });
@@ -10192,6 +10765,7 @@ function buildIndexUI(root, state) {
               [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
               [verIds[i + 1], verIds[i]] = [verIds[i], verIds[i + 1]];
               entry[lang] = arr.slice();
+              syncVersionMeta();
               renderVers(prev);
               markDirty();
             });
@@ -10200,6 +10774,7 @@ function buildIndexUI(root, state) {
               arr.splice(i, 1);
               verIds.splice(i, 1);
               entry[lang] = arr.slice();
+              syncVersionMeta();
               renderVers(prev);
               markDirty();
             });
@@ -10214,13 +10789,18 @@ function buildIndexUI(root, state) {
           arr.push('');
           verIds.push(Math.random().toString(36).slice(2));
           entry[lang] = arr.slice();
+          syncVersionMeta();
           renderVers(prev);
           markDirty();
         });
         $('.ci-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
-          const meta = row.querySelector('.ci-meta');
-          if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
+          if (entry.__meta && entry.__meta[lang]) {
+            delete entry.__meta[lang];
+            if (!Object.keys(entry.__meta).length) delete entry.__meta;
+          }
+          const metaLabel = row.querySelector('.ci-meta');
+          if (metaLabel) metaLabel.textContent = tComposerLang('count', { count: sortLangKeys(entry).length });
           renderBody();
           broadcastLanguagePoolChange();
           markDirty();
@@ -10286,8 +10866,8 @@ function buildIndexUI(root, state) {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
             entry[code] = [''];
-            const meta = row.querySelector('.ci-meta');
-            if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
+            const metaLabel = row.querySelector('.ci-meta');
+            if (metaLabel) metaLabel.textContent = tComposerLang('count', { count: sortLangKeys(entry).length });
             closeMenu();
             renderBody();
             broadcastLanguagePoolChange();
@@ -11224,6 +11804,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       fetchConfigWithYamlFallback([`${root}/tabs.yaml`, `${root}/tabs.yml`])
     ]);
     const remoteIndex = prepareIndexState(idx || {});
+    await hydrateIndexMetadataFromFrontMatter(remoteIndex, { contentRoot: root });
     const remoteTabs = prepareTabsState(tbs || {});
     remoteBaseline.index = deepClone(remoteIndex);
     remoteBaseline.tabs = deepClone(remoteTabs);
