@@ -582,6 +582,38 @@ function normalizeBucketMetadata(value, fallbackMeta = {}) {
   return { versions: [] };
 }
 
+function wrapMetadataSourceForMerge(key, value) {
+  if (value == null) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  return { [key]: value };
+}
+
+function hasEmbeddedMetadata(candidate) {
+  return candidate && typeof candidate === 'object' && !Array.isArray(candidate);
+}
+
+function deriveSimplifiedEntryFallbackMeta(entry, langKeys, chosen) {
+  const fallbackSources = [];
+  const normalizedLangs = new Set((langKeys || []).map((lk) => normalizeLangKey(lk)));
+
+  for (const [innerKey, innerVal] of Object.entries(entry || {})) {
+    const normalizedInner = normalizeLangKey(innerKey);
+    if (normalizedLangs.has(normalizedInner)) continue;
+    const wrapped = wrapMetadataSourceForMerge(innerKey, innerVal);
+    if (wrapped) fallbackSources.push(wrapped);
+  }
+
+  const chosenValue = chosen ? chosen.value : undefined;
+  if (!hasEmbeddedMetadata(chosenValue)) {
+    const defaultBucket = entry && entry.default;
+    if (hasEmbeddedMetadata(defaultBucket)) {
+      fallbackSources.push(defaultBucket);
+    }
+  }
+
+  return mergeMetadata(...fallbackSources);
+}
+
 async function loadContentFromSimplifiedMetadata(obj, lang) {
   const out = {};
   const langsSeen = new Set();
@@ -589,7 +621,6 @@ async function loadContentFromSimplifiedMetadata(obj, lang) {
 
   for (const [key, val] of entries) {
     if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
-    const entryMeta = mergeMetadata(val);
 
     const langKeys = Object.keys(val).filter((k) => {
       const nk = normalizeLangKey(k);
@@ -605,6 +636,7 @@ async function loadContentFromSimplifiedMetadata(obj, lang) {
     const chosen = pickPreferredBucket(val, lang);
     if (!chosen || chosen.value == null) continue;
 
+    const entryMeta = deriveSimplifiedEntryFallbackMeta(val, langKeys, chosen);
     const bucket = normalizeBucketMetadata(chosen.value, entryMeta);
     if (!bucket.versions.length) continue;
 
