@@ -10238,7 +10238,7 @@ function buildIndexUI(root, state) {
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
           <div class="ci-lang-menu ns-menu" role="listbox" hidden>
-            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${displayLangName(l)}</button>`).join('')}
+            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${escapeHtml(displayLangName(l))}</button>`).join('')}
           </div>
         `;
         const btn = $('.ci-add-lang-btn', addLangWrap);
