@@ -78,11 +78,20 @@ function handlePostsMetadataReady(event) {
   const entries = (detail && typeof detail === 'object') ? detail.entries : null;
   if (!entries || typeof entries !== 'object') return;
 
+  try {
+    const current = normalizeLangKey(getCurrentLang && getCurrentLang());
+    const eventLang = detail && typeof detail.lang === 'string' ? normalizeLangKey(detail.lang) : '';
+    if (eventLang && current && eventLang !== current) {
+      return;
+    }
+  } catch (_) {
+    // If language comparison fails, continue and apply the update
+  }
+
   postsIndexCache = entries;
 
   const newAllowed = new Set();
   const byLocation = {};
-  const aliasUpdates = new Map();
 
   for (const [title, meta] of Object.entries(entries)) {
     if (!meta || typeof meta !== 'object') continue;
@@ -90,7 +99,6 @@ function handlePostsMetadataReady(event) {
     if (canonical) {
       newAllowed.add(canonical);
       byLocation[canonical] = title;
-      aliasUpdates.set(canonical, canonical);
     }
     if (Array.isArray(meta.versions)) {
       meta.versions.forEach((ver) => {
@@ -99,21 +107,12 @@ function handlePostsMetadataReady(event) {
         if (!loc) return;
         newAllowed.add(loc);
         byLocation[loc] = title;
-        if (canonical) aliasUpdates.set(loc, canonical);
       });
     }
   }
 
   allowedLocations = newAllowed;
   postsByLocationTitle = byLocation;
-
-  if (aliasUpdates.size) {
-    const merged = new Map(locationAliasMap || []);
-    aliasUpdates.forEach((value, key) => {
-      merged.set(key, value);
-    });
-    locationAliasMap = merged;
-  }
 
   try {
     callThemeHook('handlePostsMetadataUpdate', {
