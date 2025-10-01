@@ -1,3 +1,4 @@
+import './cache-control.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import { t } from './i18n.js';
 
