@@ -159,6 +159,39 @@ const translations = {
           available: '本地草稿可用'
         }
       },
+      frontMatter: {
+        heading: 'Front matter 中繼資料',
+        summaryDefault: '文章的中繼資料',
+        summary: ({ count }) => (count ? `${count} 個欄位已啟用` : '尚未有中繼資料'),
+        help: '透過下方介面編輯 front matter，留白就不會寫入檔案。',
+        empty: '尚未設定任何中繼資料。填寫後會自動加入檔案。',
+        commonTitle: '常用欄位',
+        advancedTitle: '進階欄位',
+        booleanLabel: '啟用',
+        listHint: '每行輸入一筆資料',
+        clear: '清空',
+        fields: {
+          title: '標題',
+          excerpt: '摘要',
+          author: '作者',
+          date: '發佈日期',
+          tags: '標籤',
+          image: '主圖',
+          draft: '草稿',
+          version: '版本號',
+          ai: 'AI 產出'
+        },
+        hints: {
+          title: '顯示在卡片與瀏覽器標題。',
+          excerpt: '用於卡片與 SEO 的簡短摘要。',
+          date: '建議使用 ISO 格式（例：2024-03-18）。',
+          tags: '每行輸入一個標籤，用於分組與搜尋。',
+          image: '社群分享時的預設圖片。',
+          draft: '勾選後文章不會在列表中公開。',
+          version: '設定後會顯示版本徽章。',
+          ai: '內容若由 AI 產生或協助，請勾選。'
+        }
+      },
       toolbar: {
         wrap: '換行：',
         wrapOn: '開',
