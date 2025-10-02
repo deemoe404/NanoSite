@@ -11964,7 +11964,7 @@ function buildSiteUI(root, state) {
         if (Array.isArray(availableLangs)) availableLangs.forEach(addSupported);
       } catch (_) {}
 
-      if (!supportedSet.size && Array.isArray(PREFERRED_LANG_ORDER)) {
+      if (Array.isArray(PREFERRED_LANG_ORDER)) {
         PREFERRED_LANG_ORDER.forEach(addSupported);
       }
 
