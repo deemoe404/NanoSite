@@ -399,6 +399,64 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   </article>`;
 }
 
+function ensureArcusExcerptNode(card, documentRef = defaultDocument) {
+  if (!card || !documentRef) return null;
+  let excerptEl = card.querySelector('.arcus-card__excerpt');
+  if (!excerptEl) {
+    const body = card.querySelector('.arcus-card__body');
+    if (!body) return null;
+    excerptEl = documentRef.createElement('p');
+    excerptEl.className = 'arcus-card__excerpt';
+    const span = documentRef.createElement('span');
+    span.className = 'arcus-card__excerpt-tilt';
+    excerptEl.appendChild(span);
+    body.appendChild(excerptEl);
+  }
+  return excerptEl.querySelector('.arcus-card__excerpt-tilt') || excerptEl;
+}
+
+function hydrateArcusCardExcerpts(entries = [], context = {}) {
+  const documentRef = context.document || defaultDocument;
+  if (!documentRef) return;
+  const root = context.container || documentRef;
+  const cards = Array.from(root.querySelectorAll('.arcus-card'));
+  const getFile = typeof context.getFile === 'function' ? context.getFile : null;
+  const getContentRoot = typeof context.getContentRoot === 'function' ? context.getContentRoot : null;
+  const extractExcerpt = typeof context.extractExcerpt === 'function' ? context.extractExcerpt : null;
+
+  entries.forEach(([title, meta], idx) => {
+    const card = cards[idx];
+    if (!card) return;
+    const preset = meta && meta.excerpt ? String(meta.excerpt) : '';
+    if (preset) {
+      const node = ensureArcusExcerptNode(card, documentRef);
+      if (node) node.textContent = preset;
+      card.dataset.arcusExcerptHydrated = '1';
+      return;
+    }
+
+    if (card.dataset.arcusExcerptHydrated === 'pending' || card.dataset.arcusExcerptHydrated === '1') return;
+
+    const loc = meta && meta.location ? String(meta.location) : '';
+    if (!loc || !getFile || !getContentRoot || !extractExcerpt) return;
+
+    card.dataset.arcusExcerptHydrated = 'pending';
+    getFile(`${getContentRoot()}/${loc}`).then(md => {
+      const text = String(extractExcerpt(md, 50) || '').trim();
+      if (!text) { delete card.dataset.arcusExcerptHydrated; return; }
+      const node = ensureArcusExcerptNode(card, documentRef);
+      if (node) {
+        node.textContent = text;
+        card.dataset.arcusExcerptHydrated = '1';
+      } else {
+        delete card.dataset.arcusExcerptHydrated;
+      }
+    }).catch(() => {
+      delete card.dataset.arcusExcerptHydrated;
+    });
+  });
+}
+
 function buildPagination({ page, totalPages, baseHref, query }) {
   if (!totalPages || totalPages <= 1) return '';
   const mkHref = (p) => {
@@ -1413,8 +1471,15 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return true;
   };
 
-  hooks.afterIndexRender = ({ container }) => {
-    try { if (container) hydrateCardCovers(container); else hydrateCardCovers(getRoleElement('main', documentRef)); } catch (_) {}
+  hooks.afterIndexRender = (params = {}) => {
+    const target = params.container || getRoleElement('main', documentRef);
+    try {
+      if (target) hydrateCardCovers(target);
+      else hydrateCardCovers(getRoleElement('main', documentRef));
+    } catch (_) {}
+    try {
+      hydrateArcusCardExcerpts(params.entries || [], { ...params, container: target, document: documentRef });
+    } catch (_) {}
     return true;
   };
 
@@ -1440,8 +1505,15 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return true;
   };
 
-  hooks.afterSearchRender = ({ container }) => {
-    try { if (container) hydrateCardCovers(container); else hydrateCardCovers(getRoleElement('main', documentRef)); } catch (_) {}
+  hooks.afterSearchRender = (params = {}) => {
+    const target = params.container || getRoleElement('main', documentRef);
+    try {
+      if (target) hydrateCardCovers(target);
+      else hydrateCardCovers(getRoleElement('main', documentRef));
+    } catch (_) {}
+    try {
+      hydrateArcusCardExcerpts(params.entries || [], { ...params, container: target, document: documentRef });
+    } catch (_) {}
     return true;
   };
 
