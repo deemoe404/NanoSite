@@ -166,6 +166,7 @@ const translations = {
         view: 'View:',
         viewEdit: 'Editor',
         viewPreview: 'Preview',
+        save: 'Save',
         discard: 'Discard',
         wrapAria: 'Wrap setting',
         viewAria: 'View switch'
@@ -597,6 +598,17 @@ const translations = {
               create: 'Copy draft and create this file on GitHub.',
               update: 'Copy draft and update this file on GitHub.'
             }
+          },
+          save: {
+            label: 'Save',
+            busy: 'Saving…',
+            tooltips: {
+              default: 'Save local markdown draft in your browser.',
+              noFile: 'Open a markdown file before saving.',
+              empty: 'Add markdown content before saving.'
+            },
+            toastSuccess: 'Local draft saved.',
+            toastError: 'Failed to save local draft.'
           },
           discard: {
             label: 'Discard',

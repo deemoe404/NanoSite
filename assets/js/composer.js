@@ -53,6 +53,12 @@ const getMarkdownDiscardTooltip = (kind) => {
   const key = MARKDOWN_DISCARD_TOOLTIP_KEYS[kind] || MARKDOWN_DISCARD_TOOLTIP_KEYS.default;
   return t(key);
 };
+const getMarkdownSaveLabel = () => t(MARKDOWN_SAVE_LABEL_KEY);
+const getMarkdownSaveBusyLabel = () => t(MARKDOWN_SAVE_BUSY_KEY);
+const getMarkdownSaveTooltip = (kind) => {
+  const key = MARKDOWN_SAVE_TOOLTIP_KEYS[kind] || MARKDOWN_SAVE_TOOLTIP_KEYS.default;
+  return t(key);
+};
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
@@ -117,10 +123,19 @@ const MARKDOWN_DISCARD_TOOLTIP_KEYS = {
   noFile: 'editor.composer.markdown.discard.tooltips.noFile',
   reload: 'editor.composer.markdown.discard.tooltips.reload'
 };
+const MARKDOWN_SAVE_LABEL_KEY = 'editor.composer.markdown.save.label';
+const MARKDOWN_SAVE_BUSY_KEY = 'editor.composer.markdown.save.busy';
+
+const MARKDOWN_SAVE_TOOLTIP_KEYS = {
+  default: 'editor.composer.markdown.save.tooltips.default',
+  noFile: 'editor.composer.markdown.save.tooltips.noFile',
+  empty: 'editor.composer.markdown.save.tooltips.empty'
+};
 const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
 let markdownPushButton = null;
 let markdownDiscardButton = null;
+let markdownSaveButton = null;
 let gitHubCommitInFlight = false;
 let cachedFineGrainedTokenMemory = '';
 
@@ -1508,6 +1523,7 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       }
       updateMarkdownPushButton(tab);
       updateMarkdownDiscardButton(tab);
+      updateMarkdownSaveButton(tab);
     },
     onCancel: () => {
       const fallbackStatus = (previousStatus && previousStatus.state)
@@ -1520,6 +1536,7 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       });
       updateMarkdownPushButton(tab);
       updateMarkdownDiscardButton(tab);
+      updateMarkdownSaveButton(tab);
       showToast('info', t('editor.toasts.remoteCheckCanceledUseRefresh'));
     }
   });
@@ -5518,6 +5535,7 @@ function applyLocalPostCommitState(files = []) {
         updateComposerMarkdownDraftIndicators();
         updateMarkdownPushButton(getActiveDynamicTab());
         updateMarkdownDiscardButton(getActiveDynamicTab());
+        updateMarkdownSaveButton(getActiveDynamicTab());
       }
     } else if (file.kind === 'markdown') {
       const norm = normalizeRelPath(file.markdownPath || file.label || '');
@@ -5586,6 +5604,7 @@ function applyLocalPostCommitState(files = []) {
   updateUnsyncedSummary();
   updateMarkdownPushButton(getActiveDynamicTab());
   updateMarkdownDiscardButton(getActiveDynamicTab());
+  updateMarkdownSaveButton(getActiveDynamicTab());
 }
 
 async function performDirectGithubCommit(token, summaryEntries = []) {
@@ -8648,6 +8667,122 @@ function updateMarkdownDiscardButton(tab) {
   btn.setAttribute('aria-label', tooltip || getMarkdownDiscardLabel());
 }
 
+function updateMarkdownSaveButton(tab) {
+  if (!markdownSaveButton) {
+    markdownSaveButton = document.getElementById('btnSaveMarkdown');
+  }
+  if (!markdownSaveButton) return;
+
+  const btn = markdownSaveButton;
+  const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  const hasBusy = btn.classList.contains('is-busy');
+
+  const hasActive = !!(active && active.path && active.mode === currentMode);
+  const normalize = (value) => normalizeMarkdownContent(value || '');
+  const content = hasActive ? normalize(active.content) : '';
+  const draftContent = hasActive && active.localDraft ? normalize(active.localDraft.content) : '';
+  const assetBucket = hasActive ? active.pendingAssets : null;
+  const storedAssetsCount = hasActive && active.localDraft && Array.isArray(active.localDraft.assets)
+    ? active.localDraft.assets.length
+    : 0;
+  const hasAssets = !!(assetBucket && typeof assetBucket.size === 'number' && assetBucket.size > 0);
+  const hasDraftAssets = storedAssetsCount > 0;
+
+  let disabled = true;
+  let tooltip = getMarkdownSaveTooltip('default');
+
+  if (!hasActive) {
+    tooltip = getMarkdownSaveTooltip('noFile');
+  } else if (!content && !draftContent && !hasAssets && !hasDraftAssets) {
+    tooltip = getMarkdownSaveTooltip('empty');
+  } else {
+    disabled = false;
+  }
+
+  if (hasBusy) disabled = true;
+
+  btn.hidden = false;
+  btn.removeAttribute('aria-hidden');
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  if (!hasBusy) setButtonLabel(btn, getMarkdownSaveLabel());
+  if (tooltip) btn.title = tooltip;
+  else btn.removeAttribute('title');
+  btn.setAttribute('aria-label', tooltip || getMarkdownSaveLabel());
+}
+
+function manualSaveActiveMarkdown(triggerButton) {
+  const active = getActiveDynamicTab();
+  if (!active || !active.path) {
+    showToast('info', getMarkdownSaveTooltip('noFile'));
+    updateMarkdownSaveButton(null);
+    return;
+  }
+
+  const normalize = (value) => normalizeMarkdownContent(value || '');
+  const content = normalize(active.content);
+  const hasDraftContent = normalize(active.localDraft ? active.localDraft.content : '');
+  const assetBucket = active.pendingAssets;
+  const bucketSize = assetBucket && typeof assetBucket.size === 'number' ? assetBucket.size : 0;
+  const hasAssets = bucketSize > 0;
+  const savedAssets = active.localDraft && Array.isArray(active.localDraft.assets)
+    ? active.localDraft.assets.length > 0
+    : false;
+
+  if (!content && !hasDraftContent && !hasAssets && !savedAssets) {
+    showToast('info', getMarkdownSaveTooltip('empty'));
+    updateMarkdownSaveButton(active);
+    return;
+  }
+
+  const button = triggerButton || markdownSaveButton;
+  const originalLabel = button ? (getButtonLabel(button) || getMarkdownSaveLabel()) : '';
+  const setBusyState = (busy, text) => {
+    if (!button) return;
+    if (busy) {
+      button.classList.add('is-busy');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.setAttribute('aria-disabled', 'true');
+      if (text) setButtonLabel(button, text);
+    } else {
+      button.classList.remove('is-busy');
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.setAttribute('aria-disabled', 'false');
+      if (text) setButtonLabel(button, text);
+    }
+  };
+
+  setBusyState(true, getMarkdownSaveBusyLabel());
+
+  try {
+    if (active.markdownDraftTimer) {
+      try { clearTimeout(active.markdownDraftTimer); }
+      catch (_) {}
+      active.markdownDraftTimer = null;
+    }
+
+    const saved = saveMarkdownDraftForTab(active, { markManual: true });
+    if (saved) {
+      pushEditorCurrentFileInfo(active);
+      showToast('success', t('editor.composer.markdown.save.toastSuccess'));
+    } else {
+      showToast('info', getMarkdownSaveTooltip('empty'));
+    }
+  } catch (err) {
+    console.error('Manual markdown save failed', err);
+    showToast('error', t('editor.composer.markdown.save.toastError'));
+  } finally {
+    setBusyState(false, originalLabel || getMarkdownSaveLabel());
+    updateMarkdownSaveButton(active);
+    updateMarkdownDiscardButton(active);
+    updateMarkdownPushButton(active);
+    try { updateUnsyncedSummary(); }
+    catch (_) {}
+  }
+}
+
 async function openMarkdownPushOnGitHub(tab) {
   if (!tab || !tab.path) {
     showToast('info', t('editor.toasts.markdownOpenBeforePush'));
@@ -8767,6 +8902,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   if (!active || !active.path) {
     showToast('info', t('editor.toasts.markdownOpenBeforeDiscard'));
     updateMarkdownDiscardButton(null);
+    updateMarkdownSaveButton(null);
     return;
   }
 
@@ -8776,6 +8912,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   if (!dirty && !hasDraftContent) {
     showToast('info', t('editor.toasts.noLocalMarkdownChanges'));
     updateMarkdownDiscardButton(active);
+    updateMarkdownSaveButton(active);
     return;
   }
 
@@ -8861,6 +8998,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
     setBusyState(false, originalLabel || getMarkdownDiscardLabel());
     updateMarkdownDiscardButton(active);
     updateMarkdownPushButton(active);
+    updateMarkdownSaveButton(active);
   }
 }
 
@@ -8888,6 +9026,7 @@ function pushEditorCurrentFileInfo(tab) {
   const activeTab = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
   updateMarkdownPushButton(activeTab);
   updateMarkdownDiscardButton(activeTab);
+  updateMarkdownSaveButton(activeTab);
 }
 
 function setDynamicTabStatus(tab, status) {
@@ -9000,6 +9139,7 @@ async function closeDynamicTab(modeId, options = {}) {
   }
   updateMarkdownPushButton(getActiveDynamicTab());
   updateMarkdownDiscardButton(getActiveDynamicTab());
+  updateMarkdownSaveButton(getActiveDynamicTab());
   updateComposerMarkdownDraftIndicators({ path: tab.path });
   return true;
 }
@@ -11271,6 +11411,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     updateMarkdownPushButton(getActiveDynamicTab());
+  }
+
+  const saveBtn = document.getElementById('btnSaveMarkdown');
+  if (saveBtn) {
+    markdownSaveButton = saveBtn;
+    saveBtn.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      manualSaveActiveMarkdown(saveBtn);
+    });
+    updateMarkdownSaveButton(getActiveDynamicTab());
   }
 
   const discardBtn = document.getElementById('btnDiscardMarkdown');

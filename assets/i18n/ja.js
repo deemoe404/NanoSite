@@ -166,6 +166,7 @@ const translations = {
         view: '表示:',
         viewEdit: '編集',
         viewPreview: 'プレビュー',
+        save: '保存',
         discard: '破棄',
         wrapAria: '折り返し設定',
         viewAria: '表示の切り替え'
@@ -598,6 +599,17 @@ const translations = {
               create: 'ドラフトをコピーして GitHub でこのファイルを作成します。',
               update: 'ドラフトをコピーして GitHub でこのファイルを更新します。'
             }
+          },
+          save: {
+            label: '保存',
+            busy: '保存中…',
+            tooltips: {
+              default: 'ローカルの Markdown 下書きをブラウザーに保存します。',
+              noFile: '保存するには Markdown ファイルを開いてください。',
+              empty: 'Markdown の内容を入力してから保存してください。'
+            },
+            toastSuccess: 'ローカル下書きを保存しました。',
+            toastError: 'ローカル下書きの保存に失敗しました。'
           },
           discard: {
             label: '破棄',

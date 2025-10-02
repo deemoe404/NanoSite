@@ -1021,6 +1021,21 @@
     #btnDraft.is-clean::after { content: '✓'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #15803d; background: var(--card); border: 1px solid color-mix(in srgb, #16a34a 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
     #btnDraft.is-stale { position: relative; }
     #btnDraft.is-stale::after { content: '\26A0'; position: absolute; top: -0.45rem; right: -0.45rem; font-size: .72rem; color: #dc2626; background: var(--card); border: 1px solid color-mix(in srgb, #dc2626 55%, var(--border)); border-radius: 999px; width: 1.1rem; height: 1.1rem; display: inline-flex; align-items:center; justify-content:center; }
+    button#btnSaveMarkdown.btn-secondary {
+      background:#1f7a5d !important;
+      color:#f5fffa !important;
+      border:1px solid #18664d !important;
+      font-weight:600;
+    }
+    button#btnSaveMarkdown.btn-secondary:hover { background:#17614a !important; }
+    button#btnSaveMarkdown.btn-secondary:active { background:#124f3c !important; }
+    button#btnSaveMarkdown.btn-secondary:focus-visible { outline:2px solid rgba(23, 97, 74, 0.35); outline-offset:2px; }
+    button#btnSaveMarkdown.btn-secondary:disabled {
+      background:color-mix(in srgb, var(--card) 90%, var(--primary) 8%) !important;
+      color:color-mix(in srgb, var(--muted) 82%, transparent) !important;
+      border-color:color-mix(in srgb, var(--border) 85%, transparent) !important;
+      font-weight:500;
+    }
     button#btnDiscard.btn-secondary {
       background:#e15b5b !important;
       color:#3f1010 !important;
@@ -1347,6 +1362,9 @@
               <span class="dim" aria-hidden="true">/</span>
               <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
             </div>
+            <button type="button" class="btn-secondary" id="btnSaveMarkdown" disabled>
+              <span class="btn-label" data-i18n="editor.toolbar.save">Save</span>
+            </button>
             <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
               <span class="btn-label" data-i18n="editor.toolbar.discard">Discard</span>
             </button>

@@ -166,6 +166,7 @@ const translations = {
         view: '檢視：',
         viewEdit: '編輯',
         viewPreview: '預覽',
+        save: '儲存',
         discard: '丟棄',
         wrapAria: '換行設定',
         viewAria: '檢視切換'
@@ -598,6 +599,17 @@ const translations = {
               create: '複製草稿並在 GitHub 上建立該檔案。',
               update: '複製草稿並在 GitHub 上更新該檔案。'
             }
+          },
+          save: {
+            label: '儲存',
+            busy: '正在儲存…',
+            tooltips: {
+              default: '在瀏覽器中儲存本地 Markdown 草稿。',
+              noFile: '請先開啟一個 Markdown 檔案再儲存。',
+              empty: '請先輸入 Markdown 內容後再儲存。'
+            },
+            toastSuccess: '本地草稿已儲存。',
+            toastError: '儲存本地草稿失敗。'
           },
           discard: {
             label: '丟棄',
