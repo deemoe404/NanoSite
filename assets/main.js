@@ -42,6 +42,8 @@ let postsIndexCache = {};
 let allowedLocations = new Set();
 // Cross-language location aliases: any known variant -> preferred for current lang
 let locationAliasMap = new Map();
+// Raw unified index.yaml object (for preserving author-defined order across async updates)
+let rawIndexCache = null;
 let postsMetadataListenerBound = false;
 // Default page size; can be overridden by site.yaml (pageSize/postsPerPage)
 let PAGE_SIZE = 8;
@@ -659,7 +661,69 @@ function displayIndex(parsed) {
   const containers = getViewContainers('posts');
   resetTOCView('posts', containers, { reason: 'index' });
 
-  const entries = Object.entries(parsed || {});
+  // Build an entries array strictly following index.yaml order when available
+  const entries = (function entriesInIndexYamlOrder(map) {
+    try {
+      const source = map && typeof map === 'object' ? map : {};
+      // If we don't have the raw index, fall back to object insertion order
+      if (!rawIndexCache || typeof rawIndexCache !== 'object') return Object.entries(source);
+
+      const cur = (getCurrentLang && getCurrentLang()) || 'en';
+      const curNorm = normalizeLangKey(cur);
+      const siteDef = (typeof siteConfig === 'object' && (siteConfig.defaultLanguage || siteConfig.defaultLang)) || 'en';
+      const defNorm = normalizeLangKey(siteDef);
+
+      const RESERVED = new Set(['tag','tags','image','date','excerpt','thumb','cover']);
+      const seen = new Set();
+      const ordered = [];
+
+      const pickPreferred = (entry) => {
+        const variants = [];
+        try {
+          for (const [k, v] of Object.entries(entry || {})) {
+            if (RESERVED.has(k)) continue;
+            const nk = normalizeLangKey(k);
+            if (k === 'location' && typeof v === 'string') {
+              variants.push({ lang: 'default', location: String(v) });
+            } else if (typeof v === 'string') {
+              variants.push({ lang: nk, location: String(v) });
+            } else if (Array.isArray(v)) {
+              v.forEach(item => { if (typeof item === 'string') variants.push({ lang: nk, location: String(item) }); });
+            } else if (v && typeof v === 'object' && typeof v.location === 'string') {
+              variants.push({ lang: nk, location: String(v.location) });
+            }
+          }
+        } catch (_) {}
+        if (!variants.length) return '';
+        const findBy = (langs) => variants.find(x => langs.includes(x.lang));
+        const cand = findBy([curNorm]) || findBy([defNorm]) || findBy(['en']) || findBy(['default']) || variants[0];
+        return (cand && cand.location) ? String(cand.location) : '';
+      };
+
+      // Iterate raw index keys in author-defined order
+      for (const [, rawEntry] of Object.entries(rawIndexCache)) {
+        if (!rawEntry || typeof rawEntry !== 'object') continue;
+        const prefLoc = pickPreferred(rawEntry);
+        if (!prefLoc) continue;
+        const title = postsByLocationTitle[prefLoc];
+        if (!title) continue;
+        if (seen.has(title)) continue;
+        const meta = source[title];
+        if (!meta) continue;
+        seen.add(title);
+        ordered.push([title, meta]);
+      }
+
+      // Append any remaining entries not present in raw index (defensive)
+      for (const [title, meta] of Object.entries(source)) {
+        if (seen.has(title)) continue;
+        ordered.push([title, meta]);
+      }
+      return ordered;
+    } catch (_) {
+      return Object.entries(map || {});
+    }
+  })(parsed);
   const total = entries.length;
   const qPage = parseInt(getQueryVariable('page') || '1', 10);
   let totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -1271,6 +1335,8 @@ async function softResetToSiteDefaultLanguage() {
     const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
     const rawIndex = results[2] && results[2].status === 'fulfilled' ? (results[2].value || null) : null;
+    // Cache raw index for stable ordering
+    rawIndexCache = rawIndex && typeof rawIndex === 'object' ? rawIndex : null;
 
     // Rebuild tabs and caches (mirrors boot path)
     tabsBySlug = {};
@@ -1423,6 +1489,8 @@ try {
   const posts = loadResults[0].status === 'fulfilled' ? (loadResults[0].value || {}) : {};
   const tabs = loadResults[1].status === 'fulfilled' ? (loadResults[1].value || {}) : {};
   const rawIndex = loadResults[2] && loadResults[2].status === 'fulfilled' ? (loadResults[2].value || null) : null;
+  // Cache raw index for stable ordering
+  rawIndexCache = rawIndex && typeof rawIndex === 'object' ? rawIndex : null;
     tabsBySlug = {};
     stableToCurrentTabSlug = {};
     for (const [title, cfg] of Object.entries(tabs)) {
