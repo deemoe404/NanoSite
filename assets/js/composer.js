@@ -10286,7 +10286,8 @@ function buildIndexUI(root, state) {
           it.addEventListener('click', () => {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
-            entry[code] = [''];
+            const defaultPath = buildDefaultLanguagePathFromEntry('index', key, code, entry);
+            entry[code] = defaultPath ? [defaultPath] : [''];
             const meta = row.querySelector('.ci-meta');
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
@@ -10519,7 +10520,11 @@ function buildTabsUI(root, state) {
           it.addEventListener('click', () => {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
-            entry[code] = { title: '', location: '' };
+            const defaultLocation = buildDefaultLanguagePathFromEntry('tabs', tab, code, entry);
+            entry[code] = {
+              title: String(tab || ''),
+              location: defaultLocation || ''
+            };
             const meta = row.querySelector('.ct-meta');
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
@@ -10577,6 +10582,82 @@ function buildDefaultEntryPath(kind, key, lang) {
   const filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
   const folder = safeKey ? `${baseFolder}/${safeKey}` : baseFolder;
   return `${folder}/${filename}`;
+}
+
+function normalizeComposerLangCode(lang) {
+  return String(lang || '').trim().toLowerCase();
+}
+
+function stripComposerLangSuffix(name, codes) {
+  let result = String(name || '');
+  if (!result) return result;
+  const seen = new Set();
+  (codes || []).forEach((code) => {
+    const normalized = normalizeComposerLangCode(code);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    const suffix = `_${normalized}`;
+    if (result.toLowerCase().endsWith(suffix)) {
+      result = result.slice(0, result.length - suffix.length);
+    }
+  });
+  return result;
+}
+
+function pickComposerReferencePath(kind, entry, excludeLang) {
+  const normalizedKind = kind === 'tabs' ? 'tabs' : 'index';
+  const list = Array.isArray(PREFERRED_LANG_ORDER) ? PREFERRED_LANG_ORDER.slice() : [];
+  try {
+    Object.keys(entry || {}).forEach((code) => {
+      if (!list.includes(code)) list.push(code);
+    });
+  } catch (_) {}
+  for (let i = 0; i < list.length; i += 1) {
+    const code = list[i];
+    if (!code || code === excludeLang) continue;
+    const value = entry ? entry[code] : null;
+    if (!value) continue;
+    let path = '';
+    if (normalizedKind === 'tabs') {
+      if (value && typeof value === 'object' && typeof value.location === 'string') {
+        path = value.location;
+      }
+    } else if (Array.isArray(value)) {
+      path = value.find(p => p && typeof p === 'string') || '';
+    } else if (typeof value === 'string') {
+      path = value;
+    }
+    if (path) return { lang: code, path };
+  }
+  return null;
+}
+
+function buildDefaultLanguagePathFromEntry(kind, key, lang, entry) {
+  const normalizedKind = kind === 'tabs' ? 'tabs' : 'index';
+  const fallback = buildDefaultEntryPath(normalizedKind, key, lang);
+  const reference = pickComposerReferencePath(normalizedKind, entry, lang);
+  if (!reference || !reference.path) return fallback;
+
+  const normalizedLang = normalizeComposerLangCode(lang);
+  const segments = String(reference.path || '').split('/');
+  if (segments.length === 0) return fallback;
+  let filename = segments.pop() || '';
+  if (!filename) return fallback;
+
+  const dotIndex = filename.lastIndexOf('.');
+  let namePart = dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
+  const extPart = dotIndex >= 0 ? filename.slice(dotIndex) : '';
+
+  const codesToStrip = [];
+  codesToStrip.push(reference.lang);
+  if (Array.isArray(PREFERRED_LANG_ORDER)) codesToStrip.push(...PREFERRED_LANG_ORDER);
+  try { Object.keys(entry || {}).forEach((code) => { codesToStrip.push(code); }); } catch (_) {}
+  codesToStrip.push(lang);
+  namePart = stripComposerLangSuffix(namePart, codesToStrip);
+
+  const finalName = normalizedLang ? `${namePart}_${normalizedLang}` : namePart;
+  segments.push(`${finalName}${extPart}`);
+  return segments.join('/');
 }
 
 async function promptComposerEntryKey(kind, anchor) {
