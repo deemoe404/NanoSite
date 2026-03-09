@@ -141,6 +141,27 @@ run('boolean false is preserved as an explicit value', () => {
   assert.match(output, /aiGenerated: false/);
 });
 
+run('legacy aliases keep their original keys when rewritten', () => {
+  const source = [
+    '---',
+    'cover: hero.jpg',
+    'wip: yes',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  state.data.cover = 'hero-next.jpg';
+  state.data.wip = false;
+  ensureKeyOrder(state.order, 'cover');
+  ensureKeyOrder(state.order, 'wip');
+  const output = build(state, 'Body paragraph.\n');
+  assert.match(output, /cover: hero-next\.jpg/);
+  assert.match(output, /wip: false/);
+  assert.ok(!output.includes('image: hero-next.jpg'));
+  assert.ok(!output.includes('draft: false'));
+});
+
 run('content parser reads block scalar excerpts', () => {
   const source = [
     '---',
@@ -154,4 +175,36 @@ run('content parser reads block scalar excerpts', () => {
   const parsed = parseFrontMatter(source);
   assert.equal(parsed.frontMatter.excerpt, 'first line\nsecond line');
   assert.equal(parsed.content, 'Body paragraph.');
+});
+
+run('content parser preserves legacy cover aliases for downstream metadata consumers', () => {
+  const source = [
+    '---',
+    'cover: hero.jpg',
+    'coverImage: hero-wide.jpg',
+    'banner: hero-banner.jpg',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.frontMatter.cover, 'hero.jpg');
+  assert.equal(parsed.frontMatter.coverImage, 'hero-wide.jpg');
+  assert.equal(parsed.frontMatter.banner, 'hero-banner.jpg');
+});
+
+run('content parser preserves legacy draft aliases for UI metadata flows', () => {
+  const source = [
+    '---',
+    'wip: yes',
+    'unfinished: false',
+    'inprogress: enabled',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.frontMatter.wip, true);
+  assert.equal(parsed.frontMatter.unfinished, false);
+  assert.equal(parsed.frontMatter.inprogress, true);
 });

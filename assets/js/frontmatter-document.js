@@ -4,8 +4,8 @@ export const FRONT_MATTER_FIELD_DEFS = [
   { id: 'author', keys: ['author'], type: 'text', section: 'common', labelKey: 'editor.frontMatter.fields.author', fallbackLabel: 'Author' },
   { id: 'date', keys: ['date'], type: 'date', section: 'common', labelKey: 'editor.frontMatter.fields.date', fallbackLabel: 'Date', hintKey: 'editor.frontMatter.hints.date' },
   { id: 'tags', keys: ['tags', 'tag'], type: 'list', section: 'common', labelKey: 'editor.frontMatter.fields.tags', fallbackLabel: 'Tags', hintKey: 'editor.frontMatter.hints.tags' },
-  { id: 'image', keys: ['image', 'thumb', 'thumbnail'], type: 'text', section: 'advanced', labelKey: 'editor.frontMatter.fields.image', fallbackLabel: 'Primary image', hintKey: 'editor.frontMatter.hints.image' },
-  { id: 'draft', keys: ['draft'], type: 'boolean', section: 'common', labelKey: 'editor.frontMatter.fields.draft', fallbackLabel: 'Draft', hintKey: 'editor.frontMatter.hints.draft' },
+  { id: 'image', keys: ['image', 'thumb', 'thumbnail', 'cover', 'coverImage', 'cover_image', 'hero', 'banner'], type: 'text', section: 'advanced', labelKey: 'editor.frontMatter.fields.image', fallbackLabel: 'Primary image', hintKey: 'editor.frontMatter.hints.image' },
+  { id: 'draft', keys: ['draft', 'wip', 'unfinished', 'inprogress'], type: 'boolean', section: 'common', labelKey: 'editor.frontMatter.fields.draft', fallbackLabel: 'Draft', hintKey: 'editor.frontMatter.hints.draft' },
   { id: 'version', keys: ['version'], type: 'text', section: 'advanced', labelKey: 'editor.frontMatter.fields.version', fallbackLabel: 'Version', hintKey: 'editor.frontMatter.hints.version' },
   { id: 'ai', keys: ['ai', 'aiGenerated', 'llm'], type: 'boolean', section: 'advanced', labelKey: 'editor.frontMatter.fields.ai', fallbackLabel: 'AI generated', hintKey: 'editor.frontMatter.hints.ai' }
 ];
@@ -44,6 +44,8 @@ export const valueIsPresent = (value) => {
 };
 
 const KEY_LINE_RE = /^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/;
+const BOOLEAN_TRUE_RE = /^(?:true|yes|1|y|on|enabled|draft)$/i;
+const BOOLEAN_FALSE_RE = /^(?:false|no|0|n|off|disabled|published)$/i;
 
 const stripInlineComment = (text) => {
   let out = '';
@@ -241,8 +243,8 @@ const parseEntryValue = (entry, def) => {
     return decodeBlockScalar(style, continuation);
   }
   if (def.type === 'boolean') {
-    if (/^true$/i.test(rest)) return true;
-    if (/^false$/i.test(rest)) return false;
+    if (BOOLEAN_TRUE_RE.test(rest)) return true;
+    if (BOOLEAN_FALSE_RE.test(rest)) return false;
     return undefined;
   }
   if (def.type === 'list') {
