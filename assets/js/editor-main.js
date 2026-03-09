@@ -1,7 +1,15 @@
 import './cache-control.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
-import { parseFrontMatter } from './content.js';
+import {
+  FRONT_MATTER_FIELD_DEFS,
+  buildMarkdownWithFrontMatter,
+  cloneFrontMatterData,
+  normalizeLineEndings,
+  parseMarkdownFrontMatter,
+  resolveFrontMatterBindings,
+  valueIsPresent
+} from './frontmatter-document.js';
 import { getContentRoot, setSafeHtml } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
@@ -15,209 +23,10 @@ const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 const previewAssetBuckets = new Map();
 let previewAssetCurrentPath = '';
 
-const FRONT_MATTER_FIELD_DEFS = [
-  { id: 'title', keys: ['title'], type: 'text', section: 'common', labelKey: 'editor.frontMatter.fields.title', fallbackLabel: 'Title', hintKey: 'editor.frontMatter.hints.title' },
-  { id: 'excerpt', keys: ['excerpt'], type: 'textarea', section: 'common', labelKey: 'editor.frontMatter.fields.excerpt', fallbackLabel: 'Excerpt', hintKey: 'editor.frontMatter.hints.excerpt' },
-  { id: 'author', keys: ['author'], type: 'text', section: 'common', labelKey: 'editor.frontMatter.fields.author', fallbackLabel: 'Author' },
-  { id: 'date', keys: ['date'], type: 'date', section: 'common', labelKey: 'editor.frontMatter.fields.date', fallbackLabel: 'Date', hintKey: 'editor.frontMatter.hints.date' },
-  { id: 'tags', keys: ['tags', 'tag'], type: 'list', section: 'common', labelKey: 'editor.frontMatter.fields.tags', fallbackLabel: 'Tags', hintKey: 'editor.frontMatter.hints.tags' },
-  { id: 'image', keys: ['image', 'thumb', 'thumbnail'], type: 'text', section: 'advanced', labelKey: 'editor.frontMatter.fields.image', fallbackLabel: 'Primary image', hintKey: 'editor.frontMatter.hints.image' },
-  { id: 'draft', keys: ['draft'], type: 'boolean', section: 'common', labelKey: 'editor.frontMatter.fields.draft', fallbackLabel: 'Draft', hintKey: 'editor.frontMatter.hints.draft' },
-  { id: 'version', keys: ['version'], type: 'text', section: 'advanced', labelKey: 'editor.frontMatter.fields.version', fallbackLabel: 'Version', hintKey: 'editor.frontMatter.hints.version' },
-  { id: 'ai', keys: ['ai', 'aiGenerated', 'llm'], type: 'boolean', section: 'advanced', labelKey: 'editor.frontMatter.fields.ai', fallbackLabel: 'AI generated', hintKey: 'editor.frontMatter.hints.ai' }
-];
-
-const FRONT_MATTER_ALIAS_TO_ID = new Map();
-FRONT_MATTER_FIELD_DEFS.forEach((def) => {
-  def.keys.forEach((key) => {
-    if (!FRONT_MATTER_ALIAS_TO_ID.has(key)) FRONT_MATTER_ALIAS_TO_ID.set(key, def.id);
-  });
-});
-
-const normalizeLineEndings = (text) => String(text == null ? '' : text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-const cloneFrontMatterData = (source) => {
-  try {
-    return JSON.parse(JSON.stringify(source || {}));
-  } catch (_) {
-    const clone = {};
-    if (source && typeof source === 'object') {
-      Object.keys(source).forEach((key) => {
-        clone[key] = source[key];
-      });
-    }
-    return clone;
-  }
-};
-
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
   if (!order.includes(key)) order.push(key);
   return order;
-};
-
-const valueIsPresent = (value) => {
-  if (value == null) return false;
-  if (Array.isArray(value)) return value.some((item) => valueIsPresent(item));
-  if (typeof value === 'string') return value.trim() !== '';
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (typeof value === 'boolean') return true;
-  if (typeof value === 'object') return Object.keys(value).length > 0;
-  return true;
-};
-
-const formatYamlScalar = (value) => {
-  if (value == null) return 'null';
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : `"${String(value)}"`;
-  const str = String(value);
-  if (str === '') return '""';
-  const needsQuotes = /^[\s]|[\s]$/.test(str)
-    || /[:#]/.test(str)
-    || /^[-?](?:\s|$)/.test(str)
-    || /^(?:true|false|null)$/i.test(str)
-    || /^\d+(?:\.\d+)?$/.test(str)
-    || str.includes('"');
-  if (needsQuotes) {
-    return `"${str.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-  }
-  return str;
-};
-
-const emitYamlEntry = (lines, key, value, eol, indent = '') => {
-  if (!valueIsPresent(value)) return;
-  if (Array.isArray(value)) {
-    const items = value.filter((item) => valueIsPresent(item));
-    if (!items.length) return;
-    lines.push(`${indent}${key}:`);
-    items.forEach((item) => {
-      if (item == null) return;
-      if (typeof item === 'string' && item.includes('\n')) {
-        lines.push(`${indent}  - |`);
-        normalizeLineEndings(item).split('\n').forEach((line) => {
-          lines.push(`${indent}    ${line}`);
-        });
-      } else if (Array.isArray(item)) {
-        lines.push(`${indent}  - ${JSON.stringify(item)}`);
-      } else if (typeof item === 'object') {
-        lines.push(`${indent}  - ${JSON.stringify(item)}`);
-      } else {
-        lines.push(`${indent}  - ${formatYamlScalar(item)}`);
-      }
-    });
-    return;
-  }
-  if (typeof value === 'object') {
-    if (!Object.keys(value).length) return;
-    lines.push(`${indent}${key}: ${JSON.stringify(value)}`);
-    return;
-  }
-  if (typeof value === 'string' && value.includes('\n')) {
-    lines.push(`${indent}${key}: |`);
-    normalizeLineEndings(value).split('\n').forEach((line) => {
-      lines.push(`${indent}  ${line}`);
-    });
-    return;
-  }
-  lines.push(`${indent}${key}: ${formatYamlScalar(value)}`);
-};
-
-const buildFrontMatterYaml = (data, order, eol) => {
-  const entries = data && typeof data === 'object' ? data : {};
-  const presentKeys = Object.keys(entries).filter((key) => valueIsPresent(entries[key]));
-  if (!presentKeys.length) return '';
-  const seen = new Set();
-  const ordered = [];
-  (order || []).forEach((key) => {
-    if (!seen.has(key) && presentKeys.includes(key)) {
-      ordered.push(key);
-      seen.add(key);
-    }
-  });
-  FRONT_MATTER_FIELD_DEFS.forEach((def) => {
-    def.keys.forEach((key) => {
-      if (!seen.has(key) && presentKeys.includes(key)) {
-        ordered.push(key);
-        seen.add(key);
-      }
-    });
-  });
-  presentKeys.sort();
-  presentKeys.forEach((key) => {
-    if (!seen.has(key)) {
-      ordered.push(key);
-      seen.add(key);
-    }
-  });
-  const lines = [];
-  ordered.forEach((key) => {
-    emitYamlEntry(lines, key, entries[key], eol);
-  });
-  return lines.join(eol);
-};
-
-const splitFrontMatterBlock = (raw) => {
-  const original = String(raw == null ? '' : raw);
-  const eol = original.includes('\r\n') ? '\r\n' : '\n';
-  const normalized = normalizeLineEndings(original);
-  const trailingNewline = normalized.endsWith('\n');
-  const lines = normalized.split('\n');
-  const result = {
-    hasFrontMatter: false,
-    content: normalized,
-    order: [],
-    eol,
-    trailingNewline,
-    normalized
-  };
-  if (!lines.length) return result;
-  if (lines[0].trim() !== '---') {
-    return result;
-  }
-  let endIndex = -1;
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() === '---') {
-      endIndex = i;
-      break;
-    }
-  }
-  if (endIndex === -1) {
-    return result;
-  }
-  const fmLines = lines.slice(1, endIndex);
-  const contentLines = lines.slice(endIndex + 1);
-  const order = [];
-  fmLines.forEach((line) => {
-    const match = line.trim().match(/^([A-Za-z0-9_.-]+)\s*:/);
-    if (match) ensureKeyOrder(order, match[1]);
-  });
-  result.hasFrontMatter = true;
-  result.order = order;
-  result.content = contentLines.join('\n');
-  return result;
-};
-
-const determineFrontMatterBindings = (data) => {
-  const bindings = new Map();
-  const usedKeys = new Set();
-  Object.keys(data || {}).forEach((key) => {
-    const defId = FRONT_MATTER_ALIAS_TO_ID.get(key);
-    if (defId && !bindings.has(defId)) {
-      bindings.set(defId, key);
-      usedKeys.add(key);
-    }
-  });
-  FRONT_MATTER_FIELD_DEFS.forEach((def) => {
-    if (!bindings.has(def.id)) bindings.set(def.id, def.keys[0]);
-  });
-  const extraKeys = Object.keys(data || {}).filter((key) => !usedKeys.has(key));
-  return { bindings, extraKeys };
-};
-
-const convertBodyToEol = (body, eol) => {
-  if (!body) return '';
-  const normalized = normalizeLineEndings(body);
-  return eol === '\n' ? normalized : normalized.split('\n').join(eol);
 };
 
 const getContentRootPrefix = () => {
@@ -868,7 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
       eol: '\n',
       trailingNewline: false,
       bindings: new Map(),
-      hasFrontMatter: false
+      hasFrontMatter: false,
+      document: null
     };
 
     let suppressEvents = false;
@@ -919,6 +729,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const value = state.data[entry.key];
       const empty = !valueIsPresent(value);
       entry.container.dataset.empty = empty ? 'true' : 'false';
+      if (entry.clearBtn) {
+        entry.clearBtn.disabled = empty;
+        entry.clearBtn.setAttribute('aria-disabled', empty ? 'true' : 'false');
+      }
       if (!entry.input) return;
       if (entry.type === 'boolean') {
         entry.input.indeterminate = value == null;
@@ -1067,6 +881,17 @@ document.addEventListener('DOMContentLoaded', () => {
         wrap.appendChild(text);
         entry.input = checkbox;
         entry.container.appendChild(wrap);
+        const actions = document.createElement('div');
+        actions.className = 'frontmatter-actions';
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'frontmatter-clear';
+        clearBtn.textContent = translate('editor.frontMatter.clear', 'Clear');
+        clearBtn.dataset.i18n = 'editor.frontMatter.clear';
+        clearBtn.addEventListener('click', () => clearEntryValue(entry));
+        actions.appendChild(clearBtn);
+        entry.clearBtn = clearBtn;
+        entry.container.appendChild(actions);
       } else if (entry.type === 'textarea') {
         const textarea = document.createElement('textarea');
         textarea.rows = 3;
@@ -1134,8 +959,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const rebuildBindings = () => {
-      const { bindings } = determineFrontMatterBindings(state.data);
+      const bindings = resolveFrontMatterBindings(state.data, state.document);
       state.bindings = bindings;
+      const normalizedData = {};
+      bindings.forEach((key) => {
+        if (!key || !Object.prototype.hasOwnProperty.call(state.data, key)) return;
+        normalizedData[key] = state.data[key];
+      });
+      state.data = normalizedData;
       registry.forEach((entry, defId) => {
         const nextKey = bindings.get(defId) || entry.def.keys[0];
         setEntryKey(entry, nextKey);
@@ -1146,39 +977,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setFromMarkdown = (raw, opts = {}) => {
       ensureBaseFields();
-      const split = splitFrontMatterBlock(raw);
-      const parsed = parseFrontMatter(split.normalized);
+      const parsed = parseMarkdownFrontMatter(raw);
       state = {
         data: cloneFrontMatterData(parsed.frontMatter),
-        order: Array.isArray(split.order) ? [...split.order] : [],
-        eol: split.eol || '\n',
-        trailingNewline: split.trailingNewline,
+        order: parsed.document && Array.isArray(parsed.document.knownOrder) ? [...parsed.document.knownOrder] : [],
+        eol: parsed.eol || '\n',
+        trailingNewline: !!parsed.trailingNewline,
         bindings: new Map(),
-        hasFrontMatter: !!split.hasFrontMatter
+        hasFrontMatter: !!parsed.hasFrontMatter,
+        document: parsed.document || null
       };
       rebuildBindings();
       if (!opts.silent) triggerChange();
-      return split.content;
+      return parsed.content;
     };
 
     const buildMarkdown = (bodyRaw) => {
-      const eol = state.eol || '\n';
-      const yaml = buildFrontMatterYaml(state.data, state.order, eol);
-      const bodyNormalized = normalizeLineEndings(bodyRaw || '');
-      const bodyOut = convertBodyToEol(bodyNormalized, eol);
-      let result = '';
-      if (yaml) {
-        result = `---${eol}${yaml}${eol}---`;
-        if (bodyOut) result += `${eol}${bodyOut}`;
-        else result += eol;
-      } else {
-        result = bodyOut;
-      }
-      const shouldEndWithNewline = bodyNormalized.endsWith('\n') || (!bodyNormalized && state.trailingNewline);
-      if (shouldEndWithNewline && !result.endsWith(eol)) {
-        result += eol;
-      }
-      return result;
+      return buildMarkdownWithFrontMatter(state.document, bodyRaw, state.data, {
+        bindings: state.bindings,
+        order: state.order,
+        eol: state.eol,
+        trailingNewline: state.trailingNewline
+      });
     };
 
     if (toggle) {
