@@ -8680,20 +8680,13 @@ function updateMarkdownSaveButton(tab) {
   const hasActive = !!(active && active.path && active.mode === currentMode);
   const normalize = (value) => normalizeMarkdownContent(value || '');
   const content = hasActive ? normalize(active.content) : '';
-  const draftContent = hasActive && active.localDraft ? normalize(active.localDraft.content) : '';
-  const assetBucket = hasActive ? active.pendingAssets : null;
-  const storedAssetsCount = hasActive && active.localDraft && Array.isArray(active.localDraft.assets)
-    ? active.localDraft.assets.length
-    : 0;
-  const hasAssets = !!(assetBucket && typeof assetBucket.size === 'number' && assetBucket.size > 0);
-  const hasDraftAssets = storedAssetsCount > 0;
 
   let disabled = true;
   let tooltip = getMarkdownSaveTooltip('default');
 
   if (!hasActive) {
     tooltip = getMarkdownSaveTooltip('noFile');
-  } else if (!content && !draftContent && !hasAssets && !hasDraftAssets) {
+  } else if (!content) {
     tooltip = getMarkdownSaveTooltip('empty');
   } else {
     disabled = false;
@@ -8721,15 +8714,8 @@ function manualSaveActiveMarkdown(triggerButton) {
 
   const normalize = (value) => normalizeMarkdownContent(value || '');
   const content = normalize(active.content);
-  const hasDraftContent = normalize(active.localDraft ? active.localDraft.content : '');
-  const assetBucket = active.pendingAssets;
-  const bucketSize = assetBucket && typeof assetBucket.size === 'number' ? assetBucket.size : 0;
-  const hasAssets = bucketSize > 0;
-  const savedAssets = active.localDraft && Array.isArray(active.localDraft.assets)
-    ? active.localDraft.assets.length > 0
-    : false;
 
-  if (!content && !hasDraftContent && !hasAssets && !savedAssets) {
+  if (!content) {
     showToast('info', getMarkdownSaveTooltip('empty'));
     updateMarkdownSaveButton(active);
     return;

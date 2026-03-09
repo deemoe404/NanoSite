@@ -255,7 +255,11 @@ const parseEntryValue = (entry, def) => {
       const inline = parseInlineList(rest);
       if (inline) return inline;
       const scalar = parseQuotedString(rest);
-      return scalar ? [scalar] : [];
+      if (!scalar) return [];
+      return String(scalar)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
     }
     const items = parseListItems(continuation);
     return Array.isArray(items) ? items : undefined;

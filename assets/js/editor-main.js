@@ -1,7 +1,7 @@
 import './cache-control.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
-import { insertImageMarkdownAtSelection } from './editor-markdown-ops.js';
+import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
 import {
   FRONT_MATTER_FIELD_DEFS,
   buildMarkdownWithFrontMatter,
@@ -705,16 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const toDateInputValue = (value) => {
-      const raw = String(value == null ? '' : value).trim();
-      if (!raw) return '';
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-      const parsed = Date.parse(raw);
-      if (!Number.isFinite(parsed)) return '';
-      try {
-        return new Date(parsed).toISOString().slice(0, 10);
-      } catch (_) {
-        return '';
-      }
+      return normalizeDateInputValue(value);
     };
 
     const setEntryKey = (entry, key) => {

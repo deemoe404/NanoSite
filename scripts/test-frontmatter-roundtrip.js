@@ -7,7 +7,7 @@ import {
   resolveFrontMatterBindings
 } from '../assets/js/frontmatter-document.js';
 import { parseFrontMatter } from '../assets/js/content.js';
-import { insertImageMarkdownAtSelection } from '../assets/js/editor-markdown-ops.js';
+import { insertImageMarkdownAtSelection, normalizeDateInputValue } from '../assets/js/editor-markdown-ops.js';
 
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
@@ -265,4 +265,21 @@ run('content parser recognizes quoted boolean front matter values', () => {
   assert.equal(parsed.frontMatter.draft, false);
   assert.equal(parsed.frontMatter.wip, true);
   assert.equal(parsed.frontMatter.aiGenerated, true);
+});
+
+run('content parser splits comma-separated tag scalars into separate items', () => {
+  const source = [
+    '---',
+    'tags: alpha, beta, gamma',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.deepEqual(parsed.frontMatter.tags, ['alpha', 'beta', 'gamma']);
+});
+
+run('date input normalization preserves the source calendar day for zoned ISO values', () => {
+  assert.equal(normalizeDateInputValue('2026-03-01T00:30:00+09:00'), '2026-03-01');
+  assert.equal(normalizeDateInputValue('2026-03-01'), '2026-03-01');
 });
