@@ -159,6 +159,39 @@ const translations = {
           available: '本地草稿可用'
         }
       },
+      frontMatter: {
+        heading: 'Front matter 元数据',
+        summaryDefault: '文章的元数据',
+        summary: ({ count }) => (count ? `${count} 个字段已启用` : '还没有元数据'),
+        help: '在下方通过界面填写 front matter，留空则不会写入文件。',
+        empty: '还没有元数据字段。填写后会自动加入文件。',
+        commonTitle: '常用字段',
+        advancedTitle: '高级字段',
+        booleanLabel: '启用',
+        listHint: '每行输入一个条目',
+        clear: '清空',
+        fields: {
+          title: '标题',
+          excerpt: '摘要',
+          author: '作者',
+          date: '发布日期',
+          tags: '标签',
+          image: '主图',
+          draft: '草稿',
+          version: '版本号',
+          ai: 'AI 生成'
+        },
+        hints: {
+          title: '用于卡片和浏览器标题。',
+          excerpt: '用于卡片和 SEO 的简短摘要。',
+          date: '发布日期，推荐使用 ISO 格式，例如 2024-03-18。',
+          tags: '每行一个标签，用于分组与搜索。',
+          image: '社交分享时的默认图片。',
+          draft: '标记后不会在列表中公开。',
+          version: '设置后会显示版本徽标。',
+          ai: '内容由 AI 生成或协助时请勾选。'
+        }
+      },
       toolbar: {
         wrap: '换行：',
         wrapOn: '开',
@@ -166,6 +199,7 @@ const translations = {
         view: '视图：',
         viewEdit: '编辑',
         viewPreview: '预览',
+        save: '保存',
         discard: '丢弃',
         wrapAria: '换行设置',
         viewAria: '视图切换'
@@ -598,6 +632,17 @@ const translations = {
               create: '复制草稿并在 GitHub 上创建该文件。',
               update: '复制草稿并在 GitHub 上更新该文件。'
             }
+          },
+          save: {
+            label: '保存',
+            busy: '正在保存…',
+            tooltips: {
+              default: '在浏览器中保存本地 Markdown 草稿。',
+              noFile: '请先打开一个 Markdown 文件再保存。',
+              empty: '请先输入 Markdown 内容后再保存。'
+            },
+            toastSuccess: '本地草稿已保存。',
+            toastError: '保存本地草稿失败。'
           },
           discard: {
             label: '丢弃',
