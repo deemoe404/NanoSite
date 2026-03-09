@@ -763,38 +763,39 @@ document.addEventListener('DOMContentLoaded', () => {
       updateFieldEmptyState(entry);
     };
 
-    const getEntryAliasKeys = (entry) => {
-      if (!entry || !entry.def || !Array.isArray(entry.def.keys)) {
-        return entry && entry.key ? [entry.key] : [];
-      }
-      const presentKeys = entry.def.keys.filter((key) => Object.prototype.hasOwnProperty.call(state.data, key));
-      if (presentKeys.length) return presentKeys;
-      return entry.key ? [entry.key] : [entry.def.keys[0]];
+    const getAlternateAliasKeys = (entry) => {
+      if (!entry || !entry.def || !Array.isArray(entry.def.keys)) return [];
+      return entry.def.keys.filter((key) => (
+        key
+        && key !== entry.key
+        && Object.prototype.hasOwnProperty.call(state.data, key)
+        && valueIsPresent(state.data[key])
+      ));
     };
 
     const setDataValue = (entry, rawValue, opts = {}) => {
       if (!entry) return;
-      const keys = getEntryAliasKeys(entry).filter(Boolean);
-      if (!keys.length) return;
+      const key = entry.key;
+      if (!key) return;
       if (entry.type === 'boolean') {
         if (rawValue == null) {
-          keys.forEach((key) => { delete state.data[key]; });
+          delete state.data[key];
         } else {
-          keys.forEach((key) => { state.data[key] = Boolean(rawValue); });
+          state.data[key] = Boolean(rawValue);
         }
       } else if (entry.type === 'list') {
         const list = normalizeListInput(rawValue);
-        if (list.length) keys.forEach((key) => { state.data[key] = list; });
-        else keys.forEach((key) => { delete state.data[key]; });
+        if (list.length) state.data[key] = list;
+        else delete state.data[key];
       } else {
         const str = rawValue == null ? '' : String(rawValue);
-        if (str.trim() === '') keys.forEach((key) => { delete state.data[key]; });
-        else keys.forEach((key) => { state.data[key] = str; });
+        if (str.trim() === '') delete state.data[key];
+        else state.data[key] = str;
       }
-      keys.forEach((key) => {
-        if (valueIsPresent(state.data[key])) ensureKeyOrder(state.order, key);
-      });
-      updateFieldEmptyState(entry);
+      if (valueIsPresent(state.data[key])) ensureKeyOrder(state.order, key);
+      const shouldRebind = !valueIsPresent(state.data[key]) && getAlternateAliasKeys(entry).length > 0;
+      if (shouldRebind) rebuildBindings();
+      else updateFieldEmptyState(entry);
       if (!opts.silent) triggerChange();
     };
 
@@ -818,7 +819,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const clearEntryValue = (entry) => {
       if (!entry || !entry.input) return;
-      const keys = getEntryAliasKeys(entry).filter(Boolean);
+      const shouldRebind = getAlternateAliasKeys(entry).length > 0;
       suppressEvents = true;
       try {
         if (entry.type === 'boolean') {
@@ -827,11 +828,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           entry.input.value = '';
         }
-        keys.forEach((key) => { delete state.data[key]; });
+        delete state.data[entry.key];
       } finally {
         suppressEvents = false;
       }
-      updateFieldEmptyState(entry);
+      if (shouldRebind) rebuildBindings();
+      else updateFieldEmptyState(entry);
       triggerChange();
     };
 

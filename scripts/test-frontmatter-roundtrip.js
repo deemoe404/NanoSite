@@ -186,6 +186,23 @@ run('editing an unrelated field preserves all legacy aliases for the same field'
   assert.match(output, /unfinished: false/);
 });
 
+run('editing the bound alias preserves distinct sibling alias values', () => {
+  const source = [
+    '---',
+    'cover: hero.jpg',
+    'coverImage: hero-wide.jpg',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  state.data.cover = 'hero-next.jpg';
+  ensureKeyOrder(state.order, 'cover');
+  const output = build(state, 'Body paragraph.\n');
+  assert.match(output, /cover: hero-next\.jpg/);
+  assert.match(output, /coverImage: hero-wide\.jpg/);
+});
+
 run('image insertion uses body offsets and keeps front matter intact', () => {
   const source = [
     '---',
