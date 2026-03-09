@@ -7,6 +7,7 @@ import {
   resolveFrontMatterBindings
 } from '../assets/js/frontmatter-document.js';
 import { parseFrontMatter } from '../assets/js/content.js';
+import { insertImageMarkdownAtSelection } from '../assets/js/editor-markdown-ops.js';
 
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
@@ -162,6 +163,24 @@ run('legacy aliases keep their original keys when rewritten', () => {
   assert.ok(!output.includes('draft: false'));
 });
 
+run('image insertion uses body offsets and keeps front matter intact', () => {
+  const source = [
+    '---',
+    'title: Demo',
+    'draft: false',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  const body = state.parsed.content;
+  const insertion = insertImageMarkdownAtSelection(body, 0, 0, 'assets/hero.png', 'Hero');
+  const output = build(state, insertion.value);
+  assert.ok(output.startsWith('---\ntitle: Demo\ndraft: false\n---\n'));
+  assert.match(output, /---\n!\[Hero\]\(assets\/hero\.png\)\n\nBody paragraph\.\n$/);
+  assert.ok(output.indexOf('![Hero](assets/hero.png)') > output.indexOf('\n---\n'));
+});
+
 run('content parser reads block scalar excerpts', () => {
   const source = [
     '---',
@@ -207,4 +226,20 @@ run('content parser preserves legacy draft aliases for UI metadata flows', () =>
   assert.equal(parsed.frontMatter.wip, true);
   assert.equal(parsed.frontMatter.unfinished, false);
   assert.equal(parsed.frontMatter.inprogress, true);
+});
+
+run('content parser recognizes quoted boolean front matter values', () => {
+  const source = [
+    '---',
+    'draft: \"false\"',
+    'wip: \'yes\'',
+    'aiGenerated: \"true\"',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.frontMatter.draft, false);
+  assert.equal(parsed.frontMatter.wip, true);
+  assert.equal(parsed.frontMatter.aiGenerated, true);
 });

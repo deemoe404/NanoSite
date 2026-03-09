@@ -243,8 +243,11 @@ const parseEntryValue = (entry, def) => {
     return decodeBlockScalar(style, continuation);
   }
   if (def.type === 'boolean') {
-    if (BOOLEAN_TRUE_RE.test(rest)) return true;
-    if (BOOLEAN_FALSE_RE.test(rest)) return false;
+    const parsedScalar = parseQuotedString(rest);
+    const normalizedScalar = typeof parsedScalar === 'string' ? parsedScalar.trim() : '';
+    if (typeof parsedScalar === 'boolean') return parsedScalar;
+    if (BOOLEAN_TRUE_RE.test(normalizedScalar)) return true;
+    if (BOOLEAN_FALSE_RE.test(normalizedScalar)) return false;
     return undefined;
   }
   if (def.type === 'list') {

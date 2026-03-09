@@ -1,6 +1,7 @@
 import './cache-control.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
+import { insertImageMarkdownAtSelection } from './editor-markdown-ops.js';
 import {
   FRONT_MATTER_FIELD_DEFS,
   buildMarkdownWithFrontMatter,
@@ -1795,25 +1796,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const insertImageMarkdown = (relativePath, altText) => {
     const target = getEditorTextarea();
-    const content = getValue();
+    const content = target ? (target.value || '') : getEditorBody();
     const start = target && Number.isFinite(target.selectionStart) ? target.selectionStart : content.length;
     const end = target && Number.isFinite(target.selectionEnd) ? target.selectionEnd : start;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
-    const alt = altText == null ? '' : String(altText);
-    let prefix = '';
-    if (before && !/\n$/.test(before)) prefix = '\n\n';
-    let suffix = '';
-    if (after) suffix = /^\n/.test(after) ? '' : '\n\n';
-    else suffix = '\n';
-    const core = `![${alt}](${relativePath})`;
-    const snippet = `${prefix}${core}${suffix}`;
-    const next = `${before}${snippet}${after}`;
-    const altStart = before.length + prefix.length + 2;
-    const altEnd = altStart + alt.length;
-    const afterIndex = before.length + snippet.length;
+    const insertion = insertImageMarkdownAtSelection(content, start, end, relativePath, altText);
+    const next = frontMatterManager
+      ? frontMatterManager.buildMarkdown(insertion.value)
+      : insertion.value;
     setValue(next, { notify: true });
-    return { altStart, altEnd, afterIndex };
+    return {
+      altStart: insertion.altStart,
+      altEnd: insertion.altEnd,
+      afterIndex: insertion.afterIndex
+    };
   };
 
   const isImageFile = (file) => {
