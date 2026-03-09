@@ -2877,7 +2877,7 @@ document.addEventListener('DOMContentLoaded', () => {
     (async () => {
       try {
         setStatus('Loading site config…');
-        const site = await fetchConfigWithYamlFallback(['site.yaml','site.yml']);
+        const site = await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']);
         editorSiteConfig = site || {};
         contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
       } catch (_) {

@@ -57,6 +57,12 @@ Create your own site using **GitHub Template**:
 
 > You can also fork the project, but keep in mind that syncing updates may require resolving conflicts, especially with data files.
 
+## 🌿 Branching & Local Development
+
+- Branching model and merge policy: see [BRANCHING.md](BRANCHING.md).
+- `main` is stable/release-ready; active development should go through `next` + `feat/*`.
+- For local testing data, copy `site.local.example.yaml` to `site.local.yaml`, then use `contentRoot: wwwroot.local` (both are git-ignored).
+
 ## 📝 Roadmap
 
 - [ ] Add HTML tags support  

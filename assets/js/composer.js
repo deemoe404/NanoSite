@@ -7609,7 +7609,7 @@ async function handleComposerRefresh(btn) {
     const contentRoot = getContentRootSafe();
     const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
     const urls = target === 'site'
-      ? ['site.yaml', 'site.yml']
+      ? ['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']
       : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
     const remote = await fetchConfigWithYamlFallback(urls);
     let prepared;
@@ -8297,7 +8297,7 @@ async function handleComposerDiscard(btn) {
       const contentRoot = getContentRootSafe();
       const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
       const urls = target === 'site'
-        ? ['site.yaml', 'site.yml']
+        ? ['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']
         : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
       const remote = await fetchConfigWithYamlFallback(urls);
       if (remote != null) {
@@ -11442,7 +11442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const state = { index: {}, tabs: {}, site: {} };
   showStatus(t('editor.composer.statusMessages.loadingConfig'));
   try {
-    const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
+    const site = await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']);
     const root = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
     window.__ns_content_root = root; // hint for other utils
     try {

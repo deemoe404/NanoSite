@@ -1,0 +1,3 @@
+# Local override for development only.
+# Copy this file to `site.local.yaml` and adjust values as needed.
+contentRoot: wwwroot.local

@@ -282,7 +282,7 @@ try { window.__ns_posts_enabled = () => postsEnabled(); } catch (_) {}
 async function loadSiteConfig() {
   try {
     // YAML only
-    return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
+    return await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']);
   } catch (_) { return {}; }
 }
 
