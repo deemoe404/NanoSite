@@ -163,6 +163,29 @@ run('legacy aliases keep their original keys when rewritten', () => {
   assert.ok(!output.includes('draft: false'));
 });
 
+run('editing an unrelated field preserves all legacy aliases for the same field', () => {
+  const source = [
+    '---',
+    'title: Old title',
+    'cover: hero.jpg',
+    'coverImage: hero-wide.jpg',
+    'wip: true',
+    'unfinished: false',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  state.data.title = 'New title';
+  ensureKeyOrder(state.order, 'title');
+  const output = build(state, 'Body paragraph.\n');
+  assert.match(output, /title: New title/);
+  assert.match(output, /cover: hero\.jpg/);
+  assert.match(output, /coverImage: hero-wide\.jpg/);
+  assert.match(output, /wip: true/);
+  assert.match(output, /unfinished: false/);
+});
+
 run('image insertion uses body offsets and keeps front matter intact', () => {
   const source = [
     '---',

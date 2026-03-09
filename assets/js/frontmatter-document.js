@@ -312,26 +312,35 @@ const emitKnownEntryLines = (key, value) => {
 
 const buildDesiredKnownKeys = (values, bindings, fieldDefs) => {
   const present = [];
-  (fieldDefs || FRONT_MATTER_FIELD_DEFS).forEach((def) => {
-    const key = bindings && bindings.get(def.id) ? bindings.get(def.id) : def.keys[0];
-    if (!key || !valueIsPresent(values[key])) return;
+  const seen = new Set();
+  const defs = fieldDefs || FRONT_MATTER_FIELD_DEFS;
+  Object.keys(values || {}).forEach((key) => {
+    const defId = FRONT_MATTER_ALIAS_TO_ID.get(key);
+    if (!defId || seen.has(key) || !valueIsPresent(values[key])) return;
     present.push(key);
+    seen.add(key);
+  });
+  defs.forEach((def) => {
+    const key = bindings && bindings.get(def.id) ? bindings.get(def.id) : def.keys[0];
+    if (!key || seen.has(key) || !valueIsPresent(values[key])) return;
+    present.push(key);
+    seen.add(key);
   });
   return present;
 };
 
-const isKnownStateUnchanged = (document, values, bindings) => {
+const isKnownStateUnchanged = (document, values) => {
   if (!document || !document.hasFrontMatter) return false;
-  for (const def of FRONT_MATTER_FIELD_DEFS) {
-    const currentKey = bindings && bindings.get(def.id) ? bindings.get(def.id) : def.keys[0];
-    const originalKey = document.originalBindings instanceof Map && document.originalBindings.has(def.id)
-      ? document.originalBindings.get(def.id)
-      : def.keys[0];
-    const currentPresent = valueIsPresent(values[currentKey]);
-    const originalPresent = valueIsPresent(document.originalKnownData[originalKey]);
-    if (currentKey !== originalKey && (currentPresent || originalPresent)) return false;
-    if (currentPresent !== originalPresent) return false;
-    if (currentPresent && !isSameValue(values[currentKey], document.originalKnownData[originalKey])) return false;
+  const knownCurrentKeys = Object.keys(values || {})
+    .filter((key) => FRONT_MATTER_ALIAS_TO_ID.has(key) && valueIsPresent(values[key]));
+  const knownOriginalKeys = Object.keys(document.originalKnownData || {})
+    .filter((key) => FRONT_MATTER_ALIAS_TO_ID.has(key) && valueIsPresent(document.originalKnownData[key]));
+  if (knownCurrentKeys.length !== knownOriginalKeys.length) return false;
+  const currentSet = new Set(knownCurrentKeys);
+  const originalSet = new Set(knownOriginalKeys);
+  for (const key of currentSet) {
+    if (!originalSet.has(key)) return false;
+    if (!isSameValue(values[key], document.originalKnownData[key])) return false;
   }
   return true;
 };
@@ -358,8 +367,13 @@ export function resolveFrontMatterBindings(data, document) {
 
   if (document && document.originalBindings instanceof Map) {
     document.originalBindings.forEach((key, defId) => {
-      if (presentByDef.has(defId)) bindings.set(defId, presentByDef.get(defId));
-      else bindings.set(defId, key);
+      if (key && Object.prototype.hasOwnProperty.call(data || {}, key) && valueIsPresent(data[key])) {
+        bindings.set(defId, key);
+      } else if (presentByDef.has(defId)) {
+        bindings.set(defId, presentByDef.get(defId));
+      } else {
+        bindings.set(defId, key);
+      }
     });
   }
 
@@ -545,7 +559,7 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
   const bodyNormalized = normalizeLineEndings(bodyRaw || '');
   const bodyOut = eol === '\n' ? bodyNormalized : bodyNormalized.split('\n').join(eol);
 
-  if (isKnownStateUnchanged(doc, values || {}, bindings)) {
+  if (isKnownStateUnchanged(doc, values || {})) {
     let unchanged = doc.originalFull || '';
     if (bodyOut) unchanged += `${eol}${bodyOut}`;
     const shouldEndWithNewline = bodyNormalized.endsWith('\n') || (!bodyNormalized && options.trailingNewline);
@@ -562,8 +576,9 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
   const pendingNewKeys = desiredKeys.filter((key) => !entryKeys.has(key));
   const rankByKey = new Map();
   FRONT_MATTER_FIELD_DEFS.forEach((def, index) => {
-    const key = bindings && bindings.get(def.id) ? bindings.get(def.id) : def.keys[0];
-    rankByKey.set(key, index);
+    def.keys.forEach((key) => {
+      rankByKey.set(key, index);
+    });
   });
 
   const outputLines = cloneLines(doc.prefixLines);

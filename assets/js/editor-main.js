@@ -772,26 +772,37 @@ document.addEventListener('DOMContentLoaded', () => {
       updateFieldEmptyState(entry);
     };
 
+    const getEntryAliasKeys = (entry) => {
+      if (!entry || !entry.def || !Array.isArray(entry.def.keys)) {
+        return entry && entry.key ? [entry.key] : [];
+      }
+      const presentKeys = entry.def.keys.filter((key) => Object.prototype.hasOwnProperty.call(state.data, key));
+      if (presentKeys.length) return presentKeys;
+      return entry.key ? [entry.key] : [entry.def.keys[0]];
+    };
+
     const setDataValue = (entry, rawValue, opts = {}) => {
       if (!entry) return;
-      const key = entry.key;
-      if (!key) return;
+      const keys = getEntryAliasKeys(entry).filter(Boolean);
+      if (!keys.length) return;
       if (entry.type === 'boolean') {
         if (rawValue == null) {
-          delete state.data[key];
+          keys.forEach((key) => { delete state.data[key]; });
         } else {
-          state.data[key] = Boolean(rawValue);
+          keys.forEach((key) => { state.data[key] = Boolean(rawValue); });
         }
       } else if (entry.type === 'list') {
         const list = normalizeListInput(rawValue);
-        if (list.length) state.data[key] = list;
-        else delete state.data[key];
+        if (list.length) keys.forEach((key) => { state.data[key] = list; });
+        else keys.forEach((key) => { delete state.data[key]; });
       } else {
         const str = rawValue == null ? '' : String(rawValue);
-        if (str.trim() === '') delete state.data[key];
-        else state.data[key] = str;
+        if (str.trim() === '') keys.forEach((key) => { delete state.data[key]; });
+        else keys.forEach((key) => { state.data[key] = str; });
       }
-      if (valueIsPresent(state.data[key])) ensureKeyOrder(state.order, key);
+      keys.forEach((key) => {
+        if (valueIsPresent(state.data[key])) ensureKeyOrder(state.order, key);
+      });
       updateFieldEmptyState(entry);
       if (!opts.silent) triggerChange();
     };
@@ -816,6 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const clearEntryValue = (entry) => {
       if (!entry || !entry.input) return;
+      const keys = getEntryAliasKeys(entry).filter(Boolean);
       suppressEvents = true;
       try {
         if (entry.type === 'boolean') {
@@ -824,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           entry.input.value = '';
         }
-        delete state.data[entry.key];
+        keys.forEach((key) => { delete state.data[key]; });
       } finally {
         suppressEvents = false;
       }
@@ -945,8 +957,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateSummary = () => {
-      const activeKeys = Object.keys(state.data || {}).filter((key) => valueIsPresent(state.data[key]));
-      const count = activeKeys.length;
+      let count = 0;
+      registry.forEach((entry) => {
+        if (entry && valueIsPresent(state.data[entry.key])) count += 1;
+      });
       if (summaryEl) {
         const summary = t('editor.frontMatter.summary', { count });
         if (summary != null && summary !== 'editor.frontMatter.summary') summaryEl.textContent = summary;
@@ -962,12 +976,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const rebuildBindings = () => {
       const bindings = resolveFrontMatterBindings(state.data, state.document);
       state.bindings = bindings;
-      const normalizedData = {};
-      bindings.forEach((key) => {
-        if (!key || !Object.prototype.hasOwnProperty.call(state.data, key)) return;
-        normalizedData[key] = state.data[key];
-      });
-      state.data = normalizedData;
       registry.forEach((entry, defId) => {
         const nextKey = bindings.get(defId) || entry.def.keys[0];
         setEntryKey(entry, nextKey);
