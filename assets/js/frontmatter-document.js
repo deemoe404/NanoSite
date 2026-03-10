@@ -13,9 +13,23 @@ export const FRONT_MATTER_FIELD_DEFS = [
 export const FRONT_MATTER_ALIAS_TO_ID = new Map();
 FRONT_MATTER_FIELD_DEFS.forEach((def) => {
   def.keys.forEach((key) => {
-    if (!FRONT_MATTER_ALIAS_TO_ID.has(key)) FRONT_MATTER_ALIAS_TO_ID.set(key, def.id);
+    const normalized = String(key || '').toLowerCase();
+    if (!FRONT_MATTER_ALIAS_TO_ID.has(normalized)) FRONT_MATTER_ALIAS_TO_ID.set(normalized, def.id);
   });
 });
+
+const normalizeFrontMatterLookupKey = (key) => String(key == null ? '' : key).toLowerCase();
+const getKnownFrontMatterDefId = (key) => FRONT_MATTER_ALIAS_TO_ID.get(normalizeFrontMatterLookupKey(key)) || null;
+const isKnownFrontMatterKey = (key) => FRONT_MATTER_ALIAS_TO_ID.has(normalizeFrontMatterLookupKey(key));
+
+export const getCanonicalFrontMatterKey = (key) => {
+  const defId = getKnownFrontMatterDefId(key);
+  if (!defId) return String(key == null ? '' : key);
+  const def = FRONT_MATTER_FIELD_DEFS.find((item) => item.id === defId);
+  if (!def || !Array.isArray(def.keys) || !def.keys.length) return String(key == null ? '' : key);
+  const normalized = normalizeFrontMatterLookupKey(key);
+  return def.keys.find((alias) => normalizeFrontMatterLookupKey(alias) === normalized) || def.keys[0];
+};
 
 export const normalizeLineEndings = (text) => String(text == null ? '' : text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
@@ -76,7 +90,7 @@ const stripInlineComment = (text) => {
       out += ch;
       continue;
     }
-    if (!inSingle && !inDouble && ch === '#') break;
+    if (!inSingle && !inDouble && ch === '#' && (i === 0 || /\s/.test(raw[i - 1] || ''))) break;
     out += ch;
   }
   return out.trimEnd();
@@ -320,7 +334,7 @@ const buildDesiredKnownKeys = (values, bindings, fieldDefs) => {
   const seen = new Set();
   const defs = fieldDefs || FRONT_MATTER_FIELD_DEFS;
   Object.keys(values || {}).forEach((key) => {
-    const defId = FRONT_MATTER_ALIAS_TO_ID.get(key);
+    const defId = getKnownFrontMatterDefId(key);
     if (!defId || seen.has(key) || !valueIsPresent(values[key])) return;
     present.push(key);
     seen.add(key);
@@ -337,9 +351,9 @@ const buildDesiredKnownKeys = (values, bindings, fieldDefs) => {
 const isKnownStateUnchanged = (document, values) => {
   if (!document || !document.hasFrontMatter) return false;
   const knownCurrentKeys = Object.keys(values || {})
-    .filter((key) => FRONT_MATTER_ALIAS_TO_ID.has(key) && valueIsPresent(values[key]));
+    .filter((key) => isKnownFrontMatterKey(key) && valueIsPresent(values[key]));
   const knownOriginalKeys = Object.keys(document.originalKnownData || {})
-    .filter((key) => FRONT_MATTER_ALIAS_TO_ID.has(key) && valueIsPresent(document.originalKnownData[key]));
+    .filter((key) => isKnownFrontMatterKey(key) && valueIsPresent(document.originalKnownData[key]));
   if (knownCurrentKeys.length !== knownOriginalKeys.length) return false;
   const currentSet = new Set(knownCurrentKeys);
   const originalSet = new Set(knownOriginalKeys);
@@ -365,7 +379,7 @@ export function resolveFrontMatterBindings(data, document) {
   const presentByDef = new Map();
 
   presentKeys.forEach((key) => {
-    const defId = FRONT_MATTER_ALIAS_TO_ID.get(key);
+    const defId = getKnownFrontMatterDefId(key);
     if (!defId || presentByDef.has(defId)) return;
     presentByDef.set(defId, key);
   });
@@ -432,8 +446,8 @@ const parseFrontMatterEntries = (blockNormalized) => {
         key: match[1],
         leadingLines: cloneLines(entries.length ? pendingLines : []),
         bodyLines: cloneLines(consumed.bodyLines),
-        defId: FRONT_MATTER_ALIAS_TO_ID.get(match[1]) || null,
-        isKnown: FRONT_MATTER_ALIAS_TO_ID.has(match[1])
+        defId: getKnownFrontMatterDefId(match[1]) || null,
+        isKnown: isKnownFrontMatterKey(match[1])
       });
     pendingLines = [];
     index = consumed.nextIndex;
@@ -582,7 +596,7 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
   const rankByKey = new Map();
   FRONT_MATTER_FIELD_DEFS.forEach((def, index) => {
     def.keys.forEach((key) => {
-      rankByKey.set(key, index);
+      rankByKey.set(normalizeFrontMatterLookupKey(key), index);
     });
   });
 
@@ -590,12 +604,14 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
   const emitted = new Set();
 
   const emitGeneratedBefore = (currentKnownKey) => {
-    const currentRank = currentKnownKey && rankByKey.has(currentKnownKey)
-      ? rankByKey.get(currentKnownKey)
+    const currentLookupKey = normalizeFrontMatterLookupKey(currentKnownKey);
+    const currentRank = currentLookupKey && rankByKey.has(currentLookupKey)
+      ? rankByKey.get(currentLookupKey)
       : FRONT_MATTER_FIELD_DEFS.length;
     pendingNewKeys.forEach((key) => {
       if (emitted.has(key)) return;
-      const rank = rankByKey.has(key) ? rankByKey.get(key) : FRONT_MATTER_FIELD_DEFS.length;
+      const lookupKey = normalizeFrontMatterLookupKey(key);
+      const rank = rankByKey.has(lookupKey) ? rankByKey.get(lookupKey) : FRONT_MATTER_FIELD_DEFS.length;
       if (rank >= currentRank) return;
       const entryLines = emitKnownEntryLines(key, values[key]);
       if (!entryLines.length) {

@@ -254,6 +254,20 @@ run('content parser ignores indented fence markers inside block scalars', () => 
   assert.equal(parsed.content, 'Body paragraph.');
 });
 
+run('content parser preserves hash characters inside plain scalar values', () => {
+  const source = [
+    '---',
+    'title: C# tips',
+    'image: docs/page#section',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.frontMatter.title, 'C# tips');
+  assert.equal(parsed.frontMatter.image, 'docs/page#section');
+});
+
 run('content parser preserves legacy cover aliases for downstream metadata consumers', () => {
   const source = [
     '---',
@@ -284,6 +298,24 @@ run('content parser preserves legacy draft aliases for UI metadata flows', () =>
   assert.equal(parsed.frontMatter.wip, true);
   assert.equal(parsed.frontMatter.unfinished, false);
   assert.equal(parsed.frontMatter.inprogress, true);
+});
+
+run('content parser recognizes known keys case-insensitively', () => {
+  const source = [
+    '---',
+    'Title: Demo title',
+    'Date: 2026-03-10',
+    'Tags: alpha, beta',
+    'CoverImage: hero-wide.jpg',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.frontMatter.title, 'Demo title');
+  assert.equal(parsed.frontMatter.date, '2026-03-10');
+  assert.deepEqual(parsed.frontMatter.tags, ['alpha', 'beta']);
+  assert.equal(parsed.frontMatter.coverImage, 'hero-wide.jpg');
 });
 
 run('content parser recognizes quoted boolean front matter values', () => {

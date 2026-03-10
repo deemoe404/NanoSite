@@ -1,4 +1,4 @@
-import { parseMarkdownFrontMatter } from './frontmatter-document.js';
+import { getCanonicalFrontMatterKey, parseMarkdownFrontMatter } from './frontmatter-document.js';
 
 // Helpers for generating excerpts/snippets from markdown
 export function stripMarkdownToText(md) {
@@ -77,8 +77,15 @@ export function computeReadTime(md, wpm = 200) {
 // Parse YAML front matter from markdown content
 export function parseFrontMatter(content) {
   const parsed = parseMarkdownFrontMatter(content, { trimContent: true });
+  const frontMatter = {};
+  Object.entries(parsed.frontMatter || {}).forEach(([key, value]) => {
+    const canonicalKey = getCanonicalFrontMatterKey(key);
+    if (canonicalKey === key || !Object.prototype.hasOwnProperty.call(frontMatter, canonicalKey)) {
+      frontMatter[canonicalKey] = value;
+    }
+  });
   return {
-    frontMatter: parsed.frontMatter || {},
+    frontMatter,
     content: parsed.content || ''
   };
 }
