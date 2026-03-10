@@ -159,6 +159,39 @@ const translations = {
           available: 'Local draft available'
         }
       },
+      frontMatter: {
+        heading: 'Front matter',
+        summaryDefault: 'Metadata for this post',
+        summary: ({ count }) => (count ? `${count} metadata field${count === 1 ? '' : 's'} active` : 'No metadata yet'),
+        help: 'Fill the metadata below. Leave a field empty to omit it from the file.',
+        empty: 'No front matter fields yet. Add values to include metadata.',
+        commonTitle: 'Common fields',
+        advancedTitle: 'Advanced fields',
+        booleanLabel: 'Enabled',
+        listHint: 'One item per line',
+        clear: 'Clear',
+        fields: {
+          title: 'Title',
+          excerpt: 'Excerpt',
+          author: 'Author',
+          date: 'Date',
+          tags: 'Tags',
+          image: 'Primary image',
+          draft: 'Draft',
+          version: 'Version',
+          ai: 'AI generated'
+        },
+        hints: {
+          title: 'Shown on cards and the browser title.',
+          excerpt: 'Short summary for cards and SEO.',
+          date: 'Publish date (ISO format recommended, e.g. 2024-03-18).',
+          tags: 'Enter one tag per line. Used for grouping and search.',
+          image: 'Fallback image for social previews.',
+          draft: 'Mark as draft to exclude from listings.',
+          version: 'Displayed as a version badge if provided.',
+          ai: 'Mark when the content is AI generated or assisted.'
+        }
+      },
       toolbar: {
         wrap: 'Wrap:',
         wrapOn: 'on',
@@ -166,6 +199,7 @@ const translations = {
         view: 'View:',
         viewEdit: 'Editor',
         viewPreview: 'Preview',
+        save: 'Save',
         discard: 'Discard',
         wrapAria: 'Wrap setting',
         viewAria: 'View switch'
@@ -597,6 +631,18 @@ const translations = {
               create: 'Copy draft and create this file on GitHub.',
               update: 'Copy draft and update this file on GitHub.'
             }
+          },
+          save: {
+            label: 'Save',
+            busy: 'Saving…',
+            tooltips: {
+              default: 'Save local markdown draft in your browser.',
+              noFile: 'Open a markdown file before saving.',
+              empty: 'Add markdown content before saving.',
+              clean: 'No markdown changes to save.'
+            },
+            toastSuccess: 'Local draft saved.',
+            toastError: 'Failed to save local draft.'
           },
           discard: {
             label: 'Discard',

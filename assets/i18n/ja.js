@@ -159,6 +159,39 @@ const translations = {
           available: 'ローカル下書きが利用可能です'
         }
       },
+      frontMatter: {
+        heading: 'Front matter メタデータ',
+        summaryDefault: 'この記事のメタデータ',
+        summary: ({ count }) => (count ? `${count} 件のフィールドを使用中` : 'メタデータはまだありません'),
+        help: '下のフォームで front matter を編集します。空欄の項目は保存されません。',
+        empty: 'メタデータはまだ設定されていません。入力すると自動的にファイルへ追加されます。',
+        commonTitle: 'よく使う項目',
+        advancedTitle: '詳細項目',
+        booleanLabel: '有効',
+        listHint: '1 行につき 1 件入力してください',
+        clear: 'クリア',
+        fields: {
+          title: 'タイトル',
+          excerpt: '抜粋',
+          author: '著者',
+          date: '公開日',
+          tags: 'タグ',
+          image: 'メイン画像',
+          draft: '下書き',
+          version: 'バージョン',
+          ai: 'AI 生成'
+        },
+        hints: {
+          title: 'カードやブラウザのタイトルに表示されます。',
+          excerpt: 'カードと SEO 用の短い概要です。',
+          date: '公開日。ISO 形式（例: 2024-03-18）を推奨します。',
+          tags: '1 行につき 1 つのタグを入力してください。',
+          image: 'ソーシャル共有時のデフォルト画像です。',
+          draft: '下書きにすると一覧に表示されません。',
+          version: '設定するとバージョンバッジを表示します。',
+          ai: 'AI が生成または編集に関与した場合にチェックしてください。'
+        }
+      },
       toolbar: {
         wrap: '折り返し:',
         wrapOn: 'オン',
@@ -166,6 +199,7 @@ const translations = {
         view: '表示:',
         viewEdit: '編集',
         viewPreview: 'プレビュー',
+        save: '保存',
         discard: '破棄',
         wrapAria: '折り返し設定',
         viewAria: '表示の切り替え'
@@ -598,6 +632,18 @@ const translations = {
               create: 'ドラフトをコピーして GitHub でこのファイルを作成します。',
               update: 'ドラフトをコピーして GitHub でこのファイルを更新します。'
             }
+          },
+          save: {
+            label: '保存',
+            busy: '保存中…',
+            tooltips: {
+              default: 'ローカルの Markdown 下書きをブラウザーに保存します。',
+              noFile: '保存するには Markdown ファイルを開いてください。',
+              empty: 'Markdown の内容を入力してから保存してください。',
+              clean: '保存する Markdown の変更はありません。'
+            },
+            toastSuccess: 'ローカル下書きを保存しました。',
+            toastError: 'ローカル下書きの保存に失敗しました。'
           },
           discard: {
             label: '破棄',

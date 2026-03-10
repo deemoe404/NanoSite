@@ -488,11 +488,31 @@ function makeEditor(targetTextarea, language, readOnly) {
     return wrapMeasureEl;
   };
 
+  const getContentWidth = () => {
+    try {
+      const taRect = ta.getBoundingClientRect();
+      if (taRect && isFinite(taRect.width) && taRect.width > 0) {
+        const taStyles = window.getComputedStyle(ta);
+        const paddingLeft = parseFloat(taStyles.paddingLeft) || 0;
+        const paddingRight = parseFloat(taStyles.paddingRight) || 0;
+        const borderLeft = parseFloat(taStyles.borderLeftWidth) || 0;
+        const borderRight = parseFloat(taStyles.borderRightWidth) || 0;
+        const inner = taRect.width - paddingLeft - paddingRight - borderLeft - borderRight;
+        if (inner > 0) return inner;
+      }
+    } catch (_) { /* noop */ }
+    const codeRect = code.getBoundingClientRect();
+    if (codeRect && isFinite(codeRect.width) && codeRect.width > 0) return codeRect.width;
+    const bodyRect = body.getBoundingClientRect();
+    if (bodyRect && isFinite(bodyRect.width) && bodyRect.width > 0) return bodyRect.width;
+    return 0;
+  };
+
   const computeWrapSegments = (lines) => {
     if (!lines || !lines.length) return [1];
     const measure = ensureWrapMeasure();
     const codeStyles = window.getComputedStyle(code);
-    const targetWidth = code.getBoundingClientRect().width || body.getBoundingClientRect().width || 0;
+    const targetWidth = getContentWidth();
     if (!targetWidth || !isFinite(targetWidth)) {
       return lines.map(() => 1);
     }
@@ -509,21 +529,26 @@ function makeEditor(targetTextarea, language, readOnly) {
     measure.style.whiteSpace = 'pre-wrap';
     measure.style.wordBreak = 'break-word';
     measure.style.overflowWrap = codeStyles.overflowWrap || 'break-word';
+    let lineHeight = parseFloat(codeStyles.lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) {
+      const taStyles = window.getComputedStyle(ta);
+      const alt = parseFloat(taStyles.lineHeight);
+      if (Number.isFinite(alt) && alt > 0) lineHeight = alt;
+    }
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0) lineHeight = DEFAULT_LINE_HEIGHT;
     const tabSizeVal = parseInt(measure.style.tabSize, 10);
     const tabReplacement = ' '.repeat((Number.isFinite(tabSizeVal) && tabSizeVal > 0) ? Math.min(tabSizeVal, 16) : 4);
-    const range = document.createRange();
     const counts = [];
     for (let i = 0; i < lines.length; i++) {
       const rawLine = String(lines[i] || '');
       // Replace tabs with spaces to mirror tab-size in measurement context.
       const sample = rawLine.indexOf('\t') === -1 ? rawLine : rawLine.replace(/\t/g, tabReplacement);
       measure.textContent = sample.length ? sample : ' ';
-      range.selectNodeContents(measure);
-      const rects = range.getClientRects();
-      counts.push(rects.length || 1);
+      const height = measure.scrollHeight;
+      const segments = Math.max(1, Math.round((height + 0.01) / lineHeight));
+      counts.push(segments);
     }
     measure.textContent = '';
-    if (typeof range.detach === 'function') range.detach();
     return counts;
   };
 
@@ -606,7 +631,8 @@ function makeEditor(targetTextarea, language, readOnly) {
   };
 
   // Keep gutter continuation markers in sync when the editor width changes.
-  const handleWrapResize = (width) => {
+  const handleWrapResize = () => {
+    const width = getContentWidth();
     if (!width || !isFinite(width)) return;
     if (!softWrap) {
       lastWrapWidth = width;
@@ -622,16 +648,14 @@ function makeEditor(targetTextarea, language, readOnly) {
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (!entry || entry.target !== body) continue;
-        const width = entry.contentRect ? entry.contentRect.width : body.getBoundingClientRect().width;
-        handleWrapResize(width);
+        handleWrapResize();
       }
     });
     try { ro.observe(body); }
     catch (_) {}
   } else {
     window.addEventListener('resize', () => {
-      const width = body.getBoundingClientRect().width;
-      handleWrapResize(width);
+      handleWrapResize();
     });
   }
 

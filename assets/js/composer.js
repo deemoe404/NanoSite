@@ -1,4 +1,5 @@
 import './cache-control.js';
+import { getManualMarkdownSaveState, normalizeMarkdownDraftContent } from './composer-markdown-save.js';
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
@@ -51,6 +52,12 @@ const getMarkdownDiscardLabel = () => t(MARKDOWN_DISCARD_LABEL_KEY);
 const getMarkdownDiscardBusyLabel = () => t(MARKDOWN_DISCARD_BUSY_KEY);
 const getMarkdownDiscardTooltip = (kind) => {
   const key = MARKDOWN_DISCARD_TOOLTIP_KEYS[kind] || MARKDOWN_DISCARD_TOOLTIP_KEYS.default;
+  return t(key);
+};
+const getMarkdownSaveLabel = () => t(MARKDOWN_SAVE_LABEL_KEY);
+const getMarkdownSaveBusyLabel = () => t(MARKDOWN_SAVE_BUSY_KEY);
+const getMarkdownSaveTooltip = (kind) => {
+  const key = MARKDOWN_SAVE_TOOLTIP_KEYS[kind] || MARKDOWN_SAVE_TOOLTIP_KEYS.default;
   return t(key);
 };
 
@@ -117,10 +124,20 @@ const MARKDOWN_DISCARD_TOOLTIP_KEYS = {
   noFile: 'editor.composer.markdown.discard.tooltips.noFile',
   reload: 'editor.composer.markdown.discard.tooltips.reload'
 };
+const MARKDOWN_SAVE_LABEL_KEY = 'editor.composer.markdown.save.label';
+const MARKDOWN_SAVE_BUSY_KEY = 'editor.composer.markdown.save.busy';
+
+const MARKDOWN_SAVE_TOOLTIP_KEYS = {
+  default: 'editor.composer.markdown.save.tooltips.default',
+  noFile: 'editor.composer.markdown.save.tooltips.noFile',
+  empty: 'editor.composer.markdown.save.tooltips.empty',
+  clean: 'editor.composer.markdown.save.tooltips.clean'
+};
 const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
 let markdownPushButton = null;
 let markdownDiscardButton = null;
+let markdownSaveButton = null;
 let gitHubCommitInFlight = false;
 let cachedFineGrainedTokenMemory = '';
 
@@ -1508,6 +1525,7 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       }
       updateMarkdownPushButton(tab);
       updateMarkdownDiscardButton(tab);
+      updateMarkdownSaveButton(tab);
     },
     onCancel: () => {
       const fallbackStatus = (previousStatus && previousStatus.state)
@@ -1520,6 +1538,7 @@ function startMarkdownSyncWatcher(tab, options = {}) {
       });
       updateMarkdownPushButton(tab);
       updateMarkdownDiscardButton(tab);
+      updateMarkdownSaveButton(tab);
       showToast('info', t('editor.toasts.remoteCheckCanceledUseRefresh'));
     }
   });
@@ -2510,7 +2529,7 @@ function writeDraftStore(store) {
 }
 
 function normalizeMarkdownContent(text) {
-  return String(text == null ? '' : text).replace(/\r\n/g, '\n');
+  return normalizeMarkdownDraftContent(text);
 }
 
 function computeTextSignature(text) {
@@ -5518,6 +5537,7 @@ function applyLocalPostCommitState(files = []) {
         updateComposerMarkdownDraftIndicators();
         updateMarkdownPushButton(getActiveDynamicTab());
         updateMarkdownDiscardButton(getActiveDynamicTab());
+        updateMarkdownSaveButton(getActiveDynamicTab());
       }
     } else if (file.kind === 'markdown') {
       const norm = normalizeRelPath(file.markdownPath || file.label || '');
@@ -5586,6 +5606,7 @@ function applyLocalPostCommitState(files = []) {
   updateUnsyncedSummary();
   updateMarkdownPushButton(getActiveDynamicTab());
   updateMarkdownDiscardButton(getActiveDynamicTab());
+  updateMarkdownSaveButton(getActiveDynamicTab());
 }
 
 async function performDirectGithubCommit(token, summaryEntries = []) {
@@ -8648,6 +8669,107 @@ function updateMarkdownDiscardButton(tab) {
   btn.setAttribute('aria-label', tooltip || getMarkdownDiscardLabel());
 }
 
+function updateMarkdownSaveButton(tab) {
+  if (!markdownSaveButton) {
+    markdownSaveButton = document.getElementById('btnSaveMarkdown');
+  }
+  if (!markdownSaveButton) return;
+
+  const btn = markdownSaveButton;
+  const active = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
+  const hasBusy = btn.classList.contains('is-busy');
+
+  const hasActive = !!(active && active.path && active.mode === currentMode);
+  const saveState = hasActive
+    ? getManualMarkdownSaveState(active.content, active.isDirty)
+    : null;
+
+  let disabled = true;
+  let tooltip = getMarkdownSaveTooltip('default');
+
+  if (!hasActive) {
+    tooltip = getMarkdownSaveTooltip('noFile');
+  } else if (!saveState.canSave) {
+    tooltip = getMarkdownSaveTooltip(saveState.reason);
+  } else {
+    disabled = false;
+  }
+
+  if (hasBusy) disabled = true;
+
+  btn.hidden = false;
+  btn.removeAttribute('aria-hidden');
+  btn.disabled = disabled;
+  btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  if (!hasBusy) setButtonLabel(btn, getMarkdownSaveLabel());
+  if (tooltip) btn.title = tooltip;
+  else btn.removeAttribute('title');
+  btn.setAttribute('aria-label', tooltip || getMarkdownSaveLabel());
+}
+
+function manualSaveActiveMarkdown(triggerButton) {
+  const active = getActiveDynamicTab();
+  if (!active || !active.path) {
+    showToast('info', getMarkdownSaveTooltip('noFile'));
+    updateMarkdownSaveButton(null);
+    return;
+  }
+
+  const saveState = getManualMarkdownSaveState(active.content, active.isDirty);
+  if (!saveState.canSave) {
+    showToast('info', getMarkdownSaveTooltip(saveState.reason));
+    updateMarkdownSaveButton(active);
+    return;
+  }
+
+  const button = triggerButton || markdownSaveButton;
+  const originalLabel = button ? (getButtonLabel(button) || getMarkdownSaveLabel()) : '';
+  const setBusyState = (busy, text) => {
+    if (!button) return;
+    if (busy) {
+      button.classList.add('is-busy');
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      button.setAttribute('aria-disabled', 'true');
+      if (text) setButtonLabel(button, text);
+    } else {
+      button.classList.remove('is-busy');
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.setAttribute('aria-disabled', 'false');
+      if (text) setButtonLabel(button, text);
+    }
+  };
+
+  setBusyState(true, getMarkdownSaveBusyLabel());
+
+  try {
+    if (active.markdownDraftTimer) {
+      try { clearTimeout(active.markdownDraftTimer); }
+      catch (_) {}
+      active.markdownDraftTimer = null;
+    }
+
+    const saved = saveMarkdownDraftForTab(active, { markManual: true });
+    if (saved) {
+      pushEditorCurrentFileInfo(active);
+      showToast('success', t('editor.composer.markdown.save.toastSuccess'));
+    } else {
+      showToast('info', getMarkdownSaveTooltip('empty'));
+    }
+  } catch (err) {
+    console.error('Manual markdown save failed', err);
+    showToast('error', t('editor.composer.markdown.save.toastError'));
+  } finally {
+    setBusyState(false, originalLabel || getMarkdownSaveLabel());
+    updateMarkdownSaveButton(active);
+    updateMarkdownDiscardButton(active);
+    updateMarkdownPushButton(active);
+    try { updateUnsyncedSummary(); }
+    catch (_) {}
+  }
+}
+
 async function openMarkdownPushOnGitHub(tab) {
   if (!tab || !tab.path) {
     showToast('info', t('editor.toasts.markdownOpenBeforePush'));
@@ -8767,6 +8889,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   if (!active || !active.path) {
     showToast('info', t('editor.toasts.markdownOpenBeforeDiscard'));
     updateMarkdownDiscardButton(null);
+    updateMarkdownSaveButton(null);
     return;
   }
 
@@ -8776,6 +8899,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
   if (!dirty && !hasDraftContent) {
     showToast('info', t('editor.toasts.noLocalMarkdownChanges'));
     updateMarkdownDiscardButton(active);
+    updateMarkdownSaveButton(active);
     return;
   }
 
@@ -8861,6 +8985,7 @@ async function discardMarkdownLocalChanges(tab, anchor) {
     setBusyState(false, originalLabel || getMarkdownDiscardLabel());
     updateMarkdownDiscardButton(active);
     updateMarkdownPushButton(active);
+    updateMarkdownSaveButton(active);
   }
 }
 
@@ -8888,6 +9013,7 @@ function pushEditorCurrentFileInfo(tab) {
   const activeTab = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
   updateMarkdownPushButton(activeTab);
   updateMarkdownDiscardButton(activeTab);
+  updateMarkdownSaveButton(activeTab);
 }
 
 function setDynamicTabStatus(tab, status) {
@@ -9000,6 +9126,7 @@ async function closeDynamicTab(modeId, options = {}) {
   }
   updateMarkdownPushButton(getActiveDynamicTab());
   updateMarkdownDiscardButton(getActiveDynamicTab());
+  updateMarkdownSaveButton(getActiveDynamicTab());
   updateComposerMarkdownDraftIndicators({ path: tab.path });
   return true;
 }
@@ -10286,7 +10413,8 @@ function buildIndexUI(root, state) {
           it.addEventListener('click', () => {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
-            entry[code] = [''];
+            const defaultPath = buildDefaultLanguagePathFromEntry('index', key, code, entry);
+            entry[code] = defaultPath ? [defaultPath] : [''];
             const meta = row.querySelector('.ci-meta');
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
@@ -10519,7 +10647,11 @@ function buildTabsUI(root, state) {
           it.addEventListener('click', () => {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
-            entry[code] = { title: '', location: '' };
+            const defaultLocation = buildDefaultLanguagePathFromEntry('tabs', tab, code, entry);
+            entry[code] = {
+              title: String(tab || ''),
+              location: defaultLocation || ''
+            };
             const meta = row.querySelector('.ct-meta');
             if (meta) meta.textContent = tComposerLang('count', { count: Object.keys(entry).length });
             closeMenu();
@@ -10577,6 +10709,82 @@ function buildDefaultEntryPath(kind, key, lang) {
   const filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
   const folder = safeKey ? `${baseFolder}/${safeKey}` : baseFolder;
   return `${folder}/${filename}`;
+}
+
+function normalizeComposerLangCode(lang) {
+  return String(lang || '').trim().toLowerCase();
+}
+
+function stripComposerLangSuffix(name, codes) {
+  let result = String(name || '');
+  if (!result) return result;
+  const seen = new Set();
+  (codes || []).forEach((code) => {
+    const normalized = normalizeComposerLangCode(code);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    const suffix = `_${normalized}`;
+    if (result.toLowerCase().endsWith(suffix)) {
+      result = result.slice(0, result.length - suffix.length);
+    }
+  });
+  return result;
+}
+
+function pickComposerReferencePath(kind, entry, excludeLang) {
+  const normalizedKind = kind === 'tabs' ? 'tabs' : 'index';
+  const list = Array.isArray(PREFERRED_LANG_ORDER) ? PREFERRED_LANG_ORDER.slice() : [];
+  try {
+    Object.keys(entry || {}).forEach((code) => {
+      if (!list.includes(code)) list.push(code);
+    });
+  } catch (_) {}
+  for (let i = 0; i < list.length; i += 1) {
+    const code = list[i];
+    if (!code || code === excludeLang) continue;
+    const value = entry ? entry[code] : null;
+    if (!value) continue;
+    let path = '';
+    if (normalizedKind === 'tabs') {
+      if (value && typeof value === 'object' && typeof value.location === 'string') {
+        path = value.location;
+      }
+    } else if (Array.isArray(value)) {
+      path = value.find(p => p && typeof p === 'string') || '';
+    } else if (typeof value === 'string') {
+      path = value;
+    }
+    if (path) return { lang: code, path };
+  }
+  return null;
+}
+
+function buildDefaultLanguagePathFromEntry(kind, key, lang, entry) {
+  const normalizedKind = kind === 'tabs' ? 'tabs' : 'index';
+  const fallback = buildDefaultEntryPath(normalizedKind, key, lang);
+  const reference = pickComposerReferencePath(normalizedKind, entry, lang);
+  if (!reference || !reference.path) return fallback;
+
+  const normalizedLang = normalizeComposerLangCode(lang);
+  const segments = String(reference.path || '').split('/');
+  if (segments.length === 0) return fallback;
+  let filename = segments.pop() || '';
+  if (!filename) return fallback;
+
+  const dotIndex = filename.lastIndexOf('.');
+  let namePart = dotIndex >= 0 ? filename.slice(0, dotIndex) : filename;
+  const extPart = dotIndex >= 0 ? filename.slice(dotIndex) : '';
+
+  const codesToStrip = [];
+  codesToStrip.push(reference.lang);
+  if (Array.isArray(PREFERRED_LANG_ORDER)) codesToStrip.push(...PREFERRED_LANG_ORDER);
+  try { Object.keys(entry || {}).forEach((code) => { codesToStrip.push(code); }); } catch (_) {}
+  codesToStrip.push(lang);
+  namePart = stripComposerLangSuffix(namePart, codesToStrip);
+
+  const finalName = normalizedLang ? `${namePart}_${normalizedLang}` : namePart;
+  segments.push(`${finalName}${extPart}`);
+  return segments.join('/');
 }
 
 async function promptComposerEntryKey(kind, anchor) {
@@ -11190,6 +11398,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     updateMarkdownPushButton(getActiveDynamicTab());
+  }
+
+  const saveBtn = document.getElementById('btnSaveMarkdown');
+  if (saveBtn) {
+    markdownSaveButton = saveBtn;
+    saveBtn.addEventListener('click', (event) => {
+      if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      manualSaveActiveMarkdown(saveBtn);
+    });
+    updateMarkdownSaveButton(getActiveDynamicTab());
   }
 
   const discardBtn = document.getElementById('btnDiscardMarkdown');

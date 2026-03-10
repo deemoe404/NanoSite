@@ -1,6 +1,16 @@
 import './cache-control.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
+import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
+import {
+  FRONT_MATTER_FIELD_DEFS,
+  buildMarkdownWithFrontMatter,
+  cloneFrontMatterData,
+  normalizeLineEndings,
+  parseMarkdownFrontMatter,
+  resolveFrontMatterBindings,
+  valueIsPresent
+} from './frontmatter-document.js';
 import { getContentRoot, setSafeHtml } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
@@ -13,6 +23,12 @@ const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 
 const previewAssetBuckets = new Map();
 let previewAssetCurrentPath = '';
+
+const ensureKeyOrder = (order = [], key) => {
+  if (!key) return order;
+  if (!order.includes(key)) order.push(key);
+  return order;
+};
 
 const getContentRootPrefix = () => {
   try {
@@ -643,12 +659,382 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, NanoSite!');\n\`\`\`\n`;
 
+  const frontMatterManager = (() => {
+    const panel = document.getElementById('frontMatterPanel');
+    if (!panel) return null;
+
+    const toggle = document.getElementById('frontMatterToggle');
+    const summaryEl = document.getElementById('frontMatterSummary');
+    const commonFieldsEl = document.getElementById('frontMatterCommonFields');
+    const extraSection = document.getElementById('frontMatterExtraSection');
+    const extraFieldsEl = document.getElementById('frontMatterExtraFields');
+    const emptyEl = document.getElementById('frontMatterEmpty');
+
+    const registry = new Map();
+
+    let state = {
+      data: {},
+      order: [],
+      eol: '\n',
+      trailingNewline: false,
+      bindings: new Map(),
+      hasFrontMatter: false,
+      document: null
+    };
+
+    let suppressEvents = false;
+    let changeHandler = () => {};
+
+    const translate = (key, fallback) => {
+      if (!key) return fallback;
+      const translated = t(key);
+      if (translated == null || translated === key) return fallback != null ? fallback : key;
+      return translated;
+    };
+
+    const normalizeListInput = (value) => {
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => String(item == null ? '' : item).trim())
+          .filter(Boolean);
+      }
+      return String(value == null ? '' : value)
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    };
+
+    const toDateInputValue = (value) => {
+      return normalizeDateInputValue(value);
+    };
+
+    const setEntryKey = (entry, key) => {
+      if (!entry) return;
+      const actual = key || entry.key || (entry.def && entry.def.keys ? entry.def.keys[0] : '');
+      entry.key = actual;
+      entry.container.dataset.key = actual;
+      if (entry.keyPill) entry.keyPill.textContent = actual;
+    };
+
+    const updateFieldEmptyState = (entry) => {
+      if (!entry) return;
+      const value = state.data[entry.key];
+      const empty = !valueIsPresent(value);
+      entry.container.dataset.empty = empty ? 'true' : 'false';
+      if (entry.clearBtn) {
+        entry.clearBtn.disabled = empty;
+        entry.clearBtn.setAttribute('aria-disabled', empty ? 'true' : 'false');
+      }
+      if (!entry.input) return;
+      if (entry.type === 'boolean') {
+        entry.input.indeterminate = value == null;
+        entry.input.checked = Boolean(value);
+      }
+    };
+
+    const applyValueToEntry = (entry, value) => {
+      if (!entry || !entry.input) return;
+      suppressEvents = true;
+      try {
+        if (entry.type === 'boolean') {
+          if (value == null) {
+            entry.input.checked = false;
+            entry.input.indeterminate = true;
+          } else {
+            entry.input.indeterminate = false;
+            entry.input.checked = Boolean(value);
+          }
+        } else if (entry.type === 'list') {
+          const list = Array.isArray(value)
+            ? value.map((item) => String(item == null ? '' : item)).filter(Boolean)
+            : normalizeListInput(value)
+                .map((item) => String(item == null ? '' : item));
+          entry.input.value = list.join('\n');
+        } else if (entry.type === 'textarea') {
+          entry.input.value = value == null ? '' : String(value);
+        } else if (entry.type === 'date') {
+          entry.input.value = toDateInputValue(value);
+        } else {
+          entry.input.value = value == null ? '' : String(value);
+        }
+      } finally {
+        suppressEvents = false;
+      }
+      updateFieldEmptyState(entry);
+    };
+
+    const getAlternateAliasKeys = (entry) => {
+      if (!entry || !entry.def || !Array.isArray(entry.def.keys)) return [];
+      return entry.def.keys.filter((key) => (
+        key
+        && key !== entry.key
+        && Object.prototype.hasOwnProperty.call(state.data, key)
+        && valueIsPresent(state.data[key])
+      ));
+    };
+
+    const setDataValue = (entry, rawValue, opts = {}) => {
+      if (!entry) return;
+      const key = entry.key;
+      if (!key) return;
+      if (entry.type === 'boolean') {
+        if (rawValue == null) {
+          delete state.data[key];
+        } else {
+          state.data[key] = Boolean(rawValue);
+        }
+      } else if (entry.type === 'list') {
+        const list = normalizeListInput(rawValue);
+        if (list.length) state.data[key] = list;
+        else delete state.data[key];
+      } else {
+        const str = rawValue == null ? '' : String(rawValue);
+        if (str.trim() === '') delete state.data[key];
+        else state.data[key] = str;
+      }
+      if (valueIsPresent(state.data[key])) ensureKeyOrder(state.order, key);
+      const shouldRebind = !valueIsPresent(state.data[key]) && getAlternateAliasKeys(entry).length > 0;
+      if (shouldRebind) rebuildBindings();
+      else updateFieldEmptyState(entry);
+      if (!opts.silent) triggerChange();
+    };
+
+    const triggerChange = () => {
+      updateSummary();
+      try { changeHandler(); }
+      catch (_) { /* noop */ }
+    };
+
+    const handleInputEvent = (entry) => {
+      if (!entry || !entry.input || suppressEvents) return;
+      if (entry.type === 'boolean') {
+        const value = entry.input.indeterminate ? undefined : entry.input.checked;
+        setDataValue(entry, value);
+      } else if (entry.type === 'list') {
+        setDataValue(entry, entry.input.value);
+      } else {
+        setDataValue(entry, entry.input.value);
+      }
+    };
+
+    const clearEntryValue = (entry) => {
+      if (!entry || !entry.input) return;
+      const shouldRebind = getAlternateAliasKeys(entry).length > 0;
+      suppressEvents = true;
+      try {
+        if (entry.type === 'boolean') {
+          entry.input.checked = false;
+          entry.input.indeterminate = true;
+        } else {
+          entry.input.value = '';
+        }
+        delete state.data[entry.key];
+      } finally {
+        suppressEvents = false;
+      }
+      if (shouldRebind) rebuildBindings();
+      else updateFieldEmptyState(entry);
+      triggerChange();
+    };
+
+    const createField = (def, options = {}) => {
+      const entry = {
+        id: def.id,
+        def,
+        type: options.typeOverride || def.type || 'text',
+        section: def.section || 'common',
+        container: document.createElement('div'),
+        input: null,
+        keyPill: null,
+        clearBtn: null,
+        key: def.keys[0]
+      };
+
+      entry.container.className = 'frontmatter-field';
+      entry.container.dataset.fieldId = entry.id;
+      entry.container.dataset.section = entry.section;
+
+      const label = document.createElement('div');
+      label.className = 'frontmatter-field-label';
+      const labelSpan = document.createElement('span');
+      if (def.labelKey) labelSpan.dataset.i18n = def.labelKey;
+      labelSpan.textContent = translate(def.labelKey, def.fallbackLabel || def.keys[0]);
+      label.appendChild(labelSpan);
+      const pill = document.createElement('span');
+      pill.className = 'frontmatter-pill';
+      label.appendChild(pill);
+      entry.keyPill = pill;
+      entry.container.appendChild(label);
+
+      if (def.hintKey) {
+        const hint = document.createElement('p');
+        hint.className = 'frontmatter-field-hint';
+        hint.textContent = translate(def.hintKey, '');
+        if (def.hintKey) hint.dataset.i18n = def.hintKey;
+        entry.container.appendChild(hint);
+      }
+
+      if (entry.type === 'boolean') {
+        const wrap = document.createElement('label');
+        wrap.className = 'frontmatter-boolean';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.indeterminate = true;
+        wrap.appendChild(checkbox);
+        const text = document.createElement('span');
+        text.textContent = translate('editor.frontMatter.booleanLabel', 'Enabled');
+        text.dataset.i18n = 'editor.frontMatter.booleanLabel';
+        wrap.appendChild(text);
+        entry.input = checkbox;
+        entry.container.appendChild(wrap);
+        const actions = document.createElement('div');
+        actions.className = 'frontmatter-actions';
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'frontmatter-clear';
+        clearBtn.textContent = translate('editor.frontMatter.clear', 'Clear');
+        clearBtn.dataset.i18n = 'editor.frontMatter.clear';
+        clearBtn.addEventListener('click', () => clearEntryValue(entry));
+        actions.appendChild(clearBtn);
+        entry.clearBtn = clearBtn;
+        entry.container.appendChild(actions);
+      } else if (entry.type === 'textarea') {
+        const textarea = document.createElement('textarea');
+        textarea.rows = 3;
+        entry.input = textarea;
+        entry.container.appendChild(textarea);
+      } else if (entry.type === 'list') {
+        const textarea = document.createElement('textarea');
+        textarea.classList.add('frontmatter-list-input');
+        textarea.rows = 4;
+        entry.input = textarea;
+        entry.container.appendChild(textarea);
+        const hint = document.createElement('p');
+        hint.className = 'frontmatter-list-hint';
+        hint.textContent = translate('editor.frontMatter.listHint', 'One item per line');
+        hint.dataset.i18n = 'editor.frontMatter.listHint';
+        entry.container.appendChild(hint);
+      } else if (entry.type === 'date') {
+        const input = document.createElement('input');
+        input.type = 'date';
+        entry.input = input;
+        entry.container.appendChild(input);
+      } else {
+        const input = document.createElement('input');
+        input.type = 'text';
+        entry.input = input;
+        entry.container.appendChild(input);
+      }
+
+      const actualKey = options.key || def.keys[0];
+      setEntryKey(entry, actualKey);
+
+      if (entry.input) {
+        const handler = () => handleInputEvent(entry);
+        entry.input.addEventListener(entry.type === 'boolean' ? 'change' : 'input', handler);
+      }
+
+      return entry;
+    };
+
+    const ensureBaseFields = () => {
+      if (registry.size) return;
+      if (panel.dataset.state === 'loading') panel.dataset.state = 'ready';
+      FRONT_MATTER_FIELD_DEFS.forEach((def) => {
+        const entry = createField(def, { key: def.keys[0] });
+        registry.set(def.id, entry);
+        const parent = entry.section === 'advanced' ? extraFieldsEl : commonFieldsEl;
+        if (parent) parent.appendChild(entry.container);
+      });
+      if (extraSection) extraSection.hidden = false;
+    };
+
+    const updateSummary = () => {
+      let count = 0;
+      registry.forEach((entry) => {
+        if (entry && valueIsPresent(state.data[entry.key])) count += 1;
+      });
+      if (summaryEl) {
+        const summary = t('editor.frontMatter.summary', { count });
+        if (summary != null && summary !== 'editor.frontMatter.summary') summaryEl.textContent = summary;
+        else summaryEl.textContent = count
+          ? `${count} field${count === 1 ? '' : 's'} active`
+          : translate('editor.frontMatter.summaryDefault', 'Metadata for this post');
+      }
+      if (emptyEl) {
+        emptyEl.hidden = count !== 0;
+      }
+    };
+
+    const rebuildBindings = () => {
+      const bindings = resolveFrontMatterBindings(state.data, state.document);
+      state.bindings = bindings;
+      registry.forEach((entry, defId) => {
+        const nextKey = bindings.get(defId) || entry.def.keys[0];
+        setEntryKey(entry, nextKey);
+        applyValueToEntry(entry, state.data[nextKey]);
+      });
+      updateSummary();
+    };
+
+    const setFromMarkdown = (raw, opts = {}) => {
+      ensureBaseFields();
+      const parsed = parseMarkdownFrontMatter(raw);
+      state = {
+        data: cloneFrontMatterData(parsed.frontMatter),
+        order: parsed.document && Array.isArray(parsed.document.knownOrder) ? [...parsed.document.knownOrder] : [],
+        eol: parsed.eol || '\n',
+        trailingNewline: !!parsed.trailingNewline,
+        bindings: new Map(),
+        hasFrontMatter: !!parsed.hasFrontMatter,
+        document: parsed.document || null
+      };
+      rebuildBindings();
+      if (!opts.silent) triggerChange();
+      return parsed.content;
+    };
+
+    const buildMarkdown = (bodyRaw) => {
+      return buildMarkdownWithFrontMatter(state.document, bodyRaw, state.data, {
+        bindings: state.bindings,
+        order: state.order,
+        eol: state.eol,
+        trailingNewline: state.trailingNewline
+      });
+    };
+
+    if (toggle) {
+      toggle.addEventListener('click', () => {
+        const collapsed = panel.getAttribute('data-collapsed') === 'true';
+        panel.setAttribute('data-collapsed', collapsed ? 'false' : 'true');
+        toggle.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
+      });
+    }
+
+    ensureBaseFields();
+    updateSummary();
+
+    return {
+      setChangeHandler: (fn) => { changeHandler = typeof fn === 'function' ? fn : () => {}; },
+      setFromMarkdown,
+      buildMarkdown,
+      updateSummary
+    };
+  })();
+
   const changeListeners = new Set();
-  const notifyChange = (value) => {
+  const notifyChange = () => {
+    const value = getValue();
     changeListeners.forEach((fn) => {
       try { fn(value); } catch (_) {}
     });
   };
+
+  if (frontMatterManager) {
+    frontMatterManager.setChangeHandler(() => {
+      notifyChange();
+    });
+  }
 
   const handleAssetPreviewEvent = (event) => {
     if (!event || !event.detail) return;
@@ -681,10 +1067,16 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {}
   };
 
-  const getValue = () => {
+  const getEditorBody = () => {
     if (editor) return editor.getValue() || '';
     if (ta) return ta.value || '';
     return '';
+  };
+
+  const getValue = () => {
+    const body = getEditorBody();
+    if (frontMatterManager) return frontMatterManager.buildMarkdown(body);
+    return body;
   };
 
   const refreshPreview = () => {
@@ -694,11 +1086,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const setValue = (value, opts = {}) => {
     const text = value == null ? '' : String(value);
     const { preview = true, notify = true } = opts;
-    if (editor) editor.setValue(text);
-    else if (ta) ta.value = text;
+    let bodyText = text;
+    if (frontMatterManager) {
+      bodyText = frontMatterManager.setFromMarkdown(text, { silent: true });
+    }
+    if (editor) editor.setValue(bodyText);
+    else if (ta) ta.value = bodyText;
     requestLayout();
-    if (preview) renderPreview(text);
-    if (notify) notifyChange(text);
+    if (preview) renderPreview(getValue());
+    if (notify) notifyChange();
   };
 
   const setBaseDir = (dir) => {
@@ -1269,6 +1665,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('ns-editor-language-applied', () => {
     tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
     renderCurrentFileIndicator();
+    if (frontMatterManager) frontMatterManager.updateSummary();
   });
 
   if (cardSearchInput) {
@@ -1400,25 +1797,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const insertImageMarkdown = (relativePath, altText) => {
     const target = getEditorTextarea();
-    const content = getValue();
+    const content = target ? (target.value || '') : getEditorBody();
     const start = target && Number.isFinite(target.selectionStart) ? target.selectionStart : content.length;
     const end = target && Number.isFinite(target.selectionEnd) ? target.selectionEnd : start;
-    const before = content.slice(0, start);
-    const after = content.slice(end);
-    const alt = altText == null ? '' : String(altText);
-    let prefix = '';
-    if (before && !/\n$/.test(before)) prefix = '\n\n';
-    let suffix = '';
-    if (after) suffix = /^\n/.test(after) ? '' : '\n\n';
-    else suffix = '\n';
-    const core = `![${alt}](${relativePath})`;
-    const snippet = `${prefix}${core}${suffix}`;
-    const next = `${before}${snippet}${after}`;
-    const altStart = before.length + prefix.length + 2;
-    const altEnd = altStart + alt.length;
-    const afterIndex = before.length + snippet.length;
+    const insertion = insertImageMarkdownAtSelection(content, start, end, relativePath, altText);
+    const next = frontMatterManager
+      ? frontMatterManager.buildMarkdown(insertion.value)
+      : insertion.value;
     setValue(next, { notify: true });
-    return { altStart, altEnd, afterIndex };
+    return {
+      altStart: insertion.altStart,
+      altEnd: insertion.altEnd,
+      afterIndex: insertion.afterIndex
+    };
   };
 
   const isImageFile = (file) => {
@@ -1767,9 +2158,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCurrentFileIndicator();
 
   const handleInput = () => {
-    const val = getValue();
-    renderPreview(val);
-    notifyChange(val);
+    const full = getValue();
+    renderPreview(full);
+    notifyChange();
   };
 
   if (editor && editor.textarea) editor.textarea.addEventListener('input', handleInput);
