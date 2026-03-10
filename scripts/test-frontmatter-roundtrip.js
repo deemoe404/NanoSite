@@ -236,6 +236,24 @@ run('content parser reads block scalar excerpts', () => {
   assert.equal(parsed.content, 'Body paragraph.');
 });
 
+run('content parser ignores indented fence markers inside block scalars', () => {
+  const source = [
+    '---',
+    'excerpt: |',
+    '  first line',
+    '  ---',
+    '  second line',
+    'date: 2026-03-10',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const parsed = parseFrontMatter(source);
+  assert.equal(parsed.frontMatter.excerpt, 'first line\n---\nsecond line');
+  assert.equal(parsed.frontMatter.date, '2026-03-10');
+  assert.equal(parsed.content, 'Body paragraph.');
+});
+
 run('content parser preserves legacy cover aliases for downstream metadata consumers', () => {
   const source = [
     '---',

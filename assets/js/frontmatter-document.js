@@ -46,6 +46,7 @@ export const valueIsPresent = (value) => {
 const KEY_LINE_RE = /^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/;
 const BOOLEAN_TRUE_RE = /^(?:true|yes|1|y|on|enabled|draft)$/i;
 const BOOLEAN_FALSE_RE = /^(?:false|no|0|n|off|disabled|published)$/i;
+const FRONT_MATTER_FENCE_RE = /^---\s*$/;
 
 const stripInlineComment = (text) => {
   let out = '';
@@ -462,7 +463,7 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
     originalBindings: new Map(),
     knownOrder: []
   };
-  if (!lines.length || lines[0].trim() !== '---') {
+  if (!lines.length || !FRONT_MATTER_FENCE_RE.test(lines[0])) {
     const body = trimContent ? normalized.trim() : normalized;
     return {
       hasFrontMatter: false,
@@ -475,7 +476,7 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
   }
   let endIndex = -1;
   for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i].trim() === '---') {
+    if (FRONT_MATTER_FENCE_RE.test(lines[i])) {
       endIndex = i;
       break;
     }
