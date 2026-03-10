@@ -254,6 +254,15 @@ run('content parser ignores indented fence markers inside block scalars', () => 
   assert.equal(parsed.content, 'Body paragraph.');
 });
 
+run('mixed body EOL does not leak into preserved front matter', () => {
+  const source = '---\ntitle: Demo\n---\nBody paragraph.\r\n';
+  const state = createState(source);
+  assert.equal(state.parsed.eol, '\n');
+  assert.equal(state.parsed.document.originalFull, '---\ntitle: Demo\n---');
+  const output = build(state, 'Updated body.\n');
+  assert.equal(output, '---\ntitle: Demo\n---\nUpdated body.\n');
+});
+
 run('content parser preserves hash characters inside plain scalar values', () => {
   const source = [
     '---',

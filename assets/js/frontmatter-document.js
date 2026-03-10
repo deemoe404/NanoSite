@@ -61,6 +61,40 @@ const KEY_LINE_RE = /^([A-Za-z0-9_.-]+)\s*:\s*(.*)$/;
 const BOOLEAN_TRUE_RE = /^(?:true|yes|1|y|on|enabled|draft)$/i;
 const BOOLEAN_FALSE_RE = /^(?:false|no|0|n|off|disabled|published)$/i;
 const FRONT_MATTER_FENCE_RE = /^---\s*$/;
+const detectFileEol = (text) => String(text || '').includes('\r\n') ? '\r\n' : '\n';
+
+const getRawLineRanges = (text) => {
+  const ranges = [];
+  const raw = String(text || '');
+  let start = 0;
+  while (start < raw.length) {
+    let end = start;
+    while (end < raw.length && raw[end] !== '\n' && raw[end] !== '\r') end += 1;
+    let endWithEol = end;
+    let eol = '';
+    if (end < raw.length) {
+      if (raw[end] === '\r' && raw[end + 1] === '\n') {
+        endWithEol = end + 2;
+        eol = '\r\n';
+      } else {
+        endWithEol = end + 1;
+        eol = raw[end];
+      }
+    }
+    ranges.push({ start, end, endWithEol, eol });
+    start = endWithEol;
+  }
+  if (!ranges.length && raw === '') ranges.push({ start: 0, end: 0, endWithEol: 0, eol: '' });
+  return ranges;
+};
+
+const detectFrontMatterEol = (lineRanges, endIndex, fallback = '\n') => {
+  const ranges = Array.isArray(lineRanges) ? lineRanges : [];
+  for (let i = 0; i <= endIndex && i < ranges.length; i += 1) {
+    if (ranges[i] && ranges[i].eol) return ranges[i].eol;
+  }
+  return fallback;
+};
 
 const stripInlineComment = (text) => {
   let out = '';
@@ -460,14 +494,15 @@ const parseFrontMatterEntries = (blockNormalized) => {
 
 export function parseMarkdownFrontMatter(raw, options = {}) {
   const original = String(raw == null ? '' : raw);
-  const eol = original.includes('\r\n') ? '\r\n' : '\n';
+  const fileEol = detectFileEol(original);
   const normalized = normalizeLineEndings(original);
   const trimContent = !!options.trimContent;
   const trailingNewline = normalized.endsWith('\n');
   const lines = normalized.split('\n');
+  const rawLineRanges = getRawLineRanges(original);
   const emptyDocument = {
     hasFrontMatter: false,
-    eol,
+    eol: fileEol,
     prefixLines: [],
     entries: [],
     suffixLines: [],
@@ -483,7 +518,7 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
       hasFrontMatter: false,
       content: body,
       frontMatter: {},
-      eol,
+      eol: fileEol,
       trailingNewline,
       document: emptyDocument
     };
@@ -501,11 +536,13 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
       hasFrontMatter: false,
       content: body,
       frontMatter: {},
-      eol,
+      eol: fileEol,
       trailingNewline,
       document: emptyDocument
     };
   }
+
+  const eol = detectFrontMatterEol(rawLineRanges, endIndex, fileEol);
 
   const innerLines = lines.slice(1, endIndex);
   const bodyLines = lines.slice(endIndex + 1);
@@ -525,15 +562,12 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
     .filter((entry) => entry && entry.isKnown)
     .map((entry) => entry.key);
 
-  const innerOriginal = original
-    .slice(original.indexOf(eol) + eol.length)
-    .split(eol)
-    .slice(0, innerLines.length)
-    .join(eol);
-  const originalFull = original
-    .split(eol)
-    .slice(0, endIndex + 1)
-    .join(eol);
+  const openingRange = rawLineRanges[0] || { endWithEol: 0 };
+  const closingRange = rawLineRanges[endIndex] || { start: original.length, end: original.length, endWithEol: original.length };
+  const innerOriginal = innerLines.length
+    ? original.slice(openingRange.endWithEol, closingRange.start)
+    : '';
+  const originalFull = original.slice(0, closingRange.end);
 
   const document = {
     hasFrontMatter: true,
