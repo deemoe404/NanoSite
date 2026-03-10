@@ -639,7 +639,8 @@ const translations = {
             tooltips: {
               default: 'ローカルの Markdown 下書きをブラウザーに保存します。',
               noFile: '保存するには Markdown ファイルを開いてください。',
-              empty: 'Markdown の内容を入力してから保存してください。'
+              empty: 'Markdown の内容を入力してから保存してください。',
+              clean: '保存する Markdown の変更はありません。'
             },
             toastSuccess: 'ローカル下書きを保存しました。',
             toastError: 'ローカル下書きの保存に失敗しました。'

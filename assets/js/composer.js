@@ -1,4 +1,5 @@
 import './cache-control.js';
+import { getManualMarkdownSaveState, normalizeMarkdownDraftContent } from './composer-markdown-save.js';
 import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
@@ -129,7 +130,8 @@ const MARKDOWN_SAVE_BUSY_KEY = 'editor.composer.markdown.save.busy';
 const MARKDOWN_SAVE_TOOLTIP_KEYS = {
   default: 'editor.composer.markdown.save.tooltips.default',
   noFile: 'editor.composer.markdown.save.tooltips.noFile',
-  empty: 'editor.composer.markdown.save.tooltips.empty'
+  empty: 'editor.composer.markdown.save.tooltips.empty',
+  clean: 'editor.composer.markdown.save.tooltips.clean'
 };
 const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
 
@@ -2527,7 +2529,7 @@ function writeDraftStore(store) {
 }
 
 function normalizeMarkdownContent(text) {
-  return String(text == null ? '' : text).replace(/\r\n/g, '\n');
+  return normalizeMarkdownDraftContent(text);
 }
 
 function computeTextSignature(text) {
@@ -8678,23 +8680,17 @@ function updateMarkdownSaveButton(tab) {
   const hasBusy = btn.classList.contains('is-busy');
 
   const hasActive = !!(active && active.path && active.mode === currentMode);
-  const normalize = (value) => normalizeMarkdownContent(value || '');
-  const content = hasActive ? normalize(active.content) : '';
-  const draftContent = hasActive && active.localDraft ? normalize(active.localDraft.content) : '';
-  const assetBucket = hasActive ? active.pendingAssets : null;
-  const storedAssetsCount = hasActive && active.localDraft && Array.isArray(active.localDraft.assets)
-    ? active.localDraft.assets.length
-    : 0;
-  const hasAssets = !!(assetBucket && typeof assetBucket.size === 'number' && assetBucket.size > 0);
-  const hasDraftAssets = storedAssetsCount > 0;
+  const saveState = hasActive
+    ? getManualMarkdownSaveState(active.content, active.isDirty)
+    : null;
 
   let disabled = true;
   let tooltip = getMarkdownSaveTooltip('default');
 
   if (!hasActive) {
     tooltip = getMarkdownSaveTooltip('noFile');
-  } else if (!content && !draftContent && !hasAssets && !hasDraftAssets) {
-    tooltip = getMarkdownSaveTooltip('empty');
+  } else if (!saveState.canSave) {
+    tooltip = getMarkdownSaveTooltip(saveState.reason);
   } else {
     disabled = false;
   }
@@ -8719,18 +8715,9 @@ function manualSaveActiveMarkdown(triggerButton) {
     return;
   }
 
-  const normalize = (value) => normalizeMarkdownContent(value || '');
-  const content = normalize(active.content);
-  const hasDraftContent = normalize(active.localDraft ? active.localDraft.content : '');
-  const assetBucket = active.pendingAssets;
-  const bucketSize = assetBucket && typeof assetBucket.size === 'number' ? assetBucket.size : 0;
-  const hasAssets = bucketSize > 0;
-  const savedAssets = active.localDraft && Array.isArray(active.localDraft.assets)
-    ? active.localDraft.assets.length > 0
-    : false;
-
-  if (!content && !hasDraftContent && !hasAssets && !savedAssets) {
-    showToast('info', getMarkdownSaveTooltip('empty'));
+  const saveState = getManualMarkdownSaveState(active.content, active.isDirty);
+  if (!saveState.canSave) {
+    showToast('info', getMarkdownSaveTooltip(saveState.reason));
     updateMarkdownSaveButton(active);
     return;
   }

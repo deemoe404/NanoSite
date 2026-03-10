@@ -1029,6 +1029,29 @@
       flex-wrap: wrap;
       gap: 0.4rem;
     }
+    .frontmatter-clear {
+      appearance: none;
+      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+      background: color-mix(in srgb, var(--card) 94%, transparent);
+      color: color-mix(in srgb, var(--muted) 86%, transparent);
+      border-radius: 999px;
+      padding: 0.28rem 0.62rem;
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+    }
+    .frontmatter-clear:hover,
+    .frontmatter-clear:focus-visible {
+      background: color-mix(in srgb, var(--primary) 12%, var(--card) 90%);
+      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
+      color: color-mix(in srgb, var(--text) 88%, transparent);
+      outline: none;
+    }
+    .frontmatter-clear:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
 
     .frontmatter-boolean {
       display: inline-flex;
