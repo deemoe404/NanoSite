@@ -698,7 +698,7 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
     const blockOut = eol === '\n' ? innerBlock : innerBlock.split('\n').join(eol);
     result = `---${eol}${blockOut}${eol}---`;
     if (bodyOut) result += `${eol}${bodyOut}`;
-    else result += eol;
+    else if (options.trailingNewline) result += eol;
   } else {
     result = bodyOut;
   }

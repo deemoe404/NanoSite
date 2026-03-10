@@ -639,7 +639,8 @@ const translations = {
             tooltips: {
               default: '在浏览器中保存本地 Markdown 草稿。',
               noFile: '请先打开一个 Markdown 文件再保存。',
-              empty: '请先输入 Markdown 内容后再保存。'
+              empty: '请先输入 Markdown 内容后再保存。',
+              clean: '没有可保存的 Markdown 更改。'
             },
             toastSuccess: '本地草稿已保存。',
             toastError: '保存本地草稿失败。'

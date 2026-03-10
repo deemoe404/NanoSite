@@ -6,6 +6,7 @@ import {
   parseMarkdownFrontMatter,
   resolveFrontMatterBindings
 } from '../assets/js/frontmatter-document.js';
+import { getManualMarkdownSaveState } from '../assets/js/composer-markdown-save.js';
 import { parseFrontMatter } from '../assets/js/content.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from '../assets/js/editor-markdown-ops.js';
 
@@ -283,6 +284,15 @@ run('mixed body EOL does not leak into preserved front matter', () => {
   assert.equal(output, '---\ntitle: Demo\n---\nUpdated body.\n');
 });
 
+run('front matter-only edits preserve a missing trailing newline at EOF', () => {
+  const source = '---\ntitle: Demo\n---';
+  const state = createState(source);
+  state.data.title = 'Updated demo';
+  ensureKeyOrder(state.order, 'title');
+  const output = build(state, '');
+  assert.equal(output, '---\ntitle: Updated demo\n---');
+});
+
 run('content parser preserves hash characters inside plain scalar values', () => {
   const source = [
     '---',
@@ -378,4 +388,22 @@ run('content parser splits comma-separated tag scalars into separate items', () 
 run('date input normalization preserves the source calendar day for zoned ISO values', () => {
   assert.equal(normalizeDateInputValue('2026-03-01T00:30:00+09:00'), '2026-03-01');
   assert.equal(normalizeDateInputValue('2026-03-01'), '2026-03-01');
+});
+
+run('manual markdown save requires dirty non-empty content', () => {
+  assert.deepEqual(getManualMarkdownSaveState('', true), {
+    canSave: false,
+    content: '',
+    reason: 'empty'
+  });
+  assert.deepEqual(getManualMarkdownSaveState('Body paragraph.', false), {
+    canSave: false,
+    content: 'Body paragraph.',
+    reason: 'clean'
+  });
+  assert.deepEqual(getManualMarkdownSaveState('Body\r\nparagraph.\r\n', true), {
+    canSave: true,
+    content: 'Body\nparagraph.\n',
+    reason: 'default'
+  });
 });

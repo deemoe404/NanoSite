@@ -638,7 +638,8 @@ const translations = {
             tooltips: {
               default: 'Save local markdown draft in your browser.',
               noFile: 'Open a markdown file before saving.',
-              empty: 'Add markdown content before saving.'
+              empty: 'Add markdown content before saving.',
+              clean: 'No markdown changes to save.'
             },
             toastSuccess: 'Local draft saved.',
             toastError: 'Failed to save local draft.'
