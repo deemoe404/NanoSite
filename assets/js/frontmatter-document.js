@@ -554,6 +554,8 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
     const def = FRONT_MATTER_FIELD_DEFS.find((item) => item.id === entry.defId);
     if (!def) return;
     const value = parseEntryValue(entry, def);
+    entry.parsedValue = value;
+    entry.parseFailed = value === undefined;
     if (value !== undefined) frontMatter[entry.key] = value;
   });
 
@@ -666,7 +668,13 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
       return;
     }
     emitGeneratedBefore(entry.key);
-    if (!desiredSet.has(entry.key)) return;
+    if (!desiredSet.has(entry.key)) {
+      if (entry.parseFailed) {
+        outputLines.push(...cloneLines(entry.leadingLines));
+        outputLines.push(...cloneLines(entry.bodyLines));
+      }
+      return;
+    }
     outputLines.push(...cloneLines(entry.leadingLines));
     const originalValue = doc.originalKnownData ? doc.originalKnownData[entry.key] : undefined;
     if (isSameValue(values[entry.key], originalValue)) {

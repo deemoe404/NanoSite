@@ -203,6 +203,26 @@ run('editing the bound alias preserves distinct sibling alias values', () => {
   assert.match(output, /coverImage: hero-wide\.jpg/);
 });
 
+run('editing an unrelated field preserves known keys that fail strict parsing', () => {
+  const source = [
+    '---',
+    'title: Demo',
+    'draft: maybe',
+    'tags:',
+    '  primary: alpha',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  state.data.title = 'Updated demo';
+  ensureKeyOrder(state.order, 'title');
+  const output = build(state, 'Body paragraph.\n');
+  assert.match(output, /title: Updated demo/);
+  assert.match(output, /draft: maybe/);
+  assert.match(output, /tags:\n  primary: alpha/);
+});
+
 run('image insertion uses body offsets and keeps front matter intact', () => {
   const source = [
     '---',
