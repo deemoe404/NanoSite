@@ -9,7 +9,7 @@ import {
 import { getManualMarkdownSaveState } from '../assets/js/composer-markdown-save.js';
 import { parseFrontMatter } from '../assets/js/content.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from '../assets/js/editor-markdown-ops.js';
-import { mergeYamlConfig } from '../assets/js/yaml.js';
+import { mergeYamlConfig, resolveSiteRepoConfig } from '../assets/js/yaml.js';
 
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
@@ -439,5 +439,21 @@ run('local site overrides merge nested config objects recursively', () => {
   assert.deepEqual(merged, {
     repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'dev' },
     seo: { title: 'NanoSite Local', keywords: ['nano', 'site'] }
+  });
+});
+
+run('site repo resolution merges local overrides over tracked composer state', () => {
+  const resolved = resolveSiteRepoConfig(
+    {
+      repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' }
+    },
+    {
+      repo: { branch: 'dev' }
+    }
+  );
+  assert.deepEqual(resolved, {
+    owner: 'deemoe404',
+    name: 'NanoSite',
+    branch: 'dev'
   });
 });

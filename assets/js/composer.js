@@ -5,6 +5,7 @@ import {
   fetchSiteLocalOverride,
   fetchTrackedSiteConfig,
   mergeYamlConfig,
+  resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
@@ -5513,25 +5514,10 @@ async function waitForRemotePropagation(files = []) {
 
 function getActiveSiteRepoConfig() {
   const site = getStateSlice('site');
-  const repo = site && typeof site === 'object' && site.repo && typeof site.repo === 'object'
-    ? site.repo
-    : null;
   const fallback = window.__ns_site_repo && typeof window.__ns_site_repo === 'object'
     ? window.__ns_site_repo
     : {};
-  const ownerRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'owner')
-    ? repo.owner
-    : fallback.owner;
-  const nameRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'name')
-    ? repo.name
-    : fallback.name;
-  const branchRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'branch')
-    ? repo.branch
-    : fallback.branch;
-  const owner = String(ownerRaw || '').trim();
-  const name = String(nameRaw || '').trim();
-  const branch = String(branchRaw || '').trim() || 'main';
-  return { owner, name, branch };
+  return resolveSiteRepoConfig(site, composerSiteLocalOverride, fallback);
 }
 
 function applyLocalPostCommitState(files = []) {

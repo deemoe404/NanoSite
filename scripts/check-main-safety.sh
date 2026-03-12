@@ -33,7 +33,7 @@ if [[ ! -f "site.yaml" ]]; then
 else
   content_root="$(
     awk -F: '
-      /^[[:space:]]*contentRoot[[:space:]]*:/ {
+      /^contentRoot[[:space:]]*:/ {
         value=$2;
         sub(/[[:space:]]+#.*/, "", value);
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", value);

@@ -229,6 +229,28 @@ export function mergeYamlConfig(base, override) {
   return out;
 }
 
+export function resolveSiteRepoConfig(siteConfig, localOverride = null, fallback = null) {
+  const effective = localOverride && isPlainObject(localOverride)
+    ? mergeYamlConfig(siteConfig, localOverride)
+    : (isPlainObject(siteConfig) ? cloneYamlValue(siteConfig) : {});
+  const repo = isPlainObject(effective.repo) ? effective.repo : {};
+  const fallbackRepo = isPlainObject(fallback) ? fallback : {};
+  const ownerRaw = Object.prototype.hasOwnProperty.call(repo, 'owner')
+    ? repo.owner
+    : fallbackRepo.owner;
+  const nameRaw = Object.prototype.hasOwnProperty.call(repo, 'name')
+    ? repo.name
+    : fallbackRepo.name;
+  const branchRaw = Object.prototype.hasOwnProperty.call(repo, 'branch')
+    ? repo.branch
+    : fallbackRepo.branch;
+  return {
+    owner: String(ownerRaw || '').trim(),
+    name: String(nameRaw || '').trim(),
+    branch: String(branchRaw || '').trim() || 'main'
+  };
+}
+
 export async function fetchTrackedSiteConfig() {
   return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
 }
