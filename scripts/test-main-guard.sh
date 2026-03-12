@@ -50,3 +50,18 @@ git commit -qm "remove forbidden local override"
 base_ref="$(git rev-parse HEAD~1)"
 head_ref="$(git rev-parse HEAD)"
 "${repo_root}/scripts/check-main-safety.sh" "${base_ref}" "${head_ref}" >/dev/null
+
+cat > site.local.yaml <<'EOF'
+contentRoot: wwwroot.local
+EOF
+git add site.local.yaml
+git commit -qm "add forbidden local override again"
+
+git rm -q site.local.yaml
+git commit -qm "remove forbidden local override again"
+range_base="$(git rev-parse HEAD~2)"
+range_head="$(git rev-parse HEAD)"
+if "${repo_root}/scripts/check-main-safety.sh" "${range_base}" "${range_head}" >/dev/null 2>&1; then
+  echo "expected main guard to reject commit ranges that temporarily add forbidden files" >&2
+  exit 1
+fi
