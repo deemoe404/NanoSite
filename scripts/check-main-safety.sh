@@ -5,12 +5,12 @@ BASE_REF="${1:-}"
 HEAD_REF="${2:-HEAD}"
 
 if [[ -n "$BASE_REF" ]]; then
-  changed_files="$(git diff --name-only "$BASE_REF" "$HEAD_REF")"
+  changed_files="$(git diff --diff-filter=ACMRTUXB --name-only "$BASE_REF" "$HEAD_REF")"
 else
   if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-    changed_files="$(git diff --name-only HEAD~1 "$HEAD_REF")"
+    changed_files="$(git diff --diff-filter=ACMRTUXB --name-only HEAD~1 "$HEAD_REF")"
   else
-    changed_files="$(git diff --name-only)"
+    changed_files="$(git diff --diff-filter=ACMRTUXB --name-only)"
   fi
 fi
 
