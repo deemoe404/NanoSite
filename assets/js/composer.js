@@ -1,6 +1,13 @@
 import './cache-control.js';
 import { getManualMarkdownSaveState, normalizeMarkdownDraftContent } from './composer-markdown-save.js';
-import { fetchConfigWithYamlFallback, parseYAML } from './yaml.js';
+import {
+  fetchConfigWithYamlFallback,
+  fetchSiteLocalOverride,
+  fetchTrackedSiteConfig,
+  mergeYamlConfig,
+  resolveSiteRepoConfig,
+  parseYAML
+} from './yaml.js';
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
@@ -143,6 +150,7 @@ let cachedFineGrainedTokenMemory = '';
 
 let activeComposerState = null;
 let remoteBaseline = { index: null, tabs: null, site: null };
+let composerSiteLocalOverride = {};
 let composerDiffCache = { index: null, tabs: null, site: null };
 let composerDraftMeta = { index: null, tabs: null, site: null };
 let composerAutoSaveTimers = { index: null, tabs: null, site: null };
@@ -164,6 +172,35 @@ const composerListTransitions = new WeakMap();
 const composerOrderMainTransitions = new WeakMap();
 let composerSiteScrollAnimationId = null;
 let composerSiteScrollCleanup = null;
+
+function applyComposerEffectiveSiteConfig(siteConfig) {
+  const tracked = siteConfig && typeof siteConfig === 'object' ? siteConfig : {};
+  const effective = mergeYamlConfig(tracked, composerSiteLocalOverride);
+  const root = (effective && effective.contentRoot) ? String(effective.contentRoot) : 'wwwroot';
+  try {
+    window.__ns_content_root = root;
+  } catch (_) {}
+  try {
+    const repo = (effective && effective.repo) || {};
+    window.__ns_site_repo = {
+      owner: String(repo.owner || ''),
+      name: String(repo.name || ''),
+      branch: String(repo.branch || 'main')
+    };
+  } catch (_) {
+    try {
+      window.__ns_site_repo = { owner: '', name: '', branch: 'main' };
+    } catch (_) {}
+  }
+  return effective;
+}
+
+async function fetchComposerTrackedSiteConfig() {
+  const tracked = await fetchTrackedSiteConfig();
+  composerSiteLocalOverride = await fetchSiteLocalOverride();
+  applyComposerEffectiveSiteConfig(tracked || {});
+  return tracked || {};
+}
 
 const SITE_FIELD_LABEL_MAP = {
   siteTitle: { i18nKey: 'editor.composer.site.fields.siteTitle' },
@@ -5477,25 +5514,10 @@ async function waitForRemotePropagation(files = []) {
 
 function getActiveSiteRepoConfig() {
   const site = getStateSlice('site');
-  const repo = site && typeof site === 'object' && site.repo && typeof site.repo === 'object'
-    ? site.repo
-    : null;
   const fallback = window.__ns_site_repo && typeof window.__ns_site_repo === 'object'
     ? window.__ns_site_repo
     : {};
-  const ownerRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'owner')
-    ? repo.owner
-    : fallback.owner;
-  const nameRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'name')
-    ? repo.name
-    : fallback.name;
-  const branchRaw = repo && Object.prototype.hasOwnProperty.call(repo, 'branch')
-    ? repo.branch
-    : fallback.branch;
-  const owner = String(ownerRaw || '').trim();
-  const name = String(nameRaw || '').trim();
-  const branch = String(branchRaw || '').trim() || 'main';
-  return { owner, name, branch };
+  return resolveSiteRepoConfig(site, composerSiteLocalOverride, fallback);
 }
 
 function applyLocalPostCommitState(files = []) {
@@ -5520,15 +5542,12 @@ function applyLocalPostCommitState(files = []) {
       remoteBaseline.site = snapshot;
 
       const previousRoot = getContentRootSafe();
-      const rawNextRoot = snapshot && typeof snapshot === 'object' && Object.prototype.hasOwnProperty.call(snapshot, 'contentRoot')
-        ? safeString(snapshot.contentRoot)
+      const effectiveSnapshot = applyComposerEffectiveSiteConfig(snapshot);
+      const rawNextRoot = effectiveSnapshot && typeof effectiveSnapshot === 'object' && Object.prototype.hasOwnProperty.call(effectiveSnapshot, 'contentRoot')
+        ? safeString(effectiveSnapshot.contentRoot)
         : '';
-      const storedNextRoot = rawNextRoot ? rawNextRoot : 'wwwroot';
-      const normalizedNextRoot = storedNextRoot.trim().replace(/[\\]/g, '/').replace(/\/?$/, '');
+      const normalizedNextRoot = (rawNextRoot ? rawNextRoot : 'wwwroot').trim().replace(/[\\]/g, '/').replace(/\/?$/, '');
       const rootChanged = normalizedNextRoot !== previousRoot;
-      try {
-        window.__ns_content_root = storedNextRoot;
-      } catch (_) { /* noop */ }
 
       notifyComposerChange('site', { skipAutoSave: true });
       clearDraftStorage('site');
@@ -7610,10 +7629,9 @@ async function handleComposerRefresh(btn) {
     }
     const contentRoot = getContentRootSafe();
     const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
-    const urls = target === 'site'
-      ? ['site.yaml', 'site.yml']
-      : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
-    const remote = await fetchConfigWithYamlFallback(urls);
+    const remote = target === 'site'
+      ? await fetchComposerTrackedSiteConfig()
+      : await fetchConfigWithYamlFallback([`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`]);
     let prepared;
     if (target === 'tabs') prepared = prepareTabsState(remote || {});
     else if (target === 'site') prepared = cloneSiteState(prepareSiteState(remote || {}));
@@ -7624,6 +7642,7 @@ async function handleComposerRefresh(btn) {
     const hadLocalChanges = diffBefore && diffBefore.hasChanges;
     if (!hadLocalChanges) {
       setStateSlice(target, deepClone(prepared));
+      if (target === 'site') applyComposerEffectiveSiteConfig(prepared);
       if (target === 'tabs') rebuildTabsUI();
       else if (target === 'site') rebuildSiteUI();
       else rebuildIndexUI();
@@ -8298,10 +8317,9 @@ async function handleComposerDiscard(btn) {
     try {
       const contentRoot = getContentRootSafe();
       const fileBase = target === 'tabs' ? 'tabs' : target === 'site' ? 'site' : 'index';
-      const urls = target === 'site'
-        ? ['site.yaml', 'site.yml']
-        : [`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`];
-      const remote = await fetchConfigWithYamlFallback(urls);
+      const remote = target === 'site'
+        ? await fetchComposerTrackedSiteConfig()
+        : await fetchConfigWithYamlFallback([`${contentRoot}/${fileBase}.yaml`, `${contentRoot}/${fileBase}.yml`]);
       if (remote != null) {
         if (target === 'tabs') prepared = prepareTabsState(remote);
         else if (target === 'site') prepared = cloneSiteState(prepareSiteState(remote));
@@ -8321,6 +8339,7 @@ async function handleComposerDiscard(btn) {
     const normalized = target === 'site' ? cloneSiteState(prepared) : deepClone(prepared);
     remoteBaseline[target] = target === 'site' ? cloneSiteState(prepared) : deepClone(prepared);
     setStateSlice(target, normalized);
+    if (target === 'site') applyComposerEffectiveSiteConfig(normalized);
 
     if (composerAutoSaveTimers[target]) {
       clearTimeout(composerAutoSaveTimers[target]);
@@ -11429,13 +11448,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const state = { index: {}, tabs: {}, site: {} };
   showStatus(t('editor.composer.statusMessages.loadingConfig'));
   try {
-    const site = await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
-    const root = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
-    window.__ns_content_root = root; // hint for other utils
-    try {
-      const repo = (site && site.repo) || {};
-      window.__ns_site_repo = { owner: String(repo.owner || ''), name: String(repo.name || ''), branch: String(repo.branch || 'main') };
-    } catch(_) { window.__ns_site_repo = { owner: '', name: '', branch: 'main' }; }
+    const site = await fetchComposerTrackedSiteConfig();
+    const effectiveSite = applyComposerEffectiveSiteConfig(site);
+    const root = (effectiveSite && effectiveSite.contentRoot) ? String(effectiveSite.contentRoot) : 'wwwroot';
     updateMarkdownPushButton(getActiveDynamicTab());
     const remoteSite = prepareSiteState(site || {});
     const [idx, tbs] = await Promise.all([
@@ -11463,6 +11478,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   activeComposerState = state;
   const restoredDrafts = loadDraftSnapshotsIntoState(state);
+  applyComposerEffectiveSiteConfig(state.site);
+  updateMarkdownPushButton(getActiveDynamicTab());
 
   if (restoredDrafts.length) {
     const label = restoredDrafts.map(k => (k === 'tabs' ? 'tabs.yaml' : k === 'site' ? 'site.yaml' : 'index.yaml')).join(' & ');
