@@ -1,5 +1,5 @@
 import './cache-control.js';
-import { fetchConfigWithYamlFallback } from './yaml.js';
+import { fetchMergedSiteConfig } from './yaml.js';
 import { t } from './i18n.js';
 
 function setStatus(state, repoText, messageText) {
@@ -58,7 +58,7 @@ async function initGithubStatus() {
       t('editor.github.status.loadingRepo'),
       t('editor.github.status.readingConfig')
     );
-    const cfg = await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']);
+    const cfg = await fetchMergedSiteConfig();
     const repo = (cfg && cfg.repo) || {};
     const owner = String(repo.owner || '').trim();
     const name = String(repo.name || '').trim();

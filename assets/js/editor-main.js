@@ -16,7 +16,7 @@ import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
-import { fetchConfigWithYamlFallback } from './yaml.js';
+import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
 import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } from './i18n.js';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
@@ -2693,7 +2693,7 @@ document.addEventListener('DOMContentLoaded', () => {
     (async () => {
       try {
         setStatus('Loading site config…');
-        const site = await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']);
+        const site = await fetchMergedSiteConfig();
         editorSiteConfig = site || {};
         contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
       } catch (_) {

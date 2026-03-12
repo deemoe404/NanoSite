@@ -9,6 +9,7 @@ import {
 import { getManualMarkdownSaveState } from '../assets/js/composer-markdown-save.js';
 import { parseFrontMatter } from '../assets/js/content.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from '../assets/js/editor-markdown-ops.js';
+import { mergeYamlConfig } from '../assets/js/yaml.js';
 
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
@@ -405,5 +406,38 @@ run('manual markdown save requires dirty non-empty content', () => {
     canSave: true,
     content: 'Body\nparagraph.\n',
     reason: 'default'
+  });
+});
+
+run('local site overrides merge into tracked site config without dropping fields', () => {
+  const merged = mergeYamlConfig(
+    {
+      contentRoot: 'wwwroot',
+      themePack: 'paper',
+      repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' }
+    },
+    { contentRoot: 'wwwroot.local' }
+  );
+  assert.deepEqual(merged, {
+    contentRoot: 'wwwroot.local',
+    themePack: 'paper',
+    repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' }
+  });
+});
+
+run('local site overrides merge nested config objects recursively', () => {
+  const merged = mergeYamlConfig(
+    {
+      repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' },
+      seo: { title: 'NanoSite', keywords: ['nano', 'site'] }
+    },
+    {
+      repo: { branch: 'dev' },
+      seo: { title: 'NanoSite Local' }
+    }
+  );
+  assert.deepEqual(merged, {
+    repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'dev' },
+    seo: { title: 'NanoSite Local', keywords: ['nano', 'site'] }
   });
 });

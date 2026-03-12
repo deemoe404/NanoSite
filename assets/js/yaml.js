@@ -32,6 +32,22 @@ function indentOf(line) {
   return n;
 }
 
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function cloneYamlValue(value) {
+  if (Array.isArray(value)) return value.map(cloneYamlValue);
+  if (isPlainObject(value)) {
+    const out = {};
+    Object.keys(value).forEach((key) => {
+      out[key] = cloneYamlValue(value[key]);
+    });
+    return out;
+  }
+  return value;
+}
+
 function parseScalar(raw) {
   const s = stripInlineComment(String(raw).trim());
   if (s === '' || s === '~' || /^null$/i.test(s)) return null;
@@ -195,4 +211,36 @@ export async function fetchConfigWithYamlFallback(names) {
     } catch (_) { /* try next */ }
   }
   return {};
+}
+
+export function mergeYamlConfig(base, override) {
+  const baseObj = isPlainObject(base) ? base : {};
+  const overrideObj = isPlainObject(override) ? override : {};
+  const out = cloneYamlValue(baseObj);
+  Object.keys(overrideObj).forEach((key) => {
+    const baseValue = out[key];
+    const overrideValue = overrideObj[key];
+    if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
+      out[key] = mergeYamlConfig(baseValue, overrideValue);
+    } else {
+      out[key] = cloneYamlValue(overrideValue);
+    }
+  });
+  return out;
+}
+
+export async function fetchTrackedSiteConfig() {
+  return await fetchConfigWithYamlFallback(['site.yaml', 'site.yml']);
+}
+
+export async function fetchSiteLocalOverride() {
+  return await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml']);
+}
+
+export async function fetchMergedSiteConfig(baseConfig = null) {
+  const tracked = baseConfig && isPlainObject(baseConfig)
+    ? baseConfig
+    : await fetchTrackedSiteConfig();
+  const localOverride = await fetchSiteLocalOverride();
+  return mergeYamlConfig(tracked, localOverride);
 }

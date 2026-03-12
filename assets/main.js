@@ -20,7 +20,7 @@ import {
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
-import { fetchConfigWithYamlFallback } from './js/yaml.js';
+import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './js/yaml.js';
 import { applyMasonry, updateMasonryItem, calcAndSetSpan, toPx, debounce } from './js/masonry.js';
 import { aggregateTags, renderTagSidebar, setupTagTooltips } from './js/tags.js';
 import { renderPostNav } from './js/post-nav.js';
@@ -282,7 +282,7 @@ try { window.__ns_posts_enabled = () => postsEnabled(); } catch (_) {}
 async function loadSiteConfig() {
   try {
     // YAML only
-    return await fetchConfigWithYamlFallback(['site.local.yaml', 'site.local.yml', 'site.yaml', 'site.yml']);
+    return await fetchMergedSiteConfig();
   } catch (_) { return {}; }
 }
 
