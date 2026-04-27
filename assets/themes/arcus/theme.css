@@ -2055,9 +2055,9 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
-  opacity: 0;
+  opacity: 1;
   transform: scale(1.02);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  transition: transform 0.35s ease;
 }
 
 .arcus-article__body .link-card .card-cover.is-loaded,
@@ -2071,6 +2071,37 @@ body {
 .arcus-static__body .link-card:hover .card-cover.is-loaded,
 .arcus-static__body .link-card:focus-visible .card-cover.is-loaded {
   transform: scale(1.06);
+}
+
+.arcus-article__body .post-image-wrap .ph-skeleton,
+.arcus-static__body .post-image-wrap .ph-skeleton,
+.arcus-article__body .link-card .ph-skeleton,
+.arcus-static__body .link-card .ph-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  background: rgba(123, 139, 255, 0.14);
+}
+
+.arcus-article__body .post-image-wrap .ph-skeleton::after,
+.arcus-static__body .post-image-wrap .ph-skeleton::after,
+.arcus-article__body .link-card .ph-skeleton::after,
+.arcus-static__body .link-card .ph-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  animation: arcus-shimmer 1.2s infinite;
+}
+
+[data-theme="dark"] .arcus-article__body .post-image-wrap .ph-skeleton,
+[data-theme="dark"] .arcus-static__body .post-image-wrap .ph-skeleton,
+[data-theme="dark"] .arcus-article__body .link-card .ph-skeleton,
+[data-theme="dark"] .arcus-static__body .link-card .ph-skeleton {
+  background: rgba(158, 167, 255, 0.12);
 }
 
 .arcus-article__body .link-card .card-title,
@@ -2419,6 +2450,12 @@ body {
   object-fit: contain;
   box-shadow: none;
   border-radius: 0;
+}
+
+@keyframes arcus-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .arcus-article__body figure,

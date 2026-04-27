@@ -810,8 +810,11 @@ body {
 .solstice-card__cover .ph-skeleton {
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background: linear-gradient(90deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.06) 100%);
   animation: solstice-shimmer 1.6s infinite;
+  opacity: 0.72;
 }
 
 .solstice-card__cover img {
@@ -819,8 +822,7 @@ body {
   height: 100%;
   object-fit: cover;
   border-radius: inherit;
-  opacity: 0;
-  transition: opacity 0.4s ease;
+  opacity: 1;
 }
 
 .solstice-card__cover img.is-loaded {
@@ -1399,6 +1401,38 @@ body {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-decoration-color: currentColor;
+}
+
+.solstice-article__body .post-image-wrap,
+.solstice-static__body .post-image-wrap {
+  position: relative;
+  overflow: hidden;
+  max-width: 100%;
+  margin: clamp(1.5rem, 1rem + 1.4vw, 2.5rem) auto;
+  border-radius: calc(var(--solstice-radius) - 4px);
+  background: rgba(0,0,0,0.05);
+}
+
+.solstice-article__body .post-image-wrap .post-img,
+.solstice-static__body .post-image-wrap .post-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.solstice-article__body .post-image-wrap .ph-skeleton,
+.solstice-static__body .post-image-wrap .ph-skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.06) 100%);
+  animation: solstice-shimmer 1.6s infinite;
+  opacity: 0.72;
 }
 
 .solstice-article__body ul,

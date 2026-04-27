@@ -13,7 +13,7 @@ export function applyLazyLoadingIn(container) {
   } catch (_) {}
 }
 
-// Fade-in covers when each image loads; remove placeholder per-card
+// Keep covers visible while the skeleton marks loading; remove placeholder per-card.
 export function hydrateCardCovers(container) {
   try {
     const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
@@ -40,7 +40,7 @@ export function hydrateCardCovers(container) {
   } catch (_) {}
 }
 
-// Enhance post images: wrap with a reserved-ratio container + skeleton, fade-in when loaded
+// Enhance post images: wrap with a reserved-ratio container + skeleton overlay while loading.
 export function hydratePostImages(container) {
   try {
     const root = typeof container === 'string' ? document.querySelector(container) : (container || document);
