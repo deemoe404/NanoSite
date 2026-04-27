@@ -587,7 +587,7 @@ function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocu
         };
         img.addEventListener('load', done, { once: true });
         img.addEventListener('error', done, { once: true });
-        setImageSrcNoStore(img, src, windowRef);
+        setImageSrcWithBrowserCache(img, src);
       }
     };
     startNext();
@@ -743,26 +743,14 @@ function handleDocumentClickNative(params = {}, documentRef = defaultDocument, w
   return true;
 }
 
-function setImageSrcNoStore(img, src, windowRef = defaultWindow) {
+function setImageSrcWithBrowserCache(img, src) {
   try {
     if (!img) return;
     const val = String(src || '').trim();
     if (!val) return;
     const safeVal = sanitizeImageUrl(val);
     if (!safeVal) return;
-    if (/^(data:|blob:)/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
-    if (/^[a-z][a-z0-9+.-]*:/i.test(safeVal)) { img.setAttribute('src', safeVal); return; }
-    let abs = safeVal;
-    try { abs = new URL(safeVal, windowRef && windowRef.location ? windowRef.location.href : undefined).toString(); } catch (_) {}
-    fetch(abs, { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
-      .then(b => {
-        const url = URL.createObjectURL(b);
-        try { const prev = img.dataset.blobUrl; if (prev) URL.revokeObjectURL(prev); } catch (_) {}
-        img.dataset.blobUrl = url;
-        img.setAttribute('src', url);
-      })
-      .catch(() => { img.setAttribute('src', safeVal); });
+    img.setAttribute('src', safeVal);
   } catch (_) {
     try { img.setAttribute('src', sanitizeImageUrl(src)); } catch (__) {}
   }
@@ -818,7 +806,7 @@ function renderSiteIdentityNative(params = {}, documentRef = defaultDocument, wi
   }
   if (avatar) {
     const img = documentRef.querySelector('.site-card .avatar');
-    if (img) setImageSrcNoStore(img, avatar, windowRef);
+    if (img) setImageSrcWithBrowserCache(img, avatar);
   }
   return true;
 }
