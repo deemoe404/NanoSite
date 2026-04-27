@@ -14,7 +14,7 @@ import { getContentRoot } from './utils.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
 import enTranslations, { languageMeta as enLanguageMeta } from '../i18n/en.js';
 
-// Fetch of content files uses { cache: 'no-store' } to avoid stale data
+// Content fetch cache modes are normalized by cache-control.js.
 
 // Default language fallback when no user/browser preference is available.
 const DEFAULT_LANG = 'en';
@@ -601,14 +601,16 @@ async function loadContentFromFrontMatter(obj, lang) {
 
 // Try to load unified YAML (`base.yaml`) first; if not unified or missing, fallback to legacy
 // per-language files (base.<currentLang>.yaml -> base.<default>.yaml -> base.yaml)
-export async function loadContentJson(basePath, baseName) {
+export async function loadContentJsonWithRaw(basePath, baseName) {
   // YAML only (unified or simplified)
+  let raw = null;
   try {
     const obj = await fetchConfigWithYamlFallback([
       `${basePath}/${baseName}.yaml`,
       `${basePath}/${baseName}.yml`
     ]);
     if (obj && typeof obj === 'object' && Object.keys(obj).length) {
+      raw = obj;
       // Heuristic: if any entry contains a `default` or a non-reserved language-like key, treat as unified
       const keys = Object.keys(obj || {});
       let isUnified = false;
@@ -643,7 +645,7 @@ export async function loadContentJson(basePath, baseName) {
         const current = getCurrentLang();
         const { entries, availableLangs } = await loadContentFromFrontMatter(obj, current);
         __setContentLangs(availableLangs);
-        return entries;
+        return { entries, raw };
       }
       
       if (isUnified) {
@@ -651,14 +653,19 @@ export async function loadContentJson(basePath, baseName) {
         const { entries, availableLangs } = transformUnifiedContent(obj, current);
         // Record available content languages so the dropdown can reflect them
         __setContentLangs(availableLangs);
-        return entries;
+        return { entries, raw };
       }
       // Not unified; fall through to legacy handling below
     }
   } catch (_) { /* fall back */ }
 
   // Legacy per-language YAML chain
-  return loadLangJson(basePath, baseName);
+  return { entries: await loadLangJson(basePath, baseName), raw };
+}
+
+export async function loadContentJson(basePath, baseName) {
+  const result = await loadContentJsonWithRaw(basePath, baseName);
+  return (result && result.entries) || {};
 }
 
 // Transform unified tabs YAML into a flat map: title -> { location }

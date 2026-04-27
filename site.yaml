@@ -42,6 +42,10 @@ cardCoverFallback: false
 
 errorOverlay: true
 
+cachePolicy:
+  content: default
+  editorContent: no-store
+
 pageSize: 8
 
 defaultLanguage: en
