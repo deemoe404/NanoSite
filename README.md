@@ -2,22 +2,13 @@
 
 ![hero](assets/hero.jpeg)
 
-<p align="center">
-  <b>A zero-build static site system powered by Markdown.</b><br/>
-  This repository is the NanoSite source, official documentation site, and Markdown rendering regression corpus.
-</p>
+**A zero-build static site system powered by Markdown.**
 
-<p align="center">
-  <a href="https://github.com/deemoe404/NanoSite/stargazers">
-    <img src="https://img.shields.io/github/stars/deemoe404/NanoSite?style=social" alt="GitHub stars"/>
-  </a>
-  <a href="https://github.com/deemoe404/NanoSite/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/deemoe404/NanoSite" alt="License"/>
-  </a>
-  <a href="https://nano.dee.moe/">
-    <img src="https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=docs" alt="Documentation site"/>
-  </a>
-</p>
+This repository is the NanoSite source, official documentation site, and Markdown rendering regression corpus.
+
+[![GitHub stars](https://img.shields.io/github/stars/deemoe404/NanoSite?style=social)](https://github.com/deemoe404/NanoSite/stargazers)
+[![License](https://img.shields.io/github/license/deemoe404/NanoSite)](https://github.com/deemoe404/NanoSite/blob/main/LICENSE)
+[![Documentation site](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=docs)](https://nano.dee.moe/)
 
 ## What This Repository Is
 
@@ -81,7 +72,6 @@ Want to list your site here? Open a PR with the site URL and a one-line descript
 
 ## Roadmap
 
-- Add HTML tag support.
 - Add LaTeX support.
 - Implement comments backed by GitHub Discussions.
 - Publish the minimal `NanoSite-Starter` template repository.

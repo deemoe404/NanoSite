@@ -11,6 +11,10 @@ import { parseFrontMatter } from '../assets/js/content.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from '../assets/js/editor-markdown-ops.js';
 import { mergeYamlConfig, resolveSiteRepoConfig } from '../assets/js/yaml.js';
 
+globalThis.document = globalThis.document || { title: 'NanoSite' };
+
+const { mdParse } = await import('../assets/js/markdown.js');
+
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
   if (!order.includes(key)) order.push(key);
@@ -407,6 +411,30 @@ run('manual markdown save requires dirty non-empty content', () => {
     content: 'Body\nparagraph.\n',
     reason: 'default'
   });
+});
+
+run('markdown parser treats inline HTML tags as literal text', () => {
+  const output = mdParse('Hello <span class="raw">HTML</span>.').post;
+  assert.equal(output, '<p>Hello &lt;span class=&quot;raw&quot;&gt;HTML&lt;/span&gt;.</p>');
+});
+
+run('markdown parser treats block HTML tags as literal text', () => {
+  const output = mdParse([
+    '<div class="raw">',
+    '**Not a live tag block**',
+    '</div>',
+    ''
+  ].join('\n')).post;
+  assert.ok(!output.includes('<div class="raw">'));
+  assert.ok(!output.includes('</div>'));
+  assert.match(output, /&lt;div class=&quot;raw&quot;&gt;/);
+  assert.match(output, /<strong>Not a live tag block<\/strong>/);
+  assert.match(output, /&lt;\/div&gt;/);
+});
+
+run('markdown parser treats HTML comments as literal text', () => {
+  const output = mdParse('Before <!-- hidden --> after.').post;
+  assert.equal(output, '<p>Before &lt;!-- hidden --&gt; after.</p>');
 });
 
 run('local site overrides merge into tracked site config without dropping fields', () => {

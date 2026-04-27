@@ -24,7 +24,7 @@ export function escapeMarkdown(text) {
   let result = '';
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      let seg = parts[i]
+      const seg = parts[i]
         .replace(/\\\\/g, '&#092;')
         .replace(/\\\*/g, '&#042;')
         .replace(/\\_/g, '&#095;')
@@ -37,15 +37,6 @@ export function escapeMarkdown(text) {
         .replace(/\\\./g, '&#046;')
         .replace(/\\!/g, '&#033;')
         .replace(/\\\|/g, '&#124;');
-      // Robustly strip HTML comments by repeating until stable
-      seg = (function removeHtmlComments(input) {
-        let prev, out = String(input || '');
-        do {
-          prev = out;
-          out = out.replace(/<!--[\s\S]*?-->/g, '');
-        } while (out !== prev);
-        return out;
-      })(seg);
       result += seg;
     } else {
       result += parts[i];
@@ -117,39 +108,40 @@ export function resolveImageSrc(src, baseDir) {
   }
 }
 
-// Allow a safe subset of HTML tags within Markdown content.
-// - Escapes all text outside tags
-// - Keeps only allowlisted tags/attributes
-// - Rewrites relative href/src/srcset relative to the markdown file's folder (baseDir)
-const __NS_ALLOWED_TAGS = new Set([
-  'b','strong','i','em','u','mark','small','sub','sup','kbd','abbr','ins','del',
-  'span','div','section','article','p','br','hr',
-  'blockquote','pre','code','figure','figcaption',
-  'a','img','video','source','picture',
-  'ul','ol','li','table','thead','tbody','tfoot','tr','td','th','colgroup','col',
-  'details','summary',
-  'h1','h2','h3','h4','h5','h6',
-  'iframe'
+// Tags and attributes emitted by the Markdown renderer itself. User-authored
+// tags are escaped before rendering and are not admitted through this path.
+const __NS_RENDERED_MARKDOWN_TAGS = new Set([
+  'a','blockquote','br','code','del','div','em','h1','h2','h3','h4','h5','h6',
+  'hr','img','input','label','li','ol','p','pre','source','span','strong',
+  'table','tbody','td','th','thead','tr','ul','video'
 ]);
-const __NS_VOID_TAGS = new Set(['br','hr','img','source','col','input','meta','link']);
-const __NS_GLOBAL_ATTRS = new Set(['id','class','title','style','role','lang','dir']);
-const __NS_TAG_ATTRS = {
-  a: new Set(['href','target','rel','download']),
-  img: new Set(['src','alt','width','height','loading','decoding','srcset','sizes','referrerpolicy']),
-  video: new Set(['src','controls','autoplay','loop','muted','poster','preload','playsinline','width','height']),
-  source: new Set(['src','type','media','sizes','srcset']),
-  table: new Set(['border','summary']),
-  td: new Set(['colspan','rowspan','headers','scope','align','valign']),
-  th: new Set(['colspan','rowspan','headers','scope','align','valign']),
-  iframe: new Set(['src','width','height','allow','allowfullscreen','loading','referrerpolicy','title'])
+const __NS_RENDERED_MARKDOWN_VOID_TAGS = new Set(['br','hr','img','input','source']);
+const __NS_RENDERED_MARKDOWN_GLOBAL_ATTRS = new Set(['aria-hidden','aria-label','class','data-callout','for','id','role','title']);
+const __NS_RENDERED_MARKDOWN_TAG_ATTRS = {
+  a: new Set(['href']),
+  code: new Set(['class']),
+  div: new Set(['class','data-callout','role']),
+  h1: new Set(['id']),
+  h2: new Set(['id']),
+  h3: new Set(['id']),
+  h4: new Set(['id']),
+  h5: new Set(['id']),
+  h6: new Set(['id']),
+  img: new Set(['alt','src','title']),
+  input: new Set(['checked','disabled','id','type']),
+  label: new Set(['for']),
+  ol: new Set(['start']),
+  pre: new Set(['class']),
+  source: new Set(['src','type']),
+  span: new Set(['aria-hidden','class']),
+  video: new Set(['aria-label','class','controls','playsinline','poster','preload','title'])
 };
 function __ns_isAllowedAttr(tag, attr) {
   if (!attr) return false;
   const a = String(attr).toLowerCase();
-  if (a.startsWith('on')) return false; // no inline handlers
-  if (a.startsWith('data-') || a.startsWith('aria-')) return true;
-  if (__NS_GLOBAL_ATTRS.has(a)) return true;
-  const spec = __NS_TAG_ATTRS[tag];
+  if (a.startsWith('on')) return false;
+  if (__NS_RENDERED_MARKDOWN_GLOBAL_ATTRS.has(a)) return true;
+  const spec = __NS_RENDERED_MARKDOWN_TAG_ATTRS[tag];
   return !!(spec && spec.has(a));
 }
 function __ns_rewriteHref(val, baseDir) {
@@ -168,74 +160,6 @@ function __ns_rewriteSrc(val, baseDir) {
   if (s.startsWith('/')) return s;
   return resolveImageSrc(s, baseDir);
 }
-function __ns_rewriteSrcset(val, baseDir) {
-  const s = String(val || '');
-  if (!s.trim()) return s;
-  try {
-    return s.split(',').map(part => {
-      const seg = part.trim();
-      if (!seg) return '';
-      const bits = seg.split(/\s+/);
-      const url = bits.shift();
-      const rewritten = __ns_rewriteSrc(url, baseDir);
-      return [rewritten, ...bits].join(' ');
-    }).filter(Boolean).join(', ');
-  } catch (_) { return s; }
-}
-function __ns_sanitizeAttrs(tag, rawAttrs, baseDir) {
-  const s = String(rawAttrs || '');
-  let out = '';
-  const re = /([a-zA-Z_:][\w:.-]*)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'<>`]+)))?/g;
-  let m;
-  while ((m = re.exec(s))) {
-    const name = m[1];
-    const hasVal = m[2] != null;
-    let val = m[3] ?? m[4] ?? m[5] ?? '';
-    if (!__ns_isAllowedAttr(tag, name)) continue;
-    const low = String(name).toLowerCase();
-    if (hasVal) {
-      if (low === 'href') val = __ns_rewriteHref(val, baseDir);
-      else if (low === 'src') val = __ns_rewriteSrc(val, baseDir);
-      else if (low === 'srcset') val = __ns_rewriteSrcset(val, baseDir);
-      out += ` ${low}="${escapeHtml(val)}"`;
-    } else {
-      out += ` ${low}`;
-    }
-  }
-  return out;
-}
-export function allowUserHtml(input, baseDir) {
-  const str = String(input || '');
-  if (!str) return '';
-  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9:-]*)\b([^>]*)>/g;
-  let out = '';
-  let last = 0;
-  let m;
-  while ((m = tagRe.exec(str))) {
-    // Text before the tag
-    out += escapeHtml(str.slice(last, m.index));
-    last = tagRe.lastIndex;
-    const full = m[0];
-    const name = (m[1] || '').toLowerCase();
-    const attrs = m[2] || '';
-    const isClosing = /^<\//.test(full);
-    const isSelfClosing = /\/>$/.test(full) || __NS_VOID_TAGS.has(name);
-    if (!__NS_ALLOWED_TAGS.has(name)) {
-      out += escapeHtml(full);
-      continue;
-    }
-    if (isClosing) {
-      out += `</${name}>`;
-    } else {
-      const safeAttrs = __ns_sanitizeAttrs(name, attrs, baseDir);
-      out += `<${name}${safeAttrs}${isSelfClosing ? ' />' : '>'}`;
-    }
-  }
-  // Remainder after last tag
-  out += escapeHtml(str.slice(last));
-  return out;
-}
-
 export function getQueryVariable(variable) {
   const params = new URLSearchParams(window.location.search);
   const value = params.get(variable);
@@ -285,13 +209,15 @@ export function renderTags(tagVal) {
   return `<div class=\"tags\">${tags.map(t => `<span class=\"tag\">${escapeHtml(t)}</span>`).join('')}</div>`;
 }
 
-// Safely set sanitized HTML into a target element without using innerHTML.
-// - Prefers the native Sanitizer API when available
-// - Falls back to parsing into a safe DocumentFragment with our allowlist
+// Safely set controlled renderer markup into a target element without using innerHTML.
 export function setSafeHtml(target, html, baseDir, options = {}) {
   if (!target) return;
   const input = String(html || '');
   const opts = options && typeof options === 'object' ? options : {};
+  if (!opts.alreadySanitized) {
+    try { target.textContent = input; } catch (_) {}
+    return;
+  }
   try {
     // Prefer native Sanitizer API when available
     if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
@@ -301,11 +227,10 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
     }
   } catch (_) { /* fall through to manual sanitizer */ }
 
-  // Manual sanitizer (no HTML re-interpretation via innerHTML/DOMParser):
-  // 1) First, reduce to an allowlisted HTML string using our string-level sanitizer.
-  // 2) Then, build a DOM fragment by tokenizing tags and creating elements/attributes programmatically.
+  // Build a DOM fragment by tokenizing the renderer output and creating
+  // elements/attributes programmatically.
   try {
-    const safeHtml = opts.alreadySanitized ? input : allowUserHtml(input, baseDir);
+    const safeHtml = input;
 
     // Minimal HTML entity unescape for attribute values we set via setAttribute.
     const unescapeHtml = (s) => String(s || '')
@@ -358,7 +283,7 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
       parent.appendChild(node);
     };
 
-    // Tokenize tags. All disallowed tags should already be escaped by allowUserHtml.
+    // Tokenize tags. Any unexpected tag is preserved as text.
     const tagRe = /<\/?([a-zA-Z][\w:-]*)\b([^>]*)>/g;
     let last = 0;
     let m;
@@ -372,7 +297,7 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
       const tag = (m[1] || '').toLowerCase();
       const attrs = m[2] || '';
       const isClose = /^<\//.test(raw);
-      const isVoid = __NS_VOID_TAGS.has(tag);
+      const isVoid = __NS_RENDERED_MARKDOWN_VOID_TAGS.has(tag);
 
       if (isClose) {
         // Pop to the nearest matching tag if present
@@ -385,8 +310,7 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
         continue;
       }
 
-      if (!__NS_ALLOWED_TAGS.has(tag)) {
-        // Shouldn't happen (already escaped), but keep as text just in case
+      if (!__NS_RENDERED_MARKDOWN_TAGS.has(tag)) {
         appendNode(document.createTextNode(raw));
         continue;
       }
@@ -404,7 +328,6 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
         let val = unescapeHtml(rawVal);
         if (name === 'href') val = __ns_rewriteHref(val, baseDir);
         else if (name === 'src') val = __ns_rewriteSrc(val, baseDir);
-        else if (name === 'srcset') val = __ns_rewriteSrcset(val, baseDir);
         try { el.setAttribute(name, val); } catch (_) {}
       }
 
