@@ -1,4 +1,4 @@
-import './js/cache-control.js';
+import { configureFetchCachePolicy } from './js/cache-control.js';
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
@@ -11,7 +11,7 @@ import {
   t,
   withLangParam,
   loadLangJson,
-  loadContentJson,
+  loadContentJsonWithRaw,
   loadTabsJson,
   getCurrentLang,
   normalizeLangKey,
@@ -30,7 +30,7 @@ import { applyLangHints } from './js/typography.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos, hydrateCardCovers } from './js/post-render.js';
 import { hydrateInternalLinkCards } from './js/link-cards.js';
 
-// Lightweight fetch helper (bypass caches without version params)
+// Lightweight content fetch helper; cache mode is normalized by cache-control.js.
 const getFile = (filename) => fetch(String(filename || ''), { cache: 'no-store' })
   .then(resp => { if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.text(); });
 
@@ -1233,6 +1233,7 @@ try {
   siteConfigResult = {};
 }
 siteConfig = siteConfigResult || {};
+try { configureFetchCachePolicy(siteConfig); } catch (_) {}
 
 // Apply content root override early so subsequent loads honor it
 try {
@@ -1328,13 +1329,13 @@ async function softResetToSiteDefaultLanguage() {
   // Reload localized content and tabs for the new language, then rerender
   try {
     const results = await Promise.allSettled([
-      loadContentJson(getContentRoot(), 'index'),
-      loadTabsJson(getContentRoot(), 'tabs'),
-      (async () => { try { const cr = getContentRoot(); const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`,`${cr}/index.yml`]); return (obj && typeof obj === 'object') ? obj : null; } catch (_) { return null; } })()
+      loadContentJsonWithRaw(getContentRoot(), 'index'),
+      loadTabsJson(getContentRoot(), 'tabs')
     ]);
-    const posts = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
+    const contentResult = results[0].status === 'fulfilled' ? (results[0].value || {}) : {};
+    const posts = contentResult.entries || {};
     const tabs = results[1].status === 'fulfilled' ? (results[1].value || {}) : {};
-    const rawIndex = results[2] && results[2].status === 'fulfilled' ? (results[2].value || null) : null;
+    const rawIndex = contentResult.raw || null;
     // Cache raw index for stable ordering
     rawIndexCache = rawIndex && typeof rawIndex === 'object' ? rawIndex : null;
 
@@ -1474,21 +1475,15 @@ try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catc
 
 // Now fetch localized content and tabs for the (possibly updated) language
 const loadResults = await Promise.allSettled([
-  loadContentJson(getContentRoot(), 'index'),
-  loadTabsJson(getContentRoot(), 'tabs'),
-  (async () => {
-    try {
-      const cr = getContentRoot();
-      const obj = await fetchConfigWithYamlFallback([`${cr}/index.yaml`, `${cr}/index.yml`]);
-      return (obj && typeof obj === 'object') ? obj : null;
-    } catch (_) { return null; }
-  })()
+  loadContentJsonWithRaw(getContentRoot(), 'index'),
+  loadTabsJson(getContentRoot(), 'tabs')
 ]);
 
 try {
-  const posts = loadResults[0].status === 'fulfilled' ? (loadResults[0].value || {}) : {};
+  const contentResult = loadResults[0].status === 'fulfilled' ? (loadResults[0].value || {}) : {};
+  const posts = contentResult.entries || {};
   const tabs = loadResults[1].status === 'fulfilled' ? (loadResults[1].value || {}) : {};
-  const rawIndex = loadResults[2] && loadResults[2].status === 'fulfilled' ? (loadResults[2].value || null) : null;
+  const rawIndex = contentResult.raw || null;
   // Cache raw index for stable ordering
   rawIndexCache = rawIndex && typeof rawIndex === 'object' ? rawIndex : null;
     tabsBySlug = {};

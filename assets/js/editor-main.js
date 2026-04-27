@@ -1,4 +1,4 @@
-import './cache-control.js';
+import { configureFetchCachePolicy } from './cache-control.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -17,7 +17,7 @@ import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJson, getCurrentLang, normalizeLangKey } from './i18n.js';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 
@@ -2695,6 +2695,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setStatus('Loading site config…');
         const site = await fetchMergedSiteConfig();
         editorSiteConfig = site || {};
+        try { configureFetchCachePolicy(editorSiteConfig, { context: 'editor' }); } catch (_) {}
         contentRoot = (site && site.contentRoot) ? String(site.contentRoot) : 'wwwroot';
       } catch (_) {
         editorSiteConfig = {};
@@ -2706,17 +2707,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         setStatus('Loading index…');
-        const [idxResult, postsResult] = await Promise.allSettled([
-          fetchConfigWithYamlFallback([`${contentRoot}/index.yaml`, `${contentRoot}/index.yml`]),
-          loadContentJson(contentRoot, 'index')
-        ]);
-        const rawIndex = idxResult.status === 'fulfilled' ? (idxResult.value || {}) : {};
-        const posts = postsResult.status === 'fulfilled' ? (postsResult.value || {}) : {};
+        const indexResult = await loadContentJsonWithRaw(contentRoot, 'index');
+        const rawIndex = (indexResult && indexResult.raw) || {};
+        const posts = (indexResult && indexResult.entries) || {};
         renderGroupedIndex(listIndex, rawIndex);
         rebuildLinkCardContext(posts, rawIndex);
         if (linkCardReady) refreshPreview();
-        if (idxResult.status === 'rejected') console.warn('Failed to load index.yaml', idxResult.reason);
-        if (postsResult.status === 'rejected') console.warn('Failed to load index metadata', postsResult.reason);
       } catch (err) {
         console.warn('Failed to load index data', err);
       }

@@ -117,6 +117,25 @@
       "type": "boolean",
       "description": "Show error overlay in UI when enabled."
     },
+    "cachePolicy": {
+      "type": "object",
+      "description": "Browser fetch cache policy for author-managed content files.",
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/cacheMode",
+          "description": "Cache mode for Markdown/YAML content on the public site. Defaults to browser cache behavior."
+        },
+        "editorContent": {
+          "$ref": "#/$defs/cacheMode",
+          "description": "Cache mode for Markdown/YAML content in the editor and preview. Defaults to no-store for freshness."
+        }
+      },
+      "additionalProperties": false,
+      "default": {
+        "content": "default",
+        "editorContent": "no-store"
+      }
+    },
     "pageSize": {
       "type": "integer",
       "minimum": 1,
@@ -207,6 +226,14 @@
             "type": "string"
           }
         }
+      ]
+    },
+    "cacheMode": {
+      "type": "string",
+      "enum": [
+        "default",
+        "no-cache",
+        "no-store"
       ]
     }
   }
