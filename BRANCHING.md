@@ -1,50 +1,56 @@
 # Branching Strategy
 
-This repository uses a three-layer branch model to keep development and release clean.
+NanoSite now uses a simple `main + short-lived branches` model.
 
 ## Branch Roles
 
-- `main`: stable and releasable template branch for users to fork.
-- `next`: integration branch for ongoing development (replace the current long-lived `v2` usage).
-- `feat/*`: short-lived feature branches, merged into `next`.
+- `main`: stable source for the NanoSite runtime, official documentation site, and Markdown regression corpus.
+- `feat/*`: short-lived feature branches for human-authored work.
+- `codex/*`: short-lived implementation branches for Codex-authored work.
 
-Recommended migration:
+The old long-lived `doc` branch is retired. Do not use it for development, documentation hosting, or release work.
 
-1. Keep `main` as the default branch.
-2. Treat current `v2` as `next` (rename when convenient).
-3. Stop using a long-lived `doc` branch for documentation hosting.
+## Workflow
 
-## Documentation Rule
+1. Start new work from `main`.
+2. Create a short-lived branch such as `feat/editor-toolbar` or `codex/main-docs-repo`.
+3. Keep runtime changes and documentation updates in the same branch when they describe the same behavior.
+4. Run the focused checks before merging:
 
-- Documentation should live in tracked content folders on `main`, for example:
-  - `wwwroot/post/doc/v1.0.0/*`
-  - `wwwroot/post/doc/v2.1.0/*`
-- This keeps docs versioned with code and removes cross-branch merge complexity.
+```bash
+bash scripts/test-main-guard.sh
+bash scripts/test-frontmatter-roundtrip.sh
+```
 
-## Merge Flow
+5. Merge back to `main` after review and verification.
+6. Delete the short-lived branch after it has landed.
 
-1. Start work from `next` to `feat/<topic>`.
-2. Merge `feat/*` into `next` via PR.
-3. Periodically merge `next` into `main` when ready for release.
-4. Never merge `sandbox/*` branches into `main`.
+## Documentation Content
+
+`wwwroot/` is the official documentation site, not a starter template. It is expected to contain realistic documentation, media, release history, SEO examples, and Markdown edge cases.
+
+When a runtime feature changes user-facing behavior, update the relevant documentation in `wwwroot/` in the same branch. This keeps the official site and the code versioned together.
+
+The minimal user starter will live in a separate repository named `NanoSite-Starter`. Do not strip this repository's `wwwroot/` back to a minimal template.
 
 ## Local Testing Data Isolation
 
-Use local-only config and content root:
+Use local-only config and content for experiments:
 
-1. Create `site.local.yaml` (ignored by git).
-   Use `site.local.example.yaml` as a template.
+1. Copy `site.local.example.yaml` to `site.local.yaml`.
 2. Set `contentRoot: wwwroot.local`.
-3. Put test content under `wwwroot.local/` (ignored by git).
+3. Put local test content under `wwwroot.local/`.
 
-`site.local.yaml` is loaded before `site.yaml`, so local testing does not require editing tracked release config.
+`site.local.yaml`, `site.local.yml`, and `wwwroot.local/` are ignored by git.
 
-## Main Protection Rules
+## Main Guard
 
-PRs targeting `main` must pass the `Main Guard` workflow:
+PRs targeting `main` must pass the `Main Guard` workflow. The guard only enforces repository hygiene:
 
 - Reject local-only files:
   - `site.local.yaml`
   - `site.local.yml`
   - `wwwroot.local/**`
-- Ensure `site.yaml` has `contentRoot: wwwroot`.
+- Ensure tracked `site.yaml` keeps `contentRoot: wwwroot`.
+
+The guard does not require `main` to stay minimal. `main` is intentionally the complete development and documentation source.
