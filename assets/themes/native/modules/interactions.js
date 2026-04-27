@@ -562,38 +562,6 @@ function initializeSyntaxHighlightingNative(params = {}) {
   return true;
 }
 
-function sequentialLoadCoversNative(containerSelector, documentRef = defaultDocument, windowRef = defaultWindow, maxConcurrent = 1) {
-  try {
-    const root = typeof containerSelector === 'string'
-      ? (documentRef ? documentRef.querySelector(containerSelector) : null)
-      : containerSelector;
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll('.index img.card-cover'));
-    let idx = 0;
-    let active = 0;
-    const limit = Math.max(1, maxConcurrent || 1);
-    const startNext = () => {
-      while (active < limit && idx < imgs.length) {
-        const img = imgs[idx++];
-        if (!img || !img.isConnected) continue;
-        const src = img.getAttribute('data-src');
-        if (!src) continue;
-        active++;
-        const done = () => {
-          active--;
-          img.removeEventListener('load', done);
-          img.removeEventListener('error', done);
-          startNext();
-        };
-        img.addEventListener('load', done, { once: true });
-        img.addEventListener('error', done, { once: true });
-        setImageSrcWithBrowserCache(img, src);
-      }
-    };
-    startNext();
-  } catch (_) {}
-}
-
 function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   const containerEl = params.containerElement || getContainerByRole('main', documentRef);
   const indexEl = params.indexElement || (containerEl ? containerEl.querySelector('.index') : null);
@@ -609,7 +577,6 @@ function enhanceIndexLayoutNative(params = {}, documentRef = defaultDocument, wi
     const cfg = (params.siteConfig && params.siteConfig.assetWarnings && params.siteConfig.assetWarnings.largeImage) || {};
     warnLargeImagesInNative(containerEl || containerSelector, cfg, documentRef, windowRef).catch(() => {});
   } catch (_) {}
-  sequentialLoadCoversNative(containerEl || containerSelector, documentRef, windowRef, 1);
   if (typeof params.setupSearch === 'function') {
     try { params.setupSearch(Array.isArray(params.allEntries) ? params.allEntries : []); } catch (_) {}
   }
@@ -1174,7 +1141,7 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
     const tag = value ? renderTags(value.tag) : '';
     const { coverSrc, useFallbackCover } = resolveCoverSource(value, siteConfig);
     const cover = (value && coverSrc)
-      ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" data-src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
+      ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
       : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
@@ -1302,7 +1269,7 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
     const tag = value ? renderTags(value.tag) : '';
     const { coverSrc, useFallbackCover } = resolveCoverSource(value, siteConfig);
     const cover = (value && coverSrc)
-      ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" data-src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
+      ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
       : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
     const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
