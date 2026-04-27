@@ -1,10 +1,10 @@
-# Nanosite · ナノサイト · 微站
+# NanoSite
 
 ![hero](assets/hero.jpeg)
 
 <p align="center">
-  <b>A zero-build, zero-config static site system powered by Markdown.</b><br/>
-  Write Markdown → Publish instantly → Your website is live.
+  <b>A zero-build static site system powered by Markdown.</b><br/>
+  This repository is the NanoSite source, official documentation site, and Markdown rendering regression corpus.
 </p>
 
 <p align="center">
@@ -14,62 +14,78 @@
   <a href="https://github.com/deemoe404/NanoSite/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/deemoe404/NanoSite" alt="License"/>
   </a>
-  <a href="https://github.com/deemoe404/NanoSite/deployments/activity_log?environment=github-pages">
-    <img src="https://img.shields.io/github/deployments/deemoe404/NanoSite/github-pages?label=Pages%20Deploy">
+  <a href="https://nano.dee.moe/">
+    <img src="https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=docs" alt="Documentation site"/>
   </a>
-  <br/>
-  <img src="https://img.shields.io/badge/Lighthouse-Performance%2096%2B-brightgreen" alt="Lighthouse Score"/>
-  <img src="https://img.shields.io/badge/Lighthouse-SEO%20100-blue" alt="Lighthouse SEO"/>
 </p>
 
-## ✨ Features
+## What This Repository Is
 
-- ⚡ **Zero Build** – no bundlers, compilers, or environments required.  
-- 📝 **Markdown-first** – write posts like plain notes.  
-- 🌐 **GitHub Pages Ready** – simply push and host.  
-- 📊 **Performance Friendly** – passes [Lighthouse](https://developer.chrome.com/docs/lighthouse/overview/) audits with great scores (see hero image above).  
-- 🎨 **Configurable** – customize your site using a simple `site.yaml`.  
+`NanoSite` is the main development repository for the runtime, themes, editor, official documentation, and realistic Markdown content used to exercise the renderer.
 
-## 🌍 Built with Nanosite
+The `wwwroot/` folder is intentionally not minimal. It hosts the official NanoSite documentation, release/history pages, SEO examples, media-heavy examples, and edge-case posts that help catch regressions in Markdown parsing, front matter handling, media resolution, search, tags, SEO metadata, and theme rendering.
 
-- [Nanosite](https://nano.dee.moe) — Just Markdown. Just a website. ![Demo Status](https://img.shields.io/website?url=https%3A%2F%2Fnano.dee.moe&label=online)
+## For New Sites
 
-- [deemoe's journal](https://dee.moe) — Thanks for playing my game.  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fdee.moe&label=online)
+The clean starter template will live in `deemoe404/NanoSite-Starter`.
 
-- [Mrfunnypig's Blog](https://mrfunnypig.github.io/Blog/) — Thanks for reading my story. ![Status](https://img.shields.io/website?url=https://mrfunnypig.github.io/Blog/&label=online)
+Use that starter repository when you want to create your own site. This repository is useful when you want to develop NanoSite itself, inspect the official documentation source, or test behavior against the full documentation corpus.
 
-> Want to add your site here? Open a PR to be listed. Add using this format (example):
-> ```
-> [Site Name](https://example.com) — one-line intro  ![Status](https://img.shields.io/website?url=https%3A%2F%2Fexample.com&label=online)
-> ```
+Until the starter repository is published, the official documentation site remains the best setup guide:
 
-## 📦 Getting Started
+- Official site: [https://nano.dee.moe/](https://nano.dee.moe/)
+- Documentation: [Documentation for NanoSite](https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&lang=en)
+- GitHub Pages guide: [Configure GitHub Pages for NanoSite](https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md&lang=en)
 
-Create your own site using **GitHub Template**:
+## Repository Layout
 
-1. Go to the [repository page](https://github.com/deemoe404/NanoSite).  
-2. Click the green **Use this template** button in the top right.  
-3. Select **Create a new repository** and name it whatever you like.  
+- `index.html` - public site entrypoint.
+- `index_editor.html` - browser editor entrypoint.
+- `assets/` - runtime JavaScript, themes, i18n, schemas, and static assets.
+- `wwwroot/` - official documentation site content and Markdown regression corpus.
+- `site.yaml` - official documentation site configuration.
+- `scripts/` - repository checks and focused regression scripts.
 
-➡️ After creating your repository, please follow the **Quick Start guide** hosted on Official Demo: [Meet NanoSite](https://nano.dee.moe/?id=post%2Fmain%2Fmain_en.md&lang=en).
+## Development Workflow
 
-➡️ Full documentation is also available at Official Demo: [Documentation for NanoSite](https://nano.dee.moe/?id=post%2Fdoc%2Fdoc_en.md&lang=en).
+NanoSite is a zero-build static site. For local development:
 
-> You can also fork the project, but keep in mind that syncing updates may require resolving conflicts, especially with data files.
+```bash
+python3 -m http.server 8000
+```
 
-## 🌿 Branching & Local Development
+Then open `http://localhost:8000/`.
 
-- Branching model and merge policy: see [BRANCHING.md](BRANCHING.md).
-- `main` is stable/release-ready; active development should go through `next` + `feat/*`.
-- For local testing data, copy `site.local.example.yaml` to `site.local.yaml`, then use `contentRoot: wwwroot.local` (both are git-ignored).
+For local-only content experiments, copy `site.local.example.yaml` to `site.local.yaml` and point it at `wwwroot.local/`. Both files are ignored by git, and the main guard prevents them from entering `main`.
 
-## 📝 Roadmap
+Run the focused checks before merging:
 
-- [ ] Add HTML tags support  
-- [ ] Add LaTeX support  
-- [ ] Implement comments system backed by GitHub Discussions  
-- [ ] Provide an online editor  
+```bash
+bash scripts/test-main-guard.sh
+bash scripts/test-frontmatter-roundtrip.sh
+```
 
-## 📜 License
+## Branching
 
-MIT License © 2025 [deemoe404](https://github.com/deemoe404)  
+The long-lived `doc` branch is retired. `main` is now the stable source for the runtime and the official documentation site.
+
+Use short-lived `feat/*` or `codex/*` branches for work, then merge them into `main` after review and verification. See [BRANCHING.md](BRANCHING.md) for the full policy.
+
+## Built With NanoSite
+
+- [NanoSite official documentation](https://nano.dee.moe/) - the documentation site hosted from this repository.
+- [deemoe's journal](https://dee.moe) - a personal site built with NanoSite.
+- [Mrfunnypig's Blog](https://mrfunnypig.github.io/Blog/) - a NanoSite-powered blog.
+
+Want to list your site here? Open a PR with the site URL and a one-line description.
+
+## Roadmap
+
+- Add HTML tag support.
+- Add LaTeX support.
+- Implement comments backed by GitHub Discussions.
+- Publish the minimal `NanoSite-Starter` template repository.
+
+## License
+
+MIT License © 2025 [deemoe404](https://github.com/deemoe404)
