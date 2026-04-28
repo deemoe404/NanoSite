@@ -281,6 +281,12 @@ assert.match(
   'composer file toolbar should span the editor card while keeping visual spacing as internal padding'
 );
 
+assert.match(
+  editorSource,
+  /\.page-titlebar \{\s*display:grid;\s*grid-template-columns:minmax\(0, max-content\) minmax\(0, 1fr\);[\s\S]*\.status-stack \{\s*grid-column:1 \/ -1;\s*grid-row:1;[\s\S]*width:100%;/,
+  'global status should be pinned to a full-width titlebar grid row'
+);
+
 assert.doesNotMatch(
   source,
   /cs-multiline-preview|preview = document\.createElement\('button'\)/,
