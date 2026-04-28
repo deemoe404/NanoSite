@@ -47,6 +47,12 @@ assert.match(
   'Asset warnings section should render single-value fields through the compact grid'
 );
 
+assert.match(
+  source,
+  /renderSeoResourceGrid\(seoSection\);/,
+  'SEO Resource URL should render through the compact grid'
+);
+
 assert.doesNotMatch(
   source,
   /renderLocalizedField\(identitySection,\s*'siteTitle'/,
@@ -69,6 +75,12 @@ assert.doesNotMatch(
   source,
   /createTextField\(identitySection,\s*\{\s*dataKey: 'contentRoot'/,
   'Content root should not use the tall standalone text field layout'
+);
+
+assert.doesNotMatch(
+  source,
+  /createTextField\(seoSection,\s*\{\s*dataKey: 'resourceURL'/,
+  'Resource URL should not use the tall standalone text field layout'
 );
 
 assert.match(
@@ -147,6 +159,18 @@ assert.match(
   source,
   /const createSingleGridFieldset = \(section\) => \{/,
   'compact single-value sections should share one reusable grid fieldset renderer'
+);
+
+assert.match(
+  source,
+  /const renderSingleTextGrid = \(section, items\) => \{[\s\S]*createSingleGridFieldset\(section\)[\s\S]*input\.id = controlId;[\s\S]*input\.addEventListener\('input'/,
+  'compact text rows should share one reusable single-grid text renderer'
+);
+
+assert.match(
+  source,
+  /const renderSeoResourceGrid = \(section\) => \{[\s\S]*dataKey: 'resourceURL'[\s\S]*fields\.resourceURLHelp/,
+  'SEO Resource URL compact grid should preserve the field key and help tooltip text'
 );
 
 assert.match(

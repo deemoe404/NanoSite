@@ -12915,8 +12915,25 @@ function buildSiteUI(root, state) {
     return { field, grid, addRow };
   };
 
-  const renderIdentityPathGrid = (section) => {
+  const renderSingleTextGrid = (section, items) => {
     const { addRow } = createSingleGridFieldset(section);
+    items.forEach((item, index) => {
+      const { controlCell, controlId } = addRow(item, index);
+      const input = document.createElement('input');
+      input.id = controlId;
+      input.type = item.type || 'text';
+      input.className = 'cs-input';
+      input.value = item.get() || '';
+      input.placeholder = item.placeholder || '';
+      input.addEventListener('input', () => {
+        item.set(input.value);
+        markDirty();
+      });
+      controlCell.appendChild(input);
+    });
+  };
+
+  const renderIdentityPathGrid = (section) => {
     const items = [
       {
         dataKey: 'avatar',
@@ -12936,20 +12953,20 @@ function buildSiteUI(root, state) {
       }
     ];
 
-    items.forEach((item, index) => {
-      const { controlCell, controlId } = addRow(item, index);
-      const input = document.createElement('input');
-      input.id = controlId;
-      input.type = 'text';
-      input.className = 'cs-input';
-      input.value = item.get() || '';
-      input.placeholder = item.placeholder;
-      input.addEventListener('input', () => {
-        item.set(input.value);
-        markDirty();
-      });
-      controlCell.appendChild(input);
-    });
+    renderSingleTextGrid(section, items);
+  };
+
+  const renderSeoResourceGrid = (section) => {
+    renderSingleTextGrid(section, [
+      {
+        dataKey: 'resourceURL',
+        label: t('editor.composer.site.fields.resourceURL'),
+        description: t('editor.composer.site.fields.resourceURLHelp'),
+        placeholder: 'https://example.com/',
+        get: () => site.resourceURL,
+        set: (value) => { site.resourceURL = value; }
+      }
+    ]);
   };
 
   const createNumberField = (section, config) => {
@@ -13755,14 +13772,7 @@ function buildSiteUI(root, state) {
     grid: true,
     ensureDefault: false
   });
-  createTextField(seoSection, {
-    dataKey: 'resourceURL',
-    label: t('editor.composer.site.fields.resourceURL'),
-    description: t('editor.composer.site.fields.resourceURLHelp'),
-    placeholder: 'https://example.com/',
-    get: () => site.resourceURL,
-    set: (value) => { site.resourceURL = value; }
-  });
+  renderSeoResourceGrid(seoSection);
   createLinkListField(seoSection, 'profileLinks', {
     label: t('editor.composer.site.fields.profileLinks'),
     description: t('editor.composer.site.fields.profileLinksHelp')
