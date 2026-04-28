@@ -215,8 +215,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /html, body \{ overflow-x: hidden; overflow-y: auto; \}/,
-  'editor page should override theme overflow-x: clip so the root document remains vertically scrollable'
+  /html, body \{ overflow-x: visible; overflow-y: visible; \}[\s\S]*\.editor-page \{[^}]*overflow-x: clip;/,
+  'editor page should keep root scrolling visible for sticky toolbars while clipping horizontal page overflow'
+);
+
+assert.match(
+  editorSource,
+  /#mode-composer > \.editor-main > \.toolbar \{\s*margin:-1\.25rem -1\.25rem 1\.25rem;\s*padding:\.85rem 1\.25rem \.7rem;/,
+  'composer file toolbar should span the editor card while keeping visual spacing as internal padding'
 );
 
 assert.doesNotMatch(

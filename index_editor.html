@@ -47,9 +47,9 @@
       .composer-panels { transition: none; }
     }
     /* Widen the editor page and reduce side padding */
-    html, body { overflow-x: hidden; overflow-y: auto; }
+    html, body { overflow-x: visible; overflow-y: visible; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
-    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; }
+    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; overflow-x: clip; }
     /* Editor layout */
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
@@ -856,6 +856,10 @@
       top:0;
       z-index:120;
       background:color-mix(in srgb, var(--card) 96%, transparent);
+    }
+    #mode-composer > .editor-main > .toolbar {
+      margin:-1.25rem -1.25rem 1.25rem;
+      padding:.85rem 1.25rem .7rem;
     }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
