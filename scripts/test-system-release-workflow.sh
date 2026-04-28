@@ -38,6 +38,36 @@ if ! grep -F 'steps.create.outputs.release_id' "${workflow}" >/dev/null; then
   exit 1
 fi
 
+if grep -F 'gh release create' "${workflow}" >/dev/null; then
+  echo "system release workflow must create draft releases through the releases API, not gh release create" >&2
+  exit 1
+fi
+
+if grep -F 'releases-after-create.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must not list releases after create to recover the new release id" >&2
+  exit 1
+fi
+
+if grep -F 'expected exactly one draft release' "${workflow}" >/dev/null; then
+  echo "system release workflow must not depend on immediate list visibility after draft creation" >&2
+  exit 1
+fi
+
+if ! grep -F 'dist/release-created.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must persist the draft release creation response" >&2
+  exit 1
+fi
+
+if ! grep -F 'repos/${GITHUB_REPOSITORY}/releases" --input dist/create-release.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must create draft releases through the REST releases API" >&2
+  exit 1
+fi
+
+if ! grep -F 'uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets' "${workflow}" >/dev/null; then
+  echo "system release workflow must upload the release asset by release id" >&2
+  exit 1
+fi
+
 if ! grep -F 'stale-draft-release-ids.txt' "${workflow}" >/dev/null; then
   echo "system release workflow must clean stale draft releases for retry safety" >&2
   exit 1

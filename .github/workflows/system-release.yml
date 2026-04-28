@@ -160,33 +160,47 @@ jobs:
             fi
           } > "${notes_file}"
 
-          gh release create "${next_tag}" \
-            "${{ steps.package.outputs.archive_path }}#NanoSite system update package" \
-            --target "${GITHUB_SHA}" \
-            --title "${next_tag}" \
-            --notes-file "${notes_file}" \
-            --draft
-
-          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > dist/releases-after-create.json
-          release_id="$(python3 - <<'PY'
+          export RELEASE_NOTES_FILE="${notes_file}"
+          python3 - <<'PY' > dist/create-release.json
           import json
           import os
-          import sys
+          from pathlib import Path
 
           next_tag = os.environ["NEXT_TAG"]
-          with open("dist/releases-after-create.json", "r", encoding="utf-8") as fh:
-              releases = json.load(fh)
+          notes_file = Path(os.environ["RELEASE_NOTES_FILE"])
+          print(json.dumps({
+              "tag_name": next_tag,
+              "target_commitish": os.environ["GITHUB_SHA"],
+              "name": next_tag,
+              "body": notes_file.read_text(encoding="utf-8"),
+              "draft": True,
+              "prerelease": False
+          }))
+          PY
 
-          matches = [
-              release for release in releases
-              if release.get("draft") and release.get("tag_name") == next_tag
-          ]
-          if len(matches) != 1:
-              sys.exit(f"expected exactly one draft release for {next_tag}, found {len(matches)}")
-          print(matches[0]["id"])
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" --input dist/create-release.json > dist/release-created.json
+          release_id="$(python3 - <<'PY'
+          import json
+          import sys
+
+          with open("dist/release-created.json", "r", encoding="utf-8") as fh:
+              release = json.load(fh)
+
+          release_id = release.get("id")
+          if not isinstance(release_id, int):
+              sys.exit("release creation response did not include a numeric id")
+          print(release_id)
           PY
           )"
           echo "release_id=${release_id}" >> "${GITHUB_OUTPUT}"
+
+          curl --fail-with-body --silent --show-error --request POST \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "Content-Type: application/zip" \
+            --data-binary @"${{ steps.package.outputs.archive_path }}" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${asset_name}&label=NanoSite%20system%20update%20package" \
+            > dist/release-asset.json
 
       - name: Validate release asset
         if: steps.plan.outputs.should_release == 'true'
