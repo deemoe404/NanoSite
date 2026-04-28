@@ -12175,13 +12175,16 @@ function buildSiteUI(root, state) {
 
   const renderLocalizedField = (section, key, options = {}) => {
     ensureLocalized(key, options.ensureDefault !== false);
+    const useLocalizedGrid = !!(options.grid || options.multiline);
     const field = createField(section, {
       dataKey: key,
       label: options.label,
       description: options.description
     });
     const list = document.createElement('div');
-    list.className = 'cs-localized-list';
+    list.className = useLocalizedGrid
+      ? 'cs-localized-list cs-localized-list--grid'
+      : 'cs-localized-list';
     field.appendChild(list);
     const controls = document.createElement('div');
     controls.className = 'cs-field-controls';
@@ -12350,6 +12353,8 @@ function buildSiteUI(root, state) {
         if (options.ensureDefault !== false && !Object.prototype.hasOwnProperty.call(localized, lang)) localized[lang] = '';
         const row = document.createElement('div');
         row.className = 'cs-localized-row';
+        if (useLocalizedGrid) row.classList.add('cs-localized-row--grid');
+        if (options.multiline) row.classList.add('cs-localized-row--multiline');
         row.dataset.lang = lang;
         const badge = document.createElement('span');
         badge.className = 'cs-lang-chip';
@@ -12358,13 +12363,37 @@ function buildSiteUI(root, state) {
           : lang.toUpperCase();
         row.appendChild(badge);
         const inputWrap = document.createElement('div');
-        inputWrap.className = 'cs-localized-input';
+        inputWrap.className = options.multiline
+          ? 'cs-localized-input cs-localized-input--multiline'
+          : 'cs-localized-input';
         const input = document.createElement(options.multiline ? 'textarea' : 'input');
         if (!options.multiline) input.type = 'text';
         else input.rows = options.rows || 3;
-        input.className = 'cs-input';
+        input.className = options.multiline ? 'cs-input cs-localized-textarea' : 'cs-input';
         if (options.placeholder) input.placeholder = options.placeholder;
         input.value = localized[lang] || '';
+        if (options.multiline) {
+          const expandMultiline = () => {
+            list.querySelectorAll('.cs-localized-row--multiline.is-expanded').forEach((expandedRow) => {
+              if (expandedRow !== row) expandedRow.classList.remove('is-expanded');
+            });
+            row.classList.add('is-expanded');
+          };
+          input.addEventListener('pointerdown', expandMultiline);
+          input.addEventListener('focus', expandMultiline);
+          input.addEventListener('focusin', expandMultiline);
+          input.addEventListener('blur', () => {
+            setTimeout(() => {
+              if (document.activeElement !== input) row.classList.remove('is-expanded');
+            }, 0);
+          });
+          input.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            row.classList.remove('is-expanded');
+            input.blur();
+          });
+        }
         input.addEventListener('input', () => {
           ensureLocalized(key, options.ensureDefault !== false)[lang] = input.value;
           markDirty();
@@ -13065,6 +13094,7 @@ function buildSiteUI(root, state) {
   renderLocalizedField(seoSection, 'siteKeywords', {
     label: t('editor.composer.site.fields.siteKeywords'),
     description: t('editor.composer.site.fields.siteKeywordsHelp'),
+    grid: true,
     ensureDefault: false
   });
   createTextField(seoSection, {
@@ -13867,10 +13897,21 @@ function rebuildSiteUI() {
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
+  .cs-identity-grid,.cs-localized-list--grid{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem}
+  .cs-localized-list--grid{gap:var(--cs-editor-row-gap)}
+  .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
+  .cs-localized-row--grid .cs-localized-input{min-width:0}
+  .cs-localized-row--grid .cs-lang-chip{justify-self:start}
+  .cs-localized-row--multiline textarea.cs-localized-textarea{box-sizing:border-box;display:block;height:var(--cs-editor-control-height);min-height:var(--cs-editor-control-height);max-height:var(--cs-editor-control-height);padding-block:0;line-height:calc(var(--cs-editor-control-height) - 2px);resize:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:height .18s ease,min-height .18s ease,max-height .18s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease}
+  .cs-localized-row--multiline.is-expanded,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus){align-items:start}
+  .cs-localized-row--multiline.is-expanded .cs-remove-lang,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus) .cs-remove-lang{align-self:start}
+  .cs-localized-row--multiline.is-expanded textarea.cs-localized-textarea{height:4.6rem;min-height:4.6rem;max-height:12rem;padding-block:.3rem;line-height:1.25;resize:vertical;overflow:auto;white-space:pre-wrap}
+  .cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus) textarea.cs-localized-textarea{height:4.6rem;min-height:4.6rem;max-height:12rem;padding-block:.3rem;line-height:1.25;resize:vertical;overflow:auto;white-space:pre-wrap}
+  .cs-localized-row--grid .cs-remove-lang{align-self:center;margin-left:0;white-space:nowrap}
   .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-  .cs-identity-grid{display:flex;flex-direction:column;gap:.35rem}
-  .cs-identity-row{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr) minmax(0,3fr) minmax(72px,max-content);align-items:center;gap:.45rem}
+  .cs-identity-grid{display:flex;flex-direction:column;gap:var(--cs-editor-row-gap)}
+  .cs-identity-row{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr) minmax(0,3fr) minmax(72px,max-content);align-items:center;gap:var(--cs-editor-row-column-gap)}
   .cs-identity-head{align-items:end;padding:0 0 .1rem}
   .cs-identity-head-spacer{min-width:1px}
   .cs-identity-column-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
@@ -13945,6 +13986,9 @@ function rebuildSiteUI() {
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
+    .cs-identity-grid,.cs-localized-list--grid{--cs-editor-row-gap:.5rem}
+    .cs-localized-row--grid{grid-template-columns:1fr;gap:.35rem}
+    .cs-localized-row--grid .cs-remove-lang{justify-self:flex-start}
     .cs-identity-grid{gap:.5rem}
     .cs-identity-head{display:none}
     .cs-identity-row{grid-template-columns:1fr;align-items:stretch;gap:.4rem;padding:.55rem 0;border-top:1px solid color-mix(in srgb,var(--border) 72%, transparent)}
