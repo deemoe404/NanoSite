@@ -43,6 +43,16 @@ if ! grep -F 'stale-draft-release-ids.txt' "${workflow}" >/dev/null; then
   exit 1
 fi
 
+if grep -F 'release.get("name") == next_tag' "${workflow}" >/dev/null; then
+  echo "system release workflow must identify stale releases by tag_name, not editable release names" >&2
+  exit 1
+fi
+
+if ! grep -F 'release.get("tag_name") == next_tag' "${workflow}" >/dev/null; then
+  echo "system release workflow must match stale draft releases by tag_name" >&2
+  exit 1
+fi
+
 if ! grep -F 'git push --delete origin "${next_tag}"' "${workflow}" >/dev/null; then
   echo "system release workflow must delete stale release tags before retrying" >&2
   exit 1

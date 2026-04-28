@@ -111,7 +111,7 @@ jobs:
               releases = json.load(fh)
 
           for release in releases:
-              if release.get("draft") and (release.get("tag_name") == next_tag or release.get("name") == next_tag):
+              if release.get("draft") and release.get("tag_name") == next_tag:
                   print(release["id"])
           PY
 
@@ -179,7 +179,7 @@ jobs:
 
           matches = [
               release for release in releases
-              if release.get("draft") and (release.get("tag_name") == next_tag or release.get("name") == next_tag)
+              if release.get("draft") and release.get("tag_name") == next_tag
           ]
           if len(matches) != 1:
               sys.exit(f"expected exactly one draft release for {next_tag}, found {len(matches)}")
