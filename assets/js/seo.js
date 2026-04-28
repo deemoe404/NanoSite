@@ -676,6 +676,15 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   const baseUrl = resolveSiteBaseUrl(siteConfig);
   const urls = [];
   const siteDefaultLang = (siteConfig && siteConfig.defaultLanguage) ? String(siteConfig.defaultLanguage).toLowerCase() : DEFAULT_LANG;
+
+  const toSitemapHreflang = (lang) => {
+    const code = String(lang || '').trim().toLowerCase();
+    const chinesePrefix = String.fromCharCode(122, 104);
+    if (code === 'chs') return `${chinesePrefix}-Hans`;
+    if (code === 'cht-tw') return `${chinesePrefix}-Hant-TW`;
+    if (code === 'cht-hk') return `${chinesePrefix}-Hant-HK`;
+    return code;
+  };
   
   // Helper function to get location from language-specific data with proper fallback
   const getLocationFromLangData = (data) => {
@@ -724,7 +733,7 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
   try {
     const allLangs = (getAvailableLangs && getAvailableLangs()) || [siteDefaultLang];
     const alternates = Array.from(new Set(allLangs.map(l => String(l).toLowerCase()))).map(l => ({
-      hreflang: l,
+      hreflang: toSitemapHreflang(l),
       href: l === siteDefaultLang ? `${baseUrl}` : `${baseUrl}?lang=${encodeURIComponent(l)}`
     }));
     // x-default: use site default language
@@ -770,7 +779,7 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
       if (!langs.length) return;
       // Build alternates for all available languages on this version
       const alternates = langs.map(l => ({
-        hreflang: l,
+        hreflang: toSitemapHreflang(l),
         href: `${baseUrl}?id=${encodeURIComponent(langLocMap[l])}&lang=${encodeURIComponent(l)}`
       }));
       // x-default = site default when available, else first
@@ -800,7 +809,7 @@ export function generateSitemapData(postsData = {}, tabsData = {}, siteConfig = 
     const langs = Object.keys(tabMeta).filter(k => !!tabMeta[k]);
     if (!langs.length) return;
     const alternates = langs.map(l => ({
-      hreflang: l,
+      hreflang: toSitemapHreflang(l),
       href: `${baseUrl}?tab=${encodeURIComponent(slug)}&lang=${encodeURIComponent(l)}`
     }));
     const xDefaultHref = `${baseUrl}?tab=${encodeURIComponent(slug)}`;
