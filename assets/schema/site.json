@@ -164,7 +164,7 @@
     },
     "defaultLanguage": {
       "type": "string",
-      "description": "Default language code (e.g., en, zh-CN)."
+      "description": "Default NanoSite language code (e.g., en, chs, cht-tw)."
     },
     "assetWarnings": {
       "type": "object",

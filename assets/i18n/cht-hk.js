@@ -1,4 +1,4 @@
-import zhTwTranslations from './zh-TW.js';
+import chtTwTranslations from './cht-tw.js';
 
 export const languageMeta = { label: '繁體中文（香港）' };
 
@@ -14,7 +14,7 @@ const clone = (value) => {
   return value;
 };
 
-const translations = clone(zhTwTranslations);
+const translations = clone(chtTwTranslations);
 
 translations.ui = {
   ...translations.ui,

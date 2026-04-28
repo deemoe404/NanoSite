@@ -8,7 +8,7 @@ export function applyLangHints(container) {
     if (!root) return;
     // Only apply when page lang is CJK or container/ancestors indicate CJK
     const docLang = (document.documentElement && (document.documentElement.lang || document.documentElement.getAttribute('lang'))) || '';
-    const isCJK = /^(zh|ja)/i.test(docLang);
+    const isCJK = /^(chs|cht|ja)/i.test(docLang);
     if (!isCJK) return;
     // Avoid repeated work
     if (root.__langHintsApplied) return; root.__langHintsApplied = true;
@@ -63,4 +63,3 @@ export function applyLangHints(container) {
     }
   } catch (_) { /* noop */ }
 }
-

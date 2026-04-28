@@ -132,8 +132,12 @@ h1:hover .anchor, h2:hover .anchor, h3:hover .anchor, h4:hover .anchor, h5:hover
   word-break: normal;
 }
 /* Chinese/Japanese: no hyphen insertion; stricter line breaking; no added tracking */
-:lang(zh) #mainview,
-#mainview :lang(zh),
+:lang(chs) #mainview,
+#mainview :lang(chs),
+:lang(cht-tw) #mainview,
+#mainview :lang(cht-tw),
+:lang(cht-hk) #mainview,
+#mainview :lang(cht-hk),
 :lang(ja) #mainview,
 #mainview :lang(ja) {
   hyphens: none;

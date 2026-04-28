@@ -89,11 +89,11 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 ```yaml
 nanoSite:
   en: post/meet-nanosite/main_en.md
-  zh: post/meet-nanosite/main_zh.md
+  chs: post/meet-nanosite/main_chs.md
   ja: post/meet-nanosite/main_ja.md
 nanodoc:
   en: post/meet-nanosite/doc_en.md
-  zh: post/meet-nanosite/doc_zh.md
+  chs: post/meet-nanosite/doc_chs.md
   ja: post/meet-nanosite/doc_ja.md
 ```
 
@@ -158,9 +158,9 @@ About:
   en:
     title: About
     location: tab/about/en.md
-  zh:
+  chs:
     title: 关于
-    location: tab/about/zh.md
+    location: tab/about/chs.md
 ```
 
 注意：
@@ -174,7 +174,7 @@ About:
 ```yaml
 About:
   en: tab/about/en.md
-  zh: tab/about/zh.md
+  chs: tab/about/chs.md
   ja: tab/about/ja.md
 ```
 
@@ -191,11 +191,11 @@ About:
 ```yaml
 siteTitle:
   default: "deemoe's journal"
-  zh: "deemoe 的日志"
+  chs: "deemoe 的日志"
   ja: "deemoe のジャーナル"
 siteSubtitle:
   default: "Thanks for playing my game."
-  zh: "眼见何事..."
+  chs: "眼见何事..."
 siteDescription:
   default: "deemoe's journal"
 resourceURL: https://dee.moe/wwwroot/
@@ -292,7 +292,7 @@ reportIssueURL: https://github.com/<owner>/<repo>/issues/new
 - コンテンツは以下をサポート：
 	- 簡易形式（本リポジトリの形）：言語ごとのパス
 	- 統合形式：言語ごとの `{title, location}`
-	- レガシー：`index.en.yaml`/`index.en.json`、`index.zh.yaml`/`index.zh.json` など（フォールバック）
+	- レガシー：`index.en.yaml`/`index.en.json`、`index.chs.yaml`/`index.chs.json` など（フォールバック）
 - 言語切替時、該当記事の言語版があれば同一記事に留まるようにエイリアスします。
 
 

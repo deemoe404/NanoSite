@@ -4,15 +4,15 @@ History:
   en:
     title: Updates
     location: tab/history/en.md
-  zh:
+  chs:
     title: 更新日志
-    location: tab/history/zh.md
-  zh-tw:
+    location: tab/history/chs.md
+  cht-tw:
     title: 更新記錄
-    location: tab/history/zh-tw.md
-  zh-hk:
+    location: tab/history/cht-tw.md
+  cht-hk:
     title: 更新記錄
-    location: tab/history/zh-hk.md
+    location: tab/history/cht-hk.md
   ja:
     title: 更新履歴
     location: tab/history/ja.md
@@ -21,15 +21,15 @@ About:
   en:
     title: About
     location: tab/about/en.md
-  zh:
+  chs:
     title: 关于微站
-    location: tab/about/zh.md
-  zh-tw:
+    location: tab/about/chs.md
+  cht-tw:
     title: 關於微站
-    location: tab/about/zh-tw.md
-  zh-hk:
+    location: tab/about/cht-tw.md
+  cht-hk:
     title: 關於微站
-    location: tab/about/zh-hk.md
+    location: tab/about/cht-hk.md
   ja:
     title: 概要
     location: tab/about/ja.md

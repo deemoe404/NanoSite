@@ -53,11 +53,11 @@
     "unifiedTabsEntry": {
       "type": "object",
       "patternProperties": {
-        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": {
+        "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]+)*$": {
           "$ref": "#/$defs/tabLangEntry",
-          "description": "Tab entry keyed by language code (e.g., en, zh-CN)."
+          "description": "Tab entry keyed by NanoSite language code (e.g., en, chs, cht-tw)."
         },
-        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": {
+        "^(chs|中文|简体中文|日本語|にほんご|english|jp)$": {
           "$ref": "#/$defs/tabLangEntry",
           "description": "Common language aliases supported for convenience."
         }

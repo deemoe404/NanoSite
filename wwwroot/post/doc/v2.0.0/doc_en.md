@@ -89,7 +89,7 @@ Note: Use a single format per file; don't mix formats in the same YAML file.
 ```yaml
 nanoSite:
   en: post/meet-nanosite/main_en.md
-  zh: post/meet-nanosite/main_zh.md
+  chs: post/meet-nanosite/main_chs.md
   ja: post/meet-nanosite/main_ja.md
 nanodoc:
   en: post/meet-nanosite/doc_en.md
@@ -103,9 +103,9 @@ My First Post:
     title: My First Post
     location: post/foo.md
     excerpt: "..."
-  zh:
+  chs:
     title: 我的第一篇
-    location: post/foo_zh.md
+    location: post/foo_chs.md
   tag: [Note]
   date: 2025-08-13
   image: post/cover.jpg
@@ -135,7 +135,7 @@ Fields (any shape):
 Behavior:
 
 - When using the simplified shape, metadata comes from Markdown front matter.
-- Cross-language navigation: if a link points to `main_en.md` but the UI is `zh`, the router can redirect to the `zh` variant when available.
+- Cross-language navigation: if a link points to `main_en.md` but the UI is `chs`, the router can redirect to the `chs` variant when available.
 - Only `location`s present in `index.yaml` are allowed; unknown `?id=` shows a friendly error.
 
 
@@ -156,9 +156,9 @@ About:
   en:
     title: About
     location: tab/about/en.md
-  zh:
+  chs:
     title: 关于
-    location: tab/about/zh.md
+    location: tab/about/chs.md
 ```
 
 Notes:
@@ -172,7 +172,7 @@ Simplified example (language → path):
 ```yaml
 About:
   en: tab/about/en.md
-  zh: tab/about/zh.md
+  chs: tab/about/chs.md
   ja: tab/about/ja.md
 ```
 
@@ -189,11 +189,11 @@ About:
 ```yaml
 siteTitle:
   default: "deemoe's journal"
-  zh: "deemoe 的日志"
+  chs: "deemoe 的日志"
   ja: "deemoe のジャーナル"
 siteSubtitle:
   default: "Thanks for playing my game."
-  zh: "眼见何事..."
+  chs: "眼见何事..."
 siteDescription:
   default: "deemoe's journal"
 resourceURL: https://dee.moe/wwwroot/
@@ -290,7 +290,7 @@ Tip: Set `resourceURL` in `site.yaml` if your images are served from a CDN.
 - Content supports:
   - Simplified per-language paths (as in this repo)
   - Unified entries with per-language blocks
-  - Legacy per-language YAML/JSON files (`index.en.yaml`/`index.en.json`, `index.zh.yaml`/`index.zh.json`, ...), used as a fallback
+  - Legacy per-language YAML/JSON files (`index.en.yaml`/`index.en.json`, `index.chs.yaml`/`index.chs.json`, ...), used as a fallback
 - The router keeps you on the same article when switching languages if a variant exists.
 
 

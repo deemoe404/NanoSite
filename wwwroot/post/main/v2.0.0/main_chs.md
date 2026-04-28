@@ -72,15 +72,15 @@ ai: true
   - 在 `wwwroot/index.yaml` 中注册它，使其显示在首页：
   ```yaml
   我的第一篇文章:
-    zh: my-first-post.md
+    chs: my-first-post.md
   xxxx:
-    zh: xxxx.md
+    chs: xxxx.md
   ```
 
 🎉 恭喜！你已经完成微站的设置。刷新页面，你应该能在首页看到你的文章卡片，点击即可阅读。
 
 ## 接下来做什么？
 
-- 更多自定义选项：查看[文档](?id=post/doc/v2.1.0/doc_zh.md)。
-- 部署到 GitHub Pages：查看[部署指南](?id=post/page/githubpages_zh.md)。
-- 搜索引擎优化（SEO）：查看[SEO 优化](?id=post/seo/seo_zh.md)。
+- 更多自定义选项：查看[文档](?id=post/doc/v2.1.0/doc_chs.md)。
+- 部署到 GitHub Pages：查看[部署指南](?id=post/page/githubpages_chs.md)。
+- 搜索引擎优化（SEO）：查看[SEO 优化](?id=post/seo/seo_chs.md)。

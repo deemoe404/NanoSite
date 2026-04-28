@@ -315,7 +315,7 @@ const translations = {
           addLanguage: '新增語言',
           removeLanguage: '移除',
           noLanguages: '尚未配置語言。',
-          promptLanguage: '請輸入語言程式碼（例如：en、zh、ja）：',
+          promptLanguage: '請輸入語言程式碼（例如：en、chs、ja）：',
           languageExists: '該語言已經存在。',
           languageDefault: '預設',
           languageAutoOption: '自動檢測（瀏覽器語言）',
