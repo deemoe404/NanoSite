@@ -95,6 +95,7 @@ jobs:
 
       - name: Create draft release
         if: steps.plan.outputs.should_release == 'true'
+        id: create
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -103,6 +104,27 @@ jobs:
           latest_tag="${{ steps.plan.outputs.latest_tag }}"
           asset_name="${{ steps.plan.outputs.asset_name }}"
           notes_file="dist/release-notes.md"
+          export NEXT_TAG="${next_tag}"
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > dist/releases-before-create.json
+          python3 - <<'PY' > dist/stale-draft-release-ids.txt
+          import json
+          import os
+
+          next_tag = os.environ["NEXT_TAG"]
+          with open("dist/releases-before-create.json", "r", encoding="utf-8") as fh:
+              releases = json.load(fh)
+
+          for release in releases:
+              if release.get("draft") and (release.get("tag_name") == next_tag or release.get("name") == next_tag):
+                  print(release["id"])
+          PY
+
+          while IFS= read -r draft_release_id; do
+            [[ -n "${draft_release_id}" ]] || continue
+            echo "Deleting stale draft release ${draft_release_id}"
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${draft_release_id}" >/dev/null
+          done < dist/stale-draft-release-ids.txt
 
           {
             echo "## Migration Guide"
@@ -130,6 +152,27 @@ jobs:
             --notes-file "${notes_file}" \
             --draft
 
+          gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > dist/releases-after-create.json
+          release_id="$(python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          next_tag = os.environ["NEXT_TAG"]
+          with open("dist/releases-after-create.json", "r", encoding="utf-8") as fh:
+              releases = json.load(fh)
+
+          matches = [
+              release for release in releases
+              if release.get("draft") and (release.get("tag_name") == next_tag or release.get("name") == next_tag)
+          ]
+          if len(matches) != 1:
+              sys.exit(f"expected exactly one draft release for {next_tag}, found {len(matches)}")
+          print(matches[0]["id"])
+          PY
+          )"
+          echo "release_id=${release_id}" >> "${GITHUB_OUTPUT}"
+
       - name: Validate release asset
         if: steps.plan.outputs.should_release == 'true'
         env:
@@ -137,10 +180,9 @@ jobs:
           EXPECTED_ASSET: ${{ steps.plan.outputs.asset_name }}
           EXPECTED_SIZE: ${{ steps.package.outputs.archive_size }}
           EXPECTED_SHA256: ${{ steps.package.outputs.archive_sha256 }}
-          NEXT_TAG: ${{ steps.plan.outputs.next_tag }}
         run: |
           set -euo pipefail
-          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${NEXT_TAG}" > dist/release.json
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${{ steps.create.outputs.release_id }}" > dist/release.json
           python3 - <<'PY'
           import json
           import os
@@ -169,5 +211,19 @@ jobs:
         if: steps.plan.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          NEXT_TAG: ${{ steps.plan.outputs.next_tag }}
         run: |
-          gh release edit "${{ steps.plan.outputs.next_tag }}" --draft=false --latest
+          set -euo pipefail
+          python3 - <<'PY' > dist/publish-release.json
+          import json
+          import os
+
+          print(json.dumps({
+              "tag_name": os.environ["NEXT_TAG"],
+              "target_commitish": os.environ["GITHUB_SHA"],
+              "name": os.environ["NEXT_TAG"],
+              "draft": False,
+              "make_latest": "true"
+          }))
+          PY
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${{ steps.create.outputs.release_id }}" --input dist/publish-release.json >/dev/null

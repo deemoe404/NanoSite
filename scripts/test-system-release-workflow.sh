@@ -27,3 +27,18 @@ if awk '
   echo "system release workflow must not ignore git diff failures while planning releases" >&2
   exit 1
 fi
+
+if grep -F 'releases/tags/${NEXT_TAG}' "${workflow}" >/dev/null; then
+  echo "system release workflow must not validate draft releases through the tag endpoint" >&2
+  exit 1
+fi
+
+if ! grep -F 'steps.create.outputs.release_id' "${workflow}" >/dev/null; then
+  echo "system release workflow must validate and publish the draft release by release id" >&2
+  exit 1
+fi
+
+if ! grep -F 'stale-draft-release-ids.txt' "${workflow}" >/dev/null; then
+  echo "system release workflow must clean stale draft releases for retry safety" >&2
+  exit 1
+fi
