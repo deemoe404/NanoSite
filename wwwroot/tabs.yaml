@@ -7,6 +7,12 @@ History:
   zh:
     title: 更新日志
     location: tab/history/zh.md
+  zh-tw:
+    title: 更新記錄
+    location: tab/history/zh-tw.md
+  zh-hk:
+    title: 更新記錄
+    location: tab/history/zh-hk.md
   ja:
     title: 更新履歴
     location: tab/history/ja.md
@@ -18,6 +24,12 @@ About:
   zh:
     title: 关于微站
     location: tab/about/zh.md
+  zh-tw:
+    title: 關於微站
+    location: tab/about/zh-tw.md
+  zh-hk:
+    title: 關於微站
+    location: tab/about/zh-hk.md
   ja:
     title: 概要
     location: tab/about/ja.md

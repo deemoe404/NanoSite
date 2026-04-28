@@ -228,7 +228,7 @@ export function mountThemeControls() {
   }
 }
 
-// Rebuild language selector options based on current available content langs
+// Rebuild language selector options based on supported UI languages
 export function refreshLanguageSelector() {
   const sel = document.getElementById('langSelect');
   if (!sel) return;

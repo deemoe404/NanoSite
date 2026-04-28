@@ -33,11 +33,17 @@ Example:
 # Basic site info
 siteTitle:
   default: NanoSite
+  en: NanoSite
   zh: 微站
+  zh-tw: 微站
+  zh-hk: 微站
   ja: ナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
+  en: Just Markdown. Just a website.
   zh: 写下 Markdown，就是你的网站。
+  zh-tw: 寫下 Markdown，就是你的網站。
+  zh-hk: 寫低 Markdown，就係你嘅網站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
 ```
@@ -200,7 +206,7 @@ assetWarnings:
 - `contentOutdatedDays` — Days after which content is considered outdated (default 180).
 - `cardCoverFallback` — Generate a fallback cover when a post has no image (default `true`).
 - `pageSize` — Number of posts per page in index views (default `8`).
-- `defaultLanguage` — Default UI/content language (e.g., `en`, `zh`, `ja`; default `en`).
+- `defaultLanguage` — Default UI/content language (e.g., `en`, `zh`, `zh-tw`, `zh-hk`, `ja`; default `en`).
 
 Example:
 ```yaml
@@ -217,7 +223,7 @@ The client router reads URL query parameters:
 - `?tab=posts` — All posts (default). Supports `&page=N` pagination.
 - `?tab=search&q=term` — Search by title or tag. You can also filter by `&tag=TagName`.
 - `?id=path/to/post.md` — Open a specific post (the path must exist in `index.yaml`).
-- `?lang=zh` — UI/content language. Stored in localStorage, falls back to browser settings and `<html lang>`.
+- `?lang=zh` — UI language preference. Stored in localStorage; content tries the matching variant and then uses the configured fallback chain.
 
 Markdown examples: `[See this](?id=post/frogy/main.md)` and `[About](?tab=about)`.
 
@@ -234,10 +240,18 @@ Example `index.yaml` SEO fields:
 resourceURL: https://nano.dee.moe/wwwroot/
 siteDescription:
   default: NanoSite - Just Markdown. Just a website.
+  en: NanoSite - Just Markdown. Just a website.
   zh: 微站 - 写下 Markdown，就是你的网站。
+  zh-tw: 微站 - 寫下 Markdown，就是你的網站。
+  zh-hk: 微站 - 寫低 Markdown，就係你嘅網站。
   ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
 siteKeywords:
   default: static blog, markdown, github pages, blog
+  en: static blog, markdown, github pages, blog
+  zh: 静态博客, Markdown, GitHub Pages, 博客
+  zh-tw: 靜態部落格, Markdown, GitHub Pages, 部落格
+  zh-hk: 靜態網誌, Markdown, GitHub Pages, 網誌
+  ja: 静的サイト, Markdown, GitHub Pages, ブログ
 ```
 
 Where:
@@ -249,9 +263,18 @@ You should also open `index_seo.html` to generate `sitemap.xml` and `robots.txt`
 
 ### Multi‑language
 
-- UI strings live in `assets/js/i18n.js` (English/中文/日本語 included). Extend `translations` and `languageNames` to add more.
-- Content support:
-  - Simplified (as in this repo): provide Markdown paths per language
-  - Unified: `{title, location}` per language
-  - Legacy: `index.en.yaml`/`index.en.json`, `index.zh.yaml`/`index.zh.json`... (fallback)
-- When switching languages, the router keeps you on the same article if a variant exists.
+NanoSite treats the site UI language and the content language as related but separate concerns.
+
+- Supported UI languages come from `assets/i18n/languages.json` and the matching files in `assets/i18n/`. The editor may expose every language supported by the project.
+- Content languages are declared per post or page in `wwwroot/index.yaml` and `wwwroot/tabs.yaml`. A post only needs to list the language variants that the author actually wrote.
+- When `?lang=...` is set, the site chrome switches to that UI language if a bundle exists.
+- For each post or page, NanoSite first tries to load the content variant matching the current UI language. If that variant is missing, it falls back to `defaultLanguage` from `site.yaml`; in this repository that default is `en`.
+- If the configured default variant is also missing, NanoSite tries `en`, then `default`, then the first available variant so the page can still render.
+
+Content index formats:
+
+- Simplified (as in this repo): provide Markdown paths per language.
+- Unified: `{title, location}` per language.
+- Legacy: `index.en.yaml`/`index.en.json`, `index.zh.yaml`/`index.zh.json`... (fallback).
+
+When switching languages, the router keeps you on the same article if a matching variant exists; otherwise the content falls back as described above.
