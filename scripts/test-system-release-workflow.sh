@@ -19,3 +19,11 @@ if ! awk '
   echo "system release job must be guarded to run only on refs/heads/main" >&2
   exit 1
 fi
+
+if awk '
+  /changed_files="\$\(git diff --name-only/ && /\|\| true/ { found = 1 }
+  END { exit found ? 0 : 1 }
+' "${workflow}" >/dev/null; then
+  echo "system release workflow must not ignore git diff failures while planning releases" >&2
+  exit 1
+fi

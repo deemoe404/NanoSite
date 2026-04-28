@@ -42,7 +42,7 @@ jobs:
           fi
 
           if [[ -n "${latest_tag}" ]]; then
-            changed_files="$(git diff --name-only "${latest_tag}..HEAD" -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes || true)"
+            changed_files="$(git diff --name-only "${latest_tag}..HEAD" -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes)"
           else
             changed_files="$(git ls-files -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes)"
           fi
