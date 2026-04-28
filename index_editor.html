@@ -47,8 +47,9 @@
       .composer-panels { transition: none; }
     }
     /* Widen the editor page and reduce side padding */
+    html, body { overflow-x: visible; overflow-y: visible; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
-    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; }
+    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; overflow-x: clip; }
     /* Editor layout */
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
@@ -390,7 +391,13 @@
     /* Grouped list styles */
     /* Ensure main editor can use full width */
     .editor-main { min-width: 0; overflow: visible; position: relative; }
-    .page-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:.5rem; margin-bottom: .75rem; flex-wrap: wrap; }
+    .page-titlebar {
+      display:grid;
+      grid-template-columns:minmax(0, max-content) minmax(0, 1fr);
+      align-items:start;
+      gap:.75rem;
+      margin-bottom:.75rem;
+    }
     .editor-lang-switcher {
       display: inline-flex;
       flex-direction: row;
@@ -403,7 +410,16 @@
       border-radius: 10px;
       box-shadow: var(--shadow);
       align-self: flex-start;
+      grid-column:1;
+      grid-row:2;
+      justify-self:start;
       margin-right: auto;
+    }
+    .page-titlebar > .mode-switch {
+      grid-column:2;
+      grid-row:2;
+      justify-self:end;
+      align-self:start;
     }
     .editor-lang-switcher label {
       font-size: .7rem;
@@ -431,8 +447,34 @@
     }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
-    .status-stack { display:flex; flex-direction:column; align-items:stretch; gap:.75rem; }
+    .status-stack {
+      grid-column:1 / -1;
+      grid-row:1;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      gap:.75rem;
+      width:100%;
+      min-width:0;
+    }
     .status-stack > * { width:100%; }
+    @media (max-width: 720px) {
+      .page-titlebar {
+        grid-template-columns:1fr;
+      }
+      .editor-lang-switcher,
+      .page-titlebar > .mode-switch,
+      .status-stack {
+        grid-column:1;
+      }
+      .editor-lang-switcher {
+        grid-row:2;
+      }
+      .page-titlebar > .mode-switch {
+        grid-row:3;
+        justify-self:start;
+      }
+    }
     .global-status {
       display:flex;
       flex-direction:column;
@@ -855,6 +897,10 @@
       top:0;
       z-index:120;
       background:color-mix(in srgb, var(--card) 96%, transparent);
+    }
+    #mode-composer > .editor-main > .toolbar {
+      margin:-1.25rem -1.25rem 1.25rem;
+      padding:.85rem 1.25rem .7rem;
     }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }

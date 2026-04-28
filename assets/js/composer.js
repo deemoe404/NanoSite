@@ -2182,7 +2182,11 @@ function applySiteDiffMarkers(diff) {
   const fields = diff && diff.fields ? diff.fields : {};
   root.querySelectorAll('[data-field]').forEach((el) => {
     const key = el.getAttribute('data-field');
-    if (key && fields[key]) el.setAttribute('data-diff', 'changed');
+    const keys = String(key || '').split('|').map(item => item.trim()).filter(Boolean);
+    const changed = keys.length
+      ? keys.some(fieldKey => !!fields[fieldKey])
+      : !!fields[key];
+    if (key && changed) el.setAttribute('data-diff', 'changed');
     else el.removeAttribute('data-diff');
   });
   try {
@@ -11509,6 +11513,10 @@ function buildSiteUI(root, state) {
   if (!root) return;
   root.innerHTML = '';
   try {
+    if (typeof root.__nsSiteCompactNavCleanup === 'function') root.__nsSiteCompactNavCleanup();
+  } catch (_) {}
+  try { root.__nsSiteCompactNavCleanup = null; } catch (_) {}
+  try {
     if (typeof root.__nsSiteNavOrientationCleanup === 'function') root.__nsSiteNavOrientationCleanup();
   } catch (_) {}
   try { root.__nsSiteNavOrientationCleanup = null; } catch (_) {}
@@ -11537,6 +11545,7 @@ function buildSiteUI(root, state) {
 
   const sectionsMeta = [];
   let activeSectionId = '';
+  let syncCompactNavState = () => {};
   const preservedActiveLabel = (() => {
     try { return String(root.__nsSiteActiveSection || '').trim(); }
     catch (_) { return ''; }
@@ -11628,7 +11637,10 @@ function buildSiteUI(root, state) {
     let desiredTop = Math.max(toolbarOffset + 12, 12);
     try {
       if (nav && typeof nav.getBoundingClientRect === 'function') {
-        const navRect = nav.getBoundingClientRect();
+        const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
+        const navVisible = (!navStyles || (navStyles.display !== 'none' && navStyles.visibility !== 'hidden'))
+          && (!nav.getClientRects || nav.getClientRects().length > 0);
+        const navRect = navVisible ? nav.getBoundingClientRect() : null;
         if (navRect && Number.isFinite(navRect.top)) {
           desiredTop = Math.min(desiredTop, Math.max(navRect.top - 8, 12));
         }
@@ -11687,6 +11699,7 @@ function buildSiteUI(root, state) {
       }
     });
     if (!resolved) return;
+    try { syncCompactNavState(); } catch (_) {}
     let focusCommitted = false;
     const commitFocus = (delay = 0) => {
       if (!focusTarget || focusCommitted) return;
@@ -11784,6 +11797,144 @@ function buildSiteUI(root, state) {
       if (hasDiff) meta.navButton.setAttribute('data-has-diff', 'true');
       else meta.navButton.removeAttribute('data-has-diff');
     });
+    try { syncCompactNavState(); } catch (_) {}
+  }
+
+  function renderCompactSectionMenu() {
+    if (typeof document === 'undefined' || !sectionsMeta.length) return;
+    const host = document.createElement('div');
+    host.className = 'cs-mobile-section-nav';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'cs-mobile-section-nav-toggle';
+    toggle.setAttribute('aria-label', navLabel);
+    toggle.setAttribute('title', navLabel);
+    toggle.setAttribute('aria-haspopup', 'menu');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="6" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle><circle cx="5" cy="18" r="1.5"></circle><path d="M9 6h10M9 12h10M9 18h10"></path></svg>';
+
+    const menu = document.createElement('div');
+    menu.className = 'cs-mobile-section-menu';
+    menu.id = 'cs-mobile-section-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', navLabel);
+    menu.setAttribute('aria-hidden', 'true');
+
+    const itemButtons = [];
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.id) return;
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'cs-mobile-section-menu-item';
+      item.textContent = meta.label || meta.id;
+      item.setAttribute('role', 'menuitem');
+      item.addEventListener('click', () => {
+        closeMenu();
+        setActiveSection(meta.id, { focusPanel: false });
+      });
+      menu.appendChild(item);
+      itemButtons.push({ meta, item });
+    });
+
+    const isOpen = () => host.classList.contains('is-open');
+    function closeMenu(options = {}) {
+      if (!isOpen()) return;
+      host.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      menu.setAttribute('aria-hidden', 'true');
+      if (options.focusToggle) {
+        try { toggle.focus({ preventScroll: true }); }
+        catch (_) { try { toggle.focus(); } catch (_) {} }
+      }
+    }
+    function openMenu() {
+      if (isOpen()) return;
+      host.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      menu.setAttribute('aria-hidden', 'false');
+    }
+    function toggleMenu() {
+      if (isOpen()) closeMenu();
+      else openMenu();
+    }
+
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMenu();
+    });
+    toggle.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openMenu();
+        const active = itemButtons.find(({ item }) => item.classList.contains('is-active')) || itemButtons[0];
+        if (active && active.item && typeof active.item.focus === 'function') active.item.focus();
+      }
+    });
+    menu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu({ focusToggle: true });
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
+      event.preventDefault();
+      const enabled = itemButtons.map(({ item }) => item).filter(Boolean);
+      const current = enabled.indexOf(document.activeElement);
+      let next = current;
+      if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = enabled.length - 1;
+      else if (event.key === 'ArrowDown') next = current < 0 ? 0 : current + 1;
+      else next = current < 0 ? enabled.length - 1 : current - 1;
+      if (next < 0) next = enabled.length - 1;
+      if (next >= enabled.length) next = 0;
+      const target = enabled[next];
+      if (target && typeof target.focus === 'function') target.focus();
+    });
+
+    const onPointerDown = (event) => {
+      if (!host.contains(event.target)) closeMenu();
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') closeMenu({ focusToggle: true });
+    };
+    const onResize = () => {
+      if (typeof window !== 'undefined' && window.matchMedia && !window.matchMedia('(max-width: 920px)').matches) {
+        closeMenu();
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    if (typeof window !== 'undefined') window.addEventListener('resize', onResize);
+
+    host.append(toggle, menu);
+    document.body.appendChild(host);
+
+    syncCompactNavState = () => {
+      itemButtons.forEach(({ meta, item }) => {
+        const active = !!(meta && meta.id === activeSectionId);
+        item.classList.toggle('is-active', active);
+        if (active) item.setAttribute('aria-current', 'true');
+        else item.removeAttribute('aria-current');
+        const sourceButton = meta && meta.navButton;
+        const hasDiff = !!(sourceButton && sourceButton.getAttribute('data-has-diff') === 'true');
+        if (hasDiff) item.setAttribute('data-has-diff', 'true');
+        else item.removeAttribute('data-has-diff');
+      });
+    };
+    syncCompactNavState();
+
+    root.__nsSiteCompactNavCleanup = () => {
+      closeMenu();
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+      if (typeof window !== 'undefined') window.removeEventListener('resize', onResize);
+      try { host.remove(); } catch (_) {
+        if (host.parentNode) host.parentNode.removeChild(host);
+      }
+      syncCompactNavState = () => {};
+    };
   }
 
   function cancelScheduledScrollSync() {
@@ -11946,6 +12097,16 @@ function buildSiteUI(root, state) {
     let fieldEl = null;
     try { fieldEl = root.querySelector(selector); }
     catch (_) { fieldEl = null; }
+    if (!fieldEl) {
+      try {
+        fieldEl = Array.from(root.querySelectorAll('[data-field]')).find((candidate) => {
+          const raw = candidate && candidate.getAttribute ? candidate.getAttribute('data-field') : '';
+          return String(raw || '').split('|').map(item => item.trim()).includes(String(fieldKey));
+        }) || null;
+      } catch (_) {
+        fieldEl = null;
+      }
+    }
     if (!fieldEl) return null;
     const section = typeof fieldEl.closest === 'function' ? fieldEl.closest('.cs-section') : null;
     if (!section) return fieldEl;
@@ -11964,7 +12125,15 @@ function buildSiteUI(root, state) {
         }
       }
       if (options.focus !== false) {
-        const focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        let focusTarget = null;
+        try {
+          focusTarget = fieldEl.querySelector(`[data-site-identity-field="${escapeFieldKey(fieldKey)}"]`);
+        } catch (_) {
+          focusTarget = null;
+        }
+        if (!focusTarget) {
+          focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        }
         try {
           requestAnimationFrame(() => {
             if (typeof focusTarget.focus === 'function') {
@@ -12153,13 +12322,16 @@ function buildSiteUI(root, state) {
 
   const renderLocalizedField = (section, key, options = {}) => {
     ensureLocalized(key, options.ensureDefault !== false);
+    const useLocalizedGrid = !!(options.grid || options.multiline);
     const field = createField(section, {
       dataKey: key,
       label: options.label,
       description: options.description
     });
     const list = document.createElement('div');
-    list.className = 'cs-localized-list';
+    list.className = useLocalizedGrid
+      ? 'cs-localized-list cs-localized-list--grid'
+      : 'cs-localized-list';
     field.appendChild(list);
     const controls = document.createElement('div');
     controls.className = 'cs-field-controls';
@@ -12328,6 +12500,8 @@ function buildSiteUI(root, state) {
         if (options.ensureDefault !== false && !Object.prototype.hasOwnProperty.call(localized, lang)) localized[lang] = '';
         const row = document.createElement('div');
         row.className = 'cs-localized-row';
+        if (useLocalizedGrid) row.classList.add('cs-localized-row--grid');
+        if (options.multiline) row.classList.add('cs-localized-row--multiline');
         row.dataset.lang = lang;
         const badge = document.createElement('span');
         badge.className = 'cs-lang-chip';
@@ -12336,13 +12510,37 @@ function buildSiteUI(root, state) {
           : lang.toUpperCase();
         row.appendChild(badge);
         const inputWrap = document.createElement('div');
-        inputWrap.className = 'cs-localized-input';
+        inputWrap.className = options.multiline
+          ? 'cs-localized-input cs-localized-input--multiline'
+          : 'cs-localized-input';
         const input = document.createElement(options.multiline ? 'textarea' : 'input');
         if (!options.multiline) input.type = 'text';
         else input.rows = options.rows || 3;
-        input.className = 'cs-input';
+        input.className = options.multiline ? 'cs-input cs-localized-textarea' : 'cs-input';
         if (options.placeholder) input.placeholder = options.placeholder;
         input.value = localized[lang] || '';
+        if (options.multiline) {
+          const expandMultiline = () => {
+            list.querySelectorAll('.cs-localized-row--multiline.is-expanded').forEach((expandedRow) => {
+              if (expandedRow !== row) expandedRow.classList.remove('is-expanded');
+            });
+            row.classList.add('is-expanded');
+          };
+          input.addEventListener('pointerdown', expandMultiline);
+          input.addEventListener('focus', expandMultiline);
+          input.addEventListener('focusin', expandMultiline);
+          input.addEventListener('blur', () => {
+            setTimeout(() => {
+              if (document.activeElement !== input) row.classList.remove('is-expanded');
+            }, 0);
+          });
+          input.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            row.classList.remove('is-expanded');
+            input.blur();
+          });
+        }
         input.addEventListener('input', () => {
           ensureLocalized(key, options.ensureDefault !== false)[lang] = input.value;
           markDirty();
@@ -12377,6 +12575,271 @@ function buildSiteUI(root, state) {
     renderRows();
   };
 
+  const renderIdentityLocalizedGrid = (section) => {
+    const titleLabel = t('editor.composer.site.fields.siteTitle');
+    const subtitleLabel = t('editor.composer.site.fields.siteSubtitle');
+    ensureLocalized('siteTitle', true);
+    ensureLocalized('siteSubtitle', true);
+    const field = document.createElement('div');
+    field.className = 'cs-field cs-identity-fieldset';
+    field.dataset.field = 'siteTitle|siteSubtitle';
+    field.setAttribute('role', 'group');
+    field.setAttribute('aria-label', `${titleLabel} / ${subtitleLabel}`);
+    section.appendChild(field);
+    const grid = document.createElement('div');
+    grid.className = 'cs-identity-grid';
+    field.appendChild(grid);
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls';
+    field.appendChild(controls);
+    const addWrap = document.createElement('div');
+    addWrap.className = 'cs-add-lang has-menu';
+    controls.appendChild(addWrap);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary cs-add-lang';
+    addBtn.textContent = t('editor.composer.site.addLanguage');
+    addBtn.setAttribute('aria-haspopup', 'listbox');
+    addBtn.setAttribute('aria-expanded', 'false');
+    addWrap.appendChild(addBtn);
+
+    const menu = document.createElement('div');
+    menu.className = 'ns-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    addWrap.appendChild(menu);
+
+    const sortLangs = (langs) => {
+      const ordered = Array.from(new Set(langs.filter(Boolean)));
+      ordered.sort((a, b) => {
+        if (a === 'default') return -1;
+        if (b === 'default') return 1;
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) {
+          const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+          const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+          return pa - pb;
+        }
+        return a.localeCompare(b);
+      });
+      return ordered;
+    };
+
+    const collectUsedLangs = () => {
+      const title = ensureLocalized('siteTitle', true);
+      const subtitle = ensureLocalized('siteSubtitle', true);
+      return sortLangs(['default', ...Object.keys(title || {}), ...Object.keys(subtitle || {})]);
+    };
+
+    const refreshMenu = () => {
+      const used = new Set(collectUsedLangs());
+      used.add('default');
+
+      const supportedSet = new Set();
+      const addSupported = (code) => {
+        const normalized = normalizeLangCode(code);
+        if (!normalized) return;
+        supportedSet.add(normalized);
+      };
+
+      try {
+        const availableLangs = getAvailableLangs();
+        if (Array.isArray(availableLangs)) availableLangs.forEach(addSupported);
+      } catch (_) {}
+
+      if (Array.isArray(PREFERRED_LANG_ORDER)) {
+        PREFERRED_LANG_ORDER.forEach(addSupported);
+      }
+
+      try {
+        collectLanguageCodes().forEach(addSupported);
+      } catch (_) {}
+
+      const available = sortLangs(Array.from(supportedSet))
+        .filter((code) => !used.has(code) && LANG_CODE_PATTERN.test(code));
+
+      menu.innerHTML = available
+        .map((code) =>
+          `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
+        )
+        .join('');
+      if (!available.length) {
+        addBtn.setAttribute('disabled', '');
+        addWrap.classList.add('is-disabled');
+        addWrap.hidden = true;
+        addWrap.setAttribute('aria-hidden', 'true');
+        addWrap.style.display = 'none';
+        if (!menu.hidden) closeMenu();
+        return;
+      }
+
+      addBtn.removeAttribute('disabled');
+      addWrap.classList.remove('is-disabled');
+      addWrap.hidden = false;
+      addWrap.removeAttribute('aria-hidden');
+      addWrap.style.removeProperty('display');
+    };
+
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener(LANGUAGE_POOL_CHANGED_EVENT, refreshMenu);
+    }
+
+    const closeMenu = () => {
+      if (menu.hidden) return;
+      const finish = () => {
+        menu.hidden = true;
+        addBtn.classList.remove('is-open');
+        addWrap.classList.remove('is-open');
+        addBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', onDocDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        menu.classList.remove('is-closing');
+      };
+      try {
+        menu.classList.add('is-closing');
+        const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+        menu.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(finish, 180);
+      } catch (_) {
+        finish();
+      }
+    };
+
+    const openMenu = () => {
+      refreshMenu();
+      if (!menu.innerHTML.trim() || addWrap.hidden) return;
+      if (!menu.hidden) return;
+      menu.hidden = false;
+      try { menu.classList.remove('is-closing'); } catch (_) {}
+      addBtn.classList.add('is-open');
+      addWrap.classList.add('is-open');
+      addBtn.setAttribute('aria-expanded', 'true');
+      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const code = normalizeLangCode(item.getAttribute('data-lang'));
+          if (!code) return;
+          const title = ensureLocalized('siteTitle', true);
+          const subtitle = ensureLocalized('siteSubtitle', true);
+          if (!Object.prototype.hasOwnProperty.call(title, code)) title[code] = '';
+          if (!Object.prototype.hasOwnProperty.call(subtitle, code)) subtitle[code] = '';
+          markDirty();
+          closeMenu();
+          renderRows();
+          broadcastLanguagePoolChange();
+        });
+      });
+    };
+
+    const onDocDown = (event) => {
+      if (!addWrap.contains(event.target)) closeMenu();
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu();
+      }
+    };
+
+    addBtn.addEventListener('click', () => {
+      if (addBtn.hasAttribute('disabled')) return;
+      if (addBtn.classList.contains('is-open')) closeMenu();
+      else openMenu();
+    });
+
+    const appendHeader = () => {
+      const header = document.createElement('div');
+      header.className = 'cs-identity-row cs-identity-head';
+      const langSpacer = document.createElement('span');
+      langSpacer.className = 'cs-identity-head-spacer';
+      langSpacer.setAttribute('aria-hidden', 'true');
+      const titleHead = document.createElement('span');
+      titleHead.className = 'cs-identity-column-title';
+      titleHead.textContent = titleLabel;
+      const subtitleHead = document.createElement('span');
+      subtitleHead.className = 'cs-identity-column-title';
+      subtitleHead.textContent = subtitleLabel;
+      const actionSpacer = document.createElement('span');
+      actionSpacer.className = 'cs-identity-head-spacer';
+      actionSpacer.setAttribute('aria-hidden', 'true');
+      header.append(langSpacer, titleHead, subtitleHead, actionSpacer);
+      grid.appendChild(header);
+    };
+
+    const appendInput = (row, lang, key, labelText, value) => {
+      const cell = document.createElement('label');
+      cell.className = 'cs-identity-field';
+      const mobileLabel = document.createElement('span');
+      mobileLabel.className = 'cs-identity-cell-label';
+      mobileLabel.textContent = labelText;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'cs-input';
+      input.dataset.siteIdentityField = key;
+      input.value = value || '';
+      input.addEventListener('input', () => {
+        ensureLocalized(key, true)[lang] = input.value;
+        markDirty();
+      });
+      cell.append(mobileLabel, input);
+      row.appendChild(cell);
+    };
+
+    const renderRows = () => {
+      grid.innerHTML = '';
+      appendHeader();
+      const title = ensureLocalized('siteTitle', true);
+      const subtitle = ensureLocalized('siteSubtitle', true);
+      const langs = collectUsedLangs();
+      langs.forEach((lang) => {
+        if (!Object.prototype.hasOwnProperty.call(title, lang)) title[lang] = '';
+        if (!Object.prototype.hasOwnProperty.call(subtitle, lang)) subtitle[lang] = '';
+        const row = document.createElement('div');
+        row.className = 'cs-identity-row';
+        row.dataset.lang = lang;
+        const langCell = document.createElement('div');
+        langCell.className = 'cs-identity-lang';
+        const badge = document.createElement('span');
+        badge.className = 'cs-lang-chip';
+        badge.textContent = lang === 'default'
+          ? t('editor.composer.site.languageDefault')
+          : lang.toUpperCase();
+        langCell.appendChild(badge);
+        row.appendChild(langCell);
+        appendInput(row, lang, 'siteTitle', titleLabel, title[lang] || '');
+        appendInput(row, lang, 'siteSubtitle', subtitleLabel, subtitle[lang] || '');
+        const actions = document.createElement('div');
+        actions.className = 'cs-identity-actions';
+        if (lang !== 'default') {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn-tertiary cs-remove-lang cs-identity-remove';
+          removeBtn.textContent = t('editor.composer.site.removeLanguage');
+          removeBtn.addEventListener('click', () => {
+            const titleMapNext = ensureLocalized('siteTitle', true);
+            const subtitleMapNext = ensureLocalized('siteSubtitle', true);
+            delete titleMapNext[lang];
+            delete subtitleMapNext[lang];
+            markDirty();
+            renderRows();
+            broadcastLanguagePoolChange();
+          });
+          actions.appendChild(removeBtn);
+        }
+        row.appendChild(actions);
+        grid.appendChild(row);
+      });
+      refreshMenu();
+    };
+
+    renderRows();
+  };
+
   const createTextField = (section, config) => {
     const field = createField(section, {
       dataKey: config.dataKey,
@@ -12399,6 +12862,114 @@ function buildSiteUI(root, state) {
     if (config.trailing) control.appendChild(config.trailing);
     field.appendChild(control);
     return input;
+  };
+
+  const createSingleGridFieldset = (section) => {
+    const field = document.createElement('div');
+    field.className = 'cs-field cs-single-grid-fieldset';
+    const grid = document.createElement('div');
+    grid.className = 'cs-single-grid';
+    field.appendChild(grid);
+    section.appendChild(field);
+
+    const addRow = (item, index = grid.children.length) => {
+      const row = document.createElement('div');
+      row.className = 'cs-single-grid-row';
+      row.dataset.field = item.dataKey;
+
+      const controlId = `cs-single-grid-${item.dataKey}-${index}`;
+      const tooltipId = `cs-single-grid-help-${item.dataKey}-${index}`;
+
+      const labelCell = document.createElement('div');
+      labelCell.className = 'cs-single-grid-label';
+
+      const tooltipWrap = document.createElement('span');
+      tooltipWrap.className = 'cs-help-tooltip-wrap';
+      const tooltip = document.createElement('button');
+      tooltip.type = 'button';
+      tooltip.className = 'cs-help-tooltip';
+      tooltip.textContent = '?';
+      tooltip.setAttribute('aria-label', `${item.label}: ${item.description}`);
+      tooltip.setAttribute('aria-describedby', tooltipId);
+      const tooltipBubble = document.createElement('span');
+      tooltipBubble.id = tooltipId;
+      tooltipBubble.className = 'cs-help-tooltip-bubble';
+      tooltipBubble.setAttribute('role', 'tooltip');
+      tooltipBubble.textContent = item.description;
+      tooltipWrap.appendChild(tooltip);
+      tooltipWrap.appendChild(tooltipBubble);
+      labelCell.appendChild(tooltipWrap);
+
+      const label = document.createElement('label');
+      label.className = 'cs-single-grid-title';
+      label.htmlFor = controlId;
+      label.textContent = item.label;
+      labelCell.appendChild(label);
+      row.appendChild(labelCell);
+
+      const controlCell = document.createElement('div');
+      controlCell.className = 'cs-single-grid-control';
+      row.appendChild(controlCell);
+      grid.appendChild(row);
+
+      return { row, controlCell, controlId, label };
+    };
+
+    return { field, grid, addRow };
+  };
+
+  const renderSingleTextGrid = (section, items) => {
+    const { addRow } = createSingleGridFieldset(section);
+    items.forEach((item, index) => {
+      const { controlCell, controlId } = addRow(item, index);
+      const input = document.createElement('input');
+      input.id = controlId;
+      input.type = item.type || 'text';
+      input.className = 'cs-input';
+      input.value = item.get() || '';
+      input.placeholder = item.placeholder || '';
+      input.addEventListener('input', () => {
+        item.set(input.value);
+        markDirty();
+      });
+      controlCell.appendChild(input);
+    });
+  };
+
+  const renderIdentityPathGrid = (section) => {
+    const items = [
+      {
+        dataKey: 'avatar',
+        label: t('editor.composer.site.fields.avatar'),
+        description: t('editor.composer.site.fields.avatarHelp'),
+        placeholder: 'assets/avatar.jpeg',
+        get: () => site.avatar,
+        set: (value) => { site.avatar = value; }
+      },
+      {
+        dataKey: 'contentRoot',
+        label: t('editor.composer.site.fields.contentRoot'),
+        description: t('editor.composer.site.fields.contentRootHelp'),
+        placeholder: 'wwwroot',
+        get: () => site.contentRoot,
+        set: (value) => { site.contentRoot = value; }
+      }
+    ];
+
+    renderSingleTextGrid(section, items);
+  };
+
+  const renderSeoResourceGrid = (section) => {
+    renderSingleTextGrid(section, [
+      {
+        dataKey: 'resourceURL',
+        label: t('editor.composer.site.fields.resourceURL'),
+        description: t('editor.composer.site.fields.resourceURLHelp'),
+        placeholder: 'https://example.com/',
+        get: () => site.resourceURL,
+        set: (value) => { site.resourceURL = value; }
+      }
+    ]);
   };
 
   const createNumberField = (section, config) => {
@@ -12595,6 +13166,444 @@ function buildSiteUI(root, state) {
     return select;
   };
 
+  const renderBehaviorGrid = (section) => {
+    const { addRow } = createSingleGridFieldset(section);
+    const rows = [];
+    const addBehaviorRow = (item) => {
+      const row = addRow(item, rows.length);
+      rows.push(row);
+      return row;
+    };
+
+    const createSelectRow = (item) => {
+      const { controlCell, controlId } = addBehaviorRow(item);
+      const select = document.createElement('select');
+      select.id = controlId;
+      select.className = 'cs-select';
+      controlCell.appendChild(select);
+      return select;
+    };
+
+    const defaultLanguageSelect = createSelectRow({
+      dataKey: 'defaultLanguage',
+      label: t('editor.composer.site.fields.defaultLanguage'),
+      description: t('editor.composer.site.fields.defaultLanguageHelp')
+    });
+
+    const applyDefaultLanguageOptions = () => {
+      const codes = collectLanguageCodes();
+      const seen = new Set();
+      const appendOption = (value, label) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        defaultLanguageSelect.appendChild(option);
+        seen.add(value);
+      };
+
+      defaultLanguageSelect.innerHTML = '';
+      appendOption('', t('editor.composer.site.languageAutoOption'));
+      codes.forEach((code) => {
+        if (!seen.has(code)) appendOption(code, displayLangName(code));
+      });
+      const current = normalizeLangCode(site.defaultLanguage);
+      if (current && !seen.has(current)) {
+        appendOption(current, displayLangName(current));
+      }
+      const nextValue = current && seen.has(current) ? current : '';
+      defaultLanguageSelect.value = nextValue;
+    };
+
+    defaultLanguageSelect.addEventListener('change', () => {
+      site.defaultLanguage = normalizeLangCode(defaultLanguageSelect.value);
+      markDirty();
+    });
+    applyDefaultLanguageOptions();
+
+    const createNumberRow = (item) => {
+      const { controlCell, controlId } = addBehaviorRow(item);
+      const input = document.createElement('input');
+      input.id = controlId;
+      input.type = 'number';
+      input.className = 'cs-input';
+      if (item.min != null) input.min = String(item.min);
+      const value = item.get();
+      input.value = value != null && !Number.isNaN(value) ? String(value) : '';
+      input.addEventListener('input', () => {
+        const raw = input.value.trim();
+        item.set(raw ? Number(raw) : null);
+        markDirty();
+      });
+      controlCell.appendChild(input);
+      return input;
+    };
+
+    createNumberRow({
+      dataKey: 'contentOutdatedDays',
+      label: t('editor.composer.site.fields.contentOutdatedDays'),
+      description: t('editor.composer.site.fields.contentOutdatedDaysHelp'),
+      min: 0,
+      get: () => site.contentOutdatedDays,
+      set: (value) => { site.contentOutdatedDays = value == null || Number.isNaN(value) ? null : value; }
+    });
+
+    createNumberRow({
+      dataKey: 'pageSize',
+      label: t('editor.composer.site.fields.pageSize'),
+      description: t('editor.composer.site.fields.pageSizeHelp'),
+      min: 1,
+      get: () => site.pageSize,
+      set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
+    });
+
+    const createToggleRow = (item, allowMixed = false) => {
+      const { row, controlCell } = addBehaviorRow(item);
+      const { toggle, checkbox } = createSwitchControl(row, item.checkboxLabel || item.label, {
+        target: controlCell,
+        classes: ['cs-single-grid-switch']
+      });
+      const sync = () => {
+        syncSwitchState(checkbox, toggle, item.get(), allowMixed);
+      };
+      checkbox.addEventListener('change', () => {
+        item.set(checkbox.checked);
+        syncSwitchState(checkbox, toggle, checkbox.checked, allowMixed);
+        markDirty();
+      });
+      sync();
+      return { checkbox, row, control: toggle };
+    };
+
+    const showAllPostsField = createToggleRow({
+      dataKey: 'showAllPosts',
+      label: t('editor.composer.site.fields.showAllPosts'),
+      description: t('editor.composer.site.fields.showAllPostsHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled'),
+      get: () => site.showAllPosts === true,
+      set: (value) => { site.showAllPosts = !!value; }
+    });
+
+    const landingTabSelect = createSelectRow({
+      dataKey: 'landingTab',
+      label: t('editor.composer.site.fields.landingTab'),
+      description: t('editor.composer.site.fields.landingTabHelp')
+    });
+
+    const getTabLabel = (slug) => {
+      if (!state.tabs || typeof state.tabs !== 'object') return slug;
+      const entry = state.tabs[slug];
+      if (!entry || typeof entry !== 'object') return slug;
+      const pickTitle = () => {
+        const def = entry.default;
+        if (def && typeof def === 'object' && def.title) return String(def.title).trim();
+        for (const key of Object.keys(entry)) {
+          if (key === '__order') continue;
+          const val = entry[key];
+          if (val && typeof val === 'object' && val.title) {
+            const title = String(val.title).trim();
+            if (title) return title;
+          }
+        }
+        return '';
+      };
+      const title = pickTitle();
+      if (!title) return slug;
+      if (title.toLowerCase() === String(slug).toLowerCase()) return title;
+      return `${title} (${slug})`;
+    };
+
+    const renderLandingOptions = () => {
+      const seen = new Set();
+      let firstOption = null;
+      const addOption = (value, label) => {
+        if (value === '' || seen.has(value)) return;
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        landingTabSelect.appendChild(option);
+        seen.add(value);
+        if (firstOption == null) firstOption = value;
+      };
+
+      const current = site.landingTab || '';
+      landingTabSelect.innerHTML = '';
+      const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
+      order.forEach((slug) => {
+        if (!slug) return;
+        addOption(slug, getTabLabel(slug));
+      });
+      const allowPosts = site.showAllPosts === true || current === 'posts';
+      if (allowPosts) {
+        addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
+      }
+      if (current && !seen.has(current)) addOption(current, current);
+      const nextValue = seen.has(current) ? current : firstOption || '';
+      landingTabSelect.value = nextValue;
+      if (nextValue && nextValue !== site.landingTab) {
+        site.landingTab = nextValue;
+        markDirty();
+      }
+    };
+
+    landingTabSelect.addEventListener('change', () => {
+      const value = landingTabSelect.value;
+      if (value && site.landingTab !== value) {
+        site.landingTab = value;
+        markDirty();
+      }
+    });
+
+    renderLandingOptions();
+    showAllPostsField.checkbox.addEventListener('change', () => {
+      if (site.showAllPosts !== true && site.landingTab === 'posts') {
+        site.landingTab = '';
+      }
+      renderLandingOptions();
+    });
+
+    createToggleRow({
+      dataKey: 'cardCoverFallback',
+      label: t('editor.composer.site.fields.cardCoverFallback'),
+      description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled'),
+      get: () => site.cardCoverFallback,
+      set: (value) => { site.cardCoverFallback = value; }
+    }, true);
+
+    createToggleRow({
+      dataKey: 'errorOverlay',
+      label: t('editor.composer.site.fields.errorOverlay'),
+      description: t('editor.composer.site.fields.errorOverlayHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled'),
+      get: () => site.errorOverlay,
+      set: (value) => { site.errorOverlay = value; }
+    }, true);
+  };
+
+  const renderThemeGrid = (section) => {
+    const { addRow } = createSingleGridFieldset(section);
+    const rows = [];
+    const addThemeRow = (item) => {
+      const row = addRow(item, rows.length);
+      rows.push(row);
+      return row;
+    };
+
+    const createSelectRow = (item) => {
+      const { controlCell, controlId } = addThemeRow(item);
+      const select = document.createElement('select');
+      select.id = controlId;
+      select.className = 'cs-select';
+      (item.options || []).forEach((opt) => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+
+      const ensureSelection = () => {
+        const options = Array.from(select.options);
+        if (!options.length) {
+          const currentRaw = item.get();
+          const current = currentRaw == null ? '' : String(currentRaw);
+          if (current) select.value = current;
+          return current;
+        }
+        const available = new Set(options.map((opt) => opt.value));
+        const currentRaw = item.get();
+        const current = currentRaw == null ? '' : String(currentRaw);
+        if (current && available.has(current)) {
+          select.value = current;
+          return current;
+        }
+        const fallback = item.defaultValue != null && available.has(item.defaultValue)
+          ? item.defaultValue
+          : (options.length ? options[0].value : '');
+        select.value = fallback;
+        if (fallback && fallback !== current) {
+          item.set(fallback);
+          markDirty();
+        } else if (!fallback && current) {
+          item.set('');
+          markDirty();
+        }
+        return fallback;
+      };
+
+      ensureSelection();
+      select.addEventListener('change', () => {
+        item.set(select.value);
+        markDirty();
+      });
+      controlCell.appendChild(select);
+      return select;
+    };
+
+    createSelectRow({
+      dataKey: 'themeMode',
+      label: t('editor.composer.site.fields.themeMode'),
+      description: t('editor.composer.site.fields.themeModeHelp'),
+      get: () => site.themeMode || '',
+      set: (value) => { site.themeMode = value == null ? '' : value; },
+      defaultValue: 'auto',
+      options: [
+        { value: 'user', label: 'user' },
+        { value: 'auto', label: 'auto' },
+        { value: 'light', label: 'light' },
+        { value: 'dark', label: 'dark' }
+      ]
+    });
+
+    const sanitizeThemePackValue = (value) => {
+      return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    };
+    const normalizeThemePackList = (list) => {
+      const normalized = [];
+      const seen = new Set();
+      (Array.isArray(list) ? list : []).forEach((item) => {
+        if (!item) return;
+        const packValue = sanitizeThemePackValue(item.value);
+        if (!packValue || seen.has(packValue)) return;
+        seen.add(packValue);
+        normalized.push({
+          value: packValue,
+          label: safeString(item.label || item.value || packValue) || packValue
+        });
+      });
+      return normalized;
+    };
+
+    const themePackSelect = createSelectRow({
+      dataKey: 'themePack',
+      label: t('editor.composer.site.fields.themePack'),
+      description: t('editor.composer.site.fields.themePackHelp'),
+      get: () => sanitizeThemePackValue(site.themePack),
+      set: (value) => { site.themePack = sanitizeThemePackValue(value); },
+      defaultValue: 'native',
+      options: []
+    });
+
+    const fallbackThemePacks = [
+      { value: 'native', label: 'Native' },
+      { value: 'github', label: 'GitHub' },
+      { value: 'apple', label: 'Apple' },
+      { value: 'openai', label: 'OpenAI' }
+    ];
+
+    const applyThemePackOptions = (options) => {
+      const normalized = normalizeThemePackList(options);
+      const selectOptions = normalized.length ? normalized : normalizeThemePackList(fallbackThemePacks);
+      const current = sanitizeThemePackValue(site.themePack);
+      const seen = new Set();
+      const appendOption = (value, label) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = safeString(label || value) || value;
+        themePackSelect.appendChild(option);
+        seen.add(value);
+      };
+      themePackSelect.innerHTML = '';
+      let firstOption = null;
+      selectOptions.forEach(({ value, label }) => {
+        appendOption(value, label);
+        if (firstOption == null) firstOption = value;
+      });
+      if (current && !seen.has(current)) {
+        appendOption(current, current);
+        if (firstOption == null) firstOption = current;
+      }
+      const nextValue = current && seen.has(current) ? current : firstOption || '';
+      themePackSelect.value = nextValue;
+      const sanitized = sanitizeThemePackValue(nextValue);
+      if (sanitized && sanitized !== site.themePack) {
+        site.themePack = sanitized;
+        markDirty();
+      } else if (!sanitized && site.themePack) {
+        site.themePack = '';
+        markDirty();
+      }
+    };
+
+    applyThemePackOptions(fallbackThemePacks);
+    fetch('assets/themes/packs.json')
+      .then((response) => (response && response.ok ? response.json() : Promise.reject()))
+      .then((list) => {
+        if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
+        applyThemePackOptions(list);
+      })
+      .catch(() => {
+        applyThemePackOptions(fallbackThemePacks);
+      });
+
+    const { row, controlCell } = addThemeRow({
+      dataKey: 'themeOverride',
+      label: t('editor.composer.site.fields.themeOverride'),
+      description: t('editor.composer.site.fields.themeOverrideHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled')
+    });
+    const { toggle, checkbox } = createSwitchControl(row, t('editor.composer.site.toggleEnabled'), {
+      target: controlCell,
+      classes: ['cs-single-grid-switch']
+    });
+    checkbox.addEventListener('change', () => {
+      site.themeOverride = checkbox.checked;
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
+      markDirty();
+    });
+    syncSwitchState(checkbox, toggle, site.themeOverride, true);
+  };
+
+  const renderAssetWarningsGrid = (section) => {
+    const warnings = ensureAssetWarnings();
+    const { addRow } = createSingleGridFieldset(section);
+    const rows = [];
+    const addAssetRow = (item) => {
+      const row = addRow(item, rows.length);
+      rows.push(row);
+      return row;
+    };
+
+    const { row: largeImageRow, controlCell: largeImageControl } = addAssetRow({
+      dataKey: 'assetWarnings',
+      label: t('editor.composer.site.fields.assetLargeImage'),
+      description: t('editor.composer.site.fields.assetLargeImageHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled')
+    });
+    const { toggle, checkbox } = createSwitchControl(
+      largeImageRow,
+      t('editor.composer.site.toggleEnabled'),
+      {
+        target: largeImageControl,
+        classes: ['cs-single-grid-switch']
+      }
+    );
+    checkbox.addEventListener('change', () => {
+      warnings.largeImage.enabled = checkbox.checked;
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
+      markDirty();
+    });
+    syncSwitchState(checkbox, toggle, warnings.largeImage.enabled, true);
+
+    const { controlCell: thresholdControl, controlId: thresholdId } = addAssetRow({
+      dataKey: 'assetWarnings',
+      label: t('editor.composer.site.fields.assetLargeImageThreshold'),
+      description: t('editor.composer.site.fields.assetLargeImageThresholdHelp')
+    });
+    const thresholdInput = document.createElement('input');
+    thresholdInput.id = thresholdId;
+    thresholdInput.type = 'number';
+    thresholdInput.className = 'cs-input';
+    thresholdInput.min = '1';
+    const threshold = warnings.largeImage.thresholdKB;
+    thresholdInput.value = threshold != null && !Number.isNaN(threshold) ? String(threshold) : '';
+    thresholdInput.addEventListener('input', () => {
+      const raw = thresholdInput.value.trim();
+      warnings.largeImage.thresholdKB = raw ? Number(raw) : null;
+      markDirty();
+    });
+    thresholdControl.appendChild(thresholdInput);
+  };
+
   const createLinkListField = (section, key, config) => {
     const list = ensureLinkList(key);
     const field = createField(section, {
@@ -12746,30 +13755,8 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.identity.title'),
     t('editor.composer.site.sections.identity.description')
   );
-  renderLocalizedField(identitySection, 'siteTitle', {
-    label: t('editor.composer.site.fields.siteTitle'),
-    description: t('editor.composer.site.fields.siteTitleHelp')
-  });
-  renderLocalizedField(identitySection, 'siteSubtitle', {
-    label: t('editor.composer.site.fields.siteSubtitle'),
-    description: t('editor.composer.site.fields.siteSubtitleHelp')
-  });
-  createTextField(identitySection, {
-    dataKey: 'avatar',
-    label: t('editor.composer.site.fields.avatar'),
-    description: t('editor.composer.site.fields.avatarHelp'),
-    placeholder: 'assets/avatar.jpeg',
-    get: () => site.avatar,
-    set: (value) => { site.avatar = value; }
-  });
-  createTextField(identitySection, {
-    dataKey: 'contentRoot',
-    label: t('editor.composer.site.fields.contentRoot'),
-    description: t('editor.composer.site.fields.contentRootHelp'),
-    placeholder: 'wwwroot',
-    get: () => site.contentRoot,
-    set: (value) => { site.contentRoot = value; }
-  });
+  renderIdentityLocalizedGrid(identitySection);
+  renderIdentityPathGrid(identitySection);
 
   const seoSection = createSection(
     t('editor.composer.site.sections.seo.title'),
@@ -12785,16 +13772,10 @@ function buildSiteUI(root, state) {
   renderLocalizedField(seoSection, 'siteKeywords', {
     label: t('editor.composer.site.fields.siteKeywords'),
     description: t('editor.composer.site.fields.siteKeywordsHelp'),
+    grid: true,
     ensureDefault: false
   });
-  createTextField(seoSection, {
-    dataKey: 'resourceURL',
-    label: t('editor.composer.site.fields.resourceURL'),
-    description: t('editor.composer.site.fields.resourceURLHelp'),
-    placeholder: 'https://example.com/',
-    get: () => site.resourceURL,
-    set: (value) => { site.resourceURL = value; }
-  });
+  renderSeoResourceGrid(seoSection);
   createLinkListField(seoSection, 'profileLinks', {
     label: t('editor.composer.site.fields.profileLinks'),
     description: t('editor.composer.site.fields.profileLinksHelp')
@@ -12808,285 +13789,13 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.behavior.title'),
     t('editor.composer.site.sections.behavior.description')
   );
-  const defaultLanguageSelect = createSelectField(behaviorSection, {
-    dataKey: 'defaultLanguage',
-    label: t('editor.composer.site.fields.defaultLanguage'),
-    description: t('editor.composer.site.fields.defaultLanguageHelp'),
-    get: () => normalizeLangCode(site.defaultLanguage),
-    set: (value) => { site.defaultLanguage = normalizeLangCode(value); },
-    defaultValue: '',
-    options: []
-  });
-  const applyDefaultLanguageOptions = () => {
-    const codes = collectLanguageCodes();
-    const seen = new Set();
-    const appendOption = (value, label) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = label;
-      defaultLanguageSelect.appendChild(option);
-      seen.add(value);
-    };
-
-    defaultLanguageSelect.innerHTML = '';
-    appendOption('', t('editor.composer.site.languageAutoOption'));
-    codes.forEach((code) => {
-      if (!seen.has(code)) appendOption(code, displayLangName(code));
-    });
-    const current = normalizeLangCode(site.defaultLanguage);
-    if (current && !seen.has(current)) {
-      appendOption(current, displayLangName(current));
-    }
-    const nextValue = current && seen.has(current) ? current : '';
-    defaultLanguageSelect.value = nextValue;
-  };
-  applyDefaultLanguageOptions();
-  createNumberField(behaviorSection, {
-    dataKey: 'contentOutdatedDays',
-    label: t('editor.composer.site.fields.contentOutdatedDays'),
-    description: t('editor.composer.site.fields.contentOutdatedDaysHelp'),
-    min: 0,
-    get: () => site.contentOutdatedDays,
-    set: (value) => { site.contentOutdatedDays = value == null || Number.isNaN(value) ? null : value; }
-  });
-  createNumberField(behaviorSection, {
-    dataKey: 'pageSize',
-    label: t('editor.composer.site.fields.pageSize'),
-    description: t('editor.composer.site.fields.pageSizeHelp'),
-    min: 1,
-    get: () => site.pageSize,
-    set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
-  });
-  const showAllPostsField = createToggleField(behaviorSection, {
-    dataKey: 'showAllPosts',
-    label: t('editor.composer.site.fields.showAllPosts'),
-    description: t('editor.composer.site.fields.showAllPostsHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    get: () => site.showAllPosts === true,
-    set: (value) => {
-      site.showAllPosts = !!value;
-    }
-  });
-
-  const landingTabField = (() => {
-    const field = createField(behaviorSection, {
-      dataKey: 'landingTab',
-      label: t('editor.composer.site.fields.landingTab'),
-      description: t('editor.composer.site.fields.landingTabHelp')
-    });
-    const control = document.createElement('div');
-    control.className = 'cs-field-controls';
-    const select = document.createElement('select');
-    select.className = 'cs-select';
-    control.appendChild(select);
-    field.appendChild(control);
-
-    const getTabLabel = (slug) => {
-      if (!state.tabs || typeof state.tabs !== 'object') return slug;
-      const entry = state.tabs[slug];
-      if (!entry || typeof entry !== 'object') return slug;
-      const pickTitle = () => {
-        const def = entry.default;
-        if (def && typeof def === 'object' && def.title) return String(def.title).trim();
-        for (const key of Object.keys(entry)) {
-          if (key === '__order') continue;
-          const val = entry[key];
-          if (val && typeof val === 'object' && val.title) {
-            const title = String(val.title).trim();
-            if (title) return title;
-          }
-        }
-        return '';
-      };
-      const title = pickTitle();
-      if (!title) return slug;
-      if (title.toLowerCase() === String(slug).toLowerCase()) return title;
-      return `${title} (${slug})`;
-    };
-
-    const renderOptions = () => {
-      const seen = new Set();
-      let firstOption = null;
-      const addOption = (value, label) => {
-        if (value === '' || seen.has(value)) return;
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = label;
-        select.appendChild(option);
-        seen.add(value);
-        if (firstOption == null) firstOption = value;
-      };
-
-      const current = site.landingTab || '';
-      select.innerHTML = '';
-      const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
-      order.forEach((slug) => {
-        if (!slug) return;
-        addOption(slug, getTabLabel(slug));
-      });
-      const allowPosts = site.showAllPosts === true || current === 'posts';
-      if (allowPosts) {
-        addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
-      }
-      if (current && !seen.has(current)) addOption(current, current);
-      const nextValue = seen.has(current) ? current : firstOption || '';
-      select.value = nextValue;
-      if (nextValue && nextValue !== site.landingTab) {
-        site.landingTab = nextValue;
-        markDirty();
-      }
-    };
-
-    select.addEventListener('change', () => {
-      const value = select.value;
-      if (value && site.landingTab !== value) {
-        site.landingTab = value;
-        markDirty();
-      }
-    });
-
-    renderOptions();
-
-    return {
-      field,
-      select,
-      renderOptions
-    };
-  })();
-
-  showAllPostsField.checkbox.addEventListener('change', () => {
-    if (site.showAllPosts !== true && site.landingTab === 'posts') {
-      site.landingTab = '';
-    }
-    landingTabField.renderOptions();
-  });
-  createTriStateCheckbox(behaviorSection, {
-    dataKey: 'cardCoverFallback',
-    label: t('editor.composer.site.fields.cardCoverFallback'),
-    description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: true,
-    get: () => site.cardCoverFallback,
-    set: (value) => { site.cardCoverFallback = value; }
-  });
-  createTriStateCheckbox(behaviorSection, {
-    dataKey: 'errorOverlay',
-    label: t('editor.composer.site.fields.errorOverlay'),
-    description: t('editor.composer.site.fields.errorOverlayHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: false,
-    get: () => site.errorOverlay,
-    set: (value) => { site.errorOverlay = value; }
-  });
+  renderBehaviorGrid(behaviorSection);
 
   const themeSection = createSection(
     t('editor.composer.site.sections.theme.title'),
     t('editor.composer.site.sections.theme.description')
   );
-  createSelectField(themeSection, {
-    dataKey: 'themeMode',
-    label: t('editor.composer.site.fields.themeMode'),
-    description: t('editor.composer.site.fields.themeModeHelp'),
-    get: () => site.themeMode || '',
-    set: (value) => { site.themeMode = value == null ? '' : value; },
-    defaultValue: 'auto',
-    options: [
-      { value: 'user', label: 'user' },
-      { value: 'auto', label: 'auto' },
-      { value: 'light', label: 'light' },
-      { value: 'dark', label: 'dark' }
-    ]
-  });
-  const sanitizeThemePackValue = (value) => {
-    return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  };
-  const normalizeThemePackList = (list) => {
-    const normalized = [];
-    const seen = new Set();
-    (Array.isArray(list) ? list : []).forEach((item) => {
-      if (!item) return;
-      const packValue = sanitizeThemePackValue(item.value);
-      if (!packValue || seen.has(packValue)) return;
-      seen.add(packValue);
-      normalized.push({
-        value: packValue,
-        label: safeString(item.label || item.value || packValue) || packValue
-      });
-    });
-    return normalized;
-  };
-  const applyThemePackOptions = (options) => {
-    const normalized = normalizeThemePackList(options);
-    const selectOptions = normalized.length ? normalized : normalizeThemePackList([
-      { value: 'native', label: 'Native' },
-      { value: 'github', label: 'GitHub' },
-      { value: 'apple', label: 'Apple' },
-      { value: 'openai', label: 'OpenAI' }
-    ]);
-    const current = sanitizeThemePackValue(site.themePack);
-    const seen = new Set();
-    const appendOption = (value, label) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = safeString(label || value) || value;
-      themePackSelect.appendChild(option);
-      seen.add(value);
-    };
-    themePackSelect.innerHTML = '';
-    let firstOption = null;
-    selectOptions.forEach(({ value, label }) => {
-      appendOption(value, label);
-      if (firstOption == null) firstOption = value;
-    });
-    if (current && !seen.has(current)) {
-      appendOption(current, current);
-      if (firstOption == null) firstOption = current;
-    }
-    const nextValue = current && seen.has(current) ? current : firstOption || '';
-    themePackSelect.value = nextValue;
-    const sanitized = sanitizeThemePackValue(nextValue);
-    if (sanitized && sanitized !== site.themePack) {
-      site.themePack = sanitized;
-      markDirty();
-    } else if (!sanitized && site.themePack) {
-      site.themePack = '';
-      markDirty();
-    }
-  };
-  const themePackSelect = createSelectField(themeSection, {
-    dataKey: 'themePack',
-    label: t('editor.composer.site.fields.themePack'),
-    description: t('editor.composer.site.fields.themePackHelp'),
-    get: () => sanitizeThemePackValue(site.themePack),
-    set: (value) => { site.themePack = sanitizeThemePackValue(value); },
-    defaultValue: 'native',
-    options: []
-  });
-  const fallbackThemePacks = [
-    { value: 'native', label: 'Native' },
-    { value: 'github', label: 'GitHub' },
-    { value: 'apple', label: 'Apple' },
-    { value: 'openai', label: 'OpenAI' }
-  ];
-  applyThemePackOptions(fallbackThemePacks);
-  fetch('assets/themes/packs.json')
-    .then((response) => (response && response.ok ? response.json() : Promise.reject()))
-    .then((list) => {
-      if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
-      applyThemePackOptions(list);
-    })
-    .catch(() => {
-      applyThemePackOptions(fallbackThemePacks);
-    });
-  createTriStateCheckbox(themeSection, {
-    dataKey: 'themeOverride',
-    label: t('editor.composer.site.fields.themeOverride'),
-    description: t('editor.composer.site.fields.themeOverrideHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: true,
-    get: () => site.themeOverride,
-    set: (value) => { site.themeOverride = value; }
-  });
+  renderThemeGrid(themeSection);
 
   const repoSection = createSection(
     t('editor.composer.site.sections.repo.title'),
@@ -13167,24 +13876,7 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.assets.title'),
     t('editor.composer.site.sections.assets.description')
   );
-  const warnings = ensureAssetWarnings();
-  createTriStateCheckbox(assetsSection, {
-    dataKey: 'assetWarnings',
-    label: t('editor.composer.site.fields.assetLargeImage'),
-    description: t('editor.composer.site.fields.assetLargeImageHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: false,
-    get: () => warnings.largeImage.enabled,
-    set: (value) => { warnings.largeImage.enabled = value; }
-  });
-  createNumberField(assetsSection, {
-    dataKey: 'assetWarnings',
-    label: t('editor.composer.site.fields.assetLargeImageThreshold'),
-    description: t('editor.composer.site.fields.assetLargeImageThresholdHelp'),
-    min: 1,
-    get: () => warnings.largeImage.thresholdKB,
-    set: (value) => { warnings.largeImage.thresholdKB = value == null || Number.isNaN(value) ? null : value; }
-  });
+  renderAssetWarningsGrid(assetsSection);
 
   if (site.__extras && Object.keys(site.__extras).length) {
     const extrasSection = createSection(
@@ -13206,6 +13898,7 @@ function buildSiteUI(root, state) {
     field.appendChild(list);
   }
 
+  renderCompactSectionMenu();
   refreshNavDiffState();
   try { scheduleScrollSync(); } catch (_) {}
 }
@@ -13557,13 +14250,27 @@ function rebuildSiteUI() {
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
   .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
-  .cs-nav-list{list-style:none;margin:0;padding:1rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;max-height:calc(100vh - 6rem);overflow:auto}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
   .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
-  .cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 14%, var(--card));border-color:color-mix(in srgb,var(--primary) 45%, var(--border));color:color-mix(in srgb,var(--primary) 98%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  html body button.cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;border-color:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;color:#fff !important;box-shadow:none !important;border-radius:10px !important;font-weight:700 !important}
   .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
   .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  html body button.cs-nav-button.is-active[data-has-diff="true"]::after{background:#fff !important;box-shadow:0 0 0 3px color-mix(in srgb,#fff 28%, transparent) !important}
+  .cs-mobile-section-nav{display:none;position:fixed;right:1rem;bottom:4.05rem;z-index:1000}
+  .cs-mobile-section-nav-toggle{width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);display:inline-flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+  .cs-mobile-section-nav-toggle:hover,.cs-mobile-section-nav.is-open .cs-mobile-section-nav-toggle{background:color-mix(in srgb,var(--primary) 10%, var(--card));border-color:color-mix(in srgb,var(--primary) 48%, var(--border));color:color-mix(in srgb,var(--primary) 96%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-mobile-section-nav-toggle:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
+  .cs-mobile-section-nav-toggle svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .cs-mobile-section-nav-toggle svg circle{fill:currentColor;stroke:none}
+  .cs-mobile-section-menu{position:absolute;right:0;bottom:calc(100% + .55rem);width:max-content;min-width:13rem;max-width:min(18rem,calc(100vw - 2rem));padding:.45rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 18px 42px rgba(15,23,42,0.18);display:flex;flex-direction:column;gap:.25rem;opacity:0;visibility:hidden;transform:translateY(8px) scale(.98);transform-origin:bottom right;pointer-events:none;transition:opacity .16s ease,transform .16s ease,visibility 0s linear .16s}
+  .cs-mobile-section-nav.is-open .cs-mobile-section-menu{opacity:1;visibility:visible;transform:translateY(0) scale(1);pointer-events:auto;transition:opacity .16s ease,transform .16s ease,visibility 0s}
+  .cs-mobile-section-menu-item{appearance:none;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 82%, transparent);border-radius:9px;padding:.5rem .62rem;text-align:left;font:inherit;font-size:.9rem;font-weight:650;line-height:1.2;cursor:pointer;display:flex;align-items:center;gap:.45rem;white-space:nowrap;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
+  .cs-mobile-section-menu-item:hover,.cs-mobile-section-menu-item:focus-visible{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 96%, transparent);outline:none}
+  html body button.cs-mobile-section-menu-item.is-active{background:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;border-color:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;color:#fff !important;border-radius:9px !important;font-weight:700 !important}
+  .cs-mobile-section-menu-item[data-has-diff="true"]::after{content:'';width:.5rem;height:.5rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  html body button.cs-mobile-section-menu-item.is-active[data-has-diff="true"]::after{background:#fff !important;box-shadow:0 0 0 3px color-mix(in srgb,#fff 28%, transparent) !important}
   .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
   .cs-section{border:1px solid color-mix(in srgb,var(--border) 96%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
@@ -13587,8 +14294,44 @@ function rebuildSiteUI() {
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
+  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem}
+  .cs-localized-list--grid{gap:var(--cs-editor-row-gap)}
+  .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
+  .cs-localized-row--grid .cs-localized-input{min-width:0}
+  .cs-localized-row--grid .cs-lang-chip{justify-self:start}
+  .cs-localized-row--multiline textarea.cs-localized-textarea{box-sizing:border-box;display:block;height:var(--cs-editor-control-height);min-height:var(--cs-editor-control-height);max-height:var(--cs-editor-control-height);padding-block:0;line-height:calc(var(--cs-editor-control-height) - 2px);resize:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:height .18s ease,min-height .18s ease,max-height .18s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease}
+  .cs-localized-row--multiline.is-expanded,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus){align-items:start}
+  .cs-localized-row--multiline.is-expanded .cs-remove-lang,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus) .cs-remove-lang{align-self:start}
+  .cs-localized-row--multiline.is-expanded textarea.cs-localized-textarea{height:4.6rem;min-height:4.6rem;max-height:12rem;padding-block:.3rem;line-height:1.25;resize:vertical;overflow:auto;white-space:pre-wrap}
+  .cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus) textarea.cs-localized-textarea{height:4.6rem;min-height:4.6rem;max-height:12rem;padding-block:.3rem;line-height:1.25;resize:vertical;overflow:auto;white-space:pre-wrap}
+  .cs-localized-row--grid .cs-remove-lang{align-self:center;margin-left:0;white-space:nowrap}
   .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .cs-identity-grid{display:flex;flex-direction:column;gap:var(--cs-editor-row-gap)}
+  .cs-identity-row{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr) minmax(0,3fr) minmax(72px,max-content);align-items:center;gap:var(--cs-editor-row-column-gap)}
+  .cs-identity-head{align-items:end;padding:0 0 .1rem}
+  .cs-identity-head-spacer{min-width:1px}
+  .cs-identity-column-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-identity-lang{min-width:0;display:flex;align-items:center}
+  .cs-identity-field{min-width:0;display:flex;flex-direction:column;gap:.2rem}
+  .cs-identity-field .cs-input{min-width:0}
+  .cs-identity-cell-label{display:none;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
+  .cs-identity-remove{margin-left:0;white-space:nowrap}
+  .cs-single-grid-fieldset{gap:0}
+  .cs-single-grid{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr);column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center}
+  .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
+  .cs-single-grid-row[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
+  .cs-single-grid-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
+  .cs-single-grid-title{font-size:.84rem;white-space:nowrap}
+  .cs-single-grid-control{min-width:0;display:flex;align-items:center}
+  .cs-single-grid-control .cs-input,.cs-single-grid-control .cs-select{width:100%;min-width:0}
+  .cs-single-grid-switch{margin:0}
+  .cs-help-tooltip-wrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
+  .cs-help-tooltip{appearance:none;width:1rem;height:1rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--primary) 42%, var(--border));background:color-mix(in srgb,var(--card) 99%, transparent);color:color-mix(in srgb,var(--primary) 88%, var(--text));font-size:.68rem;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:help}
+  .cs-help-tooltip:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  .cs-help-tooltip-bubble{position:absolute;left:0;bottom:calc(100% + .35rem);width:max-content;max-width:min(20rem,70vw);padding:.38rem .5rem;border:1px solid color-mix(in srgb,var(--border) 88%, transparent);border-radius:8px;background:color-mix(in srgb,var(--card) 99%, transparent);box-shadow:0 10px 24px rgba(15,23,42,0.14);color:color-mix(in srgb,var(--text) 82%, transparent);font-size:.76rem;line-height:1.3;font-weight:500;text-transform:none;letter-spacing:0;opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .14s ease,transform .14s ease;z-index:20}
+  .cs-help-tooltip-wrap:hover .cs-help-tooltip-bubble,.cs-help-tooltip:focus-visible + .cs-help-tooltip-bubble{opacity:1;transform:translateY(0);pointer-events:auto}
   .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
   .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   textarea.cs-input{min-height:4.6rem;resize:vertical}
@@ -13636,23 +14379,33 @@ function rebuildSiteUI() {
   }
   @media (max-width:920px){
     .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
-    .cs-nav{position:relative;top:auto}
-    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:1rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
-    .cs-nav-item{flex:0 0 auto}
-    .cs-nav-button{white-space:nowrap;padding:.48rem .65rem}
+    .cs-nav{display:none}
+    html[data-init-mode="composer"][data-init-cfile="site"] .cs-mobile-section-nav{display:block}
   }
   @media (max-width:720px){
-    .cs-nav-list{gap:.3rem}
-    .cs-nav-button{font-size:.86rem;padding:.45rem .6rem}
+    .cs-mobile-section-menu{max-width:calc(100vw - 2rem)}
   }
   @media (max-width:880px){
     .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
     .cs-input-small{max-width:100%}
+    .cs-identity-row{grid-template-columns:minmax(74px,max-content) minmax(0,1fr) minmax(0,3fr) minmax(68px,max-content)}
     .cs-link-actions{width:100%;justify-content:flex-end;margin-left:0;align-self:auto;padding-top:.35rem}
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
+    .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.5rem}
+    .cs-localized-row--grid{grid-template-columns:1fr;gap:.35rem}
+    .cs-localized-row--grid .cs-remove-lang{justify-self:flex-start}
+    .cs-identity-grid{gap:.5rem}
+    .cs-identity-head{display:none}
+    .cs-identity-row{grid-template-columns:1fr;align-items:stretch;gap:.4rem;padding:.55rem 0;border-top:1px solid color-mix(in srgb,var(--border) 72%, transparent)}
+    .cs-identity-head + .cs-identity-row{border-top:0;padding-top:.1rem}
+    .cs-identity-cell-label{display:block}
+    .cs-identity-actions{justify-content:flex-start}
+    .cs-single-grid{grid-template-columns:1fr;row-gap:.35rem}
+    .cs-single-grid-row{grid-template-columns:1fr;align-items:stretch;gap:.35rem;padding:.2rem 0}
+    .cs-single-grid-row[data-diff="changed"]{padding-left:.65rem}
   }
 
   /* Modal animations */

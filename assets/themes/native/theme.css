@@ -178,7 +178,8 @@ body {
 }
 
 /* 极简按钮样式（不影响编辑器顶部的模式切换按钮与侧边栏 tabs） */
-.btn:not(.mode-tab):not(.sidebar-tab), button:not(.mode-tab):not(.sidebar-tab) {
+.btn:not(.mode-tab):not(.sidebar-tab):not(.cs-nav-button):not(.cs-mobile-section-nav-toggle):not(.cs-mobile-section-menu-item),
+button:not(.mode-tab):not(.sidebar-tab):not(.cs-nav-button):not(.cs-mobile-section-nav-toggle):not(.cs-mobile-section-menu-item) {
   border: 1px solid var(--primary) !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -187,7 +188,8 @@ body {
   transition: all 0.2s ease !important;
 }
 
-.btn:hover:not(.mode-tab):not(.sidebar-tab), button:hover:not(.mode-tab):not(.sidebar-tab) {
+.btn:hover:not(.mode-tab):not(.sidebar-tab):not(.cs-nav-button):not(.cs-mobile-section-nav-toggle):not(.cs-mobile-section-menu-item),
+button:hover:not(.mode-tab):not(.sidebar-tab):not(.cs-nav-button):not(.cs-mobile-section-nav-toggle):not(.cs-mobile-section-menu-item) {
   background: var(--primary) !important;
   color: var(--bg) !important;
 }
