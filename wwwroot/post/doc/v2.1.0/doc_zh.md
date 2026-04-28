@@ -33,11 +33,17 @@ ai: true
 # 网站基本信息设置
 siteTitle:
   default: NanoSite
+  en: NanoSite
   zh: 微站
+  zh-tw: 微站
+  zh-hk: 微站
   ja: ナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
+  en: Just Markdown. Just a website.
   zh: 写下 Markdown，就是你的网站。
+  zh-tw: 寫下 Markdown，就是你的網站。
+  zh-hk: 寫低 Markdown，就係你嘅網站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
 ```
@@ -200,7 +206,7 @@ assetWarnings:
 - `contentOutdatedDays` — 内容被视为过时的天数（默认为 180 天）。
 - `cardCoverFallback` — 如果未提供封面图像，则使用生成的占位封面图像（缺省为 `true`）。
 - `pageSize` — 索引列表中每页的帖子数量（缺省为 `8`）。
-- `defaultLanguage` — 默认 UI/内容语言（例如，`en`、`zh`、`ja`；缺省为 `en`）。
+- `defaultLanguage` — 默认 UI/内容语言（例如，`en`、`zh`、`zh-tw`、`zh-hk`、`ja`；缺省为 `en`）。
 
 例如：
 ```yaml
@@ -217,7 +223,7 @@ defaultLanguage: en
 - `?tab=posts` — 全部文章（默认）。支持 `&page=N` 分页。
 - `?tab=search&q=关键词` — 按标题或标签搜索。也可用 `&tag=标签名` 过滤。
 - `?id=路径/到/文章.md` — 直接打开某篇文章（路径必须存在于 `index.yaml`）。
-- `?lang=zh` — UI/内容语言。存储在 localStorage，并回退到浏览器与 `<html lang>`。
+- `?lang=zh` — UI 语言偏好。存储在 localStorage；内容会先尝试匹配该语言版本，再按配置的回退链选择可用内容。
 
 Markdown 中的站内跳转链接示例：`[看看这篇](?id=post/frogy/main.md)`，标签页：`[关于](?tab=about)`。
 
@@ -234,10 +240,18 @@ Markdown 中的站内跳转链接示例：`[看看这篇](?id=post/frogy/main.md
 resourceURL: https://nano.dee.moe/wwwroot/
 siteDescription:
   default: NanoSite - Just Markdown. Just a website.
+  en: NanoSite - Just Markdown. Just a website.
   zh: 微站 - 写下 Markdown，就是你的网站。
+  zh-tw: 微站 - 寫下 Markdown，就是你的網站。
+  zh-hk: 微站 - 寫低 Markdown，就係你嘅網站。
   ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
 siteKeywords:
   default: static blog, markdown, github pages, blog
+  en: static blog, markdown, github pages, blog
+  zh: 静态博客, Markdown, GitHub Pages, 博客
+  zh-tw: 靜態部落格, Markdown, GitHub Pages, 部落格
+  zh-hk: 靜態網誌, Markdown, GitHub Pages, 網誌
+  ja: 静的サイト, Markdown, GitHub Pages, ブログ
 ```
 
 其中：
@@ -249,9 +263,18 @@ siteKeywords:
 
 ### 多语言
 
-- UI 文案在 `assets/js/i18n.js`（已含 English/中文/日本語）。可扩展 `translations` 和 `languageNames` 添加更多语言。
-- 内容支持：
+NanoSite 将网站本体语言和内容语言视为相关但独立的两层。
+
+- 网站本体支持的 UI 语言来自 `assets/i18n/languages.json` 以及 `assets/i18n/` 中对应的语言包。文章编辑器可以展示项目支持的全部语言。
+- 内容语言由每篇文章或页面在 `wwwroot/index.yaml` 与 `wwwroot/tabs.yaml` 中分别声明。作者只需要列出自己实际撰写的语言版本。
+- 当 URL 中设置 `?lang=...` 时，网站导航、按钮、提示等本体文案会切换到对应 UI 语言（前提是语言包存在）。
+- 对每篇文章或页面，NanoSite 会先尝试加载与当前 UI 语言相同的内容版本。若该版本不存在，则回退到 `site.yaml` 中的 `defaultLanguage`；本仓库默认是 `en`。
+- 如果配置的默认语言版本也不存在，NanoSite 会继续尝试 `en`、`default`，最后使用该条目下第一个可用版本，以避免页面完全无法渲染。
+
+内容索引支持：
+
 	- 简化版（本仓库示例）：按语言直接给出 Markdown 路径
 	- 统一版：每种语言的 `{title, location}`
 	- 旧版：`index.en.yaml`/`index.en.json`、`index.zh.yaml`/`index.zh.json`…（回退）
-- 切换语言时，若当前文章存在相应变体，路由会尽量保持在“同一篇”。
+
+切换语言时，若当前文章存在相应变体，路由会尽量保持在“同一篇”；若不存在，则按上述规则显示默认语言内容。

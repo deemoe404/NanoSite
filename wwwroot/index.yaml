@@ -19,6 +19,10 @@ nanodoc:
     - post/doc/v1.0.0/doc_zh.md
     - post/doc/v2.0.0/doc_zh.md
     - post/doc/v2.1.0/doc_zh.md
+  zh-tw:
+    - post/doc/v2.1.0/doc_zh-tw.md
+  zh-hk:
+    - post/doc/v2.1.0/doc_zh-hk.md
   ja:
     - post/doc/v1.0.0/doc_ja.md
     - post/doc/v2.0.0/doc_ja.md

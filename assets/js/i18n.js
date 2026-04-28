@@ -792,14 +792,19 @@ function __setContentLangs(list) {
   } catch (_) { /* ignore */ }
 }
 export function getAvailableLangs() {
-  // Prefer languages discovered from content (unified index), else manifest order, else loaded bundle keys
+  // UI language choices come from the project language manifest. Content
+  // languages are intentionally separate: an article may omit variants and
+  // rely on the content fallback chain without hiding UI languages.
   const current = getCurrentLang();
   if (current && !translations[current]) {
     ensureLanguageBundle(current).catch(() => {});
   }
-  if (__contentLangs && __contentLangs.length) return __contentLangs;
   if (languageManifest && languageManifest.length) return languageManifest.map((entry) => entry.value);
   return Object.keys(translations);
+}
+
+export function getContentLangs() {
+  return __contentLangs && __contentLangs.length ? __contentLangs.slice() : [];
 }
 export function getLanguageLabel(code) {
   const normalized = String(code || '').toLowerCase();

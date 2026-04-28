@@ -26,6 +26,18 @@ const requests = [];
 globalThis.fetch = async (url) => {
   const textUrl = String(url);
   requests.push(textUrl);
+  if (textUrl.endsWith('/assets/i18n/languages.json')) {
+    return {
+      ok: true,
+      json: async () => [
+        { value: 'en', label: 'English', module: './en.js' },
+        { value: 'zh', label: '简体中文', module: './zh.js' },
+        { value: 'zh-tw', label: '正體中文（台灣）', module: './zh-TW.js' },
+        { value: 'zh-hk', label: '繁體中文（香港）', module: './zh-HK.js' },
+        { value: 'ja', label: '日本語', module: './ja.js' }
+      ]
+    };
+  }
   if (textUrl.endsWith('/index.yaml')) {
     return {
       ok: true,
@@ -53,7 +65,7 @@ globalThis.fetch = async (url) => {
   return { ok: false, status: 404, text: async () => '' };
 };
 
-const { initI18n, loadContentJsonWithRaw } = await import('../assets/js/i18n.js');
+const { initI18n, loadContentJsonWithRaw, getAvailableLangs, getContentLangs } = await import('../assets/js/i18n.js');
 
 await initI18n({ lang: 'en', persist: false });
 const result = await loadContentJsonWithRaw('wwwroot', 'index');
@@ -61,5 +73,7 @@ const result = await loadContentJsonWithRaw('wwwroot', 'index');
 assert.equal(requests.filter(url => url.endsWith('/index.yaml')).length, 1);
 assert.deepEqual(result.raw, { demo: { en: ['post/demo.md'] } });
 assert.equal(result.entries.demo.location, 'post/demo.md');
+assert.deepEqual(getContentLangs(), ['en']);
+assert.deepEqual(getAvailableLangs(), ['en', 'zh', 'zh-tw', 'zh-hk', 'ja']);
 
 console.log('ok - loadContentJsonWithRaw returns raw index without a duplicate index fetch');
