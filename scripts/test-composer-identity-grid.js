@@ -5,7 +5,9 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
+const editorPath = resolve(here, '../index_editor.html');
 const source = readFileSync(composerPath, 'utf8');
+const editorSource = readFileSync(editorPath, 'utf8');
 
 assert.match(
   source,
@@ -19,6 +21,30 @@ assert.match(
   'Identity section should render title and subtitle through the merged grid'
 );
 
+assert.match(
+  source,
+  /renderIdentityPathGrid\(identitySection\);/,
+  'Identity section should render avatar and content root through a compact path grid'
+);
+
+assert.match(
+  source,
+  /renderBehaviorGrid\(behaviorSection\);/,
+  'Behavior section should render single-value fields through the compact grid'
+);
+
+assert.match(
+  source,
+  /renderThemeGrid\(themeSection\);/,
+  'Theme section should render single-value fields through the compact grid'
+);
+
+assert.match(
+  source,
+  /renderAssetWarningsGrid\(assetsSection\);/,
+  'Asset warnings section should render single-value fields through the compact grid'
+);
+
 assert.doesNotMatch(
   source,
   /renderLocalizedField\(identitySection,\s*'siteTitle'/,
@@ -29,6 +55,18 @@ assert.doesNotMatch(
   source,
   /renderLocalizedField\(identitySection,\s*'siteSubtitle'/,
   'Identity section should not render siteSubtitle as a standalone localized field'
+);
+
+assert.doesNotMatch(
+  source,
+  /createTextField\(identitySection,\s*\{\s*dataKey: 'avatar'/,
+  'Avatar should not use the tall standalone text field layout'
+);
+
+assert.doesNotMatch(
+  source,
+  /createTextField\(identitySection,\s*\{\s*dataKey: 'contentRoot'/,
+  'Content root should not use the tall standalone text field layout'
 );
 
 assert.match(
@@ -75,7 +113,7 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-identity-grid,.cs-localized-list--grid\{--cs-editor-row-gap:\.35rem;--cs-editor-row-column-gap:\.45rem;--cs-editor-control-height:1\.95rem\}/,
+  /\.cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset\{--cs-editor-row-gap:\.35rem;--cs-editor-row-column-gap:\.45rem;--cs-editor-control-height:1\.95rem\}/,
   'identity and aligned localized rows should share one row rhythm contract'
 );
 
@@ -95,6 +133,90 @@ assert.match(
   source,
   /\.cs-localized-row--grid \.cs-lang-chip\{justify-self:start\}/,
   'aligned localized rows should keep language chips content-width instead of stretching them'
+);
+
+assert.match(
+  source,
+  /const renderIdentityPathGrid = \(section\) => \{/,
+  'composer site editor should define a compact identity path grid renderer'
+);
+
+assert.match(
+  source,
+  /const createSingleGridFieldset = \(section\) => \{/,
+  'compact single-value sections should share one reusable grid fieldset renderer'
+);
+
+assert.match(
+  source,
+  /const renderBehaviorGrid = \(section\) => \{[\s\S]*dataKey: 'defaultLanguage'[\s\S]*dataKey: 'contentOutdatedDays'[\s\S]*dataKey: 'pageSize'[\s\S]*dataKey: 'showAllPosts'[\s\S]*dataKey: 'landingTab'[\s\S]*dataKey: 'cardCoverFallback'[\s\S]*dataKey: 'errorOverlay'/,
+  'Behavior compact grid should include all single-value behavior fields'
+);
+
+assert.match(
+  source,
+  /const renderThemeGrid = \(section\) => \{[\s\S]*dataKey: 'themeMode'[\s\S]*dataKey: 'themePack'[\s\S]*dataKey: 'themeOverride'/,
+  'Theme compact grid should include all single-value theme fields'
+);
+
+assert.match(
+  source,
+  /const renderAssetWarningsGrid = \(section\) => \{[\s\S]*dataKey: 'assetWarnings'[\s\S]*fields\.assetLargeImage[\s\S]*fields\.assetLargeImageThreshold/,
+  'Asset warnings compact grid should include the warning toggle and threshold rows'
+);
+
+assert.match(
+  source,
+  /const renderThemeGrid = \(section\) => \{[\s\S]*fetch\('assets\/themes\/packs\.json'\)[\s\S]*applyThemePackOptions\(fallbackThemePacks\);/,
+  'Theme compact grid should preserve dynamic theme pack loading with fallback options'
+);
+
+assert.match(
+  source,
+  /field\.className = 'cs-field cs-single-grid-fieldset';/,
+  'avatar and content root should share one compact fieldset instead of separate tall fields'
+);
+
+assert.match(
+  source,
+  /row\.dataset\.field = item\.dataKey;/,
+  'each compact identity path row should keep its own data-field for diff and reveal handling'
+);
+
+assert.doesNotMatch(
+  source,
+  /input\.dataset\.autofocus = '';/,
+  'compact identity path inputs should not steal section navigation focus and scroll gestures'
+);
+
+assert.match(
+  source,
+  /tooltip\.className = 'cs-help-tooltip';[\s\S]*tooltipBubble\.setAttribute\('role', 'tooltip'\);/,
+  'compact identity path labels should expose their help text through an accessible tooltip'
+);
+
+assert.match(
+  source,
+  /\.cs-single-grid\{display:grid;grid-template-columns:minmax\(88px,max-content\) minmax\(0,1fr\);column-gap:var\(--cs-editor-row-column-gap\);row-gap:var\(--cs-editor-row-gap\);align-items:center\}[\s\S]*\.cs-single-grid-row\{display:grid;grid-template-columns:subgrid;grid-column:1\/-1;align-items:center;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0/,
+  'compact identity path rows should use one parent grid and subgrid rows so labels and inputs share column tracks'
+);
+
+assert.match(
+  source,
+  /\.cs-single-grid-control \.cs-input,.cs-single-grid-control \.cs-select\{width:100%;min-width:0\}/,
+  'compact grid controls should fill the shared control column'
+);
+
+assert.match(
+  source,
+  /\.cs-help-tooltip-wrap:hover \.cs-help-tooltip-bubble,.cs-help-tooltip:focus-visible \+ \.cs-help-tooltip-bubble\{opacity:1;transform:translateY\(0\);pointer-events:auto\}/,
+  'compact identity path help should appear as a hover/focus tooltip'
+);
+
+assert.match(
+  editorSource,
+  /html, body \{ overflow-x: hidden; overflow-y: auto; \}/,
+  'editor page should override theme overflow-x: clip so the root document remains vertically scrollable'
 );
 
 assert.doesNotMatch(

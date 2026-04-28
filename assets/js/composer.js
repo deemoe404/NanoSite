@@ -12717,6 +12717,97 @@ function buildSiteUI(root, state) {
     return input;
   };
 
+  const createSingleGridFieldset = (section) => {
+    const field = document.createElement('div');
+    field.className = 'cs-field cs-single-grid-fieldset';
+    const grid = document.createElement('div');
+    grid.className = 'cs-single-grid';
+    field.appendChild(grid);
+    section.appendChild(field);
+
+    const addRow = (item, index = grid.children.length) => {
+      const row = document.createElement('div');
+      row.className = 'cs-single-grid-row';
+      row.dataset.field = item.dataKey;
+
+      const controlId = `cs-single-grid-${item.dataKey}-${index}`;
+      const tooltipId = `cs-single-grid-help-${item.dataKey}-${index}`;
+
+      const labelCell = document.createElement('div');
+      labelCell.className = 'cs-single-grid-label';
+
+      const tooltipWrap = document.createElement('span');
+      tooltipWrap.className = 'cs-help-tooltip-wrap';
+      const tooltip = document.createElement('button');
+      tooltip.type = 'button';
+      tooltip.className = 'cs-help-tooltip';
+      tooltip.textContent = '?';
+      tooltip.setAttribute('aria-label', `${item.label}: ${item.description}`);
+      tooltip.setAttribute('aria-describedby', tooltipId);
+      const tooltipBubble = document.createElement('span');
+      tooltipBubble.id = tooltipId;
+      tooltipBubble.className = 'cs-help-tooltip-bubble';
+      tooltipBubble.setAttribute('role', 'tooltip');
+      tooltipBubble.textContent = item.description;
+      tooltipWrap.appendChild(tooltip);
+      tooltipWrap.appendChild(tooltipBubble);
+      labelCell.appendChild(tooltipWrap);
+
+      const label = document.createElement('label');
+      label.className = 'cs-single-grid-title';
+      label.htmlFor = controlId;
+      label.textContent = item.label;
+      labelCell.appendChild(label);
+      row.appendChild(labelCell);
+
+      const controlCell = document.createElement('div');
+      controlCell.className = 'cs-single-grid-control';
+      row.appendChild(controlCell);
+      grid.appendChild(row);
+
+      return { row, controlCell, controlId, label };
+    };
+
+    return { field, grid, addRow };
+  };
+
+  const renderIdentityPathGrid = (section) => {
+    const { addRow } = createSingleGridFieldset(section);
+    const items = [
+      {
+        dataKey: 'avatar',
+        label: t('editor.composer.site.fields.avatar'),
+        description: t('editor.composer.site.fields.avatarHelp'),
+        placeholder: 'assets/avatar.jpeg',
+        get: () => site.avatar,
+        set: (value) => { site.avatar = value; }
+      },
+      {
+        dataKey: 'contentRoot',
+        label: t('editor.composer.site.fields.contentRoot'),
+        description: t('editor.composer.site.fields.contentRootHelp'),
+        placeholder: 'wwwroot',
+        get: () => site.contentRoot,
+        set: (value) => { site.contentRoot = value; }
+      }
+    ];
+
+    items.forEach((item, index) => {
+      const { controlCell, controlId } = addRow(item, index);
+      const input = document.createElement('input');
+      input.id = controlId;
+      input.type = 'text';
+      input.className = 'cs-input';
+      input.value = item.get() || '';
+      input.placeholder = item.placeholder;
+      input.addEventListener('input', () => {
+        item.set(input.value);
+        markDirty();
+      });
+      controlCell.appendChild(input);
+    });
+  };
+
   const createNumberField = (section, config) => {
     const field = createField(section, {
       dataKey: config.dataKey,
@@ -12911,6 +13002,444 @@ function buildSiteUI(root, state) {
     return select;
   };
 
+  const renderBehaviorGrid = (section) => {
+    const { addRow } = createSingleGridFieldset(section);
+    const rows = [];
+    const addBehaviorRow = (item) => {
+      const row = addRow(item, rows.length);
+      rows.push(row);
+      return row;
+    };
+
+    const createSelectRow = (item) => {
+      const { controlCell, controlId } = addBehaviorRow(item);
+      const select = document.createElement('select');
+      select.id = controlId;
+      select.className = 'cs-select';
+      controlCell.appendChild(select);
+      return select;
+    };
+
+    const defaultLanguageSelect = createSelectRow({
+      dataKey: 'defaultLanguage',
+      label: t('editor.composer.site.fields.defaultLanguage'),
+      description: t('editor.composer.site.fields.defaultLanguageHelp')
+    });
+
+    const applyDefaultLanguageOptions = () => {
+      const codes = collectLanguageCodes();
+      const seen = new Set();
+      const appendOption = (value, label) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        defaultLanguageSelect.appendChild(option);
+        seen.add(value);
+      };
+
+      defaultLanguageSelect.innerHTML = '';
+      appendOption('', t('editor.composer.site.languageAutoOption'));
+      codes.forEach((code) => {
+        if (!seen.has(code)) appendOption(code, displayLangName(code));
+      });
+      const current = normalizeLangCode(site.defaultLanguage);
+      if (current && !seen.has(current)) {
+        appendOption(current, displayLangName(current));
+      }
+      const nextValue = current && seen.has(current) ? current : '';
+      defaultLanguageSelect.value = nextValue;
+    };
+
+    defaultLanguageSelect.addEventListener('change', () => {
+      site.defaultLanguage = normalizeLangCode(defaultLanguageSelect.value);
+      markDirty();
+    });
+    applyDefaultLanguageOptions();
+
+    const createNumberRow = (item) => {
+      const { controlCell, controlId } = addBehaviorRow(item);
+      const input = document.createElement('input');
+      input.id = controlId;
+      input.type = 'number';
+      input.className = 'cs-input';
+      if (item.min != null) input.min = String(item.min);
+      const value = item.get();
+      input.value = value != null && !Number.isNaN(value) ? String(value) : '';
+      input.addEventListener('input', () => {
+        const raw = input.value.trim();
+        item.set(raw ? Number(raw) : null);
+        markDirty();
+      });
+      controlCell.appendChild(input);
+      return input;
+    };
+
+    createNumberRow({
+      dataKey: 'contentOutdatedDays',
+      label: t('editor.composer.site.fields.contentOutdatedDays'),
+      description: t('editor.composer.site.fields.contentOutdatedDaysHelp'),
+      min: 0,
+      get: () => site.contentOutdatedDays,
+      set: (value) => { site.contentOutdatedDays = value == null || Number.isNaN(value) ? null : value; }
+    });
+
+    createNumberRow({
+      dataKey: 'pageSize',
+      label: t('editor.composer.site.fields.pageSize'),
+      description: t('editor.composer.site.fields.pageSizeHelp'),
+      min: 1,
+      get: () => site.pageSize,
+      set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
+    });
+
+    const createToggleRow = (item, allowMixed = false) => {
+      const { row, controlCell } = addBehaviorRow(item);
+      const { toggle, checkbox } = createSwitchControl(row, item.checkboxLabel || item.label, {
+        target: controlCell,
+        classes: ['cs-single-grid-switch']
+      });
+      const sync = () => {
+        syncSwitchState(checkbox, toggle, item.get(), allowMixed);
+      };
+      checkbox.addEventListener('change', () => {
+        item.set(checkbox.checked);
+        syncSwitchState(checkbox, toggle, checkbox.checked, allowMixed);
+        markDirty();
+      });
+      sync();
+      return { checkbox, row, control: toggle };
+    };
+
+    const showAllPostsField = createToggleRow({
+      dataKey: 'showAllPosts',
+      label: t('editor.composer.site.fields.showAllPosts'),
+      description: t('editor.composer.site.fields.showAllPostsHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled'),
+      get: () => site.showAllPosts === true,
+      set: (value) => { site.showAllPosts = !!value; }
+    });
+
+    const landingTabSelect = createSelectRow({
+      dataKey: 'landingTab',
+      label: t('editor.composer.site.fields.landingTab'),
+      description: t('editor.composer.site.fields.landingTabHelp')
+    });
+
+    const getTabLabel = (slug) => {
+      if (!state.tabs || typeof state.tabs !== 'object') return slug;
+      const entry = state.tabs[slug];
+      if (!entry || typeof entry !== 'object') return slug;
+      const pickTitle = () => {
+        const def = entry.default;
+        if (def && typeof def === 'object' && def.title) return String(def.title).trim();
+        for (const key of Object.keys(entry)) {
+          if (key === '__order') continue;
+          const val = entry[key];
+          if (val && typeof val === 'object' && val.title) {
+            const title = String(val.title).trim();
+            if (title) return title;
+          }
+        }
+        return '';
+      };
+      const title = pickTitle();
+      if (!title) return slug;
+      if (title.toLowerCase() === String(slug).toLowerCase()) return title;
+      return `${title} (${slug})`;
+    };
+
+    const renderLandingOptions = () => {
+      const seen = new Set();
+      let firstOption = null;
+      const addOption = (value, label) => {
+        if (value === '' || seen.has(value)) return;
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        landingTabSelect.appendChild(option);
+        seen.add(value);
+        if (firstOption == null) firstOption = value;
+      };
+
+      const current = site.landingTab || '';
+      landingTabSelect.innerHTML = '';
+      const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
+      order.forEach((slug) => {
+        if (!slug) return;
+        addOption(slug, getTabLabel(slug));
+      });
+      const allowPosts = site.showAllPosts === true || current === 'posts';
+      if (allowPosts) {
+        addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
+      }
+      if (current && !seen.has(current)) addOption(current, current);
+      const nextValue = seen.has(current) ? current : firstOption || '';
+      landingTabSelect.value = nextValue;
+      if (nextValue && nextValue !== site.landingTab) {
+        site.landingTab = nextValue;
+        markDirty();
+      }
+    };
+
+    landingTabSelect.addEventListener('change', () => {
+      const value = landingTabSelect.value;
+      if (value && site.landingTab !== value) {
+        site.landingTab = value;
+        markDirty();
+      }
+    });
+
+    renderLandingOptions();
+    showAllPostsField.checkbox.addEventListener('change', () => {
+      if (site.showAllPosts !== true && site.landingTab === 'posts') {
+        site.landingTab = '';
+      }
+      renderLandingOptions();
+    });
+
+    createToggleRow({
+      dataKey: 'cardCoverFallback',
+      label: t('editor.composer.site.fields.cardCoverFallback'),
+      description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled'),
+      get: () => site.cardCoverFallback,
+      set: (value) => { site.cardCoverFallback = value; }
+    }, true);
+
+    createToggleRow({
+      dataKey: 'errorOverlay',
+      label: t('editor.composer.site.fields.errorOverlay'),
+      description: t('editor.composer.site.fields.errorOverlayHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled'),
+      get: () => site.errorOverlay,
+      set: (value) => { site.errorOverlay = value; }
+    }, true);
+  };
+
+  const renderThemeGrid = (section) => {
+    const { addRow } = createSingleGridFieldset(section);
+    const rows = [];
+    const addThemeRow = (item) => {
+      const row = addRow(item, rows.length);
+      rows.push(row);
+      return row;
+    };
+
+    const createSelectRow = (item) => {
+      const { controlCell, controlId } = addThemeRow(item);
+      const select = document.createElement('select');
+      select.id = controlId;
+      select.className = 'cs-select';
+      (item.options || []).forEach((opt) => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        select.appendChild(option);
+      });
+
+      const ensureSelection = () => {
+        const options = Array.from(select.options);
+        if (!options.length) {
+          const currentRaw = item.get();
+          const current = currentRaw == null ? '' : String(currentRaw);
+          if (current) select.value = current;
+          return current;
+        }
+        const available = new Set(options.map((opt) => opt.value));
+        const currentRaw = item.get();
+        const current = currentRaw == null ? '' : String(currentRaw);
+        if (current && available.has(current)) {
+          select.value = current;
+          return current;
+        }
+        const fallback = item.defaultValue != null && available.has(item.defaultValue)
+          ? item.defaultValue
+          : (options.length ? options[0].value : '');
+        select.value = fallback;
+        if (fallback && fallback !== current) {
+          item.set(fallback);
+          markDirty();
+        } else if (!fallback && current) {
+          item.set('');
+          markDirty();
+        }
+        return fallback;
+      };
+
+      ensureSelection();
+      select.addEventListener('change', () => {
+        item.set(select.value);
+        markDirty();
+      });
+      controlCell.appendChild(select);
+      return select;
+    };
+
+    createSelectRow({
+      dataKey: 'themeMode',
+      label: t('editor.composer.site.fields.themeMode'),
+      description: t('editor.composer.site.fields.themeModeHelp'),
+      get: () => site.themeMode || '',
+      set: (value) => { site.themeMode = value == null ? '' : value; },
+      defaultValue: 'auto',
+      options: [
+        { value: 'user', label: 'user' },
+        { value: 'auto', label: 'auto' },
+        { value: 'light', label: 'light' },
+        { value: 'dark', label: 'dark' }
+      ]
+    });
+
+    const sanitizeThemePackValue = (value) => {
+      return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    };
+    const normalizeThemePackList = (list) => {
+      const normalized = [];
+      const seen = new Set();
+      (Array.isArray(list) ? list : []).forEach((item) => {
+        if (!item) return;
+        const packValue = sanitizeThemePackValue(item.value);
+        if (!packValue || seen.has(packValue)) return;
+        seen.add(packValue);
+        normalized.push({
+          value: packValue,
+          label: safeString(item.label || item.value || packValue) || packValue
+        });
+      });
+      return normalized;
+    };
+
+    const themePackSelect = createSelectRow({
+      dataKey: 'themePack',
+      label: t('editor.composer.site.fields.themePack'),
+      description: t('editor.composer.site.fields.themePackHelp'),
+      get: () => sanitizeThemePackValue(site.themePack),
+      set: (value) => { site.themePack = sanitizeThemePackValue(value); },
+      defaultValue: 'native',
+      options: []
+    });
+
+    const fallbackThemePacks = [
+      { value: 'native', label: 'Native' },
+      { value: 'github', label: 'GitHub' },
+      { value: 'apple', label: 'Apple' },
+      { value: 'openai', label: 'OpenAI' }
+    ];
+
+    const applyThemePackOptions = (options) => {
+      const normalized = normalizeThemePackList(options);
+      const selectOptions = normalized.length ? normalized : normalizeThemePackList(fallbackThemePacks);
+      const current = sanitizeThemePackValue(site.themePack);
+      const seen = new Set();
+      const appendOption = (value, label) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = safeString(label || value) || value;
+        themePackSelect.appendChild(option);
+        seen.add(value);
+      };
+      themePackSelect.innerHTML = '';
+      let firstOption = null;
+      selectOptions.forEach(({ value, label }) => {
+        appendOption(value, label);
+        if (firstOption == null) firstOption = value;
+      });
+      if (current && !seen.has(current)) {
+        appendOption(current, current);
+        if (firstOption == null) firstOption = current;
+      }
+      const nextValue = current && seen.has(current) ? current : firstOption || '';
+      themePackSelect.value = nextValue;
+      const sanitized = sanitizeThemePackValue(nextValue);
+      if (sanitized && sanitized !== site.themePack) {
+        site.themePack = sanitized;
+        markDirty();
+      } else if (!sanitized && site.themePack) {
+        site.themePack = '';
+        markDirty();
+      }
+    };
+
+    applyThemePackOptions(fallbackThemePacks);
+    fetch('assets/themes/packs.json')
+      .then((response) => (response && response.ok ? response.json() : Promise.reject()))
+      .then((list) => {
+        if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
+        applyThemePackOptions(list);
+      })
+      .catch(() => {
+        applyThemePackOptions(fallbackThemePacks);
+      });
+
+    const { row, controlCell } = addThemeRow({
+      dataKey: 'themeOverride',
+      label: t('editor.composer.site.fields.themeOverride'),
+      description: t('editor.composer.site.fields.themeOverrideHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled')
+    });
+    const { toggle, checkbox } = createSwitchControl(row, t('editor.composer.site.toggleEnabled'), {
+      target: controlCell,
+      classes: ['cs-single-grid-switch']
+    });
+    checkbox.addEventListener('change', () => {
+      site.themeOverride = checkbox.checked;
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
+      markDirty();
+    });
+    syncSwitchState(checkbox, toggle, site.themeOverride, true);
+  };
+
+  const renderAssetWarningsGrid = (section) => {
+    const warnings = ensureAssetWarnings();
+    const { addRow } = createSingleGridFieldset(section);
+    const rows = [];
+    const addAssetRow = (item) => {
+      const row = addRow(item, rows.length);
+      rows.push(row);
+      return row;
+    };
+
+    const { row: largeImageRow, controlCell: largeImageControl } = addAssetRow({
+      dataKey: 'assetWarnings',
+      label: t('editor.composer.site.fields.assetLargeImage'),
+      description: t('editor.composer.site.fields.assetLargeImageHelp'),
+      checkboxLabel: t('editor.composer.site.toggleEnabled')
+    });
+    const { toggle, checkbox } = createSwitchControl(
+      largeImageRow,
+      t('editor.composer.site.toggleEnabled'),
+      {
+        target: largeImageControl,
+        classes: ['cs-single-grid-switch']
+      }
+    );
+    checkbox.addEventListener('change', () => {
+      warnings.largeImage.enabled = checkbox.checked;
+      syncSwitchState(checkbox, toggle, checkbox.checked, true);
+      markDirty();
+    });
+    syncSwitchState(checkbox, toggle, warnings.largeImage.enabled, true);
+
+    const { controlCell: thresholdControl, controlId: thresholdId } = addAssetRow({
+      dataKey: 'assetWarnings',
+      label: t('editor.composer.site.fields.assetLargeImageThreshold'),
+      description: t('editor.composer.site.fields.assetLargeImageThresholdHelp')
+    });
+    const thresholdInput = document.createElement('input');
+    thresholdInput.id = thresholdId;
+    thresholdInput.type = 'number';
+    thresholdInput.className = 'cs-input';
+    thresholdInput.min = '1';
+    const threshold = warnings.largeImage.thresholdKB;
+    thresholdInput.value = threshold != null && !Number.isNaN(threshold) ? String(threshold) : '';
+    thresholdInput.addEventListener('input', () => {
+      const raw = thresholdInput.value.trim();
+      warnings.largeImage.thresholdKB = raw ? Number(raw) : null;
+      markDirty();
+    });
+    thresholdControl.appendChild(thresholdInput);
+  };
+
   const createLinkListField = (section, key, config) => {
     const list = ensureLinkList(key);
     const field = createField(section, {
@@ -13063,22 +13592,7 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.identity.description')
   );
   renderIdentityLocalizedGrid(identitySection);
-  createTextField(identitySection, {
-    dataKey: 'avatar',
-    label: t('editor.composer.site.fields.avatar'),
-    description: t('editor.composer.site.fields.avatarHelp'),
-    placeholder: 'assets/avatar.jpeg',
-    get: () => site.avatar,
-    set: (value) => { site.avatar = value; }
-  });
-  createTextField(identitySection, {
-    dataKey: 'contentRoot',
-    label: t('editor.composer.site.fields.contentRoot'),
-    description: t('editor.composer.site.fields.contentRootHelp'),
-    placeholder: 'wwwroot',
-    get: () => site.contentRoot,
-    set: (value) => { site.contentRoot = value; }
-  });
+  renderIdentityPathGrid(identitySection);
 
   const seoSection = createSection(
     t('editor.composer.site.sections.seo.title'),
@@ -13118,285 +13632,13 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.behavior.title'),
     t('editor.composer.site.sections.behavior.description')
   );
-  const defaultLanguageSelect = createSelectField(behaviorSection, {
-    dataKey: 'defaultLanguage',
-    label: t('editor.composer.site.fields.defaultLanguage'),
-    description: t('editor.composer.site.fields.defaultLanguageHelp'),
-    get: () => normalizeLangCode(site.defaultLanguage),
-    set: (value) => { site.defaultLanguage = normalizeLangCode(value); },
-    defaultValue: '',
-    options: []
-  });
-  const applyDefaultLanguageOptions = () => {
-    const codes = collectLanguageCodes();
-    const seen = new Set();
-    const appendOption = (value, label) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = label;
-      defaultLanguageSelect.appendChild(option);
-      seen.add(value);
-    };
-
-    defaultLanguageSelect.innerHTML = '';
-    appendOption('', t('editor.composer.site.languageAutoOption'));
-    codes.forEach((code) => {
-      if (!seen.has(code)) appendOption(code, displayLangName(code));
-    });
-    const current = normalizeLangCode(site.defaultLanguage);
-    if (current && !seen.has(current)) {
-      appendOption(current, displayLangName(current));
-    }
-    const nextValue = current && seen.has(current) ? current : '';
-    defaultLanguageSelect.value = nextValue;
-  };
-  applyDefaultLanguageOptions();
-  createNumberField(behaviorSection, {
-    dataKey: 'contentOutdatedDays',
-    label: t('editor.composer.site.fields.contentOutdatedDays'),
-    description: t('editor.composer.site.fields.contentOutdatedDaysHelp'),
-    min: 0,
-    get: () => site.contentOutdatedDays,
-    set: (value) => { site.contentOutdatedDays = value == null || Number.isNaN(value) ? null : value; }
-  });
-  createNumberField(behaviorSection, {
-    dataKey: 'pageSize',
-    label: t('editor.composer.site.fields.pageSize'),
-    description: t('editor.composer.site.fields.pageSizeHelp'),
-    min: 1,
-    get: () => site.pageSize,
-    set: (value) => { site.pageSize = value == null || Number.isNaN(value) ? null : value; }
-  });
-  const showAllPostsField = createToggleField(behaviorSection, {
-    dataKey: 'showAllPosts',
-    label: t('editor.composer.site.fields.showAllPosts'),
-    description: t('editor.composer.site.fields.showAllPostsHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    get: () => site.showAllPosts === true,
-    set: (value) => {
-      site.showAllPosts = !!value;
-    }
-  });
-
-  const landingTabField = (() => {
-    const field = createField(behaviorSection, {
-      dataKey: 'landingTab',
-      label: t('editor.composer.site.fields.landingTab'),
-      description: t('editor.composer.site.fields.landingTabHelp')
-    });
-    const control = document.createElement('div');
-    control.className = 'cs-field-controls';
-    const select = document.createElement('select');
-    select.className = 'cs-select';
-    control.appendChild(select);
-    field.appendChild(control);
-
-    const getTabLabel = (slug) => {
-      if (!state.tabs || typeof state.tabs !== 'object') return slug;
-      const entry = state.tabs[slug];
-      if (!entry || typeof entry !== 'object') return slug;
-      const pickTitle = () => {
-        const def = entry.default;
-        if (def && typeof def === 'object' && def.title) return String(def.title).trim();
-        for (const key of Object.keys(entry)) {
-          if (key === '__order') continue;
-          const val = entry[key];
-          if (val && typeof val === 'object' && val.title) {
-            const title = String(val.title).trim();
-            if (title) return title;
-          }
-        }
-        return '';
-      };
-      const title = pickTitle();
-      if (!title) return slug;
-      if (title.toLowerCase() === String(slug).toLowerCase()) return title;
-      return `${title} (${slug})`;
-    };
-
-    const renderOptions = () => {
-      const seen = new Set();
-      let firstOption = null;
-      const addOption = (value, label) => {
-        if (value === '' || seen.has(value)) return;
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = label;
-        select.appendChild(option);
-        seen.add(value);
-        if (firstOption == null) firstOption = value;
-      };
-
-      const current = site.landingTab || '';
-      select.innerHTML = '';
-      const order = state.tabs && Array.isArray(state.tabs.__order) ? state.tabs.__order : [];
-      order.forEach((slug) => {
-        if (!slug) return;
-        addOption(slug, getTabLabel(slug));
-      });
-      const allowPosts = site.showAllPosts === true || current === 'posts';
-      if (allowPosts) {
-        addOption('posts', t('editor.composer.site.fields.landingTabAllPostsOption'));
-      }
-      if (current && !seen.has(current)) addOption(current, current);
-      const nextValue = seen.has(current) ? current : firstOption || '';
-      select.value = nextValue;
-      if (nextValue && nextValue !== site.landingTab) {
-        site.landingTab = nextValue;
-        markDirty();
-      }
-    };
-
-    select.addEventListener('change', () => {
-      const value = select.value;
-      if (value && site.landingTab !== value) {
-        site.landingTab = value;
-        markDirty();
-      }
-    });
-
-    renderOptions();
-
-    return {
-      field,
-      select,
-      renderOptions
-    };
-  })();
-
-  showAllPostsField.checkbox.addEventListener('change', () => {
-    if (site.showAllPosts !== true && site.landingTab === 'posts') {
-      site.landingTab = '';
-    }
-    landingTabField.renderOptions();
-  });
-  createTriStateCheckbox(behaviorSection, {
-    dataKey: 'cardCoverFallback',
-    label: t('editor.composer.site.fields.cardCoverFallback'),
-    description: t('editor.composer.site.fields.cardCoverFallbackHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: true,
-    get: () => site.cardCoverFallback,
-    set: (value) => { site.cardCoverFallback = value; }
-  });
-  createTriStateCheckbox(behaviorSection, {
-    dataKey: 'errorOverlay',
-    label: t('editor.composer.site.fields.errorOverlay'),
-    description: t('editor.composer.site.fields.errorOverlayHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: false,
-    get: () => site.errorOverlay,
-    set: (value) => { site.errorOverlay = value; }
-  });
+  renderBehaviorGrid(behaviorSection);
 
   const themeSection = createSection(
     t('editor.composer.site.sections.theme.title'),
     t('editor.composer.site.sections.theme.description')
   );
-  createSelectField(themeSection, {
-    dataKey: 'themeMode',
-    label: t('editor.composer.site.fields.themeMode'),
-    description: t('editor.composer.site.fields.themeModeHelp'),
-    get: () => site.themeMode || '',
-    set: (value) => { site.themeMode = value == null ? '' : value; },
-    defaultValue: 'auto',
-    options: [
-      { value: 'user', label: 'user' },
-      { value: 'auto', label: 'auto' },
-      { value: 'light', label: 'light' },
-      { value: 'dark', label: 'dark' }
-    ]
-  });
-  const sanitizeThemePackValue = (value) => {
-    return safeString(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  };
-  const normalizeThemePackList = (list) => {
-    const normalized = [];
-    const seen = new Set();
-    (Array.isArray(list) ? list : []).forEach((item) => {
-      if (!item) return;
-      const packValue = sanitizeThemePackValue(item.value);
-      if (!packValue || seen.has(packValue)) return;
-      seen.add(packValue);
-      normalized.push({
-        value: packValue,
-        label: safeString(item.label || item.value || packValue) || packValue
-      });
-    });
-    return normalized;
-  };
-  const applyThemePackOptions = (options) => {
-    const normalized = normalizeThemePackList(options);
-    const selectOptions = normalized.length ? normalized : normalizeThemePackList([
-      { value: 'native', label: 'Native' },
-      { value: 'github', label: 'GitHub' },
-      { value: 'apple', label: 'Apple' },
-      { value: 'openai', label: 'OpenAI' }
-    ]);
-    const current = sanitizeThemePackValue(site.themePack);
-    const seen = new Set();
-    const appendOption = (value, label) => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = safeString(label || value) || value;
-      themePackSelect.appendChild(option);
-      seen.add(value);
-    };
-    themePackSelect.innerHTML = '';
-    let firstOption = null;
-    selectOptions.forEach(({ value, label }) => {
-      appendOption(value, label);
-      if (firstOption == null) firstOption = value;
-    });
-    if (current && !seen.has(current)) {
-      appendOption(current, current);
-      if (firstOption == null) firstOption = current;
-    }
-    const nextValue = current && seen.has(current) ? current : firstOption || '';
-    themePackSelect.value = nextValue;
-    const sanitized = sanitizeThemePackValue(nextValue);
-    if (sanitized && sanitized !== site.themePack) {
-      site.themePack = sanitized;
-      markDirty();
-    } else if (!sanitized && site.themePack) {
-      site.themePack = '';
-      markDirty();
-    }
-  };
-  const themePackSelect = createSelectField(themeSection, {
-    dataKey: 'themePack',
-    label: t('editor.composer.site.fields.themePack'),
-    description: t('editor.composer.site.fields.themePackHelp'),
-    get: () => sanitizeThemePackValue(site.themePack),
-    set: (value) => { site.themePack = sanitizeThemePackValue(value); },
-    defaultValue: 'native',
-    options: []
-  });
-  const fallbackThemePacks = [
-    { value: 'native', label: 'Native' },
-    { value: 'github', label: 'GitHub' },
-    { value: 'apple', label: 'Apple' },
-    { value: 'openai', label: 'OpenAI' }
-  ];
-  applyThemePackOptions(fallbackThemePacks);
-  fetch('assets/themes/packs.json')
-    .then((response) => (response && response.ok ? response.json() : Promise.reject()))
-    .then((list) => {
-      if (!Array.isArray(list) || !normalizeThemePackList(list).length) throw new Error('empty theme pack list');
-      applyThemePackOptions(list);
-    })
-    .catch(() => {
-      applyThemePackOptions(fallbackThemePacks);
-    });
-  createTriStateCheckbox(themeSection, {
-    dataKey: 'themeOverride',
-    label: t('editor.composer.site.fields.themeOverride'),
-    description: t('editor.composer.site.fields.themeOverrideHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: true,
-    get: () => site.themeOverride,
-    set: (value) => { site.themeOverride = value; }
-  });
+  renderThemeGrid(themeSection);
 
   const repoSection = createSection(
     t('editor.composer.site.sections.repo.title'),
@@ -13477,24 +13719,7 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.assets.title'),
     t('editor.composer.site.sections.assets.description')
   );
-  const warnings = ensureAssetWarnings();
-  createTriStateCheckbox(assetsSection, {
-    dataKey: 'assetWarnings',
-    label: t('editor.composer.site.fields.assetLargeImage'),
-    description: t('editor.composer.site.fields.assetLargeImageHelp'),
-    checkboxLabel: t('editor.composer.site.toggleEnabled'),
-    defaultValue: false,
-    get: () => warnings.largeImage.enabled,
-    set: (value) => { warnings.largeImage.enabled = value; }
-  });
-  createNumberField(assetsSection, {
-    dataKey: 'assetWarnings',
-    label: t('editor.composer.site.fields.assetLargeImageThreshold'),
-    description: t('editor.composer.site.fields.assetLargeImageThresholdHelp'),
-    min: 1,
-    get: () => warnings.largeImage.thresholdKB,
-    set: (value) => { warnings.largeImage.thresholdKB = value == null || Number.isNaN(value) ? null : value; }
-  });
+  renderAssetWarningsGrid(assetsSection);
 
   if (site.__extras && Object.keys(site.__extras).length) {
     const extrasSection = createSection(
@@ -13897,7 +14122,7 @@ function rebuildSiteUI() {
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
-  .cs-identity-grid,.cs-localized-list--grid{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem}
+  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem}
   .cs-localized-list--grid{gap:var(--cs-editor-row-gap)}
   .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
@@ -13921,6 +14146,20 @@ function rebuildSiteUI() {
   .cs-identity-cell-label{display:none;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
   .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
   .cs-identity-remove{margin-left:0;white-space:nowrap}
+  .cs-single-grid-fieldset{gap:0}
+  .cs-single-grid{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr);column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center}
+  .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
+  .cs-single-grid-row[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
+  .cs-single-grid-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
+  .cs-single-grid-title{font-size:.84rem;white-space:nowrap}
+  .cs-single-grid-control{min-width:0;display:flex;align-items:center}
+  .cs-single-grid-control .cs-input,.cs-single-grid-control .cs-select{width:100%;min-width:0}
+  .cs-single-grid-switch{margin:0}
+  .cs-help-tooltip-wrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
+  .cs-help-tooltip{appearance:none;width:1rem;height:1rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--primary) 42%, var(--border));background:color-mix(in srgb,var(--card) 99%, transparent);color:color-mix(in srgb,var(--primary) 88%, var(--text));font-size:.68rem;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:help}
+  .cs-help-tooltip:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 55%, transparent);outline-offset:2px}
+  .cs-help-tooltip-bubble{position:absolute;left:0;bottom:calc(100% + .35rem);width:max-content;max-width:min(20rem,70vw);padding:.38rem .5rem;border:1px solid color-mix(in srgb,var(--border) 88%, transparent);border-radius:8px;background:color-mix(in srgb,var(--card) 99%, transparent);box-shadow:0 10px 24px rgba(15,23,42,0.14);color:color-mix(in srgb,var(--text) 82%, transparent);font-size:.76rem;line-height:1.3;font-weight:500;text-transform:none;letter-spacing:0;opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .14s ease,transform .14s ease;z-index:20}
+  .cs-help-tooltip-wrap:hover .cs-help-tooltip-bubble,.cs-help-tooltip:focus-visible + .cs-help-tooltip-bubble{opacity:1;transform:translateY(0);pointer-events:auto}
   .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
   .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   textarea.cs-input{min-height:4.6rem;resize:vertical}
@@ -13986,7 +14225,7 @@ function rebuildSiteUI() {
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
-    .cs-identity-grid,.cs-localized-list--grid{--cs-editor-row-gap:.5rem}
+    .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.5rem}
     .cs-localized-row--grid{grid-template-columns:1fr;gap:.35rem}
     .cs-localized-row--grid .cs-remove-lang{justify-self:flex-start}
     .cs-identity-grid{gap:.5rem}
@@ -13995,6 +14234,9 @@ function rebuildSiteUI() {
     .cs-identity-head + .cs-identity-row{border-top:0;padding-top:.1rem}
     .cs-identity-cell-label{display:block}
     .cs-identity-actions{justify-content:flex-start}
+    .cs-single-grid{grid-template-columns:1fr;row-gap:.35rem}
+    .cs-single-grid-row{grid-template-columns:1fr;align-items:stretch;gap:.35rem;padding:.2rem 0}
+    .cs-single-grid-row[data-diff="changed"]{padding-left:.65rem}
   }
 
   /* Modal animations */
