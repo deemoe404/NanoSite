@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,6 +26,7 @@ jobs:
       - name: Verify release package boundary
         run: |
           bash scripts/test-system-release-package.sh
+          bash scripts/test-system-release-workflow.sh
           node --experimental-default-type=module scripts/test-system-updates.js
 
       - name: Plan release

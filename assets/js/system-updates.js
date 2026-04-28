@@ -416,7 +416,7 @@ async function processArchive(buffer) {
   return compareArchive(entries);
 }
 
-async function analyzeArchive(buffer, filename) {
+export async function analyzeArchive(buffer, filename) {
   if (!(buffer instanceof ArrayBuffer)) buffer = getBuffer(buffer);
   if (!buffer || !buffer.byteLength) {
     throw new Error(t('editor.systemUpdates.errors.emptyFile'));
@@ -434,10 +434,9 @@ async function analyzeArchive(buffer, filename) {
   if (release) {
     if (release.asset) {
       release.asset.size = assetSize;
-      release.asset.digest = `sha256:${assetSha256}`;
       if (!release.asset.name) release.asset.name = assetName;
     } else {
-      release.asset = { name: assetName, url: '', size: assetSize, digest: `sha256:${assetSha256}` };
+      release.asset = { name: assetName, url: '', size: assetSize, digest: '' };
     }
     renderReleaseMeta();
     updateDownloadLink();
@@ -552,6 +551,9 @@ export function clearSystemUpdateState(options = {}) {
   assetSha256 = '';
   assetSize = 0;
   assetName = '';
+  if (options && options.clearReleaseCache === true) {
+    releaseCache = null;
+  }
   if (options && options.keepStatus !== true) {
     setStatus(t('editor.systemUpdates.status.idle'));
   }

@@ -24,7 +24,9 @@ globalThis.CustomEvent = class CustomEvent {
 };
 
 const {
+  analyzeArchive,
   collectSystemUpdateArchiveEntries,
+  clearSystemUpdateState,
   selectSystemUpdateAsset,
   verifySystemUpdateAsset
 } = await import('../assets/js/system-updates.js?system-updates-test');
@@ -124,4 +126,41 @@ await run('rejects path traversal entries before comparing files', async () => {
     })),
     /unsafe|system update/i
   );
+});
+
+await run('does not poison expected release digest from a selected local archive', async () => {
+  clearSystemUpdateState({ clearReleaseCache: true, keepStatus: true });
+  const wrongBuffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>wrong</p>' });
+  const rightBuffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>right</p>' });
+  let releaseCalls = 0;
+
+  globalThis.fetch = async (input) => {
+    const url = String(input || '');
+    if (url.includes('/repos/deemoe404/NanoSite/releases/latest')) {
+      releaseCalls += 1;
+      return {
+        ok: true,
+        json: async () => ({
+          name: 'v3.3.5',
+          tag_name: 'v3.3.5',
+          assets: [{
+            name: 'nanosite-system-v3.3.5.zip',
+            browser_download_url: 'https://example.test/nanosite-system-v3.3.5.zip',
+            size: 0,
+            digest: ''
+          }]
+        })
+      };
+    }
+    return {
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0)
+    };
+  };
+
+  await analyzeArchive(wrongBuffer, 'nanosite-system-v3.3.5.zip');
+  await analyzeArchive(rightBuffer, 'nanosite-system-v3.3.5.zip');
+
+  assert.equal(releaseCalls, 1);
+  delete globalThis.fetch;
 });

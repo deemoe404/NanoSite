@@ -55,6 +55,7 @@ Run the focused checks before merging:
 bash scripts/test-main-guard.sh
 bash scripts/test-frontmatter-roundtrip.sh
 bash scripts/test-system-release-package.sh
+bash scripts/test-system-release-workflow.sh
 node --experimental-default-type=module scripts/test-system-updates.js
 ```
 
