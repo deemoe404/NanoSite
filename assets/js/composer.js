@@ -2182,7 +2182,11 @@ function applySiteDiffMarkers(diff) {
   const fields = diff && diff.fields ? diff.fields : {};
   root.querySelectorAll('[data-field]').forEach((el) => {
     const key = el.getAttribute('data-field');
-    if (key && fields[key]) el.setAttribute('data-diff', 'changed');
+    const keys = String(key || '').split('|').map(item => item.trim()).filter(Boolean);
+    const changed = keys.length
+      ? keys.some(fieldKey => !!fields[fieldKey])
+      : !!fields[key];
+    if (key && changed) el.setAttribute('data-diff', 'changed');
     else el.removeAttribute('data-diff');
   });
   try {
@@ -11946,6 +11950,16 @@ function buildSiteUI(root, state) {
     let fieldEl = null;
     try { fieldEl = root.querySelector(selector); }
     catch (_) { fieldEl = null; }
+    if (!fieldEl) {
+      try {
+        fieldEl = Array.from(root.querySelectorAll('[data-field]')).find((candidate) => {
+          const raw = candidate && candidate.getAttribute ? candidate.getAttribute('data-field') : '';
+          return String(raw || '').split('|').map(item => item.trim()).includes(String(fieldKey));
+        }) || null;
+      } catch (_) {
+        fieldEl = null;
+      }
+    }
     if (!fieldEl) return null;
     const section = typeof fieldEl.closest === 'function' ? fieldEl.closest('.cs-section') : null;
     if (!section) return fieldEl;
@@ -11964,7 +11978,15 @@ function buildSiteUI(root, state) {
         }
       }
       if (options.focus !== false) {
-        const focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        let focusTarget = null;
+        try {
+          focusTarget = fieldEl.querySelector(`[data-site-identity-field="${escapeFieldKey(fieldKey)}"]`);
+        } catch (_) {
+          focusTarget = null;
+        }
+        if (!focusTarget) {
+          focusTarget = fieldEl.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])') || fieldEl;
+        }
         try {
           requestAnimationFrame(() => {
             if (typeof focusTarget.focus === 'function') {
@@ -12377,6 +12399,271 @@ function buildSiteUI(root, state) {
     renderRows();
   };
 
+  const renderIdentityLocalizedGrid = (section) => {
+    const titleLabel = t('editor.composer.site.fields.siteTitle');
+    const subtitleLabel = t('editor.composer.site.fields.siteSubtitle');
+    ensureLocalized('siteTitle', true);
+    ensureLocalized('siteSubtitle', true);
+    const field = document.createElement('div');
+    field.className = 'cs-field cs-identity-fieldset';
+    field.dataset.field = 'siteTitle|siteSubtitle';
+    field.setAttribute('role', 'group');
+    field.setAttribute('aria-label', `${titleLabel} / ${subtitleLabel}`);
+    section.appendChild(field);
+    const grid = document.createElement('div');
+    grid.className = 'cs-identity-grid';
+    field.appendChild(grid);
+    const controls = document.createElement('div');
+    controls.className = 'cs-field-controls';
+    field.appendChild(controls);
+    const addWrap = document.createElement('div');
+    addWrap.className = 'cs-add-lang has-menu';
+    controls.appendChild(addWrap);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-secondary cs-add-lang';
+    addBtn.textContent = t('editor.composer.site.addLanguage');
+    addBtn.setAttribute('aria-haspopup', 'listbox');
+    addBtn.setAttribute('aria-expanded', 'false');
+    addWrap.appendChild(addBtn);
+
+    const menu = document.createElement('div');
+    menu.className = 'ns-menu';
+    menu.setAttribute('role', 'listbox');
+    menu.hidden = true;
+    addWrap.appendChild(menu);
+
+    const sortLangs = (langs) => {
+      const ordered = Array.from(new Set(langs.filter(Boolean)));
+      ordered.sort((a, b) => {
+        if (a === 'default') return -1;
+        if (b === 'default') return 1;
+        const ia = PREFERRED_LANG_ORDER.indexOf(a);
+        const ib = PREFERRED_LANG_ORDER.indexOf(b);
+        if (ia !== -1 || ib !== -1) {
+          const pa = ia === -1 ? PREFERRED_LANG_ORDER.length + 1 : ia;
+          const pb = ib === -1 ? PREFERRED_LANG_ORDER.length + 1 : ib;
+          return pa - pb;
+        }
+        return a.localeCompare(b);
+      });
+      return ordered;
+    };
+
+    const collectUsedLangs = () => {
+      const title = ensureLocalized('siteTitle', true);
+      const subtitle = ensureLocalized('siteSubtitle', true);
+      return sortLangs(['default', ...Object.keys(title || {}), ...Object.keys(subtitle || {})]);
+    };
+
+    const refreshMenu = () => {
+      const used = new Set(collectUsedLangs());
+      used.add('default');
+
+      const supportedSet = new Set();
+      const addSupported = (code) => {
+        const normalized = normalizeLangCode(code);
+        if (!normalized) return;
+        supportedSet.add(normalized);
+      };
+
+      try {
+        const availableLangs = getAvailableLangs();
+        if (Array.isArray(availableLangs)) availableLangs.forEach(addSupported);
+      } catch (_) {}
+
+      if (Array.isArray(PREFERRED_LANG_ORDER)) {
+        PREFERRED_LANG_ORDER.forEach(addSupported);
+      }
+
+      try {
+        collectLanguageCodes().forEach(addSupported);
+      } catch (_) {}
+
+      const available = sortLangs(Array.from(supportedSet))
+        .filter((code) => !used.has(code) && LANG_CODE_PATTERN.test(code));
+
+      menu.innerHTML = available
+        .map((code) =>
+          `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
+        )
+        .join('');
+      if (!available.length) {
+        addBtn.setAttribute('disabled', '');
+        addWrap.classList.add('is-disabled');
+        addWrap.hidden = true;
+        addWrap.setAttribute('aria-hidden', 'true');
+        addWrap.style.display = 'none';
+        if (!menu.hidden) closeMenu();
+        return;
+      }
+
+      addBtn.removeAttribute('disabled');
+      addWrap.classList.remove('is-disabled');
+      addWrap.hidden = false;
+      addWrap.removeAttribute('aria-hidden');
+      addWrap.style.removeProperty('display');
+    };
+
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener(LANGUAGE_POOL_CHANGED_EVENT, refreshMenu);
+    }
+
+    const closeMenu = () => {
+      if (menu.hidden) return;
+      const finish = () => {
+        menu.hidden = true;
+        addBtn.classList.remove('is-open');
+        addWrap.classList.remove('is-open');
+        addBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('mousedown', onDocDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+        menu.classList.remove('is-closing');
+      };
+      try {
+        menu.classList.add('is-closing');
+        const onEnd = () => { menu.removeEventListener('animationend', onEnd); finish(); };
+        menu.addEventListener('animationend', onEnd, { once: true });
+        setTimeout(finish, 180);
+      } catch (_) {
+        finish();
+      }
+    };
+
+    const openMenu = () => {
+      refreshMenu();
+      if (!menu.innerHTML.trim() || addWrap.hidden) return;
+      if (!menu.hidden) return;
+      menu.hidden = false;
+      try { menu.classList.remove('is-closing'); } catch (_) {}
+      addBtn.classList.add('is-open');
+      addWrap.classList.add('is-open');
+      addBtn.setAttribute('aria-expanded', 'true');
+      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const code = normalizeLangCode(item.getAttribute('data-lang'));
+          if (!code) return;
+          const title = ensureLocalized('siteTitle', true);
+          const subtitle = ensureLocalized('siteSubtitle', true);
+          if (!Object.prototype.hasOwnProperty.call(title, code)) title[code] = '';
+          if (!Object.prototype.hasOwnProperty.call(subtitle, code)) subtitle[code] = '';
+          markDirty();
+          closeMenu();
+          renderRows();
+          broadcastLanguagePoolChange();
+        });
+      });
+    };
+
+    const onDocDown = (event) => {
+      if (!addWrap.contains(event.target)) closeMenu();
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu();
+      }
+    };
+
+    addBtn.addEventListener('click', () => {
+      if (addBtn.hasAttribute('disabled')) return;
+      if (addBtn.classList.contains('is-open')) closeMenu();
+      else openMenu();
+    });
+
+    const appendHeader = () => {
+      const header = document.createElement('div');
+      header.className = 'cs-identity-row cs-identity-head';
+      const langSpacer = document.createElement('span');
+      langSpacer.className = 'cs-identity-head-spacer';
+      langSpacer.setAttribute('aria-hidden', 'true');
+      const titleHead = document.createElement('span');
+      titleHead.className = 'cs-identity-column-title';
+      titleHead.textContent = titleLabel;
+      const subtitleHead = document.createElement('span');
+      subtitleHead.className = 'cs-identity-column-title';
+      subtitleHead.textContent = subtitleLabel;
+      const actionSpacer = document.createElement('span');
+      actionSpacer.className = 'cs-identity-head-spacer';
+      actionSpacer.setAttribute('aria-hidden', 'true');
+      header.append(langSpacer, titleHead, subtitleHead, actionSpacer);
+      grid.appendChild(header);
+    };
+
+    const appendInput = (row, lang, key, labelText, value) => {
+      const cell = document.createElement('label');
+      cell.className = 'cs-identity-field';
+      const mobileLabel = document.createElement('span');
+      mobileLabel.className = 'cs-identity-cell-label';
+      mobileLabel.textContent = labelText;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'cs-input';
+      input.dataset.siteIdentityField = key;
+      input.value = value || '';
+      input.addEventListener('input', () => {
+        ensureLocalized(key, true)[lang] = input.value;
+        markDirty();
+      });
+      cell.append(mobileLabel, input);
+      row.appendChild(cell);
+    };
+
+    const renderRows = () => {
+      grid.innerHTML = '';
+      appendHeader();
+      const title = ensureLocalized('siteTitle', true);
+      const subtitle = ensureLocalized('siteSubtitle', true);
+      const langs = collectUsedLangs();
+      langs.forEach((lang) => {
+        if (!Object.prototype.hasOwnProperty.call(title, lang)) title[lang] = '';
+        if (!Object.prototype.hasOwnProperty.call(subtitle, lang)) subtitle[lang] = '';
+        const row = document.createElement('div');
+        row.className = 'cs-identity-row';
+        row.dataset.lang = lang;
+        const langCell = document.createElement('div');
+        langCell.className = 'cs-identity-lang';
+        const badge = document.createElement('span');
+        badge.className = 'cs-lang-chip';
+        badge.textContent = lang === 'default'
+          ? t('editor.composer.site.languageDefault')
+          : lang.toUpperCase();
+        langCell.appendChild(badge);
+        row.appendChild(langCell);
+        appendInput(row, lang, 'siteTitle', titleLabel, title[lang] || '');
+        appendInput(row, lang, 'siteSubtitle', subtitleLabel, subtitle[lang] || '');
+        const actions = document.createElement('div');
+        actions.className = 'cs-identity-actions';
+        if (lang !== 'default') {
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.className = 'btn-tertiary cs-remove-lang cs-identity-remove';
+          removeBtn.textContent = t('editor.composer.site.removeLanguage');
+          removeBtn.addEventListener('click', () => {
+            const titleMapNext = ensureLocalized('siteTitle', true);
+            const subtitleMapNext = ensureLocalized('siteSubtitle', true);
+            delete titleMapNext[lang];
+            delete subtitleMapNext[lang];
+            markDirty();
+            renderRows();
+            broadcastLanguagePoolChange();
+          });
+          actions.appendChild(removeBtn);
+        }
+        row.appendChild(actions);
+        grid.appendChild(row);
+      });
+      refreshMenu();
+    };
+
+    renderRows();
+  };
+
   const createTextField = (section, config) => {
     const field = createField(section, {
       dataKey: config.dataKey,
@@ -12746,14 +13033,7 @@ function buildSiteUI(root, state) {
     t('editor.composer.site.sections.identity.title'),
     t('editor.composer.site.sections.identity.description')
   );
-  renderLocalizedField(identitySection, 'siteTitle', {
-    label: t('editor.composer.site.fields.siteTitle'),
-    description: t('editor.composer.site.fields.siteTitleHelp')
-  });
-  renderLocalizedField(identitySection, 'siteSubtitle', {
-    label: t('editor.composer.site.fields.siteSubtitle'),
-    description: t('editor.composer.site.fields.siteSubtitleHelp')
-  });
+  renderIdentityLocalizedGrid(identitySection);
   createTextField(identitySection, {
     dataKey: 'avatar',
     label: t('editor.composer.site.fields.avatar'),
@@ -13589,6 +13869,17 @@ function rebuildSiteUI() {
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
   .cs-lang-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .55rem;border-radius:999px;background:color-mix(in srgb,var(--primary) 14%, var(--card));color:color-mix(in srgb,var(--primary) 95%, var(--text));font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .cs-identity-grid{display:flex;flex-direction:column;gap:.35rem}
+  .cs-identity-row{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr) minmax(0,3fr) minmax(72px,max-content);align-items:center;gap:.45rem}
+  .cs-identity-head{align-items:end;padding:0 0 .1rem}
+  .cs-identity-head-spacer{min-width:1px}
+  .cs-identity-column-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-identity-lang{min-width:0;display:flex;align-items:center}
+  .cs-identity-field{min-width:0;display:flex;flex-direction:column;gap:.2rem}
+  .cs-identity-field .cs-input{min-width:0}
+  .cs-identity-cell-label{display:none;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
+  .cs-identity-remove{margin-left:0;white-space:nowrap}
   .cs-input{width:100%;min-height:1.95rem;padding:.3rem .5rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease, background .16s ease}
   .cs-input:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   textarea.cs-input{min-height:4.6rem;resize:vertical}
@@ -13649,10 +13940,17 @@ function rebuildSiteUI() {
     .cs-section{padding:.9rem .9rem}
     .cs-select{min-width:0;width:100%}
     .cs-input-small{max-width:100%}
+    .cs-identity-row{grid-template-columns:minmax(74px,max-content) minmax(0,1fr) minmax(0,3fr) minmax(68px,max-content)}
     .cs-link-actions{width:100%;justify-content:flex-end;margin-left:0;align-self:auto;padding-top:.35rem}
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
+    .cs-identity-grid{gap:.5rem}
+    .cs-identity-head{display:none}
+    .cs-identity-row{grid-template-columns:1fr;align-items:stretch;gap:.4rem;padding:.55rem 0;border-top:1px solid color-mix(in srgb,var(--border) 72%, transparent)}
+    .cs-identity-head + .cs-identity-row{border-top:0;padding-top:.1rem}
+    .cs-identity-cell-label{display:block}
+    .cs-identity-actions{justify-content:flex-start}
   }
 
   /* Modal animations */
