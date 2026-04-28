@@ -113,7 +113,7 @@ const translations = {
         publishedLabel: ({ date }) => `Published on ${date}`,
         assetLabel: ({ name, size }) => `Asset: ${name} (${size})`,
         assetWithHash: ({ name, size, hash }) => `Asset: ${name} (${size}) — SHA-256 ${hash}`,
-        noAsset: 'No downloadable assets were attached to this release.',
+        noAsset: 'No NanoSite system update package was attached to this release.',
         status: {
           idle: 'Download the latest release ZIP, then select it to check for updates.',
           reading: 'Reading archive…',
@@ -127,6 +127,7 @@ const translations = {
           emptyFile: 'The selected file is empty.',
           invalidArchive: 'The selected ZIP could not be read as a NanoSite release.',
           sizeMismatch: ({ expected, actual }) => `The selected archive size (${actual}) does not match the release asset (${expected}).`,
+          digestMismatch: 'The selected archive SHA-256 does not match the release asset.',
           generic: 'System update failed. Please try again.'
         },
         fileStatus: {

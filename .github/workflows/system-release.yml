@@ -1,0 +1,171 @@
+name: System Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: system-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release package boundary
+        run: |
+          bash scripts/test-system-release-package.sh
+          node --experimental-default-type=module scripts/test-system-updates.js
+
+      - name: Plan release
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          latest_tag="$(gh release view --json tagName -q '.tagName' 2>/dev/null || true)"
+          if [[ -z "${latest_tag}" ]]; then
+            latest_tag="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1 || true)"
+          fi
+
+          if [[ -n "${latest_tag}" ]]; then
+            changed_files="$(git diff --name-only "${latest_tag}..HEAD" -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes || true)"
+          else
+            changed_files="$(git ls-files -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes)"
+          fi
+
+          if [[ -z "${changed_files}" ]]; then
+            {
+              echo "should_release=false"
+              echo "latest_tag=${latest_tag}"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ "${latest_tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            major="${BASH_REMATCH[1]}"
+            minor="${BASH_REMATCH[2]}"
+            patch="${BASH_REMATCH[3]}"
+            next_tag="v${major}.${minor}.$((patch + 1))"
+          else
+            next_tag="v0.0.1"
+          fi
+
+          if git rev-parse -q --verify "refs/tags/${next_tag}" >/dev/null; then
+            echo "Refusing to overwrite existing tag ${next_tag}" >&2
+            exit 1
+          fi
+
+          {
+            echo "should_release=true"
+            echo "latest_tag=${latest_tag}"
+            echo "next_tag=${next_tag}"
+            echo "asset_name=nanosite-system-${next_tag}.zip"
+            echo "changed_files<<EOF"
+            printf '%s\n' "${changed_files}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Build system update package
+        if: steps.plan.outputs.should_release == 'true'
+        id: package
+        run: |
+          set -euo pipefail
+          archive_path="$(bash scripts/package-system-release.sh "${{ steps.plan.outputs.next_tag }}" dist)"
+          archive_size="$(wc -c < "${archive_path}" | tr -d ' ')"
+          archive_sha256="$(shasum -a 256 "${archive_path}" | awk '{print $1}')"
+          {
+            echo "archive_path=${archive_path}"
+            echo "archive_size=${archive_size}"
+            echo "archive_sha256=${archive_sha256}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create draft release
+        if: steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          next_tag="${{ steps.plan.outputs.next_tag }}"
+          latest_tag="${{ steps.plan.outputs.latest_tag }}"
+          asset_name="${{ steps.plan.outputs.asset_name }}"
+          notes_file="dist/release-notes.md"
+
+          {
+            echo "## Migration Guide"
+            echo
+            echo "Use the System Updates tool in Markdown Editor to download and apply \`${asset_name}\`."
+            echo
+            echo "## System Package"
+            echo
+            echo "- Asset: \`${asset_name}\`"
+            echo "- SHA-256: \`${{ steps.package.outputs.archive_sha256 }}\`"
+            echo
+            echo "## Changed System Files"
+            echo
+            printf '%s\n' "${{ steps.plan.outputs.changed_files }}" | sed 's/^/- /'
+            if [[ -n "${latest_tag}" ]]; then
+              echo
+              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${latest_tag}...${next_tag}"
+            fi
+          } > "${notes_file}"
+
+          gh release create "${next_tag}" \
+            "${{ steps.package.outputs.archive_path }}#NanoSite system update package" \
+            --target "${GITHUB_SHA}" \
+            --title "${next_tag}" \
+            --notes-file "${notes_file}" \
+            --draft
+
+      - name: Validate release asset
+        if: steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_ASSET: ${{ steps.plan.outputs.asset_name }}
+          EXPECTED_SIZE: ${{ steps.package.outputs.archive_size }}
+          EXPECTED_SHA256: ${{ steps.package.outputs.archive_sha256 }}
+          NEXT_TAG: ${{ steps.plan.outputs.next_tag }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${NEXT_TAG}" > dist/release.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          with open("dist/release.json", "r", encoding="utf-8") as fh:
+              release = json.load(fh)
+
+          expected_name = os.environ["EXPECTED_ASSET"]
+          expected_size = int(os.environ["EXPECTED_SIZE"])
+          expected_sha = os.environ["EXPECTED_SHA256"].lower()
+          assets = [asset for asset in release.get("assets", []) if asset.get("name") == expected_name]
+          if len(assets) != 1:
+              sys.exit(f"expected exactly one release asset named {expected_name}, found {len(assets)}")
+
+          asset = assets[0]
+          if int(asset.get("size") or 0) != expected_size:
+              sys.exit(f"asset size mismatch: expected {expected_size}, got {asset.get('size')}")
+
+          digest = str(asset.get("digest") or "").lower()
+          if digest and digest != f"sha256:{expected_sha}":
+              sys.exit(f"asset digest mismatch: expected sha256:{expected_sha}, got {digest}")
+          PY
+
+      - name: Publish release
+        if: steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "${{ steps.plan.outputs.next_tag }}" --draft=false --latest

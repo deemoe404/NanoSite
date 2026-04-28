@@ -54,7 +54,15 @@ Run the focused checks before merging:
 ```bash
 bash scripts/test-main-guard.sh
 bash scripts/test-frontmatter-roundtrip.sh
+bash scripts/test-system-release-package.sh
+node --experimental-default-type=module scripts/test-system-updates.js
 ```
+
+## System Releases
+
+Merges to `main` that change NanoSite runtime files automatically publish a patch release with a dedicated `nanosite-system-vX.Y.Z.zip` update package. The package is intentionally limited to the application shell and runtime assets: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, and `assets/themes/`.
+
+Official documentation and site content stay out of update packages. Changes that only touch `wwwroot/` do not create a system release, and update packages must never include `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repo docs, workflow files, scripts, or site-specific media such as `assets/avatar.jpeg` and `assets/hero.jpeg`.
 
 ## Branching
 

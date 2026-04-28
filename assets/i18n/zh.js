@@ -113,7 +113,7 @@ const translations = {
         publishedLabel: ({ date }) => `发布时间：${date}`,
         assetLabel: ({ name, size }) => `附件：${name}（${size}）`,
         assetWithHash: ({ name, size, hash }) => `附件：${name}（${size}） — SHA-256 ${hash}`,
-        noAsset: '此发布没有可下载的附件。',
+        noAsset: '此发布没有可下载的 NanoSite 系统更新包。',
         status: {
           idle: '先下载最新的发布 ZIP，然后选择该文件以检查更新。',
           reading: '正在读取压缩包…',
@@ -127,6 +127,7 @@ const translations = {
           emptyFile: '选择的文件为空。',
           invalidArchive: '选中的 ZIP 无法作为 NanoSite 发布读取。',
           sizeMismatch: ({ expected, actual }) => `选中的压缩包大小（${actual}）与发布附件（${expected}）不一致。`,
+          digestMismatch: '选中的压缩包 SHA-256 与发布附件不一致。',
           generic: '系统更新失败，请重试。'
         },
         fileStatus: {

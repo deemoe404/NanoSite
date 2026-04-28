@@ -9,6 +9,11 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 const TEXT_FILENAMES = new Set(['LICENSE', 'README', 'README.md', 'CHANGELOG', 'CHANGELOG.md']);
 
+export const SYSTEM_UPDATE_ASSET_NAME_PATTERN = /^nanosite-system-v\d+\.\d+\.\d+\.zip$/i;
+
+const SYSTEM_UPDATE_ALLOWED_PATH_PATTERN = /^(?:index\.html|index_editor\.html|assets\/(?:main\.js|js\/.+|i18n\/.+|schema\/.+|themes\/.+))$/;
+const SYSTEM_UPDATE_BLOCKED_PATH_PATTERN = /^(?:\.git\/|\.github\/|wwwroot\/|site\.ya?ml$|site\.local\.ya?ml$|CNAME$|robots\.txt$|sitemap\.xml$|README(?:\.md)?$|BRANCHING\.md$|scripts\/|assets\/(?:avatar|hero)\.jpeg$)/i;
+
 let initialized = false;
 let releaseCache = null;
 let busy = false;
@@ -195,14 +200,93 @@ function renderFileList() {
   });
 }
 
-function normalizePaths(entries) {
-  const paths = entries.map((name) => name.replace(/\\+/g, '/'));
+function normalizeArchiveEntryPath(path) {
+  const raw = String(path || '').replace(/\\+/g, '/');
+  if (!raw || raw.endsWith('/')) return '';
+  if (raw.startsWith('/') || /^[a-z]:\//i.test(raw) || /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) {
+    throw new Error(`Unsafe system update archive path: ${raw}`);
+  }
+  const clean = raw.replace(/^\/+/, '');
+  const parts = clean.split('/');
+  if (parts.some((part) => part === '..' || part === '.')) {
+    throw new Error(`Unsafe system update archive path: ${raw}`);
+  }
+  return clean;
+}
+
+function stripCommonArchiveRoot(entries) {
+  const paths = entries.map((name) => String(name || '').replace(/\\+/g, '/'));
   if (!paths.length) return [];
   const segments = paths.map((p) => p.split('/'));
   if (!segments.every((parts) => parts.length > 1)) return paths;
   const root = segments[0][0];
   if (!segments.every((parts) => parts[0] === root)) return paths;
   return paths.map((parts) => parts.split('/').slice(1).join('/'));
+}
+
+export function isSystemUpdatePath(path) {
+  const clean = String(path || '').replace(/\\+/g, '/').replace(/^\/+/, '');
+  return SYSTEM_UPDATE_ALLOWED_PATH_PATTERN.test(clean) && !SYSTEM_UPDATE_BLOCKED_PATH_PATTERN.test(clean);
+}
+
+export function collectSystemUpdateArchiveEntries(buffer) {
+  const archive = unzipSync(new Uint8Array(buffer));
+  const names = Object.keys(archive || {});
+  if (!names.length) return [];
+
+  const rawEntries = names
+    .map((name) => ({
+      raw: name,
+      path: normalizeArchiveEntryPath(name),
+      data: archive[name]
+    }))
+    .filter((item) => item.path && item.data && item.data.length);
+
+  const strippedPaths = stripCommonArchiveRoot(rawEntries.map((item) => item.path));
+  return rawEntries.map((entry, index) => {
+    const path = normalizeArchiveEntryPath(strippedPaths[index]);
+    if (!isSystemUpdatePath(path)) {
+      throw new Error(`Unsafe system update archive path: ${path}`);
+    }
+    return {
+      path,
+      data: entry.data
+    };
+  });
+}
+
+export function selectSystemUpdateAsset(releaseData) {
+  const assets = Array.isArray(releaseData && releaseData.assets) ? releaseData.assets : [];
+  const asset = assets.find((item) => item && SYSTEM_UPDATE_ASSET_NAME_PATTERN.test(String(item.name || '')));
+  if (!asset) return null;
+  return {
+    name: asset.name || 'nanosite-system.zip',
+    url: asset.browser_download_url || asset.url || '',
+    size: asset.size || 0,
+    digest: asset.digest || ''
+  };
+}
+
+export async function verifySystemUpdateAsset(buffer, asset = {}) {
+  if (!(buffer instanceof ArrayBuffer)) buffer = getBuffer(buffer);
+  const actualSize = buffer ? buffer.byteLength : 0;
+  const actualSha256 = await digestSha256(buffer);
+  const expectedSize = Number(asset && asset.size);
+  if (Number.isFinite(expectedSize) && expectedSize > 0 && Math.abs(expectedSize - actualSize) > 0) {
+    throw new Error(t('editor.systemUpdates.errors.sizeMismatch', {
+      expected: formatSize(expectedSize),
+      actual: formatSize(actualSize)
+    }));
+  }
+  const expectedDigestRaw = String((asset && asset.digest) || '').trim().toLowerCase();
+  const expectedDigest = expectedDigestRaw.replace(/^sha256:/, '');
+  if (expectedDigest && expectedDigest !== actualSha256.toLowerCase()) {
+    throw new Error(t('editor.systemUpdates.errors.digestMismatch'));
+  }
+  return {
+    size: actualSize,
+    sha256: actualSha256
+  };
 }
 
 async function fetchLatestRelease() {
@@ -213,28 +297,14 @@ async function fetchLatestRelease() {
   });
   if (!response.ok) throw new Error(t('editor.systemUpdates.errors.releaseFetch'));
   const data = await response.json();
-  const asset = Array.isArray(data.assets) && data.assets.length ? data.assets[0] : null;
-  const archiveUrl = data && (data.zipball_url || data.tarball_url) ? (data.zipball_url || data.tarball_url) : '';
-  const archiveName = (() => {
-    const base = data && (data.tag_name || data.name);
-    if (!base) return 'source.zip';
-    return `${String(base).replace(/\s+/g, '-').replace(/[^\w.-]+/g, '') || 'source'}.zip`;
-  })();
+  const asset = selectSystemUpdateAsset(data);
   releaseCache = {
     name: data.name || data.tag_name || 'latest',
     tag: data.tag_name || '',
     publishedAt: data.published_at || data.created_at || '',
     notes: data.body || '',
     htmlUrl: data.html_url || '',
-    asset: asset ? {
-      name: asset.name || 'release.zip',
-      url: asset.browser_download_url,
-      size: asset.size || 0
-    } : null,
-    archive: archiveUrl ? {
-      name: archiveName,
-      url: archiveUrl
-    } : null
+    asset
   };
   renderReleaseMeta();
   renderNotes(releaseCache.notes);
@@ -342,21 +412,8 @@ async function compareArchive(entries) {
 }
 
 async function processArchive(buffer) {
-  const archive = unzipSync(new Uint8Array(buffer));
-  const names = Object.keys(archive || {});
-  if (!names.length) return [];
-  const normalizedNames = normalizePaths(names);
-  const entries = normalizedNames.map((path, index) => ({
-    path,
-    data: archive[names[index]]
-  })).filter((item) => item.path && item.path.slice(-1) !== '/');
-  const filtered = entries.filter((item) => {
-    if (!item.path || item.path.endsWith('/')) return false;
-    const lower = item.path.toLowerCase();
-    if (lower.startsWith('.git/') || lower.startsWith('.github/')) return false;
-    return true;
-  });
-  return compareArchive(filtered);
+  const entries = collectSystemUpdateArchiveEntries(buffer);
+  return compareArchive(entries);
 }
 
 async function analyzeArchive(buffer, filename) {
@@ -368,22 +425,19 @@ async function analyzeArchive(buffer, filename) {
   const release = await fetchLatestRelease().catch(() => releaseCache);
   const nameFromRelease = release && release.asset ? (release.asset.name || release.name) : '';
   assetName = filename || nameFromRelease || 'release.zip';
-  assetSha256 = await digestSha256(buffer);
-  assetSize = buffer.byteLength;
+  const verification = release && release.asset
+    ? await verifySystemUpdateAsset(buffer, release.asset)
+    : { sha256: await digestSha256(buffer), size: buffer.byteLength };
+  assetSha256 = verification.sha256;
+  assetSize = verification.size;
 
   if (release) {
     if (release.asset) {
-      const expectedSize = Number(release.asset.size);
-      if (Number.isFinite(expectedSize) && expectedSize > 0 && Math.abs(expectedSize - assetSize) > 0) {
-        throw new Error(t('editor.systemUpdates.errors.sizeMismatch', {
-          expected: formatSize(expectedSize),
-          actual: formatSize(assetSize)
-        }));
-      }
       release.asset.size = assetSize;
+      release.asset.digest = `sha256:${assetSha256}`;
       if (!release.asset.name) release.asset.name = assetName;
     } else {
-      release.asset = { name: assetName, url: '', size: assetSize };
+      release.asset = { name: assetName, url: '', size: assetSize, digest: `sha256:${assetSha256}` };
     }
     renderReleaseMeta();
     updateDownloadLink();
@@ -503,4 +557,3 @@ export function clearSystemUpdateState(options = {}) {
   }
   renderReleaseMeta();
 }
-
