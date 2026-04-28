@@ -64,11 +64,6 @@ jobs:
             next_tag="v0.0.1"
           fi
 
-          if git rev-parse -q --verify "refs/tags/${next_tag}" >/dev/null; then
-            echo "Refusing to overwrite existing tag ${next_tag}" >&2
-            exit 1
-          fi
-
           {
             echo "should_release=true"
             echo "latest_tag=${latest_tag}"
@@ -125,6 +120,26 @@ jobs:
             echo "Deleting stale draft release ${draft_release_id}"
             gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${draft_release_id}" >/dev/null
           done < dist/stale-draft-release-ids.txt
+
+          if [[ -s dist/stale-draft-release-ids.txt ]]; then
+            if git ls-remote --exit-code --tags origin "refs/tags/${next_tag}" >/dev/null 2>&1; then
+              echo "Deleting stale remote tag ${next_tag}"
+              git push --delete origin "${next_tag}"
+            fi
+            if git rev-parse -q --verify "refs/tags/${next_tag}" >/dev/null; then
+              echo "Deleting stale local tag ${next_tag}"
+              git tag -d "${next_tag}"
+            fi
+          fi
+
+          if git rev-parse -q --verify "refs/tags/${next_tag}" >/dev/null; then
+            echo "Refusing to overwrite existing tag ${next_tag}" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/${next_tag}" >/dev/null 2>&1; then
+            echo "Refusing to overwrite existing remote tag ${next_tag}" >&2
+            exit 1
+          fi
 
           {
             echo "## Migration Guide"
