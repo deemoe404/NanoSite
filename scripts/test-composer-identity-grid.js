@@ -247,6 +247,12 @@ assert.match(
 
 assert.match(
   source,
+  /const navVisible = \(!navStyles \|\| \(navStyles\.display !== 'none' && navStyles\.visibility !== 'hidden'\)\)[\s\S]*nav\.getClientRects\(\)\.length > 0[\s\S]*const navRect = navVisible \? nav\.getBoundingClientRect\(\) : null;/,
+  'hidden inline site navigation should not clamp compact menu scroll anchors to the top of the viewport'
+);
+
+assert.match(
+  source,
   /html body button\.cs-nav-button\.is-active\{background:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;border-color:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;color:#fff !important;box-shadow:none !important[\s\S]*html body button\.cs-mobile-section-menu-item\.is-active\{background:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;border-color:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;color:#fff !important/,
   'site section navigation active state should use solid primary fill and outrank native theme button resets'
 );

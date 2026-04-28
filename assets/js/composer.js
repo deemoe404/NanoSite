@@ -11637,7 +11637,10 @@ function buildSiteUI(root, state) {
     let desiredTop = Math.max(toolbarOffset + 12, 12);
     try {
       if (nav && typeof nav.getBoundingClientRect === 'function') {
-        const navRect = nav.getBoundingClientRect();
+        const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
+        const navVisible = (!navStyles || (navStyles.display !== 'none' && navStyles.visibility !== 'hidden'))
+          && (!nav.getClientRects || nav.getClientRects().length > 0);
+        const navRect = navVisible ? nav.getBoundingClientRect() : null;
         if (navRect && Number.isFinite(navRect.top)) {
           desiredTop = Math.min(desiredTop, Math.max(navRect.top - 8, 12));
         }
