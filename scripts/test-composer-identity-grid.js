@@ -6,8 +6,10 @@ import { dirname, resolve } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
 const editorPath = resolve(here, '../index_editor.html');
+const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const source = readFileSync(composerPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
+const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 
 assert.match(
   source,
@@ -149,6 +151,12 @@ assert.match(
 
 assert.match(
   source,
+  /function renderCompactSectionMenu\(\) \{[\s\S]*sectionsMeta\.forEach[\s\S]*setActiveSection\(meta\.id, \{ focusPanel: false \}\);/,
+  'single-column site navigation should reuse section metadata for the floating compact menu'
+);
+
+assert.match(
+  source,
   /const renderBehaviorGrid = \(section\) => \{[\s\S]*dataKey: 'defaultLanguage'[\s\S]*dataKey: 'contentOutdatedDays'[\s\S]*dataKey: 'pageSize'[\s\S]*dataKey: 'showAllPosts'[\s\S]*dataKey: 'landingTab'[\s\S]*dataKey: 'cardCoverFallback'[\s\S]*dataKey: 'errorOverlay'/,
   'Behavior compact grid should include all single-value behavior fields'
 );
@@ -205,6 +213,30 @@ assert.match(
   source,
   /\.cs-single-grid-control \.cs-input,.cs-single-grid-control \.cs-select\{width:100%;min-width:0\}/,
   'compact grid controls should fill the shared control column'
+);
+
+assert.match(
+  source,
+  /\.cs-mobile-section-nav\{display:none;position:fixed;right:1rem;bottom:4\.05rem;[\s\S]*@media \(max-width:920px\)\{[\s\S]*\.cs-nav\{display:none\}[\s\S]*html\[data-init-mode="composer"\]\[data-init-cfile="site"\] \.cs-mobile-section-nav\{display:block\}/,
+  'single-column site navigation should move from the inline nav to a floating menu above back-to-top'
+);
+
+assert.match(
+  source,
+  /html body button\.cs-nav-button\.is-active\{background:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;border-color:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;color:#fff !important;box-shadow:none !important[\s\S]*html body button\.cs-mobile-section-menu-item\.is-active\{background:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;border-color:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;color:#fff !important/,
+  'site section navigation active state should use solid primary fill and outrank native theme button resets'
+);
+
+assert.match(
+  source,
+  /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;/,
+  'desktop site section navigation should not render as a card container'
+);
+
+assert.match(
+  nativeThemeSource,
+  /button:not\(\.mode-tab\):not\(\.sidebar-tab\):not\(\.cs-nav-button\):not\(\.cs-mobile-section-nav-toggle\):not\(\.cs-mobile-section-menu-item\)/,
+  'native theme global button reset should not override site section navigation buttons'
 );
 
 assert.match(

@@ -11513,6 +11513,10 @@ function buildSiteUI(root, state) {
   if (!root) return;
   root.innerHTML = '';
   try {
+    if (typeof root.__nsSiteCompactNavCleanup === 'function') root.__nsSiteCompactNavCleanup();
+  } catch (_) {}
+  try { root.__nsSiteCompactNavCleanup = null; } catch (_) {}
+  try {
     if (typeof root.__nsSiteNavOrientationCleanup === 'function') root.__nsSiteNavOrientationCleanup();
   } catch (_) {}
   try { root.__nsSiteNavOrientationCleanup = null; } catch (_) {}
@@ -11541,6 +11545,7 @@ function buildSiteUI(root, state) {
 
   const sectionsMeta = [];
   let activeSectionId = '';
+  let syncCompactNavState = () => {};
   const preservedActiveLabel = (() => {
     try { return String(root.__nsSiteActiveSection || '').trim(); }
     catch (_) { return ''; }
@@ -11691,6 +11696,7 @@ function buildSiteUI(root, state) {
       }
     });
     if (!resolved) return;
+    try { syncCompactNavState(); } catch (_) {}
     let focusCommitted = false;
     const commitFocus = (delay = 0) => {
       if (!focusTarget || focusCommitted) return;
@@ -11788,6 +11794,144 @@ function buildSiteUI(root, state) {
       if (hasDiff) meta.navButton.setAttribute('data-has-diff', 'true');
       else meta.navButton.removeAttribute('data-has-diff');
     });
+    try { syncCompactNavState(); } catch (_) {}
+  }
+
+  function renderCompactSectionMenu() {
+    if (typeof document === 'undefined' || !sectionsMeta.length) return;
+    const host = document.createElement('div');
+    host.className = 'cs-mobile-section-nav';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'cs-mobile-section-nav-toggle';
+    toggle.setAttribute('aria-label', navLabel);
+    toggle.setAttribute('title', navLabel);
+    toggle.setAttribute('aria-haspopup', 'menu');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="6" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle><circle cx="5" cy="18" r="1.5"></circle><path d="M9 6h10M9 12h10M9 18h10"></path></svg>';
+
+    const menu = document.createElement('div');
+    menu.className = 'cs-mobile-section-menu';
+    menu.id = 'cs-mobile-section-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', navLabel);
+    menu.setAttribute('aria-hidden', 'true');
+
+    const itemButtons = [];
+    sectionsMeta.forEach((meta) => {
+      if (!meta || !meta.id) return;
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'cs-mobile-section-menu-item';
+      item.textContent = meta.label || meta.id;
+      item.setAttribute('role', 'menuitem');
+      item.addEventListener('click', () => {
+        closeMenu();
+        setActiveSection(meta.id, { focusPanel: false });
+      });
+      menu.appendChild(item);
+      itemButtons.push({ meta, item });
+    });
+
+    const isOpen = () => host.classList.contains('is-open');
+    function closeMenu(options = {}) {
+      if (!isOpen()) return;
+      host.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      menu.setAttribute('aria-hidden', 'true');
+      if (options.focusToggle) {
+        try { toggle.focus({ preventScroll: true }); }
+        catch (_) { try { toggle.focus(); } catch (_) {} }
+      }
+    }
+    function openMenu() {
+      if (isOpen()) return;
+      host.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      menu.setAttribute('aria-hidden', 'false');
+    }
+    function toggleMenu() {
+      if (isOpen()) closeMenu();
+      else openMenu();
+    }
+
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleMenu();
+    });
+    toggle.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openMenu();
+        const active = itemButtons.find(({ item }) => item.classList.contains('is-active')) || itemButtons[0];
+        if (active && active.item && typeof active.item.focus === 'function') active.item.focus();
+      }
+    });
+    menu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu({ focusToggle: true });
+        return;
+      }
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
+      event.preventDefault();
+      const enabled = itemButtons.map(({ item }) => item).filter(Boolean);
+      const current = enabled.indexOf(document.activeElement);
+      let next = current;
+      if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = enabled.length - 1;
+      else if (event.key === 'ArrowDown') next = current < 0 ? 0 : current + 1;
+      else next = current < 0 ? enabled.length - 1 : current - 1;
+      if (next < 0) next = enabled.length - 1;
+      if (next >= enabled.length) next = 0;
+      const target = enabled[next];
+      if (target && typeof target.focus === 'function') target.focus();
+    });
+
+    const onPointerDown = (event) => {
+      if (!host.contains(event.target)) closeMenu();
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') closeMenu({ focusToggle: true });
+    };
+    const onResize = () => {
+      if (typeof window !== 'undefined' && window.matchMedia && !window.matchMedia('(max-width: 920px)').matches) {
+        closeMenu();
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    if (typeof window !== 'undefined') window.addEventListener('resize', onResize);
+
+    host.append(toggle, menu);
+    document.body.appendChild(host);
+
+    syncCompactNavState = () => {
+      itemButtons.forEach(({ meta, item }) => {
+        const active = !!(meta && meta.id === activeSectionId);
+        item.classList.toggle('is-active', active);
+        if (active) item.setAttribute('aria-current', 'true');
+        else item.removeAttribute('aria-current');
+        const sourceButton = meta && meta.navButton;
+        const hasDiff = !!(sourceButton && sourceButton.getAttribute('data-has-diff') === 'true');
+        if (hasDiff) item.setAttribute('data-has-diff', 'true');
+        else item.removeAttribute('data-has-diff');
+      });
+    };
+    syncCompactNavState();
+
+    root.__nsSiteCompactNavCleanup = () => {
+      closeMenu();
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+      if (typeof window !== 'undefined') window.removeEventListener('resize', onResize);
+      try { host.remove(); } catch (_) {
+        if (host.parentNode) host.parentNode.removeChild(host);
+      }
+      syncCompactNavState = () => {};
+    };
   }
 
   function cancelScheduledScrollSync() {
@@ -13741,6 +13885,7 @@ function buildSiteUI(root, state) {
     field.appendChild(list);
   }
 
+  renderCompactSectionMenu();
   refreshNavDiffState();
   try { scheduleScrollSync(); } catch (_) {}
 }
@@ -14092,13 +14237,27 @@ function rebuildSiteUI() {
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
   .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
-  .cs-nav-list{list-style:none;margin:0;padding:1rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:14px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 12px 28px rgba(15,23,42,0.1);display:flex;flex-direction:column;gap:.4rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;max-height:calc(100vh - 6rem);overflow:auto}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
   .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
-  .cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 14%, var(--card));border-color:color-mix(in srgb,var(--primary) 45%, var(--border));color:color-mix(in srgb,var(--primary) 98%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  html body button.cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;border-color:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;color:#fff !important;box-shadow:none !important;border-radius:10px !important;font-weight:700 !important}
   .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
   .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  html body button.cs-nav-button.is-active[data-has-diff="true"]::after{background:#fff !important;box-shadow:0 0 0 3px color-mix(in srgb,#fff 28%, transparent) !important}
+  .cs-mobile-section-nav{display:none;position:fixed;right:1rem;bottom:4.05rem;z-index:1000}
+  .cs-mobile-section-nav-toggle{width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);display:inline-flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
+  .cs-mobile-section-nav-toggle:hover,.cs-mobile-section-nav.is-open .cs-mobile-section-nav-toggle{background:color-mix(in srgb,var(--primary) 10%, var(--card));border-color:color-mix(in srgb,var(--primary) 48%, var(--border));color:color-mix(in srgb,var(--primary) 96%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
+  .cs-mobile-section-nav-toggle:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
+  .cs-mobile-section-nav-toggle svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .cs-mobile-section-nav-toggle svg circle{fill:currentColor;stroke:none}
+  .cs-mobile-section-menu{position:absolute;right:0;bottom:calc(100% + .55rem);width:max-content;min-width:13rem;max-width:min(18rem,calc(100vw - 2rem));padding:.45rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 18px 42px rgba(15,23,42,0.18);display:flex;flex-direction:column;gap:.25rem;opacity:0;visibility:hidden;transform:translateY(8px) scale(.98);transform-origin:bottom right;pointer-events:none;transition:opacity .16s ease,transform .16s ease,visibility 0s linear .16s}
+  .cs-mobile-section-nav.is-open .cs-mobile-section-menu{opacity:1;visibility:visible;transform:translateY(0) scale(1);pointer-events:auto;transition:opacity .16s ease,transform .16s ease,visibility 0s}
+  .cs-mobile-section-menu-item{appearance:none;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 82%, transparent);border-radius:9px;padding:.5rem .62rem;text-align:left;font:inherit;font-size:.9rem;font-weight:650;line-height:1.2;cursor:pointer;display:flex;align-items:center;gap:.45rem;white-space:nowrap;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
+  .cs-mobile-section-menu-item:hover,.cs-mobile-section-menu-item:focus-visible{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 96%, transparent);outline:none}
+  html body button.cs-mobile-section-menu-item.is-active{background:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;border-color:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;color:#fff !important;border-radius:9px !important;font-weight:700 !important}
+  .cs-mobile-section-menu-item[data-has-diff="true"]::after{content:'';width:.5rem;height:.5rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
+  html body button.cs-mobile-section-menu-item.is-active[data-has-diff="true"]::after{background:#fff !important;box-shadow:0 0 0 3px color-mix(in srgb,#fff 28%, transparent) !important}
   .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
   .cs-section{border:1px solid color-mix(in srgb,var(--border) 96%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
@@ -14207,14 +14366,11 @@ function rebuildSiteUI() {
   }
   @media (max-width:920px){
     .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
-    .cs-nav{position:relative;top:auto}
-    .cs-nav-list{flex-direction:row;align-items:center;overflow:auto;padding:1rem;max-height:none;box-shadow:0 10px 22px rgba(15,23,42,0.1)}
-    .cs-nav-item{flex:0 0 auto}
-    .cs-nav-button{white-space:nowrap;padding:.48rem .65rem}
+    .cs-nav{display:none}
+    html[data-init-mode="composer"][data-init-cfile="site"] .cs-mobile-section-nav{display:block}
   }
   @media (max-width:720px){
-    .cs-nav-list{gap:.3rem}
-    .cs-nav-button{font-size:.86rem;padding:.45rem .6rem}
+    .cs-mobile-section-menu{max-width:calc(100vw - 2rem)}
   }
   @media (max-width:880px){
     .cs-section{padding:.9rem .9rem}
