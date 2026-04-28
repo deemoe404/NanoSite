@@ -113,7 +113,7 @@ const translations = {
         publishedLabel: ({ date }) => `公開日：${date}`,
         assetLabel: ({ name, size }) => `アセット：${name}（${size}）`,
         assetWithHash: ({ name, size, hash }) => `アセット：${name}（${size}） — SHA-256 ${hash}`,
-        noAsset: 'このリリースにはダウンロード可能なアセットがありません。',
+        noAsset: 'このリリースにはダウンロード可能な NanoSite システム更新パッケージがありません。',
         status: {
           idle: '最新のリリース ZIP をダウンロードしてから、更新を確認するために選択してください。',
           reading: 'アーカイブを読み込み中…',
@@ -127,6 +127,7 @@ const translations = {
           emptyFile: '選択したファイルは空です。',
           invalidArchive: '選択した ZIP を NanoSite リリースとして読み込めませんでした。',
           sizeMismatch: ({ expected, actual }) => `選択したアーカイブのサイズ（${actual}）がリリースアセット（${expected}）と一致しません。`,
+          digestMismatch: '選択したアーカイブの SHA-256 がリリースアセットと一致しません。',
           generic: 'システム更新に失敗しました。再試行してください。'
         },
         fileStatus: {
