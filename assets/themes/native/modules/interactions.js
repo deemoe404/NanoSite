@@ -182,15 +182,15 @@ async function warnLargeImagesInNative(containerSelector, cfg = {}, documentRef 
             : (windowRef && windowRef.navigator ? windowRef.navigator.language : 'en');
           const normalized = (langAttr || 'en').toLowerCase();
           const filename = url.split('/').pop() || url;
-          const isZhCn = normalized === 'zh' || normalized === 'zh-cn' || normalized.startsWith('zh-cn') || normalized === 'zh-hans' || normalized.startsWith('zh-hans') || normalized === 'zh-sg' || normalized === 'zh-my';
-          const isZhTw = normalized === 'zh-tw' || normalized.startsWith('zh-tw') || normalized === 'zh-hant' || normalized.startsWith('zh-hant');
-          const isZhHk = normalized === 'zh-hk' || normalized.startsWith('zh-hk') || normalized === 'zh-mo' || normalized.startsWith('zh-mo');
-          const message = isZhCn
+          const isChs = normalized === 'chs' || normalized.startsWith('chs-');
+          const isChtHk = normalized === 'cht-hk' || normalized.startsWith('cht-hk-');
+          const isChtTw = normalized === 'cht-tw' || normalized.startsWith('cht-tw-') || normalized === 'cht';
+          const message = isChs
             ? `发现大图资源：${filename}（${formatBytes(size)}）已超过阈值 ${thresholdKB} KB`
-            : isZhTw
-              ? `發現大型圖片資源：${filename}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
-              : isZhHk
-                ? `發現大型圖片資源：${filename}（${formatBytes(size)}）超出上限 ${thresholdKB} KB`
+            : isChtHk
+              ? `發現大型圖片資源：${filename}（${formatBytes(size)}）超出上限 ${thresholdKB} KB`
+              : isChtTw
+                ? `發現大型圖片資源：${filename}（${formatBytes(size)}）超過門檻 ${thresholdKB} KB`
                 : (normalized === 'ja' || normalized.startsWith('ja'))
                   ? `大きな画像を検出: ${filename}（${formatBytes(size)}）はしきい値 ${thresholdKB} KB を超えています`
                   : `Large image detected: ${filename} (${formatBytes(size)}) exceeds threshold ${thresholdKB} KB`;

@@ -4,33 +4,33 @@ siteTitle:
   default: NanoSite
   en: NanoSite
   ja: "ナノサイト"
-  zh: "微站"
-  zh-tw: "微站"
-  zh-hk: "微站"
+  chs: "微站"
+  cht-tw: "微站"
+  cht-hk: "微站"
 
 siteSubtitle:
   default: "Just Markdown. Just a website."
   en: "Just Markdown. Just a website."
   ja: "書くだけ、Markdown。それがサイトになる。"
-  zh: "写下 Markdown，就是你的网站。"
-  zh-tw: "寫下 Markdown，就是你的網站。"
-  zh-hk: "寫低 Markdown，就係你嘅網站。"
+  chs: "写下 Markdown，就是你的网站。"
+  cht-tw: "寫下 Markdown，就是你的網站。"
+  cht-hk: "寫低 Markdown，就係你嘅網站。"
 
 siteDescription:
   default: "NanoSite - Just Markdown. Just a website."
   en: "NanoSite - Just Markdown. Just a website."
   ja: "ナノサイト - 書くだけ、Markdown。それがサイトになる。"
-  zh: "微站 - 写下 Markdown，就是你的网站。"
-  zh-tw: "微站 - 寫下 Markdown，就是你的網站。"
-  zh-hk: "微站 - 寫低 Markdown，就係你嘅網站。"
+  chs: "微站 - 写下 Markdown，就是你的网站。"
+  cht-tw: "微站 - 寫下 Markdown，就是你的網站。"
+  cht-hk: "微站 - 寫低 Markdown，就係你嘅網站。"
 
 siteKeywords:
   default: "static blog, markdown, github pages, blog"
   en: "static blog, markdown, github pages, blog"
   ja: "静的サイト, Markdown, GitHub Pages, ブログ"
-  zh: "静态博客, Markdown, GitHub Pages, 博客"
-  zh-tw: "靜態部落格, Markdown, GitHub Pages, 部落格"
-  zh-hk: "靜態網誌, Markdown, GitHub Pages, 網誌"
+  chs: "静态博客, Markdown, GitHub Pages, 博客"
+  cht-tw: "靜態部落格, Markdown, GitHub Pages, 部落格"
+  cht-hk: "靜態網誌, Markdown, GitHub Pages, 網誌"
 
 siteURL: https://nano.dee.moe/
 

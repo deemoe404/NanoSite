@@ -315,7 +315,7 @@ const translations = {
           addLanguage: 'Add language',
           removeLanguage: 'Remove',
           noLanguages: 'No languages configured yet.',
-          promptLanguage: 'Enter a language code (for example: en, zh, ja):',
+          promptLanguage: 'Enter a language code (for example: en, chs, ja):',
           languageExists: 'That language already exists.',
           languageDefault: 'Default',
           languageAutoOption: 'Auto-detect (browser language)',

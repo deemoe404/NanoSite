@@ -315,7 +315,7 @@ const translations = {
           addLanguage: '言語を追加',
           removeLanguage: '削除',
           noLanguages: '言語はまだ設定されていません。',
-          promptLanguage: '言語コードを入力してください（例: en, zh, ja）：',
+          promptLanguage: '言語コードを入力してください（例: en, chs, ja）：',
           languageExists: 'その言語はすでに存在します。',
           languageDefault: 'デフォルト',
           languageAutoOption: '自動検出（ブラウザー言語）',

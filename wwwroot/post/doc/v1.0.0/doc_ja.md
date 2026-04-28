@@ -86,12 +86,12 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 {
 	"nanoSite": {
 		"en": "post/meet-nanosite/main_en.md",
-		"zh": "post/meet-nanosite/main_zh.md",
+		"chs": "post/meet-nanosite/main_chs.md",
 		"ja": "post/meet-nanosite/main_ja.md"
 	},
 	"nanodoc": {
 		"en": "post/meet-nanosite/doc_en.md",
-		"zh": "post/meet-nanosite/doc_zh.md",
+		"chs": "post/meet-nanosite/doc_chs.md",
 		"ja": "post/meet-nanosite/doc_ja.md"
 	}
 }
@@ -147,7 +147,7 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 	"publications": { "en": { "title": "Publications", "location": "tab/publications.md" } },
 	"About": {
 		"en": { "title": "About", "location": "tab/about/en.md" },
-		"zh": { "title": "关于", "location": "tab/about/zh.md" }
+		"chs": { "title": "关于", "location": "tab/about/chs.md" }
 	}
 }
 ```
@@ -162,8 +162,8 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 
 ```json
 {
-	"siteTitle": { "default": "deemoe's journal", "zh": "deemoe 的日志", "ja": "deemoe のジャーナル" },
-	"siteSubtitle": { "default": "Thanks for playing my game.", "zh": "眼见何事..." },
+	"siteTitle": { "default": "deemoe's journal", "chs": "deemoe 的日志", "ja": "deemoe のジャーナル" },
+	"siteSubtitle": { "default": "Thanks for playing my game.", "chs": "眼见何事..." },
 	"siteDescription": { "default": "deemoe's journal" },
 	"resourceURL": "https://dee.moe/wwwroot/",
 	"siteKeywords": { "default": "static blog, markdown, github pages, blog" },
@@ -257,7 +257,7 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 - コンテンツは以下をサポート：
 	- 簡易形式（本リポジトリの形）：言語ごとのパス
 	- 統合形式：言語ごとの `{title, location}`
-	- レガシー：`index.en.json`、`index.zh.json` など（フォールバック）
+	- レガシー：`index.en.json`、`index.chs.json` など（フォールバック）
 - 言語切替時、該当記事の言語版があれば同一記事に留まるようにエイリアスします。
 
 

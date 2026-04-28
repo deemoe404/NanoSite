@@ -144,11 +144,11 @@
         }
       },
       "patternProperties": {
-        "^[A-Za-z]{2}(?:-[A-Za-z0-9]+)?$": {
+        "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]+)*$": {
           "$ref": "#/$defs/langEntry",
-          "description": "Language-specific entry keyed by BCP-47 code (e.g., en, zh, ja)."
+          "description": "Language-specific entry keyed by NanoSite language code (e.g., en, chs, cht-tw, ja)."
         },
-        "^(zh|中文|简体中文|日本語|にほんご|english|jp)$": {
+        "^(chs|中文|简体中文|日本語|にほんご|english|jp)$": {
           "$ref": "#/$defs/langEntry",
           "description": "Language aliases supported for convenience."
         }

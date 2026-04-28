@@ -34,16 +34,16 @@ Example:
 siteTitle:
   default: NanoSite
   en: NanoSite
-  zh: 微站
-  zh-tw: 微站
-  zh-hk: 微站
+  chs: 微站
+  cht-tw: 微站
+  cht-hk: 微站
   ja: ナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
   en: Just Markdown. Just a website.
-  zh: 写下 Markdown，就是你的网站。
-  zh-tw: 寫下 Markdown，就是你的網站。
-  zh-hk: 寫低 Markdown，就係你嘅網站。
+  chs: 写下 Markdown，就是你的网站。
+  cht-tw: 寫下 Markdown，就是你的網站。
+  cht-hk: 寫低 Markdown，就係你嘅網站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
 ```
@@ -70,7 +70,7 @@ By default, NanoSite uses the `wwwroot/` folder as its working directory and rea
 ```yaml
 githubpages:
   en: post/page/githubpages_en.md
-  zh: post/page/githubpages_zh.md # Chinese version stored at wwwroot/post/page/githubpages_zh.md
+  chs: post/page/githubpages_chs.md # Chinese version stored at wwwroot/post/page/githubpages_chs.md
   ja: post/page/githubpages_ja.md
 ```
 
@@ -113,9 +113,9 @@ About:
   en:
     title: About
     location: tab/about/en.md
-  zh:
+  chs:
     title: 关于
-    location: tab/about/zh.md # Chinese version stored at wwwroot/tab/about/zh.md
+    location: tab/about/chs.md # Chinese version stored at wwwroot/tab/about/chs.md
   ja:
     title: 概要
     location: tab/about/ja.md
@@ -206,7 +206,7 @@ assetWarnings:
 - `contentOutdatedDays` — Days after which content is considered outdated (default 180).
 - `cardCoverFallback` — Generate a fallback cover when a post has no image (default `true`).
 - `pageSize` — Number of posts per page in index views (default `8`).
-- `defaultLanguage` — Default UI/content language (e.g., `en`, `zh`, `zh-tw`, `zh-hk`, `ja`; default `en`).
+- `defaultLanguage` — Default UI/content language (e.g., `en`, `chs`, `cht-tw`, `cht-hk`, `ja`; default `en`).
 
 Example:
 ```yaml
@@ -223,7 +223,7 @@ The client router reads URL query parameters:
 - `?tab=posts` — All posts (default). Supports `&page=N` pagination.
 - `?tab=search&q=term` — Search by title or tag. You can also filter by `&tag=TagName`.
 - `?id=path/to/post.md` — Open a specific post (the path must exist in `index.yaml`).
-- `?lang=zh` — UI language preference. Stored in localStorage; content tries the matching variant and then uses the configured fallback chain.
+- `?lang=chs` — UI language preference. Stored in localStorage; content tries the matching variant and then uses the configured fallback chain.
 
 Markdown examples: `[See this](?id=post/frogy/main.md)` and `[About](?tab=about)`.
 
@@ -241,16 +241,16 @@ resourceURL: https://nano.dee.moe/wwwroot/
 siteDescription:
   default: NanoSite - Just Markdown. Just a website.
   en: NanoSite - Just Markdown. Just a website.
-  zh: 微站 - 写下 Markdown，就是你的网站。
-  zh-tw: 微站 - 寫下 Markdown，就是你的網站。
-  zh-hk: 微站 - 寫低 Markdown，就係你嘅網站。
+  chs: 微站 - 写下 Markdown，就是你的网站。
+  cht-tw: 微站 - 寫下 Markdown，就是你的網站。
+  cht-hk: 微站 - 寫低 Markdown，就係你嘅網站。
   ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
 siteKeywords:
   default: static blog, markdown, github pages, blog
   en: static blog, markdown, github pages, blog
-  zh: 静态博客, Markdown, GitHub Pages, 博客
-  zh-tw: 靜態部落格, Markdown, GitHub Pages, 部落格
-  zh-hk: 靜態網誌, Markdown, GitHub Pages, 網誌
+  chs: 静态博客, Markdown, GitHub Pages, 博客
+  cht-tw: 靜態部落格, Markdown, GitHub Pages, 部落格
+  cht-hk: 靜態網誌, Markdown, GitHub Pages, 網誌
   ja: 静的サイト, Markdown, GitHub Pages, ブログ
 ```
 
@@ -275,6 +275,6 @@ Content index formats:
 
 - Simplified (as in this repo): provide Markdown paths per language.
 - Unified: `{title, location}` per language.
-- Legacy: `index.en.yaml`/`index.en.json`, `index.zh.yaml`/`index.zh.json`... (fallback).
+- Legacy: `index.en.yaml`/`index.en.json`, `index.chs.yaml`/`index.chs.json`... (fallback).
 
 When switching languages, the router keeps you on the same article if a matching variant exists; otherwise the content falls back as described above.

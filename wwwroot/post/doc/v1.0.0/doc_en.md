@@ -86,7 +86,7 @@ Supports three shapes. Pick the one that fits your workflow.
 {
   "nanoSite": {
     "en": "post/meet-nanosite/main_en.md",
-    "zh": "post/meet-nanosite/main_zh.md",
+    "chs": "post/meet-nanosite/main_chs.md",
     "ja": "post/meet-nanosite/main_ja.md"
   },
   "nanodoc": {
@@ -101,7 +101,7 @@ Supports three shapes. Pick the one that fits your workflow.
 {
   "My First Post": {
     "en": { "title": "My First Post", "location": "post/foo.md", "excerpt": "..." },
-    "zh": { "title": "我的第一篇", "location": "post/foo_zh.md" },
+    "chs": { "title": "我的第一篇", "location": "post/foo_chs.md" },
     "tag": ["Note"],
     "date": "2025-08-13",
     "image": "post/cover.jpg",
@@ -131,7 +131,7 @@ Fields (any shape):
 Behavior:
 
 - When using the simplified shape, metadata comes from Markdown front matter.
-- Cross-language navigation: if a link points to `main_en.md` but the UI is `zh`, the router can redirect to the `zh` variant when available.
+- Cross-language navigation: if a link points to `main_en.md` but the UI is `chs`, the router can redirect to the `chs` variant when available.
 - Only `location`s present in `index.json` are allowed; unknown `?id=` shows a friendly error.
 
 
@@ -145,7 +145,7 @@ Tabs are static pages. Use the same three shapes as posts. Example (current repo
   "publications": { "en": { "title": "Publications", "location": "tab/publications.md" } },
   "About": {
     "en": { "title": "About", "location": "tab/about/en.md" },
-    "zh": { "title": "关于", "location": "tab/about/zh.md" }
+    "chs": { "title": "关于", "location": "tab/about/chs.md" }
   }
 }
 ```
@@ -160,8 +160,8 @@ Notes:
 
 ```json
 {
-  "siteTitle": { "default": "deemoe's journal", "zh": "deemoe 的日志", "ja": "deemoe のジャーナル" },
-  "siteSubtitle": { "default": "Thanks for playing my game.", "zh": "眼见何事..." },
+  "siteTitle": { "default": "deemoe's journal", "chs": "deemoe 的日志", "ja": "deemoe のジャーナル" },
+  "siteSubtitle": { "default": "Thanks for playing my game.", "chs": "眼见何事..." },
   "siteDescription": { "default": "deemoe's journal" },
   "resourceURL": "https://dee.moe/wwwroot/",
   "siteKeywords": { "default": "static blog, markdown, github pages, blog" },
@@ -255,7 +255,7 @@ Tip: Set `resourceURL` in `site.json` if your images are served from a CDN.
 - Content supports:
   - Simplified per-language paths (as in this repo)
   - Unified entries with per-language blocks
-  - Legacy per-language JSON files (`index.en.json`, `index.zh.json`, ...), used as a fallback
+  - Legacy per-language JSON files (`index.en.json`, `index.chs.json`, ...), used as a fallback
 - The router keeps you on the same article when switching languages if a variant exists.
 
 

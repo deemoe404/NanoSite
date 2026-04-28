@@ -315,7 +315,7 @@ const translations = {
           addLanguage: '添加语言',
           removeLanguage: '移除',
           noLanguages: '尚未配置语言。',
-          promptLanguage: '请输入语言代码（例如：en、zh、ja）：',
+          promptLanguage: '请输入语言代码（例如：en、chs、ja）：',
           languageExists: '该语言已经存在。',
           languageDefault: '默认',
           languageAutoOption: '自动检测（浏览器语言）',

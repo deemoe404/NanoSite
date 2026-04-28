@@ -4,9 +4,9 @@ nanoSite:
   en:
     - post/main/v1.0.0/main_en.md
     - post/main/v2.0.0/main_en.md
-  zh:
-    - post/main/v1.0.0/main_zh.md
-    - post/main/v2.0.0/main_zh.md
+  chs:
+    - post/main/v1.0.0/main_chs.md
+    - post/main/v2.0.0/main_chs.md
   ja:
     - post/main/v1.0.0/main_ja.md
     - post/main/v2.0.0/main_ja.md
@@ -15,25 +15,25 @@ nanodoc:
     - post/doc/v1.0.0/doc_en.md
     - post/doc/v2.0.0/doc_en.md
     - post/doc/v2.1.0/doc_en.md
-  zh:
-    - post/doc/v1.0.0/doc_zh.md
-    - post/doc/v2.0.0/doc_zh.md
-    - post/doc/v2.1.0/doc_zh.md
-  zh-tw:
-    - post/doc/v2.1.0/doc_zh-tw.md
-  zh-hk:
-    - post/doc/v2.1.0/doc_zh-hk.md
+  chs:
+    - post/doc/v1.0.0/doc_chs.md
+    - post/doc/v2.0.0/doc_chs.md
+    - post/doc/v2.1.0/doc_chs.md
+  cht-tw:
+    - post/doc/v2.1.0/doc_cht-tw.md
+  cht-hk:
+    - post/doc/v2.1.0/doc_cht-hk.md
   ja:
     - post/doc/v1.0.0/doc_ja.md
     - post/doc/v2.0.0/doc_ja.md
     - post/doc/v2.1.0/doc_ja.md
 githubpages:
   en: post/page/githubpages_en.md
-  zh: post/page/githubpages_zh.md
+  chs: post/page/githubpages_chs.md
   ja: post/page/githubpages_ja.md
 seo:
   en: post/seo/seo_en.md
-  zh: post/seo/seo_zh.md
+  chs: post/seo/seo_chs.md
   ja: post/seo/seo_ja.md
 testpost:
   en: post/testpost/main_en.md

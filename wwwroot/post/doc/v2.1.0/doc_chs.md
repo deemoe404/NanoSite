@@ -34,16 +34,16 @@ ai: true
 siteTitle:
   default: NanoSite
   en: NanoSite
-  zh: 微站
-  zh-tw: 微站
-  zh-hk: 微站
+  chs: 微站
+  cht-tw: 微站
+  cht-hk: 微站
   ja: ナノサイト
 siteSubtitle:
   default: Just Markdown. Just a website.
   en: Just Markdown. Just a website.
-  zh: 写下 Markdown，就是你的网站。
-  zh-tw: 寫下 Markdown，就是你的網站。
-  zh-hk: 寫低 Markdown，就係你嘅網站。
+  chs: 写下 Markdown，就是你的网站。
+  cht-tw: 寫下 Markdown，就是你的網站。
+  cht-hk: 寫低 Markdown，就係你嘅網站。
   ja: 書くだけ、Markdown。それがサイトになる。
 avatar: assets/avatar.jpeg
 ```
@@ -65,16 +65,16 @@ profileLinks:
 
 
 ## 文章写作
-NanoSite 默认将 `wwwroot/` 文件夹作为工作路径。它通过读取这个文件夹下的 `index.yaml` 文件来获取文章列表。例如 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_zh.md&lang=zh) 这篇文章对应的 `wwwroot/index.yaml` 内容如下：
+NanoSite 默认将 `wwwroot/` 文件夹作为工作路径。它通过读取这个文件夹下的 `index.yaml` 文件来获取文章列表。例如 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md&lang=chs) 这篇文章对应的 `wwwroot/index.yaml` 内容如下：
 
 ```yaml
 githubpages:
   en: post/page/githubpages_en.md
-  zh: post/page/githubpages_zh.md # 文章的中文版本位于 wwwroot/post/page/githubpages_zh.md
+  chs: post/page/githubpages_chs.md # 文章的中文版本位于 wwwroot/post/page/githubpages_chs.md
   ja: post/page/githubpages_ja.md
 ```
 
-除了在 `wwwroot/index.yaml` 中指定文章的 Markdown 文件路径外，您还需要在每篇 Markdown 文件的开头添加前言区（Front Matter）来提供文章的元数据。以下是 `wwwroot/post/page/githubpages_zh.md` 的文件节选：
+除了在 `wwwroot/index.yaml` 中指定文章的 Markdown 文件路径外，您还需要在每篇 Markdown 文件的开头添加前言区（Front Matter）来提供文章的元数据。以下是 `wwwroot/post/page/githubpages_chs.md` 的文件节选：
 
 ```markdown
 ---
@@ -106,16 +106,16 @@ ai: true
 > 前言区的所有参数都是可选的；若您不愿意提供某个参数，可直接将其留空或删除该行。
 
 ## 页面写作
-与 [文章写作](#45) 类似，NanoSite 通过读取 `wwwroot/` 文件夹内的 `tabs.yaml` 文件来获取页面列表。例如 [关于](?tab=about&lang=zh) 页面的对应的 `wwwroot/tabs.yaml` 内容如下：
+与 [文章写作](#45) 类似，NanoSite 通过读取 `wwwroot/` 文件夹内的 `tabs.yaml` 文件来获取页面列表。例如 [关于](?tab=about&lang=chs) 页面的对应的 `wwwroot/tabs.yaml` 内容如下：
 
 ```yaml
 About:
   en:
     title: About
     location: tab/about/en.md
-  zh:
+  chs:
     title: 关于
-    location: tab/about/zh.md # 页面的中文版本位于 wwwroot/tab/about/zh.md
+    location: tab/about/chs.md # 页面的中文版本位于 wwwroot/tab/about/chs.md
   ja:
     title: 概要
     location: tab/about/ja.md
@@ -125,13 +125,13 @@ About:
 
 
 ## 图片与视频
-NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中的图片和视频都会以该文件的相对路径进行引用。例如在 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_zh.md&lang=zh) 这篇文章中，其于内容开头处插入了一张图片：
+NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中的图片和视频都会以该文件的相对路径进行引用。例如在 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md&lang=chs) 这篇文章中，其于内容开头处插入了一张图片：
 
 ```markdown
 ![page](page.jpeg)
 ```
 
-且其文章路径为 `wwwroot/post/page/githubpages_zh.md`，那么 `page.jpeg` 的存放位置则应为 `wwwroot/post/page/page.jpeg`。视频文件与图片文件的引用方式相同，只需确保路径正确即可，NanoSite 会自动识别出视频文件并进行处理。
+且其文章路径为 `wwwroot/post/page/githubpages_chs.md`，那么 `page.jpeg` 的存放位置则应为 `wwwroot/post/page/page.jpeg`。视频文件与图片文件的引用方式相同，只需确保路径正确即可，NanoSite 会自动识别出视频文件并进行处理。
 
 ## 站内链接卡片（预览）
 
@@ -140,7 +140,7 @@ NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中
 ```markdown
 ... 此前内容省略
 
-[为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_zh.md)
+[为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md)
 
 ... 此后内容省略
 ```
@@ -150,7 +150,7 @@ NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中
 ```markdown
 ... 此前内容省略
 
-这是一张 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_zh.md "card") 行内卡片。
+这是一张 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md "card") 行内卡片。
 
 ... 此后内容省略
 ```
@@ -206,7 +206,7 @@ assetWarnings:
 - `contentOutdatedDays` — 内容被视为过时的天数（默认为 180 天）。
 - `cardCoverFallback` — 如果未提供封面图像，则使用生成的占位封面图像（缺省为 `true`）。
 - `pageSize` — 索引列表中每页的帖子数量（缺省为 `8`）。
-- `defaultLanguage` — 默认 UI/内容语言（例如，`en`、`zh`、`zh-tw`、`zh-hk`、`ja`；缺省为 `en`）。
+- `defaultLanguage` — 默认 UI/内容语言（例如，`en`、`chs`、`cht-tw`、`cht-hk`、`ja`；缺省为 `en`）。
 
 例如：
 ```yaml
@@ -223,7 +223,7 @@ defaultLanguage: en
 - `?tab=posts` — 全部文章（默认）。支持 `&page=N` 分页。
 - `?tab=search&q=关键词` — 按标题或标签搜索。也可用 `&tag=标签名` 过滤。
 - `?id=路径/到/文章.md` — 直接打开某篇文章（路径必须存在于 `index.yaml`）。
-- `?lang=zh` — UI 语言偏好。存储在 localStorage；内容会先尝试匹配该语言版本，再按配置的回退链选择可用内容。
+- `?lang=chs` — UI 语言偏好。存储在 localStorage；内容会先尝试匹配该语言版本，再按配置的回退链选择可用内容。
 
 Markdown 中的站内跳转链接示例：`[看看这篇](?id=post/frogy/main.md)`，标签页：`[关于](?tab=about)`。
 
@@ -241,16 +241,16 @@ resourceURL: https://nano.dee.moe/wwwroot/
 siteDescription:
   default: NanoSite - Just Markdown. Just a website.
   en: NanoSite - Just Markdown. Just a website.
-  zh: 微站 - 写下 Markdown，就是你的网站。
-  zh-tw: 微站 - 寫下 Markdown，就是你的網站。
-  zh-hk: 微站 - 寫低 Markdown，就係你嘅網站。
+  chs: 微站 - 写下 Markdown，就是你的网站。
+  cht-tw: 微站 - 寫下 Markdown，就是你的網站。
+  cht-hk: 微站 - 寫低 Markdown，就係你嘅網站。
   ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
 siteKeywords:
   default: static blog, markdown, github pages, blog
   en: static blog, markdown, github pages, blog
-  zh: 静态博客, Markdown, GitHub Pages, 博客
-  zh-tw: 靜態部落格, Markdown, GitHub Pages, 部落格
-  zh-hk: 靜態網誌, Markdown, GitHub Pages, 網誌
+  chs: 静态博客, Markdown, GitHub Pages, 博客
+  cht-tw: 靜態部落格, Markdown, GitHub Pages, 部落格
+  cht-hk: 靜態網誌, Markdown, GitHub Pages, 網誌
   ja: 静的サイト, Markdown, GitHub Pages, ブログ
 ```
 
@@ -275,6 +275,6 @@ NanoSite 将网站本体语言和内容语言视为相关但独立的两层。
 
 	- 简化版（本仓库示例）：按语言直接给出 Markdown 路径
 	- 统一版：每种语言的 `{title, location}`
-	- 旧版：`index.en.yaml`/`index.en.json`、`index.zh.yaml`/`index.zh.json`…（回退）
+	- 旧版：`index.en.yaml`/`index.en.json`、`index.chs.yaml`/`index.chs.json`…（回退）
 
 切换语言时，若当前文章存在相应变体，路由会尽量保持在“同一篇”；若不存在，则按上述规则显示默认语言内容。
