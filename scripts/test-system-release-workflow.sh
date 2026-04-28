@@ -27,3 +27,45 @@ if awk '
   echo "system release workflow must not ignore git diff failures while planning releases" >&2
   exit 1
 fi
+
+if grep -F 'releases/tags/${NEXT_TAG}' "${workflow}" >/dev/null; then
+  echo "system release workflow must not validate draft releases through the tag endpoint" >&2
+  exit 1
+fi
+
+if ! grep -F 'steps.create.outputs.release_id' "${workflow}" >/dev/null; then
+  echo "system release workflow must validate and publish the draft release by release id" >&2
+  exit 1
+fi
+
+if ! grep -F 'stale-draft-release-ids.txt' "${workflow}" >/dev/null; then
+  echo "system release workflow must clean stale draft releases for retry safety" >&2
+  exit 1
+fi
+
+if grep -F 'release.get("name") == next_tag' "${workflow}" >/dev/null; then
+  echo "system release workflow must identify stale releases by tag_name, not editable release names" >&2
+  exit 1
+fi
+
+if ! grep -F 'release.get("tag_name") == next_tag' "${workflow}" >/dev/null; then
+  echo "system release workflow must match stale draft releases by tag_name" >&2
+  exit 1
+fi
+
+if ! grep -F 'git push --delete origin "${next_tag}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must delete stale release tags before retrying" >&2
+  exit 1
+fi
+
+if ! grep -F 'git tag -d "${next_tag}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must delete stale local release tags before retrying" >&2
+  exit 1
+fi
+
+stale_cleanup_line="$(grep -nF 'stale-draft-release-ids.txt' "${workflow}" | head -n 1 | cut -d: -f1)"
+tag_refusal_line="$(grep -nF 'Refusing to overwrite existing tag' "${workflow}" | head -n 1 | cut -d: -f1)"
+if [[ -n "${tag_refusal_line}" && -n "${stale_cleanup_line}" && "${tag_refusal_line}" -lt "${stale_cleanup_line}" ]]; then
+  echo "system release workflow must clean stale drafts and tags before refusing an existing tag" >&2
+  exit 1
+fi
