@@ -8728,7 +8728,9 @@ function syncEditorOverlayUi() {
   const layer = document.getElementById('editorModalLayer');
   const dialog = document.querySelector('.editor-modal-dialog');
   const title = document.getElementById('editorModalTitle');
+  const composerActions = document.getElementById('editorModalComposerActions');
   const hasOverlay = activeEditorOverlayMode === 'composer' || activeEditorOverlayMode === 'updates';
+  const isComposerOverlay = activeEditorOverlayMode === 'composer';
 
   if (layer) {
     layer.hidden = !hasOverlay;
@@ -8736,6 +8738,10 @@ function syncEditorOverlayUi() {
   }
   if (title) title.textContent = hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '';
   if (dialog) dialog.setAttribute('aria-label', hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '');
+  if (composerActions) {
+    composerActions.hidden = !isComposerOverlay;
+    composerActions.setAttribute('aria-hidden', isComposerOverlay ? 'false' : 'true');
+  }
 
   ['composer', 'updates'].forEach((mode) => {
     const panel = document.getElementById(`mode-${mode}`);
@@ -12744,6 +12750,15 @@ function buildSiteUI(root, state) {
 
     let desiredTop = Math.max(toolbarOffset + 12, 12);
     try {
+      const scrollContainer = resolveSiteScrollContainer();
+      if (scrollContainer && scrollContainer !== window && typeof scrollContainer.getBoundingClientRect === 'function') {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        if (containerRect && Number.isFinite(containerRect.top)) {
+          desiredTop = Math.max(containerRect.top + 12, 12);
+        }
+      }
+    } catch (_) {}
+    try {
       if (nav && typeof nav.getBoundingClientRect === 'function') {
         const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
         const navVisible = (!navStyles || (navStyles.display !== 'none' && navStyles.visibility !== 'hidden'))
@@ -12756,6 +12771,62 @@ function buildSiteUI(root, state) {
     } catch (_) {}
 
     return desiredTop;
+  };
+
+  const resolveSiteScrollContainer = () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+    try {
+      const modalBody = root && typeof root.closest === 'function' ? root.closest('.editor-modal-body') : null;
+      if (modalBody) return modalBody;
+    } catch (_) {}
+    let node = root && root.parentElement ? root.parentElement : null;
+    while (node && node !== document.body && node !== document.documentElement) {
+      try {
+        const styles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(node) : null;
+        const overflowY = styles ? String(styles.overflowY || '') : '';
+        const canScroll = /(auto|scroll|overlay)/.test(overflowY)
+          && (node.scrollHeight || 0) > (node.clientHeight || 0) + 1;
+        if (canScroll) return node;
+      } catch (_) {}
+      node = node.parentElement;
+    }
+    return window;
+  };
+
+  const getSiteScrollTop = (scrollContainer) => {
+    if (!scrollContainer || scrollContainer === window) {
+      return window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+    return scrollContainer.scrollTop || 0;
+  };
+
+  const getSiteViewportHeight = (scrollContainer) => {
+    if (!scrollContainer || scrollContainer === window) {
+      return window.innerHeight || document.documentElement.clientHeight || 0;
+    }
+    return scrollContainer.clientHeight || window.innerHeight || document.documentElement.clientHeight || 0;
+  };
+
+  const scrollSiteContainerTo = (scrollContainer, targetY, behavior) => {
+    if (!scrollContainer || scrollContainer === window) {
+      if (typeof window.scrollTo === 'function') {
+        try {
+          window.scrollTo({ top: targetY, behavior });
+        } catch (_) {
+          window.scrollTo(0, targetY);
+        }
+      }
+      return;
+    }
+    if (typeof scrollContainer.scrollTo === 'function') {
+      try {
+        scrollContainer.scrollTo({ top: targetY, behavior });
+      } catch (_) {
+        scrollContainer.scrollTo(0, targetY);
+      }
+    } else {
+      scrollContainer.scrollTop = targetY;
+    }
   };
 
   function focusNavAt(index) {
@@ -12841,13 +12912,14 @@ function buildSiteUI(root, state) {
     if (shouldScroll && activeMeta && typeof window !== 'undefined') {
       const executeScroll = () => {
         try {
+          const scrollContainer = resolveSiteScrollContainer();
           const sectionRect = activeMeta.section.getBoundingClientRect();
           const desiredTop = resolveViewportAnchorTop();
           const delta = sectionRect.top - desiredTop;
           if (Math.abs(delta) > 4) {
             const behavior = options.scrollBehavior || 'smooth';
             const prefersReduced = composerPrefersReducedMotion();
-            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+            const targetY = getSiteScrollTop(scrollContainer) + delta;
             const resolvedDuration = resolveComposerScrollDuration(options.scrollDuration);
             if (!skipScrollLock) {
               const now = getNow();
@@ -12855,26 +12927,13 @@ function buildSiteUI(root, state) {
               scrollSyncLockUntil = now + Math.max(lockDuration, 140);
             }
 
-            if (!prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
+            if (scrollContainer === window && !prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
               const animated = animateComposerViewportScroll(targetY, resolvedDuration, () => commitFocus(48));
               if (animated) return;
             }
 
             cancelComposerSiteScrollAnimation();
-
-            if (typeof window.scrollBy === 'function') {
-              try {
-                window.scrollBy({ top: delta, behavior });
-              } catch (_) {
-                window.scrollBy(0, delta);
-              }
-            } else if (typeof window.scrollTo === 'function') {
-              try {
-                window.scrollTo({ top: targetY, behavior });
-              } catch (_) {
-                window.scrollTo(0, targetY);
-              }
-            }
+            scrollSiteContainerTo(scrollContainer, targetY, behavior);
 
             if (!prefersReduced && behavior === 'smooth') commitFocus(resolvedDuration + 64);
             else commitFocus(0);
@@ -13073,11 +13132,10 @@ function buildSiteUI(root, state) {
       }
     } else {
       if (!sectionsMeta.length) return;
+      const scrollContainer = resolveSiteScrollContainer();
       const anchorTop = resolveViewportAnchorTop();
-      const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const viewportHeight = getSiteViewportHeight(scrollContainer);
       const tolerance = Math.max(48, Math.min(viewportHeight * 0.25 || 0, 180));
-      const anchorDocY = scrollY + anchorTop;
       let candidate = null;
 
       for (let i = 0; i < sectionsMeta.length; i += 1) {
@@ -13085,8 +13143,7 @@ function buildSiteUI(root, state) {
         if (!meta || !meta.section) continue;
         const rect = meta.section.getBoundingClientRect();
         if (!rect || rect.height <= 4) continue;
-        const sectionTop = scrollY + rect.top;
-        if (sectionTop <= anchorDocY + tolerance) {
+        if (rect.top <= anchorTop + tolerance) {
           candidate = meta;
           continue;
         }
@@ -13275,6 +13332,7 @@ function buildSiteUI(root, state) {
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     const onScroll = () => scheduleScrollSync();
     const onResize = () => scheduleScrollSync();
+    const scrollContainer = resolveSiteScrollContainer();
     let passiveScrollListener = false;
     try {
       window.addEventListener('scroll', onScroll, { passive: true });
@@ -13282,12 +13340,27 @@ function buildSiteUI(root, state) {
     } catch (_) {
       try { window.addEventListener('scroll', onScroll); } catch (_) {}
     }
+    let passiveContainerScrollListener = false;
+    if (scrollContainer && scrollContainer !== window && typeof scrollContainer.addEventListener === 'function') {
+      try {
+        scrollContainer.addEventListener('scroll', onScroll, { passive: true });
+        passiveContainerScrollListener = true;
+      } catch (_) {
+        try { scrollContainer.addEventListener('scroll', onScroll); } catch (_) {}
+      }
+    }
     try { window.addEventListener('resize', onResize); } catch (_) {}
     const cleanup = () => {
       try {
         if (passiveScrollListener) window.removeEventListener('scroll', onScroll, { passive: true });
       } catch (_) {}
       try { window.removeEventListener('scroll', onScroll); } catch (_) {}
+      try {
+        if (scrollContainer && scrollContainer !== window && typeof scrollContainer.removeEventListener === 'function') {
+          if (passiveContainerScrollListener) scrollContainer.removeEventListener('scroll', onScroll, { passive: true });
+          else scrollContainer.removeEventListener('scroll', onScroll);
+        }
+      } catch (_) {}
       try { window.removeEventListener('resize', onResize); } catch (_) {}
       cancelScheduledScrollSync();
     };
@@ -15609,7 +15682,7 @@ function rebuildSiteUI() {
 
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
-  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
+  .cs-nav{position:sticky;top:50%;transform:translateY(-50%);align-self:start;z-index:2;padding:.65rem 0 1rem}
   .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;max-height:calc(100vh - 6rem);overflow:auto}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}

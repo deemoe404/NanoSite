@@ -697,6 +697,18 @@ assert.match(
 
 assert.match(
   source,
+  /const resolveSiteScrollContainer = \(\) => \{[\s\S]*root\.closest\('\.editor-modal-body'\)[\s\S]*return modalBody;[\s\S]*return window;[\s\S]*\};/,
+  'site section navigation should use the modal body as its scroll container when rendered in the overlay'
+);
+
+assert.match(
+  source,
+  /const scrollContainer = resolveSiteScrollContainer\(\);[\s\S]*scrollContainer\.addEventListener\('scroll', onScroll, \{ passive: true \}\);[\s\S]*scrollContainer\.removeEventListener\('scroll', onScroll, \{ passive: true \}\);/,
+  'site section active-state sync should listen to modal-body scroll events, not only window scroll'
+);
+
+assert.match(
+  source,
   /const renderBehaviorGrid = \(section\) => \{[\s\S]*dataKey: 'defaultLanguage'[\s\S]*dataKey: 'contentOutdatedDays'[\s\S]*dataKey: 'pageSize'[\s\S]*dataKey: 'showAllPosts'[\s\S]*dataKey: 'landingTab'[\s\S]*dataKey: 'cardCoverFallback'[\s\S]*dataKey: 'errorOverlay'/,
   'Behavior compact grid should include all single-value behavior fields'
 );
@@ -949,6 +961,12 @@ assert.match(
 
 assert.match(
   source,
+  /\.cs-nav\{position:sticky;top:50%;transform:translateY\(-50%\);align-self:start;/,
+  'desktop site section navigation should stay vertically centered in the modal body viewport'
+);
+
+assert.match(
+  source,
   /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;/,
   'desktop site section navigation should not render as a card container'
 );
@@ -971,10 +989,28 @@ assert.match(
   'mobile layout should expose a file tree drawer toggle only on small screens'
 );
 
+assert.doesNotMatch(
+  editorSource,
+  /#mode-composer > \.editor-main > \.toolbar|<section class="box editor-main" style="grid-column: 1 \/ -1;">|class="site-settings-title"/,
+  'site settings modal should not render a redundant inner card toolbar'
+);
+
 assert.match(
   editorSource,
-  /#mode-composer > \.editor-main > \.toolbar \{\s*margin:-1\.25rem -1\.25rem 1\.25rem;\s*padding:\.85rem 1\.25rem \.7rem;/,
-  'composer file toolbar should span the editor card while keeping visual spacing as internal padding'
+  /class="editor-modal-header-actions" id="editorModalComposerActions" hidden[\s\S]*id="btnRefresh"[\s\S]*id="btnDiscard"/,
+  'site settings refresh and discard controls should live in the modal header action slot'
+);
+
+assert.match(
+  editorSource,
+  /<header class="editor-modal-header">\s*<button type="button" class="btn-secondary editor-modal-close" id="editorModalClose"[\s\S]*<h2 id="editorModalTitle"><\/h2>/,
+  'modal close button should sit to the left of the title for macOS-style chrome'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-modal-header-actions \.btn-secondary \{\s*height:2rem;\s*padding:0 \.65rem;[\s\S]*\.editor-modal-close \{[\s\S]*height:2rem;/,
+  'modal header action buttons should match the close button height'
 );
 
 assert.match(
