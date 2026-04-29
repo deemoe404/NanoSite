@@ -109,6 +109,60 @@ assert.match(
 
 assert.match(
   source,
+  /const appendLinkHeader = \(\) => \{[\s\S]*head\.className = 'cs-link-head';[\s\S]*labelTitle\.id = labelTitleId;[\s\S]*hrefTitle\.id = hrefTitleId;[\s\S]*listWrap\.appendChild\(head\);[\s\S]*appendLinkHeader\(\);[\s\S]*list\.forEach/,
+  'profile link Name and URL labels should render in a static header outside draggable rows'
+);
+
+assert.match(
+  source,
+  /const renderRowsAndRefreshDiff = \(\) => \{[\s\S]*renderRows\(\);[\s\S]*notifyComposerChange\('site', \{ skipAutoSave: true \}\);[\s\S]*\};[\s\S]*moveEntry\(index, event\.key === 'ArrowUp' \? index - 1 : index \+ 1, \{ refreshDiff: true \}\);[\s\S]*renderRowsAndRefreshDiff\(\);/,
+  'profile link reorders should refresh site diff markers after replacing row DOM'
+);
+
+assert.doesNotMatch(
+  source,
+  /row\.classList\.add\('cs-link-row--with-title'\)|labelField\.append\(labelTitle, labelInput\)|hrefField\.append\(hrefTitle, hrefInput\)/,
+  'profile link draggable rows should not own the static Name and URL labels'
+);
+
+assert.match(
+  source,
+  /const moveEntry = \(from, to, options = \{\}\) => \{[\s\S]*list\.splice\(to, 0, item\);[\s\S]*markDirty\(\);[\s\S]*if \(options\.refreshDiff\) renderRowsAndRefreshDiff\(\);[\s\S]*else renderRows\(\);[\s\S]*const createDragHandle = \(index\) => \{/,
+  'profile links should share one reorder path between drag handles and keyboard movement'
+);
+
+assert.match(
+  source,
+  /const handle = document\.createElement\('span'\);[\s\S]*handle\.setAttribute\('role', 'button'\);[\s\S]*handle\.className = 'cs-link-drag-handle';[\s\S]*handle\.setAttribute\('aria-label', t\('editor\.composer\.site\.reorderLink'\)\);[\s\S]*handle\.addEventListener\('pointerdown',/,
+  'profile links should render a standalone pointer drag handle for reordering'
+);
+
+assert.match(
+  source,
+  /const createDragPlaceholder = \(row\) => \{[\s\S]*placeholder\.className = 'cs-link-drop-placeholder';[\s\S]*placeholder\.style\.height = `\$\{rowRect\.height\}px`;/,
+  'profile link drag should create an in-list placeholder matching the dragged row height'
+);
+
+assert.match(
+  source,
+  /const animateLinkRows = \(callback\) => \{[\s\S]*getBoundingClientRect\(\)[\s\S]*row\.style\.transform = `translate3d\(0, \$\{previous\.top - next\.top\}px, 0\)`[\s\S]*requestAnimationFrame/,
+  'profile link drag should animate non-dragged rows into their preview positions'
+);
+
+assert.match(
+  source,
+  /const applyDragPreview = \(clientY\) => \{[\s\S]*linkDragState\.dragRow\.style\.transform = `translate3d\(0, \$\{clientY - linkDragState\.startY\}px, 0\)`[\s\S]*animateLinkRows\(\(\) => \{/,
+  'profile link drag should move the dragged row with the pointer while previewing the drop position'
+);
+
+assert.doesNotMatch(
+  source,
+  /className = 'btn-tertiary cs-move'|addEventListener\('click', \(\) => moveEntry\(index, index [-+] 1\)\)/,
+  'profile links should not render old up/down reorder buttons'
+);
+
+assert.match(
+  source,
   /renderLocalizedField\(seoSection, 'siteDescription', \{[\s\S]*subheading: true[\s\S]*\}\);[\s\S]*renderLocalizedField\(seoSection, 'siteKeywords', \{[\s\S]*subheading: true[\s\S]*\}\);/,
   'SEO localized fields should opt into the shared subsection heading style'
 );
@@ -337,8 +391,8 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /repoInputs\.className = 'cs-repo-grid';[\s\S]*repoInputs\.dataset\.field = 'repo';[\s\S]*repoInputs\.append\(pathRow, branchWrap\);[\s\S]*repoSection\.appendChild\(repoInputs\);/,
-  'Repository inputs should remain diff-addressable while rendering directly in the Repository card'
+  /repoInputs\.className = 'cs-repo-grid';[\s\S]*repoInputs\.dataset\.field = 'repo';[\s\S]*createRepoFieldGroup\('cs-repo-field-group--owner', t\('editor\.composer\.site\.repoOwner'\), ownerWrap\)[\s\S]*createRepoFieldGroup\('cs-repo-field-group--name', t\('editor\.composer\.site\.repoName'\), repoWrap\)[\s\S]*createRepoFieldGroup\('cs-repo-field-group--branch', t\('editor\.composer\.site\.repoBranch'\), branchWrap\)[\s\S]*repoSection\.appendChild\(repoInputs\);/,
+  'Repository inputs should remain diff-addressable while rendering labeled controls directly in the Repository card'
 );
 
 assert.match(
@@ -499,8 +553,8 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}/,
-  'profile link label and URL fields should use the same horizontal gap as identity grid columns'
+  /\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}[\s\S]*\.cs-link-field--label\{flex:1 1 0\}[\s\S]*\.cs-link-field--href\{flex:3 1 0\}/,
+  'profile link label and URL fields should keep a 1:3 width ratio with the same horizontal gap as identity grid columns'
 );
 
 assert.match(

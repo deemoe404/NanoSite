@@ -37,6 +37,9 @@
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
       --editor-toolbar-offset: 0px;
+      --editor-page-max-width: 1200px;
+      --editor-edge-offset: 1rem;
+      --back-to-top-size: 2.5rem;
     }
     @media (prefers-reduced-motion: reduce) {
       :root {
@@ -49,7 +52,7 @@
     /* Widen the editor page and reduce side padding */
     html, body { overflow-x: visible; overflow-y: visible; }
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
-    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem 1rem; max-width: min(95vw, 1200px); width: 100%; margin: 0 auto; overflow-x: clip; }
+    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem var(--editor-edge-offset); max-width: min(95vw, var(--editor-page-max-width)); width: 100%; margin: 0 auto; overflow-x: clip; }
     /* Editor layout */
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
@@ -1540,7 +1543,7 @@
     }
 
     /* Back-to-top button */
-    .back-to-top { position: fixed; right: 1rem; bottom: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease, transform .18s ease, background-color .18s ease; z-index: 999; }
+    .back-to-top { position: fixed; right: max(var(--editor-edge-offset), calc((100vw - var(--editor-page-max-width)) / 2 - var(--editor-edge-offset) - var(--back-to-top-size))); bottom: var(--editor-edge-offset); width: var(--back-to-top-size); height: var(--back-to-top-size); border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); display: inline-flex; align-items: center; justify-content: center; box-shadow: var(--shadow); cursor: pointer; opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .18s ease, transform .18s ease, background-color .18s ease; z-index: 999; }
     .back-to-top:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); }
     .back-to-top svg { width: 1.15rem; height: 1.15rem; }
     .back-to-top.show { opacity: .96; transform: translateY(0); pointer-events: auto; }
