@@ -344,6 +344,10 @@ const translations = {
               title: 'SEO & sharing',
               description: 'Provide metadata used for search engines and link previews.'
             },
+            configuration: {
+              title: 'Site Configuration',
+              description: 'Control site behavior, theme defaults, and editor warnings.'
+            },
             behavior: {
               title: 'Behavior',
               description: 'Control pagination, landing behavior, and All Posts visibility.'

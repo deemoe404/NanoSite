@@ -31,20 +31,20 @@ assert.match(
 
 assert.match(
   source,
-  /renderBehaviorGrid\(behaviorSection\);/,
-  'Behavior section should render single-value fields through the compact grid'
+  /const siteConfigSection = createSection\([\s\S]*sections\.configuration\.title[\s\S]*sections\.configuration\.description[\s\S]*createConfigSubsection\(\s*siteConfigSection,[\s\S]*sections\.behavior\.title[\s\S]*renderBehaviorGrid\(behaviorSubsection\);/,
+  'Behavior settings should render inside the combined Site Configuration section'
 );
 
 assert.match(
   source,
-  /renderThemeGrid\(themeSection\);/,
-  'Theme section should render single-value fields through the compact grid'
+  /createConfigSubsection\(\s*siteConfigSection,[\s\S]*sections\.theme\.title[\s\S]*renderThemeGrid\(themeSubsection\);/,
+  'Theme settings should render inside the combined Site Configuration section'
 );
 
 assert.match(
   source,
-  /renderAssetWarningsGrid\(assetsSection\);/,
-  'Asset warnings section should render single-value fields through the compact grid'
+  /createConfigSubsection\(\s*siteConfigSection,[\s\S]*sections\.assets\.title[\s\S]*renderAssetWarningsGrid\(assetsSubsection\);/,
+  'Asset warnings should render inside the combined Site Configuration section'
 );
 
 assert.match(
@@ -57,6 +57,30 @@ assert.match(
   source,
   /renderLocalizedField\(seoSection, 'siteKeywords'[\s\S]*createLinkListField\(seoSection, 'profileLinks'[\s\S]*renderSeoResourceGrid\(seoSection\);/,
   'SEO section should render Profile links before Resource URL'
+);
+
+assert.match(
+  source,
+  /createLinkListField\(seoSection, 'profileLinks', \{[\s\S]*subheading: true[\s\S]*\}\);/,
+  'SEO Profile links should opt into the shared subsection heading style'
+);
+
+assert.match(
+  source,
+  /renderLocalizedField\(seoSection, 'siteDescription', \{[\s\S]*subheading: true[\s\S]*\}\);[\s\S]*renderLocalizedField\(seoSection, 'siteKeywords', \{[\s\S]*subheading: true[\s\S]*\}\);/,
+  'SEO localized fields should opt into the shared subsection heading style'
+);
+
+assert.match(
+  source,
+  /const field = options\.subheading[\s\S]*createSubheadingField\(section, \{[\s\S]*dataKey: key,[\s\S]*label: options\.label,[\s\S]*description: options\.description[\s\S]*createField\(section, \{/,
+  'localized fields should be able to reuse the shared subsection heading renderer'
+);
+
+assert.match(
+  source,
+  /const createSubheadingField = \(section, config\) => \{[\s\S]*head\.className = 'cs-config-subsection-head'[\s\S]*title\.className = 'cs-config-subsection-title'[\s\S]*description\.className = 'cs-config-subsection-description'/,
+  'subheading fields should reuse the same title and description classes as combined configuration subsections'
 );
 
 assert.doesNotMatch(
@@ -241,8 +265,14 @@ assert.match(
 
 assert.match(
   source,
-  /const themeSection = createSection\([\s\S]*renderThemeGrid\(themeSection\);[\s\S]*const assetsSection = createSection\([\s\S]*renderAssetWarningsGrid\(assetsSection\);[\s\S]*const repoSection = createSection\(/,
-  'Site editor should render Asset warnings before Repository'
+  /const siteConfigSection = createSection\([\s\S]*renderBehaviorGrid\(behaviorSubsection\);[\s\S]*renderThemeGrid\(themeSubsection\);[\s\S]*renderAssetWarningsGrid\(assetsSubsection\);[\s\S]*const repoSection = createSection\(/,
+  'Site editor should combine Behavior, Theme, and Asset warnings before Repository'
+);
+
+assert.doesNotMatch(
+  source,
+  /const behaviorSection = createSection\([\s\S]*const themeSection = createSection\([\s\S]*const assetsSection = createSection\(/,
+  'Behavior, Theme, and Asset warnings should not render as separate top-level cards'
 );
 
 assert.match(
@@ -297,6 +327,30 @@ assert.match(
   source,
   /\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}/,
   'profile link label and URL fields should use the same horizontal gap as identity grid columns'
+);
+
+assert.match(
+  source,
+  /\.cs-config-subsection \+ \.cs-config-subsection\{border-top:1px solid color-mix\(in srgb,var\(--border\) 82%, transparent\);margin-top:\.35rem;padding-top:\.95rem\}/,
+  'combined Site Configuration subsections should be separated by the same divider rhythm as large cards'
+);
+
+assert.match(
+  source,
+  /\.cs-config-subsection-title\{margin:0;font-size:\.84rem;font-weight:600;color:color-mix\(in srgb,var\(--text\) 76%, transparent\)\}[\s\S]*\.cs-config-subsection-description\{margin:0;font-size:\.8rem;color:color-mix\(in srgb,var\(--muted\) 88%, transparent\);flex:1 1 auto;text-align:left\}/,
+  'combined Site Configuration subsection headings should use the smaller field-heading rhythm instead of top-level section titles'
+);
+
+assert.match(
+  source,
+  /\.cs-config-subsection\{display:flex;flex-direction:column;gap:\.4rem\}[\s\S]*\.cs-config-subsection > \.cs-config-subsection-head \+ \.cs-field\{padding-top:0\}/,
+  'combined Site Configuration subsection content should sit as close to its heading as SEO subheading content'
+);
+
+assert.doesNotMatch(
+  source,
+  /createConfigSubsection[\s\S]*document\.createElement\('h4'\)/,
+  'combined Site Configuration subsection labels should not render as document headings'
 );
 
 assert.match(

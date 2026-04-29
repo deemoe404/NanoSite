@@ -12404,14 +12404,69 @@ function buildSiteUI(root, state) {
     return field;
   };
 
+  const createSubheadingField = (section, config) => {
+    const field = document.createElement('div');
+    field.className = 'cs-field cs-subheading-field';
+    if (config.dataKey) field.dataset.field = config.dataKey;
+    if (config.label || config.description) {
+      const head = document.createElement('div');
+      head.className = 'cs-config-subsection-head';
+      if (config.label) {
+        const title = document.createElement('div');
+        title.className = 'cs-config-subsection-title';
+        title.textContent = config.label;
+        head.appendChild(title);
+      }
+      if (config.description) {
+        const description = document.createElement('p');
+        description.className = 'cs-config-subsection-description';
+        description.textContent = config.description;
+        head.appendChild(description);
+      }
+      field.appendChild(head);
+    }
+    section.appendChild(field);
+    return field;
+  };
+
+  const createConfigSubsection = (section, title, description) => {
+    const block = document.createElement('div');
+    block.className = 'cs-config-subsection';
+    if (title || description) {
+      const head = document.createElement('div');
+      head.className = 'cs-config-subsection-head';
+      if (title) {
+        const heading = document.createElement('div');
+        heading.className = 'cs-config-subsection-title';
+        heading.textContent = title;
+        head.appendChild(heading);
+      }
+      if (description) {
+        const desc = document.createElement('p');
+        desc.className = 'cs-config-subsection-description';
+        desc.textContent = description;
+        head.appendChild(desc);
+      }
+      block.appendChild(head);
+    }
+    section.appendChild(block);
+    return block;
+  };
+
   const renderLocalizedField = (section, key, options = {}) => {
     ensureLocalized(key, options.ensureDefault !== false);
     const useLocalizedGrid = !!(options.grid || options.multiline);
-    const field = createField(section, {
-      dataKey: key,
-      label: options.label,
-      description: options.description
-    });
+    const field = options.subheading
+      ? createSubheadingField(section, {
+        dataKey: key,
+        label: options.label,
+        description: options.description
+      })
+      : createField(section, {
+        dataKey: key,
+        label: options.label,
+        description: options.description
+      });
     const list = document.createElement('div');
     list.className = useLocalizedGrid
       ? 'cs-localized-list cs-localized-list--grid'
@@ -13689,11 +13744,17 @@ function buildSiteUI(root, state) {
 
   const createLinkListField = (section, key, config) => {
     const list = ensureLinkList(key);
-    const field = createField(section, {
-      dataKey: key,
-      label: config.label,
-      description: config.description
-    });
+    const field = config.subheading
+      ? createSubheadingField(section, {
+        dataKey: key,
+        label: config.label,
+        description: config.description
+      })
+      : createField(section, {
+        dataKey: key,
+        label: config.label,
+        description: config.description
+      });
     const listWrap = document.createElement('div');
     listWrap.className = 'cs-link-list';
     field.appendChild(listWrap);
@@ -13850,37 +13911,47 @@ function buildSiteUI(root, state) {
     description: t('editor.composer.site.fields.siteDescriptionHelp'),
     multiline: true,
     rows: 3,
-    ensureDefault: false
+    ensureDefault: false,
+    subheading: true
   });
   renderLocalizedField(seoSection, 'siteKeywords', {
     label: t('editor.composer.site.fields.siteKeywords'),
     description: t('editor.composer.site.fields.siteKeywordsHelp'),
     grid: true,
-    ensureDefault: false
+    ensureDefault: false,
+    subheading: true
   });
   createLinkListField(seoSection, 'profileLinks', {
     label: t('editor.composer.site.fields.profileLinks'),
-    description: t('editor.composer.site.fields.profileLinksHelp')
+    description: t('editor.composer.site.fields.profileLinksHelp'),
+    subheading: true
   });
   renderSeoResourceGrid(seoSection);
 
-  const behaviorSection = createSection(
+  const siteConfigSection = createSection(
+    t('editor.composer.site.sections.configuration.title'),
+    t('editor.composer.site.sections.configuration.description')
+  );
+  const behaviorSubsection = createConfigSubsection(
+    siteConfigSection,
     t('editor.composer.site.sections.behavior.title'),
     t('editor.composer.site.sections.behavior.description')
   );
-  renderBehaviorGrid(behaviorSection);
+  renderBehaviorGrid(behaviorSubsection);
 
-  const themeSection = createSection(
+  const themeSubsection = createConfigSubsection(
+    siteConfigSection,
     t('editor.composer.site.sections.theme.title'),
     t('editor.composer.site.sections.theme.description')
   );
-  renderThemeGrid(themeSection);
+  renderThemeGrid(themeSubsection);
 
-  const assetsSection = createSection(
+  const assetsSubsection = createConfigSubsection(
+    siteConfigSection,
     t('editor.composer.site.sections.assets.title'),
     t('editor.composer.site.sections.assets.description')
   );
-  renderAssetWarningsGrid(assetsSection);
+  renderAssetWarningsGrid(assetsSubsection);
 
   const repoSection = createSection(
     t('editor.composer.site.sections.repo.title'),
@@ -14356,6 +14427,12 @@ function rebuildSiteUI() {
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
   .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
   .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
+  .cs-config-subsection{display:flex;flex-direction:column;gap:.4rem}
+  .cs-config-subsection + .cs-config-subsection{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
+  .cs-config-subsection-head{display:flex;align-items:baseline;gap:.45rem;flex-wrap:wrap;margin-bottom:.05rem}
+  .cs-config-subsection-title{margin:0;font-size:.84rem;font-weight:600;color:color-mix(in srgb,var(--text) 76%, transparent)}
+  .cs-config-subsection-description{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 auto;text-align:left}
+  .cs-config-subsection > .cs-config-subsection-head + .cs-field{padding-top:0}
   .cs-field{margin:0;padding:.6rem 0;display:flex;flex-direction:column;gap:.4rem;position:relative}
   .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
   .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}

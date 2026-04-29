@@ -345,6 +345,10 @@ const translations = {
               title: 'SEO 与分享',
               description: '提供用于搜索引擎和链接预览的元信息。'
             },
+            configuration: {
+              title: '站点配置',
+              description: '控制站点行为、主题默认值和编辑器提醒。'
+            },
             behavior: {
               title: '行为',
               description: '控制分页、默认打开的页面以及“全部文章”的显示。'
