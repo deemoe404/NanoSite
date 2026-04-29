@@ -289,6 +289,18 @@ assert.match(
 
 assert.match(
   source,
+  /const flag = langFlag\(lang\);[\s\S]*const flagSpan = flag \? `<span class="ci-lang-flag" aria-hidden="true">\$\{escapeHtml\(flag\)\}<\/span>` : '';[\s\S]*<strong class="ci-lang-label" aria-label="\$\{safeLabel\}" title="\$\{safeLabel\}">[\s\S]*<span class="ci-lang-code">\$\{escapeHtml\(lang\.toUpperCase\(\)\)\}<\/span>/,
+  'index language section headings should show the regional flag before the language code'
+);
+
+assert.match(
+  source,
+  /\.ci-lang-label\{display:inline-flex;align-items:center;gap:\.35rem;line-height:1\.1;\}[\s\S]*\.ci-lang-label \.ci-lang-flag\{display:inline-grid;place-items:center;width:1\.2em;height:1\.2em;font-size:1rem;line-height:1;\}[\s\S]*\.ci-lang-label \.ci-lang-code\{display:inline-flex;align-items:center;line-height:1\.2;/,
+  'index language section flags should be aligned as part of the compact heading label'
+);
+
+assert.match(
+  source,
   /const renderIdentityPathGrid = \(section\) => \{/,
   'composer site editor should define a compact identity path grid renderer'
 );

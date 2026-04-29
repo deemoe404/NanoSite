@@ -10406,12 +10406,19 @@ function buildIndexUI(root, state) {
         const block = document.createElement('div');
         block.className = 'ci-lang';
         block.dataset.lang = lang;
+        const flag = langFlag(lang);
+        const langLabel = displayLangName(lang);
+        const safeLabel = escapeHtml(langLabel || '');
+        const flagSpan = flag ? `<span class="ci-lang-flag" aria-hidden="true">${escapeHtml(flag)}</span>` : '';
         const val = entry[lang];
         // Normalize to array for UI
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
         block.innerHTML = `
           <div class="ci-lang-head">
-            <strong>${escapeHtml(lang.toUpperCase())}</strong>
+            <strong class="ci-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
+              ${flagSpan}
+              <span class="ci-lang-code">${escapeHtml(lang.toUpperCase())}</span>
+            </strong>
             <span class="ci-lang-actions">
               <button type="button" class="btn-secondary ci-lang-addver">${escapeHtml(addVersionLabel)}</button>
               <button type="button" class="btn-secondary ci-lang-del">${escapeHtml(removeLangLabel)}</button>
@@ -14366,6 +14373,9 @@ function rebuildSiteUI() {
   .ci-lang{padding:.5rem;}
   .ct-lang{padding:.0625rem;}
   .ci-lang-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .ci-lang-label{display:inline-flex;align-items:center;gap:.35rem;line-height:1.1;}
+  .ci-lang-label .ci-lang-flag{display:inline-grid;place-items:center;width:1.2em;height:1.2em;font-size:1rem;line-height:1;}
+  .ci-lang-label .ci-lang-code{display:inline-flex;align-items:center;line-height:1.2;font-size:1rem;font-weight:700;letter-spacing:.035em;}
   .ci-lang-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ct-lang{display:flex;align-items:stretch;gap:0;overflow:hidden;}
   .ct-lang-label{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .6rem;background:color-mix(in srgb, var(--text) 14%, var(--card));color:var(--text);min-width:78px;white-space:nowrap;font-weight:700;border-radius:6px 0 0 6px;}
