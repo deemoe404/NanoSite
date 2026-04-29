@@ -87,6 +87,8 @@ let allowEditorStatePersist = false;
 let editorContentTree = [];
 let activeEditorTreeNodeId = 'articles';
 const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
+const collapsingEditorTreeNodeIds = new Set();
+let expandingEditorTreeNodeId = null;
 let activeEditorOverlayMode = null;
 let editorOverlayReturnFocus = null;
 let editorOverlayEscapeBound = false;
@@ -10754,10 +10756,79 @@ function createEditorTreeIcon(node) {
   return icon;
 }
 
+function getEditorTreeRowDepth(row) {
+  const raw = row && row.dataset ? Number(row.dataset.depth) : 0;
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+function collectEditorTreeDescendantRows(row) {
+  const rows = [];
+  const depth = getEditorTreeRowDepth(row);
+  let next = row && row.nextElementSibling ? row.nextElementSibling : null;
+  while (next) {
+    const nextDepth = getEditorTreeRowDepth(next);
+    if (nextDepth <= depth) break;
+    rows.push(next);
+    next = next.nextElementSibling;
+  }
+  return rows;
+}
+
+function animateEditorTreeCollapse(root, node, row) {
+  if (!root || !node || !row || !expandedEditorTreeNodeIds.has(node.id)) return false;
+  if (collapsingEditorTreeNodeIds.has(node.id)) return true;
+  const descendants = collectEditorTreeDescendantRows(row);
+  if (!descendants.length) return false;
+  collapsingEditorTreeNodeIds.add(node.id);
+  row.classList.add('is-collapsing-parent');
+  descendants.forEach((descendant) => {
+    const height = (() => {
+      try {
+        const rect = descendant.getBoundingClientRect();
+        if (rect && Number.isFinite(rect.height) && rect.height > 0) return rect.height;
+      } catch (_) {}
+      return descendant.offsetHeight || 28;
+    })();
+    descendant.classList.add('is-collapsing');
+    descendant.style.minHeight = `${height}px`;
+    descendant.style.maxHeight = `${height}px`;
+    descendant.style.opacity = '1';
+    descendant.style.transform = 'translateY(0)';
+  });
+  try { root.getBoundingClientRect(); } catch (_) {}
+  const collapseRows = () => {
+    descendants.forEach((descendant) => {
+      descendant.style.minHeight = '0px';
+      descendant.style.maxHeight = '0px';
+      descendant.style.opacity = '0';
+      descendant.style.transform = 'translateY(-4px)';
+    });
+  };
+  try {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(collapseRows);
+    } else {
+      window.setTimeout(collapseRows, 0);
+    }
+  } catch (_) {
+    collapseRows();
+  }
+  const finish = () => {
+    if (!collapsingEditorTreeNodeIds.has(node.id)) return;
+    collapsingEditorTreeNodeIds.delete(node.id);
+    expandedEditorTreeNodeIds.delete(node.id);
+    refreshEditorContentTree({ preserveStructure: true });
+  };
+  try { window.setTimeout(finish, 340); }
+  catch (_) { finish(); }
+  return true;
+}
+
 function renderEditorFileTree(root) {
   root.innerHTML = '';
   const selectedId = activeEditorTreeNodeId;
-  const renderNode = (node, depth) => {
+  const expandingNodeId = expandingEditorTreeNodeId;
+  const renderNode = (node, depth, ancestorIds = []) => {
     if (!node) return;
     const hasChildren = Array.isArray(node.children) && node.children.length > 0;
     const row = document.createElement('div');
@@ -10772,6 +10843,9 @@ function renderEditorFileTree(root) {
       : Math.max(0, depth - 1) * 1.12 + 1.35;
     row.style.paddingLeft = `${rowIndent}rem`;
     row.classList.toggle('is-selected', node.id === selectedId);
+    if (expandingNodeId && ancestorIds.includes(expandingNodeId)) {
+      row.classList.add('is-expanding');
+    }
 
     if (depth > 0) {
       const guides = document.createElement('span');
@@ -10800,8 +10874,13 @@ function renderEditorFileTree(root) {
       toggle.appendChild(caret);
       toggle.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (expandedEditorTreeNodeIds.has(node.id)) expandedEditorTreeNodeIds.delete(node.id);
-        else expandedEditorTreeNodeIds.add(node.id);
+        if (expandedEditorTreeNodeIds.has(node.id)) {
+          if (animateEditorTreeCollapse(root, node, row)) return;
+          expandedEditorTreeNodeIds.delete(node.id);
+        } else {
+          expandingEditorTreeNodeId = node.id;
+          expandedEditorTreeNodeIds.add(node.id);
+        }
         refreshEditorContentTree({ preserveStructure: true });
       });
     }
@@ -10845,9 +10924,24 @@ function renderEditorFileTree(root) {
     row.appendChild(button);
     root.appendChild(row);
 
-    if (hasChildren && expandedEditorTreeNodeIds.has(node.id)) node.children.forEach(child => renderNode(child, depth + 1));
+    if (hasChildren && expandedEditorTreeNodeIds.has(node.id)) {
+      const childAncestors = ancestorIds.concat(node.id);
+      node.children.forEach(child => renderNode(child, depth + 1, childAncestors));
+    }
   };
   editorContentTree.forEach(node => renderNode(node, 0));
+  if (expandingNodeId) {
+    const clearExpandingRows = () => {
+      try {
+        root.querySelectorAll('.editor-tree-row.is-expanding').forEach(row => {
+          row.classList.remove('is-expanding');
+        });
+      } catch (_) {}
+    };
+    try { window.setTimeout(clearExpandingRows, 220); }
+    catch (_) { clearExpandingRows(); }
+  }
+  expandingEditorTreeNodeId = null;
 }
 
 function handleEditorTreeSelection(nodeId) {

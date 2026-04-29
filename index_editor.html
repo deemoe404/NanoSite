@@ -202,7 +202,14 @@
     .editor-tree-shell { display:block; min-height:0; }
     .editor-file-tree-pane { position:static; top:auto; align-self:stretch; min-width:0; overflow:hidden; border-right:0; padding:0; }
     .editor-file-tree { display:flex; flex-direction:column; gap:.02rem; }
-    .editor-tree-row { position:relative; display:grid; grid-template-columns:1.15rem minmax(0, 1fr); align-items:center; gap:.2rem; min-height:1.75rem; padding:0; color:color-mix(in srgb, var(--text) 88%, transparent); }
+    .editor-tree-row { position:relative; display:grid; grid-template-columns:1.15rem minmax(0, 1fr); align-items:center; gap:.2rem; min-height:1.75rem; max-height:2.25rem; padding:0; color:color-mix(in srgb, var(--text) 88%, transparent); }
+    .editor-tree-row.is-expanding { overflow:hidden; animation:editor-tree-row-enter .18s ease-out both; }
+    .editor-tree-row.is-collapsing { overflow:hidden; pointer-events:none; transition:max-height .26s ease, min-height .26s ease, opacity .2s ease, transform .26s ease; }
+    .editor-tree-row.is-collapsing-parent > .editor-tree-toggle { pointer-events:none; }
+    @keyframes editor-tree-row-enter {
+      from { min-height:0; max-height:0; opacity:0; transform:translateY(-4px); }
+      to { min-height:1.75rem; max-height:2.25rem; opacity:1; transform:translateY(0); }
+    }
     .editor-tree-guides { position:absolute; inset:-.12rem 0; pointer-events:none; }
     .editor-tree-guide { position:absolute; top:0; bottom:0; left:calc((var(--tree-guide-index) * 1.12rem) + .58rem); width:1px; background:color-mix(in srgb, var(--border) 82%, transparent); }
     .editor-tree-row.is-selected { color:color-mix(in srgb, var(--primary) 82%, var(--text)); }
@@ -230,6 +237,10 @@
     .editor-tree-badge[data-state="saved"] { background:#22c55e; box-shadow:0 0 0 2px color-mix(in srgb, #22c55e 16%, transparent); }
     .editor-tree-badge[data-state="conflict"], .editor-tree-badge[data-state="error"] { background:#ef4444; box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent); }
     .editor-tree-badge[data-state="modified"], .editor-tree-badge[data-state="missing"], .editor-tree-badge[data-state="checking"] { background:#2563eb; box-shadow:0 0 0 2px color-mix(in srgb, #2563eb 16%, transparent); }
+    @media (prefers-reduced-motion: reduce) {
+      .editor-tree-row.is-expanding { animation:none; }
+      .editor-tree-row.is-collapsing { transition:none; }
+    }
     .editor-detail-pane { min-width:0; min-height:0; display:flex; flex-direction:column; gap:1rem; }
     .editor-structure-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
     .editor-markdown-panel[hidden], .editor-structure-panel[hidden] { display:none !important; }
@@ -2285,7 +2296,7 @@
   </script>
   <script type="module" src="assets/js/editor-boot.js?v=editor-tree-20260429f"></script>
   <script type="module" src="assets/js/editor-main.js?v=editor-tree-20260429f"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-tree-20260429i"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-tree-20260430b"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>

@@ -209,6 +209,18 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.editor-tree-row\.is-expanding \{[^}]*animation:editor-tree-row-enter \.18s ease-out both;[\s\S]*\.editor-tree-row\.is-collapsing \{[^}]*overflow:hidden;[^}]*transition:max-height \.26s ease/,
+  'file tree expand and collapse states should animate row entrance and exit'
+);
+
+assert.match(
+  source,
+  /function animateEditorTreeCollapse\(root, node, row\) \{[\s\S]*collectEditorTreeDescendantRows\(row\)[\s\S]*descendant\.style\.maxHeight = `\$\{height\}px`;[\s\S]*window\.requestAnimationFrame\(collapseRows\)[\s\S]*window\.setTimeout\(finish, 340\)/,
+  'file tree collapse should animate visible descendant rows before refreshing the tree'
+);
+
+assert.match(
+  editorSource,
   /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{[^}]*font-weight:400; \}[\s\S]*\.editor-tree-label \{[^}]*font-weight:400; \}/,
   'file tree labels should use normal text weight instead of bold labels'
 );
