@@ -499,8 +499,8 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}/,
-  'profile link label and URL fields should use the same horizontal gap as identity grid columns'
+  /\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}[\s\S]*\.cs-link-field--label\{flex:1 1 0\}[\s\S]*\.cs-link-field--href\{flex:3 1 0\}/,
+  'profile link label and URL fields should keep a 1:3 width ratio with the same horizontal gap as identity grid columns'
 );
 
 assert.match(

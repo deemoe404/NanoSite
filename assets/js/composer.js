@@ -13922,7 +13922,7 @@ function buildSiteUI(root, state) {
         row.dataset.index = String(index);
 
         const labelField = document.createElement('div');
-        labelField.className = 'cs-link-field';
+        labelField.className = 'cs-link-field cs-link-field--label';
         if (index > 0) {
           labelField.classList.add('cs-link-field--compact');
         }
@@ -13957,7 +13957,7 @@ function buildSiteUI(root, state) {
         }
 
         const hrefField = document.createElement('div');
-        hrefField.className = 'cs-link-field';
+        hrefField.className = 'cs-link-field cs-link-field--href';
         if (index > 0) {
           hrefField.classList.add('cs-link-field--compact');
         }
@@ -14654,10 +14654,13 @@ function rebuildSiteUI() {
   .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0}
   .cs-link-row + .cs-link-row{margin-top:0}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
+  .cs-link-field--label{flex:1 1 0}
+  .cs-link-field--href{flex:3 1 0}
   .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
-  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-start;padding-top:.45rem}
-  .cs-link-row--with-title .cs-link-actions{padding-top:1.5rem}
+  .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-end;padding-top:0}
+  .cs-link-row--with-title .cs-link-actions{padding-top:0}
+  .cs-link-actions .btn-tertiary{min-height:var(--cs-editor-control-height)}
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
