@@ -113,6 +113,24 @@ assert.doesNotMatch(
   'selected file tree rows should not use a full-row highlight background'
 );
 
+assert.doesNotMatch(
+  editorSource,
+  /editor-tree-row\[draggable="true"\]|editor-tree-row\.is-drop-target/,
+  'file tree should not expose drag/drop reordering states'
+);
+
+assert.doesNotMatch(
+  source,
+  /row\.draggable|bindEditorTreeDrag|canMoveEditorTreeNode|moveEditorTreeNode|editorTreeDragNodeId/,
+  'file tree rows should not support direct drag/drop reordering'
+);
+
+assert.match(
+  source,
+  /const states = \[node\.draftState, node\.diffState, node\.fileState\]\.filter\(Boolean\)\.slice\(0, 3\);[\s\S]*if \(states\.length\) \{[\s\S]*badges = document\.createElement\('span'\);[\s\S]*if \(badges\) row\.appendChild\(badges\);/,
+  'file tree rows should only reserve badge space when a status badge exists'
+);
+
 assert.match(
   editorSource,
   /#editorFileTree \.editor-tree-row\.is-selected > button\.editor-tree-node \{ background:var\(--primary\) !important; background-color:var\(--primary\) !important; background-image:none !important; color:var\(--bg, #fff\) !important; \}/,

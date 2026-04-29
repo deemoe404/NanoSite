@@ -87,7 +87,6 @@ let allowEditorStatePersist = false;
 let editorContentTree = [];
 let activeEditorTreeNodeId = 'articles';
 const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
-let editorTreeDragNodeId = '';
 
 function getDynamicTabsContainer() {
   try {
@@ -10431,7 +10430,6 @@ function renderEditorFileTree(root) {
     row.dataset.source = node.source || '';
     row.style.paddingLeft = `${Math.max(0, depth) * 0.8}rem`;
     row.classList.toggle('is-selected', node.id === selectedId);
-    if ((node.kind === 'entry' && node.source) || (node.kind === 'file' && node.source === 'index')) row.draggable = true;
 
     const toggle = document.createElement('button');
     toggle.type = 'button';
@@ -10472,9 +10470,13 @@ function renderEditorFileTree(root) {
     }
     button.addEventListener('click', () => handleEditorTreeSelection(node.id));
 
-    const badges = document.createElement('span');
-    badges.className = 'editor-tree-badges';
-    [node.draftState, node.diffState, node.fileState].filter(Boolean).slice(0, 3).forEach((state) => {
+    const states = [node.draftState, node.diffState, node.fileState].filter(Boolean).slice(0, 3);
+    let badges = null;
+    if (states.length) {
+      badges = document.createElement('span');
+      badges.className = 'editor-tree-badges';
+    }
+    states.forEach((state) => {
       const badge = document.createElement('span');
       badge.className = 'editor-tree-badge';
       badge.dataset.state = state;
@@ -10484,81 +10486,12 @@ function renderEditorFileTree(root) {
 
     row.appendChild(toggle);
     row.appendChild(button);
-    row.appendChild(badges);
-    bindEditorTreeDrag(row, node);
+    if (badges) row.appendChild(badges);
     root.appendChild(row);
 
     if (hasChildren && expandedEditorTreeNodeIds.has(node.id)) node.children.forEach(child => renderNode(child, depth + 1));
   };
   editorContentTree.forEach(node => renderNode(node, 0));
-}
-
-function bindEditorTreeDrag(row, node) {
-  if (!row || !node || !row.draggable) return;
-  row.addEventListener('dragstart', (event) => {
-    editorTreeDragNodeId = node.id;
-    try { event.dataTransfer.effectAllowed = 'move'; } catch (_) {}
-  });
-  row.addEventListener('dragend', () => {
-    editorTreeDragNodeId = '';
-    $$('.editor-tree-row.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
-  });
-  row.addEventListener('dragover', (event) => {
-    if (!editorTreeDragNodeId || editorTreeDragNodeId === node.id) return;
-    if (!canMoveEditorTreeNode(editorTreeDragNodeId, node.id)) return;
-    event.preventDefault();
-    row.classList.add('is-drop-target');
-    try { event.dataTransfer.dropEffect = 'move'; } catch (_) {}
-  });
-  row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
-  row.addEventListener('drop', (event) => {
-    if (!editorTreeDragNodeId || editorTreeDragNodeId === node.id) return;
-    event.preventDefault();
-    row.classList.remove('is-drop-target');
-    moveEditorTreeNode(editorTreeDragNodeId, node.id);
-    editorTreeDragNodeId = '';
-  });
-}
-
-function canMoveEditorTreeNode(fromId, toId) {
-  const from = findEditorContentTreeNode(editorContentTree, fromId);
-  const to = findEditorContentTreeNode(editorContentTree, toId);
-  if (!from || !to) return false;
-  if (from.kind === 'entry' && to.kind === 'entry') return from.source === to.source;
-  if (from.kind === 'file' && to.kind === 'file' && from.source === 'index' && to.source === 'index') {
-    return from.key === to.key && from.lang === to.lang;
-  }
-  return false;
-}
-
-function moveEditorTreeNode(fromId, toId) {
-  if (!canMoveEditorTreeNode(fromId, toId)) return;
-  const from = findEditorContentTreeNode(editorContentTree, fromId);
-  const to = findEditorContentTreeNode(editorContentTree, toId);
-  if (from.kind === 'entry') {
-    const state = getStateSlice(from.source) || {};
-    if (!Array.isArray(state.__order)) state.__order = Object.keys(state).filter(key => key !== '__order');
-    const fromIndex = state.__order.indexOf(from.key);
-    const toIndex = state.__order.indexOf(to.key);
-    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
-    state.__order.splice(fromIndex, 1);
-    state.__order.splice(toIndex, 0, from.key);
-    notifyComposerChange(from.source);
-    activeEditorTreeNodeId = from.id;
-    refreshEditorContentTree();
-    return;
-  }
-  const entry = getIndexEntry(from.key);
-  const arr = Array.isArray(entry[from.lang]) ? entry[from.lang] : [];
-  const fromIndex = Number(from.versionIndex);
-  const toIndex = Number(to.versionIndex);
-  if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || fromIndex === toIndex) return;
-  const [item] = arr.splice(fromIndex, 1);
-  arr.splice(toIndex, 0, item);
-  entry[from.lang] = arr;
-  notifyComposerChange('index');
-  activeEditorTreeNodeId = `index:${from.key}:${from.lang}:${toIndex}`;
-  refreshEditorContentTree();
 }
 
 function handleEditorTreeSelection(nodeId) {
