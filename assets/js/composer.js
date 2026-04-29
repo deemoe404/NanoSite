@@ -2284,8 +2284,8 @@ function applySiteDiffMarkers(diff) {
     if (info.type === 'list' && info.entries && index != null && subfield) {
       return !!(info.entries[index] && info.entries[index][subfield]);
     }
-    if (info.type === 'object' && info.fields && subfield) {
-      return !!info.fields[subfield];
+    if (info.type === 'object' && info.fields) {
+      return subfield ? !!info.fields[subfield] : false;
     }
     return true;
   };

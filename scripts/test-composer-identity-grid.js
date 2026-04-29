@@ -331,6 +331,12 @@ assert.match(
 
 assert.match(
   source,
+  /if \(info\.type === 'object' && info\.fields\) \{\s*return subfield \? !!info\.fields\[subfield\] : false;\s*\}/,
+  'Object field diffs should only match controls that declare a changed subfield'
+);
+
+assert.match(
+  source,
   /input\.dataset\.field = key;[\s\S]*input\.dataset\.lang = lang;/,
   'Localized site inputs should carry field and language diff metadata'
 );
