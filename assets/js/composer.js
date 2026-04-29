@@ -14029,19 +14029,15 @@ function buildSiteUI(root, state) {
       t('editor.composer.site.sections.extras.title'),
       t('editor.composer.site.sections.extras.description')
     );
-    const field = createField(extrasSection, {
-      dataKey: '__extras',
-      label: t('editor.composer.site.fields.extras'),
-      description: t('editor.composer.site.fields.extrasHelp')
-    });
     const list = document.createElement('ul');
     list.className = 'cs-extra-list';
+    list.dataset.field = '__extras';
     Object.keys(site.__extras).sort().forEach((key) => {
       const item = document.createElement('li');
       item.textContent = key;
       list.appendChild(item);
     });
-    field.appendChild(list);
+    extrasSection.appendChild(list);
   }
 
   renderCompactSectionMenu();

@@ -289,6 +289,18 @@ assert.match(
 
 assert.doesNotMatch(
   source,
+  /createField\(extrasSection,\s*\{[\s\S]*dataKey: '__extras'[\s\S]*fields\.extras[\s\S]*fields\.extrasHelp/,
+  'Other keys should not render a duplicate Preserved keys field heading'
+);
+
+assert.match(
+  source,
+  /list\.className = 'cs-extra-list';[\s\S]*list\.dataset\.field = '__extras';[\s\S]*extrasSection\.appendChild\(list\);/,
+  'Other keys list should remain diff-addressable while rendering directly in the card'
+);
+
+assert.doesNotMatch(
+  source,
   /const behaviorSection = createSection\([\s\S]*const themeSection = createSection\([\s\S]*const assetsSection = createSection\(/,
   'Behavior, Theme, and Asset warnings should not render as separate top-level cards'
 );
