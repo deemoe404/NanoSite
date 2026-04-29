@@ -257,7 +257,6 @@
     .updates-main { display:flex; flex-direction:column; gap:1.25rem; }
     .updates-header { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:1rem; }
     .updates-header-text { display:flex; flex-direction:column; gap:.4rem; min-width:0; }
-    .updates-title { margin:0; font-size:1.35rem; color: color-mix(in srgb, var(--text) 92%, transparent); }
     .updates-meta { display:flex; flex-direction:column; gap:.15rem; font-size:.92rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
     .updates-meta span { line-height:1.4; }
     .updates-header-actions { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
@@ -2169,6 +2168,10 @@
               <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot" data-i18n="editor.composer.refresh" data-i18n-title="editor.composer.refreshTitle">Refresh</button>
               <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
             </div>
+            <div class="editor-modal-header-actions" id="editorModalUpdateActions" hidden>
+              <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
+              <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+            </div>
           </header>
           <div class="editor-modal-body">
     <!-- Composer Mode -->
@@ -2211,10 +2214,9 @@
     </div>
     <!-- System Updates Mode -->
     <div class="updates-layout editor-overlay-panel" id="mode-updates" hidden aria-hidden="true">
-      <section class="box updates-main">
+      <section class="updates-main">
         <div class="updates-header">
           <div class="updates-header-text">
-            <h2 class="updates-title" data-i18n="editor.systemUpdates.title">System Updates</h2>
             <div class="updates-meta">
               <span id="systemUpdateReleaseMeta"></span>
               <span id="systemUpdateReleasePublished"></span>
@@ -2223,8 +2225,6 @@
           </div>
           <div class="updates-header-actions">
             <a class="btn-secondary updates-download" id="systemUpdateDownloadLink" href="#" target="_blank" rel="noopener" aria-disabled="true" data-i18n="editor.systemUpdates.openDownload">Open latest release</a>
-            <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
-            <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
           </div>
         </div>
         <p id="systemUpdateStatus" class="updates-status" data-tone="info"></p>

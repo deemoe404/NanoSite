@@ -8729,8 +8729,10 @@ function syncEditorOverlayUi() {
   const dialog = document.querySelector('.editor-modal-dialog');
   const title = document.getElementById('editorModalTitle');
   const composerActions = document.getElementById('editorModalComposerActions');
+  const updateActions = document.getElementById('editorModalUpdateActions');
   const hasOverlay = activeEditorOverlayMode === 'composer' || activeEditorOverlayMode === 'updates';
   const isComposerOverlay = activeEditorOverlayMode === 'composer';
+  const isUpdatesOverlay = activeEditorOverlayMode === 'updates';
 
   if (layer) {
     layer.hidden = !hasOverlay;
@@ -8741,6 +8743,10 @@ function syncEditorOverlayUi() {
   if (composerActions) {
     composerActions.hidden = !isComposerOverlay;
     composerActions.setAttribute('aria-hidden', isComposerOverlay ? 'false' : 'true');
+  }
+  if (updateActions) {
+    updateActions.hidden = !isUpdatesOverlay;
+    updateActions.setAttribute('aria-hidden', isUpdatesOverlay ? 'false' : 'true');
   }
 
   ['composer', 'updates'].forEach((mode) => {

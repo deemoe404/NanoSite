@@ -1091,6 +1091,18 @@ assert.match(
 
 assert.match(
   editorSource,
+  /class="editor-modal-header-actions" id="editorModalUpdateActions" hidden[\s\S]*id="btnSystemSelect"[\s\S]*id="systemUpdateFileInput"/,
+  'system update archive picker should live in the modal header action slot'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /<section class="box updates-main"|class="updates-title"/,
+  'system updates modal should not render a redundant inner card or duplicate content title'
+);
+
+assert.match(
+  editorSource,
   /<header class="editor-modal-header">\s*<button type="button" class="btn-secondary editor-modal-close" id="editorModalClose"[\s\S]*<h2 id="editorModalTitle"><\/h2>/,
   'modal close button should sit to the left of the title for macOS-style chrome'
 );
