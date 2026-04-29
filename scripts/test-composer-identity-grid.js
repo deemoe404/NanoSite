@@ -265,8 +265,26 @@ assert.match(
 
 assert.match(
   source,
-  /const siteConfigSection = createSection\([\s\S]*renderBehaviorGrid\(behaviorSubsection\);[\s\S]*renderThemeGrid\(themeSubsection\);[\s\S]*renderAssetWarningsGrid\(assetsSubsection\);[\s\S]*const repoSection = createSection\(/,
-  'Site editor should combine Behavior, Theme, and Asset warnings before Repository'
+  /const repoSection = createSection\([\s\S]*sections\.repo\.title[\s\S]*sections\.repo\.description[\s\S]*const identitySection = createSection\(/,
+  'Repository should be the first site editor card before Identity'
+);
+
+assert.doesNotMatch(
+  source,
+  /createField\(repoSection,\s*\{[\s\S]*dataKey: 'repo'[\s\S]*fields\.repo[\s\S]*fields\.repoHelp/,
+  'Repository card should not render a duplicate GitHub repository field heading'
+);
+
+assert.match(
+  source,
+  /repoInputs\.className = 'cs-repo-grid';[\s\S]*repoInputs\.dataset\.field = 'repo';[\s\S]*repoInputs\.append\(pathRow, branchWrap\);[\s\S]*repoSection\.appendChild\(repoInputs\);/,
+  'Repository inputs should remain diff-addressable while rendering directly in the Repository card'
+);
+
+assert.match(
+  source,
+  /const siteConfigSection = createSection\([\s\S]*renderBehaviorGrid\(behaviorSubsection\);[\s\S]*renderThemeGrid\(themeSubsection\);[\s\S]*renderAssetWarningsGrid\(assetsSubsection\);[\s\S]*const extrasSection = createSection\(/,
+  'Site editor should combine Behavior, Theme, and Asset warnings before Other keys'
 );
 
 assert.doesNotMatch(

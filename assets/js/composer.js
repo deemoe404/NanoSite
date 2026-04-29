@@ -13895,76 +13895,14 @@ function buildSiteUI(root, state) {
     renderRows();
   };
 
-  const identitySection = createSection(
-    t('editor.composer.site.sections.identity.title'),
-    t('editor.composer.site.sections.identity.description')
-  );
-  renderIdentityLocalizedGrid(identitySection);
-  renderIdentityPathGrid(identitySection);
-
-  const seoSection = createSection(
-    t('editor.composer.site.sections.seo.title'),
-    t('editor.composer.site.sections.seo.description')
-  );
-  renderLocalizedField(seoSection, 'siteDescription', {
-    label: t('editor.composer.site.fields.siteDescription'),
-    description: t('editor.composer.site.fields.siteDescriptionHelp'),
-    multiline: true,
-    rows: 3,
-    ensureDefault: false,
-    subheading: true
-  });
-  renderLocalizedField(seoSection, 'siteKeywords', {
-    label: t('editor.composer.site.fields.siteKeywords'),
-    description: t('editor.composer.site.fields.siteKeywordsHelp'),
-    grid: true,
-    ensureDefault: false,
-    subheading: true
-  });
-  createLinkListField(seoSection, 'profileLinks', {
-    label: t('editor.composer.site.fields.profileLinks'),
-    description: t('editor.composer.site.fields.profileLinksHelp'),
-    subheading: true
-  });
-  renderSeoResourceGrid(seoSection);
-
-  const siteConfigSection = createSection(
-    t('editor.composer.site.sections.configuration.title'),
-    t('editor.composer.site.sections.configuration.description')
-  );
-  const behaviorSubsection = createConfigSubsection(
-    siteConfigSection,
-    t('editor.composer.site.sections.behavior.title'),
-    t('editor.composer.site.sections.behavior.description')
-  );
-  renderBehaviorGrid(behaviorSubsection);
-
-  const themeSubsection = createConfigSubsection(
-    siteConfigSection,
-    t('editor.composer.site.sections.theme.title'),
-    t('editor.composer.site.sections.theme.description')
-  );
-  renderThemeGrid(themeSubsection);
-
-  const assetsSubsection = createConfigSubsection(
-    siteConfigSection,
-    t('editor.composer.site.sections.assets.title'),
-    t('editor.composer.site.sections.assets.description')
-  );
-  renderAssetWarningsGrid(assetsSubsection);
-
   const repoSection = createSection(
     t('editor.composer.site.sections.repo.title'),
     t('editor.composer.site.sections.repo.description')
   );
   const repo = ensureRepo();
-  const repoField = createField(repoSection, {
-    dataKey: 'repo',
-    label: t('editor.composer.site.fields.repo'),
-    description: t('editor.composer.site.fields.repoHelp')
-  });
   const repoInputs = document.createElement('div');
   repoInputs.className = 'cs-repo-grid';
+  repoInputs.dataset.field = 'repo';
 
   const ownerInput = document.createElement('input');
   ownerInput.type = 'text';
@@ -14026,7 +13964,65 @@ function buildSiteUI(root, state) {
   branchWrap.append(branchAffix, branchInput);
 
   repoInputs.append(pathRow, branchWrap);
-  repoField.appendChild(repoInputs);
+  repoSection.appendChild(repoInputs);
+
+  const identitySection = createSection(
+    t('editor.composer.site.sections.identity.title'),
+    t('editor.composer.site.sections.identity.description')
+  );
+  renderIdentityLocalizedGrid(identitySection);
+  renderIdentityPathGrid(identitySection);
+
+  const seoSection = createSection(
+    t('editor.composer.site.sections.seo.title'),
+    t('editor.composer.site.sections.seo.description')
+  );
+  renderLocalizedField(seoSection, 'siteDescription', {
+    label: t('editor.composer.site.fields.siteDescription'),
+    description: t('editor.composer.site.fields.siteDescriptionHelp'),
+    multiline: true,
+    rows: 3,
+    ensureDefault: false,
+    subheading: true
+  });
+  renderLocalizedField(seoSection, 'siteKeywords', {
+    label: t('editor.composer.site.fields.siteKeywords'),
+    description: t('editor.composer.site.fields.siteKeywordsHelp'),
+    grid: true,
+    ensureDefault: false,
+    subheading: true
+  });
+  createLinkListField(seoSection, 'profileLinks', {
+    label: t('editor.composer.site.fields.profileLinks'),
+    description: t('editor.composer.site.fields.profileLinksHelp'),
+    subheading: true
+  });
+  renderSeoResourceGrid(seoSection);
+
+  const siteConfigSection = createSection(
+    t('editor.composer.site.sections.configuration.title'),
+    t('editor.composer.site.sections.configuration.description')
+  );
+  const behaviorSubsection = createConfigSubsection(
+    siteConfigSection,
+    t('editor.composer.site.sections.behavior.title'),
+    t('editor.composer.site.sections.behavior.description')
+  );
+  renderBehaviorGrid(behaviorSubsection);
+
+  const themeSubsection = createConfigSubsection(
+    siteConfigSection,
+    t('editor.composer.site.sections.theme.title'),
+    t('editor.composer.site.sections.theme.description')
+  );
+  renderThemeGrid(themeSubsection);
+
+  const assetsSubsection = createConfigSubsection(
+    siteConfigSection,
+    t('editor.composer.site.sections.assets.title'),
+    t('editor.composer.site.sections.assets.description')
+  );
+  renderAssetWarningsGrid(assetsSubsection);
 
   if (site.__extras && Object.keys(site.__extras).length) {
     const extrasSection = createSection(
