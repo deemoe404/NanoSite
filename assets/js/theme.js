@@ -101,7 +101,35 @@ export function bindPostEditor() {
   const btn = document.getElementById('postEditor');
   if (!btn) return;
   btn.addEventListener('click', () => {
-    window.open('index_editor.html', '_blank');
+    const editorUrl = 'index_editor.html';
+    let popup = null;
+    try {
+      popup = window.open(editorUrl, '_blank');
+    } catch (_) {
+      popup = null;
+    }
+    let popupUsable = false;
+    try {
+      popupUsable = !!popup.document;
+    } catch (_) {
+      popupUsable = false;
+    }
+    if (!popup || popup.closed || typeof popup.closed === 'undefined' || !popupUsable) {
+      window.location.href = editorUrl;
+      return;
+    }
+    try { popup.opener = null; } catch (_) {}
+    try { popup.focus(); } catch (_) {}
+    // Some embedded browsers return a popup object but never surface a tab.
+    window.setTimeout(() => {
+      let stayedHere = false;
+      try {
+        stayedHere = document.visibilityState === 'visible';
+      } catch (_) {
+        stayedHere = false;
+      }
+      if (stayedHere) window.location.href = editorUrl;
+    }, 250);
   });
 }
 
