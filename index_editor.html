@@ -149,11 +149,12 @@
       background:color-mix(in srgb, var(--primary) 54%, var(--border));
     }
     .editor-content-pane {
+      --editor-content-pane-padding:1rem;
       min-width:0;
       min-height:0;
       max-height:100%;
       overflow:auto;
-      padding:1rem;
+      padding:var(--editor-content-pane-padding);
       position:relative;
       scrollbar-gutter:stable;
     }
@@ -1093,9 +1094,12 @@
       padding:.4rem 0 .55rem;
       border-bottom:1px solid #d0d7de;
       position:sticky;
-      top:0;
+      top:calc(var(--editor-content-pane-padding, 0px) * -1);
       z-index:120;
-      background:color-mix(in srgb, var(--card) 96%, transparent);
+      background:var(--card);
+    }
+    .editor-markdown-panel > .toolbar {
+      margin-top:calc(var(--editor-content-pane-padding, 1rem) * -1);
     }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
@@ -1354,9 +1358,9 @@
       flex-wrap:wrap;
       margin-bottom:.6rem;
       position:sticky;
-      top:calc(var(--editor-toolbar-offset, 0px));
+      top:calc(var(--editor-toolbar-offset, 0px) - var(--editor-content-pane-padding, 0px));
       z-index:110;
-      background:color-mix(in srgb, var(--card) 96%, transparent);
+      background:var(--card);
       padding-top:.4rem;
       padding-bottom:.4rem;
     }
@@ -1855,7 +1859,7 @@
       }
       .editor-content-pane {
         grid-column:1;
-        padding:.75rem;
+        --editor-content-pane-padding:.75rem;
       }
       .editor-mobile-rail-toggle {
         display:inline-flex;
