@@ -31,8 +31,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /data-mode="editor"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
-  'top-level editor modes should be ordered as Editor, Site Settings, and System Updates'
+  /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"/,
+  'editor should render a fixed two-pane app shell with a left rail and right content pane'
 );
 
 assert.doesNotMatch(
@@ -43,8 +43,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /data-mode="composer"[\s\S]*data-tab-label="Site Settings"[\s\S]*data-i18n="editor\.modes\.composer">Site Settings<\/span>/,
-  'composer mode should be relabeled as Site Settings'
+  /class="editor-rail-footer"[\s\S]*id="editorLangSwitcher"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
+  'language, Site Settings, and System Updates controls should live in the left rail footer'
 );
 
 assert.match(
@@ -79,26 +79,44 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-file-tree-pane \{[^}]*top:\.75rem;[^}]*overflow:visible;[^}]*border-right:/,
-  'file tree pane should stick near the viewport top without reserving toolbar-height whitespace'
+  /html, body \{ width: 100%; height: 100%; overflow: hidden; \}[\s\S]*\.editor-page \{ position: fixed; inset: 0;[^}]*overflow: hidden;/,
+  'editor page should be fixed to the visible viewport with independent rail and content scrolling'
 );
 
-assert.doesNotMatch(
+assert.match(
   editorSource,
-  /\.editor-file-tree-pane \{[^}]*max-height:calc\([^}]*overflow:auto/,
-  'file tree pane should not cap itself to viewport height and scroll internally'
+  /\.editor-rail-tree-scroll \{[^}]*overflow:auto;[\s\S]*\.editor-content-pane \{[^}]*overflow:auto;/,
+  'editor rail tree and right content pane should scroll independently'
 );
 
-assert.doesNotMatch(
+assert.match(
   editorSource,
-  /\.editor-file-tree-pane \{[^}]*--editor-toolbar-offset/,
-  'file tree pane should not inherit markdown toolbar sticky offset'
+  /\.editor-rail-resizer \{[^}]*cursor:col-resize;[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-rail \{[\s\S]*position:fixed;[\s\S]*transform:translateX\(-102%\);[\s\S]*\.editor-rail-resizer \{\s*display:none;/,
+  'editor rail should support desktop resizing and switch to a mobile drawer without the resizer'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-rail \{[\s\S]*border-right:0;[\s\S]*\.editor-rail-resizer::before \{[\s\S]*left:50%;[\s\S]*width:1px;[\s\S]*opacity:\.65;[\s\S]*\.editor-file-tree-pane \{[\s\S]*border-right:0;/,
+  'file tree rail should not show a container border, while the resize handle keeps its own one-pixel line'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true"[\s\S]*class="editor-modal-dialog"[\s\S]*id="mode-composer" hidden aria-hidden="true"[\s\S]*id="mode-updates" hidden aria-hidden="true"/,
+  'Site Settings and System Updates should be mounted inside the hidden editor modal layer'
 );
 
 assert.match(
   editorSource,
   /\.editor-workspace \{[\s\S]*grid-template-columns:minmax\(0, 1fr\);[\s\S]*\.editor-workspace-meta \{[\s\S]*grid-column:1;[\s\S]*\.frontmatter-panel \{[\s\S]*position: static;/,
   'front matter panel should always flow below the markdown editor instead of using a side rail'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-content-shell\.box \{[\s\S]*padding:0;[\s\S]*border:0 !important;[\s\S]*background:transparent;[\s\S]*\.editor-structure-panel \{ min-width:0; border:0; border-radius:0; background:transparent; padding:0; \}/,
+  'editor structure view should not render extra outer card containers around the content'
 );
 
 assert.doesNotMatch(
@@ -279,6 +297,30 @@ assert.match(
   source,
   /function applyMode\(mode, options = \{\}\) \{[\s\S]*mode === 'editor' && dynamicEditorTabs\.size && !options\.forceStructure/,
   'editor structure selection should be able to bypass dynamic markdown document restoration'
+);
+
+assert.match(
+  source,
+  /function openEditorOverlay\(mode, trigger = null\) \{[\s\S]*activeEditorOverlayMode = nextMode;[\s\S]*function closeEditorOverlay\(\) \{[\s\S]*activeEditorOverlayMode = null;/,
+  'Site Settings and System Updates should use an overlay state independent from current editor mode'
+);
+
+assert.match(
+  source,
+  /function applyMode\(mode, options = \{\}\) \{[\s\S]*if \(mode === 'composer' \|\| mode === 'updates'\) \{[\s\S]*openEditorOverlay\(mode, options\.trigger \|\| null\);[\s\S]*return;[\s\S]*const nextMode = \(candidate === 'editor' \|\| isDynamicMode\(candidate\)\)/,
+  'opening Site Settings or System Updates should not switch currentMode away from the editor'
+);
+
+assert.match(
+  source,
+  /function initEditorRailResize\(\) \{[\s\S]*EDITOR_RAIL_WIDTH_KEY[\s\S]*pointerdown[\s\S]*setEditorRailWidth\([^)]*\{ persist: true \}/,
+  'desktop editor rail should be resizable and persist its width'
+);
+
+assert.match(
+  source,
+  /function initMobileEditorRail\(\) \{[\s\S]*editorMobileRailBound[\s\S]*setEditorRailOpen\(!isOpen\);/,
+  'mobile editor rail should use a drawer toggle instead of the desktop resizer'
 );
 
 assert.match(
@@ -925,8 +967,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /html, body \{ overflow-x: visible; overflow-y: visible; \}[\s\S]*\.editor-page \{[^}]*overflow-x: clip;/,
-  'editor page should keep root scrolling visible for sticky toolbars while clipping horizontal page overflow'
+  /\.editor-mobile-rail-toggle \{[\s\S]*display:none;[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-mobile-rail-toggle \{\s*display:inline-flex;/,
+  'mobile layout should expose a file tree drawer toggle only on small screens'
 );
 
 assert.match(
@@ -937,8 +979,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.page-titlebar \{\s*display:grid;\s*grid-template-columns:minmax\(0, max-content\) minmax\(0, 1fr\);[\s\S]*\.status-stack \{\s*grid-column:1 \/ -1;\s*grid-row:1;[\s\S]*width:100%;/,
-  'global status should be pinned to a full-width titlebar grid row'
+  /\.editor-modal-layer\[hidden\],[\s\S]*\.editor-overlay-panel\[hidden\] \{[\s\S]*display:none !important;[\s\S]*\.editor-modal-body \{[\s\S]*overflow:auto;/,
+  'modal layer should hide by default and scroll its own body when content is tall'
 );
 
 assert.doesNotMatch(

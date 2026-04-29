@@ -87,6 +87,15 @@ let allowEditorStatePersist = false;
 let editorContentTree = [];
 let activeEditorTreeNodeId = 'articles';
 const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
+let activeEditorOverlayMode = null;
+let editorOverlayReturnFocus = null;
+let editorOverlayEscapeBound = false;
+let editorRailResizeBound = false;
+let editorMobileRailBound = false;
+const EDITOR_RAIL_WIDTH_KEY = 'ns_editor_rail_width';
+const EDITOR_RAIL_DEFAULT_WIDTH = 340;
+const EDITOR_RAIL_MIN_WIDTH = 280;
+const EDITOR_RAIL_MAX_WIDTH = 520;
 
 function getDynamicTabsContainer() {
   try {
@@ -8686,6 +8695,321 @@ function getActiveDynamicTab() {
   return tab || null;
 }
 
+function getEditorContentPane() {
+  try { return document.getElementById('editorContentPane'); }
+  catch (_) { return null; }
+}
+
+function scrollEditorContentToTop(behavior = 'smooth') {
+  const pane = getEditorContentPane();
+  if (pane && typeof pane.scrollTo === 'function') {
+    try {
+      pane.scrollTo({ top: 0, behavior });
+      return;
+    } catch (_) {
+      try {
+        pane.scrollTop = 0;
+        return;
+      } catch (__) {}
+    }
+  }
+  if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+    try { window.scrollTo({ top: 0, behavior }); }
+    catch (_) { try { window.scrollTo(0, 0); } catch (__) {} }
+  }
+}
+
+function getEditorOverlayTitle(mode) {
+  if (mode === 'updates') return t('editor.systemUpdates.tabLabel');
+  return t('editor.modes.composer');
+}
+
+function syncEditorOverlayUi() {
+  const layer = document.getElementById('editorModalLayer');
+  const dialog = document.querySelector('.editor-modal-dialog');
+  const title = document.getElementById('editorModalTitle');
+  const hasOverlay = activeEditorOverlayMode === 'composer' || activeEditorOverlayMode === 'updates';
+
+  if (layer) {
+    layer.hidden = !hasOverlay;
+    layer.setAttribute('aria-hidden', hasOverlay ? 'false' : 'true');
+  }
+  if (title) title.textContent = hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '';
+  if (dialog) dialog.setAttribute('aria-label', hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '');
+
+  ['composer', 'updates'].forEach((mode) => {
+    const panel = document.getElementById(`mode-${mode}`);
+    const isActive = activeEditorOverlayMode === mode;
+    if (panel) {
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      panel.style.display = isActive ? '' : 'none';
+    }
+    try {
+      const btn = document.querySelector(`.mode-tab[data-mode="${mode}"]:not(.dynamic-mode)`);
+      if (btn) {
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      }
+    } catch (_) {}
+  });
+
+  try {
+    document.body.classList.toggle('ns-editor-modal-open', hasOverlay);
+  } catch (_) {}
+}
+
+function focusEditorOverlay() {
+  const dialog = document.querySelector('.editor-modal-dialog');
+  if (!dialog) return;
+  const selector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  let target = null;
+  try {
+    target = dialog.querySelector(selector);
+  } catch (_) {
+    target = null;
+  }
+  const focusTarget = target || dialog;
+  try { focusTarget.focus({ preventScroll: true }); }
+  catch (_) { try { focusTarget.focus(); } catch (__) {} }
+}
+
+function openEditorOverlay(mode, trigger = null) {
+  const nextMode = mode === 'updates' ? 'updates' : mode === 'composer' ? 'composer' : null;
+  if (!nextMode) return;
+  editorOverlayReturnFocus = trigger && typeof trigger.focus === 'function' ? trigger : document.activeElement;
+  activeEditorOverlayMode = nextMode;
+  if (nextMode === 'composer') {
+    try { applyComposerFile('site', { force: true, immediate: true }); } catch (_) {}
+  }
+  syncEditorOverlayUi();
+  try { requestAnimationFrame(focusEditorOverlay); }
+  catch (_) { focusEditorOverlay(); }
+}
+
+function closeEditorOverlay() {
+  if (!activeEditorOverlayMode) return;
+  activeEditorOverlayMode = null;
+  syncEditorOverlayUi();
+  const restore = editorOverlayReturnFocus;
+  editorOverlayReturnFocus = null;
+  if (restore && typeof restore.focus === 'function') {
+    try { restore.focus({ preventScroll: true }); }
+    catch (_) { try { restore.focus(); } catch (__) {} }
+  }
+}
+
+function initEditorOverlay() {
+  const layer = document.getElementById('editorModalLayer');
+  if (!layer || layer.__editorOverlayBound) return;
+  layer.__editorOverlayBound = true;
+  layer.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target && target.closest && target.closest('[data-editor-modal-close]')) closeEditorOverlay();
+  });
+  const closeBtn = document.getElementById('editorModalClose');
+  if (closeBtn && !closeBtn.__editorOverlayCloseBound) {
+    closeBtn.__editorOverlayCloseBound = true;
+    closeBtn.addEventListener('click', closeEditorOverlay);
+  }
+  if (!editorOverlayEscapeBound) {
+    editorOverlayEscapeBound = true;
+    document.addEventListener('keydown', (event) => {
+      if (!activeEditorOverlayMode) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeEditorOverlay();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector('.editor-modal-dialog');
+      if (!dialog) return;
+      let focusables = [];
+      try {
+        focusables = Array.from(dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+          .filter((el) => el && el.offsetParent !== null);
+      } catch (_) {
+        focusables = [];
+      }
+      if (!focusables.length) {
+        event.preventDefault();
+        try { dialog.focus({ preventScroll: true }); } catch (_) { try { dialog.focus(); } catch (__) {} }
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        try { last.focus({ preventScroll: true }); } catch (_) { last.focus(); }
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        try { first.focus({ preventScroll: true }); } catch (_) { first.focus(); }
+      }
+    });
+  }
+  syncEditorOverlayUi();
+}
+
+function computeEditorRailMaxWidth() {
+  let viewportLimit = EDITOR_RAIL_MAX_WIDTH;
+  try {
+    if (typeof window !== 'undefined' && Number.isFinite(window.innerWidth)) {
+      viewportLimit = Math.min(EDITOR_RAIL_MAX_WIDTH, window.innerWidth * 0.46);
+    }
+  } catch (_) {}
+  return Math.max(EDITOR_RAIL_MIN_WIDTH, viewportLimit);
+}
+
+function clampEditorRailWidth(value) {
+  const numeric = Number(value);
+  const fallback = EDITOR_RAIL_DEFAULT_WIDTH;
+  const width = Number.isFinite(numeric) ? numeric : fallback;
+  return Math.max(EDITOR_RAIL_MIN_WIDTH, Math.min(computeEditorRailMaxWidth(), width));
+}
+
+function setEditorRailWidth(value, options = {}) {
+  const width = clampEditorRailWidth(value);
+  try {
+    document.documentElement.style.setProperty('--editor-rail-width', `${Math.round(width)}px`);
+  } catch (_) {}
+  const resizer = document.getElementById('editorRailResizer');
+  if (resizer) {
+    resizer.setAttribute('aria-valuemin', String(EDITOR_RAIL_MIN_WIDTH));
+    resizer.setAttribute('aria-valuemax', String(Math.round(computeEditorRailMaxWidth())));
+    resizer.setAttribute('aria-valuenow', String(Math.round(width)));
+  }
+  if (options.persist) {
+    try { window.localStorage.setItem(EDITOR_RAIL_WIDTH_KEY, String(Math.round(width))); } catch (_) {}
+  }
+  return width;
+}
+
+function initEditorRailResize() {
+  if (editorRailResizeBound) return;
+  const resizer = document.getElementById('editorRailResizer');
+  const shell = document.getElementById('editorAppShell');
+  if (!resizer || !shell) return;
+  editorRailResizeBound = true;
+
+  let stored = EDITOR_RAIL_DEFAULT_WIDTH;
+  try {
+    const value = window.localStorage.getItem(EDITOR_RAIL_WIDTH_KEY);
+    if (value) stored = Number(value);
+  } catch (_) {}
+  setEditorRailWidth(stored, { persist: false });
+
+  const isMobile = () => {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
+    } catch (_) {
+      return false;
+    }
+  };
+
+  let dragState = null;
+  const finishDrag = () => {
+    if (!dragState) return;
+    const width = dragState.width;
+    dragState = null;
+    shell.classList.remove('is-resizing-rail');
+    try { document.body.style.removeProperty('cursor'); } catch (_) {}
+    setEditorRailWidth(width, { persist: true });
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', finishDrag);
+    document.removeEventListener('pointercancel', finishDrag);
+  };
+  const onMove = (event) => {
+    if (!dragState || isMobile()) return;
+    const delta = Number(event.clientX) - dragState.startX;
+    dragState.width = setEditorRailWidth(dragState.startWidth + delta, { persist: false });
+  };
+
+  resizer.addEventListener('pointerdown', (event) => {
+    if (isMobile()) return;
+    event.preventDefault();
+    dragState = {
+      startX: Number(event.clientX) || 0,
+      startWidth: setEditorRailWidth(resizer.getAttribute('aria-valuenow') || EDITOR_RAIL_DEFAULT_WIDTH, { persist: false }),
+      width: EDITOR_RAIL_DEFAULT_WIDTH,
+    };
+    dragState.width = dragState.startWidth;
+    shell.classList.add('is-resizing-rail');
+    try { document.body.style.cursor = 'col-resize'; } catch (_) {}
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', finishDrag);
+    document.addEventListener('pointercancel', finishDrag);
+  });
+
+  resizer.addEventListener('keydown', (event) => {
+    if (isMobile()) return;
+    let delta = 0;
+    if (event.key === 'ArrowLeft') delta = -16;
+    else if (event.key === 'ArrowRight') delta = 16;
+    else if (event.key === 'Home') {
+      event.preventDefault();
+      setEditorRailWidth(EDITOR_RAIL_DEFAULT_WIDTH, { persist: true });
+      return;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const current = Number(resizer.getAttribute('aria-valuenow')) || EDITOR_RAIL_DEFAULT_WIDTH;
+    setEditorRailWidth(current + delta, { persist: true });
+  });
+
+  window.addEventListener('resize', () => {
+    const current = Number(resizer.getAttribute('aria-valuenow')) || EDITOR_RAIL_DEFAULT_WIDTH;
+    setEditorRailWidth(current, { persist: false });
+  });
+}
+
+function isEditorMobileRailLayout() {
+  try {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
+  } catch (_) {
+    return false;
+  }
+}
+
+function setEditorRailOpen(open) {
+  const shell = document.getElementById('editorAppShell');
+  const toggle = document.getElementById('editorMobileRailToggle');
+  const scrim = document.getElementById('editorRailScrim');
+  if (!shell) return;
+  const shouldOpen = !!open && isEditorMobileRailLayout();
+  shell.classList.toggle('is-rail-open', shouldOpen);
+  if (toggle) toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  if (scrim) {
+    scrim.hidden = !shouldOpen;
+    scrim.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+  }
+}
+
+function closeEditorRailDrawer() {
+  setEditorRailOpen(false);
+}
+
+function initMobileEditorRail() {
+  if (editorMobileRailBound) return;
+  const toggle = document.getElementById('editorMobileRailToggle');
+  const scrim = document.getElementById('editorRailScrim');
+  if (!toggle) return;
+  editorMobileRailBound = true;
+  toggle.addEventListener('click', () => {
+    const shell = document.getElementById('editorAppShell');
+    const isOpen = !!(shell && shell.classList.contains('is-rail-open'));
+    setEditorRailOpen(!isOpen);
+  });
+  if (scrim) scrim.addEventListener('click', closeEditorRailDrawer);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeEditorRailDrawer();
+  });
+  window.addEventListener('resize', () => {
+    if (!isEditorMobileRailLayout()) closeEditorRailDrawer();
+  });
+}
+
 function persistDynamicEditorState() {
   if (!allowEditorStatePersist) return;
   try {
@@ -8696,10 +9020,6 @@ function persistDynamicEditorState() {
       const active = dynamicEditorTabs.get(currentMode);
       state.mode = 'editor';
       state.activePath = active && active.path ? active.path : null;
-    } else if (currentMode === 'composer') {
-      state.mode = 'composer';
-    } else if (currentMode === 'updates') {
-      state.mode = 'updates';
     } else {
       state.mode = 'editor';
     }
@@ -8722,10 +9042,7 @@ function restoreDynamicEditorState() {
   catch (_) { return; }
   if (!data || typeof data !== 'object') return;
 
-  const mode = (data.mode === 'composer' || data.mode === 'updates') ? data.mode : 'editor';
-  if (mode === 'editor') applyMode('editor');
-  else if (mode === 'updates') applyMode('updates');
-  else if (mode === 'composer') applyMode('composer');
+  applyMode('editor');
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -9318,7 +9635,7 @@ async function closeDynamicTab(modeId, options = {}) {
 
   if (wasActive) {
     const remainingModes = Array.from(dynamicEditorTabs.keys());
-    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'composer';
+    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'editor';
     applyMode(fallbackMode);
   } else {
     persistDynamicEditorState();
@@ -9500,6 +9817,11 @@ function getDefaultMarkdownForPath(relPath) {
 }
 
 function applyMode(mode, options = {}) {
+  if (mode === 'composer' || mode === 'updates') {
+    openEditorOverlay(mode, options.trigger || null);
+    return;
+  }
+
   if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure) {
     const firstDynamicMode = getFirstDynamicModeId();
     if (firstDynamicMode) {
@@ -9508,10 +9830,10 @@ function applyMode(mode, options = {}) {
     }
   }
 
-  const candidate = mode || 'composer';
-  const nextMode = (candidate === 'composer' || candidate === 'editor' || candidate === 'updates' || isDynamicMode(candidate))
+  const candidate = mode || 'editor';
+  const nextMode = (candidate === 'editor' || isDynamicMode(candidate))
     ? candidate
-    : 'composer';
+    : 'editor';
 
   const previousMode = currentMode;
   if (previousMode === nextMode) return;
@@ -9528,15 +9850,8 @@ function applyMode(mode, options = {}) {
 
   currentMode = nextMode;
 
-  const showComposer = nextMode === 'composer';
   const showEditor = nextMode === 'editor' || isDynamicMode(nextMode);
-  const showUpdates = nextMode === 'updates';
   try { $('#mode-editor').style.display = showEditor ? '' : 'none'; } catch (_) {}
-  try { $('#mode-composer').style.display = showComposer ? '' : 'none'; } catch (_) {}
-  try {
-    const updatesLayout = $('#mode-updates');
-    if (updatesLayout) updatesLayout.style.display = showUpdates ? '' : 'none';
-  } catch (_) {}
   try {
     const layout = $('#mode-editor');
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
@@ -9545,6 +9860,14 @@ function applyMode(mode, options = {}) {
   const isDynamic = isDynamicMode(nextMode);
   try {
     $$('.mode-tab').forEach((b) => {
+      const baseMode = b.dataset ? b.dataset.mode : '';
+      if (baseMode === 'composer' || baseMode === 'updates') {
+        if (!activeEditorOverlayMode) {
+          b.classList.remove('is-active');
+          b.setAttribute('aria-selected', 'false');
+        }
+        return;
+      }
       const targetMode = b.classList.contains('dynamic-mode')
         ? nextMode
         : (isDynamic ? 'editor' : nextMode);
@@ -9566,12 +9889,7 @@ function applyMode(mode, options = {}) {
 
   if (showEditor) scheduleEditorLayoutRefresh();
 
-  if (nextMode === 'composer') {
-    activeDynamicMode = null;
-    activeMarkdownDocument = null;
-    setEditorStructurePanelVisible(true);
-    pushEditorCurrentFileInfo(null);
-  } else if (isDynamicMode(nextMode)) {
+  if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
     const tab = dynamicEditorTabs.get(nextMode);
@@ -9592,8 +9910,7 @@ function applyMode(mode, options = {}) {
           editorApi.setValue(tab.content, { notify: false });
           scheduleEditorLayoutRefresh();
           try { editorApi.focus(); } catch (_) {}
-          try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
-          catch (_) { window.scrollTo(0, 0); }
+          scrollEditorContentToTop('smooth');
           updateDynamicTabDirtyState(tab, { autoSave: false });
         }
       };
@@ -9634,11 +9951,7 @@ function applyMode(mode, options = {}) {
     pushEditorCurrentFileInfo(null);
   }
 
-  // Sync preload attribute so CSS with !important stops forcing previous mode
-  try {
-    if (nextMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
-    else document.documentElement.removeAttribute('data-init-mode');
-  } catch (_) {}
+  try { document.documentElement.removeAttribute('data-init-mode'); } catch (_) {}
 
   persistDynamicEditorState();
 }
@@ -10533,11 +10846,14 @@ function handleEditorTreeSelection(nodeId) {
   if (node.kind === 'file' && node.path) {
     refreshEditorContentTree({ preserveStructure: true });
     openMarkdownInEditor(node.path);
+    closeEditorRailDrawer();
     return;
   }
   applyMode('editor', { forceStructure: true });
   setEditorStructurePanelVisible(true);
   refreshEditorContentTree();
+  scrollEditorContentToTop('smooth');
+  closeEditorRailDrawer();
 }
 
 function getIndexEntry(key) {
@@ -11709,10 +12025,19 @@ async function addComposerEntry(kind, anchor) {
 }
 
 function bindComposerUI(state) {
-  // Mode switch (Editor <-> Composer)
+  initEditorOverlay();
+  initEditorRailResize();
+  initMobileEditorRail();
+
+  // Overlay launchers and legacy mode buttons
   $$('.mode-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (event) => {
       const mode = btn.dataset.mode;
+      if (mode === 'composer' || mode === 'updates') {
+        event.preventDefault();
+        openEditorOverlay(mode, btn);
+        return;
+      }
       applyMode(mode);
     });
   });

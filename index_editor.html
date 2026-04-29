@@ -23,8 +23,9 @@
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
       --editor-toolbar-offset: 0px;
-      --editor-page-max-width: 1200px;
-      --editor-edge-offset: 1rem;
+      --editor-page-max-width: 100vw;
+      --editor-edge-offset: 0px;
+      --editor-rail-width: 340px;
       --back-to-top-size: 2.5rem;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -35,16 +36,170 @@
       }
       .composer-panels { transition: none; }
     }
-    /* Widen the editor page and reduce side padding */
-    html, body { overflow-x: visible; overflow-y: visible; }
-    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
-    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem var(--editor-edge-offset); max-width: min(95vw, var(--editor-page-max-width)); width: 100%; margin: 0 auto; overflow-x: clip; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { margin: 0; min-height: 0; height: 100%; display: block; overscroll-behavior: none; position: relative; }
+    .editor-page { position: fixed; inset: 0; width: auto; height: auto; max-width: none; margin: 0; padding: 0; overflow: hidden; }
+    .editor-app-shell {
+      width:100%;
+      height:100%;
+      display:grid;
+      grid-template-columns:var(--editor-rail-width, 340px) 6px minmax(0, 1fr);
+      min-width:0;
+      min-height:0;
+      max-height:100%;
+      overflow:hidden;
+      background:color-mix(in srgb, var(--bg) 96%, var(--card) 4%);
+      position:relative;
+    }
+    .editor-rail {
+      min-width:0;
+      min-height:0;
+      max-height:100%;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      background:color-mix(in srgb, var(--bg) 98%, var(--card) 2%);
+      border-right:0;
+    }
+    .editor-rail-tree-scroll {
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:1.4rem 1rem 1rem 1.2rem;
+      scrollbar-gutter:stable;
+    }
+    .editor-rail-footer {
+      flex:0 0 auto;
+      min-width:0;
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto auto;
+      align-items:center;
+      gap:.45rem;
+      padding:.5rem .75rem calc(.5rem + env(safe-area-inset-bottom, 0px)) .9rem;
+      border-top:1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background:color-mix(in srgb, var(--card) 72%, var(--bg));
+    }
+    .editor-rail-footer .editor-lang-switcher {
+      grid-column:auto;
+      grid-row:auto;
+      justify-self:stretch;
+      align-self:center;
+      margin:0;
+      width:100%;
+      min-width:0;
+      padding:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      gap:.35rem;
+    }
+    .editor-rail-footer .editor-lang-switcher label {
+      flex:0 0 auto;
+      font-size:.68rem;
+      letter-spacing:.04em;
+    }
+    .editor-rail-footer .editor-lang-switcher select {
+      flex:1 1 auto;
+      min-width:0;
+      width:100%;
+      height:1.85rem;
+      padding:.25rem .55rem;
+      font-size:.8rem;
+      border-radius:7px;
+    }
+    .editor-rail-action.mode-tab {
+      min-width:0;
+      height:1.85rem;
+      padding:.3rem .5rem;
+      border-radius:7px;
+      white-space:nowrap;
+      box-shadow:none;
+      font-size:.8rem;
+      line-height:1;
+    }
+    .editor-rail-action.mode-tab.is-active {
+      background:color-mix(in srgb, var(--primary) 12%, var(--card));
+      color:var(--primary);
+      border-color:color-mix(in srgb, var(--primary) 28%, var(--border));
+    }
+    .editor-rail-resizer {
+      min-width:6px;
+      cursor:col-resize;
+      background:transparent;
+      position:relative;
+      z-index:3;
+    }
+    .editor-rail-resizer::before {
+      content:"";
+      position:absolute;
+      top:0;
+      bottom:0;
+      left:50%;
+      width:1px;
+      background:color-mix(in srgb, var(--border) 70%, transparent);
+      opacity:.65;
+      transform:translateX(-.5px);
+      transition:opacity .16s ease, background .16s ease;
+    }
+    .editor-rail-resizer:hover::before,
+    .editor-rail-resizer:focus-visible::before,
+    .editor-app-shell.is-resizing-rail .editor-rail-resizer::before {
+      opacity:1;
+      background:color-mix(in srgb, var(--primary) 54%, var(--border));
+    }
+    .editor-content-pane {
+      min-width:0;
+      min-height:0;
+      max-height:100%;
+      overflow:auto;
+      padding:1rem;
+      position:relative;
+      scrollbar-gutter:stable;
+    }
+    .editor-mobile-rail-toggle {
+      display:none;
+      align-items:center;
+      justify-content:center;
+      position:sticky;
+      top:0;
+      z-index:140;
+      width:max-content;
+      min-height:2.1rem;
+      margin:0 0 .75rem;
+      padding:.35rem .65rem;
+      border:1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      border-radius:8px;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+      color:var(--text);
+      box-shadow:var(--shadow);
+      font:inherit;
+      cursor:pointer;
+    }
+    .editor-mobile-rail-scrim {
+      display:none;
+    }
+    .editor-content-pane > .editor-layout {
+      min-height:100%;
+    }
+    .site-footer,
+    .back-to-top { display:none !important; }
     /* Editor layout */
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
-    .editor-tree-shell { display:grid; grid-template-columns:minmax(230px, 300px) minmax(0, 1fr); gap:1rem; align-items:start; min-height:min(76vh, 840px); }
-    .editor-file-tree-pane { position:sticky; top:.75rem; align-self:start; min-width:0; overflow:visible; border-right:1px solid color-mix(in srgb, var(--border) 86%, transparent); padding:.15rem .9rem .15rem 0; }
+    .editor-content-shell.box {
+      min-height:100%;
+      display:block;
+      margin:0;
+      padding:0;
+      border:0 !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      background:transparent;
+    }
+    .editor-tree-shell { display:block; min-height:0; }
+    .editor-file-tree-pane { position:static; top:auto; align-self:stretch; min-width:0; overflow:hidden; border-right:0; padding:0; }
     .editor-file-tree { display:flex; flex-direction:column; gap:.02rem; }
     .editor-tree-row { position:relative; display:grid; grid-template-columns:1.15rem minmax(0, 1fr); align-items:center; gap:.2rem; min-height:1.75rem; padding:0; color:color-mix(in srgb, var(--text) 88%, transparent); }
     .editor-tree-guides { position:absolute; inset:-.12rem 0; pointer-events:none; }
@@ -74,8 +229,8 @@
     .editor-tree-badge[data-state="saved"] { background:#22c55e; box-shadow:0 0 0 2px color-mix(in srgb, #22c55e 16%, transparent); }
     .editor-tree-badge[data-state="conflict"], .editor-tree-badge[data-state="error"] { background:#ef4444; box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent); }
     .editor-tree-badge[data-state="modified"], .editor-tree-badge[data-state="missing"], .editor-tree-badge[data-state="checking"] { background:#2563eb; box-shadow:0 0 0 2px color-mix(in srgb, #2563eb 16%, transparent); }
-    .editor-detail-pane { min-width:0; display:flex; flex-direction:column; gap:1rem; }
-    .editor-structure-panel { min-width:0; border:1px solid var(--border); border-radius:8px; background:color-mix(in srgb, var(--card) 98%, transparent); padding:1rem; }
+    .editor-detail-pane { min-width:0; min-height:0; display:flex; flex-direction:column; gap:1rem; }
+    .editor-structure-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
     .editor-markdown-panel[hidden], .editor-structure-panel[hidden] { display:none !important; }
     .editor-structure-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1rem; }
     .editor-structure-kicker { margin:0 0 .25rem; color:var(--muted); font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
@@ -94,8 +249,6 @@
     .editor-structure-item-actions { display:flex; gap:.35rem; flex-wrap:wrap; justify-content:flex-end; }
     .site-settings-title { font-size:1rem; color:var(--text); }
     @media (max-width: 980px) {
-      .editor-tree-shell { grid-template-columns:1fr; }
-      .editor-file-tree-pane { position:relative; top:auto; max-height:none; border-right:0; border-bottom:1px solid var(--border); padding-right:0; padding-bottom:1rem; }
       .editor-structure-row { grid-template-columns:1fr; }
       .editor-structure-actions, .editor-structure-item-actions { justify-content:flex-start; }
     }
@@ -1599,15 +1752,122 @@
     }
     @keyframes sync-overlay-spin { to { transform: rotate(360deg); } }
 
-    /* Preload-state CSS to avoid flash when initial mode is Composer */
-    [data-init-mode="composer"] #mode-editor { display: none !important; }
-    [data-init-mode="composer"] #mode-composer { display: block !important; }
-    [data-init-mode="composer"] .mode-tab[data-mode="composer"] {
-      background: color-mix(in srgb, var(--primary) 14%, var(--card));
-      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
-      color: var(--primary);
-      cursor: default;
+    .editor-modal-layer[hidden],
+    .editor-overlay-panel[hidden] {
+      display:none !important;
     }
+    .editor-modal-layer {
+      position:fixed;
+      inset:0;
+      z-index:12000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:clamp(.75rem, 2vw, 1.4rem);
+    }
+    .editor-modal-backdrop {
+      position:absolute;
+      inset:0;
+      background:rgba(15, 23, 42, .38);
+      backdrop-filter:blur(5px);
+    }
+    .editor-modal-dialog {
+      position:relative;
+      z-index:1;
+      width:min(980px, calc(100vw - 2rem));
+      max-height:min(86dvh, 900px);
+      min-height:min(420px, calc(100dvh - 2rem));
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      border:1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius:16px;
+      background:color-mix(in srgb, var(--bg) 94%, var(--card));
+      box-shadow:0 28px 72px rgba(15, 23, 42, .3);
+    }
+    .editor-modal-header {
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+      padding:.9rem 1.1rem;
+      border-bottom:1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background:color-mix(in srgb, var(--card) 92%, transparent);
+    }
+    .editor-modal-header h2 {
+      margin:0;
+      font-size:1.08rem;
+      line-height:1.2;
+    }
+    .editor-modal-close {
+      flex:0 0 auto;
+      width:2rem;
+      height:2rem;
+      padding:0;
+      font-size:1.25rem;
+      line-height:1;
+    }
+    .editor-modal-body {
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:1rem;
+      scrollbar-gutter:stable;
+    }
+    .editor-overlay-panel {
+      width:100%;
+      min-height:100%;
+    }
+
+    @media (max-width: 820px) {
+      .editor-app-shell {
+        grid-template-columns:minmax(0, 1fr);
+      }
+      .editor-rail {
+        position:fixed;
+        inset:0 auto 0 0;
+        z-index:13000;
+        width:min(86vw, 360px);
+        max-width:min(86vw, 360px);
+        transform:translateX(-102%);
+        transition:transform .2s ease;
+        box-shadow:18px 0 38px rgba(15, 23, 42, .16);
+      }
+      .editor-app-shell.is-rail-open .editor-rail {
+        transform:translateX(0);
+      }
+      .editor-rail-resizer {
+        display:none;
+      }
+      .editor-content-pane {
+        grid-column:1;
+        padding:.75rem;
+      }
+      .editor-mobile-rail-toggle {
+        display:inline-flex;
+      }
+      .editor-mobile-rail-scrim {
+        position:fixed;
+        inset:0;
+        z-index:12999;
+        display:block;
+        background:rgba(15, 23, 42, .28);
+      }
+      .editor-mobile-rail-scrim[hidden] {
+        display:none !important;
+      }
+      .editor-modal-dialog {
+        width:calc(100vw - 1rem);
+        max-height:calc(100dvh - 1rem);
+      }
+      .editor-modal-body {
+        padding:.75rem;
+      }
+    }
+
+    /* Preload-state CSS to avoid flash when legacy state points at Site Settings */
+    [data-init-mode="composer"] #mode-composer { display: none !important; }
     /* Preselect composer sub-file to tabs when persisted */
     [data-init-cfile="tabs"] #composerIndex { display: none !important; }
     [data-init-cfile="tabs"] #composerTabs { display: block !important; }
@@ -1618,25 +1878,26 @@
 </head>
 <body>
   <div class="editor-page">
-    <div class="page-titlebar">
-      <div class="editor-lang-switcher" id="editorLangSwitcher">
-        <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
-        <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
-      </div>
-      <nav class="mode-switch" role="tablist" aria-label="Mode switch" data-i18n-aria-label="editor.nav.modeSwitchAria">
-        <button class="mode-tab is-active" data-mode="editor" data-tab-label="Editor" data-i18n-data-tab-label="editor.modes.editor" role="tab" aria-controls="mode-editor" aria-selected="true" aria-label="Editor" data-i18n-aria-label="editor.modes.editor">
-          <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
-          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-        </button>
-        <button class="mode-tab" data-mode="composer" data-tab-label="Site Settings" data-i18n-data-tab-label="editor.modes.composer" role="tab" aria-controls="mode-composer" aria-selected="false" aria-label="Site Settings" data-i18n-aria-label="editor.modes.composer">
-          <span class="mode-tab-text" data-i18n="editor.modes.composer">Site Settings</span>
-          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-        </button>
-        <button class="mode-tab" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" role="tab" aria-controls="mode-updates" aria-selected="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
-          <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
-          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-        </button>
-      </nav>
+    <div class="editor-app-shell" id="editorAppShell">
+      <div class="editor-mobile-rail-scrim" id="editorRailScrim" hidden aria-hidden="true"></div>
+      <aside class="editor-rail editor-file-tree-pane" id="editorRail" aria-label="Content files" data-i18n-aria-label="editor.tree.aria">
+        <div class="editor-rail-tree-scroll">
+          <div class="editor-file-tree" id="editorFileTree" role="tree" aria-label="Content file tree" data-i18n-aria-label="editor.tree.treeAria"></div>
+        </div>
+        <div class="editor-rail-footer">
+          <div class="editor-lang-switcher" id="editorLangSwitcher">
+            <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
+            <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
+          </div>
+          <button type="button" class="mode-tab editor-rail-action" data-mode="composer" data-tab-label="Site Settings" data-i18n-data-tab-label="editor.modes.composer" aria-controls="mode-composer" aria-haspopup="dialog" aria-expanded="false" aria-label="Site Settings" data-i18n-aria-label="editor.modes.composer">
+            <span class="mode-tab-text" data-i18n="editor.modes.composer">Site Settings</span>
+            <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+          </button>
+          <button type="button" class="mode-tab editor-rail-action" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" aria-controls="mode-updates" aria-haspopup="dialog" aria-expanded="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
+            <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
+            <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+          </button>
+        </div>
       <div class="status-stack">
         <div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">
           <div class="gs-flow">
@@ -1674,14 +1935,14 @@
           </div>
         </div>
       </div>
-    </div>
+      </aside>
+      <div class="editor-rail-resizer" id="editorRailResizer" role="separator" aria-orientation="vertical" aria-label="Resize file tree" tabindex="0"></div>
+      <main class="editor-content-pane" id="editorContentPane">
+        <button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle" aria-controls="editorRail" aria-expanded="false" data-i18n="editor.tree.aria">Content files</button>
 
     <!-- Editor Mode -->
     <div class="editor-layout" id="mode-editor">
-      <section class="box editor-main editor-tree-shell">
-        <aside class="editor-file-tree-pane" aria-label="Content files" data-i18n-aria-label="editor.tree.aria">
-          <div class="editor-file-tree" id="editorFileTree" role="tree" aria-label="Content file tree" data-i18n-aria-label="editor.tree.treeAria"></div>
-        </aside>
+      <section class="box editor-main editor-content-shell">
         <div class="editor-detail-pane">
           <section class="editor-structure-panel" id="editorStructurePanel" aria-live="polite">
             <div class="editor-structure-head">
@@ -1797,9 +2058,18 @@
         </div>
       </div>
     </div>
+      </main>
 
+      <div class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true">
+        <div class="editor-modal-backdrop" data-editor-modal-close aria-hidden="true"></div>
+        <section class="editor-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="editorModalTitle" tabindex="-1">
+          <header class="editor-modal-header">
+            <h2 id="editorModalTitle"></h2>
+            <button type="button" class="btn-secondary editor-modal-close" id="editorModalClose" aria-label="Close" data-i18n-aria-label="editor.composer.dialogs.close">×</button>
+          </header>
+          <div class="editor-modal-body">
     <!-- Composer Mode -->
-    <div class="editor-layout" id="mode-composer" style="display:none;">
+    <div class="editor-layout editor-overlay-panel" id="mode-composer" hidden aria-hidden="true">
       <section class="box editor-main" style="grid-column: 1 / -1;">
         <div class="toolbar">
           <div class="left-actions">
@@ -1849,7 +2119,7 @@
       </section>
     </div>
     <!-- System Updates Mode -->
-    <div class="updates-layout" id="mode-updates" style="display:none;">
+    <div class="updates-layout editor-overlay-panel" id="mode-updates" hidden aria-hidden="true">
       <section class="box updates-main">
         <div class="updates-header">
           <div class="updates-header-text">
@@ -1876,6 +2146,10 @@
           <div id="systemUpdateReleaseNotes" class="updates-release-notes"></div>
         </div>
       </section>
+    </div>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 
