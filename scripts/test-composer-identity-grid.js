@@ -12,6 +12,36 @@ const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 
 assert.match(
+  editorSource,
+  /\.view-toggle \.vt-btn \.vt-dirty-badge\{position:absolute;top:-\.45rem;right:0;min-width:1\.15rem;height:1\.15rem[\s\S]*transform:translateX\(50%\) scale\(\.72\)/,
+  'composer file switch dirty indicators should render as right-edge centered numeric badges'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.view-toggle \.vt-btn\.has-draft::before/,
+  'composer file switch dirty indicators should not render as inline orange dots'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /id="composerOrderInlineMeta"|data-i18n="editor\.composer\.changeSummary"/,
+  'composer should not render the inline change summary block above the editor'
+);
+
+assert.match(
+  source,
+  /function getComposerDiffChangeCount\(diff\) \{[\s\S]*Object\.keys\(diff\.fields\)[\s\S]*Object\.keys\(diff\.keys\)[\s\S]*diff\.orderChanged/,
+  'composer file dirty badges should derive a numeric count from the current diff'
+);
+
+assert.match(
+  source,
+  /function updateFileDirtyBadge\(kind\) \{[\s\S]*const changeCount = getComposerDiffChangeCount\(diff\);[\s\S]*badge\.textContent = displayValue;[\s\S]*el\.dataset\.dirtyCount = String\(changeCount\);/,
+  'composer file switch dirty badges should render the change count into the button'
+);
+
+assert.match(
   source,
   /const renderIdentityLocalizedGrid = \(section\) => \{/,
   'composer site editor should define a merged identity localized grid renderer'
@@ -283,8 +313,68 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-repo-grid\[data-diff="changed"\],\.cs-extra-list\[data-diff="changed"\]\{background:color-mix\(in srgb,var\(--primary\) 6%, transparent\);box-shadow:inset 3px 0 0 color-mix\(in srgb,var\(--primary\) 60%, var\(--border\)\);border-radius:8px;padding-left:\.85rem\}/,
-  'Repository and Other keys direct containers should keep visible changed-state diff highlighting'
+  /function applySiteDiffMarkers\(diff\) \{[\s\S]*const lang = el\.getAttribute\('data-lang'\);[\s\S]*const subfield = el\.getAttribute\('data-subfield'\);[\s\S]*const hasChangedDescendant = \(el\) =>[\s\S]*if \(hasChangedDescendant\(el\)\) \{/,
+  'Site editor diff markers should support control-level language and subfield matching'
+);
+
+assert.match(
+  source,
+  /input\.dataset\.field = key;[\s\S]*input\.dataset\.lang = lang;/,
+  'Localized site inputs should carry field and language diff metadata'
+);
+
+assert.match(
+  source,
+  /input\.dataset\.field = key;[\s\S]*input\.dataset\.lang = lang;[\s\S]*input\.dataset\.subfield = key;/,
+  'Identity grid inputs should carry field, language, and subfield diff metadata'
+);
+
+assert.match(
+  source,
+  /ownerWrap\.dataset\.field = 'repo';[\s\S]*ownerWrap\.dataset\.subfield = 'owner';[\s\S]*repoWrap\.dataset\.field = 'repo';[\s\S]*repoWrap\.dataset\.subfield = 'name';[\s\S]*branchWrap\.dataset\.field = 'repo';[\s\S]*branchWrap\.dataset\.subfield = 'branch';/,
+  'Repository diff metadata should target the specific owner, repo name, or branch pill'
+);
+
+assert.match(
+  source,
+  /labelInput\.dataset\.field = key;[\s\S]*labelInput\.dataset\.index = String\(index\);[\s\S]*labelInput\.dataset\.subfield = 'label';[\s\S]*hrefInput\.dataset\.field = key;[\s\S]*hrefInput\.dataset\.index = String\(index\);[\s\S]*hrefInput\.dataset\.subfield = 'href';/,
+  'Profile link diff metadata should target the specific label or URL input'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.cs-field\[data-diff="changed"\],\.cs-repo-grid\[data-diff="changed"\],\.cs-extra-list\[data-diff="changed"\],\.cs-single-grid-row\[data-diff="changed"\]\{background:/,
+  'Site editor changed-state highlights should not tint whole field containers'
+);
+
+assert.match(
+  source,
+  /\.cs-field\[data-diff="changed"\] \.cs-input,\.cs-field\[data-diff="changed"\] \.cs-select,[\s\S]*\.cs-single-grid-row\[data-diff="changed"\] \.cs-input,[\s\S]*\.cs-single-grid-row\[data-diff="changed"\] \.cs-select[\s\S]*\{background:color-mix\(in srgb,#f59e0b 10%, transparent\);border-color:color-mix\(in srgb,#f59e0b 45%, var\(--border\)\)\}/,
+  'Site editor changed-state highlights should tint changed text and select controls'
+);
+
+assert.match(
+  source,
+  /\.cs-repo-grid\[data-diff="changed"\] \.cs-repo-field,[\s\S]*\.cs-extra-list\[data-diff="changed"\] li[\s\S]*background:color-mix\(in srgb,#f59e0b 10%, transparent\)/,
+  'Site editor changed-state highlights should tint changed repository fields and read-only key rows'
+);
+
+assert.match(
+  source,
+  /\.cs-field\[data-diff="changed"\] \.cs-switch-track,[\s\S]*\.cs-single-grid-row\[data-diff="changed"\] \.cs-switch-track[\s\S]*background:color-mix\(in srgb,#f59e0b 18%, var\(--card\)\)/,
+  'Site editor changed-state highlights should tint changed switch tracks'
+);
+
+assert.doesNotMatch(
+  source,
+  /\[data-diff="changed"\][^{]*\{[^}]*box-shadow:inset[^}]*\}/,
+  'Site editor changed-state highlights should not add inset bars'
+);
+
+assert.doesNotMatch(
+  source,
+  /\[data-diff="changed"\][^{]*\{[^}]*padding-left:[^}]*\}/,
+  'Site editor changed-state highlights should not add left padding that shifts fields'
 );
 
 assert.match(

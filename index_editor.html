@@ -1370,8 +1370,9 @@
     .wrap-toggle .vt-btn:hover { text-decoration:underline; }
     .view-toggle .vt-btn.active,
     .wrap-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
-    .view-toggle .vt-btn.has-draft::before { content:'●'; display:inline-block; font-size:.65rem; color:#f97316; margin-right:.35rem; line-height:1; }
-    .view-toggle .vt-btn.has-draft { padding-left:.5rem; }
+    .view-toggle .vt-btn .vt-dirty-badge{position:absolute;top:-.45rem;right:0;min-width:1.15rem;height:1.15rem;padding:0 .32rem;border-radius:999px;background:#ef4444;color:#fff;font-size:.68rem;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 7px rgba(15,23,42,.2),0 0 0 2px var(--card);opacity:0;transform:translateX(50%) scale(.72);transition:opacity .16s ease,transform .16s ease;pointer-events:none;z-index:2;font-feature-settings:'tnum' 1,'case' 1}
+    .view-toggle .vt-btn .vt-dirty-badge[hidden]{display:none}
+    .view-toggle .vt-btn.has-draft .vt-dirty-badge{opacity:1;transform:translateX(50%) scale(1)}
     .view-toggle .dim,
     .wrap-toggle .dim { color:#8c959f; }
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
@@ -1763,17 +1764,6 @@
             <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
           </div>
         </div>
-        <div class="composer-order-inline-meta" id="composerOrderInlineMeta" hidden>
-          <div class="composer-order-inline-meta-head">
-            <div class="composer-order-inline-titles">
-              <h3 class="composer-order-inline-title" data-i18n="editor.composer.changeSummary">Change summary</h3>
-              <span class="composer-order-inline-kind">index.yaml</span>
-            </div>
-            <button type="button" class="btn-secondary btn-compact composer-order-inline-open" data-kind="index" aria-label="Open change overview" data-i18n="editor.composer.reviewChanges" data-i18n-aria-label="editor.composer.reviewChanges">Review changes</button>
-          </div>
-          <div class="composer-order-inline-stats" aria-live="polite"></div>
-        </div>
-
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
           <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost">

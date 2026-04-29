@@ -2173,15 +2173,22 @@ function compareLocalizedMaps(cur = {}, base = {}) {
   return changedLangs;
 }
 
-function compareLinkLists(cur = [], base = []) {
+function compareLinkListChanges(cur = [], base = []) {
   const max = Math.max(cur.length, base.length);
+  const entries = {};
   for (let i = 0; i < max; i += 1) {
     const a = cur[i] || { label: '', href: '' };
     const b = base[i] || { label: '', href: '' };
-    if (safeString(a.label) !== safeString(b.label)) return true;
-    if (safeString(a.href) !== safeString(b.href)) return true;
+    const changed = {};
+    if (safeString(a.label) !== safeString(b.label)) changed.label = true;
+    if (safeString(a.href) !== safeString(b.href)) changed.href = true;
+    if (Object.keys(changed).length) entries[i] = changed;
   }
-  return false;
+  return entries;
+}
+
+function compareLinkLists(cur = [], base = []) {
+  return Object.keys(compareLinkListChanges(cur, base)).length > 0;
 }
 
 function computeSiteDiff(current, baseline) {
@@ -2224,25 +2231,30 @@ function computeSiteDiff(current, baseline) {
     }
   });
 
-  if (compareLinkLists(cur.profileLinks || [], base.profileLinks || [])) {
-    diff.fields.profileLinks = { type: 'list' };
+  const profileLinkChanges = compareLinkListChanges(cur.profileLinks || [], base.profileLinks || []);
+  if (Object.keys(profileLinkChanges).length) {
+    diff.fields.profileLinks = { type: 'list', entries: profileLinkChanges };
     diff.hasChanges = true;
   }
 
   const repoCur = cur.repo || {};
   const repoBase = base.repo || {};
-  if (safeString(repoCur.owner) !== safeString(repoBase.owner)
-    || safeString(repoCur.name) !== safeString(repoBase.name)
-    || safeString(repoCur.branch) !== safeString(repoBase.branch)) {
-    diff.fields.repo = { type: 'object' };
+  const repoFields = {};
+  if (safeString(repoCur.owner) !== safeString(repoBase.owner)) repoFields.owner = true;
+  if (safeString(repoCur.name) !== safeString(repoBase.name)) repoFields.name = true;
+  if (safeString(repoCur.branch) !== safeString(repoBase.branch)) repoFields.branch = true;
+  if (Object.keys(repoFields).length) {
+    diff.fields.repo = { type: 'object', fields: repoFields };
     diff.hasChanges = true;
   }
 
   const curWarn = (cur.assetWarnings && cur.assetWarnings.largeImage) || {};
   const baseWarn = (base.assetWarnings && base.assetWarnings.largeImage) || {};
-  if (normalizeBoolean(curWarn.enabled) !== normalizeBoolean(baseWarn.enabled)
-    || normalizeNumber(curWarn.thresholdKB) !== normalizeNumber(baseWarn.thresholdKB)) {
-    diff.fields.assetWarnings = { type: 'object' };
+  const warningFields = {};
+  if (normalizeBoolean(curWarn.enabled) !== normalizeBoolean(baseWarn.enabled)) warningFields.enabled = true;
+  if (normalizeNumber(curWarn.thresholdKB) !== normalizeNumber(baseWarn.thresholdKB)) warningFields.thresholdKB = true;
+  if (Object.keys(warningFields).length) {
+    diff.fields.assetWarnings = { type: 'object', fields: warningFields };
     diff.hasChanges = true;
   }
 
@@ -2260,12 +2272,39 @@ function applySiteDiffMarkers(diff) {
   const root = document.getElementById('composerSite');
   if (!root) return;
   const fields = diff && diff.fields ? diff.fields : {};
+  const matchesFieldDiff = (el, key) => {
+    const info = fields[key];
+    if (!info) return false;
+    const lang = el.getAttribute('data-lang');
+    const subfield = el.getAttribute('data-subfield');
+    const index = el.getAttribute('data-index');
+    if (info.type === 'localized' && Array.isArray(info.languages)) {
+      return lang ? info.languages.includes(lang) : true;
+    }
+    if (info.type === 'list' && info.entries && index != null && subfield) {
+      return !!(info.entries[index] && info.entries[index][subfield]);
+    }
+    if (info.type === 'object' && info.fields && subfield) {
+      return !!info.fields[subfield];
+    }
+    return true;
+  };
+  const isChangedTarget = (el) => {
+    const key = el.getAttribute('data-field');
+    const keys = String(key || '').split('|').map(item => item.trim()).filter(Boolean);
+    return keys.length ? keys.some(fieldKey => matchesFieldDiff(el, fieldKey)) : false;
+  };
+  const hasChangedDescendant = (el) => {
+    return Array.from(el.querySelectorAll('[data-field]')).some(child => child !== el && isChangedTarget(child));
+  };
   root.querySelectorAll('[data-field]').forEach((el) => {
     const key = el.getAttribute('data-field');
     const keys = String(key || '').split('|').map(item => item.trim()).filter(Boolean);
-    const changed = keys.length
-      ? keys.some(fieldKey => !!fields[fieldKey])
-      : !!fields[key];
+    if (hasChangedDescendant(el)) {
+      el.removeAttribute('data-diff');
+      return;
+    }
+    const changed = keys.length ? keys.some(fieldKey => matchesFieldDiff(el, fieldKey)) : false;
     if (key && changed) el.setAttribute('data-diff', 'changed');
     else el.removeAttribute('data-diff');
   });
@@ -3455,15 +3494,77 @@ function applyTabsDiffMarkers(diff) {
   });
 }
 
+function getComposerDiffChangeCount(diff) {
+  if (!diff || !diff.hasChanges) return 0;
+  if (diff.fields && typeof diff.fields === 'object') {
+    return Object.keys(diff.fields).filter(Boolean).length;
+  }
+  let count = 0;
+  if (diff.keys && typeof diff.keys === 'object') {
+    count += Object.keys(diff.keys).filter(Boolean).length;
+  }
+  if (diff.orderChanged) count += 1;
+  return Math.max(1, count);
+}
+
+function ensureFileDirtyBadgeElement(el) {
+  if (!el) return null;
+  let badge = el.querySelector('.vt-dirty-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'vt-dirty-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.hidden = true;
+    el.appendChild(badge);
+  }
+  return badge;
+}
+
+function getFileToggleBaseLabel(el) {
+  if (!el) return '';
+  if (el.dataset && el.dataset.fileLabel) return el.dataset.fileLabel;
+  const text = Array.from(el.childNodes || [])
+    .filter(node => !(node.nodeType === 1 && node.classList && node.classList.contains('vt-dirty-badge')))
+    .map(node => node.textContent || '')
+    .join('')
+    .trim();
+  if (text && el.dataset) el.dataset.fileLabel = text;
+  return text;
+}
+
 function updateFileDirtyBadge(kind) {
   const name = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   const el = document.querySelector(`a.vt-btn[data-cfile="${name}"]`);
   if (!el) return;
   const diff = composerDiffCache[kind];
+  const changeCount = getComposerDiffChangeCount(diff);
   const hasChanges = !!(diff && diff.hasChanges);
+  const badge = ensureFileDirtyBadgeElement(el);
+  const baseLabel = getFileToggleBaseLabel(el);
   el.classList.toggle('has-draft', hasChanges);
-  if (hasChanges) el.setAttribute('data-dirty', '1');
-  else el.removeAttribute('data-dirty');
+  if (hasChanges) {
+    const displayValue = changeCount > 99 ? '99+' : String(changeCount);
+    if (badge) {
+      badge.textContent = displayValue;
+      badge.hidden = false;
+    }
+    el.setAttribute('data-dirty', '1');
+    if (el.dataset) el.dataset.dirtyCount = String(changeCount);
+    if (baseLabel) {
+      const accessibleCount = changeCount > 99 ? 'more than 99' : String(changeCount);
+      const changeLabel = changeCount === 1 ? 'pending change' : 'pending changes';
+      el.setAttribute('aria-label', `${baseLabel} (${accessibleCount} ${changeLabel})`);
+    }
+  } else {
+    if (badge) {
+      badge.hidden = true;
+      badge.textContent = '';
+    }
+    el.removeAttribute('data-dirty');
+    if (el.dataset) delete el.dataset.dirtyCount;
+    if (baseLabel) el.setAttribute('aria-label', baseLabel);
+    else el.removeAttribute('aria-label');
+  }
 }
 
 function collectUnsyncedMarkdownEntries() {
@@ -12656,6 +12757,8 @@ function buildSiteUI(root, state) {
         if (!options.multiline) input.type = 'text';
         else input.rows = options.rows || 3;
         input.className = options.multiline ? 'cs-input cs-localized-textarea' : 'cs-input';
+        input.dataset.field = key;
+        input.dataset.lang = lang;
         if (options.placeholder) input.placeholder = options.placeholder;
         input.value = localized[lang] || '';
         if (options.multiline) {
@@ -12919,6 +13022,9 @@ function buildSiteUI(root, state) {
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'cs-input';
+      input.dataset.field = key;
+      input.dataset.lang = lang;
+      input.dataset.subfield = key;
       input.dataset.siteIdentityField = key;
       input.value = value || '';
       input.addEventListener('input', () => {
@@ -12991,6 +13097,7 @@ function buildSiteUI(root, state) {
     if (!config.multiline) input.type = config.type || 'text';
     else input.rows = config.rows || 3;
     input.className = 'cs-input';
+    input.dataset.field = config.dataKey;
     input.value = config.get() || '';
     if (config.placeholder) input.placeholder = config.placeholder;
     input.addEventListener('input', () => {
@@ -13064,6 +13171,7 @@ function buildSiteUI(root, state) {
       input.id = controlId;
       input.type = item.type || 'text';
       input.className = 'cs-input';
+      input.dataset.field = item.dataKey;
       input.value = item.get() || '';
       input.placeholder = item.placeholder || '';
       input.addEventListener('input', () => {
@@ -13121,6 +13229,7 @@ function buildSiteUI(root, state) {
     const input = document.createElement('input');
     input.type = 'number';
     input.className = 'cs-input cs-input-small';
+    input.dataset.field = config.dataKey;
     if (config.min != null) input.min = String(config.min);
     if (config.max != null) input.max = String(config.max);
     if (config.step != null) input.step = String(config.step);
@@ -13195,6 +13304,7 @@ function buildSiteUI(root, state) {
       target: labelWrap || head || field,
       classes: ['cs-field-head-switch']
     });
+    toggle.dataset.field = config.dataKey;
 
     const sync = () => {
       const value = config.get();
@@ -13223,6 +13333,7 @@ function buildSiteUI(root, state) {
       target: labelWrap || head || field,
       classes: ['cs-field-head-switch']
     });
+    toggle.dataset.field = config.dataKey;
 
     const sync = () => {
       syncSwitchState(checkbox, toggle, config.get(), false);
@@ -13252,6 +13363,7 @@ function buildSiteUI(root, state) {
     control.className = 'cs-field-controls';
     const select = document.createElement('select');
     select.className = 'cs-select';
+    select.dataset.field = config.dataKey;
     (config.options || []).forEach((opt) => {
       const option = document.createElement('option');
       option.value = opt.value;
@@ -13318,6 +13430,7 @@ function buildSiteUI(root, state) {
       const select = document.createElement('select');
       select.id = controlId;
       select.className = 'cs-select';
+      select.dataset.field = item.dataKey;
       controlCell.appendChild(select);
       return select;
     };
@@ -13364,6 +13477,7 @@ function buildSiteUI(root, state) {
       input.id = controlId;
       input.type = 'number';
       input.className = 'cs-input';
+      input.dataset.field = item.dataKey;
       if (item.min != null) input.min = String(item.min);
       const value = item.get();
       input.value = value != null && !Number.isNaN(value) ? String(value) : '';
@@ -13400,6 +13514,7 @@ function buildSiteUI(root, state) {
         target: controlCell,
         classes: ['cs-single-grid-switch']
       });
+      toggle.dataset.field = item.dataKey;
       const sync = () => {
         syncSwitchState(checkbox, toggle, item.get(), allowMixed);
       };
@@ -13532,6 +13647,7 @@ function buildSiteUI(root, state) {
       const select = document.createElement('select');
       select.id = controlId;
       select.className = 'cs-select';
+      select.dataset.field = item.dataKey;
       (item.options || []).forEach((opt) => {
         const option = document.createElement('option');
         option.value = opt.value;
@@ -13683,6 +13799,7 @@ function buildSiteUI(root, state) {
       target: controlCell,
       classes: ['cs-single-grid-switch']
     });
+    toggle.dataset.field = 'themeOverride';
     checkbox.addEventListener('change', () => {
       site.themeOverride = checkbox.checked;
       syncSwitchState(checkbox, toggle, checkbox.checked, true);
@@ -13715,6 +13832,8 @@ function buildSiteUI(root, state) {
         classes: ['cs-single-grid-switch']
       }
     );
+    toggle.dataset.field = 'assetWarnings';
+    toggle.dataset.subfield = 'enabled';
     checkbox.addEventListener('change', () => {
       warnings.largeImage.enabled = checkbox.checked;
       syncSwitchState(checkbox, toggle, checkbox.checked, true);
@@ -13731,6 +13850,8 @@ function buildSiteUI(root, state) {
     thresholdInput.id = thresholdId;
     thresholdInput.type = 'number';
     thresholdInput.className = 'cs-input';
+    thresholdInput.dataset.field = 'assetWarnings';
+    thresholdInput.dataset.subfield = 'thresholdKB';
     thresholdInput.min = '1';
     const threshold = warnings.largeImage.thresholdKB;
     thresholdInput.value = threshold != null && !Number.isNaN(threshold) ? String(threshold) : '';
@@ -13811,6 +13932,9 @@ function buildSiteUI(root, state) {
         labelInput.type = 'text';
         labelInput.id = labelInputId;
         labelInput.className = 'cs-input';
+        labelInput.dataset.field = key;
+        labelInput.dataset.index = String(index);
+        labelInput.dataset.subfield = 'label';
         labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
         if (index > 0) {
           labelInput.setAttribute('aria-labelledby', labelTitleId);
@@ -13843,6 +13967,9 @@ function buildSiteUI(root, state) {
         hrefInput.type = 'text';
         hrefInput.id = hrefInputId;
         hrefInput.className = 'cs-input';
+        hrefInput.dataset.field = key;
+        hrefInput.dataset.index = String(index);
+        hrefInput.dataset.subfield = 'href';
         hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
         if (index > 0) {
           hrefInput.setAttribute('aria-labelledby', hrefTitleId);
@@ -13933,6 +14060,8 @@ function buildSiteUI(root, state) {
 
   const ownerWrap = document.createElement('div');
   ownerWrap.className = 'cs-repo-field cs-repo-field--owner';
+  ownerWrap.dataset.field = 'repo';
+  ownerWrap.dataset.subfield = 'owner';
   const ownerAffix = document.createElement('span');
   ownerAffix.className = 'cs-repo-affix';
   ownerAffix.textContent = t('editor.composer.site.repoOwnerPrefix');
@@ -13941,6 +14070,8 @@ function buildSiteUI(root, state) {
 
   const repoWrap = document.createElement('div');
   repoWrap.className = 'cs-repo-field cs-repo-field--name';
+  repoWrap.dataset.field = 'repo';
+  repoWrap.dataset.subfield = 'name';
   const repoAffix = document.createElement('span');
   repoAffix.className = 'cs-repo-affix';
   repoAffix.textContent = t('editor.composer.site.repoNamePrefix');
@@ -13957,6 +14088,8 @@ function buildSiteUI(root, state) {
 
   const branchWrap = document.createElement('div');
   branchWrap.className = 'cs-repo-field cs-repo-field--branch';
+  branchWrap.dataset.field = 'repo';
+  branchWrap.dataset.subfield = 'branch';
   const branchAffix = document.createElement('span');
   branchAffix.className = 'cs-repo-affix';
   branchAffix.textContent = t('editor.composer.site.repoBranchPrefix');
@@ -14427,9 +14560,6 @@ function rebuildSiteUI() {
   .cs-config-subsection > .cs-config-subsection-head + .cs-field{padding-top:0}
   .cs-field{margin:0;padding:.6rem 0;display:flex;flex-direction:column;gap:.4rem;position:relative}
   .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
-  .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
-  .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
-  .cs-repo-grid[data-diff="changed"],.cs-extra-list[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
   .cs-field-inline-help .cs-field-head{align-items:baseline}
   .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}
@@ -14471,7 +14601,6 @@ function rebuildSiteUI() {
   .cs-single-grid-fieldset{gap:0}
   .cs-single-grid{display:grid;grid-template-columns:var(--cs-editor-single-label-width,88px) minmax(0,var(--cs-editor-single-control-width));column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center;justify-content:start}
   .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
-  .cs-single-grid-row[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-single-grid-label{display:inline-flex;align-items:center;justify-content:flex-end;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
   .cs-single-grid-title{font-size:.84rem;white-space:nowrap}
   .cs-single-grid-control{min-width:0;display:flex;align-items:center}
@@ -14524,6 +14653,9 @@ function rebuildSiteUI() {
   .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
   .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
   .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
+  .cs-input[data-diff="changed"],.cs-select[data-diff="changed"],.cs-field[data-diff="changed"] .cs-input,.cs-field[data-diff="changed"] .cs-select,.cs-single-grid-row[data-diff="changed"] .cs-input,.cs-single-grid-row[data-diff="changed"] .cs-select{background:color-mix(in srgb,#f59e0b 10%, transparent);border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
+  .cs-repo-field[data-diff="changed"],.cs-repo-grid[data-diff="changed"] .cs-repo-field,.cs-extra-list[data-diff="changed"] li{background:color-mix(in srgb,#f59e0b 10%, transparent);border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
+  .cs-switch[data-diff="changed"] .cs-switch-track,.cs-field[data-diff="changed"] .cs-switch-track,.cs-single-grid-row[data-diff="changed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 18%, var(--card));border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
   @media (max-width:1024px){
     .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
   }
@@ -14555,7 +14687,6 @@ function rebuildSiteUI() {
     .cs-identity-actions{justify-content:flex-start}
     .cs-single-grid{grid-template-columns:1fr;row-gap:.35rem}
     .cs-single-grid-row{grid-template-columns:1fr;align-items:stretch;gap:.35rem;padding:.2rem 0}
-    .cs-single-grid-row[data-diff="changed"]{padding-left:.65rem}
   }
 
   /* Modal animations */
