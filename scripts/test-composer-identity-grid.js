@@ -29,6 +29,12 @@ assert.doesNotMatch(
   'composer should not render the inline change summary block above the editor'
 );
 
+assert.doesNotMatch(
+  editorSource,
+  /id="wrapToggle"|data-wrap="(?:on|off)"/,
+  'markdown editor should not expose a manual line-wrap toggle'
+);
+
 assert.match(
   editorSource,
   /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"/,

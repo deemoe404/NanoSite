@@ -20,6 +20,7 @@ import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
 import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
+const FORCE_MARKDOWN_WRAP = true;
 
 const previewAssetBuckets = new Map();
 let previewAssetCurrentPath = '';
@@ -600,6 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyEditorEmptyState(true);
 
   const readWrapState = () => {
+    if (FORCE_MARKDOWN_WRAP) return true;
     try {
       const raw = localStorage.getItem(LS_WRAP_KEY);
       if (!raw) return false;
@@ -630,7 +632,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const applyWrapState = (value, opts = {}) => {
-    const on = !!value;
+    const on = FORCE_MARKDOWN_WRAP ? true : !!value;
     wrapEnabled = on;
     if (editor && typeof editor.setWrap === 'function') {
       editor.setWrap(on);
