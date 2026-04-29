@@ -9917,6 +9917,7 @@ function applyMode(mode, options = {}) {
         editorApi.setBaseDir(baseDir);
       } catch (_) {}
       pushEditorCurrentFileInfo(tab);
+      animateEditorMarkdownPanelContent();
 
       const applyContent = (text) => {
         tab.content = String(text || '');
@@ -10639,6 +10640,41 @@ function setEditorStructurePanelVisible(visible) {
   }
 }
 
+function animateEditorStructurePanelContent(panel) {
+  if (!panel) return;
+  try {
+    const previousTimer = panel.__nsStructureAnimationTimer;
+    if (previousTimer) window.clearTimeout(previousTimer);
+  } catch (_) {}
+  panel.classList.remove('is-content-entering');
+  try { panel.getBoundingClientRect(); } catch (_) {}
+  panel.classList.add('is-content-entering');
+  try {
+    panel.__nsStructureAnimationTimer = window.setTimeout(() => {
+      panel.classList.remove('is-content-entering');
+      panel.__nsStructureAnimationTimer = null;
+    }, 260);
+  } catch (_) {}
+}
+
+function animateEditorMarkdownPanelContent() {
+  const panel = document.getElementById('editorMarkdownPanel');
+  if (!panel) return;
+  try {
+    const previousTimer = panel.__nsMarkdownAnimationTimer;
+    if (previousTimer) window.clearTimeout(previousTimer);
+  } catch (_) {}
+  panel.classList.remove('is-content-entering');
+  try { panel.getBoundingClientRect(); } catch (_) {}
+  panel.classList.add('is-content-entering');
+  try {
+    panel.__nsMarkdownAnimationTimer = window.setTimeout(() => {
+      panel.classList.remove('is-content-entering');
+      panel.__nsMarkdownAnimationTimer = null;
+    }, 260);
+  } catch (_) {}
+}
+
 function collectEditorDraftStatusMap() {
   const map = new Map();
   try {
@@ -11147,12 +11183,14 @@ function appendLanguageSelector(actions, source, key, entry) {
 }
 
 function renderEditorStructurePanel(node) {
+  const panel = document.getElementById('editorStructurePanel');
   const title = document.getElementById('editorStructureTitle');
   const kicker = document.getElementById('editorStructureKicker');
   const meta = document.getElementById('editorStructureMeta');
   const actions = document.getElementById('editorStructureActions');
   const body = document.getElementById('editorStructureBody');
-  if (!title || !kicker || !meta || !actions || !body) return;
+  if (!panel || !title || !kicker || !meta || !actions || !body) return;
+  const animate = () => animateEditorStructurePanelContent(panel);
   actions.innerHTML = '';
   body.innerHTML = '';
   setEditorStructurePanelVisible(true);
@@ -11161,6 +11199,7 @@ function renderEditorStructurePanel(node) {
     kicker.textContent = treeText('kicker', 'Content structure');
     title.textContent = treeText('emptyTitle', 'Select a node');
     meta.textContent = treeText('emptyMeta', 'Choose an item in the tree to manage its structure or edit a Markdown file.');
+    animate();
     return;
   }
 
@@ -11181,16 +11220,19 @@ function renderEditorStructurePanel(node) {
     list.className = 'editor-structure-list';
     node.children.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
     body.appendChild(list);
+    animate();
     return;
   }
 
   if (node.kind === 'entry') {
     renderEditorEntryPanel(node, { title, kicker, meta, actions, body });
+    animate();
     return;
   }
 
   if (node.kind === 'language') {
     renderEditorLanguagePanel(node, { title, kicker, meta, actions, body });
+    animate();
     return;
   }
 
@@ -11198,6 +11240,7 @@ function renderEditorStructurePanel(node) {
     kicker.textContent = node.source === 'tabs' ? treeText('pageFile', 'Page file') : treeText('articleFile', 'Article file');
     title.textContent = node.label || basenameFromPath(node.path);
     meta.textContent = node.path || '';
+    animate();
   }
 }
 

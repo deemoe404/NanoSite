@@ -190,6 +190,36 @@ assert.match(
 );
 
 assert.match(
+  editorSource,
+  /\.editor-structure-panel\.is-content-entering \.editor-structure-head,[\s\S]*\.editor-structure-panel\.is-content-entering \.editor-structure-body \{ animation:editor-structure-content-enter \.2s ease-out both; \}[\s\S]*@keyframes editor-structure-content-enter/,
+  'editor structure panel content should animate in when the selected tree node changes'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-markdown-panel\.is-content-entering > \.toolbar,[\s\S]*\.editor-markdown-panel\.is-content-entering \.editor-workspace \{ animation:editor-structure-content-enter \.2s ease-out both; \}/,
+  'markdown editor panel should animate in when a file is opened from the tree'
+);
+
+assert.match(
+  source,
+  /function animateEditorStructurePanelContent\(panel\) \{[\s\S]*panel\.classList\.remove\('is-content-entering'\);[\s\S]*panel\.getBoundingClientRect\(\);[\s\S]*panel\.classList\.add\('is-content-entering'\);[\s\S]*function renderEditorStructurePanel\(node\) \{[\s\S]*const animate = \(\) => animateEditorStructurePanelContent\(panel\);/,
+  'structure panel rendering should restart the content transition after replacing panel contents'
+);
+
+assert.match(
+  source,
+  /function animateEditorMarkdownPanelContent\(\) \{[\s\S]*document\.getElementById\('editorMarkdownPanel'\)[\s\S]*panel\.classList\.add\('is-content-entering'\);/,
+  'markdown editor panel animation helper should restart the content transition class'
+);
+
+assert.match(
+  source,
+  /pushEditorCurrentFileInfo\(tab\);\s*animateEditorMarkdownPanelContent\(\);/,
+  'opening a markdown file should restart the editor panel transition after current file info is pushed'
+);
+
+assert.match(
   hiEditorSource,
   /function findVerticalScrollParent\(node\) \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*function forwardVerticalWheel\(event\) \{[\s\S]*absX > absY && scroll\.scrollWidth > scroll\.clientWidth \+ 1[\s\S]*scrollParent\.scrollTop = before \+ deltaY;[\s\S]*event\.preventDefault\(\);[\s\S]*scroll\.addEventListener\('wheel', forwardVerticalWheel, \{ passive: false \}\);/,
   'hidden-overflow markdown editor should forward vertical wheel gestures to the right content pane while preserving horizontal code scrolling'
