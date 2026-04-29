@@ -728,7 +728,7 @@ function renderSiteLinksNative(params = {}, documentRef = defaultDocument) {
   const cfg = params.config;
   const root = documentRef.querySelector('.site-card .social-links');
   if (!root || !cfg) return false;
-  const linksVal = (cfg && (cfg.profileLinks || cfg.links)) || [];
+  const linksVal = (cfg && cfg.profileLinks) || [];
   let items = [];
   if (Array.isArray(linksVal)) {
     items = linksVal

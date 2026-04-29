@@ -49,24 +49,6 @@
         "$ref": "#/$defs/link"
       }
     },
-    "links": {
-      "oneOf": [
-        {
-          "type": "array",
-          "description": "Navigation links as an array.",
-          "items": {
-            "$ref": "#/$defs/link"
-          }
-        },
-        {
-          "type": "object",
-          "description": "Navigation links as a map of label to URL.",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      ]
-    },
     "contentOutdatedDays": {
       "type": "integer",
       "minimum": 0,
