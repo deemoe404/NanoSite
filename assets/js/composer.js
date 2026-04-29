@@ -173,6 +173,96 @@ const composerOrderMainTransitions = new WeakMap();
 let composerSiteScrollAnimationId = null;
 let composerSiteScrollCleanup = null;
 
+function syncSiteEditorSingleLabelWidth(root) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  try {
+    if (typeof root.__nsSiteSingleLabelWidthCleanup === 'function') root.__nsSiteSingleLabelWidthCleanup();
+  } catch (_) {}
+  try { root.__nsSiteSingleLabelWidthCleanup = null; } catch (_) {}
+
+  const labels = Array.from(root.querySelectorAll('.cs-single-grid-title'));
+  if (!labels.length) {
+    try { root.style.removeProperty('--cs-editor-single-label-width'); } catch (_) {}
+    return;
+  }
+
+  let frame = 0;
+  let observer = null;
+  const requestFrame = (fn) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      return window.requestAnimationFrame(fn);
+    }
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(fn, 0);
+  };
+  const cancelFrame = (id) => {
+    if (!id) return;
+    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(id);
+      return;
+    }
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
+  const measure = () => {
+    frame = 0;
+    let width = 88;
+    labels.forEach((label) => {
+      const cell = label.closest ? label.closest('.cs-single-grid-label') : label;
+      const target = cell || label;
+      let measured = 0;
+      try {
+        const rect = target.getBoundingClientRect();
+        measured = rect && Number.isFinite(rect.width) ? rect.width : 0;
+      } catch (_) {}
+      try {
+        const tooltip = target.querySelector ? target.querySelector('.cs-help-tooltip-wrap') : null;
+        const tooltipRect = tooltip && tooltip.getBoundingClientRect ? tooltip.getBoundingClientRect() : null;
+        const tooltipWidth = tooltipRect && Number.isFinite(tooltipRect.width) ? tooltipRect.width : (tooltip ? tooltip.scrollWidth || 0 : 0);
+        const labelWidth = label.scrollWidth || 0;
+        const targetStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+          ? window.getComputedStyle(target)
+          : null;
+        const gap = targetStyle ? parseFloat(targetStyle.gap || targetStyle.columnGap || '0') || 0 : 0;
+        measured = Math.max(measured, labelWidth + tooltipWidth + gap);
+      } catch (_) {
+        try { measured = Math.max(measured, target.scrollWidth || 0, label.scrollWidth || 0); } catch (_) {}
+      }
+      width = Math.max(width, measured);
+    });
+    try { root.style.setProperty('--cs-editor-single-label-width', `${Math.ceil(width)}px`); } catch (_) {}
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = requestFrame(measure);
+  };
+
+  if (typeof ResizeObserver === 'function') {
+    try {
+      observer = new ResizeObserver(schedule);
+      observer.observe(root);
+      labels.forEach((label) => {
+        const cell = label.closest ? label.closest('.cs-single-grid-label') : label;
+        observer.observe(cell || label);
+      });
+    } catch (_) {
+      observer = null;
+    }
+  }
+
+  try {
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') document.fonts.ready.then(schedule).catch(() => {});
+  } catch (_) {}
+  schedule();
+
+  root.__nsSiteSingleLabelWidthCleanup = () => {
+    cancelFrame(frame);
+    frame = 0;
+    try { if (observer) observer.disconnect(); } catch (_) {}
+    observer = null;
+  };
+}
+
 function applyComposerEffectiveSiteConfig(siteConfig) {
   const tracked = siteConfig && typeof siteConfig === 'object' ? siteConfig : {};
   const effective = mergeYamlConfig(tracked, composerSiteLocalOverride);
@@ -11515,6 +11605,10 @@ function buildSiteUI(root, state) {
   } catch (_) {}
   try { root.__nsSiteScrollSyncCleanup = null; } catch (_) {}
   try {
+    if (typeof root.__nsSiteSingleLabelWidthCleanup === 'function') root.__nsSiteSingleLabelWidthCleanup();
+  } catch (_) {}
+  try { root.__nsSiteSingleLabelWidthCleanup = null; } catch (_) {}
+  try {
     if (typeof root.__nsSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__nsSiteNavFocusHandler);
   } catch (_) {}
   try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
@@ -12886,15 +12980,14 @@ function buildSiteUI(root, state) {
       tooltipBubble.className = 'cs-help-tooltip-bubble';
       tooltipBubble.setAttribute('role', 'tooltip');
       tooltipBubble.textContent = item.description;
-      tooltipWrap.appendChild(tooltip);
-      tooltipWrap.appendChild(tooltipBubble);
-      labelCell.appendChild(tooltipWrap);
-
       const label = document.createElement('label');
       label.className = 'cs-single-grid-title';
       label.htmlFor = controlId;
       label.textContent = item.label;
       labelCell.appendChild(label);
+      tooltipWrap.appendChild(tooltip);
+      tooltipWrap.appendChild(tooltipBubble);
+      labelCell.appendChild(tooltipWrap);
       row.appendChild(labelCell);
 
       const controlCell = document.createElement('div');
@@ -13765,11 +13858,11 @@ function buildSiteUI(root, state) {
     grid: true,
     ensureDefault: false
   });
-  renderSeoResourceGrid(seoSection);
   createLinkListField(seoSection, 'profileLinks', {
     label: t('editor.composer.site.fields.profileLinks'),
     description: t('editor.composer.site.fields.profileLinksHelp')
   });
+  renderSeoResourceGrid(seoSection);
 
   const behaviorSection = createSection(
     t('editor.composer.site.sections.behavior.title'),
@@ -13885,6 +13978,7 @@ function buildSiteUI(root, state) {
   }
 
   renderCompactSectionMenu();
+  syncSiteEditorSingleLabelWidth(root);
   refreshNavDiffState();
   try { scheduleScrollSync(); } catch (_) {}
 }
@@ -14305,10 +14399,10 @@ function rebuildSiteUI() {
   .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
   .cs-identity-remove{margin-left:0;white-space:nowrap}
   .cs-single-grid-fieldset{gap:0}
-  .cs-single-grid{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,var(--cs-editor-single-control-width));column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center;justify-content:start}
+  .cs-single-grid{display:grid;grid-template-columns:var(--cs-editor-single-label-width,88px) minmax(0,var(--cs-editor-single-control-width));column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center;justify-content:start}
   .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
   .cs-single-grid-row[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
-  .cs-single-grid-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
+  .cs-single-grid-label{display:inline-flex;align-items:center;justify-content:flex-end;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
   .cs-single-grid-title{font-size:.84rem;white-space:nowrap}
   .cs-single-grid-control{min-width:0;display:flex;align-items:center}
   .cs-single-grid-control .cs-input,.cs-single-grid-control .cs-select{width:100%;min-width:0}

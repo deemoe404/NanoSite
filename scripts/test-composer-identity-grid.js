@@ -53,6 +53,12 @@ assert.match(
   'SEO Resource URL should render through the compact grid'
 );
 
+assert.match(
+  source,
+  /renderLocalizedField\(seoSection, 'siteKeywords'[\s\S]*createLinkListField\(seoSection, 'profileLinks'[\s\S]*renderSeoResourceGrid\(seoSection\);/,
+  'SEO section should render Profile links before Resource URL'
+);
+
 assert.doesNotMatch(
   source,
   /renderLocalizedField\(identitySection,\s*'siteTitle'/,
@@ -131,6 +137,12 @@ assert.match(
   'identity and aligned localized rows should share one row rhythm and fixed single-control width contract'
 );
 
+assert.doesNotMatch(
+  source,
+  /\.(?:cs-root|cs-single-grid-fieldset)\{[^}]*--cs-editor-single-label-width/,
+  'compact containers should not redeclare the measured label width because that masks the inherited dynamic value'
+);
+
 assert.match(
   source,
   /\.cs-localized-list--grid\{gap:var\(--cs-editor-row-gap\)\}[\s\S]*\.cs-localized-row--grid\{display:grid;grid-template-columns:minmax\(88px,88px\) minmax\(0,1fr\) minmax\(72px,max-content\);align-items:center;column-gap:var\(--cs-editor-row-column-gap\);row-gap:0;min-height:var\(--cs-editor-control-height\);padding:0/,
@@ -165,6 +177,24 @@ assert.match(
   source,
   /const createSingleGridFieldset = \(section\) => \{/,
   'compact single-value sections should share one reusable grid fieldset renderer'
+);
+
+assert.match(
+  source,
+  /function syncSiteEditorSingleLabelWidth\(root\) \{[\s\S]*querySelectorAll\('\.cs-single-grid-title'\)[\s\S]*requestAnimationFrame[\s\S]*ResizeObserver[\s\S]*--cs-editor-single-label-width/,
+  'compact single-value labels should be measured once after render and shared through a CSS variable'
+);
+
+assert.match(
+  source,
+  /label\.scrollWidth[\s\S]*getComputedStyle\(target\)[\s\S]*gap/,
+  'compact single-value label measurement should use intrinsic label width instead of the currently constrained grid cell'
+);
+
+assert.match(
+  source,
+  /buildSiteUI\(root, state\) \{[\s\S]*renderCompactSectionMenu\(\);[\s\S]*syncSiteEditorSingleLabelWidth\(root\);[\s\S]*refreshNavDiffState\(\);/,
+  'site editor should resync the measured single-label width after rebuilding translated labels'
 );
 
 assert.match(
@@ -241,8 +271,20 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-single-grid\{display:grid;grid-template-columns:minmax\(88px,max-content\) minmax\(0,var\(--cs-editor-single-control-width\)\);column-gap:var\(--cs-editor-row-column-gap\);row-gap:var\(--cs-editor-row-gap\);align-items:center;justify-content:start\}[\s\S]*\.cs-single-grid-row\{display:grid;grid-template-columns:subgrid;grid-column:1\/-1;align-items:center;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0/,
-  'compact identity path rows should use one fixed-width parent grid and subgrid rows so labels and inputs share column tracks'
+  /label\.className = 'cs-single-grid-title';[\s\S]*labelCell\.appendChild\(label\);[\s\S]*labelCell\.appendChild\(tooltipWrap\);/,
+  'compact single-grid rows should place help tooltip buttons between the label text and the control'
+);
+
+assert.match(
+  source,
+  /\.cs-single-grid-label\{display:inline-flex;align-items:center;justify-content:flex-end;gap:\.35rem;/,
+  'compact single-grid label cells should right-align the label and trailing help icon'
+);
+
+assert.match(
+  source,
+  /\.cs-single-grid\{display:grid;grid-template-columns:var\(--cs-editor-single-label-width,88px\) minmax\(0,var\(--cs-editor-single-control-width\)\);column-gap:var\(--cs-editor-row-column-gap\);row-gap:var\(--cs-editor-row-gap\);align-items:center;justify-content:start\}[\s\S]*\.cs-single-grid-row\{display:grid;grid-template-columns:subgrid;grid-column:1\/-1;align-items:center;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0/,
+  'compact identity path rows should use one measured label column and a fixed-width control column'
 );
 
 assert.match(
