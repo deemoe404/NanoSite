@@ -21,8 +21,14 @@ assert.match(
 
 assert.match(
   source,
-  /popupUsable = !!popup\.document;/,
-  'post editor button should verify the popup is actually usable before skipping fallback'
+  /if \(!popup\) \{\s*window\.location\.href = editorUrl;\s*return;\s*\}/,
+  'post editor button should fall back only when window.open returns no popup handle'
+);
+
+assert.doesNotMatch(
+  source,
+  /popup\.closed|typeof popup\.closed|popup\.document/,
+  'post editor button should not treat severed popup handles as failed opens'
 );
 
 assert.match(

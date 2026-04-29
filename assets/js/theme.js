@@ -108,13 +108,7 @@ export function bindPostEditor() {
     } catch (_) {
       popup = null;
     }
-    let popupUsable = false;
-    try {
-      popupUsable = !!popup.document;
-    } catch (_) {
-      popupUsable = false;
-    }
-    if (!popup || popup.closed || typeof popup.closed === 'undefined' || !popupUsable) {
+    if (!popup) {
       window.location.href = editorUrl;
       return;
     }
