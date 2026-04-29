@@ -6,10 +6,12 @@ import { dirname, resolve } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
 const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
+const editorMainPath = resolve(here, '../assets/js/editor-main.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const source = readFileSync(composerPath, 'utf8');
 const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
+const editorMainSource = readFileSync(editorMainPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 
@@ -119,6 +121,60 @@ assert.match(
   editorSource,
   /\.editor-workspace \{[\s\S]*grid-template-columns:minmax\(0, 1fr\);[\s\S]*\.editor-workspace-meta \{[\s\S]*grid-column:1;[\s\S]*\.frontmatter-panel \{[\s\S]*position: static;/,
   'front matter panel should always flow below the markdown editor instead of using a side rail'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-panel \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*\.frontmatter-grid \{[\s\S]*--frontmatter-row-gap: 0\.35rem;[\s\S]*display: flex;[\s\S]*gap: var\(--frontmatter-row-gap\);[\s\S]*\.frontmatter-field \{[\s\S]*padding: 0;[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(88px, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
+  'front matter fields should use compact Site Settings-style label/control rows'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-section \{[\s\S]*border: 1px solid color-mix\(in srgb, var\(--border\) 96%, transparent\);[\s\S]*background: var\(--card\);[\s\S]*gap: 0\.6rem;[\s\S]*\.frontmatter-section-head \{[\s\S]*align-items: baseline;[\s\S]*\.frontmatter-section-title \{[\s\S]*font-size: 1rem;[\s\S]*\.frontmatter-section-description \{[\s\S]*font-size: 0\.82rem;[\s\S]*text-align: right;/,
+  'front matter sections should mirror the Site Settings single-column section card header style'
+);
+
+assert.match(
+  editorSource,
+  /frontMatterCommonSection[\s\S]*frontmatter-section-head[\s\S]*data-i18n="editor\.frontMatter\.commonDescription"[\s\S]*frontMatterExtraSection[\s\S]*frontmatter-section-head[\s\S]*data-i18n="editor\.frontMatter\.advancedDescription"/,
+  'front matter common and advanced sections should include localized section descriptions'
+);
+
+assert.match(
+  editorMainSource,
+  /head\.className = 'frontmatter-field-head';[\s\S]*labelWrap\.className = 'frontmatter-field-label-wrap';[\s\S]*labelSpan\.className = 'frontmatter-field-title';[\s\S]*controls\.className = 'frontmatter-field-controls';[\s\S]*controls\.appendChild\([\s\S]*entry\.container\.appendChild\(controls\);/,
+  'front matter field DOM should include field head, label wrap, and controls wrapper'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.frontmatter-field \+ \.frontmatter-field|frontmatter-pill|frontmatter-field-hint/,
+  'front matter should not render per-row separators, key chips, or persistent hint rows'
+);
+
+assert.doesNotMatch(
+  `${editorSource}\n${editorMainSource}`,
+  /frontMatterToggle|frontMatterSummary|frontMatterHelp|frontmatter-toggle|class="frontmatter-help"|\.frontmatter-help\s*\{|data-collapsed/,
+  'front matter editor should not render the old collapsible heading or helper copy'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-switch \{[\s\S]*border-radius: 999px;[\s\S]*\.frontmatter-switch-input \{[\s\S]*clip-path: inset\(50%\);[\s\S]*\.frontmatter-switch-track \{[\s\S]*width: 2\.4rem;[\s\S]*\.frontmatter-switch\[data-state="on"\] \.frontmatter-switch-thumb \{[\s\S]*transform: translateX\(1\.05rem\);/,
+  'front matter boolean fields should render as two-state switch controls'
+);
+
+assert.match(
+  editorMainSource,
+  /const syncBooleanControl = \(entry, value\) => \{[\s\S]*entry\.input\.setAttribute\('aria-checked', checked \? 'true' : 'false'\);[\s\S]*wrap\.className = 'frontmatter-switch';[\s\S]*checkbox\.setAttribute\('role', 'switch'\);[\s\S]*entry\.switchEl = wrap;/,
+  'front matter boolean fields should sync switch state through the existing input binding'
+);
+
+assert.doesNotMatch(
+  `${editorSource}\n${editorMainSource}`,
+  /frontmatter-clear|frontmatter-actions|clearEntryValue|editor\.frontMatter\.booleanLabel/,
+  'front matter boolean fields should not keep the old checkbox label or clear action'
 );
 
 assert.match(
