@@ -1131,199 +1131,266 @@
       position: static;
       top: auto;
       z-index: 1;
-      border-radius: 14px;
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      background: color-mix(in srgb, var(--card) 96%, transparent);
-      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
-      padding: 0.5rem 0.75rem 0.6rem;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
       width:100%;
     }
     .frontmatter-panel[data-state="hidden"] { display: none; }
-    .frontmatter-toggle {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      font-size: 1rem;
-      font-weight: 600;
-      color: color-mix(in srgb, var(--text) 90%, transparent);
-      cursor: pointer;
-      padding: 0.35rem 0.35rem 0.35rem 0.45rem;
-      border-radius: 10px;
-    }
-    .frontmatter-toggle:hover,
-    .frontmatter-toggle:focus-visible {
-      background: color-mix(in srgb, var(--text) 8%, transparent);
-      outline: none;
-    }
-    .frontmatter-toggle .frontmatter-toggle-label {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      align-items: flex-start;
-    }
-    .frontmatter-toggle .frontmatter-heading {
-      font-size: 1rem;
-      line-height: 1.25;
-    }
-    .frontmatter-toggle .frontmatter-subheading {
-      font-size: 0.82rem;
-      color: color-mix(in srgb, var(--muted) 86%, transparent);
-      line-height: 1.2;
-    }
-    .frontmatter-toggle .frontmatter-toggle-icon {
-      width: 1.75rem;
-      height: 1.75rem;
-      border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: color-mix(in srgb, var(--muted) 70%, transparent);
-      transition: transform .2s var(--composer-inline-ease), background-color .2s ease;
-    }
-    .frontmatter-panel[data-collapsed="false"] .frontmatter-toggle .frontmatter-toggle-icon {
-      transform: rotate(180deg);
-    }
     .frontmatter-body {
-      margin-top: 0.65rem;
       display: flex;
       flex-direction: column;
-      gap: 0.85rem;
-    }
-    .frontmatter-panel[data-collapsed="true"] .frontmatter-body {
-      display: none;
-    }
-    .frontmatter-help {
-      margin: 0;
-      font-size: 0.86rem;
-      color: color-mix(in srgb, var(--muted) 86%, transparent);
+      gap: 0.9rem;
     }
     .frontmatter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 0.75rem;
-    }
-    .frontmatter-field {
+      --frontmatter-row-gap: 0.35rem;
+      --frontmatter-row-column-gap: 0.45rem;
+      --frontmatter-control-height: 1.95rem;
+      --frontmatter-single-control-width: 15rem;
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
-      background: color-mix(in srgb, var(--card) 98%, transparent);
-      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      border-radius: 12px;
-      padding: 0.65rem 0.75rem;
+      gap: var(--frontmatter-row-gap);
+    }
+    .frontmatter-field {
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: minmax(88px, 88px) minmax(0, var(--frontmatter-single-control-width));
+      align-items: center;
+      justify-content: start;
+      column-gap: var(--frontmatter-row-column-gap);
+      row-gap: var(--frontmatter-row-gap);
+      min-height: var(--frontmatter-control-height);
       position: relative;
+    }
+    .frontmatter-field-multiline {
+      align-items: start;
     }
     .frontmatter-field[data-empty="true"] {
       opacity: 0.9;
     }
-    .frontmatter-field-label {
+    .frontmatter-field-head {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 0.65rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: color-mix(in srgb, var(--text) 82%, transparent);
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+    .frontmatter-field-label-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+    .frontmatter-field-title {
+      font-weight: 700;
+      font-size: 0.84rem;
+      color: color-mix(in srgb, var(--text) 86%, transparent);
+      min-width: 0;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .frontmatter-field-controls {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.4rem;
+      align-items: center;
+      min-width: 0;
     }
     .frontmatter-field input[type="text"],
+    .frontmatter-field input[type="date"],
     .frontmatter-field textarea,
     .frontmatter-field select {
       width: 100%;
+      min-width: 0;
+      min-height: var(--frontmatter-control-height);
       border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
       border-radius: 8px;
-      background: color-mix(in srgb, var(--card) 94%, transparent);
+      background: color-mix(in srgb, var(--card) 99%, transparent);
       color: var(--text);
-      padding: 0.45rem 0.55rem;
-      font-size: 0.92rem;
-      line-height: 1.4;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.84rem;
+      line-height: 1.25;
+      font-family: inherit;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .frontmatter-field input[type="text"]:focus,
+    .frontmatter-field input[type="date"]:focus,
+    .frontmatter-field textarea:focus,
+    .frontmatter-field select:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .frontmatter-field-controls > input,
+    .frontmatter-field-controls > textarea,
+    .frontmatter-field-controls > select {
+      flex: 1 1 auto;
+      min-width: 0;
     }
     .frontmatter-field textarea {
-      min-height: 3.5rem;
+      min-height: 4.6rem;
       resize: vertical;
     }
-    .frontmatter-field-hint {
+    .frontmatter-help-tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+    .frontmatter-help-tooltip {
+      appearance: none;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+      background: color-mix(in srgb, var(--card) 99%, transparent);
+      color: color-mix(in srgb, var(--primary) 88%, var(--text));
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: help;
+    }
+    .frontmatter-help-tooltip:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+      outline-offset: 2px;
+    }
+    .frontmatter-help-tooltip-bubble {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 0.35rem);
+      width: max-content;
+      max-width: min(20rem, 70vw);
+      padding: 0.38rem 0.5rem;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--card) 99%, transparent);
+      box-shadow: 0 10px 24px rgba(15,23,42,0.14);
+      color: color-mix(in srgb, var(--text) 82%, transparent);
       font-size: 0.76rem;
-      color: color-mix(in srgb, var(--muted) 82%, transparent);
-      line-height: 1.35;
+      line-height: 1.3;
+      font-weight: 500;
+      text-align: left;
+      white-space: normal;
+      opacity: 0;
+      transform: translateY(3px);
+      pointer-events: none;
+      transition: opacity .14s ease, transform .14s ease;
+      z-index: 20;
+    }
+    .frontmatter-help-tooltip-wrap:hover .frontmatter-help-tooltip-bubble,
+    .frontmatter-help-tooltip:focus-visible + .frontmatter-help-tooltip-bubble {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
     }
     .frontmatter-section {
+      border: 1px solid color-mix(in srgb, var(--border) 96%, transparent);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+      padding: 0.9rem 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.6rem;
+    }
+    .frontmatter-section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
+      flex-wrap: wrap;
     }
     .frontmatter-section-title {
       margin: 0;
-      font-size: 0.88rem;
+      font-size: 1rem;
       font-weight: 700;
-      color: color-mix(in srgb, var(--muted) 75%, transparent);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      color: color-mix(in srgb, var(--text) 90%, transparent);
+    }
+    .frontmatter-section-description {
+      margin: 0;
+      font-size: 0.82rem;
+      color: color-mix(in srgb, var(--muted) 88%, transparent);
+      flex: 1 1 260px;
+      text-align: right;
     }
     .frontmatter-empty {
       margin: 0;
       font-size: 0.9rem;
       color: color-mix(in srgb, var(--muted) 88%, transparent);
     }
-    .frontmatter-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-    }
-    .frontmatter-clear {
-      appearance: none;
-      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      background: color-mix(in srgb, var(--card) 94%, transparent);
-      color: color-mix(in srgb, var(--muted) 86%, transparent);
-      border-radius: 999px;
-      padding: 0.28rem 0.62rem;
-      font-size: 0.74rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color .18s ease, border-color .18s ease, color .18s ease;
-    }
-    .frontmatter-clear:hover,
-    .frontmatter-clear:focus-visible {
-      background: color-mix(in srgb, var(--primary) 12%, var(--card) 90%);
-      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
-      color: color-mix(in srgb, var(--text) 88%, transparent);
-      outline: none;
-    }
-    .frontmatter-clear:disabled {
-      opacity: 0.55;
-      cursor: default;
-    }
-
-    .frontmatter-boolean {
+    .frontmatter-switch {
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
+      padding: 0.12rem 0.2rem;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      color: color-mix(in srgb, var(--text) 85%, transparent);
+      transition: color .16s ease;
     }
-    .frontmatter-boolean input[type="checkbox"] {
-      width: 1.25rem;
+    .frontmatter-switch-input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      border: 0;
+      padding: 0;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+    }
+    .frontmatter-switch-track {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      width: 2.4rem;
       height: 1.25rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--text) 8%, var(--card));
+      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+      padding: 0 0.15rem;
+      transition: background .16s ease, border-color .16s ease;
     }
-    .frontmatter-list-input textarea {
+    .frontmatter-switch-thumb {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--card) 98%, transparent);
+      box-shadow: 0 1px 2px rgba(15,23,42,0.2);
+      transform: translateX(0);
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .frontmatter-switch[data-state="on"] .frontmatter-switch-track {
+      background: color-mix(in srgb, var(--primary) 45%, var(--card));
+      border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+    }
+    .frontmatter-switch[data-state="on"] .frontmatter-switch-thumb {
+      transform: translateX(1.05rem);
+      background: color-mix(in srgb, var(--primary) 96%, var(--card));
+      box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 35%, transparent);
+    }
+    .frontmatter-switch-input:focus-visible + .frontmatter-switch-track {
+      outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+      outline-offset: 2px;
+    }
+    textarea.frontmatter-list-input {
       min-height: 5rem;
     }
     .frontmatter-list-hint {
+      flex: 1 1 100%;
       font-size: 0.75rem;
       color: color-mix(in srgb, var(--muted) 80%, transparent);
+      margin: 0;
     }
-    .frontmatter-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.25rem;
-      font-size: 0.74rem;
-      font-weight: 600;
-      color: color-mix(in srgb, var(--muted) 80%, transparent);
-      background: color-mix(in srgb, var(--primary) 15%, var(--card) 90%);
-      border-radius: 999px;
-      padding: 0.2rem 0.55rem;
+    .frontmatter-field-list .frontmatter-field-controls {
+      flex-wrap: wrap;
     }
     @media (max-width: 960px) {
       .editor-workspace {
@@ -1346,7 +1413,30 @@
         gap:.85rem;
       }
       .frontmatter-panel {
-        border-radius:12px;
+        border-radius:0;
+      }
+      .frontmatter-section {
+        padding: 0.9rem 0.9rem;
+      }
+      .frontmatter-section-description {
+        text-align: left;
+      }
+      .frontmatter-field {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 0.35rem;
+        padding: 0.2rem 0;
+      }
+      .frontmatter-field-head,
+      .frontmatter-field-label-wrap {
+        justify-content: flex-start;
+      }
+      .frontmatter-field-title {
+        text-align: left;
+        white-space: normal;
+      }
+      .frontmatter-field-controls {
+        order: 2;
       }
     }
 
@@ -2031,27 +2121,21 @@
             </div>
           </div>
           <aside class="editor-workspace-meta" aria-label="Front matter panel">
-            <div class="frontmatter-panel" id="frontMatterPanel" data-collapsed="false" data-state="loading">
-              <button type="button" class="frontmatter-toggle" id="frontMatterToggle" aria-expanded="true" aria-controls="frontMatterBody">
-                <span class="frontmatter-toggle-label">
-                  <span class="frontmatter-heading" data-i18n="editor.frontMatter.heading">Front matter</span>
-                  <span class="frontmatter-subheading" id="frontMatterSummary" data-i18n="editor.frontMatter.summaryDefault">Metadata for this post</span>
-                </span>
-                <span class="frontmatter-toggle-icon" aria-hidden="true">
-                  <svg width="18" height="18" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M6.3 9.3a1 1 0 0 1 1.4 0L12 13.6l4.3-4.3a1 1 0 0 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 0-1.4z" fill="currentColor" />
-                  </svg>
-                </span>
-              </button>
-              <div class="frontmatter-body" id="frontMatterBody" role="region" aria-labelledby="frontMatterToggle">
-                <p class="frontmatter-help" id="frontMatterHelp" data-i18n="editor.frontMatter.help">Fill the metadata below. Leave a field empty to remove it from the file.</p>
+            <div class="frontmatter-panel" id="frontMatterPanel" data-state="loading">
+              <div class="frontmatter-body" id="frontMatterBody" role="region" aria-label="Front matter fields">
                 <p class="frontmatter-empty" id="frontMatterEmpty" hidden data-i18n="editor.frontMatter.empty">No front matter fields yet. Add values to include metadata.</p>
                 <div class="frontmatter-section" id="frontMatterCommonSection">
-                  <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.commonTitle">Common fields</h3>
+                  <div class="frontmatter-section-head">
+                    <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.commonTitle">Common fields</h3>
+                    <p class="frontmatter-section-description" data-i18n="editor.frontMatter.commonDescription">Metadata used by cards, SEO, and article lists.</p>
+                  </div>
                   <div class="frontmatter-grid" id="frontMatterCommonFields"></div>
                 </div>
                 <div class="frontmatter-section" id="frontMatterExtraSection" hidden>
-                  <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.advancedTitle">Advanced fields</h3>
+                  <div class="frontmatter-section-head">
+                    <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.advancedTitle">Advanced fields</h3>
+                    <p class="frontmatter-section-description" data-i18n="editor.frontMatter.advancedDescription">Supplemental metadata for sharing images, version badges, and AI labels.</p>
+                  </div>
                   <div class="frontmatter-grid" id="frontMatterExtraFields"></div>
                 </div>
               </div>

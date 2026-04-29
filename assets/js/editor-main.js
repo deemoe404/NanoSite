@@ -22,6 +22,31 @@ import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLang
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 const FORCE_MARKDOWN_WRAP = true;
 
+const FRONT_MATTER_SECTION_DESCRIPTIONS = [
+  {
+    selector: '#frontMatterCommonSection .frontmatter-section-description',
+    key: 'editor.frontMatter.commonDescription',
+    fallback: {
+      en: 'Metadata used by cards, SEO, and article lists.',
+      chs: '用于卡片、SEO 与文章列表的常用元数据。',
+      'cht-tw': '用於卡片、SEO 與文章列表的常用中繼資料。',
+      'cht-hk': '用於卡片、SEO 與文章列表的常用中繼資料。',
+      ja: 'カード、SEO、記事一覧で使う基本メタデータ。'
+    }
+  },
+  {
+    selector: '#frontMatterExtraSection .frontmatter-section-description',
+    key: 'editor.frontMatter.advancedDescription',
+    fallback: {
+      en: 'Supplemental metadata for sharing images, version badges, and AI labels.',
+      chs: '用于分享图片、版本徽标和 AI 标记的补充元数据。',
+      'cht-tw': '用於分享圖片、版本徽章與 AI 標記的補充中繼資料。',
+      'cht-hk': '用於分享圖片、版本徽章與 AI 標記的補充中繼資料。',
+      ja: '共有画像、バージョンバッジ、AI ラベル用の補足メタデータ。'
+    }
+  }
+];
+
 const previewAssetBuckets = new Map();
 let previewAssetCurrentPath = '';
 
@@ -672,8 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const panel = document.getElementById('frontMatterPanel');
     if (!panel) return null;
 
-    const toggle = document.getElementById('frontMatterToggle');
-    const summaryEl = document.getElementById('frontMatterSummary');
     const commonFieldsEl = document.getElementById('frontMatterCommonFields');
     const extraSection = document.getElementById('frontMatterExtraSection');
     const extraFieldsEl = document.getElementById('frontMatterExtraFields');
@@ -701,6 +724,31 @@ document.addEventListener('DOMContentLoaded', () => {
       return translated;
     };
 
+    const translateWithLocaleFallback = (key, fallbacks = {}) => {
+      const translated = translate(key, null);
+      if (translated != null && translated !== key) return translated;
+      let lang = 'en';
+      try {
+        lang = normalizeLangKey(getCurrentLang()) || 'en';
+      } catch (_) {
+        lang = 'en';
+      }
+      if (fallbacks[lang]) return fallbacks[lang];
+      if (lang === 'cht-hk' && fallbacks['cht-tw']) return fallbacks['cht-tw'];
+      if (lang.startsWith('cht') && fallbacks['cht-tw']) return fallbacks['cht-tw'];
+      if (lang.startsWith('ch') && fallbacks.chs) return fallbacks.chs;
+      if (lang.startsWith('ja') && fallbacks.ja) return fallbacks.ja;
+      return fallbacks.en || key;
+    };
+
+    const applySectionDescriptions = () => {
+      FRONT_MATTER_SECTION_DESCRIPTIONS.forEach((item) => {
+        const el = item && item.selector ? document.querySelector(item.selector) : null;
+        if (!el) return;
+        el.textContent = translateWithLocaleFallback(item.key, item.fallback);
+      });
+    };
+
     const normalizeListInput = (value) => {
       if (Array.isArray(value)) {
         return value
@@ -722,7 +770,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const actual = key || entry.key || (entry.def && entry.def.keys ? entry.def.keys[0] : '');
       entry.key = actual;
       entry.container.dataset.key = actual;
-      if (entry.keyPill) entry.keyPill.textContent = actual;
+    };
+
+    const syncBooleanControl = (entry, value) => {
+      if (!entry || !entry.input || entry.type !== 'boolean') return;
+      const checked = value === true;
+      entry.input.indeterminate = false;
+      entry.input.checked = checked;
+      entry.input.setAttribute('aria-checked', checked ? 'true' : 'false');
+      if (entry.switchEl) entry.switchEl.dataset.state = checked ? 'on' : 'off';
     };
 
     const updateFieldEmptyState = (entry) => {
@@ -730,14 +786,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const value = state.data[entry.key];
       const empty = !valueIsPresent(value);
       entry.container.dataset.empty = empty ? 'true' : 'false';
-      if (entry.clearBtn) {
-        entry.clearBtn.disabled = empty;
-        entry.clearBtn.setAttribute('aria-disabled', empty ? 'true' : 'false');
-      }
       if (!entry.input) return;
       if (entry.type === 'boolean') {
-        entry.input.indeterminate = value == null;
-        entry.input.checked = Boolean(value);
+        syncBooleanControl(entry, value);
       }
     };
 
@@ -746,13 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
       suppressEvents = true;
       try {
         if (entry.type === 'boolean') {
-          if (value == null) {
-            entry.input.checked = false;
-            entry.input.indeterminate = true;
-          } else {
-            entry.input.indeterminate = false;
-            entry.input.checked = Boolean(value);
-          }
+          syncBooleanControl(entry, value);
         } else if (entry.type === 'list') {
           const list = Array.isArray(value)
             ? value.map((item) => String(item == null ? '' : item)).filter(Boolean)
@@ -817,33 +862,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleInputEvent = (entry) => {
       if (!entry || !entry.input || suppressEvents) return;
       if (entry.type === 'boolean') {
-        const value = entry.input.indeterminate ? undefined : entry.input.checked;
-        setDataValue(entry, value);
+        syncBooleanControl(entry, entry.input.checked);
+        setDataValue(entry, entry.input.checked);
       } else if (entry.type === 'list') {
         setDataValue(entry, entry.input.value);
       } else {
         setDataValue(entry, entry.input.value);
       }
-    };
-
-    const clearEntryValue = (entry) => {
-      if (!entry || !entry.input) return;
-      const shouldRebind = getAlternateAliasKeys(entry).length > 0;
-      suppressEvents = true;
-      try {
-        if (entry.type === 'boolean') {
-          entry.input.checked = false;
-          entry.input.indeterminate = true;
-        } else {
-          entry.input.value = '';
-        }
-        delete state.data[entry.key];
-      } finally {
-        suppressEvents = false;
-      }
-      if (shouldRebind) rebuildBindings();
-      else updateFieldEmptyState(entry);
-      triggerChange();
     };
 
     const createField = (def, options = {}) => {
@@ -854,86 +879,103 @@ document.addEventListener('DOMContentLoaded', () => {
         section: def.section || 'common',
         container: document.createElement('div'),
         input: null,
-        keyPill: null,
-        clearBtn: null,
+        switchEl: null,
         key: def.keys[0]
       };
 
-      entry.container.className = 'frontmatter-field';
+      const fieldClasses = ['frontmatter-field', `frontmatter-field-${entry.type}`];
+      if (def.hintKey) fieldClasses.push('frontmatter-field-inline-help');
+      if (entry.type === 'textarea' || entry.type === 'list') fieldClasses.push('frontmatter-field-multiline');
+      entry.container.className = fieldClasses.join(' ');
       entry.container.dataset.fieldId = entry.id;
       entry.container.dataset.section = entry.section;
 
-      const label = document.createElement('div');
-      label.className = 'frontmatter-field-label';
+      const head = document.createElement('div');
+      head.className = 'frontmatter-field-head';
+      const labelWrap = document.createElement('div');
+      labelWrap.className = 'frontmatter-field-label-wrap';
       const labelSpan = document.createElement('span');
+      labelSpan.className = 'frontmatter-field-title';
       if (def.labelKey) labelSpan.dataset.i18n = def.labelKey;
       labelSpan.textContent = translate(def.labelKey, def.fallbackLabel || def.keys[0]);
-      label.appendChild(labelSpan);
-      const pill = document.createElement('span');
-      pill.className = 'frontmatter-pill';
-      label.appendChild(pill);
-      entry.keyPill = pill;
-      entry.container.appendChild(label);
-
+      labelWrap.appendChild(labelSpan);
       if (def.hintKey) {
-        const hint = document.createElement('p');
-        hint.className = 'frontmatter-field-hint';
-        hint.textContent = translate(def.hintKey, '');
-        if (def.hintKey) hint.dataset.i18n = def.hintKey;
-        entry.container.appendChild(hint);
+        const hintText = translate(def.hintKey, '');
+        const tooltipId = `frontmatter-help-${entry.id}`;
+        const tooltipWrap = document.createElement('span');
+        tooltipWrap.className = 'frontmatter-help-tooltip-wrap';
+        const tooltip = document.createElement('button');
+        tooltip.type = 'button';
+        tooltip.className = 'frontmatter-help-tooltip';
+        tooltip.textContent = '?';
+        tooltip.setAttribute('aria-label', `${labelSpan.textContent}: ${hintText}`);
+        tooltip.setAttribute('aria-describedby', tooltipId);
+        const tooltipBubble = document.createElement('span');
+        tooltipBubble.id = tooltipId;
+        tooltipBubble.className = 'frontmatter-help-tooltip-bubble';
+        tooltipBubble.setAttribute('role', 'tooltip');
+        tooltipBubble.textContent = hintText;
+        tooltipBubble.dataset.i18n = def.hintKey;
+        tooltipWrap.appendChild(tooltip);
+        tooltipWrap.appendChild(tooltipBubble);
+        labelWrap.appendChild(tooltipWrap);
       }
+      head.appendChild(labelWrap);
+
+      entry.container.appendChild(head);
+
+      const controls = document.createElement('div');
+      controls.className = 'frontmatter-field-controls';
 
       if (entry.type === 'boolean') {
         const wrap = document.createElement('label');
-        wrap.className = 'frontmatter-boolean';
+        wrap.className = 'frontmatter-switch';
+        wrap.dataset.state = 'off';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.indeterminate = true;
+        checkbox.className = 'frontmatter-switch-input';
+        checkbox.setAttribute('role', 'switch');
+        checkbox.setAttribute('aria-checked', 'false');
+        checkbox.setAttribute('aria-label', labelSpan.textContent || translate(def.labelKey, def.fallbackLabel || def.keys[0]));
+        const track = document.createElement('span');
+        track.className = 'frontmatter-switch-track';
+        const thumb = document.createElement('span');
+        thumb.className = 'frontmatter-switch-thumb';
+        track.appendChild(thumb);
         wrap.appendChild(checkbox);
-        const text = document.createElement('span');
-        text.textContent = translate('editor.frontMatter.booleanLabel', 'Enabled');
-        text.dataset.i18n = 'editor.frontMatter.booleanLabel';
-        wrap.appendChild(text);
+        wrap.appendChild(track);
         entry.input = checkbox;
-        entry.container.appendChild(wrap);
-        const actions = document.createElement('div');
-        actions.className = 'frontmatter-actions';
-        const clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'frontmatter-clear';
-        clearBtn.textContent = translate('editor.frontMatter.clear', 'Clear');
-        clearBtn.dataset.i18n = 'editor.frontMatter.clear';
-        clearBtn.addEventListener('click', () => clearEntryValue(entry));
-        actions.appendChild(clearBtn);
-        entry.clearBtn = clearBtn;
-        entry.container.appendChild(actions);
+        entry.switchEl = wrap;
+        controls.appendChild(wrap);
       } else if (entry.type === 'textarea') {
         const textarea = document.createElement('textarea');
         textarea.rows = 3;
         entry.input = textarea;
-        entry.container.appendChild(textarea);
+        controls.appendChild(textarea);
       } else if (entry.type === 'list') {
         const textarea = document.createElement('textarea');
         textarea.classList.add('frontmatter-list-input');
         textarea.rows = 4;
         entry.input = textarea;
-        entry.container.appendChild(textarea);
+        controls.appendChild(textarea);
         const hint = document.createElement('p');
         hint.className = 'frontmatter-list-hint';
         hint.textContent = translate('editor.frontMatter.listHint', 'One item per line');
         hint.dataset.i18n = 'editor.frontMatter.listHint';
-        entry.container.appendChild(hint);
+        controls.appendChild(hint);
       } else if (entry.type === 'date') {
         const input = document.createElement('input');
         input.type = 'date';
         entry.input = input;
-        entry.container.appendChild(input);
+        controls.appendChild(input);
       } else {
         const input = document.createElement('input');
         input.type = 'text';
         entry.input = input;
-        entry.container.appendChild(input);
+        controls.appendChild(input);
       }
+
+      entry.container.appendChild(controls);
 
       const actualKey = options.key || def.keys[0];
       setEntryKey(entry, actualKey);
@@ -963,13 +1005,6 @@ document.addEventListener('DOMContentLoaded', () => {
       registry.forEach((entry) => {
         if (entry && valueIsPresent(state.data[entry.key])) count += 1;
       });
-      if (summaryEl) {
-        const summary = t('editor.frontMatter.summary', { count });
-        if (summary != null && summary !== 'editor.frontMatter.summary') summaryEl.textContent = summary;
-        else summaryEl.textContent = count
-          ? `${count} field${count === 1 ? '' : 's'} active`
-          : translate('editor.frontMatter.summaryDefault', 'Metadata for this post');
-      }
       if (emptyEl) {
         emptyEl.hidden = count !== 0;
       }
@@ -1012,22 +1047,16 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     };
 
-    if (toggle) {
-      toggle.addEventListener('click', () => {
-        const collapsed = panel.getAttribute('data-collapsed') === 'true';
-        panel.setAttribute('data-collapsed', collapsed ? 'false' : 'true');
-        toggle.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
-      });
-    }
-
     ensureBaseFields();
     updateSummary();
+    applySectionDescriptions();
 
     return {
       setChangeHandler: (fn) => { changeHandler = typeof fn === 'function' ? fn : () => {}; },
       setFromMarkdown,
       buildMarkdown,
-      updateSummary
+      updateSummary,
+      applySectionDescriptions
     };
   })();
 
@@ -1674,7 +1703,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('ns-editor-language-applied', () => {
     tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
     renderCurrentFileIndicator();
-    if (frontMatterManager) frontMatterManager.updateSummary();
+    if (frontMatterManager) {
+      frontMatterManager.updateSummary();
+      frontMatterManager.applySectionDescriptions();
+    }
   });
 
   if (cardSearchInput) {
