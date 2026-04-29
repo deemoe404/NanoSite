@@ -49,6 +49,12 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.global-status\.is-temporarily-hidden \{ display:none !important; \}[\s\S]*<div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">[\s\S]*<div class="gs-flow">/,
+  'global sync status should stay in the DOM but be temporarily hidden from the page'
+);
+
+assert.match(
+  editorSource,
   /id="editorFileTree" role="tree"/,
   'editor should render the content file tree as the primary article/page manager'
 );

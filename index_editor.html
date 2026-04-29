@@ -532,6 +532,7 @@
       --gs-arrow-node-size: 16px;
       --gs-arrow-flow-duration: 2.8s;
     }
+    .global-status.is-temporarily-hidden { display:none !important; }
     .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
     .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
     .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
@@ -1637,7 +1638,7 @@
         </button>
       </nav>
       <div class="status-stack">
-        <div id="global-status" class="global-status" aria-live="polite">
+        <div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">
           <div class="gs-flow">
             <div class="gs-node gs-node-local">
               <div class="gs-node-header">
