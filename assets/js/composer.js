@@ -14603,7 +14603,7 @@ function rebuildSiteUI() {
   .cs-identity-field .cs-input{min-width:0}
   .cs-identity-cell-label{display:none;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
   .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
-  .cs-identity-remove{margin-left:0;white-space:nowrap}
+  .cs-identity-remove{width:100%;min-width:72px;margin-left:0;white-space:nowrap}
   .cs-single-grid-fieldset{gap:0}
   .cs-single-grid{display:grid;grid-template-columns:var(--cs-editor-single-label-width,88px) minmax(0,var(--cs-editor-single-control-width));column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center;justify-content:start}
   .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
