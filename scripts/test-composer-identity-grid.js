@@ -205,6 +205,12 @@ assert.match(
 
 assert.match(
   source,
+  /const themeSection = createSection\([\s\S]*renderThemeGrid\(themeSection\);[\s\S]*const assetsSection = createSection\([\s\S]*renderAssetWarningsGrid\(assetsSection\);[\s\S]*const repoSection = createSection\(/,
+  'Site editor should render Asset warnings before Repository'
+);
+
+assert.match(
+  source,
   /field\.className = 'cs-field cs-single-grid-fieldset';/,
   'avatar and content root should share one compact fieldset instead of separate tall fields'
 );

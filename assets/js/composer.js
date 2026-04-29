@@ -13783,6 +13783,12 @@ function buildSiteUI(root, state) {
   );
   renderThemeGrid(themeSection);
 
+  const assetsSection = createSection(
+    t('editor.composer.site.sections.assets.title'),
+    t('editor.composer.site.sections.assets.description')
+  );
+  renderAssetWarningsGrid(assetsSection);
+
   const repoSection = createSection(
     t('editor.composer.site.sections.repo.title'),
     t('editor.composer.site.sections.repo.description')
@@ -13857,12 +13863,6 @@ function buildSiteUI(root, state) {
 
   repoInputs.append(pathRow, branchWrap);
   repoField.appendChild(repoInputs);
-
-  const assetsSection = createSection(
-    t('editor.composer.site.sections.assets.title'),
-    t('editor.composer.site.sections.assets.description')
-  );
-  renderAssetWarningsGrid(assetsSection);
 
   if (site.__extras && Object.keys(site.__extras).length) {
     const extrasSection = createSection(
