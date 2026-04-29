@@ -257,6 +257,18 @@ assert.match(
   'compact single-value label measurement should use intrinsic label width instead of the currently constrained grid cell'
 );
 
+assert.match(
+  source,
+  /target\.querySelector \? target\.querySelector\('\.cs-help-tooltip'\) : null[\s\S]*const tooltipWidth = tooltip \? tooltip\.scrollWidth \|\| 0 : 0;/,
+  'compact single-value label measurement should measure only the help icon, not the tooltip wrapper'
+);
+
+assert.doesNotMatch(
+  source,
+  /querySelector\('\.cs-help-tooltip-wrap'\)[\s\S]*const tooltipWidth = tooltip \? tooltip\.scrollWidth \|\| 0 : 0;/,
+  'compact single-value label measurement should not include hidden tooltip bubble width'
+);
+
 assert.doesNotMatch(
   source,
   /function syncSiteEditorSingleLabelWidth\(root\) \{[\s\S]*getBoundingClientRect[\s\S]*root\.style\.setProperty\('--cs-editor-single-label-width'/,
