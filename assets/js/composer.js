@@ -10417,6 +10417,18 @@ function refreshEditorContentTree(options = {}) {
   if (!options.preserveStructure) renderEditorStructurePanel(getActiveEditorTreeNode());
 }
 
+function createEditorTreeIcon(node) {
+  if (!node || node.kind === 'root') return null;
+  const icon = document.createElement('span');
+  const isFile = node.kind === 'file';
+  icon.className = `editor-tree-icon editor-tree-icon-${isFile ? 'document' : 'folder'}`;
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = isFile
+    ? '<svg viewBox="0 0 24 24" focusable="false"><path d="M7 3.75h7.25L18 7.5v12.75H7z"></path><path d="M14.25 3.75V7.5H18"></path><path d="M9.75 12h5.5M9.75 15h5.5"></path></svg>'
+    : '<svg viewBox="0 0 24 24" focusable="false"><path d="M3.75 6.75h5.5l1.7 2h9.3v8.5a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2z"></path><path d="M3.75 8.75h16.5"></path></svg>';
+  return icon;
+}
+
 function renderEditorFileTree(root) {
   root.innerHTML = '';
   const selectedId = activeEditorTreeNodeId;
@@ -10428,14 +10440,33 @@ function renderEditorFileTree(root) {
     row.dataset.nodeId = node.id;
     row.dataset.kind = node.kind || '';
     row.dataset.source = node.source || '';
-    row.style.paddingLeft = `${Math.max(0, depth) * 0.8}rem`;
+    row.dataset.depth = String(Math.max(0, depth));
+    row.classList.toggle('is-leaf', !hasChildren);
+    const rowIndent = hasChildren
+      ? Math.max(0, depth) * 1.12
+      : Math.max(0, depth - 1) * 1.12 + 1.35;
+    row.style.paddingLeft = `${rowIndent}rem`;
     row.classList.toggle('is-selected', node.id === selectedId);
 
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = hasChildren ? 'editor-tree-toggle' : 'editor-tree-toggle editor-tree-spacer';
-    toggle.tabIndex = hasChildren ? 0 : -1;
+    if (depth > 0) {
+      const guides = document.createElement('span');
+      guides.className = 'editor-tree-guides';
+      guides.setAttribute('aria-hidden', 'true');
+      for (let guideIndex = 0; guideIndex < depth; guideIndex += 1) {
+        const guide = document.createElement('span');
+        guide.className = 'editor-tree-guide';
+        guide.style.setProperty('--tree-guide-index', String(guideIndex));
+        guides.appendChild(guide);
+      }
+      row.appendChild(guides);
+    }
+
+    let toggle = null;
     if (hasChildren) {
+      toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'editor-tree-toggle';
+      toggle.tabIndex = 0;
       toggle.setAttribute('aria-label', treeText('toggle', 'Toggle'));
       toggle.setAttribute('aria-expanded', expandedEditorTreeNodeIds.has(node.id) ? 'true' : 'false');
       const caret = document.createElement('span');
@@ -10448,8 +10479,6 @@ function renderEditorFileTree(root) {
         else expandedEditorTreeNodeIds.add(node.id);
         refreshEditorContentTree({ preserveStructure: true });
       });
-    } else {
-      toggle.setAttribute('aria-hidden', 'true');
     }
 
     const button = document.createElement('button');
@@ -10458,19 +10487,21 @@ function renderEditorFileTree(root) {
     button.setAttribute('role', 'treeitem');
     button.setAttribute('aria-selected', node.id === selectedId ? 'true' : 'false');
     button.dataset.nodeId = node.id;
+    const labelText = node.label || node.id;
+    const accessibleLabel = node.path ? `${labelText} - ${node.path}` : labelText;
+    button.setAttribute('aria-label', accessibleLabel);
+    button.title = accessibleLabel;
+    const icon = createEditorTreeIcon(node);
+    if (icon) button.appendChild(icon);
     const label = document.createElement('span');
     label.className = 'editor-tree-label';
-    label.textContent = node.label || node.id;
+    label.textContent = labelText;
     button.appendChild(label);
-    if (node.path) {
-      const path = document.createElement('span');
-      path.className = 'editor-tree-path';
-      path.textContent = node.path;
-      button.appendChild(path);
-    }
     button.addEventListener('click', () => handleEditorTreeSelection(node.id));
 
-    const states = [node.draftState, node.diffState, node.fileState].filter(Boolean).slice(0, 3);
+    const states = [node.draftState, node.diffState, node.fileState]
+      .filter(state => state && state !== 'existing')
+      .slice(0, 3);
     let badges = null;
     if (states.length) {
       badges = document.createElement('span');
@@ -10484,9 +10515,9 @@ function renderEditorFileTree(root) {
       badges.appendChild(badge);
     });
 
-    row.appendChild(toggle);
+    if (badges) button.appendChild(badges);
+    if (toggle) row.appendChild(toggle);
     row.appendChild(button);
-    if (badges) row.appendChild(badges);
     root.appendChild(row);
 
     if (hasChildren && expandedEditorTreeNodeIds.has(node.id)) node.children.forEach(child => renderNode(child, depth + 1));

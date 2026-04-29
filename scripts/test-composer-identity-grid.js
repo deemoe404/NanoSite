@@ -103,14 +103,62 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.editor-tree-row \{[\s\S]*min-height:1\.6rem[\s\S]*\.editor-tree-node \{[\s\S]*min-height:1\.6rem[\s\S]*padding:0 \.38rem/,
-  'file tree node controls should be the same height as the expand/collapse buttons'
+  /\.editor-tree-row \{[\s\S]*min-height:1\.75rem[\s\S]*\.editor-tree-toggle \{[\s\S]*min-height:1\.75rem[\s\S]*\.editor-tree-node \{[\s\S]*min-height:1\.75rem/,
+  'file tree should use compact file-browser row heights'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row\.is-leaf \.editor-tree-node \{ grid-column:1 \/ -1; \}/,
+  'file tree leaf nodes should not reserve a separate empty toggle column'
+);
+
+assert.doesNotMatch(
+  source + editorSource,
+  /editor-tree-spacer/,
+  'file tree leaf nodes should not render a fake spacer toggle'
+);
+
+assert.match(
+  source,
+  /const rowIndent = hasChildren[\s\S]*\? Math\.max\(0, depth\) \* 1\.12[\s\S]*: Math\.max\(0, depth - 1\) \* 1\.12 \+ 1\.35;/,
+  'file tree leaf rows should align their content with the parent node text instead of a blank toggle'
+);
+
+assert.match(
+  source,
+  /if \(depth > 0\) \{[\s\S]*guides\.className = 'editor-tree-guides';[\s\S]*for \(let guideIndex = 0; guideIndex < depth; guideIndex \+= 1\) \{[\s\S]*guide\.className = 'editor-tree-guide';[\s\S]*guide\.style\.setProperty\('--tree-guide-index', String\(guideIndex\)\);/,
+  'file tree rows should render guide lines for every ancestor depth so outer rails continue through nested rows'
+);
+
+assert.match(
+  source,
+  /let toggle = null;[\s\S]*if \(hasChildren\) \{[\s\S]*toggle = document\.createElement\('button'\);[\s\S]*if \(toggle\) row\.appendChild\(toggle\);/,
+  'file tree should only render expand controls for nodes with children'
 );
 
 assert.doesNotMatch(
   editorSource,
   /\.editor-tree-row\.is-selected \{[^}]*background:/,
   'selected file tree rows should not use a full-row highlight background'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-tree-node \{[^}]*border:1px/,
+  'file tree nodes should not use button-like blue outlines'
+);
+
+assert.match(
+  editorSource,
+  /#editorFileTree button\.editor-tree-toggle, #editorFileTree button\.editor-tree-node \{ appearance:none !important; border:0 !important; border-color:transparent !important; box-shadow:none !important; outline:0 !important; background:transparent !important; background-image:none !important; color:inherit !important; font-weight:inherit !important; \}/,
+  'file tree buttons should override native theme global button borders'
+);
+
+assert.match(
+  editorSource,
+  /#editorFileTree button\.editor-tree-node:hover, #editorFileTree button\.editor-tree-node:focus-visible \{ background:color-mix\(in srgb, var\(--text\) 5%, transparent\) !important; color:inherit !important; box-shadow:none !important; outline:0 !important; \}/,
+  'file tree hover and focus states should remain borderless'
 );
 
 assert.doesNotMatch(
@@ -127,14 +175,38 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /const states = \[node\.draftState, node\.diffState, node\.fileState\]\.filter\(Boolean\)\.slice\(0, 3\);[\s\S]*if \(states\.length\) \{[\s\S]*badges = document\.createElement\('span'\);[\s\S]*if \(badges\) row\.appendChild\(badges\);/,
-  'file tree rows should only reserve badge space when a status badge exists'
+  /const states = \[node\.draftState, node\.diffState, node\.fileState\][\s\S]*\.filter\(state => state && state !== 'existing'\)[\s\S]*\.slice\(0, 3\);[\s\S]*if \(states\.length\) \{[\s\S]*badges = document\.createElement\('span'\);[\s\S]*if \(badges\) button\.appendChild\(badges\);/,
+  'file tree rows should hide normal existing-file badges and only reserve badge space for meaningful states'
 );
 
 assert.match(
   editorSource,
-  /#editorFileTree \.editor-tree-row\.is-selected > button\.editor-tree-node \{ background:var\(--primary\) !important; background-color:var\(--primary\) !important; background-image:none !important; color:var\(--bg, #fff\) !important; \}/,
-  'selected file tree state should use a solid fill on the node button'
+  /#editorFileTree \.editor-tree-row\.is-selected > button\.editor-tree-node \{ background:color-mix\(in srgb, var\(--primary\) 18%, transparent\) !important;[\s\S]*color:color-mix\(in srgb, var\(--primary\) 86%, var\(--text\)\) !important; \}/,
+  'selected file tree state should use a pale file-browser fill on the node button'
+);
+
+assert.match(
+  source,
+  /function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = node\.kind === 'file';[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
+  'file tree should render folder and document icon markers'
+);
+
+assert.doesNotMatch(
+  source,
+  /className = 'editor-tree-path'/,
+  'file tree should keep paths out of visible node text'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-guides \{ position:absolute; inset:-\.12rem 0; pointer-events:none; \}[\s\S]*\.editor-tree-guide \{[\s\S]*left:calc\(\(var\(--tree-guide-index\) \* 1\.12rem\) \+ \.58rem\);[\s\S]*background:color-mix\(in srgb, var\(--border\) 82%, transparent\)/,
+  'nested file tree rows should draw subtle vertical guide lines for all ancestor levels'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{ padding-left:\.45rem; font-weight:700; \}/,
+  'root file tree labels should have enough left inset inside the selected pill'
 );
 
 assert.doesNotMatch(

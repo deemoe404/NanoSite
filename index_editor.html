@@ -44,23 +44,32 @@
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
     .editor-tree-shell { display:grid; grid-template-columns:minmax(230px, 300px) minmax(0, 1fr); gap:1rem; align-items:start; min-height:min(76vh, 840px); }
-    .editor-file-tree-pane { position:sticky; top:.75rem; align-self:start; min-width:0; overflow:visible; border-right:1px solid color-mix(in srgb, var(--border) 86%, transparent); padding-right:.9rem; }
-    .editor-file-tree { display:flex; flex-direction:column; gap:.08rem; }
-    .editor-tree-row { display:grid; grid-template-columns:1.35rem minmax(0, 1fr) auto; align-items:center; gap:.25rem; min-height:1.6rem; border-radius:8px; padding:.04rem .18rem; color:color-mix(in srgb, var(--text) 86%, transparent); }
-    .editor-tree-row.is-selected { color:color-mix(in srgb, var(--primary) 92%, var(--text)); }
-    .editor-tree-toggle { width:1.35rem; min-height:1.6rem; border:0; background:transparent; color:inherit; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
-    .editor-tree-toggle:hover { background:color-mix(in srgb, var(--text) 6%, transparent); }
-    .editor-tree-toggle[aria-expanded="true"] .editor-tree-caret { transform:rotate(90deg); }
-    .editor-tree-caret { display:inline-block; width:0; height:0; border-style:solid; border-width:4px 0 4px 6px; border-color:transparent transparent transparent currentColor; transition:transform .16s ease; }
-    .editor-tree-spacer { width:1.35rem; }
-    .editor-tree-node { min-width:0; min-height:1.6rem; border:0; background:transparent; color:inherit; text-align:left; display:flex; align-items:center; gap:.42rem; padding:0 .38rem; border-radius:6px; cursor:pointer; font:inherit; line-height:1.2; }
-    .editor-tree-node:hover { background:color-mix(in srgb, var(--text) 5%, transparent); }
-    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node { background:var(--primary) !important; background-color:var(--primary) !important; background-image:none !important; color:var(--bg, #fff) !important; }
-    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node .editor-tree-path { color:color-mix(in srgb, var(--bg, #fff) 78%, transparent) !important; }
+    .editor-file-tree-pane { position:sticky; top:.75rem; align-self:start; min-width:0; overflow:visible; border-right:1px solid color-mix(in srgb, var(--border) 86%, transparent); padding:.15rem .9rem .15rem 0; }
+    .editor-file-tree { display:flex; flex-direction:column; gap:.02rem; }
+    .editor-tree-row { position:relative; display:grid; grid-template-columns:1.15rem minmax(0, 1fr); align-items:center; gap:.2rem; min-height:1.75rem; padding:0; color:color-mix(in srgb, var(--text) 88%, transparent); }
+    .editor-tree-guides { position:absolute; inset:-.12rem 0; pointer-events:none; }
+    .editor-tree-guide { position:absolute; top:0; bottom:0; left:calc((var(--tree-guide-index) * 1.12rem) + .58rem); width:1px; background:color-mix(in srgb, var(--border) 82%, transparent); }
+    .editor-tree-row.is-selected { color:color-mix(in srgb, var(--primary) 82%, var(--text)); }
+    .editor-tree-toggle { position:relative; z-index:1; width:1.15rem; min-height:1.75rem; border:0; background:transparent; color:color-mix(in srgb, var(--text) 82%, transparent); border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+    .editor-tree-toggle:hover { background:color-mix(in srgb, var(--text) 5%, transparent); color:var(--text); }
+    .editor-tree-toggle[aria-expanded="true"] .editor-tree-caret { transform:rotate(45deg); }
+    .editor-tree-caret { display:inline-block; width:.45rem; height:.45rem; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); transition:transform .14s ease; }
+    .editor-tree-node { position:relative; z-index:1; min-width:0; min-height:1.75rem; border:0; background:transparent; color:inherit; text-align:left; display:flex; align-items:center; gap:.45rem; padding:0 .55rem 0 .28rem; border-radius:7px; cursor:pointer; font:inherit; line-height:1.2; }
+    .editor-tree-row.is-leaf .editor-tree-node { grid-column:1 / -1; }
+    #editorFileTree button.editor-tree-toggle, #editorFileTree button.editor-tree-node { appearance:none !important; border:0 !important; border-color:transparent !important; box-shadow:none !important; outline:0 !important; background:transparent !important; background-image:none !important; color:inherit !important; font-weight:inherit !important; }
+    #editorFileTree button.editor-tree-toggle { border-radius:5px !important; }
+    #editorFileTree button.editor-tree-node { border-radius:7px !important; }
+    #editorFileTree button.editor-tree-toggle:hover, #editorFileTree button.editor-tree-toggle:focus-visible { background:color-mix(in srgb, var(--text) 5%, transparent) !important; color:var(--text) !important; box-shadow:none !important; outline:0 !important; }
+    #editorFileTree button.editor-tree-node:hover, #editorFileTree button.editor-tree-node:focus-visible { background:color-mix(in srgb, var(--text) 5%, transparent) !important; color:inherit !important; box-shadow:none !important; outline:0 !important; }
+    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node { background:color-mix(in srgb, var(--primary) 18%, transparent) !important; background-color:color-mix(in srgb, var(--primary) 18%, transparent) !important; background-image:none !important; color:color-mix(in srgb, var(--primary) 86%, var(--text)) !important; }
+    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node:hover, #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node:focus-visible { background:color-mix(in srgb, var(--primary) 18%, transparent) !important; color:color-mix(in srgb, var(--primary) 86%, var(--text)) !important; box-shadow:none !important; outline:0 !important; }
+    .editor-tree-icon { flex:0 0 auto; width:1rem; height:1rem; color:color-mix(in srgb, var(--muted) 88%, transparent); display:inline-flex; align-items:center; justify-content:center; }
+    .editor-tree-icon svg { width:1rem; height:1rem; display:block; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node .editor-tree-icon { color:currentColor; }
+    .editor-tree-row[data-kind="root"] .editor-tree-node { padding-left:.45rem; font-weight:700; }
     .editor-tree-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
-    .editor-tree-path { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:.78rem; font-weight:500; }
-    .editor-tree-badges { display:inline-flex; align-items:center; justify-content:flex-end; gap:.22rem; min-width:1.4rem; padding-right:.18rem; }
-    .editor-tree-badge { width:.5rem; height:.5rem; border-radius:999px; background:color-mix(in srgb, var(--muted) 42%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--muted) 12%, transparent); }
+    .editor-tree-badges { margin-left:auto; display:inline-flex; align-items:center; justify-content:flex-end; gap:.22rem; flex:0 0 auto; }
+    .editor-tree-badge { width:.46rem; height:.46rem; border-radius:999px; background:color-mix(in srgb, var(--muted) 42%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--card) 90%, transparent); }
     .editor-tree-badge[data-state="dirty"] { background:#f97316; box-shadow:0 0 0 2px color-mix(in srgb, #f97316 18%, transparent); }
     .editor-tree-badge[data-state="saved"] { background:#22c55e; box-shadow:0 0 0 2px color-mix(in srgb, #22c55e 16%, transparent); }
     .editor-tree-badge[data-state="conflict"], .editor-tree-badge[data-state="error"] { background:#ef4444; box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent); }
@@ -1908,9 +1917,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-tree-20260429c"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-tree-20260429c"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-tree-20260429c"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-tree-20260429f"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-tree-20260429f"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-tree-20260429f"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
