@@ -337,6 +337,12 @@ assert.match(
 
 assert.match(
   source,
+  /if \(info\.type === 'list' && info\.entries\) \{\s*if \(index != null && subfield\) return !!\(info\.entries\[index\] && info\.entries\[index\]\[subfield\]\);\s*return true;\s*\}/,
+  'List field diffs should preserve field-level markers when removed rows have no remaining controls'
+);
+
+assert.match(
+  source,
   /input\.dataset\.field = key;[\s\S]*input\.dataset\.lang = lang;/,
   'Localized site inputs should carry field and language diff metadata'
 );
