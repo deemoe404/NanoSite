@@ -14374,7 +14374,7 @@ function rebuildSiteUI() {
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
-  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem;--cs-editor-single-control-width:15rem}
+  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset,.cs-link-list{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem;--cs-editor-single-control-width:15rem}
   .cs-localized-list--grid{gap:var(--cs-editor-row-gap)}
   .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
@@ -14421,9 +14421,9 @@ function rebuildSiteUI() {
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
   .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-link-list{display:flex;flex-direction:column;gap:0}
-  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.45rem .85rem;padding:.3rem 0}
-  .cs-link-row + .cs-link-row{margin-top:.3rem}
+  .cs-link-list{display:flex;flex-direction:column;gap:var(--cs-editor-row-gap)}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0}
+  .cs-link-row + .cs-link-row{margin-top:0}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
   .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
@@ -14474,7 +14474,7 @@ function rebuildSiteUI() {
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
-    .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.5rem}
+    .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset,.cs-link-list{--cs-editor-row-gap:.5rem}
     .cs-localized-row--grid{grid-template-columns:1fr;gap:.35rem}
     .cs-localized-row--grid .cs-remove-lang{justify-self:flex-start}
     .cs-identity-grid{gap:.5rem}

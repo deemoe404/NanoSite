@@ -133,8 +133,8 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset\{--cs-editor-row-gap:\.35rem;--cs-editor-row-column-gap:\.45rem;--cs-editor-control-height:1\.95rem;--cs-editor-single-control-width:15rem\}/,
-  'identity and aligned localized rows should share one row rhythm and fixed single-control width contract'
+  /\.cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset,.cs-link-list\{--cs-editor-row-gap:\.35rem;--cs-editor-row-column-gap:\.45rem;--cs-editor-control-height:1\.95rem;--cs-editor-single-control-width:15rem\}/,
+  'identity, aligned localized rows, and profile links should share one row rhythm and fixed single-control width contract'
 );
 
 assert.doesNotMatch(
@@ -285,6 +285,18 @@ assert.match(
   source,
   /\.cs-single-grid\{display:grid;grid-template-columns:var\(--cs-editor-single-label-width,88px\) minmax\(0,var\(--cs-editor-single-control-width\)\);column-gap:var\(--cs-editor-row-column-gap\);row-gap:var\(--cs-editor-row-gap\);align-items:center;justify-content:start\}[\s\S]*\.cs-single-grid-row\{display:grid;grid-template-columns:subgrid;grid-column:1\/-1;align-items:center;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0/,
   'compact identity path rows should use one measured label column and a fixed-width control column'
+);
+
+assert.match(
+  source,
+  /\.cs-link-list\{display:flex;flex-direction:column;gap:var\(--cs-editor-row-gap\)\}[\s\S]*\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}[\s\S]*\.cs-link-row \+ \.cs-link-row\{margin-top:0\}/,
+  'profile link rows should use the same vertical row rhythm as localized grid rows'
+);
+
+assert.match(
+  source,
+  /\.cs-link-row\{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0\}/,
+  'profile link label and URL fields should use the same horizontal gap as identity grid columns'
 );
 
 assert.match(
