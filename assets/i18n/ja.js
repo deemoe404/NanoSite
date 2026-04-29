@@ -383,8 +383,6 @@ const translations = {
             siteKeywordsHelp: 'SEO 用のカンマ区切りキーワード（任意）。',
             profileLinks: 'プロフィールリンク',
             profileLinksHelp: 'アバター付近に表示されるプロフィール / ソーシャルリンク。',
-            navLinks: 'ナビゲーションリンク',
-            navLinksHelp: 'ナビゲーションメニューに表示するカスタムリンク。',
             defaultLanguage: '既定の言語',
             defaultLanguageHelp: 'ブラウザー設定が一致しない場合に使用する言語コード。',
             contentOutdatedDays: '古い記事のしきい値（日）',

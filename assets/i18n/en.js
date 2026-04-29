@@ -382,8 +382,6 @@ const translations = {
             siteKeywordsHelp: 'Comma-separated keywords for SEO (optional).',
             profileLinks: 'Profile links',
             profileLinksHelp: 'List of profile or social links shown near the avatar.',
-            navLinks: 'Navigation links',
-            navLinksHelp: 'Custom links shown in the navigation menu.',
             defaultLanguage: 'Default language',
             defaultLanguageHelp: 'Language code to use when no browser preference is matched.',
             contentOutdatedDays: 'Outdated threshold (days)',

@@ -383,8 +383,6 @@ const translations = {
             siteKeywordsHelp: '用於 SEO 的逗號分隔關鍵詞（可選）。',
             profileLinks: '個人連結',
             profileLinksHelp: '顯示在頭像附近的個人或社交連結。',
-            navLinks: '導航連結',
-            navLinksHelp: '顯示在導航選單中的自定義連結。',
             defaultLanguage: '預設語言',
             defaultLanguageHelp: '當瀏覽器首選語言不匹配時使用的語言程式碼。',
             contentOutdatedDays: '過期提醒（天）',

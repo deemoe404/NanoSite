@@ -211,7 +211,6 @@ const SITE_FIELD_LABEL_MAP = {
   resourceURL: { i18nKey: 'editor.composer.site.fields.resourceURL' },
   contentRoot: { i18nKey: 'editor.composer.site.fields.contentRoot' },
   profileLinks: { i18nKey: 'editor.composer.site.fields.profileLinks' },
-  links: { i18nKey: 'editor.composer.site.fields.navLinks' },
   contentOutdatedDays: { i18nKey: 'editor.composer.site.fields.contentOutdatedDays' },
   cardCoverFallback: { i18nKey: 'editor.composer.site.fields.cardCoverFallback' },
   errorOverlay: { i18nKey: 'editor.composer.site.fields.errorOverlay' },
@@ -1870,7 +1869,6 @@ function prepareSiteState(raw) {
   site.resourceURL = safeString(src.resourceURL || '');
   site.contentRoot = safeString(src.contentRoot || 'wwwroot');
   site.profileLinks = normalizeLinkList(src.profileLinks);
-  site.links = normalizeLinkList(src.links);
   site.contentOutdatedDays = normalizeNumber(src.contentOutdatedDays);
   site.cardCoverFallback = normalizeBoolean(src.cardCoverFallback);
   site.errorOverlay = normalizeBoolean(src.errorOverlay);
@@ -1904,14 +1902,16 @@ function prepareSiteState(raw) {
 
   const recognized = new Set([
     'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'resourceURL', 'contentRoot',
-    'profileLinks', 'links', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'postsPerPage',
+    'profileLinks', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'postsPerPage',
     'defaultLanguage', 'themeMode', 'themePack', 'themeOverride', 'repo', 'assetWarnings', 'landingTab', 'showAllPosts',
     'enableAllPosts', 'disableAllPosts'
   ]);
+  const deprecated = new Set(['links']);
 
   const extras = {};
   Object.keys(src).forEach((key) => {
     if (recognized.has(key)) return;
+    if (deprecated.has(key)) return;
     extras[key] = deepClone(src[key]);
   });
   site.__extras = extras;
@@ -1930,7 +1930,6 @@ function cloneSiteState(state) {
     resourceURL: safeString(state.resourceURL || ''),
     contentRoot: safeString(state.contentRoot || ''),
     profileLinks: Array.isArray(state.profileLinks) ? deepClone(state.profileLinks) : [],
-    links: Array.isArray(state.links) ? deepClone(state.links) : [],
     contentOutdatedDays: state.contentOutdatedDays != null ? Number(state.contentOutdatedDays) : null,
     cardCoverFallback: normalizeBoolean(state.cardCoverFallback),
     errorOverlay: normalizeBoolean(state.errorOverlay),
@@ -2028,10 +2027,6 @@ function buildSiteSnapshot(state) {
   if (site.profileLinks && site.profileLinks.length) {
     const links = linkListForOutput(site.profileLinks);
     if (links) snapshot.profileLinks = links;
-  }
-  if (site.links && site.links.length) {
-    const links = linkListForOutput(site.links);
-    if (links) snapshot.links = links;
   }
   if (site.resourceURL) snapshot.resourceURL = site.resourceURL;
   if (site.contentRoot) snapshot.contentRoot = site.contentRoot;
@@ -2141,11 +2136,6 @@ function computeSiteDiff(current, baseline) {
 
   if (compareLinkLists(cur.profileLinks || [], base.profileLinks || [])) {
     diff.fields.profileLinks = { type: 'list' };
-    diff.hasChanges = true;
-  }
-
-  if (compareLinkLists(cur.links || [], base.links || [])) {
-    diff.fields.links = { type: 'list' };
     diff.hasChanges = true;
   }
 
@@ -2259,7 +2249,7 @@ function writeYamlObject(lines, indent, obj) {
 function toSiteYaml(data) {
   const snapshot = buildSiteSnapshot(data || {});
   const keysInOrder = [
-    'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'profileLinks', 'links', 'resourceURL',
+    'siteTitle', 'siteSubtitle', 'siteDescription', 'siteKeywords', 'avatar', 'profileLinks', 'resourceURL',
     'contentRoot', 'contentOutdatedDays', 'cardCoverFallback', 'errorOverlay', 'pageSize', 'defaultLanguage',
     'themeMode', 'themePack', 'themeOverride', 'showAllPosts', 'landingTab', 'repo', 'assetWarnings'
   ];
@@ -13779,10 +13769,6 @@ function buildSiteUI(root, state) {
   createLinkListField(seoSection, 'profileLinks', {
     label: t('editor.composer.site.fields.profileLinks'),
     description: t('editor.composer.site.fields.profileLinksHelp')
-  });
-  createLinkListField(seoSection, 'links', {
-    label: t('editor.composer.site.fields.navLinks'),
-    description: t('editor.composer.site.fields.navLinksHelp')
   });
 
   const behaviorSection = createSection(
