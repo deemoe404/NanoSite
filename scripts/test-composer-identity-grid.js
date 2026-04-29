@@ -145,8 +145,14 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-localized-row--grid \.cs-lang-chip\{justify-self:start\}/,
-  'aligned localized rows should keep language chips content-width instead of stretching them'
+  /\.cs-localized-row--grid \.cs-lang-chip\{justify-self:end\}/,
+  'aligned localized rows should right-align language chips within the language column'
+);
+
+assert.match(
+  source,
+  /\.cs-identity-lang\{min-width:0;display:flex;align-items:center;justify-content:flex-end\}/,
+  'identity localized rows should right-align language chips within the language column'
 );
 
 assert.match(

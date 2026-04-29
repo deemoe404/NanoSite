@@ -14285,7 +14285,7 @@ function rebuildSiteUI() {
   .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
   .cs-localized-row--grid .cs-localized-input{min-width:0}
-  .cs-localized-row--grid .cs-lang-chip{justify-self:start}
+  .cs-localized-row--grid .cs-lang-chip{justify-self:end}
   .cs-localized-row--multiline textarea.cs-localized-textarea{box-sizing:border-box;display:block;height:var(--cs-editor-control-height);min-height:var(--cs-editor-control-height);max-height:var(--cs-editor-control-height);padding-block:0;line-height:calc(var(--cs-editor-control-height) - 2px);resize:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:height .18s ease,min-height .18s ease,max-height .18s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease}
   .cs-localized-row--multiline.is-expanded,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus){align-items:start}
   .cs-localized-row--multiline.is-expanded .cs-remove-lang,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus) .cs-remove-lang{align-self:start}
@@ -14298,7 +14298,7 @@ function rebuildSiteUI() {
   .cs-identity-head{align-items:end;padding:0 0 .1rem}
   .cs-identity-head-spacer{min-width:1px}
   .cs-identity-column-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
-  .cs-identity-lang{min-width:0;display:flex;align-items:center}
+  .cs-identity-lang{min-width:0;display:flex;align-items:center;justify-content:flex-end}
   .cs-identity-field{min-width:0;display:flex;flex-direction:column;gap:.2rem}
   .cs-identity-field .cs-input{min-width:0}
   .cs-identity-cell-label{display:none;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
