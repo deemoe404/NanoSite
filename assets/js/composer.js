@@ -3522,14 +3522,11 @@ function ensureFileDirtyBadgeElement(el) {
 
 function getFileToggleBaseLabel(el) {
   if (!el) return '';
-  if (el.dataset && el.dataset.fileLabel) return el.dataset.fileLabel;
-  const text = Array.from(el.childNodes || [])
+  return Array.from(el.childNodes || [])
     .filter(node => !(node.nodeType === 1 && node.classList && node.classList.contains('vt-dirty-badge')))
     .map(node => node.textContent || '')
     .join('')
     .trim();
-  if (text && el.dataset) el.dataset.fileLabel = text;
-  return text;
 }
 
 function updateFileDirtyBadge(kind) {
@@ -3565,6 +3562,16 @@ function updateFileDirtyBadge(kind) {
     if (baseLabel) el.setAttribute('aria-label', baseLabel);
     else el.removeAttribute('aria-label');
   }
+}
+
+function refreshFileDirtyBadges() {
+  updateFileDirtyBadge('index');
+  updateFileDirtyBadge('tabs');
+  updateFileDirtyBadge('site');
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('ns-editor-language-applied', refreshFileDirtyBadges);
 }
 
 function collectUnsyncedMarkdownEntries() {
@@ -14616,6 +14623,7 @@ function rebuildSiteUI() {
   textarea.cs-input{min-height:4.6rem;resize:vertical}
   .cs-input-small{max-width:220px}
   .cs-empty{padding:.7rem .85rem;border:1px dashed color-mix(in srgb,var(--border) 75%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 2%, var(--card));color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
+  .cs-field[data-diff="changed"] .cs-empty{background:color-mix(in srgb,#f59e0b 10%, var(--card));border-color:color-mix(in srgb,#f59e0b 45%, var(--border));color:color-mix(in srgb,#b45309 72%, var(--text))}
   .cs-add-lang,.cs-add-link{align-self:flex-start}
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
   .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}

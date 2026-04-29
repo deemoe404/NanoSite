@@ -41,6 +41,18 @@ assert.match(
   'composer file switch dirty badges should render the change count into the button'
 );
 
+assert.doesNotMatch(
+  source,
+  /dataset\.fileLabel/,
+  'composer file switch dirty labels should not cache translated tab text across language changes'
+);
+
+assert.match(
+  source,
+  /function refreshFileDirtyBadges\(\) \{[\s\S]*updateFileDirtyBadge\('index'\);[\s\S]*updateFileDirtyBadge\('tabs'\);[\s\S]*updateFileDirtyBadge\('site'\);[\s\S]*document\.addEventListener\('ns-editor-language-applied', refreshFileDirtyBadges\)/,
+  'composer file switch dirty labels should be recomputed after editor language changes'
+);
+
 assert.match(
   source,
   /const renderIdentityLocalizedGrid = \(section\) => \{/,
@@ -351,6 +363,12 @@ assert.match(
   source,
   /\.cs-field\[data-diff="changed"\] \.cs-input,\.cs-field\[data-diff="changed"\] \.cs-select,[\s\S]*\.cs-single-grid-row\[data-diff="changed"\] \.cs-input,[\s\S]*\.cs-single-grid-row\[data-diff="changed"\] \.cs-select[\s\S]*\{background:color-mix\(in srgb,#f59e0b 10%, transparent\);border-color:color-mix\(in srgb,#f59e0b 45%, var\(--border\)\)\}/,
   'Site editor changed-state highlights should tint changed text and select controls'
+);
+
+assert.match(
+  source,
+  /\.cs-field\[data-diff="changed"\] \.cs-empty\{background:color-mix\(in srgb,#f59e0b 10%, var\(--card\)\);border-color:color-mix\(in srgb,#f59e0b 45%, var\(--border\)\)/,
+  'Site editor changed-state highlights should tint empty placeholders for changed list fields'
 );
 
 assert.match(
