@@ -209,6 +209,12 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{[^}]*font-weight:400; \}[\s\S]*\.editor-tree-label \{[^}]*font-weight:400; \}/,
+  'file tree labels should use normal text weight instead of bold labels'
+);
+
+assert.match(
+  editorSource,
   /\.editor-tree-row\.is-leaf \.editor-tree-node \{ grid-column:1 \/ -1; \}/,
   'file tree leaf nodes should not reserve a separate empty toggle column'
 );
@@ -305,7 +311,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{ padding-left:\.45rem; font-weight:700; \}/,
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{ padding-left:\.45rem; font-weight:400; \}/,
   'root file tree labels should have enough left inset inside the selected pill'
 );
 
