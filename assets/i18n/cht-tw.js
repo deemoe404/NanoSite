@@ -345,6 +345,10 @@ const translations = {
               title: 'SEO 與分享',
               description: '提供用於搜尋引擎和連結預覽的元資訊。'
             },
+            configuration: {
+              title: '網站設定',
+              description: '控制網站行為、主題預設值和編輯器提醒。'
+            },
             behavior: {
               title: '行為',
               description: '控制分頁、預設開啟的頁面以及“全部文章”的顯示。'

@@ -345,6 +345,10 @@ const translations = {
               title: 'SEO / 共有',
               description: '検索エンジンやリンクプレビューで利用されるメタ情報を設定します。'
             },
+            configuration: {
+              title: 'サイト設定',
+              description: 'サイトの動作、既定のテーマ、編集時の警告をまとめて設定します。'
+            },
             behavior: {
               title: '動作',
               description: 'ページネーション、初期表示タブ、All Posts の表示を制御します。'

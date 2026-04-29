@@ -101,7 +101,19 @@ export function bindPostEditor() {
   const btn = document.getElementById('postEditor');
   if (!btn) return;
   btn.addEventListener('click', () => {
-    window.open('index_editor.html', '_blank');
+    const editorUrl = 'index_editor.html';
+    let popup = null;
+    try {
+      popup = window.open(editorUrl, '_blank');
+    } catch (_) {
+      popup = null;
+    }
+    if (!popup) {
+      window.location.href = editorUrl;
+      return;
+    }
+    try { popup.opener = null; } catch (_) {}
+    try { popup.focus(); } catch (_) {}
   });
 }
 

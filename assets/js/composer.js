@@ -173,6 +173,94 @@ const composerOrderMainTransitions = new WeakMap();
 let composerSiteScrollAnimationId = null;
 let composerSiteScrollCleanup = null;
 
+function syncSiteEditorSingleLabelWidth(root) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  try {
+    if (typeof root.__nsSiteSingleLabelWidthCleanup === 'function') root.__nsSiteSingleLabelWidthCleanup();
+  } catch (_) {}
+  try { root.__nsSiteSingleLabelWidthCleanup = null; } catch (_) {}
+
+  const labels = Array.from(root.querySelectorAll('.cs-single-grid-title'));
+  if (!labels.length) {
+    try { root.style.removeProperty('--cs-editor-single-label-width'); } catch (_) {}
+    return;
+  }
+
+  let frame = 0;
+  let observer = null;
+  const requestFrame = (fn) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      return window.requestAnimationFrame(fn);
+    }
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(fn, 0);
+  };
+  const cancelFrame = (id) => {
+    if (!id) return;
+    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(id);
+      return;
+    }
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
+  const measure = () => {
+    frame = 0;
+    let width = 88;
+    labels.forEach((label) => {
+      const cell = label.closest ? label.closest('.cs-single-grid-label') : label;
+      const target = cell || label;
+      let measured = 0;
+      try {
+        const tooltip = target.querySelector ? target.querySelector('.cs-help-tooltip') : null;
+        const tooltipWidth = tooltip ? tooltip.scrollWidth || 0 : 0;
+        const labelWidth = label.scrollWidth || 0;
+        const targetStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+          ? window.getComputedStyle(target)
+          : null;
+        const gap = targetStyle ? parseFloat(targetStyle.gap || targetStyle.columnGap || '0') || 0 : 0;
+        measured = labelWidth + tooltipWidth + gap;
+      } catch (_) {
+        try {
+          const tooltip = target.querySelector ? target.querySelector('.cs-help-tooltip') : null;
+          measured = (label.scrollWidth || 0) + (tooltip ? tooltip.scrollWidth || 0 : 0);
+        } catch (_) {}
+      }
+      width = Math.max(width, measured);
+    });
+    try { root.style.setProperty('--cs-editor-single-label-width', `${Math.ceil(width)}px`); } catch (_) {}
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = requestFrame(measure);
+  };
+
+  if (typeof ResizeObserver === 'function') {
+    try {
+      observer = new ResizeObserver(schedule);
+      observer.observe(root);
+      labels.forEach((label) => {
+        const cell = label.closest ? label.closest('.cs-single-grid-label') : label;
+        observer.observe(cell || label);
+      });
+    } catch (_) {
+      observer = null;
+    }
+  }
+
+  try {
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') document.fonts.ready.then(schedule).catch(() => {});
+  } catch (_) {}
+  schedule();
+
+  root.__nsSiteSingleLabelWidthCleanup = () => {
+    cancelFrame(frame);
+    frame = 0;
+    try { if (observer) observer.disconnect(); } catch (_) {}
+    observer = null;
+  };
+}
+
 function applyComposerEffectiveSiteConfig(siteConfig) {
   const tracked = siteConfig && typeof siteConfig === 'object' ? siteConfig : {};
   const effective = mergeYamlConfig(tracked, composerSiteLocalOverride);
@@ -2083,15 +2171,22 @@ function compareLocalizedMaps(cur = {}, base = {}) {
   return changedLangs;
 }
 
-function compareLinkLists(cur = [], base = []) {
+function compareLinkListChanges(cur = [], base = []) {
   const max = Math.max(cur.length, base.length);
+  const entries = {};
   for (let i = 0; i < max; i += 1) {
     const a = cur[i] || { label: '', href: '' };
     const b = base[i] || { label: '', href: '' };
-    if (safeString(a.label) !== safeString(b.label)) return true;
-    if (safeString(a.href) !== safeString(b.href)) return true;
+    const changed = {};
+    if (safeString(a.label) !== safeString(b.label)) changed.label = true;
+    if (safeString(a.href) !== safeString(b.href)) changed.href = true;
+    if (Object.keys(changed).length) entries[i] = changed;
   }
-  return false;
+  return entries;
+}
+
+function compareLinkLists(cur = [], base = []) {
+  return Object.keys(compareLinkListChanges(cur, base)).length > 0;
 }
 
 function computeSiteDiff(current, baseline) {
@@ -2134,25 +2229,30 @@ function computeSiteDiff(current, baseline) {
     }
   });
 
-  if (compareLinkLists(cur.profileLinks || [], base.profileLinks || [])) {
-    diff.fields.profileLinks = { type: 'list' };
+  const profileLinkChanges = compareLinkListChanges(cur.profileLinks || [], base.profileLinks || []);
+  if (Object.keys(profileLinkChanges).length) {
+    diff.fields.profileLinks = { type: 'list', entries: profileLinkChanges };
     diff.hasChanges = true;
   }
 
   const repoCur = cur.repo || {};
   const repoBase = base.repo || {};
-  if (safeString(repoCur.owner) !== safeString(repoBase.owner)
-    || safeString(repoCur.name) !== safeString(repoBase.name)
-    || safeString(repoCur.branch) !== safeString(repoBase.branch)) {
-    diff.fields.repo = { type: 'object' };
+  const repoFields = {};
+  if (safeString(repoCur.owner) !== safeString(repoBase.owner)) repoFields.owner = true;
+  if (safeString(repoCur.name) !== safeString(repoBase.name)) repoFields.name = true;
+  if (safeString(repoCur.branch) !== safeString(repoBase.branch)) repoFields.branch = true;
+  if (Object.keys(repoFields).length) {
+    diff.fields.repo = { type: 'object', fields: repoFields };
     diff.hasChanges = true;
   }
 
   const curWarn = (cur.assetWarnings && cur.assetWarnings.largeImage) || {};
   const baseWarn = (base.assetWarnings && base.assetWarnings.largeImage) || {};
-  if (normalizeBoolean(curWarn.enabled) !== normalizeBoolean(baseWarn.enabled)
-    || normalizeNumber(curWarn.thresholdKB) !== normalizeNumber(baseWarn.thresholdKB)) {
-    diff.fields.assetWarnings = { type: 'object' };
+  const warningFields = {};
+  if (normalizeBoolean(curWarn.enabled) !== normalizeBoolean(baseWarn.enabled)) warningFields.enabled = true;
+  if (normalizeNumber(curWarn.thresholdKB) !== normalizeNumber(baseWarn.thresholdKB)) warningFields.thresholdKB = true;
+  if (Object.keys(warningFields).length) {
+    diff.fields.assetWarnings = { type: 'object', fields: warningFields };
     diff.hasChanges = true;
   }
 
@@ -2170,12 +2270,40 @@ function applySiteDiffMarkers(diff) {
   const root = document.getElementById('composerSite');
   if (!root) return;
   const fields = diff && diff.fields ? diff.fields : {};
+  const matchesFieldDiff = (el, key) => {
+    const info = fields[key];
+    if (!info) return false;
+    const lang = el.getAttribute('data-lang');
+    const subfield = el.getAttribute('data-subfield');
+    const index = el.getAttribute('data-index');
+    if (info.type === 'localized' && Array.isArray(info.languages)) {
+      return lang ? info.languages.includes(lang) : true;
+    }
+    if (info.type === 'list' && info.entries) {
+      if (index != null && subfield) return !!(info.entries[index] && info.entries[index][subfield]);
+      return true;
+    }
+    if (info.type === 'object' && info.fields) {
+      return subfield ? !!info.fields[subfield] : false;
+    }
+    return true;
+  };
+  const isChangedTarget = (el) => {
+    const key = el.getAttribute('data-field');
+    const keys = String(key || '').split('|').map(item => item.trim()).filter(Boolean);
+    return keys.length ? keys.some(fieldKey => matchesFieldDiff(el, fieldKey)) : false;
+  };
+  const hasChangedDescendant = (el) => {
+    return Array.from(el.querySelectorAll('[data-field]')).some(child => child !== el && isChangedTarget(child));
+  };
   root.querySelectorAll('[data-field]').forEach((el) => {
     const key = el.getAttribute('data-field');
     const keys = String(key || '').split('|').map(item => item.trim()).filter(Boolean);
-    const changed = keys.length
-      ? keys.some(fieldKey => !!fields[fieldKey])
-      : !!fields[key];
+    if (hasChangedDescendant(el)) {
+      el.removeAttribute('data-diff');
+      return;
+    }
+    const changed = keys.length ? keys.some(fieldKey => matchesFieldDiff(el, fieldKey)) : false;
     if (key && changed) el.setAttribute('data-diff', 'changed');
     else el.removeAttribute('data-diff');
   });
@@ -3365,15 +3493,84 @@ function applyTabsDiffMarkers(diff) {
   });
 }
 
+function getComposerDiffChangeCount(diff) {
+  if (!diff || !diff.hasChanges) return 0;
+  if (diff.fields && typeof diff.fields === 'object') {
+    return Object.keys(diff.fields).filter(Boolean).length;
+  }
+  let count = 0;
+  if (diff.keys && typeof diff.keys === 'object') {
+    count += Object.keys(diff.keys).filter(Boolean).length;
+  }
+  if (diff.orderChanged) count += 1;
+  return Math.max(1, count);
+}
+
+function ensureFileDirtyBadgeElement(el) {
+  if (!el) return null;
+  let badge = el.querySelector('.vt-dirty-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'vt-dirty-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.hidden = true;
+    el.appendChild(badge);
+  }
+  return badge;
+}
+
+function getFileToggleBaseLabel(el) {
+  if (!el) return '';
+  return Array.from(el.childNodes || [])
+    .filter(node => !(node.nodeType === 1 && node.classList && node.classList.contains('vt-dirty-badge')))
+    .map(node => node.textContent || '')
+    .join('')
+    .trim();
+}
+
 function updateFileDirtyBadge(kind) {
   const name = kind === 'tabs' ? 'tabs' : (kind === 'site' ? 'site' : 'index');
   const el = document.querySelector(`a.vt-btn[data-cfile="${name}"]`);
   if (!el) return;
   const diff = composerDiffCache[kind];
+  const changeCount = getComposerDiffChangeCount(diff);
   const hasChanges = !!(diff && diff.hasChanges);
+  const badge = ensureFileDirtyBadgeElement(el);
+  const baseLabel = getFileToggleBaseLabel(el);
   el.classList.toggle('has-draft', hasChanges);
-  if (hasChanges) el.setAttribute('data-dirty', '1');
-  else el.removeAttribute('data-dirty');
+  if (hasChanges) {
+    const displayValue = changeCount > 99 ? '99+' : String(changeCount);
+    if (badge) {
+      badge.textContent = displayValue;
+      badge.hidden = false;
+    }
+    el.setAttribute('data-dirty', '1');
+    if (el.dataset) el.dataset.dirtyCount = String(changeCount);
+    if (baseLabel) {
+      const accessibleCount = changeCount > 99 ? 'more than 99' : String(changeCount);
+      const changeLabel = changeCount === 1 ? 'pending change' : 'pending changes';
+      el.setAttribute('aria-label', `${baseLabel} (${accessibleCount} ${changeLabel})`);
+    }
+  } else {
+    if (badge) {
+      badge.hidden = true;
+      badge.textContent = '';
+    }
+    el.removeAttribute('data-dirty');
+    if (el.dataset) delete el.dataset.dirtyCount;
+    if (baseLabel) el.setAttribute('aria-label', baseLabel);
+    else el.removeAttribute('aria-label');
+  }
+}
+
+function refreshFileDirtyBadges() {
+  updateFileDirtyBadge('index');
+  updateFileDirtyBadge('tabs');
+  updateFileDirtyBadge('site');
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('ns-editor-language-applied', refreshFileDirtyBadges);
 }
 
 function collectUnsyncedMarkdownEntries() {
@@ -11515,6 +11712,10 @@ function buildSiteUI(root, state) {
   } catch (_) {}
   try { root.__nsSiteScrollSyncCleanup = null; } catch (_) {}
   try {
+    if (typeof root.__nsSiteSingleLabelWidthCleanup === 'function') root.__nsSiteSingleLabelWidthCleanup();
+  } catch (_) {}
+  try { root.__nsSiteSingleLabelWidthCleanup = null; } catch (_) {}
+  try {
     if (typeof root.__nsSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__nsSiteNavFocusHandler);
   } catch (_) {}
   try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
@@ -12310,14 +12511,69 @@ function buildSiteUI(root, state) {
     return field;
   };
 
+  const createSubheadingField = (section, config) => {
+    const field = document.createElement('div');
+    field.className = 'cs-field cs-subheading-field';
+    if (config.dataKey) field.dataset.field = config.dataKey;
+    if (config.label || config.description) {
+      const head = document.createElement('div');
+      head.className = 'cs-config-subsection-head';
+      if (config.label) {
+        const title = document.createElement('div');
+        title.className = 'cs-config-subsection-title';
+        title.textContent = config.label;
+        head.appendChild(title);
+      }
+      if (config.description) {
+        const description = document.createElement('p');
+        description.className = 'cs-config-subsection-description';
+        description.textContent = config.description;
+        head.appendChild(description);
+      }
+      field.appendChild(head);
+    }
+    section.appendChild(field);
+    return field;
+  };
+
+  const createConfigSubsection = (section, title, description) => {
+    const block = document.createElement('div');
+    block.className = 'cs-config-subsection';
+    if (title || description) {
+      const head = document.createElement('div');
+      head.className = 'cs-config-subsection-head';
+      if (title) {
+        const heading = document.createElement('div');
+        heading.className = 'cs-config-subsection-title';
+        heading.textContent = title;
+        head.appendChild(heading);
+      }
+      if (description) {
+        const desc = document.createElement('p');
+        desc.className = 'cs-config-subsection-description';
+        desc.textContent = description;
+        head.appendChild(desc);
+      }
+      block.appendChild(head);
+    }
+    section.appendChild(block);
+    return block;
+  };
+
   const renderLocalizedField = (section, key, options = {}) => {
     ensureLocalized(key, options.ensureDefault !== false);
     const useLocalizedGrid = !!(options.grid || options.multiline);
-    const field = createField(section, {
-      dataKey: key,
-      label: options.label,
-      description: options.description
-    });
+    const field = options.subheading
+      ? createSubheadingField(section, {
+        dataKey: key,
+        label: options.label,
+        description: options.description
+      })
+      : createField(section, {
+        dataKey: key,
+        label: options.label,
+        description: options.description
+      });
     const list = document.createElement('div');
     list.className = useLocalizedGrid
       ? 'cs-localized-list cs-localized-list--grid'
@@ -12507,6 +12763,8 @@ function buildSiteUI(root, state) {
         if (!options.multiline) input.type = 'text';
         else input.rows = options.rows || 3;
         input.className = options.multiline ? 'cs-input cs-localized-textarea' : 'cs-input';
+        input.dataset.field = key;
+        input.dataset.lang = lang;
         if (options.placeholder) input.placeholder = options.placeholder;
         input.value = localized[lang] || '';
         if (options.multiline) {
@@ -12770,6 +13028,9 @@ function buildSiteUI(root, state) {
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'cs-input';
+      input.dataset.field = key;
+      input.dataset.lang = lang;
+      input.dataset.subfield = key;
       input.dataset.siteIdentityField = key;
       input.value = value || '';
       input.addEventListener('input', () => {
@@ -12842,6 +13103,7 @@ function buildSiteUI(root, state) {
     if (!config.multiline) input.type = config.type || 'text';
     else input.rows = config.rows || 3;
     input.className = 'cs-input';
+    input.dataset.field = config.dataKey;
     input.value = config.get() || '';
     if (config.placeholder) input.placeholder = config.placeholder;
     input.addEventListener('input', () => {
@@ -12886,15 +13148,14 @@ function buildSiteUI(root, state) {
       tooltipBubble.className = 'cs-help-tooltip-bubble';
       tooltipBubble.setAttribute('role', 'tooltip');
       tooltipBubble.textContent = item.description;
-      tooltipWrap.appendChild(tooltip);
-      tooltipWrap.appendChild(tooltipBubble);
-      labelCell.appendChild(tooltipWrap);
-
       const label = document.createElement('label');
       label.className = 'cs-single-grid-title';
       label.htmlFor = controlId;
       label.textContent = item.label;
       labelCell.appendChild(label);
+      tooltipWrap.appendChild(tooltip);
+      tooltipWrap.appendChild(tooltipBubble);
+      labelCell.appendChild(tooltipWrap);
       row.appendChild(labelCell);
 
       const controlCell = document.createElement('div');
@@ -12916,6 +13177,7 @@ function buildSiteUI(root, state) {
       input.id = controlId;
       input.type = item.type || 'text';
       input.className = 'cs-input';
+      input.dataset.field = item.dataKey;
       input.value = item.get() || '';
       input.placeholder = item.placeholder || '';
       input.addEventListener('input', () => {
@@ -12973,6 +13235,7 @@ function buildSiteUI(root, state) {
     const input = document.createElement('input');
     input.type = 'number';
     input.className = 'cs-input cs-input-small';
+    input.dataset.field = config.dataKey;
     if (config.min != null) input.min = String(config.min);
     if (config.max != null) input.max = String(config.max);
     if (config.step != null) input.step = String(config.step);
@@ -13047,6 +13310,7 @@ function buildSiteUI(root, state) {
       target: labelWrap || head || field,
       classes: ['cs-field-head-switch']
     });
+    toggle.dataset.field = config.dataKey;
 
     const sync = () => {
       const value = config.get();
@@ -13075,6 +13339,7 @@ function buildSiteUI(root, state) {
       target: labelWrap || head || field,
       classes: ['cs-field-head-switch']
     });
+    toggle.dataset.field = config.dataKey;
 
     const sync = () => {
       syncSwitchState(checkbox, toggle, config.get(), false);
@@ -13104,6 +13369,7 @@ function buildSiteUI(root, state) {
     control.className = 'cs-field-controls';
     const select = document.createElement('select');
     select.className = 'cs-select';
+    select.dataset.field = config.dataKey;
     (config.options || []).forEach((opt) => {
       const option = document.createElement('option');
       option.value = opt.value;
@@ -13170,6 +13436,7 @@ function buildSiteUI(root, state) {
       const select = document.createElement('select');
       select.id = controlId;
       select.className = 'cs-select';
+      select.dataset.field = item.dataKey;
       controlCell.appendChild(select);
       return select;
     };
@@ -13216,6 +13483,7 @@ function buildSiteUI(root, state) {
       input.id = controlId;
       input.type = 'number';
       input.className = 'cs-input';
+      input.dataset.field = item.dataKey;
       if (item.min != null) input.min = String(item.min);
       const value = item.get();
       input.value = value != null && !Number.isNaN(value) ? String(value) : '';
@@ -13252,6 +13520,7 @@ function buildSiteUI(root, state) {
         target: controlCell,
         classes: ['cs-single-grid-switch']
       });
+      toggle.dataset.field = item.dataKey;
       const sync = () => {
         syncSwitchState(checkbox, toggle, item.get(), allowMixed);
       };
@@ -13384,6 +13653,7 @@ function buildSiteUI(root, state) {
       const select = document.createElement('select');
       select.id = controlId;
       select.className = 'cs-select';
+      select.dataset.field = item.dataKey;
       (item.options || []).forEach((opt) => {
         const option = document.createElement('option');
         option.value = opt.value;
@@ -13535,6 +13805,7 @@ function buildSiteUI(root, state) {
       target: controlCell,
       classes: ['cs-single-grid-switch']
     });
+    toggle.dataset.field = 'themeOverride';
     checkbox.addEventListener('change', () => {
       site.themeOverride = checkbox.checked;
       syncSwitchState(checkbox, toggle, checkbox.checked, true);
@@ -13567,6 +13838,8 @@ function buildSiteUI(root, state) {
         classes: ['cs-single-grid-switch']
       }
     );
+    toggle.dataset.field = 'assetWarnings';
+    toggle.dataset.subfield = 'enabled';
     checkbox.addEventListener('change', () => {
       warnings.largeImage.enabled = checkbox.checked;
       syncSwitchState(checkbox, toggle, checkbox.checked, true);
@@ -13583,6 +13856,8 @@ function buildSiteUI(root, state) {
     thresholdInput.id = thresholdId;
     thresholdInput.type = 'number';
     thresholdInput.className = 'cs-input';
+    thresholdInput.dataset.field = 'assetWarnings';
+    thresholdInput.dataset.subfield = 'thresholdKB';
     thresholdInput.min = '1';
     const threshold = warnings.largeImage.thresholdKB;
     thresholdInput.value = threshold != null && !Number.isNaN(threshold) ? String(threshold) : '';
@@ -13596,11 +13871,17 @@ function buildSiteUI(root, state) {
 
   const createLinkListField = (section, key, config) => {
     const list = ensureLinkList(key);
-    const field = createField(section, {
-      dataKey: key,
-      label: config.label,
-      description: config.description
-    });
+    const field = config.subheading
+      ? createSubheadingField(section, {
+        dataKey: key,
+        label: config.label,
+        description: config.description
+      })
+      : createField(section, {
+        dataKey: key,
+        label: config.label,
+        description: config.description
+      });
     const listWrap = document.createElement('div');
     listWrap.className = 'cs-link-list';
     field.appendChild(listWrap);
@@ -13657,6 +13938,9 @@ function buildSiteUI(root, state) {
         labelInput.type = 'text';
         labelInput.id = labelInputId;
         labelInput.className = 'cs-input';
+        labelInput.dataset.field = key;
+        labelInput.dataset.index = String(index);
+        labelInput.dataset.subfield = 'label';
         labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
         if (index > 0) {
           labelInput.setAttribute('aria-labelledby', labelTitleId);
@@ -13689,6 +13973,9 @@ function buildSiteUI(root, state) {
         hrefInput.type = 'text';
         hrefInput.id = hrefInputId;
         hrefInput.className = 'cs-input';
+        hrefInput.dataset.field = key;
+        hrefInput.dataset.index = String(index);
+        hrefInput.dataset.subfield = 'href';
         hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
         if (index > 0) {
           hrefInput.setAttribute('aria-labelledby', hrefTitleId);
@@ -13741,60 +14028,14 @@ function buildSiteUI(root, state) {
     renderRows();
   };
 
-  const identitySection = createSection(
-    t('editor.composer.site.sections.identity.title'),
-    t('editor.composer.site.sections.identity.description')
-  );
-  renderIdentityLocalizedGrid(identitySection);
-  renderIdentityPathGrid(identitySection);
-
-  const seoSection = createSection(
-    t('editor.composer.site.sections.seo.title'),
-    t('editor.composer.site.sections.seo.description')
-  );
-  renderLocalizedField(seoSection, 'siteDescription', {
-    label: t('editor.composer.site.fields.siteDescription'),
-    description: t('editor.composer.site.fields.siteDescriptionHelp'),
-    multiline: true,
-    rows: 3,
-    ensureDefault: false
-  });
-  renderLocalizedField(seoSection, 'siteKeywords', {
-    label: t('editor.composer.site.fields.siteKeywords'),
-    description: t('editor.composer.site.fields.siteKeywordsHelp'),
-    grid: true,
-    ensureDefault: false
-  });
-  renderSeoResourceGrid(seoSection);
-  createLinkListField(seoSection, 'profileLinks', {
-    label: t('editor.composer.site.fields.profileLinks'),
-    description: t('editor.composer.site.fields.profileLinksHelp')
-  });
-
-  const behaviorSection = createSection(
-    t('editor.composer.site.sections.behavior.title'),
-    t('editor.composer.site.sections.behavior.description')
-  );
-  renderBehaviorGrid(behaviorSection);
-
-  const themeSection = createSection(
-    t('editor.composer.site.sections.theme.title'),
-    t('editor.composer.site.sections.theme.description')
-  );
-  renderThemeGrid(themeSection);
-
   const repoSection = createSection(
     t('editor.composer.site.sections.repo.title'),
     t('editor.composer.site.sections.repo.description')
   );
   const repo = ensureRepo();
-  const repoField = createField(repoSection, {
-    dataKey: 'repo',
-    label: t('editor.composer.site.fields.repo'),
-    description: t('editor.composer.site.fields.repoHelp')
-  });
   const repoInputs = document.createElement('div');
   repoInputs.className = 'cs-repo-grid';
+  repoInputs.dataset.field = 'repo';
 
   const ownerInput = document.createElement('input');
   ownerInput.type = 'text';
@@ -13825,6 +14066,8 @@ function buildSiteUI(root, state) {
 
   const ownerWrap = document.createElement('div');
   ownerWrap.className = 'cs-repo-field cs-repo-field--owner';
+  ownerWrap.dataset.field = 'repo';
+  ownerWrap.dataset.subfield = 'owner';
   const ownerAffix = document.createElement('span');
   ownerAffix.className = 'cs-repo-affix';
   ownerAffix.textContent = t('editor.composer.site.repoOwnerPrefix');
@@ -13833,6 +14076,8 @@ function buildSiteUI(root, state) {
 
   const repoWrap = document.createElement('div');
   repoWrap.className = 'cs-repo-field cs-repo-field--name';
+  repoWrap.dataset.field = 'repo';
+  repoWrap.dataset.subfield = 'name';
   const repoAffix = document.createElement('span');
   repoAffix.className = 'cs-repo-affix';
   repoAffix.textContent = t('editor.composer.site.repoNamePrefix');
@@ -13849,6 +14094,8 @@ function buildSiteUI(root, state) {
 
   const branchWrap = document.createElement('div');
   branchWrap.className = 'cs-repo-field cs-repo-field--branch';
+  branchWrap.dataset.field = 'repo';
+  branchWrap.dataset.subfield = 'branch';
   const branchAffix = document.createElement('span');
   branchAffix.className = 'cs-repo-affix';
   branchAffix.textContent = t('editor.composer.site.repoBranchPrefix');
@@ -13856,35 +14103,84 @@ function buildSiteUI(root, state) {
   branchWrap.append(branchAffix, branchInput);
 
   repoInputs.append(pathRow, branchWrap);
-  repoField.appendChild(repoInputs);
+  repoSection.appendChild(repoInputs);
 
-  const assetsSection = createSection(
+  const identitySection = createSection(
+    t('editor.composer.site.sections.identity.title'),
+    t('editor.composer.site.sections.identity.description')
+  );
+  renderIdentityLocalizedGrid(identitySection);
+  renderIdentityPathGrid(identitySection);
+
+  const seoSection = createSection(
+    t('editor.composer.site.sections.seo.title'),
+    t('editor.composer.site.sections.seo.description')
+  );
+  renderLocalizedField(seoSection, 'siteDescription', {
+    label: t('editor.composer.site.fields.siteDescription'),
+    description: t('editor.composer.site.fields.siteDescriptionHelp'),
+    multiline: true,
+    rows: 3,
+    ensureDefault: false,
+    subheading: true
+  });
+  renderLocalizedField(seoSection, 'siteKeywords', {
+    label: t('editor.composer.site.fields.siteKeywords'),
+    description: t('editor.composer.site.fields.siteKeywordsHelp'),
+    grid: true,
+    ensureDefault: false,
+    subheading: true
+  });
+  createLinkListField(seoSection, 'profileLinks', {
+    label: t('editor.composer.site.fields.profileLinks'),
+    description: t('editor.composer.site.fields.profileLinksHelp'),
+    subheading: true
+  });
+  renderSeoResourceGrid(seoSection);
+
+  const siteConfigSection = createSection(
+    t('editor.composer.site.sections.configuration.title'),
+    t('editor.composer.site.sections.configuration.description')
+  );
+  const behaviorSubsection = createConfigSubsection(
+    siteConfigSection,
+    t('editor.composer.site.sections.behavior.title'),
+    t('editor.composer.site.sections.behavior.description')
+  );
+  renderBehaviorGrid(behaviorSubsection);
+
+  const themeSubsection = createConfigSubsection(
+    siteConfigSection,
+    t('editor.composer.site.sections.theme.title'),
+    t('editor.composer.site.sections.theme.description')
+  );
+  renderThemeGrid(themeSubsection);
+
+  const assetsSubsection = createConfigSubsection(
+    siteConfigSection,
     t('editor.composer.site.sections.assets.title'),
     t('editor.composer.site.sections.assets.description')
   );
-  renderAssetWarningsGrid(assetsSection);
+  renderAssetWarningsGrid(assetsSubsection);
 
   if (site.__extras && Object.keys(site.__extras).length) {
     const extrasSection = createSection(
       t('editor.composer.site.sections.extras.title'),
       t('editor.composer.site.sections.extras.description')
     );
-    const field = createField(extrasSection, {
-      dataKey: '__extras',
-      label: t('editor.composer.site.fields.extras'),
-      description: t('editor.composer.site.fields.extrasHelp')
-    });
     const list = document.createElement('ul');
     list.className = 'cs-extra-list';
+    list.dataset.field = '__extras';
     Object.keys(site.__extras).sort().forEach((key) => {
       const item = document.createElement('li');
       item.textContent = key;
       list.appendChild(item);
     });
-    field.appendChild(list);
+    extrasSection.appendChild(list);
   }
 
   renderCompactSectionMenu();
+  syncSiteEditorSingleLabelWidth(root);
   refreshNavDiffState();
   try { scheduleScrollSync(); } catch (_) {}
 }
@@ -14262,10 +14558,14 @@ function rebuildSiteUI() {
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
   .cs-section-title{margin:0;font-size:1rem;font-weight:700;color:color-mix(in srgb,var(--text) 90%, transparent)}
   .cs-section-description{margin:0;font-size:.82rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 260px;text-align:right}
+  .cs-config-subsection{display:flex;flex-direction:column;gap:.4rem}
+  .cs-config-subsection + .cs-config-subsection{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
+  .cs-config-subsection-head{display:flex;align-items:baseline;gap:.45rem;flex-wrap:wrap;margin-bottom:.05rem}
+  .cs-config-subsection-title{margin:0;font-size:.84rem;font-weight:600;color:color-mix(in srgb,var(--text) 76%, transparent)}
+  .cs-config-subsection-description{margin:0;font-size:.8rem;color:color-mix(in srgb,var(--muted) 88%, transparent);flex:1 1 auto;text-align:left}
+  .cs-config-subsection > .cs-config-subsection-head + .cs-field{padding-top:0}
   .cs-field{margin:0;padding:.6rem 0;display:flex;flex-direction:column;gap:.4rem;position:relative}
   .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
-  .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
-  .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
   .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
   .cs-field-inline-help .cs-field-head{align-items:baseline}
   .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}
@@ -14280,12 +14580,12 @@ function rebuildSiteUI() {
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
-  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem}
+  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset,.cs-link-list{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem;--cs-editor-single-control-width:15rem}
   .cs-localized-list--grid{gap:var(--cs-editor-row-gap)}
   .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
   .cs-localized-row--grid .cs-localized-input{min-width:0}
-  .cs-localized-row--grid .cs-lang-chip{justify-self:start}
+  .cs-localized-row--grid .cs-lang-chip{justify-self:end}
   .cs-localized-row--multiline textarea.cs-localized-textarea{box-sizing:border-box;display:block;height:var(--cs-editor-control-height);min-height:var(--cs-editor-control-height);max-height:var(--cs-editor-control-height);padding-block:0;line-height:calc(var(--cs-editor-control-height) - 2px);resize:none;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:height .18s ease,min-height .18s ease,max-height .18s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease}
   .cs-localized-row--multiline.is-expanded,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus){align-items:start}
   .cs-localized-row--multiline.is-expanded .cs-remove-lang,.cs-localized-row--multiline:has(textarea.cs-localized-textarea:focus) .cs-remove-lang{align-self:start}
@@ -14298,17 +14598,16 @@ function rebuildSiteUI() {
   .cs-identity-head{align-items:end;padding:0 0 .1rem}
   .cs-identity-head-spacer{min-width:1px}
   .cs-identity-column-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
-  .cs-identity-lang{min-width:0;display:flex;align-items:center}
+  .cs-identity-lang{min-width:0;display:flex;align-items:center;justify-content:flex-end}
   .cs-identity-field{min-width:0;display:flex;flex-direction:column;gap:.2rem}
   .cs-identity-field .cs-input{min-width:0}
   .cs-identity-cell-label{display:none;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
   .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
   .cs-identity-remove{margin-left:0;white-space:nowrap}
   .cs-single-grid-fieldset{gap:0}
-  .cs-single-grid{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr);column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center}
+  .cs-single-grid{display:grid;grid-template-columns:var(--cs-editor-single-label-width,88px) minmax(0,var(--cs-editor-single-control-width));column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center;justify-content:start}
   .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
-  .cs-single-grid-row[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
-  .cs-single-grid-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
+  .cs-single-grid-label{display:inline-flex;align-items:center;justify-content:flex-end;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
   .cs-single-grid-title{font-size:.84rem;white-space:nowrap}
   .cs-single-grid-control{min-width:0;display:flex;align-items:center}
   .cs-single-grid-control .cs-input,.cs-single-grid-control .cs-select{width:100%;min-width:0}
@@ -14323,13 +14622,14 @@ function rebuildSiteUI() {
   textarea.cs-input{min-height:4.6rem;resize:vertical}
   .cs-input-small{max-width:220px}
   .cs-empty{padding:.7rem .85rem;border:1px dashed color-mix(in srgb,var(--border) 75%, transparent);border-radius:9px;background:color-mix(in srgb,var(--text) 2%, var(--card));color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
+  .cs-field[data-diff="changed"] .cs-empty{background:color-mix(in srgb,#f59e0b 10%, var(--card));border-color:color-mix(in srgb,#f59e0b 45%, var(--border));color:color-mix(in srgb,#b45309 72%, var(--text))}
   .cs-add-lang,.cs-add-link{align-self:flex-start}
   .cs-remove-lang,.cs-remove-link{margin-left:auto}
   .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-link-list{display:flex;flex-direction:column;gap:0}
-  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:.45rem .85rem;padding:.3rem 0}
-  .cs-link-row + .cs-link-row{margin-top:.3rem}
+  .cs-link-list{display:flex;flex-direction:column;gap:var(--cs-editor-row-gap)}
+  .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0}
+  .cs-link-row + .cs-link-row{margin-top:0}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
   .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
@@ -14360,6 +14660,9 @@ function rebuildSiteUI() {
   .cs-switch[data-state="mixed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 35%, var(--card));border-color:color-mix(in srgb,#f59e0b 55%, var(--border))}
   .cs-switch[data-state="mixed"] .cs-switch-thumb{background:color-mix(in srgb,#f59e0b 94%, var(--card));box-shadow:0 3px 8px color-mix(in srgb,#f59e0b 35%, transparent)}
   .cs-switch-input:focus-visible + .cs-switch-track{outline:2px solid color-mix(in srgb,var(--primary) 60%, transparent);outline-offset:2px}
+  .cs-input[data-diff="changed"],.cs-select[data-diff="changed"],.cs-field[data-diff="changed"] .cs-input,.cs-field[data-diff="changed"] .cs-select,.cs-single-grid-row[data-diff="changed"] .cs-input,.cs-single-grid-row[data-diff="changed"] .cs-select{background:color-mix(in srgb,#f59e0b 10%, transparent);border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
+  .cs-repo-field[data-diff="changed"],.cs-repo-grid[data-diff="changed"] .cs-repo-field,.cs-extra-list[data-diff="changed"] li{background:color-mix(in srgb,#f59e0b 10%, transparent);border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
+  .cs-switch[data-diff="changed"] .cs-switch-track,.cs-field[data-diff="changed"] .cs-switch-track,.cs-single-grid-row[data-diff="changed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 18%, var(--card));border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
   @media (max-width:1024px){
     .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
   }
@@ -14380,7 +14683,7 @@ function rebuildSiteUI() {
   }
   @media (max-width:720px){
     .cs-section-description{text-align:left}
-    .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.5rem}
+    .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset,.cs-link-list{--cs-editor-row-gap:.5rem}
     .cs-localized-row--grid{grid-template-columns:1fr;gap:.35rem}
     .cs-localized-row--grid .cs-remove-lang{justify-self:flex-start}
     .cs-identity-grid{gap:.5rem}
@@ -14391,7 +14694,6 @@ function rebuildSiteUI() {
     .cs-identity-actions{justify-content:flex-start}
     .cs-single-grid{grid-template-columns:1fr;row-gap:.35rem}
     .cs-single-grid-row{grid-template-columns:1fr;align-items:stretch;gap:.35rem;padding:.2rem 0}
-    .cs-single-grid-row[data-diff="changed"]{padding-left:.65rem}
   }
 
   /* Modal animations */
