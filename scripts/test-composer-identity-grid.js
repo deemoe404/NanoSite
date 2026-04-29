@@ -5,9 +5,11 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
+const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const source = readFileSync(composerPath, 'utf8');
+const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 
@@ -123,6 +125,12 @@ assert.match(
   editorSource,
   /\.editor-content-shell\.box \{[\s\S]*padding:0;[\s\S]*border:0 !important;[\s\S]*background:transparent;[\s\S]*\.editor-structure-panel \{ min-width:0; border:0; border-radius:0; background:transparent; padding:0; \}/,
   'editor structure view should not render extra outer card containers around the content'
+);
+
+assert.match(
+  hiEditorSource,
+  /function findVerticalScrollParent\(node\) \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*function forwardVerticalWheel\(event\) \{[\s\S]*absX > absY && scroll\.scrollWidth > scroll\.clientWidth \+ 1[\s\S]*scrollParent\.scrollTop = before \+ deltaY;[\s\S]*event\.preventDefault\(\);[\s\S]*scroll\.addEventListener\('wheel', forwardVerticalWheel, \{ passive: false \}\);/,
+  'hidden-overflow markdown editor should forward vertical wheel gestures to the right content pane while preserving horizontal code scrolling'
 );
 
 assert.doesNotMatch(
