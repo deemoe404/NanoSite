@@ -13894,12 +13894,163 @@ function buildSiteUI(root, state) {
     addBtn.textContent = t('editor.composer.site.addLink');
     controls.appendChild(addBtn);
 
-    const moveEntry = (from, to) => {
-      if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+    const renderRowsAndRefreshDiff = () => {
+      renderRows();
+      try { notifyComposerChange('site', { skipAutoSave: true }); } catch (_) {}
+    };
+
+    const moveEntry = (from, to, options = {}) => {
+      if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return false;
       const [item] = list.splice(from, 1);
       list.splice(to, 0, item);
       markDirty();
-      renderRows();
+      if (options.refreshDiff) renderRowsAndRefreshDiff();
+      else renderRows();
+      return true;
+    };
+
+    let linkDragState = null;
+
+    const getAnimatedLinkRows = () => Array.from(listWrap.querySelectorAll('.cs-link-row:not(.is-dragging)'));
+
+    const animateLinkRows = (callback) => {
+      const previousRects = new Map();
+      getAnimatedLinkRows().forEach((row) => {
+        previousRects.set(row, row.getBoundingClientRect());
+      });
+
+      callback();
+
+      getAnimatedLinkRows().forEach((row) => {
+        const previous = previousRects.get(row);
+        if (!previous) return;
+        const next = row.getBoundingClientRect();
+        const deltaY = previous.top - next.top;
+        if (!deltaY) return;
+        row.style.transition = 'none';
+        row.style.transform = `translate3d(0, ${previous.top - next.top}px, 0)`;
+        requestAnimationFrame(() => {
+          row.style.transition = 'transform .18s cubic-bezier(.2,.8,.2,1)';
+          row.style.transform = '';
+        });
+      });
+    };
+
+    const createDragPlaceholder = (row) => {
+      const rowRect = row.getBoundingClientRect();
+      const placeholder = document.createElement('div');
+      placeholder.className = 'cs-link-drop-placeholder';
+      placeholder.style.height = `${rowRect.height}px`;
+      return placeholder;
+    };
+
+    const getDropIndex = () => {
+      if (!linkDragState || !linkDragState.placeholder) return -1;
+      const rows = Array.from(listWrap.children)
+        .filter((node) => node === linkDragState.placeholder || (node !== linkDragState.dragRow && node.classList?.contains('cs-link-row')));
+      return rows.indexOf(linkDragState.placeholder);
+    };
+
+    const moveListEntry = (from, to) => {
+      if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return false;
+      const [item] = list.splice(from, 1);
+      list.splice(to, 0, item);
+      markDirty();
+      return true;
+    };
+
+    const applyDragPreview = (clientY) => {
+      if (!linkDragState) return;
+      linkDragState.dragRow.style.transform = `translate3d(0, ${clientY - linkDragState.startY}px, 0)`;
+      const rows = getAnimatedLinkRows();
+      let nextNode = null;
+      for (const row of rows) {
+        const rect = row.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (clientY < midpoint) {
+          nextNode = row;
+          break;
+        }
+      }
+      if (nextNode === linkDragState.placeholder.nextSibling) return;
+      animateLinkRows(() => {
+        listWrap.insertBefore(linkDragState.placeholder, nextNode);
+      });
+    };
+
+    const updateDragRowState = () => {
+      listWrap.querySelectorAll('.cs-link-row').forEach((row) => {
+        row.classList.toggle('is-dragging', !!linkDragState && row === linkDragState.dragRow);
+      });
+    };
+
+    const endDrag = () => {
+      document.removeEventListener('pointermove', handleDragPointerMove, true);
+      document.removeEventListener('pointerup', endDrag, true);
+      document.removeEventListener('pointercancel', endDrag, true);
+      if (linkDragState) {
+        const { fromIndex, dragRow, placeholder } = linkDragState;
+        const toIndex = getDropIndex();
+        dragRow.classList.remove('is-dragging');
+        dragRow.style.position = '';
+        dragRow.style.left = '';
+        dragRow.style.top = '';
+        dragRow.style.width = '';
+        dragRow.style.zIndex = '';
+        dragRow.style.transform = '';
+        if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+        moveListEntry(fromIndex, toIndex);
+        renderRowsAndRefreshDiff();
+      }
+      linkDragState = null;
+      updateDragRowState();
+    };
+
+    const handleDragPointerMove = (event) => {
+      if (!linkDragState) return;
+      event.preventDefault();
+      applyDragPreview(event.clientY);
+    };
+
+    const createDragHandle = (index) => {
+      const handle = document.createElement('span');
+      handle.setAttribute('role', 'button');
+      handle.tabIndex = 0;
+      handle.className = 'cs-link-drag-handle';
+      handle.setAttribute('aria-label', t('editor.composer.site.reorderLink'));
+      handle.innerHTML = '<span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>';
+      handle.addEventListener('pointerdown', (event) => {
+        if (event.button != null && event.button !== 0) return;
+        event.preventDefault();
+        const row = handle.closest('.cs-link-row');
+        if (!row) return;
+        const rowRect = row.getBoundingClientRect();
+        const placeholder = createDragPlaceholder(row);
+        listWrap.insertBefore(placeholder, row);
+        linkDragState = {
+          fromIndex: index,
+          dragRow: row,
+          placeholder,
+          startY: event.clientY
+        };
+        row.classList.add('is-dragging');
+        row.style.position = 'fixed';
+        row.style.left = `${rowRect.left}px`;
+        row.style.top = `${rowRect.top}px`;
+        row.style.width = `${rowRect.width}px`;
+        row.style.zIndex = '1000';
+        row.style.transform = 'translate3d(0, 0, 0)';
+        updateDragRowState();
+        document.addEventListener('pointermove', handleDragPointerMove, true);
+        document.addEventListener('pointerup', endDrag, true);
+        document.addEventListener('pointercancel', endDrag, true);
+      });
+      handle.addEventListener('keydown', (event) => {
+        if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+        event.preventDefault();
+        moveEntry(index, event.key === 'ArrowUp' ? index - 1 : index + 1, { refreshDiff: true });
+      });
+      return handle;
     };
 
     const renderRows = () => {
@@ -13913,13 +14064,33 @@ function buildSiteUI(root, state) {
       }
       const labelTitleId = `${key}-label-title`;
       const hrefTitleId = `${key}-href-title`;
+      const appendLinkHeader = () => {
+        const head = document.createElement('div');
+        head.className = 'cs-link-head';
+        const handleSpacer = document.createElement('span');
+        handleSpacer.className = 'cs-link-head-spacer';
+        handleSpacer.setAttribute('aria-hidden', 'true');
+        const labelTitle = document.createElement('span');
+        labelTitle.id = labelTitleId;
+        labelTitle.className = 'cs-link-field-title cs-link-field-title--label';
+        labelTitle.textContent = t('editor.composer.site.linkLabelTitle');
+        const hrefTitle = document.createElement('span');
+        hrefTitle.id = hrefTitleId;
+        hrefTitle.className = 'cs-link-field-title cs-link-field-title--href';
+        hrefTitle.textContent = t('editor.composer.site.linkHrefTitle');
+        const actionSpacer = document.createElement('span');
+        actionSpacer.className = 'cs-link-head-actions';
+        actionSpacer.setAttribute('aria-hidden', 'true');
+        head.append(handleSpacer, labelTitle, hrefTitle, actionSpacer);
+        listWrap.appendChild(head);
+      };
+      appendLinkHeader();
       list.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'cs-link-row';
-        if (index === 0) {
-          row.classList.add('cs-link-row--with-title');
-        }
         row.dataset.index = String(index);
+
+        const dragHandle = createDragHandle(index);
 
         const labelField = document.createElement('div');
         labelField.className = 'cs-link-field cs-link-field--label';
@@ -13927,13 +14098,6 @@ function buildSiteUI(root, state) {
           labelField.classList.add('cs-link-field--compact');
         }
         const labelInputId = `${key}-label-${index}`;
-        const labelTitle = document.createElement('label');
-        labelTitle.className = 'cs-link-field-title';
-        labelTitle.setAttribute('for', labelInputId);
-        labelTitle.textContent = t('editor.composer.site.linkLabelTitle');
-        if (index === 0) {
-          labelTitle.id = labelTitleId;
-        }
         const labelInput = document.createElement('input');
         labelInput.type = 'text';
         labelInput.id = labelInputId;
@@ -13942,19 +14106,13 @@ function buildSiteUI(root, state) {
         labelInput.dataset.index = String(index);
         labelInput.dataset.subfield = 'label';
         labelInput.placeholder = t('editor.composer.site.linkLabelPlaceholder');
-        if (index > 0) {
-          labelInput.setAttribute('aria-labelledby', labelTitleId);
-        }
+        labelInput.setAttribute('aria-labelledby', labelTitleId);
         labelInput.value = item && item.label ? item.label : '';
         labelInput.addEventListener('input', () => {
           list[index].label = labelInput.value;
           markDirty();
         });
-        if (index === 0) {
-          labelField.append(labelTitle, labelInput);
-        } else {
-          labelField.append(labelInput);
-        }
+        labelField.append(labelInput);
 
         const hrefField = document.createElement('div');
         hrefField.className = 'cs-link-field cs-link-field--href';
@@ -13962,13 +14120,6 @@ function buildSiteUI(root, state) {
           hrefField.classList.add('cs-link-field--compact');
         }
         const hrefInputId = `${key}-href-${index}`;
-        const hrefTitle = document.createElement('label');
-        hrefTitle.className = 'cs-link-field-title';
-        hrefTitle.setAttribute('for', hrefInputId);
-        hrefTitle.textContent = t('editor.composer.site.linkHrefTitle');
-        if (index === 0) {
-          hrefTitle.id = hrefTitleId;
-        }
         const hrefInput = document.createElement('input');
         hrefInput.type = 'text';
         hrefInput.id = hrefInputId;
@@ -13977,33 +14128,15 @@ function buildSiteUI(root, state) {
         hrefInput.dataset.index = String(index);
         hrefInput.dataset.subfield = 'href';
         hrefInput.placeholder = t('editor.composer.site.linkHrefPlaceholder');
-        if (index > 0) {
-          hrefInput.setAttribute('aria-labelledby', hrefTitleId);
-        }
+        hrefInput.setAttribute('aria-labelledby', hrefTitleId);
         hrefInput.value = item && item.href ? item.href : '';
         hrefInput.addEventListener('input', () => {
           list[index].href = hrefInput.value;
           markDirty();
         });
-        if (index === 0) {
-          hrefField.append(hrefTitle, hrefInput);
-        } else {
-          hrefField.append(hrefInput);
-        }
+        hrefField.append(hrefInput);
         const actions = document.createElement('div');
         actions.className = 'cs-link-actions';
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button';
-        upBtn.className = 'btn-tertiary cs-move';
-        upBtn.textContent = '↑';
-        upBtn.disabled = index === 0;
-        upBtn.addEventListener('click', () => moveEntry(index, index - 1));
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button';
-        downBtn.className = 'btn-tertiary cs-move';
-        downBtn.textContent = '↓';
-        downBtn.disabled = index === list.length - 1;
-        downBtn.addEventListener('click', () => moveEntry(index, index + 1));
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.className = 'btn-tertiary cs-remove-link';
@@ -14011,10 +14144,10 @@ function buildSiteUI(root, state) {
         removeBtn.addEventListener('click', () => {
           list.splice(index, 1);
           markDirty();
-          renderRows();
+          renderRowsAndRefreshDiff();
         });
-        actions.append(upBtn, downBtn, removeBtn);
-        row.append(labelField, hrefField, actions);
+        actions.append(removeBtn);
+        row.append(dragHandle, labelField, hrefField, actions);
         listWrap.appendChild(row);
       });
     };
@@ -14022,7 +14155,7 @@ function buildSiteUI(root, state) {
     addBtn.addEventListener('click', () => {
       list.push({ label: '', href: '' });
       markDirty();
-      renderRows();
+      renderRowsAndRefreshDiff();
     });
 
     renderRows();
@@ -14651,17 +14784,29 @@ function rebuildSiteUI() {
   .cs-select{min-width:200px;padding:.3rem .45rem;border-radius:8px;border:1px solid color-mix(in srgb,var(--border) 80%, transparent);background:color-mix(in srgb,var(--card) 99%, transparent);color:var(--text);font-size:.84rem;line-height:1.25;font-family:inherit;transition:border-color .16s ease, box-shadow .16s ease}
   .cs-select:focus{outline:none;border-color:color-mix(in srgb,var(--primary) 55%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
   .cs-link-list{display:flex;flex-direction:column;gap:var(--cs-editor-row-gap)}
+  .cs-link-head{display:flex;align-items:end;gap:var(--cs-editor-row-column-gap);min-height:1.1rem;padding:0}
+  .cs-link-head-spacer{width:1.95rem;flex:0 0 1.95rem}
+  .cs-link-head-actions{flex:0 0 72px}
   .cs-link-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0}
+  .cs-link-row.is-dragging{pointer-events:none;border-radius:10px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 14px 30px rgba(15,23,42,0.16),0 4px 12px rgba(15,23,42,0.12)}
   .cs-link-row + .cs-link-row{margin-top:0}
+  .cs-link-drop-placeholder{border:1px dashed color-mix(in srgb,var(--primary) 48%, var(--border));border-radius:10px;background:color-mix(in srgb,var(--primary) 8%, transparent);min-height:var(--cs-editor-control-height);box-sizing:border-box}
   .cs-link-field{flex:1 1 200px;min-width:160px;display:flex;flex-direction:column;gap:.25rem}
   .cs-link-field--label{flex:1 1 0}
   .cs-link-field--href{flex:3 1 0}
   .cs-link-field--compact{gap:.15rem}
   .cs-link-field-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-link-field-title--label{flex:1 1 0;min-width:160px}
+  .cs-link-field-title--href{flex:3 1 0;min-width:160px}
+  .cs-link-drag-handle{width:1.95rem;min-height:var(--cs-editor-control-height);align-self:flex-end;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:.16rem;padding:.25rem .45rem;border:0;background:transparent;box-shadow:none;border-radius:8px;cursor:grab;touch-action:none;color:color-mix(in srgb,var(--muted) 86%, transparent);box-sizing:border-box;user-select:none}
+  .cs-link-drag-handle:hover{background:color-mix(in srgb,var(--text) 4%, transparent)}
+  .cs-link-drag-handle:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 36%, transparent);outline-offset:2px;background:color-mix(in srgb,var(--primary) 8%, transparent)}
+  .cs-link-drag-handle:active{cursor:grabbing}
+  .cs-link-drag-handle span{display:block;width:.9rem;height:1px;border-radius:999px;background:currentColor}
+  .cs-link-row.is-dragging .cs-link-drag-handle{border-color:transparent !important;background:color-mix(in srgb,var(--primary) 12%, transparent);color:color-mix(in srgb,var(--primary) 92%, var(--text))}
+  .cs-link-row.is-dragging .cs-input{border-color:color-mix(in srgb,var(--primary) 45%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 14%, transparent)}
   .cs-link-actions{display:flex;gap:.35rem;margin-left:auto;align-self:flex-end;padding-top:0}
-  .cs-link-row--with-title .cs-link-actions{padding-top:0}
   .cs-link-actions .btn-tertiary{min-height:var(--cs-editor-control-height)}
-  .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
   .cs-repo-grid{display:flex;align-items:flex-end;gap:.45rem;flex-wrap:nowrap;margin-top:.35rem}

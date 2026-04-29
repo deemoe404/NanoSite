@@ -322,6 +322,7 @@ const translations = {
           reset: '恢復預設',
           addLink: '新增連結',
           removeLink: '移除',
+          reorderLink: '拖曳以調整連結順序。按 Alt+上/下方向鍵移動。',
           noLinks: '暫無連結。',
           linkLabelTitle: '名稱',
           linkLabelPlaceholder: '名稱',

@@ -321,6 +321,7 @@ const translations = {
           languageAutoOption: 'Auto-detect (browser language)',
           addLink: 'Add link',
           removeLink: 'Remove',
+          reorderLink: 'Drag to reorder link. Press Alt+Up or Alt+Down to move.',
           noLinks: 'No links configured.',
           linkLabelTitle: 'Label',
           linkLabelPlaceholder: 'Label',

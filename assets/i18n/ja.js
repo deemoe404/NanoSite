@@ -322,6 +322,7 @@ const translations = {
           reset: '上書きをリセット',
           addLink: 'リンクを追加',
           removeLink: '削除',
+          reorderLink: 'ドラッグしてリンクの順序を変更します。Alt+上下キーで移動できます。',
           noLinks: 'リンクはまだありません。',
           linkLabelTitle: 'ラベル',
           linkLabelPlaceholder: 'ラベル',
