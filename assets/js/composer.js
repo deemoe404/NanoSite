@@ -14037,6 +14037,28 @@ function buildSiteUI(root, state) {
   repoInputs.className = 'cs-repo-grid';
   repoInputs.dataset.field = 'repo';
 
+  const createRepoFieldTitle = (text) => {
+    const title = document.createElement('span');
+    title.className = 'cs-repo-field-title';
+    title.textContent = text;
+    return title;
+  };
+
+  const createRepoFieldGroup = (className, titleText, field) => {
+    const group = document.createElement('label');
+    group.className = `cs-repo-field-group ${className}`;
+    group.append(createRepoFieldTitle(titleText), field);
+    return group;
+  };
+
+  const createRepoIconAffix = (pathData) => {
+    const affix = document.createElement('span');
+    affix.className = 'cs-repo-affix cs-repo-icon-affix';
+    affix.setAttribute('aria-hidden', 'true');
+    affix.innerHTML = `<svg viewBox="0 0 16 16" width="16" height="16" focusable="false"><path d="${pathData}"></path></svg>`;
+    return affix;
+  };
+
   const ownerInput = document.createElement('input');
   ownerInput.type = 'text';
   ownerInput.className = 'cs-input cs-repo-input cs-repo-input--owner';
@@ -14078,10 +14100,7 @@ function buildSiteUI(root, state) {
   repoWrap.className = 'cs-repo-field cs-repo-field--name';
   repoWrap.dataset.field = 'repo';
   repoWrap.dataset.subfield = 'name';
-  const repoAffix = document.createElement('span');
-  repoAffix.className = 'cs-repo-affix';
-  repoAffix.textContent = t('editor.composer.site.repoNamePrefix');
-  repoAffix.setAttribute('aria-hidden', 'true');
+  const repoAffix = createRepoIconAffix('M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z');
   repoWrap.append(repoAffix, nameInput);
 
   const pathRow = document.createElement('div');
@@ -14090,19 +14109,23 @@ function buildSiteUI(root, state) {
   divider.className = 'cs-repo-divider';
   divider.textContent = '/';
   divider.setAttribute('aria-hidden', 'true');
-  pathRow.append(ownerWrap, divider, repoWrap);
+  pathRow.append(
+    createRepoFieldGroup('cs-repo-field-group--owner', t('editor.composer.site.repoOwner'), ownerWrap),
+    divider,
+    createRepoFieldGroup('cs-repo-field-group--name', t('editor.composer.site.repoName'), repoWrap)
+  );
 
   const branchWrap = document.createElement('div');
   branchWrap.className = 'cs-repo-field cs-repo-field--branch';
   branchWrap.dataset.field = 'repo';
   branchWrap.dataset.subfield = 'branch';
-  const branchAffix = document.createElement('span');
-  branchAffix.className = 'cs-repo-affix';
-  branchAffix.textContent = t('editor.composer.site.repoBranchPrefix');
-  branchAffix.setAttribute('aria-hidden', 'true');
+  const branchAffix = createRepoIconAffix('M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z');
   branchWrap.append(branchAffix, branchInput);
 
-  repoInputs.append(pathRow, branchWrap);
+  repoInputs.append(
+    pathRow,
+    createRepoFieldGroup('cs-repo-field-group--branch', t('editor.composer.site.repoBranch'), branchWrap)
+  );
   repoSection.appendChild(repoInputs);
 
   const identitySection = createSection(
@@ -14638,17 +14661,24 @@ function rebuildSiteUI() {
   .cs-move{padding:.25rem .45rem;font-size:1rem;line-height:1}
   .cs-remove-link{color:color-mix(in srgb,#dc2626 82%, var(--text))}
   .cs-remove-link:hover{background:color-mix(in srgb,#dc2626 12%, transparent);border-color:color-mix(in srgb,#dc2626 48%, transparent);color:#b91c1c}
-  .cs-repo-grid{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.35rem}
-  .cs-repo-path{display:flex;align-items:center;gap:.35rem;flex:1 1 320px;min-width:220px;flex-wrap:wrap}
-  .cs-repo-field{display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .55rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);transition:border-color .16s ease, box-shadow .16s ease}
+  .cs-repo-grid{display:flex;align-items:flex-end;gap:.45rem;flex-wrap:nowrap;margin-top:.35rem}
+  .cs-repo-path{display:flex;align-items:flex-end;gap:.35rem;flex:2 1 0;min-width:0;flex-wrap:nowrap}
+  .cs-repo-field-group{display:flex;flex-direction:column;gap:.3rem;min-width:0}
+  .cs-repo-field-group--owner{flex:1 1 0}
+  .cs-repo-field-group--name{flex:1 1 0}
+  .cs-repo-field-group--branch{flex:1 1 0}
+  .cs-repo-field-title{padding-left:.55rem;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--muted) 78%, transparent)}
+  .cs-repo-field{display:inline-flex;align-items:center;gap:.35rem;width:100%;padding:.22rem .55rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--border) 78%, transparent);background:color-mix(in srgb,var(--card) 98%, transparent);transition:border-color .16s ease, box-shadow .16s ease}
   .cs-repo-field:focus-within{border-color:color-mix(in srgb,var(--primary) 50%, var(--border));box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-repo-field .cs-repo-input{border:0;background:transparent;padding:0;min-height:1.8rem;font-size:.84rem;line-height:1.25;color:var(--text);min-width:0;width:auto}
+  .cs-repo-field .cs-repo-input{border:0;background:transparent;padding:0;min-height:1.8rem;font-size:.84rem;line-height:1.25;color:var(--text);min-width:0;width:100%;flex:1 1 auto}
   .cs-repo-field .cs-repo-input:focus{outline:none;box-shadow:none}
-  .cs-repo-field--owner{flex:1 1 160px;min-width:140px}
-  .cs-repo-field--name{flex:1 1 200px;min-width:160px}
-  .cs-repo-field--branch{align-self:center;min-width:180px;max-width:260px;flex:0 1 220px}
+  .cs-repo-field--owner{min-width:0}
+  .cs-repo-field--name{min-width:0}
+  .cs-repo-field--branch{min-width:0}
   .cs-repo-affix{font-size:.82rem;font-weight:600;color:color-mix(in srgb,var(--muted) 78%, transparent);text-transform:lowercase;letter-spacing:.04em}
-  .cs-repo-divider{font-size:1.1rem;font-weight:600;color:color-mix(in srgb,var(--muted) 82%, transparent)}
+  .cs-repo-icon-affix{width:1rem;height:1rem;display:inline-flex;align-items:center;justify-content:center;flex:0 0 1rem}
+  .cs-repo-icon-affix svg{display:block;fill:currentColor}
+  .cs-repo-divider{align-self:flex-end;padding-bottom:.48rem;font-size:1.1rem;font-weight:600;color:color-mix(in srgb,var(--muted) 82%, transparent)}
   .cs-extra-list{margin:.2rem 0 0;padding-left:1.1rem;color:color-mix(in srgb,var(--muted) 90%, transparent);font-size:.88rem}
   .cs-extra-list li{margin:.2rem 0}
   .cs-switch{display:inline-flex;align-items:center;gap:.45rem;padding:.12rem .2rem;border-radius:999px;cursor:pointer;user-select:none;color:color-mix(in srgb,var(--text) 85%, transparent);transition:color .16s ease}
@@ -14684,6 +14714,9 @@ function rebuildSiteUI() {
   @media (max-width:720px){
     .cs-section-description{text-align:left}
     .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset,.cs-link-list{--cs-editor-row-gap:.5rem}
+    .cs-repo-grid,.cs-repo-path{flex-wrap:wrap}
+    .cs-repo-path,.cs-repo-field-group--branch{flex:1 1 100%}
+    .cs-repo-field-group--owner,.cs-repo-field-group--name{flex:1 1 calc(50% - .4rem)}
     .cs-localized-row--grid{grid-template-columns:1fr;gap:.35rem}
     .cs-localized-row--grid .cs-remove-lang{justify-self:flex-start}
     .cs-identity-grid{gap:.5rem}
