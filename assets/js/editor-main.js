@@ -571,23 +571,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const editorLayoutEl = document.getElementById('mode-editor');
   const editorMainEl = editorLayoutEl ? editorLayoutEl.querySelector('.editor-main') : null;
   const editorEmptyStateEl = document.getElementById('editorEmptyState');
+  const editorMarkdownPanelEl = document.getElementById('editorMarkdownPanel');
   let wrapEnabled = false;
 
   const applyEditorEmptyState = (isEmpty) => {
     const empty = !!isEmpty;
-    if (editorLayoutEl) editorLayoutEl.classList.toggle('is-empty', empty);
+    if (editorLayoutEl) {
+      editorLayoutEl.classList.remove('is-empty');
+      editorLayoutEl.toggleAttribute('data-current-file', !empty);
+    }
     if (editorMainEl) {
-      if (empty) editorMainEl.setAttribute('hidden', '');
-      else editorMainEl.removeAttribute('hidden');
+      editorMainEl.removeAttribute('hidden');
+    }
+    if (editorMarkdownPanelEl) {
+      if (empty) {
+        editorMarkdownPanelEl.setAttribute('hidden', '');
+        editorMarkdownPanelEl.setAttribute('aria-hidden', 'true');
+      } else {
+        editorMarkdownPanelEl.removeAttribute('hidden');
+        editorMarkdownPanelEl.removeAttribute('aria-hidden');
+      }
     }
     if (editorEmptyStateEl) {
-      if (empty) {
-        editorEmptyStateEl.removeAttribute('hidden');
-        editorEmptyStateEl.removeAttribute('aria-hidden');
-      } else {
-        editorEmptyStateEl.setAttribute('hidden', '');
-        editorEmptyStateEl.setAttribute('aria-hidden', 'true');
-      }
+      editorEmptyStateEl.setAttribute('hidden', '');
+      editorEmptyStateEl.setAttribute('aria-hidden', 'true');
     }
   };
   applyEditorEmptyState(true);

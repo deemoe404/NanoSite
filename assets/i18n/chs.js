@@ -85,9 +85,52 @@ const translations = {
         dynamicTabsAria: '打开编辑器标签'
       },
       modes: {
-        composer: '编排器',
+        composer: '站点设置',
         editor: '编辑器',
         updates: '系统更新'
+      },
+      tree: {
+        aria: '内容文件',
+        title: '内容',
+        subtitle: '文章和页面',
+        addArticle: '文章',
+        addPage: '页面',
+        treeAria: '内容文件树',
+        kicker: '内容结构',
+        emptyTitle: '选择一个节点',
+        emptyMeta: '在文件树中选择条目来管理结构，或编辑 Markdown 文件。',
+        articles: '文章',
+        pages: '页面',
+        toggle: '展开/折叠',
+        rootKicker: '集合',
+        rootMeta: ({ count }) => `${count} 个条目`,
+        languages: '种语言',
+        versions: '个版本',
+        select: '选择',
+        article: '文章',
+        page: '页面',
+        articleEntry: '文章',
+        pageEntry: '页面',
+        articleEntryMeta: '管理文章语言和版本。',
+        pageEntryMeta: '管理页面语言、标题和文件。',
+        languageKicker: '文章语言',
+        languageMeta: ({ count }) => `${count} 个版本`,
+        articleFile: '文章文件',
+        pageFile: '页面文件',
+        addLanguage: '添加语言',
+        addVersion: '添加版本',
+        removeLanguage: '移除语言',
+        key: '键名',
+        language: '语言',
+        fieldTitle: '标题',
+        location: '路径',
+        open: '打开',
+        remove: '移除',
+        delete: '删除',
+        version: '版本',
+        duplicateKey: '这个键名已经存在。',
+        deleteEntryConfirm: ({ label }) => `删除 ${label}？`,
+        deleteLanguageConfirm: ({ lang }) => `移除 ${lang}？`
       },
       status: {
         localLabel: '本地',
@@ -273,7 +316,7 @@ const translations = {
       editorTextareaAria: 'Markdown 源',
       empty: {
         title: '当前没有打开编辑器',
-        body: '从编排器打开 Markdown 以开始编辑。'
+        body: '从文件树中选择 Markdown 文件以开始编辑。'
       },
       composer: {
         fileSwitchAria: '文件切换',

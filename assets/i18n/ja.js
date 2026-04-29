@@ -85,9 +85,52 @@ const translations = {
         dynamicTabsAria: 'エディタータブを開く'
       },
       modes: {
-        composer: 'コンポーザー',
+        composer: 'サイト設定',
         editor: 'エディター',
         updates: 'システム更新'
+      },
+      tree: {
+        aria: 'コンテンツファイル',
+        title: 'コンテンツ',
+        subtitle: '記事とページ',
+        addArticle: '記事',
+        addPage: 'ページ',
+        treeAria: 'コンテンツファイルツリー',
+        kicker: 'コンテンツ構造',
+        emptyTitle: 'ノードを選択',
+        emptyMeta: 'ツリーから項目を選んで構造を管理するか、Markdown ファイルを編集します。',
+        articles: '記事',
+        pages: 'ページ',
+        toggle: '開閉',
+        rootKicker: 'コレクション',
+        rootMeta: ({ count }) => `${count} 件`,
+        languages: '言語',
+        versions: 'バージョン',
+        select: '選択',
+        article: '記事',
+        page: 'ページ',
+        articleEntry: '記事',
+        pageEntry: 'ページ',
+        articleEntryMeta: '記事の言語とバージョンを管理します。',
+        pageEntryMeta: 'ページの言語、タイトル、ファイルを管理します。',
+        languageKicker: '記事の言語',
+        languageMeta: ({ count }) => `${count} バージョン`,
+        articleFile: '記事ファイル',
+        pageFile: 'ページファイル',
+        addLanguage: '言語を追加',
+        addVersion: 'バージョンを追加',
+        removeLanguage: '言語を削除',
+        key: 'キー',
+        language: '言語',
+        fieldTitle: 'タイトル',
+        location: 'パス',
+        open: '開く',
+        remove: '削除',
+        delete: '削除',
+        version: 'バージョン',
+        duplicateKey: 'このキーは既に存在します。',
+        deleteEntryConfirm: ({ label }) => `${label} を削除しますか？`,
+        deleteLanguageConfirm: ({ lang }) => `${lang} を削除しますか？`
       },
       status: {
         localLabel: 'ローカル',
@@ -273,7 +316,7 @@ const translations = {
       editorTextareaAria: 'Markdown ソース',
       empty: {
         title: '現在開いているエディターはありません',
-        body: 'コンポーザーから Markdown を開いて編集を開始してください。'
+        body: 'ツリーから Markdown ファイルを選択して編集を開始してください。'
       },
       composer: {
         fileSwitchAria: 'ファイル切り替え',

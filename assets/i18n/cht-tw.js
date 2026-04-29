@@ -85,9 +85,52 @@ const translations = {
         dynamicTabsAria: '開啟編輯器標籤'
       },
       modes: {
-        composer: '編排器',
+        composer: '站點設定',
         editor: '編輯器',
         updates: '系統更新'
+      },
+      tree: {
+        aria: '內容檔案',
+        title: '內容',
+        subtitle: '文章與頁面',
+        addArticle: '文章',
+        addPage: '頁面',
+        treeAria: '內容檔案樹',
+        kicker: '內容結構',
+        emptyTitle: '選擇一個節點',
+        emptyMeta: '在檔案樹中選擇項目來管理結構，或編輯 Markdown 檔案。',
+        articles: '文章',
+        pages: '頁面',
+        toggle: '展開/收合',
+        rootKicker: '集合',
+        rootMeta: ({ count }) => `${count} 個項目`,
+        languages: '種語言',
+        versions: '個版本',
+        select: '選擇',
+        article: '文章',
+        page: '頁面',
+        articleEntry: '文章',
+        pageEntry: '頁面',
+        articleEntryMeta: '管理文章語言與版本。',
+        pageEntryMeta: '管理頁面語言、標題與檔案。',
+        languageKicker: '文章語言',
+        languageMeta: ({ count }) => `${count} 個版本`,
+        articleFile: '文章檔案',
+        pageFile: '頁面檔案',
+        addLanguage: '新增語言',
+        addVersion: '新增版本',
+        removeLanguage: '移除語言',
+        key: '鍵名',
+        language: '語言',
+        fieldTitle: '標題',
+        location: '路徑',
+        open: '開啟',
+        remove: '移除',
+        delete: '刪除',
+        version: '版本',
+        duplicateKey: '這個鍵名已存在。',
+        deleteEntryConfirm: ({ label }) => `刪除 ${label}？`,
+        deleteLanguageConfirm: ({ lang }) => `移除 ${lang}？`
       },
       status: {
         localLabel: '本地',
@@ -273,7 +316,7 @@ const translations = {
       editorTextareaAria: 'Markdown 源',
       empty: {
         title: '當前沒有開啟編輯器',
-        body: '從編排器開啟 Markdown 以開始編輯。'
+        body: '從檔案樹中選擇 Markdown 檔案以開始編輯。'
       },
       composer: {
         fileSwitchAria: '檔案切換',

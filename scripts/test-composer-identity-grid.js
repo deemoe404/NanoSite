@@ -30,6 +30,108 @@ assert.doesNotMatch(
 );
 
 assert.match(
+  editorSource,
+  /data-mode="editor"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
+  'top-level editor modes should be ordered as Editor, Site Settings, and System Updates'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /localStorage\.getItem\('ns_composer_editor_state'\)/,
+  'editor entry should default to the Editor file tree instead of restoring the last Site Settings mode'
+);
+
+assert.match(
+  editorSource,
+  /data-mode="composer"[\s\S]*data-tab-label="Site Settings"[\s\S]*data-i18n="editor\.modes\.composer">Site Settings<\/span>/,
+  'composer mode should be relabeled as Site Settings'
+);
+
+assert.match(
+  editorSource,
+  /id="editorFileTree" role="tree"/,
+  'editor should render the content file tree as the primary article/page manager'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /class="editor-tree-head"|id="btnEditorAddArticle"|id="btnEditorAddPage"|data-i18n="editor\.tree\.title"|data-i18n="editor\.tree\.subtitle"/,
+  'file tree rail should not render the Content heading, subtitle, or add-entry buttons'
+);
+
+assert.doesNotMatch(
+  source,
+  /btnEditorAddArticle|btnEditorAddPage/,
+  'add article/page entry handlers should live in the root structure panels, not the tree rail'
+);
+
+assert.match(
+  source,
+  /if \(node\.kind === 'root'\) \{[\s\S]*const add = makeStructureButton\(isPages \? treeText\('addPage', 'Page'\) : treeText\('addArticle', 'Article'\)\);[\s\S]*actions\.appendChild\(add\);/,
+  'root structure panels should retain add article/page entry actions'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-file-tree-pane \{[^}]*top:\.75rem;[^}]*overflow:visible;[^}]*border-right:/,
+  'file tree pane should stick near the viewport top without reserving toolbar-height whitespace'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-file-tree-pane \{[^}]*max-height:calc\([^}]*overflow:auto/,
+  'file tree pane should not cap itself to viewport height and scroll internally'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-file-tree-pane \{[^}]*--editor-toolbar-offset/,
+  'file tree pane should not inherit markdown toolbar sticky offset'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-workspace \{[\s\S]*grid-template-columns:minmax\(0, 1fr\);[\s\S]*\.editor-workspace-meta \{[\s\S]*grid-column:1;[\s\S]*\.frontmatter-panel \{[\s\S]*position: static;/,
+  'front matter panel should always flow below the markdown editor instead of using a side rail'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-workspace-meta \{[\s\S]*order:-1;/,
+  'front matter panel should not be reordered above the markdown editor on narrow layouts'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row \{[\s\S]*min-height:1\.6rem[\s\S]*\.editor-tree-node \{[\s\S]*min-height:1\.6rem[\s\S]*padding:0 \.38rem/,
+  'file tree node controls should be the same height as the expand/collapse buttons'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-tree-row\.is-selected \{[^}]*background:/,
+  'selected file tree rows should not use a full-row highlight background'
+);
+
+assert.match(
+  editorSource,
+  /#editorFileTree \.editor-tree-row\.is-selected > button\.editor-tree-node \{ background:var\(--primary\) !important; background-color:var\(--primary\) !important; background-image:none !important; color:var\(--bg, #fff\) !important; \}/,
+  'selected file tree state should use a solid fill on the node button'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /id="modeDynamicTabs"/,
+  'editor should not render visible dynamic markdown tabs'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /data-cfile="index"|data-cfile="tabs"|id="btnAddItem"/,
+  'site settings should not expose Articles/Pages file switching or Add Post Entry controls'
+);
+
+assert.match(
   source,
   /function getComposerDiffChangeCount\(diff\) \{[\s\S]*Object\.keys\(diff\.fields\)[\s\S]*Object\.keys\(diff\.keys\)[\s\S]*diff\.orderChanged/,
   'composer file dirty badges should derive a numeric count from the current diff'
@@ -39,6 +141,54 @@ assert.match(
   source,
   /function updateFileDirtyBadge\(kind\) \{[\s\S]*const changeCount = getComposerDiffChangeCount\(diff\);[\s\S]*badge\.textContent = displayValue;[\s\S]*el\.dataset\.dirtyCount = String\(changeCount\);/,
   'composer file switch dirty badges should render the change count into the button'
+);
+
+assert.match(
+  source,
+  /import \{ buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree \} from '\.\/editor-content-tree\.js';/,
+  'composer should use the shared editor content tree model'
+);
+
+assert.match(
+  source,
+  /let activeMarkdownDocument = null;/,
+  'markdown editor should track a single active document instead of visible tab state'
+);
+
+assert.match(
+  source,
+  /treeText\('fieldTitle', 'Title'\)/,
+  'page language title fields should not reuse the tree heading translation key'
+);
+
+assert.doesNotMatch(
+  source,
+  /Apply initial state as early as possible[\s\S]*applyMode\('composer'\)/,
+  'initial editor boot should not force Site Settings before the file tree is rendered'
+);
+
+assert.match(
+  source,
+  /function getOrCreateDynamicMode\(path\) \{[\s\S]*button: null,[\s\S]*dynamicEditorTabs\.set\(modeId, data\);/,
+  'markdown document state should no longer create visible dynamic tab buttons'
+);
+
+assert.match(
+  source,
+  /function openMarkdownInEditor\(path\) \{[\s\S]*flushMarkdownDraft\(active\);[\s\S]*applyMode\(modeId\);/,
+  'switching files from the tree should flush the current markdown draft before opening the next file'
+);
+
+assert.match(
+  source,
+  /function applyMode\(mode, options = \{\}\) \{[\s\S]*mode === 'editor' && dynamicEditorTabs\.size && !options\.forceStructure/,
+  'editor structure selection should be able to bypass dynamic markdown document restoration'
+);
+
+assert.match(
+  source,
+  /function handleEditorTreeSelection\(nodeId\) \{[\s\S]*applyMode\('editor', \{ forceStructure: true \}\);[\s\S]*refreshEditorContentTree\(\);/,
+  'selecting non-file tree nodes should hide the markdown editor and show the structure panel'
 );
 
 assert.doesNotMatch(
@@ -297,6 +447,48 @@ assert.match(
   source,
   /\.ci-lang-label\{display:inline-flex;align-items:center;gap:\.35rem;line-height:1\.1;\}[\s\S]*\.ci-lang-label \.ci-lang-flag\{display:inline-grid;place-items:center;width:1\.2em;height:1\.2em;font-size:1rem;line-height:1;\}[\s\S]*\.ci-lang-label \.ci-lang-code\{display:inline-flex;align-items:center;line-height:1\.2;/,
   'index language section flags should be aligned as part of the compact heading label'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.ci-item:hover[\s\S]*transform:translateY\(-1px\)|\.ci-item:hover[\s\S]*--ci-depth-shadow:0 12px 24px|\.ci-item:hover[\s\S]*border-color:color-mix/,
+  'composer entry cards should not float, deepen shadow, or recolor border on hover'
+);
+
+assert.match(
+  source,
+  /\.ci-lang\{border:0;border-radius:0;margin:0;background:transparent;padding:\.65rem 0;\}[\s\S]*\.ci-lang\+\.ci-lang\{border-top:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\);\}/,
+  'index language sections should read as separated rows instead of nested cards'
+);
+
+assert.match(
+  source,
+  /<button class="btn-secondary ci-expand"[\s\S]*<\/button>\s*<span class="ci-head-add-lang-slot"><\/span>\s*<button class="btn-secondary ci-del">/,
+  'index add-language control should live in the entry header immediately after details'
+);
+
+assert.match(
+  source,
+  /const headAddLangSlot = \$\('\.ci-head-add-lang-slot', row\);[\s\S]*if \(headAddLangSlot\) headAddLangSlot\.innerHTML = '';[\s\S]*\(headAddLangSlot \|\| bodyInner\)\.appendChild\(addLangWrap\);/,
+  'index add-language menu should be mounted into the header slot and refreshed with the body'
+);
+
+assert.match(
+  source,
+  /const handle = target\.closest\('\.ci-grip,\.ct-grip'\);[\s\S]*if \(!handle \|\| !container\.contains\(handle\)\) return;[\s\S]*const li = handle\.closest\(keySelector\);/,
+  'composer entry reordering should start only from the visible drag handle'
+);
+
+assert.doesNotMatch(
+  source.match(/function makeDragList\(container, onReorder\) \{[\s\S]*?\nfunction buildIndexUI\(root, state\) \{/)[0],
+  /const li = target\.closest\(keySelector\);/,
+  'composer entry reordering should not treat the entire card as a drag source'
+);
+
+assert.doesNotMatch(
+  source.match(/function buildIndexUI\(root, state\) \{[\s\S]*?\nfunction buildTabsUI\(root, state\) \{/)[0],
+  /bodyInner\.appendChild\(addLangWrap\);/,
+  'index add-language control should not render at the bottom of the expanded language list'
 );
 
 assert.match(

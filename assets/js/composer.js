@@ -11,6 +11,7 @@ import {
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
+import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -80,8 +81,13 @@ const dynamicEditorTabsByPath = new Map(); // normalizedPath -> modeId
 let dynamicTabCounter = 0;
 let currentMode = null;
 let activeDynamicMode = null;
+let activeMarkdownDocument = null;
 let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
+let editorContentTree = [];
+let activeEditorTreeNodeId = 'articles';
+const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
+let editorTreeDragNodeId = '';
 
 function getDynamicTabsContainer() {
   try {
@@ -3134,6 +3140,7 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   }
 
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  refreshEditorContentTree({ preserveStructure: currentMode === tab.mode });
   try { updateUnsyncedSummary(); } catch (_) {}
 }
 
@@ -3302,6 +3309,7 @@ function updateComposerMarkdownDraftIndicators(options = {}) {
   selectors.forEach(sel => {
     $$( `${sel}[data-md-path]` ).forEach(updateElement);
   });
+  refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
 }
 
 function getStateSlice(kind) {
@@ -7722,6 +7730,7 @@ function notifyComposerChange(kind, options = {}) {
 
   updateUnsyncedSummary();
   if ((kind === 'index' || kind === 'tabs') && composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
+  if (kind === 'index' || kind === 'tabs') refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -8672,6 +8681,7 @@ function getFirstDynamicModeId() {
 }
 
 function getActiveDynamicTab() {
+  if (activeMarkdownDocument && activeMarkdownDocument.mode === activeDynamicMode) return activeMarkdownDocument;
   if (!activeDynamicMode) return null;
   const tab = dynamicEditorTabs.get(activeDynamicMode);
   return tab || null;
@@ -8682,22 +8692,19 @@ function persistDynamicEditorState() {
   try {
     const store = window.localStorage;
     if (!store) return;
-    const open = Array.from(dynamicEditorTabs.values())
-      .map((tab) => (tab && tab.path) ? tab.path : '')
-      .filter(Boolean);
-    const state = { v: 1, open };
-    if (currentMode === 'editor') state.mode = 'editor';
-    else if (currentMode && isDynamicMode(currentMode)) {
+    const state = { v: 2 };
+    if (currentMode && isDynamicMode(currentMode)) {
       const active = dynamicEditorTabs.get(currentMode);
-      state.mode = 'dynamic';
+      state.mode = 'editor';
       state.activePath = active && active.path ? active.path : null;
+    } else if (currentMode === 'composer') {
+      state.mode = 'composer';
     } else if (currentMode === 'updates') {
       state.mode = 'updates';
     } else {
-      state.mode = 'composer';
+      state.mode = 'editor';
     }
-    if (!open.length && state.mode === 'composer') store.removeItem(LS_KEYS.editorState);
-    else store.setItem(LS_KEYS.editorState, JSON.stringify(state));
+    store.setItem(LS_KEYS.editorState, JSON.stringify(state));
   } catch (_) {}
 }
 
@@ -8716,28 +8723,10 @@ function restoreDynamicEditorState() {
   catch (_) { return; }
   if (!data || typeof data !== 'object') return;
 
-  const open = Array.isArray(data.open) ? data.open : [];
-  const seen = new Set();
-  open.forEach((item) => {
-    const norm = normalizeRelPath(item);
-    if (!norm || seen.has(norm)) return;
-    seen.add(norm);
-    getOrCreateDynamicMode(norm);
-  });
-
-  const mode = (data.mode === 'editor' || data.mode === 'dynamic' || data.mode === 'updates') ? data.mode : 'composer';
-  const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
-
-  if (mode === 'dynamic' && activePath) {
-    const modeId = dynamicEditorTabsByPath.get(activePath);
-    if (modeId) {
-      applyMode(modeId);
-      return;
-    }
-  }
-
+  const mode = (data.mode === 'composer' || data.mode === 'updates') ? data.mode : 'editor';
   if (mode === 'editor') applyMode('editor');
   else if (mode === 'updates') applyMode('updates');
+  else if (mode === 'composer') applyMode('composer');
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -9255,6 +9244,7 @@ function setDynamicTabStatus(tab, status) {
   }
 
   if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
+  refreshEditorContentTree({ preserveStructure: currentMode === tab.mode });
 }
 
 async function closeDynamicTab(modeId, options = {}) {
@@ -9347,44 +9337,14 @@ function getOrCreateDynamicMode(path) {
   const existing = dynamicEditorTabsByPath.get(normalized);
   if (existing) return existing;
 
-  const nav = getDynamicTabsContainer() || $('.mode-switch');
-  if (!nav) return null;
-
   dynamicTabCounter += 1;
   const modeId = `editor-tab-${dynamicTabCounter}`;
   const label = basenameFromPath(normalized) || normalized;
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'mode-tab dynamic-mode';
-  btn.dataset.mode = modeId;
-  btn.dataset.path = normalized;
-  btn.setAttribute('role', 'tab');
-  btn.setAttribute('aria-controls', 'mode-editor');
-  btn.setAttribute('aria-selected', 'false');
-  btn.setAttribute('aria-label', `Open editor for ${normalized}`);
-  const chip = document.createElement('span');
-  chip.className = 'mode-tab-chip';
-
-  const labelEl = document.createElement('span');
-  labelEl.className = 'mode-tab-label';
-  labelEl.textContent = label;
-  chip.appendChild(labelEl);
-
-  const closeEl = document.createElement('span');
-  closeEl.className = 'mode-tab-close';
-  closeEl.setAttribute('aria-hidden', 'true');
-  closeEl.textContent = '×';
-  chip.appendChild(closeEl);
-
-  btn.appendChild(chip);
-  nav.appendChild(btn);
-  updateDynamicTabsGroupState();
-
   const data = {
     mode: modeId,
     path: normalized,
-    button: btn,
+    button: null,
     label,
     baseDir: computeBaseDirForPath(normalized),
     content: '',
@@ -9402,29 +9362,6 @@ function getOrCreateDynamicMode(path) {
   restoreMarkdownDraftForTab(data);
   dynamicEditorTabs.set(modeId, data);
   dynamicEditorTabsByPath.set(normalized, modeId);
-
-  btn.addEventListener('click', (event) => {
-    const target = event.target;
-    if (target && target.closest && target.closest('.mode-tab-close')) {
-      event.preventDefault();
-      event.stopPropagation();
-      const anchor = (target.closest && target.closest('button')) || btn;
-      closeDynamicTab(modeId, { anchor }).catch((err) => {
-        console.warn('Failed to close markdown tab', err);
-      });
-      return;
-    }
-    applyMode(modeId);
-  });
-
-  btn.addEventListener('keydown', (event) => {
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      event.preventDefault();
-      closeDynamicTab(modeId, { anchor: btn }).catch((err) => {
-        console.warn('Failed to close markdown tab', err);
-      });
-    }
-  });
 
   loadDynamicTabContent(data).catch(() => {});
 
@@ -9513,12 +9450,17 @@ async function loadDynamicTabContent(tab) {
 }
 
 function openMarkdownInEditor(path) {
+  const active = getActiveDynamicTab();
+  if (active && active.path && normalizeRelPath(active.path) !== normalizeRelPath(path)) {
+    try { flushMarkdownDraft(active); } catch (_) {}
+  }
   const modeId = getOrCreateDynamicMode(path);
   if (!modeId) {
     alert('Unable to open editor tab.');
     return;
   }
   applyMode(modeId);
+  try { selectEditorTreeNodeByPath(path); } catch (_) {}
 }
 
 // Default Markdown template for new post files (index.yaml related flows)
@@ -9558,8 +9500,8 @@ function getDefaultMarkdownForPath(relPath) {
   }
 }
 
-function applyMode(mode) {
-  if (mode === 'editor' && dynamicEditorTabs.size) {
+function applyMode(mode, options = {}) {
+  if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure) {
     const firstDynamicMode = getFirstDynamicModeId();
     if (firstDynamicMode) {
       applyMode(firstDynamicMode);
@@ -9627,11 +9569,15 @@ function applyMode(mode) {
 
   if (nextMode === 'composer') {
     activeDynamicMode = null;
+    activeMarkdownDocument = null;
+    setEditorStructurePanelVisible(true);
     pushEditorCurrentFileInfo(null);
   } else if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
     const tab = dynamicEditorTabs.get(nextMode);
+    activeMarkdownDocument = tab || null;
+    setEditorStructurePanelVisible(false);
     if (tab && editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       try {
@@ -9675,6 +9621,8 @@ function applyMode(mode) {
     }
   } else if (nextMode === 'editor') {
     activeDynamicMode = null;
+    activeMarkdownDocument = null;
+    setEditorStructurePanelVisible(true);
     if (editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       scheduleEditorLayoutRefresh();
@@ -9682,6 +9630,8 @@ function applyMode(mode) {
     pushEditorCurrentFileInfo(null);
   } else {
     activeDynamicMode = null;
+    activeMarkdownDocument = null;
+    setEditorStructurePanelVisible(true);
     pushEditorCurrentFileInfo(null);
   }
 
@@ -9697,9 +9647,9 @@ function applyMode(mode) {
 function getInitialComposerFile() {
   try {
     const v = (localStorage.getItem(LS_KEYS.cfile) || '').toLowerCase();
-    if (v === 'tabs' || v === 'index' || v === 'site') return v;
+    if (v === 'site') return v;
   } catch (_) {}
-  return 'index';
+  return 'site';
 }
 
 function cancelComposerViewTransition() {
@@ -9884,7 +9834,7 @@ function applyComposerFile(name, options = {}) {
 
 // Apply initial state as early as possible to avoid flash on reload
 (() => {
-  try { applyMode('composer'); } catch (_) {}
+  try { applyMode('editor'); } catch (_) {}
   try { applyComposerFile(getInitialComposerFile(), { immediate: true, force: true }); } catch (_) {}
   try { updateDynamicTabsGroupState(); } catch (_) {}
 })();
@@ -10213,8 +10163,10 @@ function makeDragList(container, onReorder) {
   const onPointerDown = (e) => {
     if (e.button !== 0 && e.pointerType !== 'touch') return; // left click or touch only
     const target = e.target;
+    const handle = target.closest('.ci-grip,.ct-grip');
+    if (!handle || !container.contains(handle)) return;
     if (target.closest('button, input, textarea, select, a')) return; // don't start drag from controls
-    const li = target.closest(keySelector);
+    const li = handle.closest(keySelector);
     if (!li || !container.contains(li)) return;
 
     e.preventDefault();
@@ -10261,7 +10213,7 @@ function makeDragList(container, onReorder) {
     document.body.classList.add('ns-noselect');
     document.body.appendChild(li);
 
-    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp, { once: true });
   };
@@ -10343,6 +10295,670 @@ function makeDragList(container, onReorder) {
   container.addEventListener('pointerdown', onPointerDown);
 }
 
+function treeText(key, fallback, params) {
+  const fullKey = `editor.tree.${key}`;
+  const value = t(fullKey, params);
+  return value && value !== fullKey ? value : fallback;
+}
+
+function setEditorStructurePanelVisible(visible) {
+  const panel = document.getElementById('editorStructurePanel');
+  if (!panel) return;
+  if (visible) {
+    panel.removeAttribute('hidden');
+    panel.removeAttribute('aria-hidden');
+  } else {
+    panel.setAttribute('hidden', '');
+    panel.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function collectEditorDraftStatusMap() {
+  const map = new Map();
+  try {
+    const store = readMarkdownDraftStore();
+    Object.keys(store || {}).forEach((key) => {
+      const path = normalizeRelPath(key);
+      if (path && store[key] && store[key].content) map.set(path, 'saved');
+    });
+  } catch (_) {}
+  try {
+    collectDynamicMarkdownDraftStates().forEach((value, key) => {
+      if (key && value) map.set(key, value);
+    });
+  } catch (_) {}
+  return map;
+}
+
+function collectEditorFileStatusMap() {
+  const map = new Map();
+  try {
+    dynamicEditorTabs.forEach((tab) => {
+      if (!tab || !tab.path || !tab.fileStatus) return;
+      const state = tab.fileStatus.state || '';
+      if (state) map.set(normalizeRelPath(tab.path), state);
+    });
+  } catch (_) {}
+  return map;
+}
+
+function collectEditorDiffStatusMap() {
+  const map = new Map();
+  const add = (id, value) => {
+    if (id && value) map.set(id, value);
+  };
+  const applyDiff = (source, diff) => {
+    if (!diff) return;
+    (diff.addedKeys || []).forEach(key => add(`${source}:${key}`, 'added'));
+    (diff.removedKeys || []).forEach(key => add(`${source}:${key}`, 'removed'));
+    Object.keys(diff.keys || {}).forEach((key) => {
+      const info = diff.keys[key] || {};
+      add(`${source}:${key}`, info.state || 'modified');
+      Object.keys(info.langs || {}).forEach((lang) => {
+        const detail = info.langs[lang] || {};
+        add(`${source}:${key}:${lang}`, detail.state || 'modified');
+      });
+    });
+  };
+  applyDiff('index', composerDiffCache.index);
+  applyDiff('tabs', composerDiffCache.tabs);
+  return map;
+}
+
+function buildCurrentEditorTree() {
+  return buildEditorContentTree({
+    index: getStateSlice('index') || { __order: [] },
+    tabs: getStateSlice('tabs') || { __order: [] }
+  }, {
+    preferredLangs: PREFERRED_LANG_ORDER,
+    articlesLabel: treeText('articles', 'Articles'),
+    pagesLabel: treeText('pages', 'Pages'),
+    draftStates: collectEditorDraftStatusMap(),
+    diffStates: collectEditorDiffStatusMap(),
+    fileStates: collectEditorFileStatusMap()
+  });
+}
+
+function getActiveEditorTreeNode() {
+  return findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)
+    || findEditorContentTreeNode(editorContentTree, 'articles')
+    || (editorContentTree[0] || null);
+}
+
+function expandEditorAncestors(node) {
+  if (!node) return;
+  if (node.id === 'articles' || node.id === 'pages') {
+    expandedEditorTreeNodeIds.add(node.id);
+    return;
+  }
+  const parts = String(node.id || '').split(':');
+  const root = parts[0] === 'tabs' ? 'pages' : 'articles';
+  expandedEditorTreeNodeIds.add(root);
+  if (parts.length >= 2) expandedEditorTreeNodeIds.add(`${parts[0]}:${parts[1]}`);
+  if (parts.length >= 3 && parts[0] === 'index') expandedEditorTreeNodeIds.add(`${parts[0]}:${parts[1]}:${parts[2]}`);
+}
+
+function selectEditorTreeNodeByPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  const node = flattenEditorContentTree(editorContentTree).find(item => item && item.path === normalized);
+  if (!node) return null;
+  activeEditorTreeNodeId = node.id;
+  expandEditorAncestors(node);
+  refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
+  return node;
+}
+
+function refreshEditorContentTree(options = {}) {
+  const treeEl = document.getElementById('editorFileTree');
+  if (!treeEl) return;
+  editorContentTree = buildCurrentEditorTree();
+  if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'articles';
+  renderEditorFileTree(treeEl);
+  if (!options.preserveStructure) renderEditorStructurePanel(getActiveEditorTreeNode());
+}
+
+function renderEditorFileTree(root) {
+  root.innerHTML = '';
+  const selectedId = activeEditorTreeNodeId;
+  const renderNode = (node, depth) => {
+    if (!node) return;
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const row = document.createElement('div');
+    row.className = 'editor-tree-row';
+    row.dataset.nodeId = node.id;
+    row.dataset.kind = node.kind || '';
+    row.dataset.source = node.source || '';
+    row.style.paddingLeft = `${Math.max(0, depth) * 0.8}rem`;
+    row.classList.toggle('is-selected', node.id === selectedId);
+    if ((node.kind === 'entry' && node.source) || (node.kind === 'file' && node.source === 'index')) row.draggable = true;
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = hasChildren ? 'editor-tree-toggle' : 'editor-tree-toggle editor-tree-spacer';
+    toggle.tabIndex = hasChildren ? 0 : -1;
+    if (hasChildren) {
+      toggle.setAttribute('aria-label', treeText('toggle', 'Toggle'));
+      toggle.setAttribute('aria-expanded', expandedEditorTreeNodeIds.has(node.id) ? 'true' : 'false');
+      const caret = document.createElement('span');
+      caret.className = 'editor-tree-caret';
+      caret.setAttribute('aria-hidden', 'true');
+      toggle.appendChild(caret);
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (expandedEditorTreeNodeIds.has(node.id)) expandedEditorTreeNodeIds.delete(node.id);
+        else expandedEditorTreeNodeIds.add(node.id);
+        refreshEditorContentTree({ preserveStructure: true });
+      });
+    } else {
+      toggle.setAttribute('aria-hidden', 'true');
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'editor-tree-node';
+    button.setAttribute('role', 'treeitem');
+    button.setAttribute('aria-selected', node.id === selectedId ? 'true' : 'false');
+    button.dataset.nodeId = node.id;
+    const label = document.createElement('span');
+    label.className = 'editor-tree-label';
+    label.textContent = node.label || node.id;
+    button.appendChild(label);
+    if (node.path) {
+      const path = document.createElement('span');
+      path.className = 'editor-tree-path';
+      path.textContent = node.path;
+      button.appendChild(path);
+    }
+    button.addEventListener('click', () => handleEditorTreeSelection(node.id));
+
+    const badges = document.createElement('span');
+    badges.className = 'editor-tree-badges';
+    [node.draftState, node.diffState, node.fileState].filter(Boolean).slice(0, 3).forEach((state) => {
+      const badge = document.createElement('span');
+      badge.className = 'editor-tree-badge';
+      badge.dataset.state = state;
+      badge.title = state;
+      badges.appendChild(badge);
+    });
+
+    row.appendChild(toggle);
+    row.appendChild(button);
+    row.appendChild(badges);
+    bindEditorTreeDrag(row, node);
+    root.appendChild(row);
+
+    if (hasChildren && expandedEditorTreeNodeIds.has(node.id)) node.children.forEach(child => renderNode(child, depth + 1));
+  };
+  editorContentTree.forEach(node => renderNode(node, 0));
+}
+
+function bindEditorTreeDrag(row, node) {
+  if (!row || !node || !row.draggable) return;
+  row.addEventListener('dragstart', (event) => {
+    editorTreeDragNodeId = node.id;
+    try { event.dataTransfer.effectAllowed = 'move'; } catch (_) {}
+  });
+  row.addEventListener('dragend', () => {
+    editorTreeDragNodeId = '';
+    $$('.editor-tree-row.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+  });
+  row.addEventListener('dragover', (event) => {
+    if (!editorTreeDragNodeId || editorTreeDragNodeId === node.id) return;
+    if (!canMoveEditorTreeNode(editorTreeDragNodeId, node.id)) return;
+    event.preventDefault();
+    row.classList.add('is-drop-target');
+    try { event.dataTransfer.dropEffect = 'move'; } catch (_) {}
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
+  row.addEventListener('drop', (event) => {
+    if (!editorTreeDragNodeId || editorTreeDragNodeId === node.id) return;
+    event.preventDefault();
+    row.classList.remove('is-drop-target');
+    moveEditorTreeNode(editorTreeDragNodeId, node.id);
+    editorTreeDragNodeId = '';
+  });
+}
+
+function canMoveEditorTreeNode(fromId, toId) {
+  const from = findEditorContentTreeNode(editorContentTree, fromId);
+  const to = findEditorContentTreeNode(editorContentTree, toId);
+  if (!from || !to) return false;
+  if (from.kind === 'entry' && to.kind === 'entry') return from.source === to.source;
+  if (from.kind === 'file' && to.kind === 'file' && from.source === 'index' && to.source === 'index') {
+    return from.key === to.key && from.lang === to.lang;
+  }
+  return false;
+}
+
+function moveEditorTreeNode(fromId, toId) {
+  if (!canMoveEditorTreeNode(fromId, toId)) return;
+  const from = findEditorContentTreeNode(editorContentTree, fromId);
+  const to = findEditorContentTreeNode(editorContentTree, toId);
+  if (from.kind === 'entry') {
+    const state = getStateSlice(from.source) || {};
+    if (!Array.isArray(state.__order)) state.__order = Object.keys(state).filter(key => key !== '__order');
+    const fromIndex = state.__order.indexOf(from.key);
+    const toIndex = state.__order.indexOf(to.key);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+    state.__order.splice(fromIndex, 1);
+    state.__order.splice(toIndex, 0, from.key);
+    notifyComposerChange(from.source);
+    activeEditorTreeNodeId = from.id;
+    refreshEditorContentTree();
+    return;
+  }
+  const entry = getIndexEntry(from.key);
+  const arr = Array.isArray(entry[from.lang]) ? entry[from.lang] : [];
+  const fromIndex = Number(from.versionIndex);
+  const toIndex = Number(to.versionIndex);
+  if (!Number.isFinite(fromIndex) || !Number.isFinite(toIndex) || fromIndex === toIndex) return;
+  const [item] = arr.splice(fromIndex, 1);
+  arr.splice(toIndex, 0, item);
+  entry[from.lang] = arr;
+  notifyComposerChange('index');
+  activeEditorTreeNodeId = `index:${from.key}:${from.lang}:${toIndex}`;
+  refreshEditorContentTree();
+}
+
+function handleEditorTreeSelection(nodeId) {
+  const node = findEditorContentTreeNode(editorContentTree, nodeId);
+  if (!node) return;
+  activeEditorTreeNodeId = node.id;
+  expandEditorAncestors(node);
+  if (node.kind === 'file' && node.path) {
+    refreshEditorContentTree({ preserveStructure: true });
+    openMarkdownInEditor(node.path);
+    return;
+  }
+  applyMode('editor', { forceStructure: true });
+  setEditorStructurePanelVisible(true);
+  refreshEditorContentTree();
+}
+
+function getIndexEntry(key) {
+  const state = getStateSlice('index') || {};
+  if (!state[key] || typeof state[key] !== 'object') state[key] = {};
+  return state[key];
+}
+
+function getTabsEntry(key) {
+  const state = getStateSlice('tabs') || {};
+  if (!state[key] || typeof state[key] !== 'object') state[key] = {};
+  return state[key];
+}
+
+function validateEntryKey(value) {
+  const key = String(value || '').trim();
+  if (!key) return '';
+  return /^[A-Za-z0-9_-]+$/.test(key) ? key : '';
+}
+
+function renameEditorEntry(source, oldKey, nextKeyRaw) {
+  const nextKey = validateEntryKey(nextKeyRaw);
+  if (!nextKey || nextKey === oldKey) return false;
+  const state = getStateSlice(source) || {};
+  if (Object.prototype.hasOwnProperty.call(state, nextKey)) {
+    showToast('warn', treeText('duplicateKey', 'That key already exists.'));
+    return false;
+  }
+  state[nextKey] = state[oldKey];
+  delete state[oldKey];
+  if (Array.isArray(state.__order)) state.__order = state.__order.map(key => (key === oldKey ? nextKey : key));
+  notifyComposerChange(source);
+  activeEditorTreeNodeId = `${source}:${nextKey}`;
+  refreshEditorContentTree();
+  return true;
+}
+
+function deleteEditorEntry(source, key) {
+  const state = getStateSlice(source) || {};
+  const label = source === 'tabs' ? treeText('page', 'page') : treeText('article', 'article');
+  const message = treeText('deleteEntryConfirm', `Delete this ${label}?`, { label: key });
+  let ok = true;
+  try { ok = window.confirm(message); } catch (_) {}
+  if (!ok) return;
+  delete state[key];
+  if (Array.isArray(state.__order)) state.__order = state.__order.filter(item => item !== key);
+  notifyComposerChange(source);
+  activeEditorTreeNodeId = source === 'tabs' ? 'pages' : 'articles';
+  refreshEditorContentTree();
+}
+
+function addEditorLanguage(source, key, lang) {
+  const code = normalizeLangCode(lang);
+  if (!code) return;
+  if (source === 'tabs') {
+    const entry = getTabsEntry(key);
+    if (entry[code]) return;
+    entry[code] = { title: key, location: buildDefaultLanguagePathFromEntry('tabs', key, code, entry) };
+    notifyComposerChange('tabs');
+    activeEditorTreeNodeId = `tabs:${key}`;
+  } else {
+    const entry = getIndexEntry(key);
+    if (entry[code]) return;
+    entry[code] = [buildDefaultLanguagePathFromEntry('index', key, code, entry)];
+    notifyComposerChange('index');
+    activeEditorTreeNodeId = `index:${key}:${code}`;
+  }
+  expandedEditorTreeNodeIds.add(`${source}:${key}`);
+  refreshEditorContentTree();
+}
+
+function removeEditorLanguage(source, key, lang) {
+  const entry = source === 'tabs' ? getTabsEntry(key) : getIndexEntry(key);
+  if (!entry[lang]) return;
+  const message = treeText('deleteLanguageConfirm', 'Remove this language?', { lang: lang.toUpperCase() });
+  let ok = true;
+  try { ok = window.confirm(message); } catch (_) {}
+  if (!ok) return;
+  delete entry[lang];
+  notifyComposerChange(source);
+  activeEditorTreeNodeId = `${source}:${key}`;
+  refreshEditorContentTree();
+}
+
+function suggestNextVersionPath(key, lang) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
+  const fallback = buildDefaultLanguagePathFromEntry('index', key, lang, entry);
+  const base = arr[arr.length - 1] || fallback;
+  const nextVersion = `v${arr.length + 1}.0.0`;
+  if (/(^|\/)v\d+(?:\.\d+)*(?=\/|$)/i.test(base)) {
+    return String(base).replace(/(^|\/)v\d+(?:\.\d+)*(?=\/|$)/i, `$1${nextVersion}`);
+  }
+  const normalized = normalizeRelPath(base || fallback);
+  const idx = normalized.lastIndexOf('/');
+  if (idx < 0) return `post/${key}/${nextVersion}/${basenameFromPath(normalized) || `main_${lang}.md`}`;
+  return `${normalized.slice(0, idx)}/${nextVersion}/${normalized.slice(idx + 1)}`;
+}
+
+function addEditorVersion(key, lang) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : (entry[lang] ? [entry[lang]] : []);
+  arr.push(suggestNextVersionPath(key, lang));
+  entry[lang] = arr;
+  notifyComposerChange('index');
+  expandedEditorTreeNodeIds.add(`index:${key}`);
+  expandedEditorTreeNodeIds.add(`index:${key}:${lang}`);
+  activeEditorTreeNodeId = `index:${key}:${lang}`;
+  refreshEditorContentTree();
+}
+
+function removeEditorVersion(key, lang, index) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
+  if (!arr[index]) return;
+  arr.splice(index, 1);
+  entry[lang] = arr;
+  notifyComposerChange('index');
+  activeEditorTreeNodeId = `index:${key}:${lang}`;
+  refreshEditorContentTree();
+}
+
+function moveEditorVersion(key, lang, index, delta) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
+  const next = index + delta;
+  if (next < 0 || next >= arr.length) return;
+  [arr[index], arr[next]] = [arr[next], arr[index]];
+  entry[lang] = arr;
+  notifyComposerChange('index');
+  activeEditorTreeNodeId = `index:${key}:${lang}:${next}`;
+  refreshEditorContentTree();
+}
+
+function availableLanguageCodes(entry) {
+  return PREFERRED_LANG_ORDER.filter(code => !entry || !entry[code]);
+}
+
+function makeStructureButton(label, className = 'btn-secondary') {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = className;
+  btn.textContent = label;
+  return btn;
+}
+
+function renderStructureItem(label, detail, onOpen) {
+  const item = document.createElement('div');
+  item.className = 'editor-structure-item';
+  const main = document.createElement('div');
+  main.className = 'editor-structure-item-main';
+  const title = document.createElement('span');
+  title.className = 'editor-structure-item-title';
+  title.textContent = label || '';
+  const meta = document.createElement('span');
+  meta.className = 'editor-structure-item-meta';
+  meta.textContent = detail || '';
+  main.appendChild(title);
+  main.appendChild(meta);
+  const controls = document.createElement('div');
+  controls.className = 'editor-structure-item-actions';
+  const open = makeStructureButton(treeText('select', 'Select'));
+  open.addEventListener('click', onOpen);
+  controls.appendChild(open);
+  item.appendChild(main);
+  item.appendChild(controls);
+  return item;
+}
+
+function appendLanguageSelector(actions, source, key, entry) {
+  const available = availableLanguageCodes(entry);
+  if (!available.length) return;
+  const select = document.createElement('select');
+  select.setAttribute('aria-label', treeText('language', 'Language'));
+  available.forEach((code) => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = displayLangName(code);
+    select.appendChild(opt);
+  });
+  const add = makeStructureButton(treeText('addLanguage', 'Add language'));
+  add.addEventListener('click', () => addEditorLanguage(source, key, select.value));
+  actions.appendChild(select);
+  actions.appendChild(add);
+}
+
+function renderEditorStructurePanel(node) {
+  const title = document.getElementById('editorStructureTitle');
+  const kicker = document.getElementById('editorStructureKicker');
+  const meta = document.getElementById('editorStructureMeta');
+  const actions = document.getElementById('editorStructureActions');
+  const body = document.getElementById('editorStructureBody');
+  if (!title || !kicker || !meta || !actions || !body) return;
+  actions.innerHTML = '';
+  body.innerHTML = '';
+  setEditorStructurePanelVisible(true);
+
+  if (!node) {
+    kicker.textContent = treeText('kicker', 'Content structure');
+    title.textContent = treeText('emptyTitle', 'Select a node');
+    meta.textContent = treeText('emptyMeta', 'Choose an item in the tree to manage its structure or edit a Markdown file.');
+    return;
+  }
+
+  if (node.kind === 'root') {
+    const isPages = node.source === 'tabs';
+    kicker.textContent = treeText('rootKicker', 'Collection');
+    title.textContent = node.label || (isPages ? treeText('pages', 'Pages') : treeText('articles', 'Articles'));
+    meta.textContent = treeText('rootMeta', `${node.children.length} items`, { count: node.children.length });
+    const add = makeStructureButton(isPages ? treeText('addPage', 'Page') : treeText('addArticle', 'Article'));
+    add.addEventListener('click', () => {
+      const kind = isPages ? 'tabs' : 'index';
+      addComposerEntry(kind, add).then((key) => {
+        if (key) handleEditorTreeSelection(`${kind}:${key}`);
+      }).catch((err) => console.error('Failed to add entry from structure panel', err));
+    });
+    actions.appendChild(add);
+    const list = document.createElement('div');
+    list.className = 'editor-structure-list';
+    node.children.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
+    body.appendChild(list);
+    return;
+  }
+
+  if (node.kind === 'entry') {
+    renderEditorEntryPanel(node, { title, kicker, meta, actions, body });
+    return;
+  }
+
+  if (node.kind === 'language') {
+    renderEditorLanguagePanel(node, { title, kicker, meta, actions, body });
+    return;
+  }
+
+  if (node.kind === 'file') {
+    kicker.textContent = node.source === 'tabs' ? treeText('pageFile', 'Page file') : treeText('articleFile', 'Article file');
+    title.textContent = node.label || basenameFromPath(node.path);
+    meta.textContent = node.path || '';
+  }
+}
+
+function renderEditorEntryPanel(node, refs) {
+  const isPages = node.source === 'tabs';
+  const entry = isPages ? getTabsEntry(node.key) : getIndexEntry(node.key);
+  refs.kicker.textContent = isPages ? treeText('pageEntry', 'Page') : treeText('articleEntry', 'Article');
+  refs.title.textContent = node.key;
+  refs.meta.textContent = isPages
+    ? treeText('pageEntryMeta', 'Manage page languages, titles, and files.')
+    : treeText('articleEntryMeta', 'Manage article languages and versions.');
+  appendLanguageSelector(refs.actions, node.source, node.key, entry);
+  const del = makeStructureButton(treeText('delete', 'Delete'));
+  del.addEventListener('click', () => deleteEditorEntry(node.source, node.key));
+  refs.actions.appendChild(del);
+
+  const keyRow = document.createElement('div');
+  keyRow.className = 'editor-structure-row';
+  const keyLabel = document.createElement('label');
+  keyLabel.textContent = treeText('key', 'Key');
+  const keyInput = document.createElement('input');
+  keyInput.value = node.key;
+  keyInput.addEventListener('change', () => renameEditorEntry(node.source, node.key, keyInput.value));
+  keyRow.appendChild(keyLabel);
+  keyRow.appendChild(keyInput);
+  keyRow.appendChild(document.createElement('span'));
+  refs.body.appendChild(keyRow);
+
+  const list = document.createElement('div');
+  list.className = 'editor-structure-list';
+  sortLangKeys(entry).forEach((lang) => {
+    if (isPages) list.appendChild(renderPageLanguageStructure(node.key, lang, entry[lang]));
+    else {
+      const arr = Array.isArray(entry[lang]) ? entry[lang] : (entry[lang] ? [entry[lang]] : []);
+      list.appendChild(renderStructureItem(displayLangName(lang), `${arr.length} ${treeText('versions', 'versions')}`, () => handleEditorTreeSelection(`index:${node.key}:${lang}`)));
+    }
+  });
+  refs.body.appendChild(list);
+}
+
+function renderPageLanguageStructure(key, lang, value) {
+  const entry = value && typeof value === 'object' ? value : { title: '', location: String(value || '') };
+  const item = document.createElement('div');
+  item.className = 'editor-structure-item';
+  const main = document.createElement('div');
+  main.className = 'editor-structure-item-main';
+  const label = document.createElement('span');
+  label.className = 'editor-structure-item-title';
+  label.textContent = displayLangName(lang);
+  const meta = document.createElement('span');
+  meta.className = 'editor-structure-item-meta';
+  meta.textContent = entry.location || '';
+  main.appendChild(label);
+  main.appendChild(meta);
+  const controls = document.createElement('div');
+  controls.className = 'editor-structure-item-actions';
+  const titleInput = document.createElement('input');
+  titleInput.value = entry.title || '';
+  titleInput.setAttribute('aria-label', treeText('fieldTitle', 'Title'));
+  titleInput.addEventListener('change', () => {
+    const tabEntry = getTabsEntry(key);
+    tabEntry[lang] = tabEntry[lang] || {};
+    tabEntry[lang].title = titleInput.value;
+    notifyComposerChange('tabs');
+    refreshEditorContentTree();
+  });
+  const pathInput = document.createElement('input');
+  pathInput.value = entry.location || '';
+  pathInput.setAttribute('aria-label', treeText('location', 'Location'));
+  pathInput.addEventListener('change', () => {
+    const tabEntry = getTabsEntry(key);
+    tabEntry[lang] = tabEntry[lang] || {};
+    tabEntry[lang].location = normalizeRelPath(pathInput.value);
+    notifyComposerChange('tabs');
+    refreshEditorContentTree();
+  });
+  const open = makeStructureButton(treeText('open', 'Open'));
+  open.addEventListener('click', () => openMarkdownInEditor(entry.location || pathInput.value));
+  const remove = makeStructureButton(treeText('remove', 'Remove'));
+  remove.addEventListener('click', () => removeEditorLanguage('tabs', key, lang));
+  controls.appendChild(titleInput);
+  controls.appendChild(pathInput);
+  controls.appendChild(open);
+  controls.appendChild(remove);
+  item.appendChild(main);
+  item.appendChild(controls);
+  return item;
+}
+
+function renderEditorLanguagePanel(node, refs) {
+  const entry = getIndexEntry(node.key);
+  const arr = Array.isArray(entry[node.lang]) ? entry[node.lang] : (entry[node.lang] ? [entry[node.lang]] : []);
+  entry[node.lang] = arr;
+  refs.kicker.textContent = treeText('languageKicker', 'Article language');
+  refs.title.textContent = `${node.key} / ${displayLangName(node.lang)}`;
+  refs.meta.textContent = treeText('languageMeta', `${arr.length} versions`, { count: arr.length });
+  const add = makeStructureButton(treeText('addVersion', 'Add version'));
+  add.addEventListener('click', () => addEditorVersion(node.key, node.lang));
+  const removeLang = makeStructureButton(treeText('removeLanguage', 'Remove language'));
+  removeLang.addEventListener('click', () => removeEditorLanguage('index', node.key, node.lang));
+  refs.actions.appendChild(add);
+  refs.actions.appendChild(removeLang);
+
+  const list = document.createElement('div');
+  list.className = 'editor-structure-list';
+  arr.forEach((path, index) => {
+    const item = document.createElement('div');
+    item.className = 'editor-structure-item';
+    const main = document.createElement('div');
+    main.className = 'editor-structure-item-main';
+    const label = document.createElement('span');
+    label.className = 'editor-structure-item-title';
+    label.textContent = extractVersionFromPath(path) || `${treeText('version', 'Version')} ${index + 1}`;
+    const input = document.createElement('input');
+    input.value = path || '';
+    input.setAttribute('aria-label', treeText('location', 'Location'));
+    input.addEventListener('change', () => {
+      arr[index] = normalizeRelPath(input.value);
+      entry[node.lang] = arr.slice();
+      notifyComposerChange('index');
+      refreshEditorContentTree();
+    });
+    main.appendChild(label);
+    main.appendChild(input);
+    const controls = document.createElement('div');
+    controls.className = 'editor-structure-item-actions';
+    const open = makeStructureButton(treeText('open', 'Open'));
+    open.addEventListener('click', () => openMarkdownInEditor(arr[index]));
+    const up = makeStructureButton('↑');
+    up.disabled = index === 0;
+    up.addEventListener('click', () => moveEditorVersion(node.key, node.lang, index, -1));
+    const down = makeStructureButton('↓');
+    down.disabled = index === arr.length - 1;
+    down.addEventListener('click', () => moveEditorVersion(node.key, node.lang, index, 1));
+    const remove = makeStructureButton(treeText('remove', 'Remove'));
+    remove.addEventListener('click', () => removeEditorVersion(node.key, node.lang, index));
+    controls.appendChild(open);
+    controls.appendChild(up);
+    controls.appendChild(down);
+    controls.appendChild(remove);
+    item.appendChild(main);
+    item.appendChild(controls);
+    list.appendChild(item);
+  });
+  refs.body.appendChild(list);
+}
+
 function buildIndexUI(root, state) {
   root.innerHTML = '';
   const list = document.createElement('div');
@@ -10371,6 +10987,7 @@ function buildIndexUI(root, state) {
         <span class="ci-diff" aria-live="polite"></span>
         <span class="ci-actions">
           <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>${escapeHtml(detailsLabel)}</button>
+          <span class="ci-head-add-lang-slot"></span>
           <button class="btn-secondary ci-del">${escapeHtml(deleteLabel)}</button>
         </span>
       </div>
@@ -10380,6 +10997,7 @@ function buildIndexUI(root, state) {
 
     const body = $('.ci-body', row);
     const bodyInner = $('.ci-body-inner', row);
+    const headAddLangSlot = $('.ci-head-add-lang-slot', row);
     const btnExpand = $('.ci-expand', row);
     const btnDel = $('.ci-del', row);
     if (btnExpand) btnExpand.setAttribute('title', detailsLabel);
@@ -10393,6 +11011,7 @@ function buildIndexUI(root, state) {
 
     const renderBody = () => {
       bodyInner.innerHTML = '';
+      if (headAddLangSlot) headAddLangSlot.innerHTML = '';
       const langs = sortLangKeys(entry);
       const addVersionLabel = tComposerLang('addVersion');
       const removeLangLabel = tComposerLang('removeLanguage');
@@ -10578,7 +11197,7 @@ function buildIndexUI(root, state) {
       const available = supportedLangs.filter(l => !entry[l]);
       if (available.length > 0) {
         const addLangLabel = tComposerLang('addLanguage');
-        const addLangWrap = document.createElement('div');
+        const addLangWrap = document.createElement('span');
         addLangWrap.className = 'ci-add-lang has-menu';
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
@@ -10640,7 +11259,7 @@ function buildIndexUI(root, state) {
             markDirty();
           });
         });
-        bodyInner.appendChild(addLangWrap);
+        (headAddLangSlot || bodyInner).appendChild(addLangWrap);
       }
       updateComposerDraftContainerState(row);
     };
@@ -11076,7 +11695,7 @@ function focusComposerEntry(kind, key) {
 async function addComposerEntry(kind, anchor) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   const slice = getStateSlice(normalized);
-  if (!slice) return;
+  if (!slice) return '';
   if (!Array.isArray(slice.__order)) slice.__order = [];
 
   let key = '';
@@ -11084,10 +11703,10 @@ async function addComposerEntry(kind, anchor) {
     key = await promptComposerEntryKey(normalized, anchor);
   } catch (err) {
     console.warn('Failed to add composer entry', err);
-    return;
+    return '';
   }
-  if (!key) return;
-  if (slice.__order.includes(key)) return;
+  if (!key) return '';
+  if (slice.__order.includes(key)) return '';
 
   if (normalized === 'tabs') {
     slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
@@ -11121,6 +11740,8 @@ async function addComposerEntry(kind, anchor) {
     ? `Tab entry "${key}" added. Fill in the details below.`
     : `Post entry "${key}" added. Fill in the details below.`;
   try { showToast('info', message); } catch (_) {}
+  refreshEditorContentTree();
+  return key;
 }
 
 function bindComposerUI(state) {
@@ -11697,8 +12318,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   notifyComposerChange('tabs', { skipAutoSave: true });
   notifyComposerChange('site', { skipAutoSave: true });
 
-
-  restoreDynamicEditorState();
+  refreshEditorContentTree();
+  applyMode('editor');
   allowEditorStatePersist = true;
   persistDynamicEditorState();
 });
@@ -14358,8 +14979,7 @@ function rebuildSiteUI() {
 // Minimal styles injected for composer behaviors
 (function injectComposerStyles(){
   const css = `
-  .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;position:relative;filter:none;--ci-hover-tint:var(--primary);--ci-ring-shadow:0 0 0 0 transparent;--ci-depth-shadow:0 1px 2px rgba(15,23,42,0.05);box-shadow:var(--ci-ring-shadow),var(--ci-depth-shadow);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
-  .ci-item:hover,.ci-item:focus-within{transform:translateY(-1px);--ci-ring-shadow:0 0 0 1px color-mix(in srgb,var(--ci-hover-tint) 45%, transparent);--ci-depth-shadow:0 12px 24px color-mix(in srgb,var(--ci-hover-tint) 28%, transparent);border-color:color-mix(in srgb,var(--ci-hover-tint) 55%, var(--border));}
+  .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;position:relative;filter:none;--ci-hover-tint:var(--primary);--ci-ring-shadow:0 0 0 0 transparent;--ci-depth-shadow:0 1px 2px rgba(15,23,42,0.05);box-shadow:var(--ci-ring-shadow),var(--ci-depth-shadow);}
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-head,.ct-head{border-bottom:none;}
   .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
@@ -14368,9 +14988,11 @@ function rebuildSiteUI() {
   .ci-body-inner,.ct-body-inner{overflow:visible;}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
+  .ci-head-add-lang-slot{display:inline-flex;align-items:center}
   .ci-meta,.ct-meta{color:var(--muted);font-size:.85rem}
   .ci-lang,.ct-lang{border:1px dashed var(--border);border-radius:8px;margin:.4rem 0;background:color-mix(in srgb, var(--text) 3%, transparent);}
-  .ci-lang{padding:.5rem;}
+  .ci-lang{border:0;border-radius:0;margin:0;background:transparent;padding:.65rem 0;}
+  .ci-lang+.ci-lang{border-top:1px solid color-mix(in srgb, var(--border) 82%, transparent);}
   .ct-lang{padding:.0625rem;}
   .ci-lang-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
   .ci-lang-label{display:inline-flex;align-items:center;gap:.35rem;line-height:1.1;}
@@ -14406,6 +15028,8 @@ function rebuildSiteUI() {
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   /* Add Language row: compact button, keep menu aligned to trigger width */
   .ci-add-lang,.ct-add-lang,.cs-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative;flex:0 0 auto}
+  .ci-actions .ci-add-lang{margin-top:0}
+  .ci-actions .ci-add-lang .btn-secondary{border-bottom:1px solid var(--border)!important}
   .ci-add-lang .btn-secondary,.ct-add-lang .btn-secondary{justify-content:center;border-bottom:0 !important}
   .ci-add-lang input,.ct-add-lang input{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-add-lang select,.ct-add-lang select{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
@@ -14468,7 +15092,6 @@ function rebuildSiteUI() {
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
   @media (prefers-reduced-motion: reduce){
     .ci-expand .caret,.ct-expand .caret{transition:none}
-    .ci-item:hover,.ci-item:focus-within{transform:none}
   }
   /* Composer Guide */
   .comp-guide{border:1px dashed var(--border);border-radius:8px;background:color-mix(in srgb, var(--text) 3%, transparent);padding:.6rem .6rem .2rem;margin:.6rem 0 .8rem}

@@ -85,9 +85,52 @@ const translations = {
         dynamicTabsAria: 'Open editor tabs'
       },
       modes: {
-        composer: 'Composer',
+        composer: 'Site Settings',
         editor: 'Editor',
         updates: 'System Updates'
+      },
+      tree: {
+        aria: 'Content files',
+        title: 'Content',
+        subtitle: 'Articles and pages',
+        addArticle: 'Article',
+        addPage: 'Page',
+        treeAria: 'Content file tree',
+        kicker: 'Content structure',
+        emptyTitle: 'Select a node',
+        emptyMeta: 'Choose an item in the tree to manage its structure or edit a Markdown file.',
+        articles: 'Articles',
+        pages: 'Pages',
+        toggle: 'Toggle',
+        rootKicker: 'Collection',
+        rootMeta: ({ count }) => `${count} item${count === 1 ? '' : 's'}`,
+        languages: 'languages',
+        versions: 'versions',
+        select: 'Select',
+        article: 'article',
+        page: 'page',
+        articleEntry: 'Article',
+        pageEntry: 'Page',
+        articleEntryMeta: 'Manage article languages and versions.',
+        pageEntryMeta: 'Manage page languages, titles, and files.',
+        languageKicker: 'Article language',
+        languageMeta: ({ count }) => `${count} version${count === 1 ? '' : 's'}`,
+        articleFile: 'Article file',
+        pageFile: 'Page file',
+        addLanguage: 'Add language',
+        addVersion: 'Add version',
+        removeLanguage: 'Remove language',
+        key: 'Key',
+        language: 'Language',
+        fieldTitle: 'Title',
+        location: 'Location',
+        open: 'Open',
+        remove: 'Remove',
+        delete: 'Delete',
+        version: 'Version',
+        duplicateKey: 'That key already exists.',
+        deleteEntryConfirm: ({ label }) => `Delete ${label}?`,
+        deleteLanguageConfirm: ({ lang }) => `Remove ${lang}?`
       },
       status: {
         localLabel: 'LOCAL',
@@ -273,7 +316,7 @@ const translations = {
       editorTextareaAria: 'Markdown source',
       empty: {
         title: 'No editor is currently open',
-        body: 'Open Markdown from the Composer to start editing.'
+        body: 'Select a Markdown file from the tree to start editing.'
       },
       composer: {
         fileSwitchAria: 'File switch',
