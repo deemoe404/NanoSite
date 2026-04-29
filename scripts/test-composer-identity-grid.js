@@ -127,8 +127,8 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset\{--cs-editor-row-gap:\.35rem;--cs-editor-row-column-gap:\.45rem;--cs-editor-control-height:1\.95rem\}/,
-  'identity and aligned localized rows should share one row rhythm contract'
+  /\.cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset\{--cs-editor-row-gap:\.35rem;--cs-editor-row-column-gap:\.45rem;--cs-editor-control-height:1\.95rem;--cs-editor-single-control-width:15rem\}/,
+  'identity and aligned localized rows should share one row rhythm and fixed single-control width contract'
 );
 
 assert.match(
@@ -235,8 +235,8 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-single-grid\{display:grid;grid-template-columns:minmax\(88px,max-content\) minmax\(0,1fr\);column-gap:var\(--cs-editor-row-column-gap\);row-gap:var\(--cs-editor-row-gap\);align-items:center\}[\s\S]*\.cs-single-grid-row\{display:grid;grid-template-columns:subgrid;grid-column:1\/-1;align-items:center;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0/,
-  'compact identity path rows should use one parent grid and subgrid rows so labels and inputs share column tracks'
+  /\.cs-single-grid\{display:grid;grid-template-columns:minmax\(88px,max-content\) minmax\(0,var\(--cs-editor-single-control-width\)\);column-gap:var\(--cs-editor-row-column-gap\);row-gap:var\(--cs-editor-row-gap\);align-items:center;justify-content:start\}[\s\S]*\.cs-single-grid-row\{display:grid;grid-template-columns:subgrid;grid-column:1\/-1;align-items:center;gap:var\(--cs-editor-row-column-gap\);min-height:var\(--cs-editor-control-height\);padding:0/,
+  'compact identity path rows should use one fixed-width parent grid and subgrid rows so labels and inputs share column tracks'
 );
 
 assert.match(

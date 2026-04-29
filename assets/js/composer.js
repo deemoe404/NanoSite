@@ -14280,7 +14280,7 @@ function rebuildSiteUI() {
   .cs-field-head-switch{display:flex;align-items:center;gap:.4rem}
   .cs-localized-list{display:flex;flex-direction:column;gap:.35rem}
   .cs-localized-row{display:flex;flex-wrap:wrap;gap:.45rem;padding:.2rem 0}
-  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem}
+  .cs-identity-grid,.cs-localized-list--grid,.cs-single-grid-fieldset{--cs-editor-row-gap:.35rem;--cs-editor-row-column-gap:.45rem;--cs-editor-control-height:1.95rem;--cs-editor-single-control-width:15rem}
   .cs-localized-list--grid{gap:var(--cs-editor-row-gap)}
   .cs-localized-row--grid{display:grid;grid-template-columns:minmax(88px,88px) minmax(0,1fr) minmax(72px,max-content);align-items:center;column-gap:var(--cs-editor-row-column-gap);row-gap:0;min-height:var(--cs-editor-control-height);padding:0}
   .cs-localized-input{flex:1 1 240px;min-width:180px}
@@ -14305,7 +14305,7 @@ function rebuildSiteUI() {
   .cs-identity-actions{display:flex;align-items:center;justify-content:flex-end;min-width:0}
   .cs-identity-remove{margin-left:0;white-space:nowrap}
   .cs-single-grid-fieldset{gap:0}
-  .cs-single-grid{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,1fr);column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center}
+  .cs-single-grid{display:grid;grid-template-columns:minmax(88px,max-content) minmax(0,var(--cs-editor-single-control-width));column-gap:var(--cs-editor-row-column-gap);row-gap:var(--cs-editor-row-gap);align-items:center;justify-content:start}
   .cs-single-grid-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;gap:var(--cs-editor-row-column-gap);min-height:var(--cs-editor-control-height);padding:0;position:relative}
   .cs-single-grid-row[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-single-grid-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;font-weight:700;color:color-mix(in srgb,var(--text) 86%, transparent)}
