@@ -283,6 +283,12 @@ assert.match(
 
 assert.match(
   source,
+  /\.cs-repo-grid\[data-diff="changed"\],\.cs-extra-list\[data-diff="changed"\]\{background:color-mix\(in srgb,var\(--primary\) 6%, transparent\);box-shadow:inset 3px 0 0 color-mix\(in srgb,var\(--primary\) 60%, var\(--border\)\);border-radius:8px;padding-left:\.85rem\}/,
+  'Repository and Other keys direct containers should keep visible changed-state diff highlighting'
+);
+
+assert.match(
+  source,
   /const siteConfigSection = createSection\([\s\S]*renderBehaviorGrid\(behaviorSubsection\);[\s\S]*renderThemeGrid\(themeSubsection\);[\s\S]*renderAssetWarningsGrid\(assetsSubsection\);[\s\S]*const extrasSection = createSection\(/,
   'Site editor should combine Behavior, Theme, and Asset warnings before Other keys'
 );

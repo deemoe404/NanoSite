@@ -120,16 +120,6 @@ export function bindPostEditor() {
     }
     try { popup.opener = null; } catch (_) {}
     try { popup.focus(); } catch (_) {}
-    // Some embedded browsers return a popup object but never surface a tab.
-    window.setTimeout(() => {
-      let stayedHere = false;
-      try {
-        stayedHere = document.visibilityState === 'visible';
-      } catch (_) {
-        stayedHere = false;
-      }
-      if (stayedHere) window.location.href = editorUrl;
-    }, 250);
   });
 }
 

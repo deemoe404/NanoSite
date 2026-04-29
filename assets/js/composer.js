@@ -14429,6 +14429,7 @@ function rebuildSiteUI() {
   .cs-field + .cs-field{border-top:1px solid color-mix(in srgb,var(--border) 82%, transparent);margin-top:.35rem;padding-top:.95rem}
   .cs-field[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field[data-diff="changed"] .cs-field-label{color:color-mix(in srgb,var(--primary) 82%, var(--text))}
+  .cs-repo-grid[data-diff="changed"],.cs-extra-list[data-diff="changed"]{background:color-mix(in srgb,var(--primary) 6%, transparent);box-shadow:inset 3px 0 0 color-mix(in srgb,var(--primary) 60%, var(--border));border-radius:8px;padding-left:.85rem}
   .cs-field-head{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
   .cs-field-inline-help .cs-field-head{align-items:baseline}
   .cs-field-label-wrap{display:flex;align-items:center;gap:.45rem;flex:1 1 auto;min-width:120px}

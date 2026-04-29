@@ -37,14 +37,14 @@ assert.match(
   'post editor button should fall back to same-tab navigation when popup opening fails'
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /window\.setTimeout\(\(\) => \{/,
-  'post editor button should schedule a delayed fallback for silent popup failures'
+  /window\.setTimeout\(\(\) => \{[\s\S]*window\.location\.href = editorUrl;/,
+  'post editor button should not schedule a delayed redirect after popup open succeeds'
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
   /document\.visibilityState === 'visible'/,
-  'delayed fallback should only fire when the original page remains visible'
+  'post editor button should not treat a visible opener page as popup failure'
 );
