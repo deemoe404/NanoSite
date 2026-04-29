@@ -257,6 +257,12 @@ assert.match(
   'compact single-value label measurement should use intrinsic label width instead of the currently constrained grid cell'
 );
 
+assert.doesNotMatch(
+  source,
+  /function syncSiteEditorSingleLabelWidth\(root\) \{[\s\S]*getBoundingClientRect[\s\S]*root\.style\.setProperty\('--cs-editor-single-label-width'/,
+  'compact single-value label measurement should not seed width from constrained layout rects'
+);
+
 assert.match(
   source,
   /buildSiteUI\(root, state\) \{[\s\S]*renderCompactSectionMenu\(\);[\s\S]*syncSiteEditorSingleLabelWidth\(root\);[\s\S]*refreshNavDiffState\(\);/,

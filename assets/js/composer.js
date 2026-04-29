@@ -212,19 +212,14 @@ function syncSiteEditorSingleLabelWidth(root) {
       const target = cell || label;
       let measured = 0;
       try {
-        const rect = target.getBoundingClientRect();
-        measured = rect && Number.isFinite(rect.width) ? rect.width : 0;
-      } catch (_) {}
-      try {
         const tooltip = target.querySelector ? target.querySelector('.cs-help-tooltip-wrap') : null;
-        const tooltipRect = tooltip && tooltip.getBoundingClientRect ? tooltip.getBoundingClientRect() : null;
-        const tooltipWidth = tooltipRect && Number.isFinite(tooltipRect.width) ? tooltipRect.width : (tooltip ? tooltip.scrollWidth || 0 : 0);
+        const tooltipWidth = tooltip ? tooltip.scrollWidth || 0 : 0;
         const labelWidth = label.scrollWidth || 0;
         const targetStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
           ? window.getComputedStyle(target)
           : null;
         const gap = targetStyle ? parseFloat(targetStyle.gap || targetStyle.columnGap || '0') || 0 : 0;
-        measured = Math.max(measured, labelWidth + tooltipWidth + gap);
+        measured = labelWidth + tooltipWidth + gap;
       } catch (_) {
         try { measured = Math.max(measured, target.scrollWidth || 0, label.scrollWidth || 0); } catch (_) {}
       }
