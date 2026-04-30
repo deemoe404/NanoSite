@@ -167,6 +167,7 @@ const translations = {
         },
         errors: {
           releaseFetch: '最新リリース情報を取得できませんでした。',
+          releaseRateLimited: 'GitHub API のレート制限に達しました。しばらくしてから再試行するか、ダウンロード済み ZIP を手動で選択してください。',
           emptyFile: '選択したファイルは空です。',
           invalidArchive: '選択した ZIP を NanoSite リリースとして読み込めませんでした。',
           sizeMismatch: ({ expected, actual }) => `選択したアーカイブのサイズ（${actual}）がリリースアセット（${expected}）と一致しません。`,

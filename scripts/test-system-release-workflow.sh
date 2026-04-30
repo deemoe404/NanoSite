@@ -28,6 +28,16 @@ if awk '
   exit 1
 fi
 
+if awk '
+  /- name: Plan release/ { in_plan = 1 }
+  /- name: Build system update package/ { in_plan = 0 }
+  in_plan && /assets\/system-release\.json/ { found = 1 }
+  END { exit found ? 0 : 1 }
+' "${workflow}" >/dev/null; then
+  echo "system release manifest must not participate in release planning" >&2
+  exit 1
+fi
+
 if grep -F 'releases/tags/${NEXT_TAG}' "${workflow}" >/dev/null; then
   echo "system release workflow must not validate draft releases through the tag endpoint" >&2
   exit 1
@@ -90,6 +100,26 @@ fi
 
 if ! grep -F 'git tag -d "${next_tag}"' "${workflow}" >/dev/null; then
   echo "system release workflow must delete stale local release tags before retrying" >&2
+  exit 1
+fi
+
+if ! grep -F 'Update static release manifest' "${workflow}" >/dev/null; then
+  echo "system release workflow must update the static release manifest after publishing" >&2
+  exit 1
+fi
+
+if ! grep -F 'dist/release-published.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must read the published release before writing the manifest" >&2
+  exit 1
+fi
+
+if ! grep -F 'git add assets/system-release.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must commit assets/system-release.json" >&2
+  exit 1
+fi
+
+if ! grep -F 'git commit -m "Update system release manifest"' "${workflow}" >/dev/null; then
+  echo "system release workflow must use a stable manifest commit message" >&2
   exit 1
 fi
 

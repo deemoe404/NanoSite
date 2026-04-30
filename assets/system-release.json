@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "name": "v3.3.10",
+  "tag": "v3.3.10",
+  "publishedAt": "2026-04-29T08:18:39Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.10.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.10.zip`\n- SHA-256: `535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/js/composer.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.9...v3.3.10",
+  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.10",
+  "asset": {
+    "name": "nanosite-system-v3.3.10.zip",
+    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.10/nanosite-system-v3.3.10.zip",
+    "size": 441836,
+    "digest": "sha256:535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a"
+  }
+}

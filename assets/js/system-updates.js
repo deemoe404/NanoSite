@@ -11,6 +11,8 @@ const TEXT_FILENAMES = new Set(['LICENSE', 'README', 'README.md', 'CHANGELOG', '
 
 export const SYSTEM_UPDATE_ASSET_NAME_PATTERN = /^nanosite-system-v\d+\.\d+\.\d+\.zip$/i;
 
+const RELEASE_API_URL = 'https://api.github.com/repos/deemoe404/NanoSite/releases/latest';
+const RELEASE_MANIFEST_URL = 'https://raw.githubusercontent.com/deemoe404/NanoSite/main/assets/system-release.json';
 const SYSTEM_UPDATE_ALLOWED_PATH_PATTERN = /^(?:index\.html|index_editor\.html|assets\/(?:main\.js|js\/.+|i18n\/.+|schema\/.+|themes\/.+))$/;
 const SYSTEM_UPDATE_BLOCKED_PATH_PATTERN = /^(?:\.git\/|\.github\/|wwwroot\/|site\.ya?ml$|site\.local\.ya?ml$|CNAME$|robots\.txt$|sitemap\.xml$|README(?:\.md)?$|BRANCHING\.md$|scripts\/|assets\/(?:avatar|hero)\.jpeg$)/i;
 
@@ -267,6 +269,68 @@ export function selectSystemUpdateAsset(releaseData) {
   };
 }
 
+function isObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function requireManifestString(manifest, key) {
+  const value = manifest && manifest[key];
+  if (typeof value !== 'string') {
+    throw new Error(`Invalid system release manifest: missing ${key}`);
+  }
+  return value;
+}
+
+function normalizeReleaseCache(data) {
+  const asset = selectSystemUpdateAsset(data);
+  return {
+    name: data.name || data.tag_name || 'latest',
+    tag: data.tag_name || '',
+    publishedAt: data.published_at || data.created_at || '',
+    notes: data.body || '',
+    htmlUrl: data.html_url || '',
+    asset
+  };
+}
+
+export function normalizeSystemReleaseManifest(manifest) {
+  if (!isObject(manifest) || manifest.schemaVersion !== 1) {
+    throw new Error('Invalid system release manifest: unsupported schema');
+  }
+  const name = requireManifestString(manifest, 'name');
+  const tag = requireManifestString(manifest, 'tag');
+  const publishedAt = requireManifestString(manifest, 'publishedAt');
+  const notes = requireManifestString(manifest, 'notes');
+  const htmlUrl = requireManifestString(manifest, 'htmlUrl');
+  if (!isObject(manifest.asset)) {
+    throw new Error('Invalid system release manifest: missing asset');
+  }
+  const asset = selectSystemUpdateAsset({ assets: [manifest.asset] });
+  if (!asset || !asset.name || !asset.url) {
+    throw new Error('Invalid system release manifest: invalid asset');
+  }
+  const size = Number(asset.size);
+  if (!Number.isFinite(size) || size <= 0) {
+    throw new Error('Invalid system release manifest: invalid asset size');
+  }
+  const digest = String(asset.digest || '').trim().toLowerCase();
+  if (!/^sha256:[0-9a-f]{64}$/.test(digest)) {
+    throw new Error('Invalid system release manifest: invalid asset digest');
+  }
+  return {
+    name,
+    tag,
+    publishedAt,
+    notes,
+    htmlUrl,
+    asset: {
+      ...asset,
+      size,
+      digest
+    }
+  };
+}
+
 export async function verifySystemUpdateAsset(buffer, asset = {}) {
   if (!(buffer instanceof ArrayBuffer)) buffer = getBuffer(buffer);
   const actualSize = buffer ? buffer.byteLength : 0;
@@ -289,26 +353,98 @@ export async function verifySystemUpdateAsset(buffer, asset = {}) {
   };
 }
 
-async function fetchLatestRelease() {
-  if (releaseCache) return releaseCache;
-  const response = await fetch('https://api.github.com/repos/deemoe404/NanoSite/releases/latest', {
+function getResponseHeader(response, name) {
+  try {
+    return response && response.headers && typeof response.headers.get === 'function'
+      ? String(response.headers.get(name) || '')
+      : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function isRateLimitedResponse(response) {
+  const status = Number(response && response.status);
+  const remaining = getResponseHeader(response, 'x-ratelimit-remaining');
+  return status === 429 || (status === 403 && remaining === '0');
+}
+
+function createReleaseFetchError(response) {
+  const error = new Error(isRateLimitedResponse(response)
+    ? t('editor.systemUpdates.errors.releaseRateLimited')
+    : t('editor.systemUpdates.errors.releaseFetch'));
+  error.rateLimited = isRateLimitedResponse(response);
+  error.status = Number(response && response.status) || 0;
+  return error;
+}
+
+function renderRelease() {
+  renderReleaseMeta();
+  renderNotes(releaseCache ? releaseCache.notes : '');
+  updateDownloadLink();
+}
+
+async function fetchLatestReleaseFromApi() {
+  const response = await fetch(RELEASE_API_URL, {
     headers: { Accept: 'application/vnd.github+json' },
     cache: 'no-store'
   });
-  if (!response.ok) throw new Error(t('editor.systemUpdates.errors.releaseFetch'));
+  if (!response.ok) throw createReleaseFetchError(response);
   const data = await response.json();
-  const asset = selectSystemUpdateAsset(data);
-  releaseCache = {
-    name: data.name || data.tag_name || 'latest',
-    tag: data.tag_name || '',
-    publishedAt: data.published_at || data.created_at || '',
-    notes: data.body || '',
-    htmlUrl: data.html_url || '',
-    asset
-  };
-  renderReleaseMeta();
-  renderNotes(releaseCache.notes);
-  updateDownloadLink();
+  return normalizeReleaseCache(data);
+}
+
+function getManifestUrls() {
+  const urls = [RELEASE_MANIFEST_URL];
+  try {
+    const localUrl = new URL('assets/system-release.json', document.baseURI).href;
+    if (localUrl && !urls.includes(localUrl)) urls.push(localUrl);
+  } catch (_) {}
+  return urls;
+}
+
+async function fetchLatestReleaseFromManifest() {
+  let lastError = null;
+  const urls = getManifestUrls();
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+      });
+      if (!response.ok) {
+        lastError = new Error(`System release manifest fetch failed (${response.status || 'unknown'})`);
+        continue;
+      }
+      const data = await response.json();
+      return normalizeSystemReleaseManifest(data);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('System release manifest fetch failed');
+}
+
+async function fetchLatestRelease() {
+  if (releaseCache) return releaseCache;
+  let apiError = null;
+  try {
+    releaseCache = await fetchLatestReleaseFromApi();
+  } catch (err) {
+    apiError = err;
+    try {
+      releaseCache = await fetchLatestReleaseFromManifest();
+    } catch (manifestError) {
+      const message = apiError && apiError.rateLimited
+        ? t('editor.systemUpdates.errors.releaseRateLimited')
+        : t('editor.systemUpdates.errors.releaseFetch');
+      const error = new Error(message);
+      error.apiError = apiError;
+      error.manifestError = manifestError;
+      throw error;
+    }
+  }
+  renderRelease();
   return releaseCache;
 }
 
@@ -532,7 +668,7 @@ export function initSystemUpdates(options = {}) {
   setStatus(t('editor.systemUpdates.status.idle'));
   fetchLatestRelease().catch((err) => {
     console.error('Failed to load system update metadata', err);
-    setStatus(t('editor.systemUpdates.errors.releaseFetch'), { tone: 'error' });
+    setStatus(err && err.message ? err.message : t('editor.systemUpdates.errors.releaseFetch'), { tone: 'error' });
   });
 }
 
