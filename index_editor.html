@@ -23,7 +23,8 @@
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
       --editor-toolbar-offset: 0px;
-      --editor-page-max-width: 100vw;
+      --editor-content-frame-max-width: 1280px;
+      --editor-page-max-width: calc(var(--editor-rail-width, 340px) + 6px + var(--editor-content-frame-max-width));
       --editor-edge-offset: 0px;
       --editor-rail-width: 340px;
       --back-to-top-size: 2.5rem;
@@ -120,6 +121,15 @@
       position:relative;
       scrollbar-gutter:stable;
     }
+    .editor-content-frame {
+      width: min(var(--editor-content-frame-max-width, 1280px), 100%);
+      min-width: 0;
+      min-height: 100%;
+      margin-inline: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
     .editor-mobile-rail-toggle {
       display:none;
       align-items:center;
@@ -142,7 +152,7 @@
     .editor-mobile-rail-scrim {
       display:none;
     }
-    .editor-content-pane > .editor-layout {
+    .editor-content-frame > .editor-layout {
       min-height:100%;
     }
     .site-footer,
@@ -1699,7 +1709,8 @@
       </aside>
       <div class="editor-rail-resizer" id="editorRailResizer" role="separator" aria-orientation="vertical" aria-label="Resize file tree" tabindex="0"></div>
       <main class="editor-content-pane" id="editorContentPane">
-        <button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle" aria-controls="editorRail" aria-expanded="false" data-i18n="editor.tree.aria">Content files</button>
+        <div class="editor-content-frame">
+          <button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle" aria-controls="editorRail" aria-expanded="false" data-i18n="editor.tree.aria">Content files</button>
 
     <!-- Editor Mode -->
     <div class="editor-layout" id="mode-editor">
@@ -1821,7 +1832,7 @@
           <p data-i18n="editor.empty.body">Select a Markdown file from the tree to start editing.</p>
         </div>
       </div>
-    </div>
+        </div>
       </main>
 
       <div class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true">
