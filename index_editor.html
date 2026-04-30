@@ -9,22 +9,8 @@
     // Early boot to avoid initial flash
     (function () {
       try {
-        var initMode = 'composer';
-        var rawState = localStorage.getItem('ns_composer_editor_state');
-        if (rawState) {
-          try {
-            var parsed = JSON.parse(rawState);
-            if (parsed && typeof parsed === 'object') {
-              if (parsed.mode === 'editor' || parsed.mode === 'dynamic') initMode = 'editor';
-            }
-          } catch (_) {}
-        }
-        if (initMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
-        else document.documentElement.removeAttribute('data-init-mode');
-        // Preselect composer file (index/tabs) when persisted
-        var cf = (localStorage.getItem('ns_composer_file') || 'index').toLowerCase();
-        if (cf === 'tabs' || cf === 'site') document.documentElement.setAttribute('data-init-cfile', cf);
-        else document.documentElement.removeAttribute('data-init-cfile');
+        document.documentElement.removeAttribute('data-init-mode');
+        document.documentElement.setAttribute('data-init-cfile', 'site');
       } catch (_) { /* ignore */ }
     })();
   </script>
@@ -37,8 +23,9 @@
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
       --editor-toolbar-offset: 0px;
-      --editor-page-max-width: 1200px;
-      --editor-edge-offset: 1rem;
+      --editor-page-max-width: 100vw;
+      --editor-edge-offset: 0px;
+      --editor-rail-width: 340px;
       --back-to-top-size: 2.5rem;
     }
     @media (prefers-reduced-motion: reduce) {
@@ -49,19 +36,322 @@
       }
       .composer-panels { transition: none; }
     }
-    /* Widen the editor page and reduce side padding */
-    html, body { overflow-x: visible; overflow-y: visible; }
-    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
-    .editor-page { display: block; flex: 1 0 auto; padding: 0.75rem var(--editor-edge-offset); max-width: min(95vw, var(--editor-page-max-width)); width: 100%; margin: 0 auto; overflow-x: clip; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body { margin: 0; min-height: 0; height: 100%; display: block; overscroll-behavior: none; position: relative; }
+    .editor-page { position: fixed; inset: 0; width: auto; height: auto; max-width: none; margin: 0; padding: 0; overflow: hidden; }
+    .editor-app-shell {
+      width:100%;
+      height:100%;
+      display:grid;
+      grid-template-columns:var(--editor-rail-width, 340px) 6px minmax(0, 1fr);
+      min-width:0;
+      min-height:0;
+      max-height:100%;
+      overflow:hidden;
+      background:color-mix(in srgb, var(--bg) 96%, var(--card) 4%);
+      position:relative;
+    }
+    .editor-rail {
+      min-width:0;
+      min-height:0;
+      max-height:100%;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      background:color-mix(in srgb, var(--bg) 98%, var(--card) 2%);
+      border-right:0;
+    }
+    .editor-rail-tree-scroll {
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:1.4rem 1rem 1rem 1.2rem;
+      scrollbar-gutter:stable;
+    }
+    .editor-rail-footer {
+      flex:0 0 auto;
+      min-width:0;
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      padding:.5rem .75rem calc(.5rem + env(safe-area-inset-bottom, 0px)) .9rem;
+      border-top:1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background:color-mix(in srgb, var(--card) 72%, var(--bg));
+    }
+    .editor-rail-settings {
+      position:relative;
+      display:inline-flex;
+      flex:0 0 auto;
+      min-width:0;
+    }
+    .editor-rail-settings-toggle {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:2rem;
+      height:2rem;
+      padding:0;
+      border:1px solid transparent;
+      border-radius:7px;
+      color:var(--muted);
+      background:transparent;
+      cursor:pointer;
+      transition:background .16s ease, color .16s ease, border-color .16s ease;
+    }
+    .editor-rail-settings-toggle:hover,
+    .editor-rail-settings-toggle:focus-visible,
+    .editor-rail-settings.is-open .editor-rail-settings-toggle {
+      color:var(--text);
+      background:color-mix(in srgb, var(--text) 6%, transparent);
+      border-color:color-mix(in srgb, var(--border) 72%, transparent);
+    }
+    .editor-rail-settings-toggle:focus-visible {
+      outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+      outline-offset:2px;
+    }
+    .editor-rail-settings-toggle svg {
+      width:1.05rem;
+      height:1.05rem;
+      display:block;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .editor-rail-settings-menu {
+      position:absolute;
+      left:0;
+      bottom:calc(100% + .45rem);
+      z-index:8;
+      width:min(13rem, calc(100vw - 2rem));
+      display:flex;
+      flex-direction:column;
+      gap:.45rem;
+      padding:.55rem;
+      border:1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius:8px;
+      background:color-mix(in srgb, var(--card) 96%, var(--bg));
+      box-shadow:0 16px 36px color-mix(in srgb, var(--shadow) 20%, transparent);
+    }
+    .editor-rail-settings-menu[hidden] { display:none; }
+    .editor-rail-footer .editor-lang-switcher {
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      margin:0;
+      width:100%;
+      min-width:0;
+      padding:0 0 .5rem;
+      border:0;
+      border-bottom:1px solid color-mix(in srgb, var(--border) 78%, transparent);
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      gap:.12rem;
+    }
+    .editor-rail-footer .editor-lang-switcher label {
+      display:block;
+      font-size:.68rem;
+      letter-spacing:.04em;
+    }
+    .editor-rail-footer .editor-lang-switcher select {
+      flex:1 1 auto;
+      min-width:0;
+      width:100%;
+      height:1.85rem;
+      padding:.25rem .55rem;
+      font-size:.8rem;
+      border-radius:7px;
+    }
+    .editor-rail-footer .editor-lang-switcher select:focus,
+    .editor-rail-footer .editor-lang-switcher select:focus-visible {
+      outline:0 !important;
+      outline-offset:0;
+      box-shadow:none !important;
+      border-color:color-mix(in srgb, var(--border) 85%, transparent);
+    }
+    .editor-rail-action.mode-tab {
+      width:100%;
+      justify-content:flex-start;
+      min-width:0;
+      height:1.85rem;
+      padding:.3rem .5rem;
+      border-radius:7px;
+      white-space:nowrap;
+      box-shadow:none;
+      font-size:.8rem;
+      line-height:1;
+    }
+    .editor-rail-action.mode-tab.is-active {
+      background:color-mix(in srgb, var(--primary) 12%, var(--card));
+      color:var(--primary);
+      border-color:color-mix(in srgb, var(--primary) 28%, var(--border));
+    }
+    .editor-rail-resizer {
+      min-width:6px;
+      cursor:col-resize;
+      background:transparent;
+      position:relative;
+      z-index:3;
+    }
+    .editor-rail-resizer::before {
+      content:"";
+      position:absolute;
+      top:0;
+      bottom:0;
+      left:50%;
+      width:1px;
+      background:color-mix(in srgb, var(--border) 70%, transparent);
+      opacity:.65;
+      transform:translateX(-.5px);
+      transition:opacity .16s ease, background .16s ease;
+    }
+    .editor-rail-resizer:hover::before,
+    .editor-rail-resizer:focus-visible::before,
+    .editor-app-shell.is-resizing-rail .editor-rail-resizer::before {
+      opacity:1;
+      background:color-mix(in srgb, var(--primary) 54%, var(--border));
+    }
+    .editor-content-pane {
+      --editor-content-pane-padding:1rem;
+      min-width:0;
+      min-height:0;
+      max-height:100%;
+      overflow:auto;
+      padding:var(--editor-content-pane-padding);
+      position:relative;
+      scrollbar-gutter:stable;
+    }
+    .editor-mobile-rail-toggle {
+      display:none;
+      align-items:center;
+      justify-content:center;
+      position:sticky;
+      top:0;
+      z-index:140;
+      width:max-content;
+      min-height:2.1rem;
+      margin:0 0 .75rem;
+      padding:.35rem .65rem;
+      border:1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      border-radius:8px;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+      color:var(--text);
+      box-shadow:var(--shadow);
+      font:inherit;
+      cursor:pointer;
+    }
+    .editor-mobile-rail-scrim {
+      display:none;
+    }
+    .editor-content-pane > .editor-layout {
+      min-height:100%;
+    }
+    .site-footer,
+    .back-to-top { display:none !important; }
     /* Editor layout */
     .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
     .editor-layout.is-dynamic { grid-template-columns: minmax(0, 1fr); }
     .editor-layout.is-empty { grid-template-columns: minmax(0, 1fr); align-items: center; justify-items: center; }
+    .editor-content-shell.box {
+      min-height:100%;
+      display:block;
+      margin:0;
+      padding:0;
+      border:0 !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      background:transparent;
+    }
+    .editor-tree-shell { display:block; min-height:0; }
+    .editor-file-tree-pane { position:static; top:auto; align-self:stretch; min-width:0; overflow:hidden; border-right:0; padding:0; }
+    .editor-file-tree { display:flex; flex-direction:column; gap:.02rem; }
+    .editor-tree-row { position:relative; display:grid; grid-template-columns:1.15rem minmax(0, 1fr); align-items:center; gap:.2rem; min-height:1.75rem; max-height:2.25rem; padding:0; color:color-mix(in srgb, var(--text) 88%, transparent); }
+    .editor-tree-row.is-expanding { overflow:hidden; animation:editor-tree-row-enter .18s ease-out both; }
+    .editor-tree-row.is-collapsing { overflow:hidden; pointer-events:none; transition:max-height .26s ease, min-height .26s ease, opacity .2s ease, transform .26s ease; }
+    .editor-tree-row.is-collapsing-parent > .editor-tree-toggle { pointer-events:none; }
+    @keyframes editor-tree-row-enter {
+      from { min-height:0; max-height:0; opacity:0; transform:translateY(-4px); }
+      to { min-height:1.75rem; max-height:2.25rem; opacity:1; transform:translateY(0); }
+    }
+    .editor-tree-guides { position:absolute; inset:-.12rem 0; pointer-events:none; }
+    .editor-tree-guide { position:absolute; top:0; bottom:0; left:calc((var(--tree-guide-index) * 1.12rem) + .58rem); width:1px; background:color-mix(in srgb, var(--border) 82%, transparent); }
+    .editor-tree-row.is-selected { color:color-mix(in srgb, var(--primary) 82%, var(--text)); }
+    .editor-tree-toggle { position:relative; z-index:1; width:1.15rem; min-height:1.75rem; border:0; background:transparent; color:color-mix(in srgb, var(--text) 82%, transparent); border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+    .editor-tree-toggle:hover { background:color-mix(in srgb, var(--text) 5%, transparent); color:var(--text); }
+    .editor-tree-toggle[aria-expanded="true"] .editor-tree-caret { transform:rotate(45deg); }
+    .editor-tree-caret { display:inline-block; width:.45rem; height:.45rem; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); transition:transform .14s ease; }
+    .editor-tree-node { position:relative; z-index:1; min-width:0; min-height:1.75rem; border:0; background:transparent; color:inherit; text-align:left; display:flex; align-items:center; gap:.45rem; padding:0 .55rem 0 .28rem; border-radius:7px; cursor:pointer; font:inherit; line-height:1.2; }
+    .editor-tree-row.is-leaf .editor-tree-node { grid-column:1 / -1; }
+    #editorFileTree button.editor-tree-toggle, #editorFileTree button.editor-tree-node { appearance:none !important; border:0 !important; border-color:transparent !important; box-shadow:none !important; outline:0 !important; background:transparent !important; background-image:none !important; color:inherit !important; font-weight:inherit !important; }
+    #editorFileTree button.editor-tree-toggle { border-radius:5px !important; }
+    #editorFileTree button.editor-tree-node { border-radius:7px !important; }
+    #editorFileTree button.editor-tree-toggle:hover, #editorFileTree button.editor-tree-toggle:focus-visible { background:color-mix(in srgb, var(--text) 5%, transparent) !important; color:var(--text) !important; box-shadow:none !important; outline:0 !important; }
+    #editorFileTree button.editor-tree-node:hover, #editorFileTree button.editor-tree-node:focus-visible { background:color-mix(in srgb, var(--text) 5%, transparent) !important; color:inherit !important; box-shadow:none !important; outline:0 !important; }
+    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node { background:color-mix(in srgb, var(--primary) 18%, transparent) !important; background-color:color-mix(in srgb, var(--primary) 18%, transparent) !important; background-image:none !important; color:color-mix(in srgb, var(--primary) 86%, var(--text)) !important; }
+    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node:hover, #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node:focus-visible { background:color-mix(in srgb, var(--primary) 18%, transparent) !important; color:color-mix(in srgb, var(--primary) 86%, var(--text)) !important; box-shadow:none !important; outline:0 !important; }
+    .editor-tree-icon { flex:0 0 auto; width:1rem; height:1rem; color:color-mix(in srgb, var(--muted) 88%, transparent); display:inline-flex; align-items:center; justify-content:center; }
+    .editor-tree-icon svg { width:1rem; height:1rem; display:block; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node .editor-tree-icon { color:currentColor; }
+    .editor-tree-row[data-kind="root"] .editor-tree-node { padding-left:.45rem; font-weight:400; }
+    .editor-tree-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:400; }
+    .editor-tree-badges { margin-left:auto; display:inline-flex; align-items:center; justify-content:flex-end; gap:.22rem; flex:0 0 auto; }
+    .editor-tree-badge { width:.46rem; height:.46rem; border-radius:999px; background:color-mix(in srgb, var(--muted) 42%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--card) 90%, transparent); }
+    .editor-tree-badge[data-state="dirty"] { background:#f97316; box-shadow:0 0 0 2px color-mix(in srgb, #f97316 18%, transparent); }
+    .editor-tree-badge[data-state="saved"] { background:#22c55e; box-shadow:0 0 0 2px color-mix(in srgb, #22c55e 16%, transparent); }
+    .editor-tree-badge[data-state="conflict"], .editor-tree-badge[data-state="error"] { background:#ef4444; box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent); }
+    .editor-tree-badge[data-state="modified"], .editor-tree-badge[data-state="missing"], .editor-tree-badge[data-state="checking"] { background:#2563eb; box-shadow:0 0 0 2px color-mix(in srgb, #2563eb 16%, transparent); }
+    @media (prefers-reduced-motion: reduce) {
+      .editor-tree-row.is-expanding { animation:none; }
+      .editor-tree-row.is-collapsing { transition:none; }
+    }
+    .editor-detail-pane { min-width:0; min-height:0; display:flex; flex-direction:column; gap:1rem; }
+    .editor-structure-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
+    .editor-markdown-panel[hidden], .editor-structure-panel[hidden] { display:none !important; }
+    .editor-structure-panel.is-content-entering .editor-structure-head,
+    .editor-structure-panel.is-content-entering .editor-structure-body { animation:editor-structure-content-enter .2s ease-out both; }
+    .editor-structure-panel.is-content-entering .editor-structure-body { animation-delay:.03s; }
+    .editor-markdown-panel.is-content-entering > .toolbar,
+    .editor-markdown-panel.is-content-entering .editor-workspace { animation:editor-structure-content-enter .2s ease-out both; }
+    .editor-markdown-panel.is-content-entering .editor-workspace { animation-delay:.03s; }
+    @keyframes editor-structure-content-enter {
+      from { opacity:0; transform:translateY(6px); }
+      to { opacity:1; transform:translateY(0); }
+    }
+    .editor-structure-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+    .editor-structure-heading { min-width:0; }
+    .editor-structure-title-row { display:flex; align-items:baseline; gap:.65rem; min-width:0; flex-wrap:wrap; }
+    .editor-structure-kicker { display:none !important; }
+    .editor-structure-head h2 { margin:0; font-size:1.25rem; line-height:1.25; color:var(--text); }
+    .editor-structure-meta { margin:0; color:var(--muted); font-size:.92rem; line-height:1.35; }
+    .editor-structure-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; align-items:center; align-self:center; }
+    .editor-structure-body { display:flex; flex-direction:column; gap:.75rem; min-width:0; }
+    .editor-structure-row { display:grid; grid-template-columns:minmax(90px, 140px) minmax(0, 1fr) auto; gap:.55rem; align-items:center; min-height:2.2rem; }
+    .editor-structure-row label, .editor-structure-label { color:color-mix(in srgb, var(--text) 70%, transparent); font-weight:700; font-size:.9rem; }
+    .editor-structure-row input, .editor-structure-row select { width:100%; min-width:0; height:2rem; border:1px solid var(--border); border-radius:6px; background:var(--card); color:var(--text); padding:.25rem .45rem; }
+    .editor-structure-list { display:flex; flex-direction:column; gap:.4rem; }
+    .editor-structure-item { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:.5rem; padding:.4rem .55rem; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:color-mix(in srgb, var(--text) 2%, transparent); }
+    .editor-structure-item-main { min-width:0; display:flex; flex-direction:column; gap:.1rem; }
+    .editor-structure-item-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--text); }
+    .editor-structure-item-meta { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:.82rem; }
+    .editor-structure-item-actions { display:flex; gap:.35rem; flex-wrap:wrap; justify-content:flex-end; }
+    .site-settings-title { font-size:1rem; color:var(--text); }
+    @media (max-width: 980px) {
+      .editor-structure-row { grid-template-columns:1fr; }
+      .editor-structure-actions, .editor-structure-item-actions { justify-content:flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .editor-structure-panel.is-content-entering .editor-structure-head,
+      .editor-structure-panel.is-content-entering .editor-structure-body,
+      .editor-markdown-panel.is-content-entering > .toolbar,
+      .editor-markdown-panel.is-content-entering .editor-workspace { animation:none; }
+    }
     .updates-layout { display:flex; flex-direction:column; gap:1rem; }
     .updates-main { display:flex; flex-direction:column; gap:1.25rem; }
     .updates-header { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:1rem; }
     .updates-header-text { display:flex; flex-direction:column; gap:.4rem; min-width:0; }
-    .updates-title { margin:0; font-size:1.35rem; color: color-mix(in srgb, var(--text) 92%, transparent); }
     .updates-meta { display:flex; flex-direction:column; gap:.15rem; font-size:.92rem; color: color-mix(in srgb, var(--muted) 80%, transparent); }
     .updates-meta span { line-height:1.4; }
     .updates-header-actions { display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }
@@ -380,6 +670,14 @@
     .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
     .current-file .cf-line-main { font-weight: 600; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
     .current-file .cf-line-main .cf-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .current-file .cf-breadcrumb { display:inline-flex; align-items:center; gap:.35rem; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; color:#57606a; }
+    .current-file .cf-breadcrumb-separator { color:#8c959f; font-weight:500; margin:0 -.18rem; }
+    .current-file .cf-breadcrumb-item { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; font:inherit; font-weight:600; line-height:1.25; min-width:0; max-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .current-file a.cf-breadcrumb-item:hover { text-decoration:underline; }
+    .current-file a.cf-breadcrumb-item:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
+    .current-file .cf-breadcrumb-item-current { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    .current-file a.cf-breadcrumb-item-current:hover { text-decoration:none; }
+    .current-file .cf-breadcrumb-item-static { color:inherit; cursor:default; }
     .current-file .cf-line-meta { font-size: .78rem; color: color-mix(in srgb, var(--muted) 88%, transparent); display: inline-flex; gap: .35rem; flex-wrap: wrap; }
     .current-file .cf-draft { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; color: color-mix(in srgb, #2563eb 70%, var(--text)); }
     .current-file .cf-draft::before { content: ''; width: .45rem; height: .45rem; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 18%, transparent); }
@@ -490,6 +788,7 @@
       --gs-arrow-node-size: 16px;
       --gs-arrow-flow-duration: 2.8s;
     }
+    .global-status.is-temporarily-hidden { display:none !important; }
     .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
     .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
     .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
@@ -897,13 +1196,16 @@
       padding:.4rem 0 .55rem;
       border-bottom:1px solid #d0d7de;
       position:sticky;
-      top:0;
+      top:calc(var(--editor-content-pane-padding, 0px) * -1);
       z-index:120;
-      background:color-mix(in srgb, var(--card) 96%, transparent);
+      background:var(--card);
     }
-    #mode-composer > .editor-main > .toolbar {
-      margin:-1.25rem -1.25rem 1.25rem;
-      padding:.85rem 1.25rem .7rem;
+    .editor-markdown-panel > .toolbar {
+      margin-top:calc(var(--editor-content-pane-padding, 1rem) * -1);
+      margin-left:calc(var(--editor-content-pane-padding, 1rem) * -1);
+      margin-right:calc(var(--editor-content-pane-padding, 1rem) * -1);
+      padding-left:var(--editor-content-pane-padding, 1rem);
+      padding-right:var(--editor-content-pane-padding, 1rem);
     }
     .left-actions, .right-actions { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; background: var(--card); color: var(--text); border:1px solid var(--border); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.93rem; height:2.25rem; line-height:1; text-decoration:none; }
@@ -914,13 +1216,13 @@
     .btn-secondary.is-busy { opacity:.6; cursor:progress; pointer-events:none; }
     .editor-workspace {
       display:grid;
-      grid-template-columns:minmax(0, 1fr) minmax(260px, 320px);
+      grid-template-columns:minmax(0, 1fr);
       align-items:start;
-      gap:1.25rem;
+      gap:1rem;
       margin-top:1.1rem;
     }
     .editor-workspace-meta {
-      grid-column:2;
+      grid-column:1;
       position:relative;
       min-width:0;
     }
@@ -932,207 +1234,264 @@
       min-width:0;
     }
     .frontmatter-panel {
-      position: sticky;
-      top: calc(var(--editor-toolbar-offset, 0px) + 0.65rem);
-      z-index: 40;
-      border-radius: 14px;
-      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      background: color-mix(in srgb, var(--card) 96%, transparent);
-      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
-      padding: 0.5rem 0.75rem 0.6rem;
+      position: static;
+      top: auto;
+      z-index: 1;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
       width:100%;
     }
     .frontmatter-panel[data-state="hidden"] { display: none; }
-    .frontmatter-toggle {
-      appearance: none;
-      border: 0;
-      background: transparent;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      font-size: 1rem;
-      font-weight: 600;
-      color: color-mix(in srgb, var(--text) 90%, transparent);
-      cursor: pointer;
-      padding: 0.35rem 0.35rem 0.35rem 0.45rem;
-      border-radius: 10px;
-    }
-    .frontmatter-toggle:hover,
-    .frontmatter-toggle:focus-visible {
-      background: color-mix(in srgb, var(--text) 8%, transparent);
-      outline: none;
-    }
-    .frontmatter-toggle .frontmatter-toggle-label {
-      display: flex;
-      flex-direction: column;
-      gap: 0.3rem;
-      align-items: flex-start;
-    }
-    .frontmatter-toggle .frontmatter-heading {
-      font-size: 1rem;
-      line-height: 1.25;
-    }
-    .frontmatter-toggle .frontmatter-subheading {
-      font-size: 0.82rem;
-      color: color-mix(in srgb, var(--muted) 86%, transparent);
-      line-height: 1.2;
-    }
-    .frontmatter-toggle .frontmatter-toggle-icon {
-      width: 1.75rem;
-      height: 1.75rem;
-      border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: color-mix(in srgb, var(--muted) 70%, transparent);
-      transition: transform .2s var(--composer-inline-ease), background-color .2s ease;
-    }
-    .frontmatter-panel[data-collapsed="false"] .frontmatter-toggle .frontmatter-toggle-icon {
-      transform: rotate(180deg);
-    }
+    .frontmatter-panel[data-frontmatter-visible="false"] { display: none !important; }
     .frontmatter-body {
-      margin-top: 0.65rem;
       display: flex;
       flex-direction: column;
-      gap: 0.85rem;
-    }
-    .frontmatter-panel[data-collapsed="true"] .frontmatter-body {
-      display: none;
-    }
-    .frontmatter-help {
-      margin: 0;
-      font-size: 0.86rem;
-      color: color-mix(in srgb, var(--muted) 86%, transparent);
+      gap: 0.9rem;
     }
     .frontmatter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 0.75rem;
-    }
-    .frontmatter-field {
+      --frontmatter-row-gap: 0.35rem;
+      --frontmatter-row-column-gap: 0.45rem;
+      --frontmatter-control-height: 1.95rem;
+      --frontmatter-single-control-width: 15rem;
       display: flex;
       flex-direction: column;
-      gap: 0.35rem;
-      background: color-mix(in srgb, var(--card) 98%, transparent);
-      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      border-radius: 12px;
-      padding: 0.65rem 0.75rem;
+      gap: var(--frontmatter-row-gap);
+    }
+    .frontmatter-field {
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: minmax(88px, 88px) minmax(0, var(--frontmatter-single-control-width));
+      align-items: center;
+      justify-content: start;
+      column-gap: var(--frontmatter-row-column-gap);
+      row-gap: var(--frontmatter-row-gap);
+      min-height: var(--frontmatter-control-height);
       position: relative;
+    }
+    .frontmatter-field-multiline {
+      align-items: start;
     }
     .frontmatter-field[data-empty="true"] {
       opacity: 0.9;
     }
-    .frontmatter-field-label {
+    .frontmatter-field-head {
       display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 0.65rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: color-mix(in srgb, var(--text) 82%, transparent);
+      align-items: center;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+    .frontmatter-field-label-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+    .frontmatter-field-title {
+      font-weight: 700;
+      font-size: 0.84rem;
+      color: color-mix(in srgb, var(--text) 86%, transparent);
+      min-width: 0;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .frontmatter-field-controls {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 0.4rem;
+      align-items: center;
+      min-width: 0;
     }
     .frontmatter-field input[type="text"],
+    .frontmatter-field input[type="date"],
     .frontmatter-field textarea,
     .frontmatter-field select {
       width: 100%;
+      min-width: 0;
+      min-height: var(--frontmatter-control-height);
       border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
       border-radius: 8px;
-      background: color-mix(in srgb, var(--card) 94%, transparent);
+      background: color-mix(in srgb, var(--card) 99%, transparent);
       color: var(--text);
-      padding: 0.45rem 0.55rem;
-      font-size: 0.92rem;
-      line-height: 1.4;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.84rem;
+      line-height: 1.25;
+      font-family: inherit;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+    .frontmatter-field input[type="text"]:focus,
+    .frontmatter-field input[type="date"]:focus,
+    .frontmatter-field textarea:focus,
+    .frontmatter-field select:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .frontmatter-field-controls > input,
+    .frontmatter-field-controls > textarea,
+    .frontmatter-field-controls > select {
+      flex: 1 1 auto;
+      min-width: 0;
     }
     .frontmatter-field textarea {
-      min-height: 3.5rem;
+      min-height: 4.6rem;
       resize: vertical;
     }
-    .frontmatter-field-hint {
+    .frontmatter-help-tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+    .frontmatter-help-tooltip {
+      appearance: none;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+      background: color-mix(in srgb, var(--card) 99%, transparent);
+      color: color-mix(in srgb, var(--primary) 88%, var(--text));
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      cursor: help;
+    }
+    .frontmatter-help-tooltip:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+      outline-offset: 2px;
+    }
+    .frontmatter-help-tooltip-bubble {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 0.35rem);
+      width: max-content;
+      max-width: min(20rem, 70vw);
+      padding: 0.38rem 0.5rem;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--card) 99%, transparent);
+      box-shadow: 0 10px 24px rgba(15,23,42,0.14);
+      color: color-mix(in srgb, var(--text) 82%, transparent);
       font-size: 0.76rem;
-      color: color-mix(in srgb, var(--muted) 82%, transparent);
-      line-height: 1.35;
+      line-height: 1.3;
+      font-weight: 500;
+      text-align: left;
+      white-space: normal;
+      opacity: 0;
+      transform: translateY(3px);
+      pointer-events: none;
+      transition: opacity .14s ease, transform .14s ease;
+      z-index: 20;
+    }
+    .frontmatter-help-tooltip-wrap:hover .frontmatter-help-tooltip-bubble,
+    .frontmatter-help-tooltip:focus-visible + .frontmatter-help-tooltip-bubble {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
     }
     .frontmatter-section {
+      border: 1px solid color-mix(in srgb, var(--border) 96%, transparent);
+      border-radius: 12px;
+      background: var(--card);
+      box-shadow: 0 6px 18px rgba(15,23,42,0.08);
+      padding: 0.9rem 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.6rem;
+    }
+    .frontmatter-section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 0.65rem;
+      flex-wrap: wrap;
     }
     .frontmatter-section-title {
       margin: 0;
-      font-size: 0.88rem;
+      font-size: 1rem;
       font-weight: 700;
-      color: color-mix(in srgb, var(--muted) 75%, transparent);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      color: color-mix(in srgb, var(--text) 90%, transparent);
+    }
+    .frontmatter-section-description {
+      margin: 0;
+      font-size: 0.82rem;
+      color: color-mix(in srgb, var(--muted) 88%, transparent);
+      flex: 1 1 260px;
+      text-align: right;
     }
     .frontmatter-empty {
       margin: 0;
       font-size: 0.9rem;
       color: color-mix(in srgb, var(--muted) 88%, transparent);
     }
-    .frontmatter-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.4rem;
-    }
-    .frontmatter-clear {
-      appearance: none;
-      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      background: color-mix(in srgb, var(--card) 94%, transparent);
-      color: color-mix(in srgb, var(--muted) 86%, transparent);
-      border-radius: 999px;
-      padding: 0.28rem 0.62rem;
-      font-size: 0.74rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color .18s ease, border-color .18s ease, color .18s ease;
-    }
-    .frontmatter-clear:hover,
-    .frontmatter-clear:focus-visible {
-      background: color-mix(in srgb, var(--primary) 12%, var(--card) 90%);
-      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
-      color: color-mix(in srgb, var(--text) 88%, transparent);
-      outline: none;
-    }
-    .frontmatter-clear:disabled {
-      opacity: 0.55;
-      cursor: default;
-    }
-
-    .frontmatter-boolean {
+    .frontmatter-switch {
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
+      padding: 0.12rem 0.2rem;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      color: color-mix(in srgb, var(--text) 85%, transparent);
+      transition: color .16s ease;
     }
-    .frontmatter-boolean input[type="checkbox"] {
-      width: 1.25rem;
-      height: 1.25rem;
+    .frontmatter-switch-input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      border: 0;
+      padding: 0;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
     }
-    .frontmatter-list-input textarea {
-      min-height: 5rem;
-    }
-    .frontmatter-list-hint {
-      font-size: 0.75rem;
-      color: color-mix(in srgb, var(--muted) 80%, transparent);
-    }
-    .frontmatter-pill {
+    .frontmatter-switch-track {
+      position: relative;
       display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      font-size: 0.74rem;
-      font-weight: 600;
-      color: color-mix(in srgb, var(--muted) 80%, transparent);
-      background: color-mix(in srgb, var(--primary) 15%, var(--card) 90%);
+      width: 2.4rem;
+      height: 1.25rem;
       border-radius: 999px;
-      padding: 0.2rem 0.55rem;
+      background: color-mix(in srgb, var(--text) 8%, var(--card));
+      border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+      padding: 0 0.15rem;
+      transition: background .16s ease, border-color .16s ease;
     }
-    @media (max-width: 1100px) {
-      .editor-workspace {
-        grid-template-columns:minmax(0, 1fr) minmax(220px, 280px);
-      }
+    .frontmatter-switch-thumb {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--card) 98%, transparent);
+      box-shadow: 0 1px 2px rgba(15,23,42,0.2);
+      transform: translateX(0);
+      transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .frontmatter-switch[data-state="on"] .frontmatter-switch-track {
+      background: color-mix(in srgb, var(--primary) 45%, var(--card));
+      border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+    }
+    .frontmatter-switch[data-state="on"] .frontmatter-switch-thumb {
+      transform: translateX(1.05rem);
+      background: color-mix(in srgb, var(--primary) 96%, var(--card));
+      box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 35%, transparent);
+    }
+    .frontmatter-switch-input:focus-visible + .frontmatter-switch-track {
+      outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+      outline-offset: 2px;
+    }
+    textarea.frontmatter-list-input {
+      min-height: 5rem;
+    }
+    .frontmatter-field-list .frontmatter-field-controls {
+      flex-wrap: wrap;
     }
     @media (max-width: 960px) {
       .editor-workspace {
@@ -1143,9 +1502,6 @@
       .editor-workspace-meta,
       .editor-canvas {
         grid-column:1;
-      }
-      .editor-workspace-meta {
-        order:-1;
       }
       .frontmatter-panel {
         position: static;
@@ -1158,7 +1514,30 @@
         gap:.85rem;
       }
       .frontmatter-panel {
-        border-radius:12px;
+        border-radius:0;
+      }
+      .frontmatter-section {
+        padding: 0.9rem 0.9rem;
+      }
+      .frontmatter-section-description {
+        text-align: left;
+      }
+      .frontmatter-field {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 0.35rem;
+        padding: 0.2rem 0;
+      }
+      .frontmatter-field-head,
+      .frontmatter-field-label-wrap {
+        justify-content: flex-start;
+      }
+      .frontmatter-field-title {
+        text-align: left;
+        white-space: normal;
+      }
+      .frontmatter-field-controls {
+        order: 2;
       }
     }
 
@@ -1170,9 +1549,9 @@
       flex-wrap:wrap;
       margin-bottom:.6rem;
       position:sticky;
-      top:calc(var(--editor-toolbar-offset, 0px));
+      top:calc(var(--editor-toolbar-offset, 0px) - var(--editor-content-pane-padding, 0px));
       z-index:110;
-      background:color-mix(in srgb, var(--card) 96%, transparent);
+      background:var(--card);
       padding-top:.4rem;
       padding-bottom:.4rem;
     }
@@ -1564,15 +1943,139 @@
     }
     @keyframes sync-overlay-spin { to { transform: rotate(360deg); } }
 
-    /* Preload-state CSS to avoid flash when initial mode is Composer */
-    [data-init-mode="composer"] #mode-editor { display: none !important; }
-    [data-init-mode="composer"] #mode-composer { display: block !important; }
-    [data-init-mode="composer"] .mode-tab[data-mode="composer"] {
-      background: color-mix(in srgb, var(--primary) 14%, var(--card));
-      border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
-      color: var(--primary);
-      cursor: default;
+    .editor-modal-layer[hidden],
+    .editor-overlay-panel[hidden] {
+      display:none !important;
     }
+    .editor-modal-layer {
+      position:fixed;
+      inset:0;
+      z-index:12000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:clamp(.75rem, 2vw, 1.4rem);
+    }
+    .editor-modal-backdrop {
+      position:absolute;
+      inset:0;
+      background:rgba(15, 23, 42, .38);
+      backdrop-filter:blur(5px);
+    }
+    .editor-modal-dialog {
+      position:relative;
+      z-index:1;
+      width:min(980px, calc(100vw - 2rem));
+      max-height:min(86dvh, 900px);
+      min-height:min(420px, calc(100dvh - 2rem));
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      border:1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius:16px;
+      background:color-mix(in srgb, var(--bg) 94%, var(--card));
+      box-shadow:0 28px 72px rgba(15, 23, 42, .3);
+    }
+    .editor-modal-header {
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+      padding:.9rem 1.1rem;
+      border-bottom:1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      background:color-mix(in srgb, var(--card) 92%, transparent);
+    }
+    .editor-modal-header h2 {
+      margin:0;
+      font-size:1.08rem;
+      line-height:1.2;
+      min-width:0;
+      flex:1 1 auto;
+    }
+    .editor-modal-header-actions {
+      flex:0 0 auto;
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .editor-modal-header-actions[hidden] {
+      display:none !important;
+    }
+    .editor-modal-header-actions .btn-secondary {
+      height:2rem;
+      padding:0 .65rem;
+    }
+    .editor-modal-close {
+      flex:0 0 auto;
+      width:2rem;
+      height:2rem;
+      padding:0;
+      font-size:1.25rem;
+      line-height:1;
+    }
+    .editor-modal-body {
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding:1rem;
+      scrollbar-gutter:stable;
+    }
+    .editor-overlay-panel {
+      width:100%;
+      min-height:100%;
+    }
+
+    @media (max-width: 820px) {
+      .editor-app-shell {
+        grid-template-columns:minmax(0, 1fr);
+      }
+      .editor-rail {
+        position:fixed;
+        inset:0 auto 0 0;
+        z-index:13000;
+        width:min(86vw, 360px);
+        max-width:min(86vw, 360px);
+        transform:translateX(-102%);
+        transition:transform .2s ease;
+        box-shadow:18px 0 38px rgba(15, 23, 42, .16);
+      }
+      .editor-app-shell.is-rail-open .editor-rail {
+        transform:translateX(0);
+      }
+      .editor-rail-resizer {
+        display:none;
+      }
+      .editor-content-pane {
+        grid-column:1;
+        --editor-content-pane-padding:.75rem;
+      }
+      .editor-mobile-rail-toggle {
+        display:inline-flex;
+      }
+      .editor-mobile-rail-scrim {
+        position:fixed;
+        inset:0;
+        z-index:12999;
+        display:block;
+        background:rgba(15, 23, 42, .28);
+      }
+      .editor-mobile-rail-scrim[hidden] {
+        display:none !important;
+      }
+      .editor-modal-dialog {
+        width:calc(100vw - 1rem);
+        max-height:calc(100dvh - 1rem);
+      }
+      .editor-modal-body {
+        padding:.75rem;
+      }
+    }
+
+    /* Preload-state CSS to avoid flash when legacy state points at Site Settings */
+    [data-init-mode="composer"] #mode-composer { display: none !important; }
     /* Preselect composer sub-file to tabs when persisted */
     [data-init-cfile="tabs"] #composerIndex { display: none !important; }
     [data-init-cfile="tabs"] #composerTabs { display: block !important; }
@@ -1583,27 +2086,38 @@
 </head>
 <body>
   <div class="editor-page">
-    <div class="page-titlebar">
-      <div class="editor-lang-switcher" id="editorLangSwitcher">
-        <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
-        <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
-      </div>
-      <nav class="mode-switch" role="tablist" aria-label="Mode switch" data-i18n-aria-label="editor.nav.modeSwitchAria">
-        <button class="mode-tab is-active" data-mode="composer" data-tab-label="Composer" data-i18n-data-tab-label="editor.modes.composer" role="tab" aria-controls="mode-composer" aria-selected="true" aria-label="Composer" data-i18n-aria-label="editor.modes.composer">
-          <span class="mode-tab-text" data-i18n="editor.modes.composer">Composer</span>
-          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-        </button>
-        <button class="mode-tab" data-mode="editor" data-tab-label="Editor" data-i18n-data-tab-label="editor.modes.editor" role="tab" aria-controls="mode-editor" aria-selected="false" aria-label="Editor" data-i18n-aria-label="editor.modes.editor">
-          <span class="mode-tab-text" data-i18n="editor.modes.editor">Editor</span>
-          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-        </button>
-        <button class="mode-tab" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" role="tab" aria-controls="mode-updates" aria-selected="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
-          <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
-          <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-        </button>
-      </nav>
+    <div class="editor-app-shell" id="editorAppShell">
+      <div class="editor-mobile-rail-scrim" id="editorRailScrim" hidden aria-hidden="true"></div>
+      <aside class="editor-rail editor-file-tree-pane" id="editorRail" aria-label="Content files" data-i18n-aria-label="editor.tree.aria">
+        <div class="editor-rail-tree-scroll">
+          <div class="editor-file-tree" id="editorFileTree" role="tree" aria-label="Content file tree" data-i18n-aria-label="editor.tree.treeAria"></div>
+        </div>
+        <div class="editor-rail-footer">
+          <div class="editor-rail-settings" id="editorRailSettings">
+            <button type="button" class="editor-rail-settings-toggle" id="editorRailSettingsToggle" aria-haspopup="menu" aria-expanded="false" aria-controls="editorRailSettingsMenu" aria-label="Editor settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2.06 2.06 0 0 1-2.91 2.91l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .16 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1-.16 1.7 1.7 0 0 0-1.88.34l-.06.06a2.06 2.06 0 0 1-2.91-2.91l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.16-1 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0 .16-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2.06 2.06 0 0 1 2.91-2.91l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.16A1.7 1.7 0 0 0 11 2.89V3a2 2 0 0 1 4 0v-.11a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1 .16 1.7 1.7 0 0 0 1.88-.34l.06-.06a2.06 2.06 0 0 1 2.91 2.91l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .16 1 1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"></path>
+              </svg>
+            </button>
+            <div class="editor-rail-settings-menu" id="editorRailSettingsMenu" role="menu" hidden aria-hidden="true">
+              <div class="editor-lang-switcher" id="editorLangSwitcher">
+                <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
+                <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
+              </div>
+              <button type="button" class="mode-tab editor-rail-action" data-mode="composer" data-tab-label="Site Settings" data-i18n-data-tab-label="editor.modes.composer" aria-controls="mode-composer" aria-haspopup="dialog" aria-expanded="false" aria-label="Site Settings" data-i18n-aria-label="editor.modes.composer">
+                <span class="mode-tab-text" data-i18n="editor.modes.composer">Site Settings</span>
+                <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+              </button>
+              <button type="button" class="mode-tab editor-rail-action" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" aria-controls="mode-updates" aria-haspopup="dialog" aria-expanded="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
+                <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
+                <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+              </button>
+            </div>
+          </div>
+        </div>
       <div class="status-stack">
-        <div id="global-status" class="global-status" aria-live="polite">
+        <div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">
           <div class="gs-flow">
             <div class="gs-node gs-node-local">
               <div class="gs-node-header">
@@ -1639,37 +2153,48 @@
           </div>
         </div>
       </div>
-    </div>
+      </aside>
+      <div class="editor-rail-resizer" id="editorRailResizer" role="separator" aria-orientation="vertical" aria-label="Resize file tree" tabindex="0"></div>
+      <main class="editor-content-pane" id="editorContentPane">
+        <button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle" aria-controls="editorRail" aria-expanded="false" data-i18n="editor.tree.aria">Content files</button>
 
     <!-- Editor Mode -->
-    <div class="editor-layout is-empty" id="mode-editor">
-      <section class="box editor-main">
-        <nav class="mode-switch-editor" id="modeDynamicTabs" role="tablist" aria-label="Open editor tabs" data-i18n-aria-label="editor.nav.dynamicTabsAria" hidden aria-hidden="true"></nav>
-        <div class="toolbar">
-          <div class="left-actions">
-            <span class="current-file" id="currentFile" aria-live="polite"></span>
-          </div>
-          <div class="right-actions">
-            <div class="wrap-toggle view-toggle" id="wrapToggle" aria-label="Wrap setting" data-i18n-aria-label="editor.toolbar.wrapAria">
-              <span class="vt-label" data-i18n="editor.toolbar.wrap">Wrap:</span>
-              <a href="#" class="vt-btn" data-wrap="on" role="button" data-i18n="editor.toolbar.wrapOn">on</a>
-              <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn active" data-wrap="off" role="button" data-i18n="editor.toolbar.wrapOff">off</a>
+    <div class="editor-layout" id="mode-editor">
+      <section class="box editor-main editor-content-shell">
+        <div class="editor-detail-pane">
+          <section class="editor-structure-panel" id="editorStructurePanel" aria-live="polite">
+            <div class="editor-structure-head">
+              <div class="editor-structure-heading">
+                <p class="editor-structure-kicker" id="editorStructureKicker" data-i18n="editor.tree.kicker">Content structure</p>
+                <div class="editor-structure-title-row">
+                  <h2 id="editorStructureTitle" data-i18n="editor.tree.emptyTitle">Select a node</h2>
+                  <p id="editorStructureMeta" class="editor-structure-meta" data-i18n="editor.tree.emptyMeta">Choose an item in the tree to manage its structure or edit a Markdown file.</p>
+                </div>
+              </div>
+              <div class="editor-structure-actions" id="editorStructureActions"></div>
             </div>
-            <div class="view-toggle" aria-label="View switch" data-i18n-aria-label="editor.toolbar.viewAria">
-              <span class="vt-label" data-i18n="editor.toolbar.view">View:</span>
-              <a href="#" class="vt-btn active" data-view="edit" data-i18n="editor.toolbar.viewEdit">Editor</a>
-              <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
+            <div class="editor-structure-body" id="editorStructureBody"></div>
+          </section>
+          <section class="editor-markdown-panel" id="editorMarkdownPanel" hidden aria-hidden="true">
+            <div class="toolbar">
+              <div class="left-actions">
+                <span class="current-file" id="currentFile" aria-live="polite"></span>
+              </div>
+              <div class="right-actions">
+                <div class="view-toggle" aria-label="View switch" data-i18n-aria-label="editor.toolbar.viewAria">
+                  <span class="vt-label" data-i18n="editor.toolbar.view">View:</span>
+                  <a href="#" class="vt-btn active" data-view="edit" data-i18n="editor.toolbar.viewEdit">Editor</a>
+                  <span class="dim" aria-hidden="true">/</span>
+                  <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
+                </div>
+                <button type="button" class="btn-secondary" id="btnSaveMarkdown" disabled>
+                  <span class="btn-label" data-i18n="editor.toolbar.save">Save</span>
+                </button>
+                <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
+                  <span class="btn-label" data-i18n="editor.toolbar.discard">Discard</span>
+                </button>
+              </div>
             </div>
-            <button type="button" class="btn-secondary" id="btnSaveMarkdown" disabled>
-              <span class="btn-label" data-i18n="editor.toolbar.save">Save</span>
-            </button>
-            <button type="button" class="btn-secondary" id="btnDiscardMarkdown" disabled>
-              <span class="btn-label" data-i18n="editor.toolbar.discard">Discard</span>
-            </button>
-          </div>
-        </div>
 
         <div class="editor-workspace" id="editorWorkspace">
           <div class="editor-canvas">
@@ -1709,67 +2234,61 @@
             </div>
           </div>
           <aside class="editor-workspace-meta" aria-label="Front matter panel">
-            <div class="frontmatter-panel" id="frontMatterPanel" data-collapsed="false" data-state="loading">
-              <button type="button" class="frontmatter-toggle" id="frontMatterToggle" aria-expanded="true" aria-controls="frontMatterBody">
-                <span class="frontmatter-toggle-label">
-                  <span class="frontmatter-heading" data-i18n="editor.frontMatter.heading">Front matter</span>
-                  <span class="frontmatter-subheading" id="frontMatterSummary" data-i18n="editor.frontMatter.summaryDefault">Metadata for this post</span>
-                </span>
-                <span class="frontmatter-toggle-icon" aria-hidden="true">
-                  <svg width="18" height="18" viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-                    <path d="M6.3 9.3a1 1 0 0 1 1.4 0L12 13.6l4.3-4.3a1 1 0 0 1 1.4 1.4l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 0 1 0-1.4z" fill="currentColor" />
-                  </svg>
-                </span>
-              </button>
-              <div class="frontmatter-body" id="frontMatterBody" role="region" aria-labelledby="frontMatterToggle">
-                <p class="frontmatter-help" id="frontMatterHelp" data-i18n="editor.frontMatter.help">Fill the metadata below. Leave a field empty to remove it from the file.</p>
+            <div class="frontmatter-panel" id="frontMatterPanel" data-state="loading">
+              <div class="frontmatter-body" id="frontMatterBody" role="region" aria-label="Front matter fields">
                 <p class="frontmatter-empty" id="frontMatterEmpty" hidden data-i18n="editor.frontMatter.empty">No front matter fields yet. Add values to include metadata.</p>
                 <div class="frontmatter-section" id="frontMatterCommonSection">
-                  <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.commonTitle">Common fields</h3>
+                  <div class="frontmatter-section-head">
+                    <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.commonTitle">Common fields</h3>
+                    <p class="frontmatter-section-description" data-i18n="editor.frontMatter.commonDescription">Metadata used by cards, SEO, and article lists.</p>
+                  </div>
                   <div class="frontmatter-grid" id="frontMatterCommonFields"></div>
                 </div>
                 <div class="frontmatter-section" id="frontMatterExtraSection" hidden>
-                  <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.advancedTitle">Advanced fields</h3>
+                  <div class="frontmatter-section-head">
+                    <h3 class="frontmatter-section-title" data-i18n="editor.frontMatter.advancedTitle">Advanced fields</h3>
+                    <p class="frontmatter-section-description" data-i18n="editor.frontMatter.advancedDescription">Supplemental metadata for sharing images, version badges, and AI labels.</p>
+                  </div>
                   <div class="frontmatter-grid" id="frontMatterExtraFields"></div>
                 </div>
               </div>
             </div>
           </aside>
         </div>
+          </section>
+        </div>
       </section>
 
-      <div class="editor-empty-state" id="editorEmptyState" role="status" aria-live="polite">
+      <div class="editor-empty-state" id="editorEmptyState" role="status" aria-live="polite" hidden aria-hidden="true">
         <div class="empty-body">
           <h2 data-i18n="editor.empty.title">No editor is currently open</h2>
-          <p data-i18n="editor.empty.body">Open Markdown from the Composer to start editing.</p>
+          <p data-i18n="editor.empty.body">Select a Markdown file from the tree to start editing.</p>
         </div>
       </div>
     </div>
+      </main>
 
-    <!-- Composer Mode -->
-    <div class="editor-layout" id="mode-composer" style="display:none;">
-      <section class="box editor-main" style="grid-column: 1 / -1;">
-        <div class="toolbar">
-          <div class="left-actions">
-            <div class="view-toggle" aria-label="File switch" data-i18n-aria-label="editor.composer.fileSwitchAria">
-              <span class="vt-label" data-i18n="editor.composer.fileLabel">File:</span>
-              <a href="#" class="vt-btn active" data-cfile="index" data-i18n="editor.composer.fileArticles">Articles</a>
-              <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-cfile="tabs" data-i18n="editor.composer.filePages">Pages</a>
-              <span class="dim" aria-hidden="true">/</span>
-              <a href="#" class="vt-btn" data-cfile="site" data-i18n="editor.composer.fileSite">Site</a>
+      <div class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true">
+        <div class="editor-modal-backdrop" data-editor-modal-close aria-hidden="true"></div>
+        <section class="editor-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="editorModalTitle" tabindex="-1">
+          <header class="editor-modal-header">
+            <button type="button" class="btn-secondary editor-modal-close" id="editorModalClose" aria-label="Close" data-i18n-aria-label="editor.composer.dialogs.close">×</button>
+            <h2 id="editorModalTitle"></h2>
+            <div class="editor-modal-header-actions" id="editorModalComposerActions" hidden>
+              <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot" data-i18n="editor.composer.refresh" data-i18n-title="editor.composer.refreshTitle">Refresh</button>
+              <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
             </div>
-          </div>
-          <div class="right-actions">
-            <button class="btn-secondary" id="btnAddItem" data-i18n="editor.composer.addPost">Add Post Entry</button>
-            <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot" data-i18n="editor.composer.refresh" data-i18n-title="editor.composer.refreshTitle">Refresh</button>
-
-            <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
-          </div>
-        </div>
+            <div class="editor-modal-header-actions" id="editorModalUpdateActions" hidden>
+              <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
+              <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+            </div>
+          </header>
+          <div class="editor-modal-body">
+    <!-- Composer Mode -->
+    <div class="editor-layout editor-overlay-panel" id="mode-composer" hidden aria-hidden="true">
         <!-- Composer Lists -->
         <div class="composer-panels" id="composerPanels">
-          <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost">
+          <div class="composer-order-host" data-kind="index" data-inline-active="false" id="composerIndexHost" hidden aria-hidden="true">
             <div class="composer-order-inline" id="composerOrderInlineIndex" aria-label="Old order for index.yaml" data-i18n-aria-label="editor.composer.indexInlineAria" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
@@ -1780,7 +2299,7 @@
               <div id="composerIndex" aria-label="index.yaml editor" data-i18n-aria-label="editor.composer.indexEditorAria" style="display:block;"></div>
             </div>
           </div>
-          <div class="composer-order-host" data-kind="tabs" data-inline-active="false" id="composerTabsHost" style="display:none;">
+          <div class="composer-order-host" data-kind="tabs" data-inline-active="false" id="composerTabsHost" hidden aria-hidden="true">
             <div class="composer-order-inline" id="composerOrderInlineTabs" aria-label="Old order for tabs.yaml" data-i18n-aria-label="editor.composer.tabsInlineAria" hidden>
               <div class="composer-order-inline-body">
                 <div class="composer-order-inline-list" role="list"></div>
@@ -1791,9 +2310,9 @@
               <div id="composerTabs" aria-label="tabs.yaml editor" data-i18n-aria-label="editor.composer.tabsEditorAria" style="display:none;"></div>
             </div>
           </div>
-          <div class="composer-site-host" id="composerSiteHost" style="display:none;">
+          <div class="composer-site-host" id="composerSiteHost">
             <div class="composer-site-main">
-              <div id="composerSite" aria-label="site.yaml editor" data-i18n-aria-label="editor.composer.siteEditorAria" style="display:none;"></div>
+              <div id="composerSite" aria-label="site.yaml editor" data-i18n-aria-label="editor.composer.siteEditorAria"></div>
             </div>
           </div>
         </div>
@@ -1802,14 +2321,12 @@
         <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
           <textarea id="yamlExport" style="width:100%; height: 280px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); padding:.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 18px;"></textarea>
         </div>
-      </section>
     </div>
     <!-- System Updates Mode -->
-    <div class="updates-layout" id="mode-updates" style="display:none;">
-      <section class="box updates-main">
+    <div class="updates-layout editor-overlay-panel" id="mode-updates" hidden aria-hidden="true">
+      <section class="updates-main">
         <div class="updates-header">
           <div class="updates-header-text">
-            <h2 class="updates-title" data-i18n="editor.systemUpdates.title">System Updates</h2>
             <div class="updates-meta">
               <span id="systemUpdateReleaseMeta"></span>
               <span id="systemUpdateReleasePublished"></span>
@@ -1818,8 +2335,6 @@
           </div>
           <div class="updates-header-actions">
             <a class="btn-secondary updates-download" id="systemUpdateDownloadLink" href="#" target="_blank" rel="noopener" aria-disabled="true" data-i18n="editor.systemUpdates.openDownload">Open latest release</a>
-            <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
-            <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
           </div>
         </div>
         <p id="systemUpdateStatus" class="updates-status" data-tone="info"></p>
@@ -1832,6 +2347,10 @@
           <div id="systemUpdateReleaseNotes" class="updates-release-notes"></div>
         </div>
       </section>
+    </div>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -1874,10 +2393,10 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js"></script>
-  <script type="module" src="assets/js/editor-main.js"></script>
-  <script type="module" src="assets/js/composer.js"></script>
-  <script type="module" src="assets/js/editor-github.js"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-i18n-actions-20260430a"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-i18n-actions-20260430a"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-i18n-actions-20260430a"></script>
+  <script type="module" src="assets/js/editor-github.js?v=editor-i18n-actions-20260430a"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

@@ -17,9 +17,35 @@ import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260430a';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
+const FORCE_MARKDOWN_WRAP = true;
+
+const FRONT_MATTER_SECTION_DESCRIPTIONS = [
+  {
+    selector: '#frontMatterCommonSection .frontmatter-section-description',
+    key: 'editor.frontMatter.commonDescription',
+    fallback: {
+      en: 'Metadata used by cards, SEO, and article lists.',
+      chs: '用于卡片、SEO 与文章列表的常用元数据。',
+      'cht-tw': '用於卡片、SEO 與文章列表的常用中繼資料。',
+      'cht-hk': '用於卡片、SEO 與文章列表的常用中繼資料。',
+      ja: 'カード、SEO、記事一覧で使う基本メタデータ。'
+    }
+  },
+  {
+    selector: '#frontMatterExtraSection .frontmatter-section-description',
+    key: 'editor.frontMatter.advancedDescription',
+    fallback: {
+      en: 'Supplemental metadata for sharing images, version badges, and AI labels.',
+      chs: '用于分享图片、版本徽标和 AI 标记的补充元数据。',
+      'cht-tw': '用於分享圖片、版本徽章與 AI 標記的補充中繼資料。',
+      'cht-hk': '用於分享圖片、版本徽章與 AI 標記的補充中繼資料。',
+      ja: '共有画像、バージョンバッジ、AI ラベル用の補足メタデータ。'
+    }
+  }
+];
 
 const previewAssetBuckets = new Map();
 let previewAssetCurrentPath = '';
@@ -571,28 +597,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const editorLayoutEl = document.getElementById('mode-editor');
   const editorMainEl = editorLayoutEl ? editorLayoutEl.querySelector('.editor-main') : null;
   const editorEmptyStateEl = document.getElementById('editorEmptyState');
+  const editorMarkdownPanelEl = document.getElementById('editorMarkdownPanel');
   let wrapEnabled = false;
 
   const applyEditorEmptyState = (isEmpty) => {
     const empty = !!isEmpty;
-    if (editorLayoutEl) editorLayoutEl.classList.toggle('is-empty', empty);
+    if (editorLayoutEl) {
+      editorLayoutEl.classList.remove('is-empty');
+      editorLayoutEl.toggleAttribute('data-current-file', !empty);
+    }
     if (editorMainEl) {
-      if (empty) editorMainEl.setAttribute('hidden', '');
-      else editorMainEl.removeAttribute('hidden');
+      editorMainEl.removeAttribute('hidden');
+    }
+    if (editorMarkdownPanelEl) {
+      if (empty) {
+        editorMarkdownPanelEl.setAttribute('hidden', '');
+        editorMarkdownPanelEl.setAttribute('aria-hidden', 'true');
+      } else {
+        editorMarkdownPanelEl.removeAttribute('hidden');
+        editorMarkdownPanelEl.removeAttribute('aria-hidden');
+      }
     }
     if (editorEmptyStateEl) {
-      if (empty) {
-        editorEmptyStateEl.removeAttribute('hidden');
-        editorEmptyStateEl.removeAttribute('aria-hidden');
-      } else {
-        editorEmptyStateEl.setAttribute('hidden', '');
-        editorEmptyStateEl.setAttribute('aria-hidden', 'true');
-      }
+      editorEmptyStateEl.setAttribute('hidden', '');
+      editorEmptyStateEl.setAttribute('aria-hidden', 'true');
     }
   };
   applyEditorEmptyState(true);
 
   const readWrapState = () => {
+    if (FORCE_MARKDOWN_WRAP) return true;
     try {
       const raw = localStorage.getItem(LS_WRAP_KEY);
       if (!raw) return false;
@@ -623,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const applyWrapState = (value, opts = {}) => {
-    const on = !!value;
+    const on = FORCE_MARKDOWN_WRAP ? true : !!value;
     wrapEnabled = on;
     if (editor && typeof editor.setWrap === 'function') {
       editor.setWrap(on);
@@ -663,8 +697,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const panel = document.getElementById('frontMatterPanel');
     if (!panel) return null;
 
-    const toggle = document.getElementById('frontMatterToggle');
-    const summaryEl = document.getElementById('frontMatterSummary');
     const commonFieldsEl = document.getElementById('frontMatterCommonFields');
     const extraSection = document.getElementById('frontMatterExtraSection');
     const extraFieldsEl = document.getElementById('frontMatterExtraFields');
@@ -692,6 +724,31 @@ document.addEventListener('DOMContentLoaded', () => {
       return translated;
     };
 
+    const translateWithLocaleFallback = (key, fallbacks = {}) => {
+      const translated = translate(key, null);
+      if (translated != null && translated !== key) return translated;
+      let lang = 'en';
+      try {
+        lang = normalizeLangKey(getCurrentLang()) || 'en';
+      } catch (_) {
+        lang = 'en';
+      }
+      if (fallbacks[lang]) return fallbacks[lang];
+      if (lang === 'cht-hk' && fallbacks['cht-tw']) return fallbacks['cht-tw'];
+      if (lang.startsWith('cht') && fallbacks['cht-tw']) return fallbacks['cht-tw'];
+      if (lang.startsWith('ch') && fallbacks.chs) return fallbacks.chs;
+      if (lang.startsWith('ja') && fallbacks.ja) return fallbacks.ja;
+      return fallbacks.en || key;
+    };
+
+    const applySectionDescriptions = () => {
+      FRONT_MATTER_SECTION_DESCRIPTIONS.forEach((item) => {
+        const el = item && item.selector ? document.querySelector(item.selector) : null;
+        if (!el) return;
+        el.textContent = translateWithLocaleFallback(item.key, item.fallback);
+      });
+    };
+
     const normalizeListInput = (value) => {
       if (Array.isArray(value)) {
         return value
@@ -713,7 +770,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const actual = key || entry.key || (entry.def && entry.def.keys ? entry.def.keys[0] : '');
       entry.key = actual;
       entry.container.dataset.key = actual;
-      if (entry.keyPill) entry.keyPill.textContent = actual;
+    };
+
+    const syncBooleanControl = (entry, value) => {
+      if (!entry || !entry.input || entry.type !== 'boolean') return;
+      const checked = value === true;
+      entry.input.indeterminate = false;
+      entry.input.checked = checked;
+      entry.input.setAttribute('aria-checked', checked ? 'true' : 'false');
+      if (entry.switchEl) entry.switchEl.dataset.state = checked ? 'on' : 'off';
     };
 
     const updateFieldEmptyState = (entry) => {
@@ -721,14 +786,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const value = state.data[entry.key];
       const empty = !valueIsPresent(value);
       entry.container.dataset.empty = empty ? 'true' : 'false';
-      if (entry.clearBtn) {
-        entry.clearBtn.disabled = empty;
-        entry.clearBtn.setAttribute('aria-disabled', empty ? 'true' : 'false');
-      }
       if (!entry.input) return;
       if (entry.type === 'boolean') {
-        entry.input.indeterminate = value == null;
-        entry.input.checked = Boolean(value);
+        syncBooleanControl(entry, value);
       }
     };
 
@@ -737,13 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
       suppressEvents = true;
       try {
         if (entry.type === 'boolean') {
-          if (value == null) {
-            entry.input.checked = false;
-            entry.input.indeterminate = true;
-          } else {
-            entry.input.indeterminate = false;
-            entry.input.checked = Boolean(value);
-          }
+          syncBooleanControl(entry, value);
         } else if (entry.type === 'list') {
           const list = Array.isArray(value)
             ? value.map((item) => String(item == null ? '' : item)).filter(Boolean)
@@ -808,33 +862,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleInputEvent = (entry) => {
       if (!entry || !entry.input || suppressEvents) return;
       if (entry.type === 'boolean') {
-        const value = entry.input.indeterminate ? undefined : entry.input.checked;
-        setDataValue(entry, value);
+        syncBooleanControl(entry, entry.input.checked);
+        setDataValue(entry, entry.input.checked);
       } else if (entry.type === 'list') {
         setDataValue(entry, entry.input.value);
       } else {
         setDataValue(entry, entry.input.value);
       }
-    };
-
-    const clearEntryValue = (entry) => {
-      if (!entry || !entry.input) return;
-      const shouldRebind = getAlternateAliasKeys(entry).length > 0;
-      suppressEvents = true;
-      try {
-        if (entry.type === 'boolean') {
-          entry.input.checked = false;
-          entry.input.indeterminate = true;
-        } else {
-          entry.input.value = '';
-        }
-        delete state.data[entry.key];
-      } finally {
-        suppressEvents = false;
-      }
-      if (shouldRebind) rebuildBindings();
-      else updateFieldEmptyState(entry);
-      triggerChange();
     };
 
     const createField = (def, options = {}) => {
@@ -845,86 +879,98 @@ document.addEventListener('DOMContentLoaded', () => {
         section: def.section || 'common',
         container: document.createElement('div'),
         input: null,
-        keyPill: null,
-        clearBtn: null,
+        switchEl: null,
         key: def.keys[0]
       };
 
-      entry.container.className = 'frontmatter-field';
+      const fieldClasses = ['frontmatter-field', `frontmatter-field-${entry.type}`];
+      if (def.hintKey) fieldClasses.push('frontmatter-field-inline-help');
+      if (entry.type === 'textarea' || entry.type === 'list') fieldClasses.push('frontmatter-field-multiline');
+      entry.container.className = fieldClasses.join(' ');
       entry.container.dataset.fieldId = entry.id;
       entry.container.dataset.section = entry.section;
 
-      const label = document.createElement('div');
-      label.className = 'frontmatter-field-label';
+      const head = document.createElement('div');
+      head.className = 'frontmatter-field-head';
+      const labelWrap = document.createElement('div');
+      labelWrap.className = 'frontmatter-field-label-wrap';
       const labelSpan = document.createElement('span');
+      labelSpan.className = 'frontmatter-field-title';
       if (def.labelKey) labelSpan.dataset.i18n = def.labelKey;
       labelSpan.textContent = translate(def.labelKey, def.fallbackLabel || def.keys[0]);
-      label.appendChild(labelSpan);
-      const pill = document.createElement('span');
-      pill.className = 'frontmatter-pill';
-      label.appendChild(pill);
-      entry.keyPill = pill;
-      entry.container.appendChild(label);
-
+      labelWrap.appendChild(labelSpan);
       if (def.hintKey) {
-        const hint = document.createElement('p');
-        hint.className = 'frontmatter-field-hint';
-        hint.textContent = translate(def.hintKey, '');
-        if (def.hintKey) hint.dataset.i18n = def.hintKey;
-        entry.container.appendChild(hint);
+        const hintText = translate(def.hintKey, '');
+        const tooltipId = `frontmatter-help-${entry.id}`;
+        const tooltipWrap = document.createElement('span');
+        tooltipWrap.className = 'frontmatter-help-tooltip-wrap';
+        const tooltip = document.createElement('button');
+        tooltip.type = 'button';
+        tooltip.className = 'frontmatter-help-tooltip';
+        tooltip.textContent = '?';
+        tooltip.setAttribute('aria-label', `${labelSpan.textContent}: ${hintText}`);
+        tooltip.setAttribute('aria-describedby', tooltipId);
+        const tooltipBubble = document.createElement('span');
+        tooltipBubble.id = tooltipId;
+        tooltipBubble.className = 'frontmatter-help-tooltip-bubble';
+        tooltipBubble.setAttribute('role', 'tooltip');
+        tooltipBubble.textContent = hintText;
+        tooltipBubble.dataset.i18n = def.hintKey;
+        tooltipWrap.appendChild(tooltip);
+        tooltipWrap.appendChild(tooltipBubble);
+        labelWrap.appendChild(tooltipWrap);
       }
+      head.appendChild(labelWrap);
+
+      entry.container.appendChild(head);
+
+      const controls = document.createElement('div');
+      controls.className = 'frontmatter-field-controls';
 
       if (entry.type === 'boolean') {
         const wrap = document.createElement('label');
-        wrap.className = 'frontmatter-boolean';
+        wrap.className = 'frontmatter-switch';
+        wrap.dataset.state = 'off';
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.indeterminate = true;
+        checkbox.className = 'frontmatter-switch-input';
+        checkbox.setAttribute('role', 'switch');
+        checkbox.setAttribute('aria-checked', 'false');
+        checkbox.setAttribute('aria-label', labelSpan.textContent || translate(def.labelKey, def.fallbackLabel || def.keys[0]));
+        const track = document.createElement('span');
+        track.className = 'frontmatter-switch-track';
+        const thumb = document.createElement('span');
+        thumb.className = 'frontmatter-switch-thumb';
+        track.appendChild(thumb);
         wrap.appendChild(checkbox);
-        const text = document.createElement('span');
-        text.textContent = translate('editor.frontMatter.booleanLabel', 'Enabled');
-        text.dataset.i18n = 'editor.frontMatter.booleanLabel';
-        wrap.appendChild(text);
+        wrap.appendChild(track);
         entry.input = checkbox;
-        entry.container.appendChild(wrap);
-        const actions = document.createElement('div');
-        actions.className = 'frontmatter-actions';
-        const clearBtn = document.createElement('button');
-        clearBtn.type = 'button';
-        clearBtn.className = 'frontmatter-clear';
-        clearBtn.textContent = translate('editor.frontMatter.clear', 'Clear');
-        clearBtn.dataset.i18n = 'editor.frontMatter.clear';
-        clearBtn.addEventListener('click', () => clearEntryValue(entry));
-        actions.appendChild(clearBtn);
-        entry.clearBtn = clearBtn;
-        entry.container.appendChild(actions);
+        entry.switchEl = wrap;
+        controls.appendChild(wrap);
       } else if (entry.type === 'textarea') {
         const textarea = document.createElement('textarea');
         textarea.rows = 3;
         entry.input = textarea;
-        entry.container.appendChild(textarea);
+        controls.appendChild(textarea);
       } else if (entry.type === 'list') {
         const textarea = document.createElement('textarea');
         textarea.classList.add('frontmatter-list-input');
         textarea.rows = 4;
         entry.input = textarea;
-        entry.container.appendChild(textarea);
-        const hint = document.createElement('p');
-        hint.className = 'frontmatter-list-hint';
-        hint.textContent = translate('editor.frontMatter.listHint', 'One item per line');
-        hint.dataset.i18n = 'editor.frontMatter.listHint';
-        entry.container.appendChild(hint);
+        controls.appendChild(textarea);
       } else if (entry.type === 'date') {
         const input = document.createElement('input');
         input.type = 'date';
         entry.input = input;
-        entry.container.appendChild(input);
+        controls.appendChild(input);
       } else {
         const input = document.createElement('input');
         input.type = 'text';
         entry.input = input;
-        entry.container.appendChild(input);
+        controls.appendChild(input);
       }
+
+      entry.container.appendChild(controls);
 
       const actualKey = options.key || def.keys[0];
       setEntryKey(entry, actualKey);
@@ -954,13 +1000,6 @@ document.addEventListener('DOMContentLoaded', () => {
       registry.forEach((entry) => {
         if (entry && valueIsPresent(state.data[entry.key])) count += 1;
       });
-      if (summaryEl) {
-        const summary = t('editor.frontMatter.summary', { count });
-        if (summary != null && summary !== 'editor.frontMatter.summary') summaryEl.textContent = summary;
-        else summaryEl.textContent = count
-          ? `${count} field${count === 1 ? '' : 's'} active`
-          : translate('editor.frontMatter.summaryDefault', 'Metadata for this post');
-      }
       if (emptyEl) {
         emptyEl.hidden = count !== 0;
       }
@@ -1003,24 +1042,50 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     };
 
-    if (toggle) {
-      toggle.addEventListener('click', () => {
-        const collapsed = panel.getAttribute('data-collapsed') === 'true';
-        panel.setAttribute('data-collapsed', collapsed ? 'false' : 'true');
-        toggle.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
-      });
-    }
-
     ensureBaseFields();
     updateSummary();
+    applySectionDescriptions();
 
     return {
+      panel,
       setChangeHandler: (fn) => { changeHandler = typeof fn === 'function' ? fn : () => {}; },
       setFromMarkdown,
       buildMarkdown,
-      updateSummary
+      updateSummary,
+      applySectionDescriptions
     };
   })();
+
+  let frontMatterVisible = true;
+
+  const normalizeCurrentFilePathForMode = (path) => {
+    const raw = String(path || '').trim().replace(/\\+/g, '/').replace(/^\/+/, '');
+    if (!raw) return '';
+    const root = String(getContentRoot() || '')
+      .trim()
+      .replace(/\\+/g, '/')
+      .replace(/^\/+|\/+$/g, '');
+    if (root && raw.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
+      return raw.slice(root.length + 1);
+    }
+    return raw;
+  };
+
+  const inferCurrentFileSource = (path) => {
+    const normalized = normalizeCurrentFilePathForMode(path).toLowerCase();
+    if (!normalized) return '';
+    return normalized.startsWith('tab/') ? 'tabs' : '';
+  };
+
+  const setFrontMatterVisible = (visible) => {
+    frontMatterVisible = !!visible;
+    const panel = frontMatterManager && frontMatterManager.panel;
+    if (!panel) return;
+    panel.hidden = !frontMatterVisible;
+    panel.dataset.frontmatterVisible = frontMatterVisible ? 'true' : 'false';
+    panel.setAttribute('aria-hidden', frontMatterVisible ? 'false' : 'true');
+    panel.style.display = frontMatterVisible ? '' : 'none';
+  };
 
   const changeListeners = new Set();
   const notifyChange = () => {
@@ -1075,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getValue = () => {
     const body = getEditorBody();
-    if (frontMatterManager) return frontMatterManager.buildMarkdown(body);
+    if (frontMatterVisible && frontMatterManager) return frontMatterManager.buildMarkdown(body);
     return body;
   };
 
@@ -1087,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = value == null ? '' : String(value);
     const { preview = true, notify = true } = opts;
     let bodyText = text;
-    if (frontMatterManager) {
+    if (frontMatterVisible && frontMatterManager) {
       bodyText = frontMatterManager.setFromMarkdown(text, { silent: true });
     }
     if (editor) editor.setValue(bodyText);
@@ -1118,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
-  let currentFileInfo = { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+  let currentFileInfo = { path: '', source: '', breadcrumb: [], status: null, dirty: false, draft: null, draftState: '', loaded: false };
   let currentFileElRef = null;
 
   const getEditorTextarea = () => {
@@ -1665,7 +1730,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('ns-editor-language-applied', () => {
     tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
     renderCurrentFileIndicator();
-    if (frontMatterManager) frontMatterManager.updateSummary();
+    if (frontMatterManager) {
+      frontMatterManager.updateSummary();
+      frontMatterManager.applySectionDescriptions();
+    }
   });
 
   if (cardSearchInput) {
@@ -2020,12 +2088,36 @@ document.addEventListener('DOMContentLoaded', () => {
     return Object.keys(normalized).length ? normalized : (state ? { state } : null);
   };
 
+  const normalizeCurrentFileBreadcrumb = (value, fallbackPath = '') => {
+    const source = Array.isArray(value) ? value : [];
+    const items = source
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const label = String(item.label || '').trim();
+        if (!label) return null;
+        return {
+          label,
+          nodeId: item.nodeId != null ? String(item.nodeId || '').trim() : '',
+          path: item.path != null ? String(item.path || '').trim() : ''
+        };
+      })
+      .filter(Boolean);
+    if (items.length) return items;
+    const path = String(fallbackPath || '').trim();
+    return path ? [{ label: path, nodeId: '', path }] : [];
+  };
+
   const normalizeCurrentFilePayload = (input) => {
     if (typeof input === 'string') {
-      return { path: String(input || '').trim(), status: null, dirty: false, draft: null, draftState: '', loaded: false };
+      const path = String(input || '').trim();
+      return { path, source: inferCurrentFileSource(path), breadcrumb: normalizeCurrentFileBreadcrumb(null, path), status: null, dirty: false, draft: null, draftState: '', loaded: false };
     }
     if (input && typeof input === 'object') {
       const path = input.path != null ? String(input.path || '').trim() : '';
+      const source = input.source != null && String(input.source || '').trim()
+        ? String(input.source || '').trim().toLowerCase()
+        : inferCurrentFileSource(path);
+      const breadcrumb = normalizeCurrentFileBreadcrumb(input.breadcrumb, path);
       const status = normalizeStatusPayload(input.status);
       const dirty = !!input.dirty;
       const loaded = !!input.loaded;
@@ -2041,9 +2133,9 @@ document.addEventListener('DOMContentLoaded', () => {
           draftState = conflict ? 'conflict' : 'saved';
         }
       }
-      return { path, status, dirty, draft, draftState, loaded };
+      return { path, source, breadcrumb, status, dirty, draft, draftState, loaded };
     }
-    return { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+    return { path: '', source: '', breadcrumb: [], status: null, dirty: false, draft: null, draftState: '', loaded: false };
   };
 
   const describeStatusLabel = (status) => {
@@ -2077,6 +2169,50 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   };
 
+  const renderCurrentFileBreadcrumb = (items, fullPath) => {
+    const crumbs = Array.isArray(items) && items.length
+      ? items
+      : normalizeCurrentFileBreadcrumb(null, fullPath);
+    if (!crumbs.length) return '';
+    const html = [];
+    crumbs.forEach((item, index) => {
+      if (index > 0) html.push('<span class="cf-breadcrumb-separator" aria-hidden="true">/</span>');
+      const label = escapeHtml(item.label || '');
+      const nodeId = item.nodeId ? escapeHtml(item.nodeId) : '';
+      const path = item.path ? escapeHtml(item.path) : '';
+      const currentClass = index === crumbs.length - 1 ? ' cf-breadcrumb-item-current' : '';
+      if (nodeId) {
+        const ariaCurrent = index === crumbs.length - 1 ? ' aria-current="page"' : '';
+        html.push(`<a href="#" class="cf-breadcrumb-item${currentClass}" data-current-file-node-id="${nodeId}" data-current-file-path="${path}"${ariaCurrent}>${label}</a>`);
+      } else {
+        html.push(`<span class="cf-breadcrumb-item cf-breadcrumb-item-static${currentClass}">${label}</span>`);
+      }
+    });
+    return `<span class="cf-breadcrumb" aria-label="Current file location">${html.join('')}</span>`;
+  };
+
+  const bindCurrentFileBreadcrumbEvents = (el) => {
+    if (!el || el.dataset.breadcrumbBound === '1') return;
+    el.dataset.breadcrumbBound = '1';
+    el.addEventListener('click', (event) => {
+      const target = event.target && event.target.closest
+        ? event.target.closest('[data-current-file-node-id]')
+        : null;
+      if (!target || !el.contains(target)) return;
+      const nodeId = String(target.dataset.currentFileNodeId || '').trim();
+      if (!nodeId) return;
+      event.preventDefault();
+      try {
+        document.dispatchEvent(new CustomEvent('ns-editor-current-file-breadcrumb-select', {
+          detail: {
+            nodeId,
+            path: target.dataset.currentFilePath || ''
+          }
+        }));
+      } catch (_) {}
+    });
+  };
+
   const renderCurrentFileIndicator = () => {
     const path = currentFileInfo.path ? String(currentFileInfo.path) : '';
     applyEditorEmptyState(!path);
@@ -2099,7 +2235,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     const mainPieces = [];
-    mainPieces.push(`<span class="cf-path">${escapeHtml(path)}</span>`);
+    const breadcrumbLabel = (currentFileInfo.breadcrumb || [])
+      .map(item => item && item.label ? String(item.label) : '')
+      .filter(Boolean)
+      .join('/');
+    mainPieces.push(renderCurrentFileBreadcrumb(currentFileInfo.breadcrumb, path));
     if (statusLabel) {
       mainPieces.push('<span aria-hidden="true">—</span>');
       mainPieces.push(`<span class="cf-status">${escapeHtml(statusLabel)}</span>`);
@@ -2129,8 +2269,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
     el.innerHTML = `${mainHtml}${metaHtml}`;
+    bindCurrentFileBreadcrumbEvents(el);
 
-    const tooltipParts = [path, statusLabel, meta, draftLabel]
+    const tooltipParts = [breadcrumbLabel, path && path !== breadcrumbLabel ? path : '', statusLabel, meta, draftLabel]
       .map(part => getPlainText(part))
       .filter(Boolean);
     el.setAttribute('title', tooltipParts.join(' — '));
@@ -2151,6 +2292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const assignCurrentFileLabel = (input) => {
     currentFileInfo = normalizeCurrentFilePayload(input);
+    setFrontMatterVisible(currentFileInfo.source !== 'tabs');
     previewAssetCurrentPath = normalizePreviewPath(currentFileInfo.path || '');
     renderCurrentFileIndicator();
     refreshPreviewAssetOverrides();
@@ -2254,6 +2396,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
+    setFrontMatterVisible: (visible) => setFrontMatterVisible(visible),
     onChange: (fn) => {
       if (typeof fn !== 'function') return () => {};
       changeListeners.add(fn);

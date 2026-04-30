@@ -682,6 +682,47 @@ function makeEditor(targetTextarea, language, readOnly) {
     }
   }
 
+  function findVerticalScrollParent(node) {
+    let el = node && node.parentElement;
+    while (el && el !== document.body && el !== document.documentElement) {
+      try {
+        const cs = window.getComputedStyle(el);
+        if (/(auto|scroll|overlay)/.test(cs.overflowY || '') && el.scrollHeight > el.clientHeight + 1) {
+          return el;
+        }
+      } catch (_) { /* noop */ }
+      el = el.parentElement;
+    }
+    return document.getElementById('editorContentPane') || document.scrollingElement || document.documentElement;
+  }
+
+  function getWheelDeltaY(event, scrollParent) {
+    let deltaY = event && Number.isFinite(event.deltaY) ? event.deltaY : 0;
+    if (!deltaY) return 0;
+    if (event.deltaMode === 1) {
+      deltaY *= getLineMetrics().lineH || DEFAULT_LINE_HEIGHT;
+    } else if (event.deltaMode === 2) {
+      deltaY *= (scrollParent && scrollParent.clientHeight) || window.innerHeight || 600;
+    }
+    return deltaY;
+  }
+
+  function forwardVerticalWheel(event) {
+    if (!event || !event.deltaY) return;
+    const absX = Math.abs(event.deltaX || 0);
+    const absY = Math.abs(event.deltaY || 0);
+    if (absX > absY && scroll.scrollWidth > scroll.clientWidth + 1) return;
+    const scrollParent = findVerticalScrollParent(container);
+    if (!scrollParent) return;
+    const deltaY = getWheelDeltaY(event, scrollParent);
+    if (!deltaY) return;
+    const before = scrollParent.scrollTop;
+    scrollParent.scrollTop = before + deltaY;
+    if (scrollParent.scrollTop !== before) {
+      event.preventDefault();
+    }
+  }
+
   function updateActiveLines() {
     try {
       const value = ta.value || '';
@@ -744,6 +785,7 @@ function makeEditor(targetTextarea, language, readOnly) {
   ta.addEventListener('input', onInput);
   // No internal scrollbars; height grows with content
   ta.style.overflow = 'hidden';
+  scroll.addEventListener('wheel', forwardVerticalWheel, { passive: false });
   refreshLayout();
 
   // Caret/selection changes

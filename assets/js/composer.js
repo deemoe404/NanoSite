@@ -8,9 +8,10 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260430a';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
+import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -80,8 +81,23 @@ const dynamicEditorTabsByPath = new Map(); // normalizedPath -> modeId
 let dynamicTabCounter = 0;
 let currentMode = null;
 let activeDynamicMode = null;
+let activeMarkdownDocument = null;
 let detachPrimaryEditorListener = null;
 let allowEditorStatePersist = false;
+let editorContentTree = [];
+let activeEditorTreeNodeId = 'articles';
+const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
+const collapsingEditorTreeNodeIds = new Set();
+let expandingEditorTreeNodeId = null;
+let activeEditorOverlayMode = null;
+let editorOverlayReturnFocus = null;
+let editorOverlayEscapeBound = false;
+let editorRailResizeBound = false;
+let editorMobileRailBound = false;
+const EDITOR_RAIL_WIDTH_KEY = 'ns_editor_rail_width';
+const EDITOR_RAIL_DEFAULT_WIDTH = 340;
+const EDITOR_RAIL_MIN_WIDTH = 280;
+const EDITOR_RAIL_MAX_WIDTH = 520;
 
 function getDynamicTabsContainer() {
   try {
@@ -3134,6 +3150,7 @@ function updateDynamicTabDirtyState(tab, options = {}) {
   }
 
   updateComposerMarkdownDraftIndicators({ path: tab.path });
+  refreshEditorContentTree({ preserveStructure: currentMode === tab.mode });
   try { updateUnsyncedSummary(); } catch (_) {}
 }
 
@@ -3302,6 +3319,7 @@ function updateComposerMarkdownDraftIndicators(options = {}) {
   selectors.forEach(sel => {
     $$( `${sel}[data-md-path]` ).forEach(updateElement);
   });
+  refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
 }
 
 function getStateSlice(kind) {
@@ -7722,6 +7740,7 @@ function notifyComposerChange(kind, options = {}) {
 
   updateUnsyncedSummary();
   if ((kind === 'index' || kind === 'tabs') && composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
+  if (kind === 'index' || kind === 'tabs') refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -8672,9 +8691,380 @@ function getFirstDynamicModeId() {
 }
 
 function getActiveDynamicTab() {
+  if (activeMarkdownDocument && activeMarkdownDocument.mode === activeDynamicMode) return activeMarkdownDocument;
   if (!activeDynamicMode) return null;
   const tab = dynamicEditorTabs.get(activeDynamicMode);
   return tab || null;
+}
+
+function getEditorContentPane() {
+  try { return document.getElementById('editorContentPane'); }
+  catch (_) { return null; }
+}
+
+function scrollEditorContentToTop(behavior = 'smooth') {
+  const pane = getEditorContentPane();
+  if (pane && typeof pane.scrollTo === 'function') {
+    try {
+      pane.scrollTo({ top: 0, behavior });
+      return;
+    } catch (_) {
+      try {
+        pane.scrollTop = 0;
+        return;
+      } catch (__) {}
+    }
+  }
+  if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+    try { window.scrollTo({ top: 0, behavior }); }
+    catch (_) { try { window.scrollTo(0, 0); } catch (__) {} }
+  }
+}
+
+function getEditorOverlayTitle(mode) {
+  if (mode === 'updates') return t('editor.systemUpdates.tabLabel');
+  return t('editor.modes.composer');
+}
+
+function syncEditorOverlayUi() {
+  const layer = document.getElementById('editorModalLayer');
+  const dialog = document.querySelector('.editor-modal-dialog');
+  const title = document.getElementById('editorModalTitle');
+  const composerActions = document.getElementById('editorModalComposerActions');
+  const updateActions = document.getElementById('editorModalUpdateActions');
+  const modalBody = document.querySelector('.editor-modal-body');
+  const hasOverlay = activeEditorOverlayMode === 'composer' || activeEditorOverlayMode === 'updates';
+  const isComposerOverlay = activeEditorOverlayMode === 'composer';
+  const isUpdatesOverlay = activeEditorOverlayMode === 'updates';
+
+  if (layer) {
+    layer.hidden = !hasOverlay;
+    layer.setAttribute('aria-hidden', hasOverlay ? 'false' : 'true');
+  }
+  if (title) title.textContent = hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '';
+  if (dialog) dialog.setAttribute('aria-label', hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '');
+  if (composerActions) {
+    composerActions.hidden = !isComposerOverlay;
+    composerActions.setAttribute('aria-hidden', isComposerOverlay ? 'false' : 'true');
+  }
+  if (updateActions) {
+    updateActions.hidden = !isUpdatesOverlay;
+    updateActions.setAttribute('aria-hidden', isUpdatesOverlay ? 'false' : 'true');
+  }
+  if (modalBody) {
+    modalBody.classList.toggle('is-composer-overlay', isComposerOverlay);
+    modalBody.classList.toggle('is-updates-overlay', isUpdatesOverlay);
+  }
+
+  ['composer', 'updates'].forEach((mode) => {
+    const panel = document.getElementById(`mode-${mode}`);
+    const isActive = activeEditorOverlayMode === mode;
+    if (panel) {
+      panel.hidden = !isActive;
+      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      panel.style.display = isActive ? '' : 'none';
+    }
+    try {
+      const btn = document.querySelector(`.mode-tab[data-mode="${mode}"]:not(.dynamic-mode)`);
+      if (btn) {
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      }
+    } catch (_) {}
+  });
+
+  try {
+    document.body.classList.toggle('ns-editor-modal-open', hasOverlay);
+  } catch (_) {}
+}
+
+function focusEditorOverlay() {
+  const dialog = document.querySelector('.editor-modal-dialog');
+  if (!dialog) return;
+  const selector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  let target = null;
+  try {
+    target = dialog.querySelector(selector);
+  } catch (_) {
+    target = null;
+  }
+  const focusTarget = target || dialog;
+  try { focusTarget.focus({ preventScroll: true }); }
+  catch (_) { try { focusTarget.focus(); } catch (__) {} }
+}
+
+function resetSiteSettingsNavOnOpen() {
+  const root = document.getElementById('composerSite');
+  if (!root) return;
+  try {
+    const viewport = root.querySelector('.cs-viewport');
+    if (viewport) viewport.scrollTop = 0;
+  } catch (_) {}
+  try {
+    const modalBody = typeof root.closest === 'function' ? root.closest('.editor-modal-body') : null;
+    if (modalBody) modalBody.scrollTop = 0;
+  } catch (_) {}
+  const firstSectionId = (() => {
+    try { return String(root.__nsSiteFirstSectionId || '').trim(); }
+    catch (_) { return ''; }
+  })();
+  const setActive = (() => {
+    try { return typeof root.__nsSiteNavSetActive === 'function' ? root.__nsSiteNavSetActive : null; }
+    catch (_) { return null; }
+  })();
+  if (!firstSectionId || !setActive) return;
+  const activateFirst = () => {
+    try {
+      setActive(firstSectionId, {
+        focusPanel: false,
+        scrollViewport: false,
+        skipScrollLock: true
+      });
+    } catch (_) {}
+  };
+  activateFirst();
+  try {
+    requestAnimationFrame(() => requestAnimationFrame(activateFirst));
+  } catch (_) {
+    activateFirst();
+  }
+}
+
+function openEditorOverlay(mode, trigger = null) {
+  const nextMode = mode === 'updates' ? 'updates' : mode === 'composer' ? 'composer' : null;
+  if (!nextMode) return;
+  editorOverlayReturnFocus = trigger && typeof trigger.focus === 'function' ? trigger : document.activeElement;
+  activeEditorOverlayMode = nextMode;
+  if (nextMode === 'composer') {
+    try { applyComposerFile('site', { force: true, immediate: true }); } catch (_) {}
+  }
+  syncEditorOverlayUi();
+  if (nextMode === 'composer') resetSiteSettingsNavOnOpen();
+  try { requestAnimationFrame(focusEditorOverlay); }
+  catch (_) { focusEditorOverlay(); }
+}
+
+function closeEditorOverlay() {
+  if (!activeEditorOverlayMode) return;
+  activeEditorOverlayMode = null;
+  syncEditorOverlayUi();
+  const restore = editorOverlayReturnFocus;
+  editorOverlayReturnFocus = null;
+  if (restore && typeof restore.focus === 'function') {
+    try { restore.focus({ preventScroll: true }); }
+    catch (_) { try { restore.focus(); } catch (__) {} }
+  }
+}
+
+function initEditorOverlay() {
+  const layer = document.getElementById('editorModalLayer');
+  if (!layer || layer.__editorOverlayBound) return;
+  layer.__editorOverlayBound = true;
+  layer.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target && target.closest && target.closest('[data-editor-modal-close]')) closeEditorOverlay();
+  });
+  const closeBtn = document.getElementById('editorModalClose');
+  if (closeBtn && !closeBtn.__editorOverlayCloseBound) {
+    closeBtn.__editorOverlayCloseBound = true;
+    closeBtn.addEventListener('click', closeEditorOverlay);
+  }
+  if (!editorOverlayEscapeBound) {
+    editorOverlayEscapeBound = true;
+    document.addEventListener('keydown', (event) => {
+      if (!activeEditorOverlayMode) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeEditorOverlay();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = document.querySelector('.editor-modal-dialog');
+      if (!dialog) return;
+      let focusables = [];
+      try {
+        focusables = Array.from(dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+          .filter((el) => el && el.offsetParent !== null);
+      } catch (_) {
+        focusables = [];
+      }
+      if (!focusables.length) {
+        event.preventDefault();
+        try { dialog.focus({ preventScroll: true }); } catch (_) { try { dialog.focus(); } catch (__) {} }
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        try { last.focus({ preventScroll: true }); } catch (_) { last.focus(); }
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        try { first.focus({ preventScroll: true }); } catch (_) { first.focus(); }
+      }
+    });
+  }
+  syncEditorOverlayUi();
+}
+
+function computeEditorRailMaxWidth() {
+  let viewportLimit = EDITOR_RAIL_MAX_WIDTH;
+  try {
+    if (typeof window !== 'undefined' && Number.isFinite(window.innerWidth)) {
+      viewportLimit = Math.min(EDITOR_RAIL_MAX_WIDTH, window.innerWidth * 0.46);
+    }
+  } catch (_) {}
+  return Math.max(EDITOR_RAIL_MIN_WIDTH, viewportLimit);
+}
+
+function clampEditorRailWidth(value) {
+  const numeric = Number(value);
+  const fallback = EDITOR_RAIL_DEFAULT_WIDTH;
+  const width = Number.isFinite(numeric) ? numeric : fallback;
+  return Math.max(EDITOR_RAIL_MIN_WIDTH, Math.min(computeEditorRailMaxWidth(), width));
+}
+
+function setEditorRailWidth(value, options = {}) {
+  const width = clampEditorRailWidth(value);
+  try {
+    document.documentElement.style.setProperty('--editor-rail-width', `${Math.round(width)}px`);
+  } catch (_) {}
+  const resizer = document.getElementById('editorRailResizer');
+  if (resizer) {
+    resizer.setAttribute('aria-valuemin', String(EDITOR_RAIL_MIN_WIDTH));
+    resizer.setAttribute('aria-valuemax', String(Math.round(computeEditorRailMaxWidth())));
+    resizer.setAttribute('aria-valuenow', String(Math.round(width)));
+  }
+  if (options.persist) {
+    try { window.localStorage.setItem(EDITOR_RAIL_WIDTH_KEY, String(Math.round(width))); } catch (_) {}
+  }
+  return width;
+}
+
+function initEditorRailResize() {
+  if (editorRailResizeBound) return;
+  const resizer = document.getElementById('editorRailResizer');
+  const shell = document.getElementById('editorAppShell');
+  if (!resizer || !shell) return;
+  editorRailResizeBound = true;
+
+  let stored = EDITOR_RAIL_DEFAULT_WIDTH;
+  try {
+    const value = window.localStorage.getItem(EDITOR_RAIL_WIDTH_KEY);
+    if (value) stored = Number(value);
+  } catch (_) {}
+  setEditorRailWidth(stored, { persist: false });
+
+  const isMobile = () => {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
+    } catch (_) {
+      return false;
+    }
+  };
+
+  let dragState = null;
+  const finishDrag = () => {
+    if (!dragState) return;
+    const width = dragState.width;
+    dragState = null;
+    shell.classList.remove('is-resizing-rail');
+    try { document.body.style.removeProperty('cursor'); } catch (_) {}
+    setEditorRailWidth(width, { persist: true });
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', finishDrag);
+    document.removeEventListener('pointercancel', finishDrag);
+  };
+  const onMove = (event) => {
+    if (!dragState || isMobile()) return;
+    const delta = Number(event.clientX) - dragState.startX;
+    dragState.width = setEditorRailWidth(dragState.startWidth + delta, { persist: false });
+  };
+
+  resizer.addEventListener('pointerdown', (event) => {
+    if (isMobile()) return;
+    event.preventDefault();
+    dragState = {
+      startX: Number(event.clientX) || 0,
+      startWidth: setEditorRailWidth(resizer.getAttribute('aria-valuenow') || EDITOR_RAIL_DEFAULT_WIDTH, { persist: false }),
+      width: EDITOR_RAIL_DEFAULT_WIDTH,
+    };
+    dragState.width = dragState.startWidth;
+    shell.classList.add('is-resizing-rail');
+    try { document.body.style.cursor = 'col-resize'; } catch (_) {}
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', finishDrag);
+    document.addEventListener('pointercancel', finishDrag);
+  });
+
+  resizer.addEventListener('keydown', (event) => {
+    if (isMobile()) return;
+    let delta = 0;
+    if (event.key === 'ArrowLeft') delta = -16;
+    else if (event.key === 'ArrowRight') delta = 16;
+    else if (event.key === 'Home') {
+      event.preventDefault();
+      setEditorRailWidth(EDITOR_RAIL_DEFAULT_WIDTH, { persist: true });
+      return;
+    } else {
+      return;
+    }
+    event.preventDefault();
+    const current = Number(resizer.getAttribute('aria-valuenow')) || EDITOR_RAIL_DEFAULT_WIDTH;
+    setEditorRailWidth(current + delta, { persist: true });
+  });
+
+  window.addEventListener('resize', () => {
+    const current = Number(resizer.getAttribute('aria-valuenow')) || EDITOR_RAIL_DEFAULT_WIDTH;
+    setEditorRailWidth(current, { persist: false });
+  });
+}
+
+function isEditorMobileRailLayout() {
+  try {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 820px)').matches);
+  } catch (_) {
+    return false;
+  }
+}
+
+function setEditorRailOpen(open) {
+  const shell = document.getElementById('editorAppShell');
+  const toggle = document.getElementById('editorMobileRailToggle');
+  const scrim = document.getElementById('editorRailScrim');
+  if (!shell) return;
+  const shouldOpen = !!open && isEditorMobileRailLayout();
+  shell.classList.toggle('is-rail-open', shouldOpen);
+  if (toggle) toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  if (scrim) {
+    scrim.hidden = !shouldOpen;
+    scrim.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+  }
+}
+
+function closeEditorRailDrawer() {
+  setEditorRailOpen(false);
+}
+
+function initMobileEditorRail() {
+  if (editorMobileRailBound) return;
+  const toggle = document.getElementById('editorMobileRailToggle');
+  const scrim = document.getElementById('editorRailScrim');
+  if (!toggle) return;
+  editorMobileRailBound = true;
+  toggle.addEventListener('click', () => {
+    const shell = document.getElementById('editorAppShell');
+    const isOpen = !!(shell && shell.classList.contains('is-rail-open'));
+    setEditorRailOpen(!isOpen);
+  });
+  if (scrim) scrim.addEventListener('click', closeEditorRailDrawer);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeEditorRailDrawer();
+  });
+  window.addEventListener('resize', () => {
+    if (!isEditorMobileRailLayout()) closeEditorRailDrawer();
+  });
 }
 
 function persistDynamicEditorState() {
@@ -8685,19 +9075,15 @@ function persistDynamicEditorState() {
     const open = Array.from(dynamicEditorTabs.values())
       .map((tab) => (tab && tab.path) ? tab.path : '')
       .filter(Boolean);
-    const state = { v: 1, open };
-    if (currentMode === 'editor') state.mode = 'editor';
-    else if (currentMode && isDynamicMode(currentMode)) {
+    const state = { v: 2, open };
+    if (currentMode && isDynamicMode(currentMode)) {
       const active = dynamicEditorTabs.get(currentMode);
-      state.mode = 'dynamic';
+      state.mode = 'editor';
       state.activePath = active && active.path ? active.path : null;
-    } else if (currentMode === 'updates') {
-      state.mode = 'updates';
     } else {
-      state.mode = 'composer';
+      state.mode = 'editor';
     }
-    if (!open.length && state.mode === 'composer') store.removeItem(LS_KEYS.editorState);
-    else store.setItem(LS_KEYS.editorState, JSON.stringify(state));
+    store.setItem(LS_KEYS.editorState, JSON.stringify(state));
   } catch (_) {}
 }
 
@@ -8705,16 +9091,16 @@ function restoreDynamicEditorState() {
   let raw = null;
   try {
     const store = window.localStorage;
-    if (!store) return;
+    if (!store) return false;
     raw = store.getItem(LS_KEYS.editorState);
   } catch (_) {
-    return;
+    return false;
   }
-  if (!raw) return;
+  if (!raw) return false;
   let data;
   try { data = JSON.parse(raw); }
-  catch (_) { return; }
-  if (!data || typeof data !== 'object') return;
+  catch (_) { return false; }
+  if (!data || typeof data !== 'object') return false;
 
   const open = Array.isArray(data.open) ? data.open : [];
   const seen = new Set();
@@ -8725,19 +9111,17 @@ function restoreDynamicEditorState() {
     getOrCreateDynamicMode(norm);
   });
 
-  const mode = (data.mode === 'editor' || data.mode === 'dynamic' || data.mode === 'updates') ? data.mode : 'composer';
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
-
-  if (mode === 'dynamic' && activePath) {
-    const modeId = dynamicEditorTabsByPath.get(activePath);
+  if (activePath) {
+    const modeId = dynamicEditorTabsByPath.get(activePath) || getOrCreateDynamicMode(activePath);
     if (modeId) {
       applyMode(modeId);
-      return;
+      return true;
     }
   }
 
-  if (mode === 'editor') applyMode('editor');
-  else if (mode === 'updates') applyMode('updates');
+  applyMode('editor');
+  return true;
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -9205,6 +9589,8 @@ function pushEditorCurrentFileInfo(tab) {
   const payload = tab
     ? {
         path: tab.path || '',
+        source: tab.source || inferMarkdownSourceFromPath(tab.path),
+        breadcrumb: buildCurrentFileBreadcrumb(tab),
         status: tab.fileStatus || null,
         dirty: !!tab.isDirty,
         loaded: !!tab.loaded,
@@ -9255,6 +9641,7 @@ function setDynamicTabStatus(tab, status) {
   }
 
   if (currentMode === tab.mode) pushEditorCurrentFileInfo(tab);
+  refreshEditorContentTree({ preserveStructure: currentMode === tab.mode });
 }
 
 async function closeDynamicTab(modeId, options = {}) {
@@ -9329,7 +9716,7 @@ async function closeDynamicTab(modeId, options = {}) {
 
   if (wasActive) {
     const remainingModes = Array.from(dynamicEditorTabs.keys());
-    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'composer';
+    const fallbackMode = remainingModes.length ? remainingModes[remainingModes.length - 1] : 'editor';
     applyMode(fallbackMode);
   } else {
     persistDynamicEditorState();
@@ -9347,44 +9734,15 @@ function getOrCreateDynamicMode(path) {
   const existing = dynamicEditorTabsByPath.get(normalized);
   if (existing) return existing;
 
-  const nav = getDynamicTabsContainer() || $('.mode-switch');
-  if (!nav) return null;
-
   dynamicTabCounter += 1;
   const modeId = `editor-tab-${dynamicTabCounter}`;
   const label = basenameFromPath(normalized) || normalized;
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'mode-tab dynamic-mode';
-  btn.dataset.mode = modeId;
-  btn.dataset.path = normalized;
-  btn.setAttribute('role', 'tab');
-  btn.setAttribute('aria-controls', 'mode-editor');
-  btn.setAttribute('aria-selected', 'false');
-  btn.setAttribute('aria-label', `Open editor for ${normalized}`);
-  const chip = document.createElement('span');
-  chip.className = 'mode-tab-chip';
-
-  const labelEl = document.createElement('span');
-  labelEl.className = 'mode-tab-label';
-  labelEl.textContent = label;
-  chip.appendChild(labelEl);
-
-  const closeEl = document.createElement('span');
-  closeEl.className = 'mode-tab-close';
-  closeEl.setAttribute('aria-hidden', 'true');
-  closeEl.textContent = '×';
-  chip.appendChild(closeEl);
-
-  btn.appendChild(chip);
-  nav.appendChild(btn);
-  updateDynamicTabsGroupState();
-
   const data = {
     mode: modeId,
     path: normalized,
-    button: btn,
+    source: inferMarkdownSourceFromPath(normalized),
+    button: null,
     label,
     baseDir: computeBaseDirForPath(normalized),
     content: '',
@@ -9402,29 +9760,6 @@ function getOrCreateDynamicMode(path) {
   restoreMarkdownDraftForTab(data);
   dynamicEditorTabs.set(modeId, data);
   dynamicEditorTabsByPath.set(normalized, modeId);
-
-  btn.addEventListener('click', (event) => {
-    const target = event.target;
-    if (target && target.closest && target.closest('.mode-tab-close')) {
-      event.preventDefault();
-      event.stopPropagation();
-      const anchor = (target.closest && target.closest('button')) || btn;
-      closeDynamicTab(modeId, { anchor }).catch((err) => {
-        console.warn('Failed to close markdown tab', err);
-      });
-      return;
-    }
-    applyMode(modeId);
-  });
-
-  btn.addEventListener('keydown', (event) => {
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      event.preventDefault();
-      closeDynamicTab(modeId, { anchor: btn }).catch((err) => {
-        console.warn('Failed to close markdown tab', err);
-      });
-    }
-  });
 
   loadDynamicTabContent(data).catch(() => {});
 
@@ -9513,12 +9848,17 @@ async function loadDynamicTabContent(tab) {
 }
 
 function openMarkdownInEditor(path) {
+  const active = getActiveDynamicTab();
+  if (active && active.path && normalizeRelPath(active.path) !== normalizeRelPath(path)) {
+    try { flushMarkdownDraft(active); } catch (_) {}
+  }
   const modeId = getOrCreateDynamicMode(path);
   if (!modeId) {
     alert('Unable to open editor tab.');
     return;
   }
   applyMode(modeId);
+  try { selectEditorTreeNodeByPath(path); } catch (_) {}
 }
 
 // Default Markdown template for new post files (index.yaml related flows)
@@ -9558,8 +9898,13 @@ function getDefaultMarkdownForPath(relPath) {
   }
 }
 
-function applyMode(mode) {
-  if (mode === 'editor' && dynamicEditorTabs.size) {
+function applyMode(mode, options = {}) {
+  if (mode === 'composer' || mode === 'updates') {
+    openEditorOverlay(mode, options.trigger || null);
+    return;
+  }
+
+  if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure) {
     const firstDynamicMode = getFirstDynamicModeId();
     if (firstDynamicMode) {
       applyMode(firstDynamicMode);
@@ -9567,10 +9912,10 @@ function applyMode(mode) {
     }
   }
 
-  const candidate = mode || 'composer';
-  const nextMode = (candidate === 'composer' || candidate === 'editor' || candidate === 'updates' || isDynamicMode(candidate))
+  const candidate = mode || 'editor';
+  const nextMode = (candidate === 'editor' || isDynamicMode(candidate))
     ? candidate
-    : 'composer';
+    : 'editor';
 
   const previousMode = currentMode;
   if (previousMode === nextMode) return;
@@ -9587,15 +9932,8 @@ function applyMode(mode) {
 
   currentMode = nextMode;
 
-  const showComposer = nextMode === 'composer';
   const showEditor = nextMode === 'editor' || isDynamicMode(nextMode);
-  const showUpdates = nextMode === 'updates';
   try { $('#mode-editor').style.display = showEditor ? '' : 'none'; } catch (_) {}
-  try { $('#mode-composer').style.display = showComposer ? '' : 'none'; } catch (_) {}
-  try {
-    const updatesLayout = $('#mode-updates');
-    if (updatesLayout) updatesLayout.style.display = showUpdates ? '' : 'none';
-  } catch (_) {}
   try {
     const layout = $('#mode-editor');
     if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
@@ -9604,6 +9942,14 @@ function applyMode(mode) {
   const isDynamic = isDynamicMode(nextMode);
   try {
     $$('.mode-tab').forEach((b) => {
+      const baseMode = b.dataset ? b.dataset.mode : '';
+      if (baseMode === 'composer' || baseMode === 'updates') {
+        if (!activeEditorOverlayMode) {
+          b.classList.remove('is-active');
+          b.setAttribute('aria-selected', 'false');
+        }
+        return;
+      }
       const targetMode = b.classList.contains('dynamic-mode')
         ? nextMode
         : (isDynamic ? 'editor' : nextMode);
@@ -9625,13 +9971,12 @@ function applyMode(mode) {
 
   if (showEditor) scheduleEditorLayoutRefresh();
 
-  if (nextMode === 'composer') {
-    activeDynamicMode = null;
-    pushEditorCurrentFileInfo(null);
-  } else if (isDynamicMode(nextMode)) {
+  if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
     const tab = dynamicEditorTabs.get(nextMode);
+    activeMarkdownDocument = tab || null;
+    setEditorStructurePanelVisible(false);
     if (tab && editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       try {
@@ -9640,6 +9985,7 @@ function applyMode(mode) {
         editorApi.setBaseDir(baseDir);
       } catch (_) {}
       pushEditorCurrentFileInfo(tab);
+      animateEditorMarkdownPanelContent();
 
       const applyContent = (text) => {
         tab.content = String(text || '');
@@ -9647,8 +9993,7 @@ function applyMode(mode) {
           editorApi.setValue(tab.content, { notify: false });
           scheduleEditorLayoutRefresh();
           try { editorApi.focus(); } catch (_) {}
-          try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
-          catch (_) { window.scrollTo(0, 0); }
+          scrollEditorContentToTop('smooth');
           updateDynamicTabDirtyState(tab, { autoSave: false });
         }
       };
@@ -9675,6 +10020,8 @@ function applyMode(mode) {
     }
   } else if (nextMode === 'editor') {
     activeDynamicMode = null;
+    activeMarkdownDocument = null;
+    setEditorStructurePanelVisible(true);
     if (editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       scheduleEditorLayoutRefresh();
@@ -9682,14 +10029,12 @@ function applyMode(mode) {
     pushEditorCurrentFileInfo(null);
   } else {
     activeDynamicMode = null;
+    activeMarkdownDocument = null;
+    setEditorStructurePanelVisible(true);
     pushEditorCurrentFileInfo(null);
   }
 
-  // Sync preload attribute so CSS with !important stops forcing previous mode
-  try {
-    if (nextMode === 'composer') document.documentElement.setAttribute('data-init-mode', 'composer');
-    else document.documentElement.removeAttribute('data-init-mode');
-  } catch (_) {}
+  try { document.documentElement.removeAttribute('data-init-mode'); } catch (_) {}
 
   persistDynamicEditorState();
 }
@@ -9697,9 +10042,9 @@ function applyMode(mode) {
 function getInitialComposerFile() {
   try {
     const v = (localStorage.getItem(LS_KEYS.cfile) || '').toLowerCase();
-    if (v === 'tabs' || v === 'index' || v === 'site') return v;
+    if (v === 'site') return v;
   } catch (_) {}
-  return 'index';
+  return 'site';
 }
 
 function cancelComposerViewTransition() {
@@ -9884,7 +10229,7 @@ function applyComposerFile(name, options = {}) {
 
 // Apply initial state as early as possible to avoid flash on reload
 (() => {
-  try { applyMode('composer'); } catch (_) {}
+  try { applyMode('editor'); } catch (_) {}
   try { applyComposerFile(getInitialComposerFile(), { immediate: true, force: true }); } catch (_) {}
   try { updateDynamicTabsGroupState(); } catch (_) {}
 })();
@@ -10213,8 +10558,10 @@ function makeDragList(container, onReorder) {
   const onPointerDown = (e) => {
     if (e.button !== 0 && e.pointerType !== 'touch') return; // left click or touch only
     const target = e.target;
+    const handle = target.closest('.ci-grip,.ct-grip');
+    if (!handle || !container.contains(handle)) return;
     if (target.closest('button, input, textarea, select, a')) return; // don't start drag from controls
-    const li = target.closest(keySelector);
+    const li = handle.closest(keySelector);
     if (!li || !container.contains(li)) return;
 
     e.preventDefault();
@@ -10261,7 +10608,7 @@ function makeDragList(container, onReorder) {
     document.body.classList.add('ns-noselect');
     document.body.appendChild(li);
 
-    try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    try { handle.setPointerCapture(e.pointerId); } catch (_) {}
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp, { once: true });
   };
@@ -10343,6 +10690,827 @@ function makeDragList(container, onReorder) {
   container.addEventListener('pointerdown', onPointerDown);
 }
 
+function treeText(key, fallback, params) {
+  const fullKey = `editor.tree.${key}`;
+  const value = t(fullKey, params);
+  return value && value !== fullKey ? value : fallback;
+}
+
+function setEditorStructurePanelVisible(visible) {
+  const panel = document.getElementById('editorStructurePanel');
+  if (!panel) return;
+  if (visible) {
+    panel.removeAttribute('hidden');
+    panel.removeAttribute('aria-hidden');
+  } else {
+    panel.setAttribute('hidden', '');
+    panel.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function animateEditorStructurePanelContent(panel) {
+  if (!panel) return;
+  try {
+    const previousTimer = panel.__nsStructureAnimationTimer;
+    if (previousTimer) window.clearTimeout(previousTimer);
+  } catch (_) {}
+  panel.classList.remove('is-content-entering');
+  try { panel.getBoundingClientRect(); } catch (_) {}
+  panel.classList.add('is-content-entering');
+  try {
+    panel.__nsStructureAnimationTimer = window.setTimeout(() => {
+      panel.classList.remove('is-content-entering');
+      panel.__nsStructureAnimationTimer = null;
+    }, 260);
+  } catch (_) {}
+}
+
+function animateEditorMarkdownPanelContent() {
+  const panel = document.getElementById('editorMarkdownPanel');
+  if (!panel) return;
+  try {
+    const previousTimer = panel.__nsMarkdownAnimationTimer;
+    if (previousTimer) window.clearTimeout(previousTimer);
+  } catch (_) {}
+  panel.classList.remove('is-content-entering');
+  try { panel.getBoundingClientRect(); } catch (_) {}
+  panel.classList.add('is-content-entering');
+  try {
+    panel.__nsMarkdownAnimationTimer = window.setTimeout(() => {
+      panel.classList.remove('is-content-entering');
+      panel.__nsMarkdownAnimationTimer = null;
+    }, 260);
+  } catch (_) {}
+}
+
+function collectEditorDraftStatusMap() {
+  const map = new Map();
+  try {
+    const store = readMarkdownDraftStore();
+    Object.keys(store || {}).forEach((key) => {
+      const path = normalizeRelPath(key);
+      if (path && store[key] && store[key].content) map.set(path, 'saved');
+    });
+  } catch (_) {}
+  try {
+    collectDynamicMarkdownDraftStates().forEach((value, key) => {
+      if (key && value) map.set(key, value);
+    });
+  } catch (_) {}
+  return map;
+}
+
+function collectEditorFileStatusMap() {
+  const map = new Map();
+  try {
+    dynamicEditorTabs.forEach((tab) => {
+      if (!tab || !tab.path || !tab.fileStatus) return;
+      const state = tab.fileStatus.state || '';
+      if (state) map.set(normalizeRelPath(tab.path), state);
+    });
+  } catch (_) {}
+  return map;
+}
+
+function collectEditorDiffStatusMap() {
+  const map = new Map();
+  const add = (id, value) => {
+    if (id && value) map.set(id, value);
+  };
+  const applyDiff = (source, diff) => {
+    if (!diff) return;
+    (diff.addedKeys || []).forEach(key => add(`${source}:${key}`, 'added'));
+    (diff.removedKeys || []).forEach(key => add(`${source}:${key}`, 'removed'));
+    Object.keys(diff.keys || {}).forEach((key) => {
+      const info = diff.keys[key] || {};
+      add(`${source}:${key}`, info.state || 'modified');
+      Object.keys(info.langs || {}).forEach((lang) => {
+        const detail = info.langs[lang] || {};
+        add(`${source}:${key}:${lang}`, detail.state || 'modified');
+      });
+    });
+  };
+  applyDiff('index', composerDiffCache.index);
+  applyDiff('tabs', composerDiffCache.tabs);
+  return map;
+}
+
+function buildCurrentEditorTree() {
+  return buildEditorContentTree({
+    index: getStateSlice('index') || { __order: [] },
+    tabs: getStateSlice('tabs') || { __order: [] }
+  }, {
+    preferredLangs: PREFERRED_LANG_ORDER,
+    articlesLabel: treeText('articles', 'Articles'),
+    pagesLabel: treeText('pages', 'Pages'),
+    draftStates: collectEditorDraftStatusMap(),
+    diffStates: collectEditorDiffStatusMap(),
+    fileStates: collectEditorFileStatusMap()
+  });
+}
+
+function getActiveEditorTreeNode() {
+  return findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)
+    || findEditorContentTreeNode(editorContentTree, 'articles')
+    || (editorContentTree[0] || null);
+}
+
+function inferMarkdownSourceFromPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return '';
+  try {
+    const node = flattenEditorContentTree(editorContentTree)
+      .find(item => item && item.kind === 'file' && item.path === normalized);
+    if (node && node.source) return String(node.source);
+  } catch (_) {}
+  return normalized.toLowerCase().startsWith('tab/') ? 'tabs' : 'index';
+}
+
+function getEditorTreeNodeById(nodeId) {
+  return findEditorContentTreeNode(editorContentTree, nodeId);
+}
+
+function getEditorTreeFileNodeByPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  return flattenEditorContentTree(editorContentTree)
+    .find(item => item && item.kind === 'file' && item.path === normalized) || null;
+}
+
+function buildCurrentFileBreadcrumb(tab) {
+  if (!tab || !tab.path) return [];
+  const normalizedPath = normalizeRelPath(tab.path);
+  const node = getEditorTreeFileNodeByPath(normalizedPath);
+  if (!node) return normalizedPath ? [{ label: normalizedPath, path: normalizedPath }] : [];
+  const ids = [];
+  if (node.source === 'tabs') {
+    ids.push('pages', `tabs:${node.key}`, node.id);
+  } else {
+    ids.push('articles', `index:${node.key}`, `index:${node.key}:${node.lang}`, node.id);
+  }
+  return ids
+    .map((id) => {
+      const crumbNode = getEditorTreeNodeById(id);
+      if (!crumbNode) return null;
+      return {
+        label: crumbNode.label || crumbNode.key || crumbNode.id,
+        nodeId: crumbNode.id,
+        path: crumbNode.path || ''
+      };
+    })
+    .filter(item => item && item.label);
+}
+
+function expandEditorAncestors(node) {
+  if (!node) return;
+  if (node.id === 'articles' || node.id === 'pages') {
+    expandedEditorTreeNodeIds.add(node.id);
+    return;
+  }
+  const parts = String(node.id || '').split(':');
+  const root = parts[0] === 'tabs' ? 'pages' : 'articles';
+  expandedEditorTreeNodeIds.add(root);
+  if (parts.length >= 2) expandedEditorTreeNodeIds.add(`${parts[0]}:${parts[1]}`);
+  if (parts.length >= 3 && parts[0] === 'index') expandedEditorTreeNodeIds.add(`${parts[0]}:${parts[1]}:${parts[2]}`);
+}
+
+function selectEditorTreeNodeByPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  const node = flattenEditorContentTree(editorContentTree).find(item => item && item.path === normalized);
+  if (!node) return null;
+  activeEditorTreeNodeId = node.id;
+  expandEditorAncestors(node);
+  refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
+  return node;
+}
+
+function refreshEditorContentTree(options = {}) {
+  const treeEl = document.getElementById('editorFileTree');
+  if (!treeEl) return;
+  editorContentTree = buildCurrentEditorTree();
+  if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'articles';
+  renderEditorFileTree(treeEl);
+  if (!options.preserveStructure) renderEditorStructurePanel(getActiveEditorTreeNode());
+}
+
+function createEditorTreeIcon(node) {
+  if (!node || node.kind === 'root') return null;
+  const icon = document.createElement('span');
+  const isFile = node.kind === 'file';
+  icon.className = `editor-tree-icon editor-tree-icon-${isFile ? 'document' : 'folder'}`;
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = isFile
+    ? '<svg viewBox="0 0 24 24" focusable="false"><path d="M7 3.75h7.25L18 7.5v12.75H7z"></path><path d="M14.25 3.75V7.5H18"></path><path d="M9.75 12h5.5M9.75 15h5.5"></path></svg>'
+    : '<svg viewBox="0 0 24 24" focusable="false"><path d="M3.75 6.75h5.5l1.7 2h9.3v8.5a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2z"></path><path d="M3.75 8.75h16.5"></path></svg>';
+  return icon;
+}
+
+function getEditorTreeRowDepth(row) {
+  const raw = row && row.dataset ? Number(row.dataset.depth) : 0;
+  return Number.isFinite(raw) ? raw : 0;
+}
+
+function collectEditorTreeDescendantRows(row) {
+  const rows = [];
+  const depth = getEditorTreeRowDepth(row);
+  let next = row && row.nextElementSibling ? row.nextElementSibling : null;
+  while (next) {
+    const nextDepth = getEditorTreeRowDepth(next);
+    if (nextDepth <= depth) break;
+    rows.push(next);
+    next = next.nextElementSibling;
+  }
+  return rows;
+}
+
+function animateEditorTreeCollapse(root, node, row) {
+  if (!root || !node || !row || !expandedEditorTreeNodeIds.has(node.id)) return false;
+  if (collapsingEditorTreeNodeIds.has(node.id)) return true;
+  const descendants = collectEditorTreeDescendantRows(row);
+  if (!descendants.length) return false;
+  collapsingEditorTreeNodeIds.add(node.id);
+  row.classList.add('is-collapsing-parent');
+  descendants.forEach((descendant) => {
+    const height = (() => {
+      try {
+        const rect = descendant.getBoundingClientRect();
+        if (rect && Number.isFinite(rect.height) && rect.height > 0) return rect.height;
+      } catch (_) {}
+      return descendant.offsetHeight || 28;
+    })();
+    descendant.classList.add('is-collapsing');
+    descendant.style.minHeight = `${height}px`;
+    descendant.style.maxHeight = `${height}px`;
+    descendant.style.opacity = '1';
+    descendant.style.transform = 'translateY(0)';
+  });
+  try { root.getBoundingClientRect(); } catch (_) {}
+  const collapseRows = () => {
+    descendants.forEach((descendant) => {
+      descendant.style.minHeight = '0px';
+      descendant.style.maxHeight = '0px';
+      descendant.style.opacity = '0';
+      descendant.style.transform = 'translateY(-4px)';
+    });
+  };
+  try {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(collapseRows);
+    } else {
+      window.setTimeout(collapseRows, 0);
+    }
+  } catch (_) {
+    collapseRows();
+  }
+  const finish = () => {
+    if (!collapsingEditorTreeNodeIds.has(node.id)) return;
+    collapsingEditorTreeNodeIds.delete(node.id);
+    expandedEditorTreeNodeIds.delete(node.id);
+    refreshEditorContentTree({ preserveStructure: true });
+  };
+  try { window.setTimeout(finish, 340); }
+  catch (_) { finish(); }
+  return true;
+}
+
+function renderEditorFileTree(root) {
+  root.innerHTML = '';
+  const selectedId = activeEditorTreeNodeId;
+  const expandingNodeId = expandingEditorTreeNodeId;
+  const renderNode = (node, depth, ancestorIds = []) => {
+    if (!node) return;
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const row = document.createElement('div');
+    row.className = 'editor-tree-row';
+    row.dataset.nodeId = node.id;
+    row.dataset.kind = node.kind || '';
+    row.dataset.source = node.source || '';
+    row.dataset.depth = String(Math.max(0, depth));
+    row.classList.toggle('is-leaf', !hasChildren);
+    const rowIndent = hasChildren
+      ? Math.max(0, depth) * 1.12
+      : Math.max(0, depth - 1) * 1.12 + 1.35;
+    row.style.paddingLeft = `${rowIndent}rem`;
+    row.classList.toggle('is-selected', node.id === selectedId);
+    if (expandingNodeId && ancestorIds.includes(expandingNodeId)) {
+      row.classList.add('is-expanding');
+    }
+
+    if (depth > 0) {
+      const guides = document.createElement('span');
+      guides.className = 'editor-tree-guides';
+      guides.setAttribute('aria-hidden', 'true');
+      for (let guideIndex = 0; guideIndex < depth; guideIndex += 1) {
+        const guide = document.createElement('span');
+        guide.className = 'editor-tree-guide';
+        guide.style.setProperty('--tree-guide-index', String(guideIndex));
+        guides.appendChild(guide);
+      }
+      row.appendChild(guides);
+    }
+
+    let toggle = null;
+    if (hasChildren) {
+      toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'editor-tree-toggle';
+      toggle.tabIndex = 0;
+      toggle.setAttribute('aria-label', treeText('toggle', 'Toggle'));
+      toggle.setAttribute('aria-expanded', expandedEditorTreeNodeIds.has(node.id) ? 'true' : 'false');
+      const caret = document.createElement('span');
+      caret.className = 'editor-tree-caret';
+      caret.setAttribute('aria-hidden', 'true');
+      toggle.appendChild(caret);
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (expandedEditorTreeNodeIds.has(node.id)) {
+          if (animateEditorTreeCollapse(root, node, row)) return;
+          expandedEditorTreeNodeIds.delete(node.id);
+        } else {
+          expandingEditorTreeNodeId = node.id;
+          expandedEditorTreeNodeIds.add(node.id);
+        }
+        refreshEditorContentTree({ preserveStructure: true });
+      });
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'editor-tree-node';
+    button.setAttribute('role', 'treeitem');
+    button.setAttribute('aria-selected', node.id === selectedId ? 'true' : 'false');
+    button.dataset.nodeId = node.id;
+    const labelText = node.label || node.id;
+    const accessibleLabel = node.path ? `${labelText} - ${node.path}` : labelText;
+    button.setAttribute('aria-label', accessibleLabel);
+    button.title = accessibleLabel;
+    const icon = createEditorTreeIcon(node);
+    if (icon) button.appendChild(icon);
+    const label = document.createElement('span');
+    label.className = 'editor-tree-label';
+    label.textContent = labelText;
+    button.appendChild(label);
+    button.addEventListener('click', () => handleEditorTreeSelection(node.id));
+
+    const states = [node.draftState, node.diffState, node.fileState]
+      .filter(state => state && state !== 'existing')
+      .slice(0, 3);
+    let badges = null;
+    if (states.length) {
+      badges = document.createElement('span');
+      badges.className = 'editor-tree-badges';
+    }
+    states.forEach((state) => {
+      const badge = document.createElement('span');
+      badge.className = 'editor-tree-badge';
+      badge.dataset.state = state;
+      badge.title = state;
+      badges.appendChild(badge);
+    });
+
+    if (badges) button.appendChild(badges);
+    if (toggle) row.appendChild(toggle);
+    row.appendChild(button);
+    root.appendChild(row);
+
+    if (hasChildren && expandedEditorTreeNodeIds.has(node.id)) {
+      const childAncestors = ancestorIds.concat(node.id);
+      node.children.forEach(child => renderNode(child, depth + 1, childAncestors));
+    }
+  };
+  editorContentTree.forEach(node => renderNode(node, 0));
+  if (expandingNodeId) {
+    const clearExpandingRows = () => {
+      try {
+        root.querySelectorAll('.editor-tree-row.is-expanding').forEach(row => {
+          row.classList.remove('is-expanding');
+        });
+      } catch (_) {}
+    };
+    try { window.setTimeout(clearExpandingRows, 220); }
+    catch (_) { clearExpandingRows(); }
+  }
+  expandingEditorTreeNodeId = null;
+}
+
+function handleEditorTreeSelection(nodeId) {
+  const node = findEditorContentTreeNode(editorContentTree, nodeId);
+  if (!node) return;
+  activeEditorTreeNodeId = node.id;
+  expandEditorAncestors(node);
+  if (node.kind === 'file' && node.path) {
+    refreshEditorContentTree({ preserveStructure: true });
+    openMarkdownInEditor(node.path);
+    closeEditorRailDrawer();
+    return;
+  }
+  applyMode('editor', { forceStructure: true });
+  setEditorStructurePanelVisible(true);
+  refreshEditorContentTree();
+  scrollEditorContentToTop('smooth');
+  closeEditorRailDrawer();
+}
+
+try {
+  document.addEventListener('ns-editor-current-file-breadcrumb-select', (event) => {
+    const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
+    const nodeId = String(detail.nodeId || '').trim();
+    if (!nodeId) return;
+    handleEditorTreeSelection(nodeId);
+  });
+} catch (_) {}
+
+function getIndexEntry(key) {
+  const state = getStateSlice('index') || {};
+  if (!state[key] || typeof state[key] !== 'object') state[key] = {};
+  return state[key];
+}
+
+function getTabsEntry(key) {
+  const state = getStateSlice('tabs') || {};
+  if (!state[key] || typeof state[key] !== 'object') state[key] = {};
+  return state[key];
+}
+
+function validateEntryKey(value) {
+  const key = String(value || '').trim();
+  if (!key) return '';
+  return /^[A-Za-z0-9_-]+$/.test(key) ? key : '';
+}
+
+function renameEditorEntry(source, oldKey, nextKeyRaw) {
+  const nextKey = validateEntryKey(nextKeyRaw);
+  if (!nextKey || nextKey === oldKey) return false;
+  const state = getStateSlice(source) || {};
+  if (Object.prototype.hasOwnProperty.call(state, nextKey)) {
+    showToast('warn', treeText('duplicateKey', 'That key already exists.'));
+    return false;
+  }
+  state[nextKey] = state[oldKey];
+  delete state[oldKey];
+  if (Array.isArray(state.__order)) state.__order = state.__order.map(key => (key === oldKey ? nextKey : key));
+  notifyComposerChange(source);
+  activeEditorTreeNodeId = `${source}:${nextKey}`;
+  refreshEditorContentTree();
+  return true;
+}
+
+function deleteEditorEntry(source, key) {
+  const state = getStateSlice(source) || {};
+  const label = source === 'tabs' ? treeText('page', 'page') : treeText('article', 'article');
+  const message = treeText('deleteEntryConfirm', `Delete this ${label}?`, { label: key });
+  let ok = true;
+  try { ok = window.confirm(message); } catch (_) {}
+  if (!ok) return;
+  delete state[key];
+  if (Array.isArray(state.__order)) state.__order = state.__order.filter(item => item !== key);
+  notifyComposerChange(source);
+  activeEditorTreeNodeId = source === 'tabs' ? 'pages' : 'articles';
+  refreshEditorContentTree();
+}
+
+function addEditorLanguage(source, key, lang) {
+  const code = normalizeLangCode(lang);
+  if (!code) return;
+  if (source === 'tabs') {
+    const entry = getTabsEntry(key);
+    if (entry[code]) return;
+    entry[code] = { title: key, location: buildDefaultLanguagePathFromEntry('tabs', key, code, entry) };
+    notifyComposerChange('tabs');
+    activeEditorTreeNodeId = `tabs:${key}`;
+  } else {
+    const entry = getIndexEntry(key);
+    if (entry[code]) return;
+    entry[code] = [buildDefaultLanguagePathFromEntry('index', key, code, entry)];
+    notifyComposerChange('index');
+    activeEditorTreeNodeId = `index:${key}:${code}`;
+  }
+  expandedEditorTreeNodeIds.add(`${source}:${key}`);
+  refreshEditorContentTree();
+}
+
+function removeEditorLanguage(source, key, lang) {
+  const entry = source === 'tabs' ? getTabsEntry(key) : getIndexEntry(key);
+  if (!entry[lang]) return;
+  const message = treeText('deleteLanguageConfirm', 'Remove this language?', { lang: lang.toUpperCase() });
+  let ok = true;
+  try { ok = window.confirm(message); } catch (_) {}
+  if (!ok) return;
+  delete entry[lang];
+  notifyComposerChange(source);
+  activeEditorTreeNodeId = `${source}:${key}`;
+  refreshEditorContentTree();
+}
+
+function suggestNextVersionPath(key, lang) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
+  const fallback = buildDefaultLanguagePathFromEntry('index', key, lang, entry);
+  const base = arr[arr.length - 1] || fallback;
+  const nextVersion = `v${arr.length + 1}.0.0`;
+  if (/(^|\/)v\d+(?:\.\d+)*(?=\/|$)/i.test(base)) {
+    return String(base).replace(/(^|\/)v\d+(?:\.\d+)*(?=\/|$)/i, `$1${nextVersion}`);
+  }
+  const normalized = normalizeRelPath(base || fallback);
+  const idx = normalized.lastIndexOf('/');
+  if (idx < 0) return `post/${key}/${nextVersion}/${basenameFromPath(normalized) || `main_${lang}.md`}`;
+  return `${normalized.slice(0, idx)}/${nextVersion}/${normalized.slice(idx + 1)}`;
+}
+
+function addEditorVersion(key, lang) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : (entry[lang] ? [entry[lang]] : []);
+  arr.push(suggestNextVersionPath(key, lang));
+  entry[lang] = arr;
+  notifyComposerChange('index');
+  expandedEditorTreeNodeIds.add(`index:${key}`);
+  expandedEditorTreeNodeIds.add(`index:${key}:${lang}`);
+  activeEditorTreeNodeId = `index:${key}:${lang}`;
+  refreshEditorContentTree();
+}
+
+function removeEditorVersion(key, lang, index) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
+  if (!arr[index]) return;
+  arr.splice(index, 1);
+  entry[lang] = arr;
+  notifyComposerChange('index');
+  activeEditorTreeNodeId = `index:${key}:${lang}`;
+  refreshEditorContentTree();
+}
+
+function moveEditorVersion(key, lang, index, delta) {
+  const entry = getIndexEntry(key);
+  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
+  const next = index + delta;
+  if (next < 0 || next >= arr.length) return;
+  [arr[index], arr[next]] = [arr[next], arr[index]];
+  entry[lang] = arr;
+  notifyComposerChange('index');
+  activeEditorTreeNodeId = `index:${key}:${lang}:${next}`;
+  refreshEditorContentTree();
+}
+
+function availableLanguageCodes(entry) {
+  return PREFERRED_LANG_ORDER.filter(code => !entry || !entry[code]);
+}
+
+function makeStructureButton(label, className = 'btn-secondary') {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = className;
+  btn.textContent = label;
+  return btn;
+}
+
+function renderStructureItem(label, detail, onOpen) {
+  const item = document.createElement('div');
+  item.className = 'editor-structure-item';
+  const main = document.createElement('div');
+  main.className = 'editor-structure-item-main';
+  const title = document.createElement('span');
+  title.className = 'editor-structure-item-title';
+  title.textContent = label || '';
+  const meta = document.createElement('span');
+  meta.className = 'editor-structure-item-meta';
+  meta.textContent = detail || '';
+  main.appendChild(title);
+  main.appendChild(meta);
+  const controls = document.createElement('div');
+  controls.className = 'editor-structure-item-actions';
+  const open = makeStructureButton(treeText('select', 'Select'));
+  open.addEventListener('click', onOpen);
+  controls.appendChild(open);
+  item.appendChild(main);
+  item.appendChild(controls);
+  return item;
+}
+
+function appendLanguageSelector(actions, source, key, entry) {
+  const available = availableLanguageCodes(entry);
+  if (!available.length) return;
+  const select = document.createElement('select');
+  select.setAttribute('aria-label', treeText('language', 'Language'));
+  available.forEach((code) => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = displayLangName(code);
+    select.appendChild(opt);
+  });
+  const add = makeStructureButton(treeText('addLanguage', 'Add language'));
+  add.addEventListener('click', () => addEditorLanguage(source, key, select.value));
+  actions.appendChild(select);
+  actions.appendChild(add);
+}
+
+function renderEditorStructurePanel(node) {
+  const panel = document.getElementById('editorStructurePanel');
+  const title = document.getElementById('editorStructureTitle');
+  const kicker = document.getElementById('editorStructureKicker');
+  const meta = document.getElementById('editorStructureMeta');
+  const actions = document.getElementById('editorStructureActions');
+  const body = document.getElementById('editorStructureBody');
+  if (!panel || !title || !kicker || !meta || !actions || !body) return;
+  const animate = () => animateEditorStructurePanelContent(panel);
+  actions.innerHTML = '';
+  body.innerHTML = '';
+  setEditorStructurePanelVisible(true);
+
+  if (!node) {
+    kicker.textContent = treeText('kicker', 'Content structure');
+    title.textContent = treeText('emptyTitle', 'Select a node');
+    meta.textContent = treeText('emptyMeta', 'Choose an item in the tree to manage its structure or edit a Markdown file.');
+    animate();
+    return;
+  }
+
+  if (node.kind === 'root') {
+    const isPages = node.source === 'tabs';
+    kicker.textContent = treeText('rootKicker', 'Collection');
+    title.textContent = node.label || (isPages ? treeText('pages', 'Pages') : treeText('articles', 'Articles'));
+    meta.textContent = treeText('rootMeta', `${node.children.length} items`, { count: node.children.length });
+    const add = makeStructureButton(isPages ? treeText('addPage', 'Page') : treeText('addArticle', 'Article'));
+    add.addEventListener('click', () => {
+      const kind = isPages ? 'tabs' : 'index';
+      addComposerEntry(kind, add).then((key) => {
+        if (key) handleEditorTreeSelection(`${kind}:${key}`);
+      }).catch((err) => console.error('Failed to add entry from structure panel', err));
+    });
+    actions.appendChild(add);
+    const list = document.createElement('div');
+    list.className = 'editor-structure-list';
+    node.children.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
+    body.appendChild(list);
+    animate();
+    return;
+  }
+
+  if (node.kind === 'entry') {
+    renderEditorEntryPanel(node, { title, kicker, meta, actions, body });
+    animate();
+    return;
+  }
+
+  if (node.kind === 'language') {
+    renderEditorLanguagePanel(node, { title, kicker, meta, actions, body });
+    animate();
+    return;
+  }
+
+  if (node.kind === 'file') {
+    kicker.textContent = node.source === 'tabs' ? treeText('pageFile', 'Page file') : treeText('articleFile', 'Article file');
+    title.textContent = node.label || basenameFromPath(node.path);
+    meta.textContent = node.path || '';
+    animate();
+  }
+}
+
+function renderEditorEntryPanel(node, refs) {
+  const isPages = node.source === 'tabs';
+  const entry = isPages ? getTabsEntry(node.key) : getIndexEntry(node.key);
+  refs.kicker.textContent = isPages ? treeText('pageEntry', 'Page') : treeText('articleEntry', 'Article');
+  refs.title.textContent = node.key;
+  refs.meta.textContent = isPages
+    ? treeText('pageEntryMeta', 'Manage page languages, titles, and files.')
+    : treeText('articleEntryMeta', 'Manage article languages and versions.');
+  appendLanguageSelector(refs.actions, node.source, node.key, entry);
+  const del = makeStructureButton(treeText('delete', 'Delete'));
+  del.addEventListener('click', () => deleteEditorEntry(node.source, node.key));
+  refs.actions.appendChild(del);
+
+  const keyRow = document.createElement('div');
+  keyRow.className = 'editor-structure-row';
+  const keyLabel = document.createElement('label');
+  keyLabel.textContent = treeText('key', 'Key');
+  const keyInput = document.createElement('input');
+  keyInput.value = node.key;
+  keyInput.addEventListener('change', () => renameEditorEntry(node.source, node.key, keyInput.value));
+  keyRow.appendChild(keyLabel);
+  keyRow.appendChild(keyInput);
+  keyRow.appendChild(document.createElement('span'));
+  refs.body.appendChild(keyRow);
+
+  const list = document.createElement('div');
+  list.className = 'editor-structure-list';
+  sortLangKeys(entry).forEach((lang) => {
+    if (isPages) list.appendChild(renderPageLanguageStructure(node.key, lang, entry[lang]));
+    else {
+      const arr = Array.isArray(entry[lang]) ? entry[lang] : (entry[lang] ? [entry[lang]] : []);
+      list.appendChild(renderStructureItem(displayLangName(lang), `${arr.length} ${treeText('versions', 'versions')}`, () => handleEditorTreeSelection(`index:${node.key}:${lang}`)));
+    }
+  });
+  refs.body.appendChild(list);
+}
+
+function renderPageLanguageStructure(key, lang, value) {
+  const entry = value && typeof value === 'object' ? value : { title: '', location: String(value || '') };
+  const item = document.createElement('div');
+  item.className = 'editor-structure-item';
+  const main = document.createElement('div');
+  main.className = 'editor-structure-item-main';
+  const label = document.createElement('span');
+  label.className = 'editor-structure-item-title';
+  label.textContent = displayLangName(lang);
+  const meta = document.createElement('span');
+  meta.className = 'editor-structure-item-meta';
+  meta.textContent = entry.location || '';
+  main.appendChild(label);
+  main.appendChild(meta);
+  const controls = document.createElement('div');
+  controls.className = 'editor-structure-item-actions';
+  const titleInput = document.createElement('input');
+  titleInput.value = entry.title || '';
+  titleInput.setAttribute('aria-label', treeText('fieldTitle', 'Title'));
+  titleInput.addEventListener('change', () => {
+    const tabEntry = getTabsEntry(key);
+    tabEntry[lang] = tabEntry[lang] || {};
+    tabEntry[lang].title = titleInput.value;
+    notifyComposerChange('tabs');
+    refreshEditorContentTree();
+  });
+  const pathInput = document.createElement('input');
+  pathInput.value = entry.location || '';
+  pathInput.setAttribute('aria-label', treeText('location', 'Location'));
+  pathInput.addEventListener('change', () => {
+    const tabEntry = getTabsEntry(key);
+    tabEntry[lang] = tabEntry[lang] || {};
+    tabEntry[lang].location = normalizeRelPath(pathInput.value);
+    notifyComposerChange('tabs');
+    refreshEditorContentTree();
+  });
+  const open = makeStructureButton(treeText('open', 'Open'));
+  open.addEventListener('click', () => openMarkdownInEditor(entry.location || pathInput.value));
+  const remove = makeStructureButton(treeText('remove', 'Remove'));
+  remove.addEventListener('click', () => removeEditorLanguage('tabs', key, lang));
+  controls.appendChild(titleInput);
+  controls.appendChild(pathInput);
+  controls.appendChild(open);
+  controls.appendChild(remove);
+  item.appendChild(main);
+  item.appendChild(controls);
+  return item;
+}
+
+function renderEditorLanguagePanel(node, refs) {
+  const entry = getIndexEntry(node.key);
+  const arr = Array.isArray(entry[node.lang]) ? entry[node.lang] : (entry[node.lang] ? [entry[node.lang]] : []);
+  entry[node.lang] = arr;
+  refs.kicker.textContent = treeText('languageKicker', 'Article language');
+  refs.title.textContent = `${node.key} / ${displayLangName(node.lang)}`;
+  refs.meta.textContent = treeText('languageMeta', `${arr.length} versions`, { count: arr.length });
+  const add = makeStructureButton(treeText('addVersion', 'Add version'));
+  add.addEventListener('click', () => addEditorVersion(node.key, node.lang));
+  const removeLang = makeStructureButton(treeText('removeLanguage', 'Remove language'));
+  removeLang.addEventListener('click', () => removeEditorLanguage('index', node.key, node.lang));
+  refs.actions.appendChild(add);
+  refs.actions.appendChild(removeLang);
+
+  const list = document.createElement('div');
+  list.className = 'editor-structure-list';
+  arr.forEach((path, index) => {
+    const item = document.createElement('div');
+    item.className = 'editor-structure-item';
+    const main = document.createElement('div');
+    main.className = 'editor-structure-item-main';
+    const label = document.createElement('span');
+    label.className = 'editor-structure-item-title';
+    label.textContent = extractVersionFromPath(path) || `${treeText('version', 'Version')} ${index + 1}`;
+    const input = document.createElement('input');
+    input.value = path || '';
+    input.setAttribute('aria-label', treeText('location', 'Location'));
+    input.addEventListener('change', () => {
+      arr[index] = normalizeRelPath(input.value);
+      entry[node.lang] = arr.slice();
+      notifyComposerChange('index');
+      refreshEditorContentTree();
+    });
+    main.appendChild(label);
+    main.appendChild(input);
+    const controls = document.createElement('div');
+    controls.className = 'editor-structure-item-actions';
+    const open = makeStructureButton(treeText('open', 'Open'));
+    open.addEventListener('click', () => openMarkdownInEditor(arr[index]));
+    const up = makeStructureButton('↑');
+    up.disabled = index === 0;
+    up.addEventListener('click', () => moveEditorVersion(node.key, node.lang, index, -1));
+    const down = makeStructureButton('↓');
+    down.disabled = index === arr.length - 1;
+    down.addEventListener('click', () => moveEditorVersion(node.key, node.lang, index, 1));
+    const remove = makeStructureButton(treeText('remove', 'Remove'));
+    remove.addEventListener('click', () => removeEditorVersion(node.key, node.lang, index));
+    controls.appendChild(open);
+    controls.appendChild(up);
+    controls.appendChild(down);
+    controls.appendChild(remove);
+    item.appendChild(main);
+    item.appendChild(controls);
+    list.appendChild(item);
+  });
+  refs.body.appendChild(list);
+}
+
 function buildIndexUI(root, state) {
   root.innerHTML = '';
   const list = document.createElement('div');
@@ -10371,6 +11539,7 @@ function buildIndexUI(root, state) {
         <span class="ci-diff" aria-live="polite"></span>
         <span class="ci-actions">
           <button class="btn-secondary ci-expand" aria-expanded="false"><span class="caret" aria-hidden="true"></span>${escapeHtml(detailsLabel)}</button>
+          <span class="ci-head-add-lang-slot"></span>
           <button class="btn-secondary ci-del">${escapeHtml(deleteLabel)}</button>
         </span>
       </div>
@@ -10380,6 +11549,7 @@ function buildIndexUI(root, state) {
 
     const body = $('.ci-body', row);
     const bodyInner = $('.ci-body-inner', row);
+    const headAddLangSlot = $('.ci-head-add-lang-slot', row);
     const btnExpand = $('.ci-expand', row);
     const btnDel = $('.ci-del', row);
     if (btnExpand) btnExpand.setAttribute('title', detailsLabel);
@@ -10393,6 +11563,7 @@ function buildIndexUI(root, state) {
 
     const renderBody = () => {
       bodyInner.innerHTML = '';
+      if (headAddLangSlot) headAddLangSlot.innerHTML = '';
       const langs = sortLangKeys(entry);
       const addVersionLabel = tComposerLang('addVersion');
       const removeLangLabel = tComposerLang('removeLanguage');
@@ -10406,12 +11577,19 @@ function buildIndexUI(root, state) {
         const block = document.createElement('div');
         block.className = 'ci-lang';
         block.dataset.lang = lang;
+        const flag = langFlag(lang);
+        const langLabel = displayLangName(lang);
+        const safeLabel = escapeHtml(langLabel || '');
+        const flagSpan = flag ? `<span class="ci-lang-flag" aria-hidden="true">${escapeHtml(flag)}</span>` : '';
         const val = entry[lang];
         // Normalize to array for UI
         const arr = Array.isArray(val) ? val.slice() : (val ? [val] : []);
         block.innerHTML = `
           <div class="ci-lang-head">
-            <strong>${escapeHtml(lang.toUpperCase())}</strong>
+            <strong class="ci-lang-label" aria-label="${safeLabel}" title="${safeLabel}">
+              ${flagSpan}
+              <span class="ci-lang-code">${escapeHtml(lang.toUpperCase())}</span>
+            </strong>
             <span class="ci-lang-actions">
               <button type="button" class="btn-secondary ci-lang-addver">${escapeHtml(addVersionLabel)}</button>
               <button type="button" class="btn-secondary ci-lang-del">${escapeHtml(removeLangLabel)}</button>
@@ -10571,7 +11749,7 @@ function buildIndexUI(root, state) {
       const available = supportedLangs.filter(l => !entry[l]);
       if (available.length > 0) {
         const addLangLabel = tComposerLang('addLanguage');
-        const addLangWrap = document.createElement('div');
+        const addLangWrap = document.createElement('span');
         addLangWrap.className = 'ci-add-lang has-menu';
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
@@ -10633,7 +11811,7 @@ function buildIndexUI(root, state) {
             markDirty();
           });
         });
-        bodyInner.appendChild(addLangWrap);
+        (headAddLangSlot || bodyInner).appendChild(addLangWrap);
       }
       updateComposerDraftContainerState(row);
     };
@@ -11069,7 +12247,7 @@ function focusComposerEntry(kind, key) {
 async function addComposerEntry(kind, anchor) {
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
   const slice = getStateSlice(normalized);
-  if (!slice) return;
+  if (!slice) return '';
   if (!Array.isArray(slice.__order)) slice.__order = [];
 
   let key = '';
@@ -11077,10 +12255,10 @@ async function addComposerEntry(kind, anchor) {
     key = await promptComposerEntryKey(normalized, anchor);
   } catch (err) {
     console.warn('Failed to add composer entry', err);
-    return;
+    return '';
   }
-  if (!key) return;
-  if (slice.__order.includes(key)) return;
+  if (!key) return '';
+  if (slice.__order.includes(key)) return '';
 
   if (normalized === 'tabs') {
     slice[key] = (slice[key] && typeof slice[key] === 'object') ? slice[key] : {};
@@ -11114,13 +12292,26 @@ async function addComposerEntry(kind, anchor) {
     ? `Tab entry "${key}" added. Fill in the details below.`
     : `Post entry "${key}" added. Fill in the details below.`;
   try { showToast('info', message); } catch (_) {}
+  refreshEditorContentTree();
+  return key;
 }
 
 function bindComposerUI(state) {
-  // Mode switch (Editor <-> Composer)
+  initEditorOverlay();
+  initEditorRailResize();
+  initMobileEditorRail();
+  initEditorRailSettingsMenu();
+
+  // Overlay launchers and legacy mode buttons
   $$('.mode-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (event) => {
       const mode = btn.dataset.mode;
+      if (mode === 'composer' || mode === 'updates') {
+        event.preventDefault();
+        closeEditorRailSettingsMenu();
+        openEditorOverlay(mode, btn);
+        return;
+      }
       applyMode(mode);
     });
   });
@@ -11568,6 +12759,57 @@ function showStatus(msg, kind = 'info') {
   updateUnsyncedSummary();
 }
 
+function closeEditorRailSettingsMenu({ restoreFocus = false } = {}) {
+  const root = document.getElementById('editorRailSettings');
+  const toggle = document.getElementById('editorRailSettingsToggle');
+  const menu = document.getElementById('editorRailSettingsMenu');
+  if (!root || !toggle || !menu) return;
+  root.classList.remove('is-open');
+  menu.hidden = true;
+  menu.setAttribute('aria-hidden', 'true');
+  toggle.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) {
+    try { toggle.focus(); } catch (_) {}
+  }
+}
+
+function openEditorRailSettingsMenu() {
+  const root = document.getElementById('editorRailSettings');
+  const toggle = document.getElementById('editorRailSettingsToggle');
+  const menu = document.getElementById('editorRailSettingsMenu');
+  if (!root || !toggle || !menu) return;
+  root.classList.add('is-open');
+  menu.hidden = false;
+  menu.setAttribute('aria-hidden', 'false');
+  toggle.setAttribute('aria-expanded', 'true');
+}
+
+function initEditorRailSettingsMenu() {
+  const root = document.getElementById('editorRailSettings');
+  const toggle = document.getElementById('editorRailSettingsToggle');
+  const menu = document.getElementById('editorRailSettingsMenu');
+  if (!root || !toggle || !menu || toggle.dataset.bound === '1') return;
+  toggle.dataset.bound = '1';
+  toggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (menu.hidden) openEditorRailSettingsMenu();
+    else closeEditorRailSettingsMenu({ restoreFocus: true });
+  });
+  menu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target)) closeEditorRailSettingsMenu();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !menu.hidden) {
+      event.preventDefault();
+      closeEditorRailSettingsMenu({ restoreFocus: true });
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const pushBtn = document.getElementById('btnPushMarkdown');
   if (pushBtn) {
@@ -11690,8 +12932,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   notifyComposerChange('tabs', { skipAutoSave: true });
   notifyComposerChange('site', { skipAutoSave: true });
 
-
-  restoreDynamicEditorState();
+  refreshEditorContentTree();
+  if (!restoreDynamicEditorState()) applyMode('editor');
   allowEditorStatePersist = true;
   persistDynamicEditorState();
 });
@@ -11721,6 +12963,7 @@ function buildSiteUI(root, state) {
   try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
   try { root.__nsSiteNavRefresh = null; } catch (_) {}
   try { root.__nsSiteNavSetActive = null; } catch (_) {}
+  try { root.__nsSiteFirstSectionId = null; } catch (_) {}
   try { root.__nsSiteRevealField = null; } catch (_) {}
   if (!state || typeof state !== 'object') return;
   let site = state.site;
@@ -11737,7 +12980,12 @@ function buildSiteUI(root, state) {
   const sectionsMeta = [];
   let activeSectionId = '';
   let syncCompactNavState = () => {};
+  const rootHadVisibleLayout = (() => {
+    try { return !!(root.getClientRects && root.getClientRects().length); }
+    catch (_) { return false; }
+  })();
   const preservedActiveLabel = (() => {
+    if (!rootHadVisibleLayout) return '';
     try { return String(root.__nsSiteActiveSection || '').trim(); }
     catch (_) { return ''; }
   })();
@@ -11827,6 +13075,15 @@ function buildSiteUI(root, state) {
 
     let desiredTop = Math.max(toolbarOffset + 12, 12);
     try {
+      const scrollContainer = resolveSiteScrollContainer();
+      if (scrollContainer && scrollContainer !== window && typeof scrollContainer.getBoundingClientRect === 'function') {
+        const containerRect = scrollContainer.getBoundingClientRect();
+        if (containerRect && Number.isFinite(containerRect.top)) {
+          desiredTop = Math.max(containerRect.top + 12, 12);
+        }
+      }
+    } catch (_) {}
+    try {
       if (nav && typeof nav.getBoundingClientRect === 'function') {
         const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
         const navVisible = (!navStyles || (navStyles.display !== 'none' && navStyles.visibility !== 'hidden'))
@@ -11839,6 +13096,72 @@ function buildSiteUI(root, state) {
     } catch (_) {}
 
     return desiredTop;
+  };
+
+  const resolveSiteScrollContainer = () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+    try {
+      const viewport = root ? root.querySelector('.cs-viewport') : null;
+      if (viewport) {
+        const styles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(viewport) : null;
+        const overflowY = styles ? String(styles.overflowY || '') : '';
+        const canOwnScroll = /(auto|scroll|overlay)/.test(overflowY)
+          && (!viewport.getClientRects || viewport.getClientRects().length > 0);
+        if (canOwnScroll) return viewport;
+      }
+    } catch (_) {}
+    try {
+      const modalBody = root && typeof root.closest === 'function' ? root.closest('.editor-modal-body') : null;
+      if (modalBody) return modalBody;
+    } catch (_) {}
+    let node = root && root.parentElement ? root.parentElement : null;
+    while (node && node !== document.body && node !== document.documentElement) {
+      try {
+        const styles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(node) : null;
+        const overflowY = styles ? String(styles.overflowY || '') : '';
+        const canScroll = /(auto|scroll|overlay)/.test(overflowY)
+          && (node.scrollHeight || 0) > (node.clientHeight || 0) + 1;
+        if (canScroll) return node;
+      } catch (_) {}
+      node = node.parentElement;
+    }
+    return window;
+  };
+
+  const getSiteScrollTop = (scrollContainer) => {
+    if (!scrollContainer || scrollContainer === window) {
+      return window.pageYOffset || document.documentElement.scrollTop || 0;
+    }
+    return scrollContainer.scrollTop || 0;
+  };
+
+  const getSiteViewportHeight = (scrollContainer) => {
+    if (!scrollContainer || scrollContainer === window) {
+      return window.innerHeight || document.documentElement.clientHeight || 0;
+    }
+    return scrollContainer.clientHeight || window.innerHeight || document.documentElement.clientHeight || 0;
+  };
+
+  const scrollSiteContainerTo = (scrollContainer, targetY, behavior) => {
+    if (!scrollContainer || scrollContainer === window) {
+      if (typeof window.scrollTo === 'function') {
+        try {
+          window.scrollTo({ top: targetY, behavior });
+        } catch (_) {
+          window.scrollTo(0, targetY);
+        }
+      }
+      return;
+    }
+    if (typeof scrollContainer.scrollTo === 'function') {
+      try {
+        scrollContainer.scrollTo({ top: targetY, behavior });
+      } catch (_) {
+        scrollContainer.scrollTo(0, targetY);
+      }
+    } else {
+      scrollContainer.scrollTop = targetY;
+    }
   };
 
   function focusNavAt(index) {
@@ -11924,13 +13247,14 @@ function buildSiteUI(root, state) {
     if (shouldScroll && activeMeta && typeof window !== 'undefined') {
       const executeScroll = () => {
         try {
+          const scrollContainer = resolveSiteScrollContainer();
           const sectionRect = activeMeta.section.getBoundingClientRect();
           const desiredTop = resolveViewportAnchorTop();
           const delta = sectionRect.top - desiredTop;
           if (Math.abs(delta) > 4) {
             const behavior = options.scrollBehavior || 'smooth';
             const prefersReduced = composerPrefersReducedMotion();
-            const targetY = (window.pageYOffset || document.documentElement.scrollTop || 0) + delta;
+            const targetY = getSiteScrollTop(scrollContainer) + delta;
             const resolvedDuration = resolveComposerScrollDuration(options.scrollDuration);
             if (!skipScrollLock) {
               const now = getNow();
@@ -11938,26 +13262,13 @@ function buildSiteUI(root, state) {
               scrollSyncLockUntil = now + Math.max(lockDuration, 140);
             }
 
-            if (!prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
+            if (scrollContainer === window && !prefersReduced && behavior !== 'auto' && behavior !== 'instant') {
               const animated = animateComposerViewportScroll(targetY, resolvedDuration, () => commitFocus(48));
               if (animated) return;
             }
 
             cancelComposerSiteScrollAnimation();
-
-            if (typeof window.scrollBy === 'function') {
-              try {
-                window.scrollBy({ top: delta, behavior });
-              } catch (_) {
-                window.scrollBy(0, delta);
-              }
-            } else if (typeof window.scrollTo === 'function') {
-              try {
-                window.scrollTo({ top: targetY, behavior });
-              } catch (_) {
-                window.scrollTo(0, targetY);
-              }
-            }
+            scrollSiteContainerTo(scrollContainer, targetY, behavior);
 
             if (!prefersReduced && behavior === 'smooth') commitFocus(resolvedDuration + 64);
             else commitFocus(0);
@@ -12156,20 +13467,21 @@ function buildSiteUI(root, state) {
       }
     } else {
       if (!sectionsMeta.length) return;
+      const scrollContainer = resolveSiteScrollContainer();
       const anchorTop = resolveViewportAnchorTop();
-      const scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      const scrollTop = getSiteScrollTop(scrollContainer);
+      const viewportHeight = getSiteViewportHeight(scrollContainer);
       const tolerance = Math.max(48, Math.min(viewportHeight * 0.25 || 0, 180));
-      const anchorDocY = scrollY + anchorTop;
       let candidate = null;
+      let measuredAnySection = false;
 
       for (let i = 0; i < sectionsMeta.length; i += 1) {
         const meta = sectionsMeta[i];
         if (!meta || !meta.section) continue;
         const rect = meta.section.getBoundingClientRect();
         if (!rect || rect.height <= 4) continue;
-        const sectionTop = scrollY + rect.top;
-        if (sectionTop <= anchorDocY + tolerance) {
+        measuredAnySection = true;
+        if (rect.top <= anchorTop + tolerance) {
           candidate = meta;
           continue;
         }
@@ -12177,7 +13489,9 @@ function buildSiteUI(root, state) {
         break;
       }
 
-      if (!candidate) candidate = sectionsMeta[sectionsMeta.length - 1] || null;
+      if (!measuredAnySection) return;
+      if (scrollTop <= 4) candidate = sectionsMeta[0] || null;
+      if (!candidate) candidate = sectionsMeta[0] || null;
       if (!candidate || candidate.id === activeSectionId) return;
       setActiveSection(candidate.id, { focusPanel: false, scrollViewport: false, skipScrollLock: true });
     }
@@ -12358,6 +13672,7 @@ function buildSiteUI(root, state) {
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     const onScroll = () => scheduleScrollSync();
     const onResize = () => scheduleScrollSync();
+    const scrollContainer = resolveSiteScrollContainer();
     let passiveScrollListener = false;
     try {
       window.addEventListener('scroll', onScroll, { passive: true });
@@ -12365,12 +13680,27 @@ function buildSiteUI(root, state) {
     } catch (_) {
       try { window.addEventListener('scroll', onScroll); } catch (_) {}
     }
+    let passiveContainerScrollListener = false;
+    if (scrollContainer && scrollContainer !== window && typeof scrollContainer.addEventListener === 'function') {
+      try {
+        scrollContainer.addEventListener('scroll', onScroll, { passive: true });
+        passiveContainerScrollListener = true;
+      } catch (_) {
+        try { scrollContainer.addEventListener('scroll', onScroll); } catch (_) {}
+      }
+    }
     try { window.addEventListener('resize', onResize); } catch (_) {}
     const cleanup = () => {
       try {
         if (passiveScrollListener) window.removeEventListener('scroll', onScroll, { passive: true });
       } catch (_) {}
       try { window.removeEventListener('scroll', onScroll); } catch (_) {}
+      try {
+        if (scrollContainer && scrollContainer !== window && typeof scrollContainer.removeEventListener === 'function') {
+          if (passiveContainerScrollListener) scrollContainer.removeEventListener('scroll', onScroll, { passive: true });
+          else scrollContainer.removeEventListener('scroll', onScroll);
+        }
+      } catch (_) {}
       try { window.removeEventListener('resize', onResize); } catch (_) {}
       cancelScheduledScrollSync();
     };
@@ -12380,6 +13710,7 @@ function buildSiteUI(root, state) {
 
   try { root.__nsSiteNavRefresh = refreshNavDiffState; } catch (_) {}
   try { root.__nsSiteNavSetActive = setActiveSection; } catch (_) {}
+  try { root.__nsSiteFirstSectionId = sectionsMeta[0] && sectionsMeta[0].id ? sectionsMeta[0].id : ''; } catch (_) {}
 
   const markDirty = () => {
     setStateSlice('site', site);
@@ -14351,8 +15682,7 @@ function rebuildSiteUI() {
 // Minimal styles injected for composer behaviors
 (function injectComposerStyles(){
   const css = `
-  .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;position:relative;filter:none;--ci-hover-tint:var(--primary);--ci-ring-shadow:0 0 0 0 transparent;--ci-depth-shadow:0 1px 2px rgba(15,23,42,0.05);box-shadow:var(--ci-ring-shadow),var(--ci-depth-shadow);transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;}
-  .ci-item:hover,.ci-item:focus-within{transform:translateY(-1px);--ci-ring-shadow:0 0 0 1px color-mix(in srgb,var(--ci-hover-tint) 45%, transparent);--ci-depth-shadow:0 12px 24px color-mix(in srgb,var(--ci-hover-tint) 28%, transparent);border-color:color-mix(in srgb,var(--ci-hover-tint) 55%, var(--border));}
+  .ci-item,.ct-item{border:1px solid var(--border);border-radius:8px;background:var(--card);margin:.5rem 0;position:relative;filter:none;--ci-hover-tint:var(--primary);--ci-ring-shadow:0 0 0 0 transparent;--ci-depth-shadow:0 1px 2px rgba(15,23,42,0.05);box-shadow:var(--ci-ring-shadow),var(--ci-depth-shadow);}
   .ci-head,.ct-head{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;border-bottom:1px solid var(--border);}
   .ci-head,.ct-head{border-bottom:none;}
   .ci-item.is-open .ci-head,.ct-item.is-open .ct-head{border-bottom:1px solid var(--border);}
@@ -14361,11 +15691,16 @@ function rebuildSiteUI() {
   .ci-body-inner,.ct-body-inner{overflow:visible;}
   .ci-grip,.ct-grip{cursor:grab;user-select:none;opacity:.7}
   .ci-actions,.ct-actions{margin-left:auto;display:inline-flex;gap:.35rem}
+  .ci-head-add-lang-slot{display:inline-flex;align-items:center}
   .ci-meta,.ct-meta{color:var(--muted);font-size:.85rem}
   .ci-lang,.ct-lang{border:1px dashed var(--border);border-radius:8px;margin:.4rem 0;background:color-mix(in srgb, var(--text) 3%, transparent);}
-  .ci-lang{padding:.5rem;}
+  .ci-lang{border:0;border-radius:0;margin:0;background:transparent;padding:.65rem 0;}
+  .ci-lang+.ci-lang{border-top:1px solid color-mix(in srgb, var(--border) 82%, transparent);}
   .ct-lang{padding:.0625rem;}
   .ci-lang-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+  .ci-lang-label{display:inline-flex;align-items:center;gap:.35rem;line-height:1.1;}
+  .ci-lang-label .ci-lang-flag{display:inline-grid;place-items:center;width:1.2em;height:1.2em;font-size:1rem;line-height:1;}
+  .ci-lang-label .ci-lang-code{display:inline-flex;align-items:center;line-height:1.2;font-size:1rem;font-weight:700;letter-spacing:.035em;}
   .ci-lang-actions{margin-left:auto;display:inline-flex;gap:.35rem}
   .ct-lang{display:flex;align-items:stretch;gap:0;overflow:hidden;}
   .ct-lang-label{display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .6rem;background:color-mix(in srgb, var(--text) 14%, var(--card));color:var(--text);min-width:78px;white-space:nowrap;font-weight:700;border-radius:6px 0 0 6px;}
@@ -14396,6 +15731,8 @@ function rebuildSiteUI() {
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   /* Add Language row: compact button, keep menu aligned to trigger width */
   .ci-add-lang,.ct-add-lang,.cs-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative;flex:0 0 auto}
+  .ci-actions .ci-add-lang{margin-top:0}
+  .ci-actions .ci-add-lang .btn-secondary{border-bottom:1px solid var(--border)!important}
   .ci-add-lang .btn-secondary,.ct-add-lang .btn-secondary{justify-content:center;border-bottom:0 !important}
   .ci-add-lang input,.ct-add-lang input{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
   .ci-add-lang select,.ct-add-lang select{height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem}
@@ -14458,7 +15795,6 @@ function rebuildSiteUI() {
   .ci-expand[aria-expanded="true"] .caret,.ct-expand[aria-expanded="true"] .caret{transform:rotate(90deg)}
   @media (prefers-reduced-motion: reduce){
     .ci-expand .caret,.ct-expand .caret{transition:none}
-    .ci-item:hover,.ci-item:focus-within{transform:none}
   }
   /* Composer Guide */
   .comp-guide{border:1px dashed var(--border);border-radius:8px;background:color-mix(in srgb, var(--text) 3%, transparent);padding:.6rem .6rem .2rem;margin:.6rem 0 .8rem}
@@ -14684,11 +16020,10 @@ function rebuildSiteUI() {
   .composer-site-host{padding:.35rem 0 1.2rem}
   .composer-site-main{width:100%;max-width:none;margin:0;padding:0}
   #composerSite{width:100%}
-
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
-  .cs-nav{position:sticky;top:4.65rem;align-self:start;z-index:2;padding:.65rem 0 1rem}
-  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav{position:sticky;top:50%;transform:translateY(-50%);align-self:start;z-index:2;padding:.65rem 0 1rem}
+  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;overflow:visible}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
   .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}

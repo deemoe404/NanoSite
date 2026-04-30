@@ -5,11 +5,29 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
+const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
+const editorMainPath = resolve(here, '../assets/js/editor-main.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
+const enI18nPath = resolve(here, '../assets/i18n/en.js');
+const chsI18nPath = resolve(here, '../assets/i18n/chs.js');
+const chtTwI18nPath = resolve(here, '../assets/i18n/cht-tw.js');
+const chtHkI18nPath = resolve(here, '../assets/i18n/cht-hk.js');
+const jaI18nPath = resolve(here, '../assets/i18n/ja.js');
+const languagesManifestPath = resolve(here, '../assets/i18n/languages.json');
+const i18nPath = resolve(here, '../assets/js/i18n.js');
 const source = readFileSync(composerPath, 'utf8');
+const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
+const editorMainSource = readFileSync(editorMainPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
+const i18nSource = readFileSync(i18nPath, 'utf8');
+const enI18nSource = readFileSync(enI18nPath, 'utf8');
+const chsI18nSource = readFileSync(chsI18nPath, 'utf8');
+const chtTwI18nSource = readFileSync(chtTwI18nPath, 'utf8');
+const chtHkI18nSource = readFileSync(chtHkI18nPath, 'utf8');
+const jaI18nSource = readFileSync(jaI18nPath, 'utf8');
+const languagesManifestSource = readFileSync(languagesManifestPath, 'utf8');
 
 assert.match(
   editorSource,
@@ -29,6 +47,429 @@ assert.doesNotMatch(
   'composer should not render the inline change summary block above the editor'
 );
 
+assert.doesNotMatch(
+  editorSource,
+  /id="wrapToggle"|data-wrap="(?:on|off)"/,
+  'markdown editor should not expose a manual line-wrap toggle'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"/,
+  'editor should render a fixed two-pane app shell with a left rail and right content pane'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /localStorage\.getItem\('ns_composer_editor_state'\)/,
+  'editor entry should default to the Editor file tree instead of restoring the last Site Settings mode'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-rail-footer"[\s\S]*id="editorRailSettingsToggle"[\s\S]*id="editorRailSettingsMenu"[\s\S]*id="editorLangSwitcher"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
+  'language, Site Settings, and System Updates controls should live in the left rail settings menu'
+);
+
+assert.match(
+  editorSource,
+  /\.global-status\.is-temporarily-hidden \{ display:none !important; \}[\s\S]*<div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">[\s\S]*<div class="gs-flow">/,
+  'global sync status should stay in the DOM but be temporarily hidden from the page'
+);
+
+assert.match(
+  editorSource,
+  /id="editorFileTree" role="tree"/,
+  'editor should render the content file tree as the primary article/page manager'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /class="editor-tree-head"|id="btnEditorAddArticle"|id="btnEditorAddPage"|data-i18n="editor\.tree\.title"|data-i18n="editor\.tree\.subtitle"/,
+  'file tree rail should not render the Content heading, subtitle, or add-entry buttons'
+);
+
+assert.doesNotMatch(
+  source,
+  /btnEditorAddArticle|btnEditorAddPage/,
+  'add article/page entry handlers should live in the root structure panels, not the tree rail'
+);
+
+assert.match(
+  source,
+  /if \(node\.kind === 'root'\) \{[\s\S]*const add = makeStructureButton\(isPages \? treeText\('addPage', 'Page'\) : treeText\('addArticle', 'Article'\)\);[\s\S]*actions\.appendChild\(add\);/,
+  'root structure panels should retain add article/page entry actions'
+);
+
+assert.match(
+  [
+    enI18nSource,
+    chsI18nSource,
+    chtTwI18nSource,
+    jaI18nSource
+  ].join('\n'),
+  /addArticle: '\+ New article'[\s\S]*addArticle: '\+ 新建文章'[\s\S]*addArticle: '\+ 新增文章'[\s\S]*addArticle: '\+ 新規記事'/,
+  'root article actions should be explicit add actions in every UI language'
+);
+
+assert.match(
+  chtHkI18nSource,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430a';/,
+  'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
+);
+
+assert.match(
+  languagesManifestSource,
+  /"\.\/en\.js\?v=20260430a"[\s\S]*"\.\/chs\.js\?v=20260430b"[\s\S]*"\.\/cht-tw\.js\?v=20260430a"[\s\S]*"\.\/cht-hk\.js\?v=20260430a"[\s\S]*"\.\/ja\.js\?v=20260430a"/,
+  'language manifest should cache-bust language bundles changed by editor action labels'
+);
+
+assert.match(
+  i18nSource,
+  /from '\.\.\/i18n\/en\.js\?v=20260430a'/,
+  'default English bundle import should be cache-busted when editor action labels change'
+);
+
+[
+  source,
+  editorMainSource,
+  readFileSync(resolve(here, '../assets/js/editor-boot.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/editor-github.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/system-updates.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/theme.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/seo.js'), 'utf8')
+].forEach((moduleSource) => {
+  assert.doesNotMatch(
+    moduleSource,
+    /from ['"]\.\/i18n\.js['"]/,
+    'runtime modules should import the cache-busted i18n module URL'
+  );
+});
+
+assert.match(
+  editorSource,
+  /html, body \{ width: 100%; height: 100%; overflow: hidden; \}[\s\S]*\.editor-page \{ position: fixed; inset: 0;[^}]*overflow: hidden;/,
+  'editor page should be fixed to the visible viewport with independent rail and content scrolling'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-rail-tree-scroll \{[^}]*overflow:auto;[\s\S]*\.editor-content-pane \{[^}]*overflow:auto;/,
+  'editor rail tree and right content pane should scroll independently'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-rail-resizer \{[^}]*cursor:col-resize;[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-rail \{[\s\S]*position:fixed;[\s\S]*transform:translateX\(-102%\);[\s\S]*\.editor-rail-resizer \{\s*display:none;/,
+  'editor rail should support desktop resizing and switch to a mobile drawer without the resizer'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-rail \{[\s\S]*border-right:0;[\s\S]*\.editor-rail-resizer::before \{[\s\S]*left:50%;[\s\S]*width:1px;[\s\S]*opacity:\.65;[\s\S]*\.editor-file-tree-pane \{[\s\S]*border-right:0;/,
+  'file tree rail should not show a container border, while the resize handle keeps its own one-pixel line'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true"[\s\S]*class="editor-modal-dialog"[\s\S]*id="mode-composer" hidden aria-hidden="true"[\s\S]*id="mode-updates" hidden aria-hidden="true"/,
+  'Site Settings and System Updates should be mounted inside the hidden editor modal layer'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-workspace \{[\s\S]*grid-template-columns:minmax\(0, 1fr\);[\s\S]*\.editor-workspace-meta \{[\s\S]*grid-column:1;[\s\S]*\.frontmatter-panel \{[\s\S]*position: static;/,
+  'front matter panel should always flow below the markdown editor instead of using a side rail'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-markdown-panel > \.toolbar \{[\s\S]*margin-left:calc\(var\(--editor-content-pane-padding, 1rem\) \* -1\);[\s\S]*margin-right:calc\(var\(--editor-content-pane-padding, 1rem\) \* -1\);[\s\S]*padding-left:var\(--editor-content-pane-padding, 1rem\);[\s\S]*padding-right:var\(--editor-content-pane-padding, 1rem\);/,
+  'markdown editor topbar should span the content pane while preserving its visual inset with internal padding'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-panel \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*\.frontmatter-grid \{[\s\S]*--frontmatter-row-gap: 0\.35rem;[\s\S]*display: flex;[\s\S]*gap: var\(--frontmatter-row-gap\);[\s\S]*\.frontmatter-field \{[\s\S]*padding: 0;[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(88px, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
+  'front matter fields should use compact Site Settings-style label/control rows'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-section \{[\s\S]*border: 1px solid color-mix\(in srgb, var\(--border\) 96%, transparent\);[\s\S]*background: var\(--card\);[\s\S]*gap: 0\.6rem;[\s\S]*\.frontmatter-section-head \{[\s\S]*align-items: baseline;[\s\S]*\.frontmatter-section-title \{[\s\S]*font-size: 1rem;[\s\S]*\.frontmatter-section-description \{[\s\S]*font-size: 0\.82rem;[\s\S]*text-align: right;/,
+  'front matter sections should mirror the Site Settings single-column section card header style'
+);
+
+assert.match(
+  editorSource,
+  /frontMatterCommonSection[\s\S]*frontmatter-section-head[\s\S]*data-i18n="editor\.frontMatter\.commonDescription"[\s\S]*frontMatterExtraSection[\s\S]*frontmatter-section-head[\s\S]*data-i18n="editor\.frontMatter\.advancedDescription"/,
+  'front matter common and advanced sections should include localized section descriptions'
+);
+
+assert.match(
+  editorMainSource,
+  /head\.className = 'frontmatter-field-head';[\s\S]*labelWrap\.className = 'frontmatter-field-label-wrap';[\s\S]*labelSpan\.className = 'frontmatter-field-title';[\s\S]*controls\.className = 'frontmatter-field-controls';[\s\S]*controls\.appendChild\([\s\S]*entry\.container\.appendChild\(controls\);/,
+  'front matter field DOM should include field head, label wrap, and controls wrapper'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.frontmatter-field \+ \.frontmatter-field|frontmatter-pill|frontmatter-field-hint/,
+  'front matter should not render per-row separators, key chips, or persistent hint rows'
+);
+
+assert.doesNotMatch(
+  `${editorSource}\n${editorMainSource}`,
+  /frontMatterToggle|frontMatterSummary|frontMatterHelp|frontmatter-toggle|class="frontmatter-help"|\.frontmatter-help\s*\{|data-collapsed/,
+  'front matter editor should not render the old collapsible heading or helper copy'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-switch \{[\s\S]*border-radius: 999px;[\s\S]*\.frontmatter-switch-input \{[\s\S]*clip-path: inset\(50%\);[\s\S]*\.frontmatter-switch-track \{[\s\S]*width: 2\.4rem;[\s\S]*\.frontmatter-switch\[data-state="on"\] \.frontmatter-switch-thumb \{[\s\S]*transform: translateX\(1\.05rem\);/,
+  'front matter boolean fields should render as two-state switch controls'
+);
+
+assert.match(
+  editorMainSource,
+  /const syncBooleanControl = \(entry, value\) => \{[\s\S]*entry\.input\.setAttribute\('aria-checked', checked \? 'true' : 'false'\);[\s\S]*wrap\.className = 'frontmatter-switch';[\s\S]*checkbox\.setAttribute\('role', 'switch'\);[\s\S]*entry\.switchEl = wrap;/,
+  'front matter boolean fields should sync switch state through the existing input binding'
+);
+
+assert.doesNotMatch(
+  `${editorSource}\n${editorMainSource}`,
+  /frontmatter-clear|frontmatter-actions|clearEntryValue|editor\.frontMatter\.booleanLabel/,
+  'front matter boolean fields should not keep the old checkbox label or clear action'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-panel\[data-frontmatter-visible="false"\] \{ display: none !important; \}/,
+  'front matter panel should have a hard hidden state for page markdown files'
+);
+
+assert.match(
+  editorMainSource,
+  /let frontMatterVisible = true;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*panel\.dataset\.frontmatterVisible = frontMatterVisible \? 'true' : 'false';[\s\S]*panel\.style\.display = frontMatterVisible \? '' : 'none';[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);/,
+  'markdown editor should hide the front matter panel for tabs.yaml page markdown files'
+);
+
+assert.match(
+  editorMainSource,
+  /const getValue = \(\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) return frontMatterManager\.buildMarkdown\(body\);[\s\S]*const setValue = \(value, opts = \{\}\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) \{/,
+  'page markdown should bypass front matter parsing and rebuilding while the panel is hidden'
+);
+
+assert.match(
+  source,
+  /function inferMarkdownSourceFromPath\(path\) \{[\s\S]*node && node\.source[\s\S]*startsWith\('tab\/'\) \? 'tabs' : 'index';/,
+  'composer should infer whether an opened markdown file comes from tabs.yaml or index.yaml'
+);
+
+assert.match(
+  source,
+  /source: tab\.source \|\| inferMarkdownSourceFromPath\(tab\.path\),[\s\S]*source: inferMarkdownSourceFromPath\(normalized\),/,
+  'composer should pass the inferred markdown source to the primary editor'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-content-shell\.box \{[\s\S]*padding:0;[\s\S]*border:0 !important;[\s\S]*background:transparent;[\s\S]*\.editor-structure-panel \{ min-width:0; border:0; border-radius:0; background:transparent; padding:0; \}/,
+  'editor structure view should not render extra outer card containers around the content'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-structure-panel\.is-content-entering \.editor-structure-head,[\s\S]*\.editor-structure-panel\.is-content-entering \.editor-structure-body \{ animation:editor-structure-content-enter \.2s ease-out both; \}[\s\S]*@keyframes editor-structure-content-enter/,
+  'editor structure panel content should animate in when the selected tree node changes'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-structure-head \{ display:flex; justify-content:space-between; align-items:center;[\s\S]*\.editor-structure-title-row \{ display:flex; align-items:baseline;[\s\S]*\.editor-structure-kicker \{ display:none !important; \}/,
+  'editor structure header should hide the kicker and place the item count beside the title'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-structure-heading"[\s\S]*class="editor-structure-title-row"[\s\S]*id="editorStructureTitle"[\s\S]*id="editorStructureMeta"/,
+  'editor structure header markup should group the title and metadata in one row'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-markdown-panel\.is-content-entering > \.toolbar,[\s\S]*\.editor-markdown-panel\.is-content-entering \.editor-workspace \{ animation:editor-structure-content-enter \.2s ease-out both; \}/,
+  'markdown editor panel should animate in when a file is opened from the tree'
+);
+
+assert.match(
+  source,
+  /function animateEditorStructurePanelContent\(panel\) \{[\s\S]*panel\.classList\.remove\('is-content-entering'\);[\s\S]*panel\.getBoundingClientRect\(\);[\s\S]*panel\.classList\.add\('is-content-entering'\);[\s\S]*function renderEditorStructurePanel\(node\) \{[\s\S]*const animate = \(\) => animateEditorStructurePanelContent\(panel\);/,
+  'structure panel rendering should restart the content transition after replacing panel contents'
+);
+
+assert.match(
+  source,
+  /function animateEditorMarkdownPanelContent\(\) \{[\s\S]*document\.getElementById\('editorMarkdownPanel'\)[\s\S]*panel\.classList\.add\('is-content-entering'\);/,
+  'markdown editor panel animation helper should restart the content transition class'
+);
+
+assert.match(
+  source,
+  /pushEditorCurrentFileInfo\(tab\);\s*animateEditorMarkdownPanelContent\(\);/,
+  'opening a markdown file should restart the editor panel transition after current file info is pushed'
+);
+
+assert.match(
+  hiEditorSource,
+  /function findVerticalScrollParent\(node\) \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*function forwardVerticalWheel\(event\) \{[\s\S]*absX > absY && scroll\.scrollWidth > scroll\.clientWidth \+ 1[\s\S]*scrollParent\.scrollTop = before \+ deltaY;[\s\S]*event\.preventDefault\(\);[\s\S]*scroll\.addEventListener\('wheel', forwardVerticalWheel, \{ passive: false \}\);/,
+  'hidden-overflow markdown editor should forward vertical wheel gestures to the right content pane while preserving horizontal code scrolling'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-workspace-meta \{[\s\S]*order:-1;/,
+  'front matter panel should not be reordered above the markdown editor on narrow layouts'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row \{[\s\S]*min-height:1\.75rem[\s\S]*\.editor-tree-toggle \{[\s\S]*min-height:1\.75rem[\s\S]*\.editor-tree-node \{[\s\S]*min-height:1\.75rem/,
+  'file tree should use compact file-browser row heights'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row\.is-expanding \{[^}]*animation:editor-tree-row-enter \.18s ease-out both;[\s\S]*\.editor-tree-row\.is-collapsing \{[^}]*overflow:hidden;[^}]*transition:max-height \.26s ease/,
+  'file tree expand and collapse states should animate row entrance and exit'
+);
+
+assert.match(
+  source,
+  /function animateEditorTreeCollapse\(root, node, row\) \{[\s\S]*collectEditorTreeDescendantRows\(row\)[\s\S]*descendant\.style\.maxHeight = `\$\{height\}px`;[\s\S]*window\.requestAnimationFrame\(collapseRows\)[\s\S]*window\.setTimeout\(finish, 340\)/,
+  'file tree collapse should animate visible descendant rows before refreshing the tree'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{[^}]*font-weight:400; \}[\s\S]*\.editor-tree-label \{[^}]*font-weight:400; \}/,
+  'file tree labels should use normal text weight instead of bold labels'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row\.is-leaf \.editor-tree-node \{ grid-column:1 \/ -1; \}/,
+  'file tree leaf nodes should not reserve a separate empty toggle column'
+);
+
+assert.doesNotMatch(
+  source + editorSource,
+  /editor-tree-spacer/,
+  'file tree leaf nodes should not render a fake spacer toggle'
+);
+
+assert.match(
+  source,
+  /const rowIndent = hasChildren[\s\S]*\? Math\.max\(0, depth\) \* 1\.12[\s\S]*: Math\.max\(0, depth - 1\) \* 1\.12 \+ 1\.35;/,
+  'file tree leaf rows should align their content with the parent node text instead of a blank toggle'
+);
+
+assert.match(
+  source,
+  /if \(depth > 0\) \{[\s\S]*guides\.className = 'editor-tree-guides';[\s\S]*for \(let guideIndex = 0; guideIndex < depth; guideIndex \+= 1\) \{[\s\S]*guide\.className = 'editor-tree-guide';[\s\S]*guide\.style\.setProperty\('--tree-guide-index', String\(guideIndex\)\);/,
+  'file tree rows should render guide lines for every ancestor depth so outer rails continue through nested rows'
+);
+
+assert.match(
+  source,
+  /let toggle = null;[\s\S]*if \(hasChildren\) \{[\s\S]*toggle = document\.createElement\('button'\);[\s\S]*if \(toggle\) row\.appendChild\(toggle\);/,
+  'file tree should only render expand controls for nodes with children'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-tree-row\.is-selected \{[^}]*background:/,
+  'selected file tree rows should not use a full-row highlight background'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-tree-node \{[^}]*border:1px/,
+  'file tree nodes should not use button-like blue outlines'
+);
+
+assert.match(
+  editorSource,
+  /#editorFileTree button\.editor-tree-toggle, #editorFileTree button\.editor-tree-node \{ appearance:none !important; border:0 !important; border-color:transparent !important; box-shadow:none !important; outline:0 !important; background:transparent !important; background-image:none !important; color:inherit !important; font-weight:inherit !important; \}/,
+  'file tree buttons should override native theme global button borders'
+);
+
+assert.match(
+  editorSource,
+  /#editorFileTree button\.editor-tree-node:hover, #editorFileTree button\.editor-tree-node:focus-visible \{ background:color-mix\(in srgb, var\(--text\) 5%, transparent\) !important; color:inherit !important; box-shadow:none !important; outline:0 !important; \}/,
+  'file tree hover and focus states should remain borderless'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /editor-tree-row\[draggable="true"\]|editor-tree-row\.is-drop-target/,
+  'file tree should not expose drag/drop reordering states'
+);
+
+assert.doesNotMatch(
+  source,
+  /row\.draggable|bindEditorTreeDrag|canMoveEditorTreeNode|moveEditorTreeNode|editorTreeDragNodeId/,
+  'file tree rows should not support direct drag/drop reordering'
+);
+
+assert.match(
+  source,
+  /const states = \[node\.draftState, node\.diffState, node\.fileState\][\s\S]*\.filter\(state => state && state !== 'existing'\)[\s\S]*\.slice\(0, 3\);[\s\S]*if \(states\.length\) \{[\s\S]*badges = document\.createElement\('span'\);[\s\S]*if \(badges\) button\.appendChild\(badges\);/,
+  'file tree rows should hide normal existing-file badges and only reserve badge space for meaningful states'
+);
+
+assert.match(
+  editorSource,
+  /#editorFileTree \.editor-tree-row\.is-selected > button\.editor-tree-node \{ background:color-mix\(in srgb, var\(--primary\) 18%, transparent\) !important;[\s\S]*color:color-mix\(in srgb, var\(--primary\) 86%, var\(--text\)\) !important; \}/,
+  'selected file tree state should use a pale file-browser fill on the node button'
+);
+
+assert.match(
+  source,
+  /function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = node\.kind === 'file';[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
+  'file tree should render folder and document icon markers'
+);
+
+assert.doesNotMatch(
+  source,
+  /className = 'editor-tree-path'/,
+  'file tree should keep paths out of visible node text'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-guides \{ position:absolute; inset:-\.12rem 0; pointer-events:none; \}[\s\S]*\.editor-tree-guide \{[\s\S]*left:calc\(\(var\(--tree-guide-index\) \* 1\.12rem\) \+ \.58rem\);[\s\S]*background:color-mix\(in srgb, var\(--border\) 82%, transparent\)/,
+  'nested file tree rows should draw subtle vertical guide lines for all ancestor levels'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{ padding-left:\.45rem; font-weight:400; \}/,
+  'root file tree labels should have enough left inset inside the selected pill'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /id="modeDynamicTabs"/,
+  'editor should not render visible dynamic markdown tabs'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /data-cfile="index"|data-cfile="tabs"|id="btnAddItem"/,
+  'site settings should not expose Articles/Pages file switching or Add Post Entry controls'
+);
+
 assert.match(
   source,
   /function getComposerDiffChangeCount\(diff\) \{[\s\S]*Object\.keys\(diff\.fields\)[\s\S]*Object\.keys\(diff\.keys\)[\s\S]*diff\.orderChanged/,
@@ -39,6 +480,138 @@ assert.match(
   source,
   /function updateFileDirtyBadge\(kind\) \{[\s\S]*const changeCount = getComposerDiffChangeCount\(diff\);[\s\S]*badge\.textContent = displayValue;[\s\S]*el\.dataset\.dirtyCount = String\(changeCount\);/,
   'composer file switch dirty badges should render the change count into the button'
+);
+
+assert.match(
+  source,
+  /import \{ buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree \} from '\.\/editor-content-tree\.js';/,
+  'composer should use the shared editor content tree model'
+);
+
+assert.match(
+  source,
+  /let activeMarkdownDocument = null;/,
+  'markdown editor should track a single active document instead of visible tab state'
+);
+
+assert.match(
+  source,
+  /treeText\('fieldTitle', 'Title'\)/,
+  'page language title fields should not reuse the tree heading translation key'
+);
+
+assert.doesNotMatch(
+  source,
+  /Apply initial state as early as possible[\s\S]*applyMode\('composer'\)/,
+  'initial editor boot should not force Site Settings before the file tree is rendered'
+);
+
+assert.match(
+  source,
+  /function getOrCreateDynamicMode\(path\) \{[\s\S]*button: null,[\s\S]*dynamicEditorTabs\.set\(modeId, data\);/,
+  'markdown document state should no longer create visible dynamic tab buttons'
+);
+
+assert.match(
+  source,
+  /function openMarkdownInEditor\(path\) \{[\s\S]*flushMarkdownDraft\(active\);[\s\S]*applyMode\(modeId\);/,
+  'switching files from the tree should flush the current markdown draft before opening the next file'
+);
+
+assert.match(
+  source,
+  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*const state = \{ v: 2, open \};[\s\S]*state\.activePath = active && active\.path \? active\.path : null;/,
+  'dynamic markdown session state should persist opened files and the active file path'
+);
+
+assert.match(
+  source,
+  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*applyMode\(modeId\);[\s\S]*return true;/,
+  'dynamic markdown session restore should recreate open files and reactivate the saved active path'
+);
+
+assert.match(
+  source,
+  /refreshEditorContentTree\(\);\s*if \(!restoreDynamicEditorState\(\)\) applyMode\('editor'\);\s*allowEditorStatePersist = true;/,
+  'editor boot should restore dynamic markdown session state before falling back to the file tree'
+);
+
+assert.match(
+  editorSource,
+  /\.current-file \.cf-breadcrumb \{[\s\S]*gap:\.35rem;[\s\S]*\.current-file \.cf-breadcrumb-item \{[\s\S]*color:#0969da;[\s\S]*\.current-file \.cf-breadcrumb-item-current \{[\s\S]*background:#eaeef2;/,
+  'current file indicator should use the same lightweight text-toggle styling as the view toggle'
+);
+
+assert.doesNotMatch(
+  editorMainSource,
+  /<button type="button" class="cf-breadcrumb-item/,
+  'current file breadcrumb should not use native buttons that inherit the bordered toolbar style'
+);
+
+assert.match(
+  editorMainSource,
+  /<a href="#" class="cf-breadcrumb-item\$\{currentClass\}"[\s\S]*data-current-file-node-id=/,
+  'current file breadcrumb should render clickable text links instead of bordered buttons'
+);
+
+assert.match(
+  editorMainSource,
+  /const normalizeCurrentFileBreadcrumb = \(value, fallbackPath = ''\) => \{[\s\S]*const renderCurrentFileBreadcrumb = \(items, fullPath\) => \{[\s\S]*data-current-file-node-id=[\s\S]*ns-editor-current-file-breadcrumb-select/,
+  'current file indicator should normalize and emit clickable breadcrumb entries'
+);
+
+assert.match(
+  source,
+  /function buildCurrentFileBreadcrumb\(tab\) \{[\s\S]*ids\.push\('articles', `index:\$\{node\.key\}`, `index:\$\{node\.key\}:\$\{node\.lang\}`, node\.id\);/,
+  'composer should pass abstract article/page breadcrumb segments to the editor header'
+);
+
+assert.match(
+  source,
+  /breadcrumb: buildCurrentFileBreadcrumb\(tab\),/,
+  'composer should include the current file breadcrumb in the editor header payload'
+);
+
+assert.match(
+  source,
+  /ns-editor-current-file-breadcrumb-select[\s\S]*handleEditorTreeSelection\(nodeId\);/,
+  'composer should route current-file breadcrumb clicks through the editor tree selection handler'
+);
+
+assert.match(
+  source,
+  /function applyMode\(mode, options = \{\}\) \{[\s\S]*mode === 'editor' && dynamicEditorTabs\.size && !options\.forceStructure/,
+  'editor structure selection should be able to bypass dynamic markdown document restoration'
+);
+
+assert.match(
+  source,
+  /function openEditorOverlay\(mode, trigger = null\) \{[\s\S]*activeEditorOverlayMode = nextMode;[\s\S]*function closeEditorOverlay\(\) \{[\s\S]*activeEditorOverlayMode = null;/,
+  'Site Settings and System Updates should use an overlay state independent from current editor mode'
+);
+
+assert.match(
+  source,
+  /function applyMode\(mode, options = \{\}\) \{[\s\S]*if \(mode === 'composer' \|\| mode === 'updates'\) \{[\s\S]*openEditorOverlay\(mode, options\.trigger \|\| null\);[\s\S]*return;[\s\S]*const nextMode = \(candidate === 'editor' \|\| isDynamicMode\(candidate\)\)/,
+  'opening Site Settings or System Updates should not switch currentMode away from the editor'
+);
+
+assert.match(
+  source,
+  /function initEditorRailResize\(\) \{[\s\S]*EDITOR_RAIL_WIDTH_KEY[\s\S]*pointerdown[\s\S]*setEditorRailWidth\([^)]*\{ persist: true \}/,
+  'desktop editor rail should be resizable and persist its width'
+);
+
+assert.match(
+  source,
+  /function initMobileEditorRail\(\) \{[\s\S]*editorMobileRailBound[\s\S]*setEditorRailOpen\(!isOpen\);/,
+  'mobile editor rail should use a drawer toggle instead of the desktop resizer'
+);
+
+assert.match(
+  source,
+  /function handleEditorTreeSelection\(nodeId\) \{[\s\S]*applyMode\('editor', \{ forceStructure: true \}\);[\s\S]*refreshEditorContentTree\(\);/,
+  'selecting non-file tree nodes should hide the markdown editor and show the structure panel'
 );
 
 assert.doesNotMatch(
@@ -289,6 +862,60 @@ assert.match(
 
 assert.match(
   source,
+  /const flag = langFlag\(lang\);[\s\S]*const flagSpan = flag \? `<span class="ci-lang-flag" aria-hidden="true">\$\{escapeHtml\(flag\)\}<\/span>` : '';[\s\S]*<strong class="ci-lang-label" aria-label="\$\{safeLabel\}" title="\$\{safeLabel\}">[\s\S]*<span class="ci-lang-code">\$\{escapeHtml\(lang\.toUpperCase\(\)\)\}<\/span>/,
+  'index language section headings should show the regional flag before the language code'
+);
+
+assert.match(
+  source,
+  /\.ci-lang-label\{display:inline-flex;align-items:center;gap:\.35rem;line-height:1\.1;\}[\s\S]*\.ci-lang-label \.ci-lang-flag\{display:inline-grid;place-items:center;width:1\.2em;height:1\.2em;font-size:1rem;line-height:1;\}[\s\S]*\.ci-lang-label \.ci-lang-code\{display:inline-flex;align-items:center;line-height:1\.2;/,
+  'index language section flags should be aligned as part of the compact heading label'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.ci-item:hover[\s\S]*transform:translateY\(-1px\)|\.ci-item:hover[\s\S]*--ci-depth-shadow:0 12px 24px|\.ci-item:hover[\s\S]*border-color:color-mix/,
+  'composer entry cards should not float, deepen shadow, or recolor border on hover'
+);
+
+assert.match(
+  source,
+  /\.ci-lang\{border:0;border-radius:0;margin:0;background:transparent;padding:\.65rem 0;\}[\s\S]*\.ci-lang\+\.ci-lang\{border-top:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\);\}/,
+  'index language sections should read as separated rows instead of nested cards'
+);
+
+assert.match(
+  source,
+  /<button class="btn-secondary ci-expand"[\s\S]*<\/button>\s*<span class="ci-head-add-lang-slot"><\/span>\s*<button class="btn-secondary ci-del">/,
+  'index add-language control should live in the entry header immediately after details'
+);
+
+assert.match(
+  source,
+  /const headAddLangSlot = \$\('\.ci-head-add-lang-slot', row\);[\s\S]*if \(headAddLangSlot\) headAddLangSlot\.innerHTML = '';[\s\S]*\(headAddLangSlot \|\| bodyInner\)\.appendChild\(addLangWrap\);/,
+  'index add-language menu should be mounted into the header slot and refreshed with the body'
+);
+
+assert.match(
+  source,
+  /const handle = target\.closest\('\.ci-grip,\.ct-grip'\);[\s\S]*if \(!handle \|\| !container\.contains\(handle\)\) return;[\s\S]*const li = handle\.closest\(keySelector\);/,
+  'composer entry reordering should start only from the visible drag handle'
+);
+
+assert.doesNotMatch(
+  source.match(/function makeDragList\(container, onReorder\) \{[\s\S]*?\nfunction buildIndexUI\(root, state\) \{/)[0],
+  /const li = target\.closest\(keySelector\);/,
+  'composer entry reordering should not treat the entire card as a drag source'
+);
+
+assert.doesNotMatch(
+  source.match(/function buildIndexUI\(root, state\) \{[\s\S]*?\nfunction buildTabsUI\(root, state\) \{/)[0],
+  /bodyInner\.appendChild\(addLangWrap\);/,
+  'index add-language control should not render at the bottom of the expanded language list'
+);
+
+assert.match(
+  source,
   /const renderIdentityPathGrid = \(section\) => \{/,
   'composer site editor should define a compact identity path grid renderer'
 );
@@ -351,6 +978,36 @@ assert.match(
   source,
   /function renderCompactSectionMenu\(\) \{[\s\S]*sectionsMeta\.forEach[\s\S]*setActiveSection\(meta\.id, \{ focusPanel: false \}\);/,
   'single-column site navigation should reuse section metadata for the floating compact menu'
+);
+
+assert.match(
+  source,
+  /const resolveSiteScrollContainer = \(\) => \{[\s\S]*root \? root\.querySelector\('\.cs-viewport'\)[\s\S]*canOwnScroll[\s\S]*return viewport;[\s\S]*root\.closest\('\.editor-modal-body'\)[\s\S]*return modalBody;[\s\S]*return window;[\s\S]*\};/,
+  'site section navigation should prefer the internal content viewport before falling back to the modal body'
+);
+
+assert.match(
+  source,
+  /const scrollContainer = resolveSiteScrollContainer\(\);[\s\S]*scrollContainer\.addEventListener\('scroll', onScroll, \{ passive: true \}\);[\s\S]*scrollContainer\.removeEventListener\('scroll', onScroll, \{ passive: true \}\);/,
+  'site section active-state sync should listen to its resolved scroll container, not only window scroll'
+);
+
+assert.match(
+  source,
+  /let measuredAnySection = false;[\s\S]*if \(!rect \|\| rect\.height <= 4\) continue;[\s\S]*measuredAnySection = true;[\s\S]*if \(!measuredAnySection\) return;[\s\S]*if \(!candidate\) candidate = sectionsMeta\[0\] \|\| null;/,
+  'site section active-state sync should ignore hidden modal measurements instead of falling back to the last section'
+);
+
+assert.match(
+  source,
+  /const scrollTop = getSiteScrollTop\(scrollContainer\);[\s\S]*if \(scrollTop <= 4\) candidate = sectionsMeta\[0\] \|\| null;/,
+  'site section active-state sync should keep the repository section active when the modal body is at the top'
+);
+
+assert.match(
+  source,
+  /function resetSiteSettingsNavOnOpen\(\) \{[\s\S]*modalBody\.scrollTop = 0;[\s\S]*root\.__nsSiteFirstSectionId[\s\S]*setActive\(firstSectionId,[\s\S]*scrollViewport: false[\s\S]*activateFirst\(\);[\s\S]*requestAnimationFrame/,
+  'opening Site Settings should reset the modal body and left navigation to the first section'
 );
 
 assert.match(
@@ -607,8 +1264,32 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;/,
-  'desktop site section navigation should not render as a card container'
+  /\.cs-nav\{position:sticky;top:50%;transform:translateY\(-50%\);align-self:start;/,
+  'desktop site section navigation should stay vertically centered in the modal body viewport'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.editor-modal-body\.is-composer-overlay\{overflow:hidden\}/,
+  'site settings overlay should keep the modal body scrollable so the section navigation remains visible'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.editor-modal-body\.is-composer-overlay[\s\S]*\.cs-layout\{height:100%;min-height:0\}/,
+  'site settings overlay should not force a full-height composer layout that can collapse the left navigation'
+);
+
+assert.match(
+  source,
+  /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;overflow:visible\}/,
+  'desktop site section navigation should not render as a card container or scroll independently'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.cs-nav-list\{[^}]*overflow:auto/,
+  'desktop site section navigation list should not be independently scrollable'
 );
 
 assert.match(
@@ -625,20 +1306,56 @@ assert.match(
 
 assert.match(
   editorSource,
-  /html, body \{ overflow-x: visible; overflow-y: visible; \}[\s\S]*\.editor-page \{[^}]*overflow-x: clip;/,
-  'editor page should keep root scrolling visible for sticky toolbars while clipping horizontal page overflow'
+  /\.editor-mobile-rail-toggle \{[\s\S]*display:none;[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-mobile-rail-toggle \{\s*display:inline-flex;/,
+  'mobile layout should expose a file tree drawer toggle only on small screens'
 );
 
 assert.match(
   editorSource,
-  /#mode-composer > \.editor-main > \.toolbar \{\s*margin:-1\.25rem -1\.25rem 1\.25rem;\s*padding:\.85rem 1\.25rem \.7rem;/,
-  'composer file toolbar should span the editor card while keeping visual spacing as internal padding'
+  /\.editor-content-pane \{[\s\S]*--editor-content-pane-padding:1rem;[\s\S]*padding:var\(--editor-content-pane-padding\);[\s\S]*\.toolbar \{[\s\S]*top:calc\(var\(--editor-content-pane-padding, 0px\) \* -1\);[\s\S]*background:var\(--card\);[\s\S]*\.editor-markdown-panel > \.toolbar \{[\s\S]*margin-top:calc\(var\(--editor-content-pane-padding, 1rem\) \* -1\);[\s\S]*\.editor-tools \{[\s\S]*top:calc\(var\(--editor-toolbar-offset, 0px\) - var\(--editor-content-pane-padding, 0px\)\);[\s\S]*background:var\(--card\);[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-content-pane \{[\s\S]*--editor-content-pane-padding:\.75rem;/,
+  'markdown file toolbar should stick flush to the editor content pane top while preserving pane padding'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /#mode-composer > \.editor-main > \.toolbar|<section class="box editor-main" style="grid-column: 1 \/ -1;">|class="site-settings-title"/,
+  'site settings modal should not render a redundant inner card toolbar'
 );
 
 assert.match(
   editorSource,
-  /\.page-titlebar \{\s*display:grid;\s*grid-template-columns:minmax\(0, max-content\) minmax\(0, 1fr\);[\s\S]*\.status-stack \{\s*grid-column:1 \/ -1;\s*grid-row:1;[\s\S]*width:100%;/,
-  'global status should be pinned to a full-width titlebar grid row'
+  /class="editor-modal-header-actions" id="editorModalComposerActions" hidden[\s\S]*id="btnRefresh"[\s\S]*id="btnDiscard"/,
+  'site settings refresh and discard controls should live in the modal header action slot'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-modal-header-actions" id="editorModalUpdateActions" hidden[\s\S]*id="btnSystemSelect"[\s\S]*id="systemUpdateFileInput"/,
+  'system update archive picker should live in the modal header action slot'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /<section class="box updates-main"|class="updates-title"/,
+  'system updates modal should not render a redundant inner card or duplicate content title'
+);
+
+assert.match(
+  editorSource,
+  /<header class="editor-modal-header">\s*<button type="button" class="btn-secondary editor-modal-close" id="editorModalClose"[\s\S]*<h2 id="editorModalTitle"><\/h2>/,
+  'modal close button should sit to the left of the title for macOS-style chrome'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-modal-header-actions \.btn-secondary \{\s*height:2rem;\s*padding:0 \.65rem;[\s\S]*\.editor-modal-close \{[\s\S]*height:2rem;/,
+  'modal header action buttons should match the close button height'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-modal-layer\[hidden\],[\s\S]*\.editor-overlay-panel\[hidden\] \{[\s\S]*display:none !important;[\s\S]*\.editor-modal-body \{[\s\S]*overflow:auto;/,
+  'modal layer should hide by default and scroll its own body when content is tall'
 );
 
 assert.doesNotMatch(
