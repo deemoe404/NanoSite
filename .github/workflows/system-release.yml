@@ -328,11 +328,8 @@ jobs:
           git push --force-with-lease origin "HEAD:${manifest_branch}"
 
           pr_number="$(
-            gh pr list \
-              --repo "${GITHUB_REPOSITORY}" \
-              --head "${manifest_branch}" \
-              --state open \
-              --json number \
+            gh api \
+              "repos/${GITHUB_REPOSITORY}/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:${manifest_branch}" \
               --jq '.[0].number // empty'
           )"
           if [[ -n "${pr_number}" ]]; then

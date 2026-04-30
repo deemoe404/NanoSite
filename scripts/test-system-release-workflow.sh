@@ -148,6 +148,16 @@ if ! grep -F 'gh pr edit "${pr_number}"' "${workflow}" >/dev/null; then
   exit 1
 fi
 
+if ! grep -F 'pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:${manifest_branch}' "${workflow}" >/dev/null; then
+  echo "system release workflow must look up manifest pull requests by exact head owner and branch" >&2
+  exit 1
+fi
+
+if grep -F 'gh pr list' "${workflow}" >/dev/null; then
+  echo "system release workflow must not look up manifest pull requests by ambiguous branch name only" >&2
+  exit 1
+fi
+
 if grep -F 'git push origin "HEAD:${GITHUB_REF_NAME}"' "${workflow}" >/dev/null; then
   echo "system release workflow must not push manifest commits directly to the protected main branch" >&2
   exit 1
