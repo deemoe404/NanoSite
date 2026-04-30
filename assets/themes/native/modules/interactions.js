@@ -62,6 +62,51 @@ function getContainerByRole(role, documentRef = defaultDocument) {
   }
 }
 
+function getScrollStateNative(documentRef = defaultDocument, windowRef = defaultWindow) {
+  try {
+    return {
+      top: Math.max(0, Math.round(windowRef && typeof windowRef.scrollY === 'number'
+        ? windowRef.scrollY
+        : ((documentRef && documentRef.documentElement && documentRef.documentElement.scrollTop) || (documentRef && documentRef.body && documentRef.body.scrollTop) || 0))),
+      left: Math.max(0, Math.round(windowRef && typeof windowRef.scrollX === 'number'
+        ? windowRef.scrollX
+        : ((documentRef && documentRef.documentElement && documentRef.documentElement.scrollLeft) || (documentRef && documentRef.body && documentRef.body.scrollLeft) || 0)))
+    };
+  } catch (_) {
+    return { top: 0, left: 0 };
+  }
+}
+
+function restoreScrollStateNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
+  const top = Math.max(0, Math.round(Number(params.top) || 0));
+  const left = Math.max(0, Math.round(Number(params.left) || 0));
+  try {
+    if (windowRef && typeof windowRef.scrollTo === 'function') {
+      windowRef.scrollTo({ top, left, behavior: 'auto' });
+      return true;
+    }
+  } catch (_) {}
+  try {
+    if (windowRef && typeof windowRef.scrollTo === 'function') {
+      windowRef.scrollTo(left, top);
+      return true;
+    }
+  } catch (_) {}
+  try {
+    if (documentRef && documentRef.documentElement) {
+      documentRef.documentElement.scrollTop = top;
+      documentRef.documentElement.scrollLeft = left;
+    }
+    if (documentRef && documentRef.body) {
+      documentRef.body.scrollTop = top;
+      documentRef.body.scrollLeft = left;
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function resolveViewContainersNative(params = {}, documentRef = defaultDocument) {
   const view = params.view;
   const base = params.containers && typeof params.containers === 'object' ? params.containers : {};
@@ -1767,6 +1812,8 @@ export function mount(context = {}) {
   const hooks = (windowRef && windowRef.__ns_themeHooks) || {};
   hooks.getViewContainer = (params = {}) => getContainerByRole(params.role, documentRef);
   hooks.resolveViewContainers = (params = {}) => resolveViewContainersNative(params, documentRef);
+  hooks.getScrollState = () => getScrollStateNative(documentRef, windowRef);
+  hooks.restoreScrollState = (params = {}) => restoreScrollStateNative(params, documentRef, windowRef);
   hooks.showElement = (params = {}) => showElementNative(params, windowRef);
   hooks.hideElement = (params = {}) => hideElementNative(params, windowRef);
   hooks.renderSiteLinks = (params = {}) => renderSiteLinksNative(params, documentRef);

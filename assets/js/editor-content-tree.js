@@ -147,6 +147,39 @@ export function buildEditorContentTree(input = {}, options = {}) {
     file: options.fileStates || null
   };
 
+  const systemRoot = makeNode({
+    id: 'system',
+    kind: 'root',
+    source: 'system',
+    label: options.systemLabel || 'System',
+    children: [
+      makeNode({
+        id: 'system:site-settings',
+        kind: 'system',
+        source: 'system',
+        key: 'site-settings',
+        label: options.siteSettingsLabel || 'Site Settings',
+        children: []
+      }, statusMaps),
+      makeNode({
+        id: 'system:updates',
+        kind: 'system',
+        source: 'system',
+        key: 'updates',
+        label: options.updatesLabel || 'NanoSite Updates',
+        children: []
+      }, statusMaps),
+      makeNode({
+        id: 'system:sync',
+        kind: 'system',
+        source: 'system',
+        key: 'sync',
+        label: options.syncLabel || 'Sync',
+        children: []
+      }, statusMaps)
+    ]
+  }, statusMaps);
+
   const articlesRoot = makeNode({
     id: 'articles',
     kind: 'root',
@@ -213,7 +246,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
     })
   }, statusMaps);
 
-  return [articlesRoot, pagesRoot].map(annotateAggregateStatus);
+  return [systemRoot, articlesRoot, pagesRoot].map(annotateAggregateStatus);
 }
 
 export function flattenEditorContentTree(nodes = []) {
