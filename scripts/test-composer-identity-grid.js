@@ -1151,6 +1151,12 @@ assert.doesNotMatch(
 
 assert.match(
   source,
+  /const hasAction = !!\(action && \(action\.href \|\| typeof action\.onClick === 'function'\)\);[\s\S]*const shouldAutoDismiss = options\.sticky !== true && !hasAction;/,
+  'plain info toasts such as Loading config should auto-dismiss unless explicitly sticky or actionable'
+);
+
+assert.match(
+  source,
   /repoInputs\.className = 'cs-repo-grid';[\s\S]*repoInputs\.dataset\.field = 'repo';[\s\S]*createRepoFieldGroup\('cs-repo-field-group--owner', t\('editor\.composer\.site\.repoOwner'\), ownerWrap\)[\s\S]*createRepoFieldGroup\('cs-repo-field-group--name', t\('editor\.composer\.site\.repoName'\), repoWrap\)[\s\S]*createRepoFieldGroup\('cs-repo-field-group--branch', t\('editor\.composer\.site\.repoBranch'\), branchWrap\)[\s\S]*repoSection\.appendChild\(repoInputs\);/,
   'Repository inputs should remain diff-addressable while rendering labeled controls directly in the Repository card'
 );

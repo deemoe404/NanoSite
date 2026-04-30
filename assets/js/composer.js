@@ -1055,7 +1055,8 @@ function showToast(kind, text, options = {}) {
     el.appendChild(textSpan);
 
     const action = options && options.action;
-    const shouldAutoDismiss = kind !== 'info';
+    const hasAction = !!(action && (action.href || typeof action.onClick === 'function'));
+    const shouldAutoDismiss = options.sticky !== true && !hasAction;
 
     const dismiss = () => {
       if (el.dataset.dismissed === 'true') return;
@@ -1093,7 +1094,7 @@ function showToast(kind, text, options = {}) {
       }, 320);
     };
 
-    if (action && (action.href || typeof action.onClick === 'function')) {
+    if (hasAction) {
       el.style.justifyContent = 'space-between';
       textSpan.style.textAlign = 'left';
       const actionEl = document.createElement(action.href ? 'a' : 'button');
