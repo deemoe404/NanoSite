@@ -7999,12 +7999,14 @@ function dirnameFromPath(relPath) {
   return norm.slice(0, idx);
 }
 
-function findTrailingVersionSegmentIndex(segments) {
+function findExplicitArticleVersionSegmentIndex(segments) {
   const parts = Array.isArray(segments) ? segments : [];
-  for (let i = parts.length - 1; i >= 0; i -= 1) {
-    if (isComposerVersionSegment(parts[i])) return i;
-  }
-  return -1;
+  if (parts.length < 3) return -1;
+  if (String(parts[0] || '').trim().toLowerCase() !== 'post') return -1;
+  const candidateIndex = parts.length - 1;
+  if (candidateIndex < 2) return -1;
+  if (!isComposerVersionSegment(parts[candidateIndex])) return -1;
+  return candidateIndex;
 }
 
 function extractVersionFromPath(relPath) {
@@ -8014,7 +8016,7 @@ function extractVersionFromPath(relPath) {
     const segments = normalized.split('/');
     if (segments.length <= 1) return '';
     segments.pop();
-    const versionIndex = findTrailingVersionSegmentIndex(segments);
+    const versionIndex = findExplicitArticleVersionSegmentIndex(segments);
     return versionIndex >= 0 ? String(segments[versionIndex] || '') : '';
   } catch (_) {
     return '';
@@ -12002,7 +12004,7 @@ function buildDefaultLanguagePathFromEntry(kind, key, lang, entry) {
   const finalName = normalizedLang ? `${namePart}_${normalizedLang}` : namePart;
   filename = `${finalName}${extPart}`;
   if (normalizedKind === 'index') {
-    const versionIndex = findTrailingVersionSegmentIndex(segments);
+    const versionIndex = findExplicitArticleVersionSegmentIndex(segments);
     if (versionIndex >= 0) segments[versionIndex] = 'v1.0.0';
     else segments.push('v1.0.0');
   }
@@ -12022,7 +12024,7 @@ function buildArticleVersionPath(key, lang, version, entry) {
   const segments = normalizedPath.split('/');
   let filename = segments.pop() || '';
   if (!filename) filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
-  const versionIndex = findTrailingVersionSegmentIndex(segments);
+  const versionIndex = findExplicitArticleVersionSegmentIndex(segments);
   if (versionIndex >= 0) segments[versionIndex] = normalizedVersion;
   else segments.push(normalizedVersion);
   segments.push(filename);

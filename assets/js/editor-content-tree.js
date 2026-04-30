@@ -112,20 +112,22 @@ function filenameLabel(path, fallback) {
   return parts[parts.length - 1] || fallback;
 }
 
-function trailingVersionLabel(path) {
+function explicitArticleVersionLabel(path) {
   const normalized = normalizeEditorTreePath(path);
   if (!normalized) return '';
   const segments = normalized.split('/');
   if (segments.length <= 1) return '';
   segments.pop();
-  for (let i = segments.length - 1; i >= 0; i -= 1) {
-    if (/^v\d+(?:\.\d+)*$/i.test(String(segments[i] || '').trim())) return segments[i];
-  }
+  if (segments.length < 3) return '';
+  if (String(segments[0] || '').trim().toLowerCase() !== 'post') return '';
+  const candidate = String(segments[segments.length - 1] || '').trim();
+  if (!/^v\d+(?:\.\d+)*$/i.test(candidate)) return '';
+  return candidate;
   return '';
 }
 
 function versionLabel(path, index) {
-  const version = trailingVersionLabel(path);
+  const version = explicitArticleVersionLabel(path);
   if (version) return version;
   return `Version ${index + 1}`;
 }

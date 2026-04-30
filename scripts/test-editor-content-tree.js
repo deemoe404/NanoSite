@@ -9,7 +9,7 @@ import {
 
 const sample = {
   index: {
-    __order: ['nanoSite', 'guide', 'v2'],
+    __order: ['nanoSite', 'guide', 'v2', 'v3'],
     nanoSite: {
       en: [
         'post/main/main_en.md',
@@ -25,6 +25,9 @@ const sample = {
         'post/v2/v1.0.0/main_en.md',
         'post/v2/v3.0.0/main_en.md'
       ]
+    },
+    v3: {
+      en: ['post/v3/main_en.md']
     }
   },
   tabs: {
@@ -77,7 +80,7 @@ assert.deepEqual(
 
 const articles = tree[1];
 assert.equal(articles.source, 'index');
-assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide', 'index:v2'], 'article entry order should follow __order');
+assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide', 'index:v2', 'index:v3'], 'article entry order should follow __order');
 
 const articleLangs = findEditorContentTreeNode(tree, 'index:nanoSite').children;
 assert.deepEqual(articleLangs.map(node => node.id), ['index:nanoSite:en', 'index:nanoSite:chs'], 'article languages should follow preferred language order');
@@ -105,6 +108,15 @@ assert.deepEqual(
     ['index:v2:en:1', 'post/v2/v3.0.0/main_en.md', 'v3.0.0']
   ],
   'article version labels should use the version folder nearest the filename even when the article key looks like a version'
+);
+
+const legacyVersionLikeKeyVersions = findEditorContentTreeNode(tree, 'index:v3:en').children;
+assert.deepEqual(
+  legacyVersionLikeKeyVersions.map(node => [node.id, node.path, node.label]),
+  [
+    ['index:v3:en:0', 'post/v3/main_en.md', 'Version 1']
+  ],
+  'legacy root-style article paths should not treat a version-like article key as an explicit version folder'
 );
 
 const pages = tree[2];
