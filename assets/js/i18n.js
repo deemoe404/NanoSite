@@ -12,7 +12,7 @@
 import { parseFrontMatter } from './content.js';
 import { getContentRoot } from './utils.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
-import enTranslations, { languageMeta as enLanguageMeta } from '../i18n/en.js?v=20260430c';
+import enTranslations, { languageMeta as enLanguageMeta } from '../i18n/en.js?v=20260430sync';
 
 // Content fetch cache modes are normalized by cache-control.js.
 

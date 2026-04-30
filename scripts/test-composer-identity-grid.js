@@ -84,9 +84,51 @@ assert.match(
 );
 
 assert.match(
+  source,
+  /syncLabel: treeText\('sync', 'Sync'\),[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
+  'System tree should expose and route the Sync leaf'
+);
+
+assert.doesNotMatch(
   editorSource,
-  /\.global-status\.is-temporarily-hidden \{ display:none !important; \}[\s\S]*<div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">[\s\S]*<div class="gs-flow">/,
-  'global sync status should stay in the DOM but be temporarily hidden from the page'
+  /id="global-status"|globalStatusRepo|globalArrowLabel|localDraftSummary|editor-github\.js/,
+  'legacy global sync flow widget should be removed from the editor shell'
+);
+
+assert.match(
+  editorSource,
+  /id="mode-sync" hidden aria-hidden="true"/,
+  'editor should provide an inline Sync panel host'
+);
+
+assert.match(
+  editorSource,
+  /id="editorModalSyncActions" hidden[\s\S]*id="btnSyncSubmit"[\s\S]*form="syncCommitForm"/,
+  'Sync commit submit button should live in the system panel header actions and submit the inline form'
+);
+
+assert.doesNotMatch(
+  source,
+  /global-status|globalStatusRepo|globalArrowLabel|localDraftSummary|attachGlobalStatusCommitHandler|handleGlobalBubbleActivation/,
+  'composer should not keep legacy global sync widget wiring'
+);
+
+assert.match(
+  source,
+  /function getSyncCommitPanelHost\(\) \{[\s\S]*panel\.id = 'syncCommitPanel';[\s\S]*syncPanel\.appendChild\(panel\);/,
+  'Sync page should host the GitHub commit form inline'
+);
+
+assert.match(
+  source,
+  /async function refreshSyncCommitPanel\(options = \{\}\) \{[\s\S]*const headerSubmit = document\.getElementById\('btnSyncSubmit'\)[\s\S]*gatherCommitPayload\(\{ cleanupUnusedAssets: false, showSeoStatus: false \}\)[\s\S]*form\.id = 'syncCommitForm';[\s\S]*const btnSubmit = headerSubmit;[\s\S]*appendGithubCommitSummary\(summaryBlock, commitFiles, seoFiles, summaryEntries\)[\s\S]*const value = getFineGrainedTokenValue\(\);[\s\S]*performDirectGithubCommit\(value, currentSummary\);/,
+  'inline Sync page commit form should reuse existing payload and commit flow'
+);
+
+assert.doesNotMatch(
+  source.slice(source.indexOf('async function refreshSyncCommitPanel(options = {}) {'), source.indexOf('function scheduleSyncCommitPanelRefresh()')),
+  /editor\.composer\.github\.modal\.tokenLabel|sync-token-help|className = 'sync-token-field'/,
+  'Sync page should no longer render the fine-grained token settings inline'
 );
 
 assert.match(
@@ -126,19 +168,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430c';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430sync';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260430c"[\s\S]*"\.\/chs\.js\?v=20260430c"[\s\S]*"\.\/cht-tw\.js\?v=20260430c"[\s\S]*"\.\/cht-hk\.js\?v=20260430c"[\s\S]*"\.\/ja\.js\?v=20260430c"/,
+  /"\.\/en\.js\?v=20260430sync"[\s\S]*"\.\/chs\.js\?v=20260430sync"[\s\S]*"\.\/cht-tw\.js\?v=20260430sync"[\s\S]*"\.\/cht-hk\.js\?v=20260430sync"[\s\S]*"\.\/ja\.js\?v=20260430sync"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260430c'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260430sync'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -146,7 +188,6 @@ assert.match(
   source,
   editorMainSource,
   readFileSync(resolve(here, '../assets/js/editor-boot.js'), 'utf8'),
-  readFileSync(resolve(here, '../assets/js/editor-github.js'), 'utf8'),
   readFileSync(resolve(here, '../assets/js/system-updates.js'), 'utf8'),
   readFileSync(resolve(here, '../assets/js/theme.js'), 'utf8'),
   readFileSync(resolve(here, '../assets/js/seo.js'), 'utf8')
@@ -602,8 +643,8 @@ assert.match(
 
 assert.match(
   source,
-  /function showEditorSystemPanel\(mode\) \{[\s\S]*const nextMode = mode === 'updates' \? 'updates' : 'composer';[\s\S]*editorSystemActions[\s\S]*mode-composer[\s\S]*mode-updates/,
-  'Site Settings and NanoSite Updates should render through the inline system panel'
+  /function showEditorSystemPanel\(mode\) \{[\s\S]*mode === 'sync' \? 'sync'[\s\S]*editorSystemActions[\s\S]*editorModalSyncActions[\s\S]*mode-composer[\s\S]*mode-updates[\s\S]*mode-sync[\s\S]*\['sync', syncActions\]/,
+  'Site Settings, NanoSite Updates, and Sync should render through the inline system panel'
 );
 
 const showEditorSystemPanelBody = source.slice(
@@ -625,8 +666,8 @@ assert.match(
 
 assert.match(
   source,
-  /const nextMode = \(candidate === 'editor' \|\| candidate === 'composer' \|\| candidate === 'updates' \|\| isDynamicMode\(candidate\)\)[\s\S]*setEditorDetailPanelMode\(nextMode\);/,
-  'opening Site Settings or NanoSite Updates should switch to the inline system detail panel'
+  /const isSystemMode = \(value\) => value === 'composer' \|\| value === 'updates' \|\| value === 'sync';[\s\S]*const nextMode = \(candidate === 'editor' \|\| isSystemMode\(candidate\) \|\| isDynamicMode\(candidate\)\)[\s\S]*setEditorDetailPanelMode\(nextMode\);/,
+  'opening Site Settings, NanoSite Updates, or Sync should switch to the inline system detail panel'
 );
 
 const refreshEditorContentTreeBody = source.slice(
@@ -1092,8 +1133,32 @@ assert.doesNotMatch(
 
 assert.match(
   source,
+  /function renderFineGrainedTokenSettings\(host\) \{[\s\S]*tokenField\.className = 'cs-repo-field-group cs-repo-field-group--token cs-token-field';[\s\S]*field\.className = 'cs-repo-field cs-repo-field--token';[\s\S]*input\.id = 'syncGithubTokenInput';[\s\S]*input\.className = 'cs-input cs-repo-input cs-repo-input--token';[\s\S]*const btnForget = document\.createElement\('span'\);[\s\S]*btnForget\.setAttribute\('role', 'button'\);[\s\S]*btnForget\.className = 'cs-token-clear';[\s\S]*field\.append\(affix, input, btnForget\);[\s\S]*setCachedFineGrainedToken\(input\.value\);[\s\S]*host\.appendChild\(wrapper\);/,
+  'fine-grained token settings should reuse the repository field style with a full-width token field'
+);
+
+assert.doesNotMatch(
+  source.slice(source.indexOf('function renderFineGrainedTokenSettings(host) {'), source.indexOf('function startRemoteSyncWatcher')),
+  /document\.createElement\('button'\)/,
+  'token clear control should avoid native button chrome'
+);
+
+assert.doesNotMatch(
+  source,
+  /cs-token-actions/,
+  'token clear control should not reserve a separate action row below the input'
+);
+
+assert.match(
+  source,
   /repoInputs\.className = 'cs-repo-grid';[\s\S]*repoInputs\.dataset\.field = 'repo';[\s\S]*createRepoFieldGroup\('cs-repo-field-group--owner', t\('editor\.composer\.site\.repoOwner'\), ownerWrap\)[\s\S]*createRepoFieldGroup\('cs-repo-field-group--name', t\('editor\.composer\.site\.repoName'\), repoWrap\)[\s\S]*createRepoFieldGroup\('cs-repo-field-group--branch', t\('editor\.composer\.site\.repoBranch'\), branchWrap\)[\s\S]*repoSection\.appendChild\(repoInputs\);/,
   'Repository inputs should remain diff-addressable while rendering labeled controls directly in the Repository card'
+);
+
+assert.match(
+  source,
+  /repoSection\.appendChild\(repoInputs\);\s*renderFineGrainedTokenSettings\(repoSection\);/,
+  'Repository card should host the fine-grained token settings below the GitHub repository fields'
 );
 
 assert.match(
@@ -1368,7 +1433,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-modal-header-actions \.btn-secondary \{\s*height:2rem;\s*padding:0 \.65rem;[\s\S]*\.editor-modal-close \{[\s\S]*height:2rem;/,
+  /\.editor-modal-header-actions \.btn-secondary,\s*\.editor-modal-header-actions \.btn-primary \{\s*height:2rem;\s*padding:0 \.65rem;[\s\S]*\.editor-modal-close \{[\s\S]*height:2rem;/,
   'modal header action buttons should match the close button height'
 );
 

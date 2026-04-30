@@ -1,7 +1,7 @@
 [
-  { "value": "en", "label": "English", "module": "./en.js?v=20260430c" },
-  { "value": "chs", "label": "简体中文", "module": "./chs.js?v=20260430c" },
-  { "value": "cht-tw", "label": "正體中文（台灣）", "module": "./cht-tw.js?v=20260430c" },
-  { "value": "cht-hk", "label": "繁體中文（香港）", "module": "./cht-hk.js?v=20260430c" },
-  { "value": "ja", "label": "日本語", "module": "./ja.js?v=20260430c" }
+  { "value": "en", "label": "English", "module": "./en.js?v=20260430sync" },
+  { "value": "chs", "label": "简体中文", "module": "./chs.js?v=20260430sync" },
+  { "value": "cht-tw", "label": "正體中文（台灣）", "module": "./cht-tw.js?v=20260430sync" },
+  { "value": "cht-hk", "label": "繁體中文（香港）", "module": "./cht-hk.js?v=20260430sync" },
+  { "value": "ja", "label": "日本語", "module": "./ja.js?v=20260430sync" }
 ]

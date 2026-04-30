@@ -1,5 +1,5 @@
 import './cache-control.js';
-import { initI18n, t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260430c';
+import { initI18n, t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260430sync';
 
 function applyAttributeTranslation(el, target, value) {
   if (value == null) return;

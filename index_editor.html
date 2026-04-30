@@ -284,6 +284,105 @@
     .updates-release-notes ul,
     .updates-release-notes ol { margin:.6rem 0 .6rem 1.2rem; padding:0; }
     .updates-release-notes code { background: color-mix(in srgb, var(--border) 60%, transparent); padding:.15rem .4rem; border-radius:6px; font-size:.85rem; }
+    .sync-layout {
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      justify-content:flex-start;
+      gap:1rem;
+    }
+    .sync-commit-panel {
+      width:min(100%, 760px);
+    }
+    .sync-commit-form.comp-guide {
+      border:0;
+      border-radius:0;
+      background:transparent;
+      padding:0;
+      margin:0;
+    }
+    .sync-commit-summary {
+      display:flex;
+      flex-direction:column;
+      gap:.75rem;
+      margin-top:1.4rem;
+    }
+    .sync-commit-summary p {
+      margin:0;
+      color:color-mix(in srgb, var(--text) 86%, transparent);
+    }
+    .gh-sync-file-group {
+      display:flex;
+      flex-direction:column;
+      gap:.45rem;
+    }
+    .gh-sync-file-group-title {
+      font-weight:700;
+      color:color-mix(in srgb, var(--text) 88%, transparent);
+    }
+    .gh-sync-file-list {
+      display:flex;
+      flex-direction:column;
+      gap:.4rem;
+    }
+    .gh-sync-file-entry {
+      width:100%;
+      min-height:2.2rem;
+      border:1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius:8px;
+      background:color-mix(in srgb, var(--card) 96%, transparent);
+      color:color-mix(in srgb, var(--primary) 88%, var(--text));
+      padding:.45rem .65rem;
+      text-align:left;
+      font:inherit;
+      cursor:pointer;
+    }
+    .gh-sync-file-entry:hover,
+    .gh-sync-file-entry:focus-visible {
+      background:color-mix(in srgb, var(--primary) 10%, var(--card));
+      border-color:color-mix(in srgb, var(--primary) 42%, var(--border));
+      outline:0;
+    }
+    .sync-token-field {
+      display:flex;
+      flex-direction:column;
+      gap:.4rem;
+      font-weight:700;
+      color:color-mix(in srgb, var(--text) 88%, transparent);
+    }
+    .sync-token-field input {
+      width:100%;
+      min-height:2.35rem;
+      border:1px solid var(--border);
+      border-radius:8px;
+      background:var(--card);
+      color:var(--text);
+      padding:.45rem .65rem;
+      font:inherit;
+    }
+    .sync-token-field input:focus {
+      outline:none;
+      border-color:color-mix(in srgb, var(--primary) 58%, var(--border));
+      box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+    .sync-token-help {
+      margin:.55rem 0 0;
+      font-size:.88rem;
+      line-height:1.45;
+    }
+    .sync-commit-error {
+      margin:.45rem 0 0;
+      color:#dc2626;
+      font-size:.88rem;
+      line-height:1.4;
+    }
+    .sync-commit-actions {
+      display:flex;
+      justify-content:flex-end;
+      gap:.5rem;
+      flex-wrap:wrap;
+      margin-top:1rem;
+    }
     @media (max-width: 900px) {
       .editor-layout { grid-template-columns: 1fr; }
     }
@@ -690,417 +789,6 @@
         grid-row:3;
         justify-self:start;
       }
-    }
-    .global-status {
-      display:flex;
-      flex-direction:column;
-      align-items:flex-start;
-      gap:.7rem;
-      color: var(--muted);
-      font-size:.92rem;
-      --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent);
-      --gs-arrow-thickness: 7px;
-      --gs-arrow-node-size: 16px;
-      --gs-arrow-flow-duration: 2.8s;
-    }
-    .global-status.is-temporarily-hidden { display:none !important; }
-    .global-status[data-state="err"] { border-color: color-mix(in srgb, #dc2626 32%, var(--border)); }
-    .global-status[data-state="warn"] { border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); }
-    .global-status[data-dirty="1"] { border-color: color-mix(in srgb, #f97316 30%, var(--border)); }
-    .global-status .gs-flow {
-      display:grid;
-      grid-template-columns: max-content minmax(160px, 1fr) max-content;
-      align-items:stretch;
-      justify-content:center;
-      column-gap:0;
-      width:100%;
-      position:relative;
-    }
-    .global-status .gs-node {
-      display:flex;
-      flex-direction:column;
-      align-items:flex-start;
-      gap:.55rem;
-      background: color-mix(in srgb, var(--card) 92%, transparent);
-      border:1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      border-radius:16px;
-      padding:.95rem 1rem;
-      min-width:0;
-      position:relative;
-      z-index: var(--gs-node-z, 2);
-      overflow:visible;
-    }
-    .global-status .gs-node-local:has(.gs-node-drafts.has-many:hover),
-    .global-status .gs-node-local:has(.gs-node-drafts.has-many:focus-within) {
-      --gs-node-z: var(--gs-drafts-overlay-z, 2147483647);
-    }
-    @media (min-width: 521px) {
-      .global-status .gs-node-remote,
-      .global-status .gs-arrow {
-        align-self:center;
-      }
-    }
-    .global-status .gs-node::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transition: box-shadow .18s ease, border-color .18s ease; border:2px solid transparent; }
-    .global-status .gs-node-header { display:flex; align-items:center; gap:.55rem; width:100%; }
-    .global-status .gs-node-icon { width:24px; height:24px; flex:0 0 auto; color: color-mix(in srgb, var(--muted) 70%, transparent); }
-    .global-status .gs-node-label { display:block; font-size:.82rem; font-weight:700; letter-spacing:.06em; text-transform:none; color: color-mix(in srgb, var(--muted) 70%, transparent); }
-    .global-status .gs-node-state { font-size:.95rem; font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); line-height:1.4; }
-    .global-status .gs-repo { font-weight:600; color: color-mix(in srgb, var(--text) 86%, transparent); font-size:.92rem; line-height:1.4; }
-    .global-status .gs-message {
-      display:flex;
-      align-items:center;
-      gap:.45rem;
-      font-size:.86rem;
-      color: color-mix(in srgb, var(--muted) 88%, transparent);
-      line-height:1.45;
-    }
-    .global-status .gs-message::before {
-      content:'';
-      width:.5rem;
-      height:.5rem;
-      border-radius:999px;
-      background: color-mix(in srgb, var(--muted) 72%, transparent);
-      box-shadow:0 0 0 3px color-mix(in srgb, var(--muted) 18%, transparent);
-      flex:0 0 auto;
-      transition:background-color .18s ease, box-shadow .18s ease, transform .18s ease;
-      transform:scale(.92);
-    }
-    .global-status[data-state="ok"] .gs-message::before {
-      background:#22c55e;
-      box-shadow:0 0 0 3px color-mix(in srgb, #22c55e 28%, transparent);
-      transform:scale(1);
-    }
-    .global-status[data-state="warn"] .gs-message::before {
-      background:#f59e0b;
-      box-shadow:0 0 0 3px color-mix(in srgb, #f59e0b 28%, transparent);
-      transform:scale(1);
-    }
-    .global-status[data-state="err"] .gs-message::before {
-      background:#ef4444;
-      box-shadow:0 0 0 3px color-mix(in srgb, #ef4444 28%, transparent);
-      transform:scale(1);
-    }
-    .global-status .gs-message:empty { display:none; }
-    .global-status .gs-arrow {
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:0 2.6rem;
-      width:100%;
-      --gs-flow-start: translate3d(-130%, -50%, 0);
-      --gs-flow-end: translate3d(130%, -50%, 0);
-      color: var(--gs-arrow-color);
-      isolation:isolate;
-      z-index:1;
-    }
-    .global-status .gs-arrow::before,
-    .global-status .gs-arrow::after {
-      content:'';
-      position:absolute;
-      left:calc(var(--gs-arrow-node-size) * -0.5);
-      right:calc(var(--gs-arrow-node-size) * -0.5);
-      top:50%;
-      height:var(--gs-arrow-thickness);
-      border-radius:var(--gs-arrow-thickness);
-      pointer-events:none;
-    }
-    .global-status .gs-arrow::before {
-      transform:translateY(-50%);
-      background: color-mix(in srgb, var(--gs-arrow-color) 82%, transparent);
-      box-shadow:0 4px 14px rgba(15, 23, 42, 0.08);
-      z-index:-1;
-    }
-    .global-status .gs-arrow::after {
-      transform:var(--gs-flow-start);
-      background-image: linear-gradient(90deg,
-        color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 0%,
-        color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 24%,
-        color-mix(in srgb, var(--gs-arrow-color) 98%, black 8%) 50%,
-        color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 76%,
-        color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 100%);
-      filter: drop-shadow(0 0 8px color-mix(in srgb, var(--gs-arrow-color) 46%, transparent));
-      opacity:0;
-      will-change: transform, opacity;
-      z-index:1;
-    }
-    @keyframes gs-arrow-flow-pass {
-      0% { transform: var(--gs-flow-start); opacity: 0; }
-      12% { opacity: 1; }
-      88% { opacity: 1; }
-      100% { transform: var(--gs-flow-end); opacity: 0; }
-    }
-    .global-status .gs-arrow.is-pending::after {
-      opacity:1;
-      animation: gs-arrow-flow-pass var(--gs-arrow-flow-duration) linear infinite;
-    }
-    .global-status .gs-arrow-tail,
-    .global-status .gs-arrow-head {
-      display:none;
-    }
-    .global-status .gs-node::before {
-      content:'';
-      position:absolute;
-      top:50%;
-      width:var(--gs-arrow-node-size);
-      height:var(--gs-arrow-node-size);
-      border-radius:999px;
-      border:2px solid var(--gs-arrow-color);
-      background: color-mix(in srgb, var(--card) 92%, transparent);
-      box-shadow:0 2px 8px rgba(15, 23, 42, 0.08);
-      pointer-events:none;
-      z-index:3;
-    }
-    .global-status .gs-node-local::before {
-      left:100%;
-      transform:translate(-50%, -50%);
-    }
-    .global-status .gs-node-remote::before {
-      left:0;
-      transform:translate(-50%, -50%);
-    }
-    .global-status .gs-arrow-bubble {
-      position:relative;
-      z-index:4;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:.25rem .75rem;
-      border-radius:999px;
-      font-size:.78rem;
-      font-weight:600;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-      white-space:nowrap;
-      color: color-mix(in srgb, var(--muted) 72%, transparent);
-      background: color-mix(in srgb, var(--card) 92%, transparent);
-      border:1px solid color-mix(in srgb, var(--border) 70%, transparent);
-      box-shadow:0 6px 18px rgba(15, 23, 42, 0.08);
-      cursor: pointer;
-      user-select: none;
-      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease;
-    }
-    .global-status .gs-arrow-bubble:hover:not(.is-busy) {
-      color: color-mix(in srgb, var(--text) 84%, transparent);
-      background: color-mix(in srgb, var(--card) 94%, var(--primary) 8%);
-      border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
-      box-shadow:0 10px 22px rgba(15, 23, 42, 0.14);
-    }
-    .global-status .gs-arrow-bubble:focus-visible {
-      outline: 2px solid color-mix(in srgb, var(--primary) 62%, transparent);
-      outline-offset: 2px;
-    }
-    .global-status .gs-arrow-bubble.is-busy {
-      cursor: progress;
-      opacity: .75;
-      box-shadow:0 4px 14px rgba(15, 23, 42, 0.12);
-    }
-    .global-status[data-dirty="1"] .gs-node-local::after { box-shadow:0 0 0 2px color-mix(in srgb, #f97316 26%, transparent); border-color:color-mix(in srgb, #f97316 44%, transparent); }
-    .global-status[data-state="warn"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #f59e0b 24%, transparent); border-color:color-mix(in srgb, #f59e0b 42%, transparent); }
-    .global-status[data-state="err"] .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #dc2626 26%, transparent); border-color:color-mix(in srgb, #dc2626 46%, transparent); }
-    .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-node-remote::after { box-shadow:0 0 0 2px color-mix(in srgb, #1f883d 22%, transparent); border-color:color-mix(in srgb, #1f883d 42%, transparent); }
-    .global-status[data-dirty="1"] { --gs-arrow-color: color-mix(in srgb, #f97316 75%, var(--text) 10%); }
-    .global-status[data-dirty="1"] .gs-arrow-bubble {
-      color: color-mix(in srgb, #9a3412 70%, transparent);
-      background: color-mix(in srgb, #fed7aa 55%, var(--card) 60%);
-      border-color: color-mix(in srgb, #fb923c 40%, var(--border));
-    }
-    .global-status:not([data-dirty="1"]) { --gs-arrow-color: color-mix(in srgb, var(--muted) 72%, transparent); }
-    .global-status[data-state="ok"]:not([data-dirty="1"]) .gs-arrow-bubble {
-      color: color-mix(in srgb, #166534 74%, transparent);
-      background: color-mix(in srgb, #dcfce7 60%, var(--card) 65%);
-      border-color: color-mix(in srgb, #22c55e 32%, var(--border));
-    }
-    .global-status[data-state="warn"]:not([data-dirty="1"]) {
-      --gs-arrow-color: color-mix(in srgb, #f59e0b 68%, var(--text) 10%);
-    }
-    .global-status[data-state="warn"]:not([data-dirty="1"]) .gs-arrow-bubble {
-      color: color-mix(in srgb, #92400e 70%, transparent);
-      background: color-mix(in srgb, #fef3c7 60%, var(--card) 68%);
-      border-color: color-mix(in srgb, #f59e0b 38%, var(--border));
-    }
-    .global-status[data-state="err"]:not([data-dirty="1"]) {
-      --gs-arrow-color: color-mix(in srgb, #ef4444 70%, var(--text) 12%);
-    }
-    .global-status[data-state="err"]:not([data-dirty="1"]) .gs-arrow-bubble {
-      color: color-mix(in srgb, #991b1b 72%, transparent);
-      background: color-mix(in srgb, #fee2e2 60%, var(--card) 65%);
-      border-color: color-mix(in srgb, #f87171 42%, var(--border));
-    }
-    @media (max-width: 520px) {
-      .global-status .gs-flow {
-        display:flex;
-        flex-direction:column;
-        align-items:stretch;
-        gap:.75rem;
-      }
-      .global-status .gs-arrow {
-        padding:1.5rem 0 .5rem;
-        --gs-flow-start: translate3d(-50%, -130%, 0);
-        --gs-flow-end: translate3d(-50%, 130%, 0);
-      }
-      .global-status .gs-arrow::before,
-      .global-status .gs-arrow::after {
-        left:50%;
-        right:auto;
-        top:calc(var(--gs-arrow-node-size) * -0.5);
-        bottom:calc(var(--gs-arrow-node-size) * -0.5);
-        width:var(--gs-arrow-thickness);
-        height:auto;
-      }
-      .global-status .gs-arrow::before {
-        transform:translateX(-50%);
-      }
-      .global-status .gs-arrow::after {
-        background-image: linear-gradient(180deg,
-          color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 0%,
-          color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 26%,
-          color-mix(in srgb, var(--gs-arrow-color) 98%, black 8%) 50%,
-          color-mix(in srgb, var(--gs-arrow-color) 68%, var(--card) 12%) 74%,
-          color-mix(in srgb, var(--gs-arrow-color) 18%, var(--card) 78%) 100%);
-      }
-      .global-status .gs-node::before {
-        left:50%;
-        top:100%;
-        transform:translate(-50%, -50%);
-      }
-      .global-status .gs-node-remote::before {
-        top:0;
-        transform:translate(-50%, -50%);
-      }
-      .global-status .gs-arrow-bubble {
-        margin:.4rem auto 0;
-      }
-    }
-    .gs-node-drafts {
-      --gs-drafts-collapsed-height: 3.6rem;
-      --gs-drafts-expanded-max: min(60vh, 420px);
-      display:flex;
-      flex-direction:column;
-      gap:.3rem;
-      width:100%;
-      margin-top:.1rem;
-      font-size:.88rem;
-      color: color-mix(in srgb, var(--text) 82%, transparent);
-      position:relative;
-      isolation:isolate;
-      z-index: var(--gs-drafts-base-z, 1);
-    }
-    .gs-node-drafts[hidden] { display:none !important; }
-    .gs-node-drafts:focus { outline:none; }
-    .gs-node-drafts:focus-visible {
-      outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent);
-      outline-offset:4px;
-    }
-    .gs-node-drafts-collapsed {
-      position:relative;
-      z-index:1;
-    }
-    .gs-node-drafts-shell {
-      padding:.35rem .5rem;
-      border-radius:.85rem;
-      border:1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      background: color-mix(in srgb, var(--card) 98%, transparent);
-      box-shadow:0 2px 8px rgba(15, 23, 42, 0.06);
-      height: var(--gs-drafts-collapsed-height);
-      min-height: var(--gs-drafts-collapsed-height);
-      overflow:hidden;
-      transition:border-color .18s ease, box-shadow .18s ease;
-    }
-    .gs-node-drafts.has-many .gs-node-drafts-shell { cursor:pointer; }
-    .gs-node-drafts-track,
-    .gs-node-drafts-overlay {
-      list-style:none;
-      margin:0;
-      padding:0;
-      display:flex;
-      flex-direction:column;
-      gap:.18rem;
-      width:100%;
-    }
-    .gs-node-drafts-track { will-change:transform; }
-    .gs-node-drafts-overlay {
-      max-height: var(--gs-drafts-expanded-max);
-      overflow-y:auto;
-      overscroll-behavior:contain;
-      scrollbar-gutter:stable;
-      scrollbar-width:thin;
-    }
-    .gs-node-drafts-flyout {
-      position:absolute;
-      top:0;
-      left:0;
-      width:100%;
-      max-height: var(--gs-drafts-expanded-max);
-      pointer-events:none;
-      opacity:0;
-      transform:translateY(-6px) scale(.98);
-      transform-origin:top center;
-      transition:opacity .16s ease, transform .16s ease;
-      z-index:20;
-    }
-    .gs-node-drafts-flyout-card {
-      padding:.35rem .5rem;
-      border-radius:.9rem;
-      border:1px solid color-mix(in srgb, var(--primary) 26%, var(--border));
-      background: color-mix(in srgb, var(--card) 96%, white 4%);
-      box-shadow:0 18px 36px rgba(15, 23, 42, 0.18);
-      max-height:inherit;
-      overflow:visible;
-    }
-    .gs-node-drafts.has-many:hover,
-    .gs-node-drafts.has-many:focus-within {
-      z-index: var(--gs-drafts-overlay-z, 2147483647);
-    }
-    .gs-node-drafts.has-many:hover .gs-node-drafts-shell,
-    .gs-node-drafts.has-many:focus-within .gs-node-drafts-shell {
-      border-color: color-mix(in srgb, var(--primary) 28%, var(--border));
-      box-shadow:0 12px 28px rgba(15, 23, 42, 0.16);
-    }
-    .gs-node-drafts.has-many:hover .gs-node-drafts-flyout,
-    .gs-node-drafts.has-many:focus-within .gs-node-drafts-flyout {
-      opacity:1;
-      pointer-events:auto;
-      transform:translateY(0) scale(1);
-    }
-    .gs-node-drafts:not(.has-many) .gs-node-drafts-flyout { display:none; }
-    @media (prefers-reduced-motion: reduce) {
-      .gs-node-drafts-shell,
-      .gs-node-drafts-flyout {
-        transition:none;
-      }
-    }
-    .gs-node-drafts .gs-node-drafts-item {
-      display:flex;
-      align-items:center;
-      gap:.42rem;
-      color: color-mix(in srgb, var(--text) 84%, transparent);
-      line-height:1.25;
-      position:relative;
-      padding-left: calc(1.05rem + .125rem);
-    }
-    .gs-node-drafts .gs-node-drafts-item::before {
-      content:'';
-      position:absolute;
-      left:.125rem;
-      top:calc(50% - .24rem);
-      width:.48rem;
-      height:.48rem;
-      border-radius:999px;
-      background: color-mix(in srgb, var(--primary) 40%, var(--text) 25%);
-      box-shadow:0 0 0 2px color-mix(in srgb, var(--primary) 10%, transparent);
-    }
-    .gs-node-drafts .gs-node-drafts-label {
-      font-weight:600;
-      color: color-mix(in srgb, var(--text) 90%, transparent);
-      display:inline-flex;
-      align-items:center;
-      gap:.25rem;
-      flex-wrap:wrap;
-    }
-    .gs-node-drafts .gs-node-drafts-hint {
-      font-weight:500;
-      color: color-mix(in srgb, var(--muted) 88%, transparent);
     }
     .toolbar {
       display:flex;
@@ -1919,7 +1607,8 @@
     .editor-modal-header-actions[hidden] {
       display:none !important;
     }
-    .editor-modal-header-actions .btn-secondary {
+    .editor-modal-header-actions .btn-secondary,
+    .editor-modal-header-actions .btn-primary {
       height:2rem;
       padding:0 .65rem;
     }
@@ -2007,43 +1696,6 @@
         <div class="editor-rail-tree-scroll">
           <div class="editor-file-tree" id="editorFileTree" role="tree" aria-label="Content file tree" data-i18n-aria-label="editor.tree.treeAria"></div>
         </div>
-      <div class="status-stack">
-        <div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">
-          <div class="gs-flow">
-            <div class="gs-node gs-node-local">
-              <div class="gs-node-header">
-                <span class="gs-node-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4.75 4h14.5A1.75 1.75 0 0 1 21 5.75v8.5A1.75 1.75 0 0 1 19.25 16H4.75A1.75 1.75 0 0 1 3 14.25v-8.5A1.75 1.75 0 0 1 4.75 4Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M7 20h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M9 16v1.25A1.75 1.75 0 0 0 10.75 19h2.5A1.75 1.75 0 0 0 15 17.25V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </span>
-                <span class="gs-node-label" data-i18n="editor.status.localLabel">LOCAL</span>
-              </div>
-              <span class="gs-node-state" id="globalLocalState" data-i18n="editor.status.checkingDrafts">Checking drafts…</span>
-              <div id="localDraftSummary" class="gs-node-drafts" hidden aria-live="polite"></div>
-            </div>
-            <span class="gs-arrow" aria-hidden="true">
-              <span class="gs-arrow-tail"></span>
-              <span class="gs-arrow-bubble" id="globalArrowLabel" data-i18n="editor.status.synced">Synced</span>
-              <span class="gs-arrow-head"></span>
-            </span>
-            <div class="gs-node gs-node-remote">
-              <div class="gs-node-header">
-                <span class="gs-node-icon" aria-hidden="true">
-                  <svg width="22" height="22" viewBox="0 0 98 96" xmlns="http://www.w3.org/2000/svg">
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M48.854 0C21.839 0 0 22 0 49.217c0 21.756 13.993 40.172 33.405 46.69 2.427.49 3.316-1.059 3.316-2.362 0-1.141-.08-5.052-.08-9.127-13.59 2.934-16.42-5.867-16.42-5.867-2.184-5.704-5.42-7.17-5.42-7.17-4.448-3.015.324-3.015.324-3.015 4.934.326 7.523 5.052 7.523 5.052 4.367 7.496 11.404 5.378 14.235 4.074.404-3.178 1.699-5.378 3.074-6.6-10.839-1.141-22.243-5.378-22.243-24.283 0-5.378 1.94-9.778 5.014-13.2-.485-1.222-2.184-6.275.486-13.038 0 0 4.125-1.304 13.426 5.052a46.97 46.97 0 0 1 12.214-1.63c4.125 0 8.33.571 12.213 1.63 9.302-6.356 13.427-5.052 13.427-5.052 2.67 6.763.97 11.816.485 13.038 3.155 3.422 5.015 7.822 5.015 13.2 0 18.905-11.404 23.06-22.324 24.283 1.78 1.548 3.316 4.481 3.316 9.126 0 6.6-.08 11.897-.08 13.526 0 1.304.89 2.853 3.316 2.364 19.412-6.52 33.405-24.935 33.405-46.691C97.707 22 75.788 0 48.854 0z" fill="currentColor"/>
-                  </svg>
-                </span>
-                <span class="gs-node-label" data-i18n="editor.status.remoteLabel">GitHub</span>
-              </div>
-              <span class="gs-repo" id="globalStatusRepo" data-i18n="editor.status.loadingRepo">Loading GitHub settings…</span>
-              <span class="gs-message" id="globalStatusMessage" data-i18n="editor.status.checkingConnection">Checking connection…</span>
-            </div>
-          </div>
-        </div>
-      </div>
       </aside>
       <div class="editor-rail-resizer" id="editorRailResizer" role="separator" aria-orientation="vertical" aria-label="Resize file tree" tabindex="0"></div>
       <main class="editor-content-pane" id="editorContentPane">
@@ -2186,6 +1838,9 @@
               <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
               <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
             </div>
+            <div class="editor-modal-header-actions" id="editorModalSyncActions" hidden>
+              <button class="btn-primary" type="submit" id="btnSyncSubmit" form="syncCommitForm" data-i18n="editor.composer.github.modal.submit">Commit changes</button>
+            </div>
           </header>
           <div class="editor-modal-body">
     <!-- Composer Mode -->
@@ -2252,6 +1907,8 @@
         </div>
       </section>
     </div>
+    <!-- Sync Mode -->
+    <div class="sync-layout editor-overlay-panel" id="mode-sync" hidden aria-hidden="true"></div>
           </div>
         </section>
       </div>
@@ -2285,7 +1942,7 @@
         toolbarNodes.forEach((toolbar) => ro.observe(toolbar));
       }
 
-      const layouts = ['mode-editor', 'mode-composer']
+      const layouts = ['mode-editor', 'mode-composer', 'mode-updates', 'mode-sync']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
       if (layouts.length) {
@@ -2297,10 +1954,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-system-tree-20260430a"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-system-tree-20260430a"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-system-tree-20260430a"></script>
-  <script type="module" src="assets/js/editor-github.js?v=editor-system-tree-20260430a"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-system-sync-20260430a"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-system-sync-20260430a"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-system-sync-20260430a"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

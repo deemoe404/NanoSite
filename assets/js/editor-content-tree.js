@@ -168,6 +168,14 @@ export function buildEditorContentTree(input = {}, options = {}) {
         key: 'updates',
         label: options.updatesLabel || 'NanoSite Updates',
         children: []
+      }, statusMaps),
+      makeNode({
+        id: 'system:sync',
+        kind: 'system',
+        source: 'system',
+        key: 'sync',
+        label: options.syncLabel || 'Sync',
+        children: []
       }, statusMaps)
     ]
   }, statusMaps);
