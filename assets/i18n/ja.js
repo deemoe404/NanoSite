@@ -665,6 +665,16 @@ const translations = {
           errorInvalid: 'キーには英数字、アンダースコア、ハイフンのみ使用できます。',
           errorDuplicate: 'そのキーは既に存在します。別のキーを選んでください。'
         },
+        versionPrompt: {
+          label: 'バージョン',
+          confirm: 'バージョンを追加',
+          placeholder: 'v2.0.0',
+          message: ({ key, lang }) => `${key} / ${lang} のバージョンを入力してください：`,
+          hint: 'v2.0.0 のように v で始まる形式を使用してください。',
+          errorEmpty: 'バージョンは必須です。',
+          errorInvalid: 'バージョンは v で始めてください。例: v2.0.0。',
+          errorDuplicate: ({ version }) => `${version} は既に存在します。`
+        },
         discardConfirm: {
           messageReload: ({ label }) => `${label} のローカル変更を破棄してリモートファイルを再読み込みしますか？この操作は取り消せません。`,
           messageSimple: ({ label }) => `${label} のローカル変更を破棄しますか？この操作は取り消せません。`,

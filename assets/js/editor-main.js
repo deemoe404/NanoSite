@@ -17,7 +17,7 @@ import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260430sync';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260501versions';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 const FORCE_MARKDOWN_WRAP = true;

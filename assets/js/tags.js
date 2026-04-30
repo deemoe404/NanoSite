@@ -1,5 +1,5 @@
 // Tag utilities: aggregation, rendering (collapsible), and tooltips for truncated tags
-import { t, withLangParam } from './i18n.js?v=20260430sync';
+import { t, withLangParam } from './i18n.js?v=20260501versions';
 import { getQueryVariable, escapeHtml } from './utils.js';
 
 // Build a sorted list of tags with counts from an index map

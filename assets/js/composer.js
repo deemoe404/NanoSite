@@ -8,7 +8,7 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260430sync';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260501versions';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
@@ -7306,13 +7306,19 @@ function showComposerAddEntryPrompt(anchor, options) {
     ? String(options.placeholder)
     : t('editor.composer.addEntryPrompt.placeholder');
   const existingKeys = options && options.existingKeys ? new Set(options.existingKeys) : new Set();
+  const hintText = options && Object.prototype.hasOwnProperty.call(options, 'hint')
+    ? String(options.hint || '')
+    : t('editor.composer.addEntryPrompt.hint');
+  const customValidator = options && typeof options.validate === 'function'
+    ? options.validate
+    : null;
 
   label.textContent = options && options.message
     ? String(options.message)
     : t('editor.composer.addEntryPrompt.message', { label: typeLabel });
   cancelBtn.textContent = cancelLabel;
   confirmBtn.textContent = confirmLabel;
-  hint.textContent = t('editor.composer.addEntryPrompt.hint');
+  hint.textContent = hintText;
   input.value = options && options.initialValue ? String(options.initialValue).trim() : '';
   input.placeholder = placeholder;
   input.setAttribute('aria-invalid', 'false');
@@ -7347,9 +7353,36 @@ function showComposerAddEntryPrompt(anchor, options) {
     }
   };
 
-  const validateKey = () => {
+  const validateValue = () => {
     const raw = input.value || '';
     const value = raw.trim();
+    if (customValidator) {
+      const result = customValidator(value);
+      if (result && typeof result === 'object') {
+        if (result.ok === false) {
+          setError(result.error || t('editor.composer.addEntryPrompt.errorInvalid'));
+          try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+          return null;
+        }
+        const nextValue = Object.prototype.hasOwnProperty.call(result, 'value')
+          ? String(result.value || '').trim()
+          : value;
+        setError('');
+        return nextValue;
+      }
+      if (typeof result === 'string' && result) {
+        setError(result);
+        try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+        return null;
+      }
+      if (result === false) {
+        setError(t('editor.composer.addEntryPrompt.errorInvalid'));
+        try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
+        return null;
+      }
+      setError('');
+      return value;
+    }
     if (!value) {
       setError(t('editor.composer.addEntryPrompt.errorEmpty'));
       try { input.focus({ preventScroll: true }); input.select(); } catch (_) {}
@@ -7428,7 +7461,7 @@ function showComposerAddEntryPrompt(anchor, options) {
 
   const onConfirm = (event) => {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
-    const value = validateKey();
+    const value = validateValue();
     if (value == null) return;
     finish(true, value);
   };
@@ -7437,7 +7470,7 @@ function showComposerAddEntryPrompt(anchor, options) {
     if (!event) return;
     if (event.key === 'Enter') {
       event.preventDefault();
-      const value = validateKey();
+      const value = validateValue();
       if (value == null) return;
       finish(true, value);
     }
@@ -10939,31 +10972,20 @@ function removeEditorLanguage(source, key, lang) {
   refreshEditorContentTree();
 }
 
-function suggestNextVersionPath(key, lang) {
-  const entry = getIndexEntry(key);
-  const arr = Array.isArray(entry[lang]) ? entry[lang] : [];
-  const fallback = buildDefaultLanguagePathFromEntry('index', key, lang, entry);
-  const base = arr[arr.length - 1] || fallback;
-  const nextVersion = `v${arr.length + 1}.0.0`;
-  if (/(^|\/)v\d+(?:\.\d+)*(?=\/|$)/i.test(base)) {
-    return String(base).replace(/(^|\/)v\d+(?:\.\d+)*(?=\/|$)/i, `$1${nextVersion}`);
-  }
-  const normalized = normalizeRelPath(base || fallback);
-  const idx = normalized.lastIndexOf('/');
-  if (idx < 0) return `post/${key}/${nextVersion}/${basenameFromPath(normalized) || `main_${lang}.md`}`;
-  return `${normalized.slice(0, idx)}/${nextVersion}/${normalized.slice(idx + 1)}`;
-}
-
-function addEditorVersion(key, lang) {
+function addEditorVersion(key, lang, anchor = null) {
   const entry = getIndexEntry(key);
   const arr = Array.isArray(entry[lang]) ? entry[lang] : (entry[lang] ? [entry[lang]] : []);
-  arr.push(suggestNextVersionPath(key, lang));
-  entry[lang] = arr;
-  notifyComposerChange('index');
-  expandedEditorTreeNodeIds.add(`index:${key}`);
-  expandedEditorTreeNodeIds.add(`index:${key}:${lang}`);
-  activeEditorTreeNodeId = `index:${key}:${lang}`;
-  refreshEditorContentTree();
+  return promptArticleVersionValue(key, lang, entry, anchor).then((version) => {
+    if (!version) return false;
+    arr.push(buildArticleVersionPath(key, lang, version, entry));
+    entry[lang] = arr;
+    notifyComposerChange('index');
+    expandedEditorTreeNodeIds.add(`index:${key}`);
+    expandedEditorTreeNodeIds.add(`index:${key}:${lang}`);
+    activeEditorTreeNodeId = `index:${key}:${lang}`;
+    refreshEditorContentTree();
+    return true;
+  });
 }
 
 function removeEditorVersion(key, lang, index) {
@@ -11259,7 +11281,7 @@ function renderEditorLanguagePanel(node, refs) {
   refs.title.textContent = `${node.key} / ${displayLangName(node.lang)}`;
   refs.meta.textContent = treeText('languageMeta', `${arr.length} versions`, { count: arr.length });
   const add = makeStructureButton(treeText('addVersion', 'Add version'));
-  add.addEventListener('click', () => addEditorVersion(node.key, node.lang));
+  add.addEventListener('click', () => { void addEditorVersion(node.key, node.lang, add); });
   const removeLang = makeStructureButton(treeText('removeLanguage', 'Remove language'));
   removeLang.addEventListener('click', () => removeEditorLanguage('index', node.key, node.lang));
   refs.actions.appendChild(add);
@@ -11275,17 +11297,7 @@ function renderEditorLanguagePanel(node, refs) {
     const label = document.createElement('span');
     label.className = 'editor-structure-item-title';
     label.textContent = extractVersionFromPath(path) || `${treeText('version', 'Version')} ${index + 1}`;
-    const input = document.createElement('input');
-    input.value = path || '';
-    input.setAttribute('aria-label', treeText('location', 'Location'));
-    input.addEventListener('change', () => {
-      arr[index] = normalizeRelPath(input.value);
-      entry[node.lang] = arr.slice();
-      notifyComposerChange('index');
-      refreshEditorContentTree();
-    });
     main.appendChild(label);
-    main.appendChild(input);
     const controls = document.createElement('div');
     controls.className = 'editor-structure-item-actions';
     const open = makeStructureButton(treeText('open', 'Open'));
@@ -11365,7 +11377,6 @@ function buildIndexUI(root, state) {
       const langs = sortLangKeys(entry);
       const addVersionLabel = tComposerLang('addVersion');
       const removeLangLabel = tComposerLang('removeLanguage');
-      const pathPlaceholder = tComposerLang('placeholders.indexPath');
       const editLabel = tComposerLang('actions.edit');
       const openLabel = tComposerLang('actions.open');
       const moveUpLabel = tComposerLang('actions.moveUp');
@@ -11455,7 +11466,7 @@ function buildIndexUI(root, state) {
             else delete row.dataset.mdPath;
             row.innerHTML = `
               <span class="ci-draft-indicator" aria-hidden="true" hidden></span>
-              <input class="ci-path" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(p || '')}" />
+              <span class="ci-ver-label">${escapeHtml(extractVersionFromPath(p) || `${treeText('version', 'Version')} ${i + 1}`)}</span>
               <span class="ci-ver-actions">
                 <button type="button" class="btn-secondary ci-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
                 <button type="button" class="btn-secondary ci-up" title="${escapeHtml(moveUpLabel)}" aria-label="${escapeHtml(moveUpLabel)}"><span aria-hidden="true">↑</span></button>
@@ -11469,20 +11480,6 @@ function buildIndexUI(root, state) {
             if (i === 0) up.setAttribute('disabled', ''); else up.removeAttribute('disabled');
             if (i === arr.length - 1) down.setAttribute('disabled', ''); else down.removeAttribute('disabled');
             updateComposerMarkdownDraftIndicators({ element: row, path: normalizedPath });
-
-            $('.ci-path', row).addEventListener('input', (e) => {
-              const prevPath = row.dataset.mdPath || '';
-              arr[i] = e.target.value;
-              entry[lang] = arr.slice();
-              row.dataset.value = arr[i] || '';
-              const nextPath = normalizeRelPath(arr[i]);
-              if (nextPath) row.dataset.mdPath = nextPath;
-              else delete row.dataset.mdPath;
-              updateComposerMarkdownDraftIndicators({ element: row });
-              if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
-              if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
-              markDirty();
-            });
             $('.ci-edit', row).addEventListener('click', () => {
               const rel = normalizeRelPath(arr[i]);
               if (!rel) {
@@ -11523,9 +11520,11 @@ function buildIndexUI(root, state) {
           updateComposerMarkdownDraftContainerState(verList.closest('.ci-item'));
         };
         renderVers();
-        $('.ci-lang-addver', block).addEventListener('click', () => {
+        $('.ci-lang-addver', block).addEventListener('click', async (event) => {
+          const version = await promptArticleVersionValue(key, lang, entry, event.currentTarget);
+          if (!version) return;
           const prev = snapRects();
-          arr.push('');
+          arr.push(buildArticleVersionPath(key, lang, version, entry));
           verIds.push(Math.random().toString(36).slice(2));
           entry[lang] = arr.slice();
           renderVers(prev);
@@ -11893,12 +11892,28 @@ function buildDefaultEntryPath(kind, key, lang) {
   const fallbackLang = String(lang || '').trim() || getDefaultComposerLanguage() || 'en';
   const normalizedLang = fallbackLang.toLowerCase();
   const filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
-  const folder = safeKey ? `${baseFolder}/${safeKey}` : baseFolder;
+  const folder = normalizedKind === 'tabs'
+    ? (safeKey ? `${baseFolder}/${safeKey}` : baseFolder)
+    : (safeKey ? `${baseFolder}/${safeKey}/v1.0.0` : `${baseFolder}/v1.0.0`);
   return `${folder}/${filename}`;
 }
 
 function normalizeComposerLangCode(lang) {
   return String(lang || '').trim().toLowerCase();
+}
+
+function normalizeComposerVersionTag(version) {
+  const raw = String(version || '').trim();
+  if (!raw) return '';
+  return `v${raw.replace(/^v/i, '')}`;
+}
+
+function isComposerVersionTag(version) {
+  return /^v\d+(?:\.\d+)*$/i.test(String(version || '').trim());
+}
+
+function isComposerVersionSegment(segment) {
+  return /^v\d+(?:\.\d+)*$/i.test(String(segment || '').trim());
 }
 
 function stripComposerLangSuffix(name, codes) {
@@ -11969,8 +11984,67 @@ function buildDefaultLanguagePathFromEntry(kind, key, lang, entry) {
   namePart = stripComposerLangSuffix(namePart, codesToStrip);
 
   const finalName = normalizedLang ? `${namePart}_${normalizedLang}` : namePart;
-  segments.push(`${finalName}${extPart}`);
+  filename = `${finalName}${extPart}`;
+  if (normalizedKind === 'index') {
+    const versionIndex = segments.findIndex(isComposerVersionSegment);
+    if (versionIndex >= 0) segments[versionIndex] = 'v1.0.0';
+    else segments.push('v1.0.0');
+  }
+  segments.push(filename);
   return segments.join('/');
+}
+
+function buildArticleVersionPath(key, lang, version, entry) {
+  const normalizedVersion = normalizeComposerVersionTag(version);
+  const normalizedLang = normalizeComposerLangCode(lang);
+  const sourceEntry = entry && typeof entry === 'object' ? entry : getIndexEntry(key);
+  const current = Array.isArray(sourceEntry[lang]) ? sourceEntry[lang] : (sourceEntry[lang] ? [sourceEntry[lang]] : []);
+  const reference = current[current.length - 1] || buildDefaultLanguagePathFromEntry('index', key, normalizedLang, sourceEntry);
+  const fallback = buildDefaultEntryPath('index', key, normalizedLang).replace('/v1.0.0/', `/${normalizedVersion}/`);
+  const normalizedPath = normalizeRelPath(reference || fallback);
+  if (!normalizedPath) return fallback;
+  const segments = normalizedPath.split('/');
+  let filename = segments.pop() || '';
+  if (!filename) filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
+  const versionIndex = segments.findIndex(isComposerVersionSegment);
+  if (versionIndex >= 0) segments[versionIndex] = normalizedVersion;
+  else segments.push(normalizedVersion);
+  segments.push(filename);
+  return segments.join('/');
+}
+
+function collectComposerArticleVersions(paths) {
+  const versions = new Set();
+  const arr = Array.isArray(paths) ? paths : [];
+  arr.forEach((path) => {
+    const explicitVersion = normalizeComposerVersionTag(extractVersionFromPath(path));
+    if (explicitVersion) versions.add(explicitVersion.toLowerCase());
+    else if (normalizeRelPath(path)) versions.add('v1.0.0');
+  });
+  return versions;
+}
+
+async function promptArticleVersionValue(key, lang, entry, anchor) {
+  const arr = Array.isArray(entry && entry[lang]) ? entry[lang] : [];
+  const existingVersions = collectComposerArticleVersions(arr);
+  const langLabel = displayLangName(lang);
+  const result = await showComposerAddEntryPrompt(anchor, {
+    typeLabel: t('editor.composer.versionPrompt.label'),
+    confirmLabel: t('editor.composer.versionPrompt.confirm'),
+    placeholder: t('editor.composer.versionPrompt.placeholder'),
+    message: t('editor.composer.versionPrompt.message', { key, lang: langLabel }),
+    hint: t('editor.composer.versionPrompt.hint'),
+    validate: (value) => {
+      if (!value) return { ok: false, error: t('editor.composer.versionPrompt.errorEmpty') };
+      if (!isComposerVersionTag(value)) return { ok: false, error: t('editor.composer.versionPrompt.errorInvalid') };
+      const normalizedVersion = normalizeComposerVersionTag(value);
+      if (existingVersions.has(normalizedVersion.toLowerCase())) {
+        return { ok: false, error: t('editor.composer.versionPrompt.errorDuplicate', { version: normalizedVersion }) };
+      }
+      return { ok: true, value: normalizedVersion };
+    }
+  });
+  return result && result.confirmed ? String(result.value || '').trim() : '';
 }
 
 async function promptComposerEntryKey(kind, anchor) {
@@ -12031,7 +12105,7 @@ function focusComposerEntry(kind, key) {
   if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
   row.classList.add('is-open');
 
-  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-title, .ct-loc' : '.ci-path');
+  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-title, .ct-loc' : '.ci-lang-addver, .ci-edit');
   const fallbackFocus = row.querySelector('input, textarea, button');
   const target = preferredFocus || fallbackFocus;
   if (target && typeof target.focus === 'function') {
@@ -15221,8 +15295,8 @@ function rebuildSiteUI() {
     .ct-field{white-space:normal;}
     .ct-lang-actions{justify-content:flex-start;}
   }
-  .ci-ver-item{display:flex;align-items:center;gap:.4rem;margin:.3rem 0}
-  .ci-ver-item input.ci-path{flex:1 1 auto;min-width:0;height:2rem;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);padding:.25rem .4rem;transition:border-color .18s ease, background-color .18s ease}
+  .ci-ver-item{display:flex;align-items:center;gap:.55rem;margin:.3rem 0;padding:.4rem .5rem;border:1px solid color-mix(in srgb,var(--border) 88%, transparent);border-radius:8px;background:color-mix(in srgb,var(--text) 2%, transparent)}
+  .ci-ver-label{flex:1 1 auto;min-width:0;font-weight:600;color:var(--text)}
   .ci-ver-actions button:disabled{opacity:.5;cursor:not-allowed}
   /* Add Language row: compact button, keep menu aligned to trigger width */
   .ci-add-lang,.ct-add-lang,.cs-add-lang{display:inline-flex;align-items:center;gap:.5rem;margin-top:.5rem;position:relative;flex:0 0 auto}
@@ -15269,9 +15343,9 @@ function rebuildSiteUI() {
   .ci-lang[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));background:color-mix(in srgb,#16a34a 10%, var(--card));}
   .ci-lang[data-diff="removed"]{border-color:color-mix(in srgb,#dc2626 55%, var(--border));background:color-mix(in srgb,#dc2626 8%, var(--card));opacity:.9;}
   .ci-lang[data-diff="modified"]{border-color:color-mix(in srgb,#f59e0b 45%, var(--border));}
-  .ci-ver-item[data-diff="added"] input{border-color:color-mix(in srgb,#16a34a 60%, var(--border));background:color-mix(in srgb,#16a34a 8%, transparent);}
-  .ci-ver-item[data-diff="changed"] input{border-color:color-mix(in srgb,#f59e0b 60%, var(--border));background:color-mix(in srgb,#f59e0b 6%, transparent);}
-  .ci-ver-item[data-diff="moved"] input{border-color:color-mix(in srgb,#2563eb 55%, var(--border));border-style:dashed;}
+  .ci-ver-item[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 60%, var(--border));background:color-mix(in srgb,#16a34a 8%, transparent);}
+  .ci-ver-item[data-diff="changed"]{border-color:color-mix(in srgb,#f59e0b 60%, var(--border));background:color-mix(in srgb,#f59e0b 6%, transparent);}
+  .ci-ver-item[data-diff="moved"]{border-color:color-mix(in srgb,#2563eb 55%, var(--border));border-style:dashed;}
   .ci-ver-removed{margin-top:.2rem;font-size:.78rem;color:#b91c1c;}
   .ct-item.is-dirty{border-color:color-mix(in srgb,#2563eb 42%, var(--border));--ci-ring-shadow:0 0 0 2px color-mix(in srgb,#2563eb 16%, transparent);--ci-depth-shadow:0 10px 20px color-mix(in srgb,#2563eb 14%, transparent);}
   .ct-item[data-diff="added"]{border-color:color-mix(in srgb,#16a34a 55%, var(--border));}

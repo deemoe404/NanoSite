@@ -665,6 +665,16 @@ const translations = {
           errorInvalid: '键名只能包含英文字母、数字、下划线或连字符。',
           errorDuplicate: '该键名已存在，请使用其他键名。'
         },
+        versionPrompt: {
+          label: '版本',
+          confirm: '添加版本',
+          placeholder: 'v2.0.0',
+          message: ({ key, lang }) => `请输入 ${key} / ${lang} 的版本号：`,
+          hint: '请使用以 v 开头的版本号，例如 v2.0.0。',
+          errorEmpty: '版本号不能为空。',
+          errorInvalid: '版本号必须以 v 开头，例如 v2.0.0。',
+          errorDuplicate: ({ version }) => `${version} 已存在。`
+        },
         discardConfirm: {
           messageReload: ({ label }) => `丢弃 ${label} 的本地更改并重新加载远程文件？此操作无法撤销。`,
           messageSimple: ({ label }) => `丢弃 ${label} 的本地更改？此操作无法撤销。`,

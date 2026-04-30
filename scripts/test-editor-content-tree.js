@@ -12,7 +12,7 @@ const sample = {
     __order: ['nanoSite', 'guide'],
     nanoSite: {
       en: [
-        'post/main/v1.0.0/main_en.md',
+        'post/main/main_en.md',
         'post/main/v2.0.0/main_en.md'
       ],
       chs: 'post/main/v2.0.0/main_chs.md'
@@ -38,7 +38,7 @@ const draftStates = new Map([
   ['tabs:History:chs', 'saved']
 ]);
 const fileStates = new Map([
-  ['post/main/v1.0.0/main_en.md', 'existing'],
+  ['post/main/main_en.md', 'existing'],
   ['tab/history/chs.md', 'missing']
 ]);
 const diffStates = {
@@ -80,10 +80,10 @@ const enVersions = findEditorContentTreeNode(tree, 'index:nanoSite:en').children
 assert.deepEqual(
   enVersions.map(node => [node.id, node.kind, node.path, node.label]),
   [
-    ['index:nanoSite:en:0', 'file', 'post/main/v1.0.0/main_en.md', 'v1.0.0'],
+    ['index:nanoSite:en:0', 'file', 'post/main/main_en.md', 'Version 1'],
     ['index:nanoSite:en:1', 'file', 'post/main/v2.0.0/main_en.md', 'v2.0.0']
   ],
-  'article language nodes should expose version/file leaves'
+  'article language nodes should expose version/file leaves while tolerating legacy root-level first versions'
 );
 
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').draftState, 'dirty');
