@@ -167,6 +167,7 @@ const translations = {
         },
         errors: {
           releaseFetch: 'Unable to load latest release information.',
+          releaseRateLimited: 'GitHub API is rate limited. Try again later, or manually select a downloaded ZIP.',
           emptyFile: 'The selected file is empty.',
           invalidArchive: 'The selected ZIP could not be read as a NanoSite release.',
           sizeMismatch: ({ expected, actual }) => `The selected archive size (${actual}) does not match the release asset (${expected}).`,

@@ -256,3 +256,72 @@ jobs:
           }))
           PY
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${{ steps.create.outputs.release_id }}" --input dist/publish-release.json >/dev/null
+
+      - name: Update static release manifest
+        if: steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_ASSET: ${{ steps.plan.outputs.asset_name }}
+          EXPECTED_SIZE: ${{ steps.package.outputs.archive_size }}
+          EXPECTED_SHA256: ${{ steps.package.outputs.archive_sha256 }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${{ steps.create.outputs.release_id }}" > dist/release-published.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          with open("dist/release-published.json", "r", encoding="utf-8") as fh:
+              release = json.load(fh)
+
+          expected_name = os.environ["EXPECTED_ASSET"]
+          expected_size = int(os.environ["EXPECTED_SIZE"])
+          expected_sha = os.environ["EXPECTED_SHA256"].lower()
+          assets = [asset for asset in release.get("assets", []) if asset.get("name") == expected_name]
+          if len(assets) != 1:
+              sys.exit(f"expected exactly one release asset named {expected_name}, found {len(assets)}")
+
+          asset = assets[0]
+          digest = str(asset.get("digest") or "").lower() or f"sha256:{expected_sha}"
+          manifest = {
+              "schemaVersion": 1,
+              "name": release.get("name") or release.get("tag_name") or "",
+              "tag": release.get("tag_name") or "",
+              "publishedAt": release.get("published_at") or release.get("created_at") or "",
+              "notes": release.get("body") or "",
+              "htmlUrl": release.get("html_url") or "",
+              "asset": {
+                  "name": asset.get("name") or expected_name,
+                  "url": asset.get("browser_download_url") or f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{release.get('tag_name')}/{expected_name}",
+                  "size": int(asset.get("size") or expected_size),
+                  "digest": digest
+              }
+          }
+          Path("assets/system-release.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8"
+          )
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/system-release.json
+          if git diff --cached --quiet; then
+            echo "System release manifest already up to date."
+            exit 0
+          fi
+          git commit -m "Update system release manifest"
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            if [[ "${attempt}" == "3" ]]; then
+              echo "Failed to push system release manifest after rebasing." >&2
+              exit 1
+            fi
+            sleep 2
+          done

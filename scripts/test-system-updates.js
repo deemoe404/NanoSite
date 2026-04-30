@@ -27,6 +27,7 @@ const {
   analyzeArchive,
   collectSystemUpdateArchiveEntries,
   clearSystemUpdateState,
+  normalizeSystemReleaseManifest,
   selectSystemUpdateAsset,
   verifySystemUpdateAsset
 } = await import('../assets/js/system-updates.js?system-updates-test');
@@ -42,6 +43,28 @@ function makeZip(files) {
 async function sha256(buffer) {
   const digest = await webcrypto.subtle.digest('SHA-256', buffer);
   return Buffer.from(digest).toString('hex');
+}
+
+function jsonResponse(data, options = {}) {
+  const {
+    ok = true,
+    status = ok ? 200 : 500,
+    headers = {}
+  } = options;
+  const normalizedHeaders = Object.fromEntries(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value])
+  );
+  return {
+    ok,
+    status,
+    headers: {
+      get(name) {
+        return normalizedHeaders[String(name || '').toLowerCase()] || null;
+      }
+    },
+    json: async () => data,
+    arrayBuffer: async () => new ArrayBuffer(0)
+  };
 }
 
 async function run(name, fn) {
@@ -87,6 +110,142 @@ await run('verifies release asset size and digest before archive comparison', as
     }, 'nanosite-system-v3.3.5.zip'),
     /sha-?256|digest|hash/i
   );
+});
+
+await run('normalizes static system release manifests', async () => {
+  const release = normalizeSystemReleaseManifest({
+    schemaVersion: 1,
+    name: 'v3.3.5',
+    tag: 'v3.3.5',
+    publishedAt: '2026-04-29T08:18:39Z',
+    notes: 'Release notes',
+    htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+    asset: {
+      name: 'nanosite-system-v3.3.5.zip',
+      url: 'https://github.com/deemoe404/NanoSite/releases/download/v3.3.5/nanosite-system-v3.3.5.zip',
+      size: 123,
+      digest: 'sha256:535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a'
+    }
+  });
+
+  assert.equal(release.tag, 'v3.3.5');
+  assert.equal(release.asset.name, 'nanosite-system-v3.3.5.zip');
+  assert.throws(
+    () => normalizeSystemReleaseManifest({
+      schemaVersion: 1,
+      name: 'v3.3.5',
+      tag: 'v3.3.5',
+      publishedAt: '2026-04-29T08:18:39Z',
+      notes: '',
+      htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5'
+    }),
+    /manifest/i
+  );
+  assert.throws(
+    () => normalizeSystemReleaseManifest({
+      schemaVersion: 1,
+      name: 'v3.3.5',
+      tag: 'v3.3.5',
+      publishedAt: '2026-04-29T08:18:39Z',
+      notes: '',
+      htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+      asset: {
+        name: 'NanoSite-v3.3.5-source.zip',
+        url: 'https://github.com/deemoe404/NanoSite/archive/refs/tags/v3.3.5.zip',
+        size: 123,
+        digest: 'sha256:535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a'
+      }
+    }),
+    /manifest/i
+  );
+});
+
+await run('falls back to the static release manifest when the GitHub API is rate limited', async () => {
+  clearSystemUpdateState({ clearReleaseCache: true, keepStatus: true });
+  const buffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>manifest</p>' });
+  const digest = await sha256(buffer);
+  let apiCalls = 0;
+  let manifestCalls = 0;
+
+  globalThis.fetch = async (input) => {
+    const url = String(input || '');
+    if (url.includes('/repos/deemoe404/NanoSite/releases/latest')) {
+      apiCalls += 1;
+      return jsonResponse({ message: 'rate limited' }, {
+        ok: false,
+        status: 403,
+        headers: { 'x-ratelimit-remaining': '0' }
+      });
+    }
+    if (url.includes('assets/system-release.json')) {
+      manifestCalls += 1;
+      return jsonResponse({
+        schemaVersion: 1,
+        name: 'v3.3.5',
+        tag: 'v3.3.5',
+        publishedAt: '2026-04-29T08:18:39Z',
+        notes: 'Manifest release notes',
+        htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+        asset: {
+          name: 'nanosite-system-v3.3.5.zip',
+          url: 'https://github.com/deemoe404/NanoSite/releases/download/v3.3.5/nanosite-system-v3.3.5.zip',
+          size: buffer.byteLength,
+          digest: `sha256:${digest}`
+        }
+      });
+    }
+    return {
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0)
+    };
+  };
+
+  await analyzeArchive(buffer, 'nanosite-system-v3.3.5.zip');
+
+  assert.equal(apiCalls, 1);
+  assert.equal(manifestCalls, 1);
+  delete globalThis.fetch;
+});
+
+await run('uses the static manifest digest when verifying a selected archive', async () => {
+  clearSystemUpdateState({ clearReleaseCache: true, keepStatus: true });
+  const buffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>manifest</p>' });
+
+  globalThis.fetch = async (input) => {
+    const url = String(input || '');
+    if (url.includes('/repos/deemoe404/NanoSite/releases/latest')) {
+      return jsonResponse({ message: 'rate limited' }, {
+        ok: false,
+        status: 429
+      });
+    }
+    if (url.includes('assets/system-release.json')) {
+      return jsonResponse({
+        schemaVersion: 1,
+        name: 'v3.3.5',
+        tag: 'v3.3.5',
+        publishedAt: '2026-04-29T08:18:39Z',
+        notes: 'Manifest release notes',
+        htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+        asset: {
+          name: 'nanosite-system-v3.3.5.zip',
+          url: 'https://github.com/deemoe404/NanoSite/releases/download/v3.3.5/nanosite-system-v3.3.5.zip',
+          size: buffer.byteLength,
+          digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
+        }
+      });
+    }
+    return {
+      ok: false,
+      arrayBuffer: async () => new ArrayBuffer(0)
+    };
+  };
+
+  await assert.rejects(
+    () => analyzeArchive(buffer, 'nanosite-system-v3.3.5.zip'),
+    /sha-?256|digest|hash/i
+  );
+  delete globalThis.fetch;
 });
 
 await run('normalizes a rooted system update archive to safe site-relative paths', async () => {

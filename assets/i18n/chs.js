@@ -167,6 +167,7 @@ const translations = {
         },
         errors: {
           releaseFetch: '无法加载最新发布信息。',
+          releaseRateLimited: 'GitHub API 已限流。请稍后重试，或手动选择已下载的 ZIP。',
           emptyFile: '选择的文件为空。',
           invalidArchive: '选中的 ZIP 无法作为 NanoSite 发布读取。',
           sizeMismatch: ({ expected, actual }) => `选中的压缩包大小（${actual}）与发布附件（${expected}）不一致。`,

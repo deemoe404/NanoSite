@@ -28,6 +28,16 @@ if awk '
   exit 1
 fi
 
+if awk '
+  /- name: Plan release/ { in_plan = 1 }
+  /- name: Build system update package/ { in_plan = 0 }
+  in_plan && /assets\/system-release\.json/ { found = 1 }
+  END { exit found ? 0 : 1 }
+' "${workflow}" >/dev/null; then
+  echo "system release manifest must not participate in release planning" >&2
+  exit 1
+fi
+
 if grep -F 'releases/tags/${NEXT_TAG}' "${workflow}" >/dev/null; then
   echo "system release workflow must not validate draft releases through the tag endpoint" >&2
   exit 1
@@ -90,6 +100,43 @@ fi
 
 if ! grep -F 'git tag -d "${next_tag}"' "${workflow}" >/dev/null; then
   echo "system release workflow must delete stale local release tags before retrying" >&2
+  exit 1
+fi
+
+if ! grep -F 'Update static release manifest' "${workflow}" >/dev/null; then
+  echo "system release workflow must update the static release manifest after publishing" >&2
+  exit 1
+fi
+
+if ! grep -F 'dist/release-published.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must read the published release before writing the manifest" >&2
+  exit 1
+fi
+
+if ! grep -F 'git add assets/system-release.json' "${workflow}" >/dev/null; then
+  echo "system release workflow must commit assets/system-release.json" >&2
+  exit 1
+fi
+
+if ! grep -F 'git commit -m "Update system release manifest"' "${workflow}" >/dev/null; then
+  echo "system release workflow must use a stable manifest commit message" >&2
+  exit 1
+fi
+
+if ! grep -F 'git rebase "origin/${GITHUB_REF_NAME}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must rebase before pushing the manifest commit" >&2
+  exit 1
+fi
+
+if ! grep -F 'Failed to push system release manifest after rebasing.' "${workflow}" >/dev/null; then
+  echo "system release workflow must retry manifest pushes and fail clearly after repeated rebase attempts" >&2
+  exit 1
+fi
+
+manifest_rebase_line="$(grep -nF 'git rebase "origin/${GITHUB_REF_NAME}"' "${workflow}" | head -n 1 | cut -d: -f1)"
+manifest_push_line="$(grep -nF 'git push origin "HEAD:${GITHUB_REF_NAME}"' "${workflow}" | tail -n 1 | cut -d: -f1)"
+if [[ -n "${manifest_rebase_line}" && -n "${manifest_push_line}" && "${manifest_push_line}" -lt "${manifest_rebase_line}" ]]; then
+  echo "system release workflow must rebase before pushing the manifest commit" >&2
   exit 1
 fi
 
