@@ -9918,7 +9918,27 @@ function applyMode(mode, options = {}) {
     : 'editor';
 
   const previousMode = currentMode;
-  if (previousMode === nextMode) return;
+  if (previousMode === nextMode) {
+    try {
+      const layout = $('#mode-editor');
+      if (layout) layout.classList.toggle('is-dynamic', isDynamicMode(nextMode));
+    } catch (_) {}
+    if (nextMode === 'editor' && options.forceStructure) {
+      activeDynamicMode = null;
+      activeMarkdownDocument = null;
+      setEditorDetailPanelMode('structure');
+      pushEditorCurrentFileInfo(null);
+    } else if (isDynamicMode(nextMode)) {
+      activeDynamicMode = nextMode;
+      const tab = dynamicEditorTabs.get(nextMode);
+      activeMarkdownDocument = tab || null;
+      if (tab) {
+        try { selectEditorTreeNodeByPath(tab.path); } catch (_) {}
+      }
+      setEditorDetailPanelMode('markdown');
+    }
+    return;
+  }
 
   const editorApi = getPrimaryEditorApi();
   if (previousMode && isDynamicMode(previousMode) && editorApi && typeof editorApi.getValue === 'function') {
@@ -9976,8 +9996,9 @@ function applyMode(mode, options = {}) {
     ensurePrimaryEditorListener();
     const tab = dynamicEditorTabs.get(nextMode);
     activeMarkdownDocument = tab || null;
-    setEditorStructurePanelVisible(false);
+    setEditorDetailPanelMode('markdown');
     if (tab && editorApi) {
+      try { selectEditorTreeNodeByPath(tab.path); } catch (_) {}
       try { editorApi.setView('edit'); } catch (_) {}
       try {
         const baseDir = computeBaseDirForPath(tab.path);
@@ -10021,7 +10042,7 @@ function applyMode(mode, options = {}) {
   } else if (nextMode === 'editor') {
     activeDynamicMode = null;
     activeMarkdownDocument = null;
-    setEditorStructurePanelVisible(true);
+    setEditorDetailPanelMode('structure');
     if (editorApi) {
       try { editorApi.setView('edit'); } catch (_) {}
       scheduleEditorLayoutRefresh();
@@ -10030,7 +10051,7 @@ function applyMode(mode, options = {}) {
   } else {
     activeDynamicMode = null;
     activeMarkdownDocument = null;
-    setEditorStructurePanelVisible(true);
+    setEditorDetailPanelMode('structure');
     pushEditorCurrentFileInfo(null);
   }
 
@@ -10708,6 +10729,26 @@ function setEditorStructurePanelVisible(visible) {
   }
 }
 
+function setEditorMarkdownPanelVisible(visible) {
+  const panel = document.getElementById('editorMarkdownPanel');
+  if (!panel) return;
+  if (visible) {
+    panel.removeAttribute('hidden');
+    panel.removeAttribute('aria-hidden');
+  } else {
+    panel.setAttribute('hidden', '');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.classList.remove('is-content-entering');
+  }
+}
+
+function setEditorDetailPanelMode(mode) {
+  const showMarkdown = mode === 'markdown';
+  const showStructure = mode === 'structure';
+  setEditorStructurePanelVisible(showStructure);
+  setEditorMarkdownPanelVisible(showMarkdown);
+}
+
 function animateEditorStructurePanelContent(panel) {
   if (!panel) return;
   try {
@@ -10888,10 +10929,15 @@ function selectEditorTreeNodeByPath(path) {
 function refreshEditorContentTree(options = {}) {
   const treeEl = document.getElementById('editorFileTree');
   if (!treeEl) return;
+  const preserveStructure = !!options.preserveStructure || !!(currentMode && isDynamicMode(currentMode));
   editorContentTree = buildCurrentEditorTree();
   if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'articles';
   renderEditorFileTree(treeEl);
-  if (!options.preserveStructure) renderEditorStructurePanel(getActiveEditorTreeNode());
+  if (preserveStructure) {
+    if (currentMode && isDynamicMode(currentMode)) setEditorDetailPanelMode('markdown');
+    return;
+  }
+  renderEditorStructurePanel(getActiveEditorTreeNode());
 }
 
 function createEditorTreeIcon(node) {
@@ -11316,7 +11362,7 @@ function renderEditorStructurePanel(node) {
   const animate = () => animateEditorStructurePanelContent(panel);
   actions.innerHTML = '';
   body.innerHTML = '';
-  setEditorStructurePanelVisible(true);
+  setEditorDetailPanelMode('structure');
 
   if (!node) {
     kicker.textContent = treeText('kicker', 'Content structure');
