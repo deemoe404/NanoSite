@@ -1047,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
     applySectionDescriptions();
 
     return {
+      panel,
       setChangeHandler: (fn) => { changeHandler = typeof fn === 'function' ? fn : () => {}; },
       setFromMarkdown,
       buildMarkdown,
@@ -1054,6 +1055,37 @@ document.addEventListener('DOMContentLoaded', () => {
       applySectionDescriptions
     };
   })();
+
+  let frontMatterVisible = true;
+
+  const normalizeCurrentFilePathForMode = (path) => {
+    const raw = String(path || '').trim().replace(/\\+/g, '/').replace(/^\/+/, '');
+    if (!raw) return '';
+    const root = String(getContentRoot() || '')
+      .trim()
+      .replace(/\\+/g, '/')
+      .replace(/^\/+|\/+$/g, '');
+    if (root && raw.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
+      return raw.slice(root.length + 1);
+    }
+    return raw;
+  };
+
+  const inferCurrentFileSource = (path) => {
+    const normalized = normalizeCurrentFilePathForMode(path).toLowerCase();
+    if (!normalized) return '';
+    return normalized.startsWith('tab/') ? 'tabs' : '';
+  };
+
+  const setFrontMatterVisible = (visible) => {
+    frontMatterVisible = !!visible;
+    const panel = frontMatterManager && frontMatterManager.panel;
+    if (!panel) return;
+    panel.hidden = !frontMatterVisible;
+    panel.dataset.frontmatterVisible = frontMatterVisible ? 'true' : 'false';
+    panel.setAttribute('aria-hidden', frontMatterVisible ? 'false' : 'true');
+    panel.style.display = frontMatterVisible ? '' : 'none';
+  };
 
   const changeListeners = new Set();
   const notifyChange = () => {
@@ -1108,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const getValue = () => {
     const body = getEditorBody();
-    if (frontMatterManager) return frontMatterManager.buildMarkdown(body);
+    if (frontMatterVisible && frontMatterManager) return frontMatterManager.buildMarkdown(body);
     return body;
   };
 
@@ -1120,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = value == null ? '' : String(value);
     const { preview = true, notify = true } = opts;
     let bodyText = text;
-    if (frontMatterManager) {
+    if (frontMatterVisible && frontMatterManager) {
       bodyText = frontMatterManager.setFromMarkdown(text, { silent: true });
     }
     if (editor) editor.setValue(bodyText);
@@ -2058,10 +2090,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const normalizeCurrentFilePayload = (input) => {
     if (typeof input === 'string') {
-      return { path: String(input || '').trim(), status: null, dirty: false, draft: null, draftState: '', loaded: false };
+      const path = String(input || '').trim();
+      return { path, source: inferCurrentFileSource(path), status: null, dirty: false, draft: null, draftState: '', loaded: false };
     }
     if (input && typeof input === 'object') {
       const path = input.path != null ? String(input.path || '').trim() : '';
+      const source = input.source != null && String(input.source || '').trim()
+        ? String(input.source || '').trim().toLowerCase()
+        : inferCurrentFileSource(path);
       const status = normalizeStatusPayload(input.status);
       const dirty = !!input.dirty;
       const loaded = !!input.loaded;
@@ -2077,9 +2113,9 @@ document.addEventListener('DOMContentLoaded', () => {
           draftState = conflict ? 'conflict' : 'saved';
         }
       }
-      return { path, status, dirty, draft, draftState, loaded };
+      return { path, source, status, dirty, draft, draftState, loaded };
     }
-    return { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+    return { path: '', source: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
   };
 
   const describeStatusLabel = (status) => {
@@ -2187,6 +2223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const assignCurrentFileLabel = (input) => {
     currentFileInfo = normalizeCurrentFilePayload(input);
+    setFrontMatterVisible(currentFileInfo.source !== 'tabs');
     previewAssetCurrentPath = normalizePreviewPath(currentFileInfo.path || '');
     renderCurrentFileIndicator();
     refreshPreviewAssetOverrides();
@@ -2290,6 +2327,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
+    setFrontMatterVisible: (visible) => setFrontMatterVisible(visible),
     onChange: (fn) => {
       if (typeof fn !== 'function') return () => {};
       changeListeners.add(fn);

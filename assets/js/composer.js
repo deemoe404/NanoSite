@@ -9567,6 +9567,7 @@ function pushEditorCurrentFileInfo(tab) {
   const payload = tab
     ? {
         path: tab.path || '',
+        source: tab.source || inferMarkdownSourceFromPath(tab.path),
         status: tab.fileStatus || null,
         dirty: !!tab.isDirty,
         loaded: !!tab.loaded,
@@ -9717,6 +9718,7 @@ function getOrCreateDynamicMode(path) {
   const data = {
     mode: modeId,
     path: normalized,
+    source: inferMarkdownSourceFromPath(normalized),
     button: null,
     label,
     baseDir: computeBaseDirForPath(normalized),
@@ -10788,6 +10790,17 @@ function getActiveEditorTreeNode() {
   return findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)
     || findEditorContentTreeNode(editorContentTree, 'articles')
     || (editorContentTree[0] || null);
+}
+
+function inferMarkdownSourceFromPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return '';
+  try {
+    const node = flattenEditorContentTree(editorContentTree)
+      .find(item => item && item.kind === 'file' && item.path === normalized);
+    if (node && node.source) return String(node.source);
+  } catch (_) {}
+  return normalized.toLowerCase().startsWith('tab/') ? 'tabs' : 'index';
 }
 
 function expandEditorAncestors(node) {

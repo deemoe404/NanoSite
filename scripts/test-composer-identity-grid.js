@@ -185,6 +185,36 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
+  /\.frontmatter-panel\[data-frontmatter-visible="false"\] \{ display: none !important; \}/,
+  'front matter panel should have a hard hidden state for page markdown files'
+);
+
+assert.match(
+  editorMainSource,
+  /let frontMatterVisible = true;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*panel\.dataset\.frontmatterVisible = frontMatterVisible \? 'true' : 'false';[\s\S]*panel\.style\.display = frontMatterVisible \? '' : 'none';[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);/,
+  'markdown editor should hide the front matter panel for tabs.yaml page markdown files'
+);
+
+assert.match(
+  editorMainSource,
+  /const getValue = \(\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) return frontMatterManager\.buildMarkdown\(body\);[\s\S]*const setValue = \(value, opts = \{\}\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) \{/,
+  'page markdown should bypass front matter parsing and rebuilding while the panel is hidden'
+);
+
+assert.match(
+  source,
+  /function inferMarkdownSourceFromPath\(path\) \{[\s\S]*node && node\.source[\s\S]*startsWith\('tab\/'\) \? 'tabs' : 'index';/,
+  'composer should infer whether an opened markdown file comes from tabs.yaml or index.yaml'
+);
+
+assert.match(
+  source,
+  /source: tab\.source \|\| inferMarkdownSourceFromPath\(tab\.path\),[\s\S]*source: inferMarkdownSourceFromPath\(normalized\),/,
+  'composer should pass the inferred markdown source to the primary editor'
+);
+
+assert.match(
+  editorSource,
   /\.editor-content-shell\.box \{[\s\S]*padding:0;[\s\S]*border:0 !important;[\s\S]*background:transparent;[\s\S]*\.editor-structure-panel \{ min-width:0; border:0; border-radius:0; background:transparent; padding:0; \}/,
   'editor structure view should not render extra outer card containers around the content'
 );
