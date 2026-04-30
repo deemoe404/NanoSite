@@ -1,6 +1,6 @@
 import './cache-control.js';
 import { fetchMergedSiteConfig } from './yaml.js';
-import { t } from './i18n.js?v=20260430a';
+import { t } from './i18n.js?v=20260430c';
 
 function setStatus(state, repoText, messageText) {
   const box = document.getElementById('global-status');

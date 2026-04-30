@@ -53,10 +53,22 @@ const tree = buildEditorContentTree(sample, {
 });
 const flat = flattenEditorContentTree(tree);
 
-assert.equal(tree.length, 2, 'tree should have Articles and Pages roots');
-assert.deepEqual(tree.map(node => node.id), ['articles', 'pages'], 'root ids should be stable');
+assert.equal(tree.length, 3, 'tree should have System, Articles, and Pages roots');
+assert.deepEqual(tree.map(node => node.id), ['system', 'articles', 'pages'], 'root ids should be stable');
 
-const articles = tree[0];
+const system = tree[0];
+assert.equal(system.source, 'system');
+assert.equal(system.kind, 'root');
+assert.deepEqual(
+  system.children.map(node => [node.id, node.kind, node.source, node.label]),
+  [
+    ['system:site-settings', 'system', 'system', 'Site Settings'],
+    ['system:updates', 'system', 'system', 'NanoSite Updates']
+  ],
+  'system root should expose stable Site Settings and NanoSite Updates leaves'
+);
+
+const articles = tree[1];
 assert.equal(articles.source, 'index');
 assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide'], 'article entry order should follow __order');
 
@@ -78,7 +90,7 @@ assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').diffState, '
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:0').fileState, 'existing');
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en').draftState, 'dirty', 'language nodes should aggregate child draft state');
 
-const pages = tree[1];
+const pages = tree[2];
 assert.equal(pages.source, 'tabs');
 assert.deepEqual(pages.children.map(node => node.id), ['tabs:History', 'tabs:About'], 'page entry order should follow __order');
 assert.deepEqual(

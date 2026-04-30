@@ -1,5 +1,5 @@
 import './cache-control.js';
-import { initI18n, t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260430a';
+import { initI18n, t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260430c';
 
 function applyAttributeTranslation(el, target, value) {
   if (value == null) return;
@@ -76,6 +76,11 @@ function populateLanguageSelect() {
     select.dataset.boundChange = '1';
   }
 }
+
+try {
+  window.__nsPopulateEditorLanguageSelect = populateLanguageSelect;
+  document.addEventListener('ns-editor-language-control-mounted', populateLanguageSelect);
+} catch (_) {}
 
 function applyEditorLanguage() {
   applyElementTranslations();

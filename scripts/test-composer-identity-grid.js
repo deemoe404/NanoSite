@@ -65,10 +65,22 @@ assert.doesNotMatch(
   'editor entry should default to the Editor file tree instead of restoring the last Site Settings mode'
 );
 
-assert.match(
+assert.doesNotMatch(
   editorSource,
-  /class="editor-rail-footer"[\s\S]*id="editorRailSettingsToggle"[\s\S]*id="editorRailSettingsMenu"[\s\S]*id="editorLangSwitcher"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
-  'language, Site Settings, and System Updates controls should live in the left rail settings menu'
+  /editor-rail-footer|editorRailSettingsToggle|editorRailSettingsMenu|id="editorLangSwitcher"/,
+  'editor rail footer settings menu should be removed'
+);
+
+assert.match(
+  source,
+  /function appendEditorLanguageControl\(body\) \{[\s\S]*id = 'editorLangSwitcher'[\s\S]*id = 'editorLangSelect'[\s\S]*ns-editor-language-control-mounted/,
+  'editor language controls should be rendered inside the System structure panel'
+);
+
+assert.match(
+  source,
+  /if \(node\.source === 'system'\) \{[\s\S]*appendEditorLanguageControl\(body\);[\s\S]*node\.children\.forEach/,
+  'System root panel should include editor language controls before system leaves'
 );
 
 assert.match(
@@ -114,19 +126,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430a';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430c';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260430a"[\s\S]*"\.\/chs\.js\?v=20260430b"[\s\S]*"\.\/cht-tw\.js\?v=20260430a"[\s\S]*"\.\/cht-hk\.js\?v=20260430a"[\s\S]*"\.\/ja\.js\?v=20260430a"/,
+  /"\.\/en\.js\?v=20260430c"[\s\S]*"\.\/chs\.js\?v=20260430c"[\s\S]*"\.\/cht-tw\.js\?v=20260430c"[\s\S]*"\.\/cht-hk\.js\?v=20260430c"[\s\S]*"\.\/ja\.js\?v=20260430c"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260430a'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260430c'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -500,9 +512,13 @@ assert.match(
   'page language title fields should not reuse the tree heading translation key'
 );
 
+const initialBootIndex = source.indexOf('Apply initial state as early as possible');
+const initialBootBlock = initialBootIndex >= 0
+  ? source.slice(initialBootIndex, source.indexOf('// Robust clipboard helper', initialBootIndex))
+  : '';
 assert.doesNotMatch(
-  source,
-  /Apply initial state as early as possible[\s\S]*applyMode\('composer'\)/,
+  initialBootBlock,
+  /applyMode\('composer'\)/,
   'initial editor boot should not force Site Settings before the file tree is rendered'
 );
 
@@ -586,14 +602,42 @@ assert.match(
 
 assert.match(
   source,
-  /function openEditorOverlay\(mode, trigger = null\) \{[\s\S]*activeEditorOverlayMode = nextMode;[\s\S]*function closeEditorOverlay\(\) \{[\s\S]*activeEditorOverlayMode = null;/,
-  'Site Settings and System Updates should use an overlay state independent from current editor mode'
+  /function showEditorSystemPanel\(mode\) \{[\s\S]*const nextMode = mode === 'updates' \? 'updates' : 'composer';[\s\S]*editorSystemActions[\s\S]*mode-composer[\s\S]*mode-updates/,
+  'Site Settings and NanoSite Updates should render through the inline system panel'
+);
+
+const showEditorSystemPanelBody = source.slice(
+  source.indexOf('function showEditorSystemPanel(mode) {'),
+  source.indexOf('function getEditorOverlayTitle(mode)')
+);
+
+assert.doesNotMatch(
+  showEditorSystemPanelBody,
+  /actions\.innerHTML = ''/,
+  'switching inline system panels should not destroy migrated action buttons'
+);
+
+assert.match(
+  showEditorSystemPanelBody,
+  /if \(actionSet\.parentElement !== actions\) actions\.appendChild\(actionSet\);[\s\S]*actionSet\.hidden = !active;/,
+  'inline system panel actions should be reparented without deleting the ZIP selection button'
 );
 
 assert.match(
   source,
-  /function applyMode\(mode, options = \{\}\) \{[\s\S]*if \(mode === 'composer' \|\| mode === 'updates'\) \{[\s\S]*openEditorOverlay\(mode, options\.trigger \|\| null\);[\s\S]*return;[\s\S]*const nextMode = \(candidate === 'editor' \|\| isDynamicMode\(candidate\)\)/,
-  'opening Site Settings or System Updates should not switch currentMode away from the editor'
+  /const nextMode = \(candidate === 'editor' \|\| candidate === 'composer' \|\| candidate === 'updates' \|\| isDynamicMode\(candidate\)\)[\s\S]*setEditorDetailPanelMode\(nextMode\);/,
+  'opening Site Settings or NanoSite Updates should switch to the inline system detail panel'
+);
+
+const refreshEditorContentTreeBody = source.slice(
+  source.indexOf('function refreshEditorContentTree(options = {}) {'),
+  source.indexOf('function createEditorTreeIcon(node)')
+);
+
+assert.doesNotMatch(
+  refreshEditorContentTreeBody,
+  /currentMode === 'composer' \|\| currentMode === 'updates'[\s\S]*setEditorDetailPanelMode\(currentMode\)/,
+  'refreshing tree badges while editing site settings should not replay the inline system panel animation'
 );
 
 assert.match(
@@ -958,7 +1002,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /buildSiteUI\(root, state\) \{[\s\S]*renderCompactSectionMenu\(\);[\s\S]*syncSiteEditorSingleLabelWidth\(root\);[\s\S]*refreshNavDiffState\(\);/,
+  /buildSiteUI\(root, state\) \{[\s\S]*syncSiteEditorSingleLabelWidth\(root\);[\s\S]*refreshNavDiffState\(\);/,
   'site editor should resync the measured single-label width after rebuilding translated labels'
 );
 
@@ -974,22 +1018,22 @@ assert.match(
   'SEO Resource URL compact grid should preserve the field key and help tooltip text'
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /function renderCompactSectionMenu\(\) \{[\s\S]*sectionsMeta\.forEach[\s\S]*setActiveSection\(meta\.id, \{ focusPanel: false \}\);/,
-  'single-column site navigation should reuse section metadata for the floating compact menu'
+  /renderCompactSectionMenu|cs-mobile-section-nav|cs-nav-button/,
+  'site settings should not render section navigation controls'
 );
 
 assert.match(
   source,
   /const resolveSiteScrollContainer = \(\) => \{[\s\S]*root \? root\.querySelector\('\.cs-viewport'\)[\s\S]*canOwnScroll[\s\S]*return viewport;[\s\S]*root\.closest\('\.editor-modal-body'\)[\s\S]*return modalBody;[\s\S]*return window;[\s\S]*\};/,
-  'site section navigation should prefer the internal content viewport before falling back to the modal body'
+  'site settings scrolling should prefer the internal content viewport before falling back to the modal body'
 );
 
 assert.match(
   source,
   /const scrollContainer = resolveSiteScrollContainer\(\);[\s\S]*scrollContainer\.addEventListener\('scroll', onScroll, \{ passive: true \}\);[\s\S]*scrollContainer\.removeEventListener\('scroll', onScroll, \{ passive: true \}\);/,
-  'site section active-state sync should listen to its resolved scroll container, not only window scroll'
+  'site section state sync should listen to its resolved scroll container, not only window scroll'
 );
 
 assert.match(
@@ -1246,26 +1290,14 @@ assert.match(
 
 assert.match(
   source,
-  /\.cs-mobile-section-nav\{display:none;position:fixed;right:1rem;bottom:4\.05rem;[\s\S]*@media \(max-width:920px\)\{[\s\S]*\.cs-nav\{display:none\}[\s\S]*html\[data-init-mode="composer"\]\[data-init-cfile="site"\] \.cs-mobile-section-nav\{display:block\}/,
-  'single-column site navigation should move from the inline nav to a floating menu above back-to-top'
+  /\.cs-layout\{display:grid;grid-template-columns:minmax\(0,1fr\);gap:1rem;align-items:start\}/,
+  'site settings should use a single-column layout without the old section navigation rail'
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /const navVisible = \(!navStyles \|\| \(navStyles\.display !== 'none' && navStyles\.visibility !== 'hidden'\)\)[\s\S]*nav\.getClientRects\(\)\.length > 0[\s\S]*const navRect = navVisible \? nav\.getBoundingClientRect\(\) : null;/,
-  'hidden inline site navigation should not clamp compact menu scroll anchors to the top of the viewport'
-);
-
-assert.match(
-  source,
-  /html body button\.cs-nav-button\.is-active\{background:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;border-color:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;color:#fff !important;box-shadow:none !important[\s\S]*html body button\.cs-mobile-section-menu-item\.is-active\{background:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;border-color:color-mix\(in srgb,var\(--primary\) 96%, var\(--text\) 4%\) !important;color:#fff !important/,
-  'site section navigation active state should use solid primary fill and outrank native theme button resets'
-);
-
-assert.match(
-  source,
-  /\.cs-nav\{position:sticky;top:50%;transform:translateY\(-50%\);align-self:start;/,
-  'desktop site section navigation should stay vertically centered in the modal body viewport'
+  /\.cs-nav|\.cs-mobile-section|cs-nav-button|cs-mobile-section-menu-item/,
+  'site settings CSS should not keep removed section navigation selectors'
 );
 
 assert.doesNotMatch(
@@ -1280,22 +1312,10 @@ assert.doesNotMatch(
   'site settings overlay should not force a full-height composer layout that can collapse the left navigation'
 );
 
-assert.match(
-  source,
-  /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;overflow:visible\}/,
-  'desktop site section navigation should not render as a card container or scroll independently'
-);
-
 assert.doesNotMatch(
-  source,
-  /\.cs-nav-list\{[^}]*overflow:auto/,
-  'desktop site section navigation list should not be independently scrollable'
-);
-
-assert.match(
   nativeThemeSource,
-  /button:not\(\.mode-tab\):not\(\.sidebar-tab\):not\(\.cs-nav-button\):not\(\.cs-mobile-section-nav-toggle\):not\(\.cs-mobile-section-menu-item\)/,
-  'native theme global button reset should not override site section navigation buttons'
+  /cs-nav-button|cs-mobile-section-nav-toggle|cs-mobile-section-menu-item/,
+  'native theme button reset should not carry exceptions for removed site section navigation buttons'
 );
 
 assert.match(

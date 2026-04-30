@@ -8,7 +8,7 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260430a';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260430c';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
@@ -72,7 +72,8 @@ const getMarkdownSaveTooltip = (kind) => {
 // --- Persisted UI state keys ---
 const LS_KEYS = {
   cfile: 'ns_composer_file',           // 'index' | 'tabs' | 'site'
-  editorState: 'ns_composer_editor_state' // persisted dynamic editor info
+  editorState: 'ns_composer_editor_state', // persisted dynamic editor info
+  systemTreeExpanded: 'ns_editor_system_tree_expanded'
 };
 
 // Track additional markdown editor tabs spawned from Composer
@@ -87,6 +88,11 @@ let allowEditorStatePersist = false;
 let editorContentTree = [];
 let activeEditorTreeNodeId = 'articles';
 const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
+try {
+  if (window.localStorage.getItem(LS_KEYS.systemTreeExpanded) === '1') {
+    expandedEditorTreeNodeIds.add('system');
+  }
+} catch (_) {}
 const collapsingEditorTreeNodeIds = new Set();
 let expandingEditorTreeNodeId = null;
 let activeEditorOverlayMode = null;
@@ -3815,6 +3821,9 @@ function updateModeDirtyIndicators(summaryEntries) {
   applyModeTabBadgeState('composer', composerCount);
   applyModeTabBadgeState('editor', editorCount);
   applyModeTabBadgeState('updates', updatesCount);
+  try {
+    refreshEditorContentTree({ preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates') });
+  } catch (_) {}
 }
 
 function updateReviewButton(summaryEntries = []) {
@@ -7740,7 +7749,9 @@ function notifyComposerChange(kind, options = {}) {
 
   updateUnsyncedSummary();
   if ((kind === 'index' || kind === 'tabs') && composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
-  if (kind === 'index' || kind === 'tabs') refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
+  refreshEditorContentTree({
+    preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates')
+  });
 }
 
 function rebuildIndexUI(preserveOpen = true) {
@@ -8721,6 +8732,112 @@ function scrollEditorContentToTop(behavior = 'smooth') {
   }
 }
 
+function persistSystemTreeExpandedState() {
+  try {
+    window.localStorage.setItem(
+      LS_KEYS.systemTreeExpanded,
+      expandedEditorTreeNodeIds.has('system') ? '1' : '0'
+    );
+  } catch (_) {}
+}
+
+function mountEditorSystemPanels() {
+  const body = document.getElementById('editorSystemBody');
+  if (!body || body.__nsSystemPanelsMounted) return;
+  body.__nsSystemPanelsMounted = true;
+  const composerPanel = document.getElementById('mode-composer');
+  const updatesPanel = document.getElementById('mode-updates');
+  if (composerPanel) body.appendChild(composerPanel);
+  if (updatesPanel) body.appendChild(updatesPanel);
+}
+
+function setEditorSystemPanelVisible(visible) {
+  const panel = document.getElementById('editorSystemPanel');
+  if (!panel) return;
+  if (visible) {
+    panel.removeAttribute('hidden');
+    panel.removeAttribute('aria-hidden');
+  } else {
+    panel.setAttribute('hidden', '');
+    panel.setAttribute('aria-hidden', 'true');
+    panel.classList.remove('is-content-entering');
+  }
+}
+
+function animateEditorSystemPanelContent() {
+  const panel = document.getElementById('editorSystemPanel');
+  if (!panel) return;
+  try {
+    const previousTimer = panel.__nsSystemAnimationTimer;
+    if (previousTimer) window.clearTimeout(previousTimer);
+  } catch (_) {}
+  panel.classList.remove('is-content-entering');
+  try { panel.getBoundingClientRect(); } catch (_) {}
+  panel.classList.add('is-content-entering');
+  try {
+    panel.__nsSystemAnimationTimer = window.setTimeout(() => {
+      panel.classList.remove('is-content-entering');
+      panel.__nsSystemAnimationTimer = null;
+    }, 260);
+  } catch (_) {}
+}
+
+function showEditorSystemPanel(mode) {
+  const nextMode = mode === 'updates' ? 'updates' : 'composer';
+  mountEditorSystemPanels();
+  const panel = document.getElementById('editorSystemPanel');
+  const title = document.getElementById('editorSystemTitle');
+  const kicker = document.getElementById('editorSystemKicker');
+  const meta = document.getElementById('editorSystemMeta');
+  const actions = document.getElementById('editorSystemActions');
+  const composerActions = document.getElementById('editorModalComposerActions');
+  const updateActions = document.getElementById('editorModalUpdateActions');
+  const composerPanel = document.getElementById('mode-composer');
+  const updatesPanel = document.getElementById('mode-updates');
+  if (!panel) return;
+
+  setEditorSystemPanelVisible(true);
+  if (kicker) kicker.textContent = treeText('system', 'System');
+  if (title) title.textContent = nextMode === 'updates'
+    ? treeText('nanoSiteUpdates', 'NanoSite Updates')
+    : treeText('siteSettings', 'Site Settings');
+  if (meta) meta.textContent = nextMode === 'updates'
+    ? treeText('systemUpdatesMeta', 'Review and apply NanoSite updates.')
+    : treeText('siteSettingsMeta', 'Edit site.yaml settings.');
+
+  if (actions) {
+    [
+      ['composer', composerActions],
+      ['updates', updateActions]
+    ].forEach(([key, actionSet]) => {
+      if (!actionSet) return;
+      if (actionSet.parentElement !== actions) actions.appendChild(actionSet);
+      const active = key === nextMode;
+      actionSet.hidden = !active;
+      actionSet.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+  }
+
+  [
+    ['composer', composerPanel],
+    ['updates', updatesPanel]
+  ].forEach(([key, modePanel]) => {
+    const active = key === nextMode;
+    if (!modePanel) return;
+    modePanel.hidden = !active;
+    modePanel.setAttribute('aria-hidden', active ? 'false' : 'true');
+    modePanel.style.display = active ? '' : 'none';
+  });
+
+  if (nextMode === 'composer') {
+    try {
+      if (getActiveComposerFile() !== 'site') applyComposerFile('site', { force: true, immediate: true });
+    } catch (_) {}
+    resetSiteSettingsNavOnOpen();
+  }
+  animateEditorSystemPanelContent();
+}
+
 function getEditorOverlayTitle(mode) {
   if (mode === 'updates') return t('editor.systemUpdates.tabLabel');
   return t('editor.modes.composer');
@@ -8730,49 +8847,19 @@ function syncEditorOverlayUi() {
   const layer = document.getElementById('editorModalLayer');
   const dialog = document.querySelector('.editor-modal-dialog');
   const title = document.getElementById('editorModalTitle');
-  const composerActions = document.getElementById('editorModalComposerActions');
-  const updateActions = document.getElementById('editorModalUpdateActions');
   const modalBody = document.querySelector('.editor-modal-body');
-  const hasOverlay = activeEditorOverlayMode === 'composer' || activeEditorOverlayMode === 'updates';
-  const isComposerOverlay = activeEditorOverlayMode === 'composer';
-  const isUpdatesOverlay = activeEditorOverlayMode === 'updates';
+  const hasOverlay = false;
 
   if (layer) {
-    layer.hidden = !hasOverlay;
-    layer.setAttribute('aria-hidden', hasOverlay ? 'false' : 'true');
+    layer.hidden = true;
+    layer.setAttribute('aria-hidden', 'true');
   }
-  if (title) title.textContent = hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '';
-  if (dialog) dialog.setAttribute('aria-label', hasOverlay ? getEditorOverlayTitle(activeEditorOverlayMode) : '');
-  if (composerActions) {
-    composerActions.hidden = !isComposerOverlay;
-    composerActions.setAttribute('aria-hidden', isComposerOverlay ? 'false' : 'true');
-  }
-  if (updateActions) {
-    updateActions.hidden = !isUpdatesOverlay;
-    updateActions.setAttribute('aria-hidden', isUpdatesOverlay ? 'false' : 'true');
-  }
+  if (title) title.textContent = '';
+  if (dialog) dialog.removeAttribute('aria-label');
   if (modalBody) {
-    modalBody.classList.toggle('is-composer-overlay', isComposerOverlay);
-    modalBody.classList.toggle('is-updates-overlay', isUpdatesOverlay);
+    modalBody.classList.remove('is-composer-overlay');
+    modalBody.classList.remove('is-updates-overlay');
   }
-
-  ['composer', 'updates'].forEach((mode) => {
-    const panel = document.getElementById(`mode-${mode}`);
-    const isActive = activeEditorOverlayMode === mode;
-    if (panel) {
-      panel.hidden = !isActive;
-      panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-      panel.style.display = isActive ? '' : 'none';
-    }
-    try {
-      const btn = document.querySelector(`.mode-tab[data-mode="${mode}"]:not(.dynamic-mode)`);
-      if (btn) {
-        btn.classList.toggle('is-active', isActive);
-        btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
-        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      }
-    } catch (_) {}
-  });
 
   try {
     document.body.classList.toggle('ns-editor-modal-open', hasOverlay);
@@ -8835,14 +8922,8 @@ function openEditorOverlay(mode, trigger = null) {
   const nextMode = mode === 'updates' ? 'updates' : mode === 'composer' ? 'composer' : null;
   if (!nextMode) return;
   editorOverlayReturnFocus = trigger && typeof trigger.focus === 'function' ? trigger : document.activeElement;
-  activeEditorOverlayMode = nextMode;
-  if (nextMode === 'composer') {
-    try { applyComposerFile('site', { force: true, immediate: true }); } catch (_) {}
-  }
-  syncEditorOverlayUi();
-  if (nextMode === 'composer') resetSiteSettingsNavOnOpen();
-  try { requestAnimationFrame(focusEditorOverlay); }
-  catch (_) { focusEditorOverlay(); }
+  activeEditorOverlayMode = null;
+  applyMode(nextMode, { trigger });
 }
 
 function closeEditorOverlay() {
@@ -9899,11 +9980,6 @@ function getDefaultMarkdownForPath(relPath) {
 }
 
 function applyMode(mode, options = {}) {
-  if (mode === 'composer' || mode === 'updates') {
-    openEditorOverlay(mode, options.trigger || null);
-    return;
-  }
-
   if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure) {
     const firstDynamicMode = getFirstDynamicModeId();
     if (firstDynamicMode) {
@@ -9913,7 +9989,7 @@ function applyMode(mode, options = {}) {
   }
 
   const candidate = mode || 'editor';
-  const nextMode = (candidate === 'editor' || isDynamicMode(candidate))
+  const nextMode = (candidate === 'editor' || candidate === 'composer' || candidate === 'updates' || isDynamicMode(candidate))
     ? candidate
     : 'editor';
 
@@ -9928,6 +10004,14 @@ function applyMode(mode, options = {}) {
       activeMarkdownDocument = null;
       setEditorDetailPanelMode('structure');
       pushEditorCurrentFileInfo(null);
+    } else if (nextMode === 'composer' || nextMode === 'updates') {
+      activeDynamicMode = null;
+      activeMarkdownDocument = null;
+      activeEditorTreeNodeId = nextMode === 'updates' ? 'system:updates' : 'system:site-settings';
+      expandEditorAncestors(getEditorTreeNodeById(activeEditorTreeNodeId) || { id: activeEditorTreeNodeId, source: 'system' });
+      setEditorDetailPanelMode(nextMode);
+      pushEditorCurrentFileInfo(null);
+      refreshEditorContentTree({ preserveStructure: true });
     } else if (isDynamicMode(nextMode)) {
       activeDynamicMode = nextMode;
       const tab = dynamicEditorTabs.get(nextMode);
@@ -9952,7 +10036,7 @@ function applyMode(mode, options = {}) {
 
   currentMode = nextMode;
 
-  const showEditor = nextMode === 'editor' || isDynamicMode(nextMode);
+  const showEditor = nextMode === 'editor' || nextMode === 'composer' || nextMode === 'updates' || isDynamicMode(nextMode);
   try { $('#mode-editor').style.display = showEditor ? '' : 'none'; } catch (_) {}
   try {
     const layout = $('#mode-editor');
@@ -9964,10 +10048,8 @@ function applyMode(mode, options = {}) {
     $$('.mode-tab').forEach((b) => {
       const baseMode = b.dataset ? b.dataset.mode : '';
       if (baseMode === 'composer' || baseMode === 'updates') {
-        if (!activeEditorOverlayMode) {
-          b.classList.remove('is-active');
-          b.setAttribute('aria-selected', 'false');
-        }
+        b.classList.toggle('is-active', nextMode === baseMode);
+        b.setAttribute('aria-selected', nextMode === baseMode ? 'true' : 'false');
         return;
       }
       const targetMode = b.classList.contains('dynamic-mode')
@@ -10048,6 +10130,15 @@ function applyMode(mode, options = {}) {
       scheduleEditorLayoutRefresh();
     }
     pushEditorCurrentFileInfo(null);
+  } else if (nextMode === 'composer' || nextMode === 'updates') {
+    activeDynamicMode = null;
+    activeMarkdownDocument = null;
+    activeEditorTreeNodeId = nextMode === 'updates' ? 'system:updates' : 'system:site-settings';
+    expandEditorAncestors(getEditorTreeNodeById(activeEditorTreeNodeId) || { id: activeEditorTreeNodeId, source: 'system' });
+    setEditorDetailPanelMode(nextMode);
+    pushEditorCurrentFileInfo(null);
+    refreshEditorContentTree({ preserveStructure: true });
+    scrollEditorContentToTop('smooth');
   } else {
     activeDynamicMode = null;
     activeMarkdownDocument = null;
@@ -10745,8 +10836,11 @@ function setEditorMarkdownPanelVisible(visible) {
 function setEditorDetailPanelMode(mode) {
   const showMarkdown = mode === 'markdown';
   const showStructure = mode === 'structure';
+  const showSystem = mode === 'composer' || mode === 'updates';
   setEditorStructurePanelVisible(showStructure);
   setEditorMarkdownPanelVisible(showMarkdown);
+  setEditorSystemPanelVisible(showSystem);
+  if (showSystem) showEditorSystemPanel(mode);
 }
 
 function animateEditorStructurePanelContent(panel) {
@@ -10833,6 +10927,18 @@ function collectEditorDiffStatusMap() {
   };
   applyDiff('index', composerDiffCache.index);
   applyDiff('tabs', composerDiffCache.tabs);
+  try {
+    const siteDiff = composerDiffCache.site || recomputeDiff('site');
+    if (siteDiff && siteDiff.hasChanges) add('system:site-settings', 'modified');
+    else if (composerDraftMeta && composerDraftMeta.site) add('system:site-settings', 'saved');
+  } catch (_) {
+    try {
+      if (composerDraftMeta && composerDraftMeta.site) add('system:site-settings', 'saved');
+    } catch (__) {}
+  }
+  try {
+    if (getSystemUpdateSummaryEntries().length) add('system:updates', 'modified');
+  } catch (_) {}
   return map;
 }
 
@@ -10842,6 +10948,9 @@ function buildCurrentEditorTree() {
     tabs: getStateSlice('tabs') || { __order: [] }
   }, {
     preferredLangs: PREFERRED_LANG_ORDER,
+    systemLabel: treeText('system', 'System'),
+    siteSettingsLabel: treeText('siteSettings', 'Site Settings'),
+    updatesLabel: treeText('nanoSiteUpdates', 'NanoSite Updates'),
     articlesLabel: treeText('articles', 'Articles'),
     pagesLabel: treeText('pages', 'Pages'),
     draftStates: collectEditorDraftStatusMap(),
@@ -10904,6 +11013,11 @@ function buildCurrentFileBreadcrumb(tab) {
 
 function expandEditorAncestors(node) {
   if (!node) return;
+  if (node.source === 'system' || node.id === 'system') {
+    expandedEditorTreeNodeIds.add('system');
+    persistSystemTreeExpandedState();
+    return;
+  }
   if (node.id === 'articles' || node.id === 'pages') {
     expandedEditorTreeNodeIds.add(node.id);
     return;
@@ -10929,7 +11043,8 @@ function selectEditorTreeNodeByPath(path) {
 function refreshEditorContentTree(options = {}) {
   const treeEl = document.getElementById('editorFileTree');
   if (!treeEl) return;
-  const preserveStructure = !!options.preserveStructure || !!(currentMode && isDynamicMode(currentMode));
+  const preserveStructure = !!options.preserveStructure
+    || !!(currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates'));
   editorContentTree = buildCurrentEditorTree();
   if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'articles';
   renderEditorFileTree(treeEl);
@@ -11013,6 +11128,7 @@ function animateEditorTreeCollapse(root, node, row) {
     if (!collapsingEditorTreeNodeIds.has(node.id)) return;
     collapsingEditorTreeNodeIds.delete(node.id);
     expandedEditorTreeNodeIds.delete(node.id);
+    if (node.id === 'system') persistSystemTreeExpandedState();
     refreshEditorContentTree({ preserveStructure: true });
   };
   try { window.setTimeout(finish, 340); }
@@ -11077,6 +11193,7 @@ function renderEditorFileTree(root) {
           expandingEditorTreeNodeId = node.id;
           expandedEditorTreeNodeIds.add(node.id);
         }
+        if (node.id === 'system') persistSystemTreeExpandedState();
         refreshEditorContentTree({ preserveStructure: true });
       });
     }
@@ -11145,6 +11262,21 @@ function handleEditorTreeSelection(nodeId) {
   if (!node) return;
   activeEditorTreeNodeId = node.id;
   expandEditorAncestors(node);
+  if (node.source === 'system') {
+    refreshEditorContentTree({ preserveStructure: true });
+    if (node.id === 'system:site-settings') {
+      applyMode('composer');
+    } else if (node.id === 'system:updates') {
+      applyMode('updates');
+    } else {
+      applyMode('editor', { forceStructure: true });
+      setEditorStructurePanelVisible(true);
+      refreshEditorContentTree();
+    }
+    scrollEditorContentToTop('smooth');
+    closeEditorRailDrawer();
+    return;
+  }
   if (node.kind === 'file' && node.path) {
     refreshEditorContentTree({ preserveStructure: true });
     openMarkdownInEditor(node.path);
@@ -11334,6 +11466,49 @@ function renderStructureItem(label, detail, onOpen) {
   return item;
 }
 
+function appendEditorLanguageControl(body) {
+  if (!body) return;
+  const item = document.createElement('div');
+  item.className = 'editor-structure-item editor-system-language-item';
+
+  const main = document.createElement('div');
+  main.className = 'editor-structure-item-main';
+  const title = document.createElement('span');
+  title.className = 'editor-structure-item-title';
+  title.textContent = treeText('editorLanguage', t('editor.languageLabel') || 'Language');
+  const meta = document.createElement('span');
+  meta.className = 'editor-structure-item-meta';
+  meta.textContent = treeText('editorLanguageMeta', 'Change the editor interface language.');
+  main.appendChild(title);
+  main.appendChild(meta);
+
+  const controls = document.createElement('div');
+  controls.className = 'editor-structure-item-actions';
+  const switcher = document.createElement('div');
+  switcher.className = 'editor-lang-switcher editor-lang-switcher-inline';
+  switcher.id = 'editorLangSwitcher';
+  const label = document.createElement('label');
+  label.setAttribute('for', 'editorLangSelect');
+  label.setAttribute('data-i18n', 'editor.languageLabel');
+  label.textContent = t('editor.languageLabel') || 'Language';
+  const select = document.createElement('select');
+  select.id = 'editorLangSelect';
+  select.setAttribute('data-i18n-aria-label', 'editor.languageLabel');
+  select.setAttribute('aria-label', t('editor.languageLabel') || 'Language');
+  switcher.appendChild(label);
+  switcher.appendChild(select);
+  controls.appendChild(switcher);
+
+  item.appendChild(main);
+  item.appendChild(controls);
+  body.appendChild(item);
+
+  try {
+    if (typeof window.__nsPopulateEditorLanguageSelect === 'function') window.__nsPopulateEditorLanguageSelect();
+    document.dispatchEvent(new CustomEvent('ns-editor-language-control-mounted'));
+  } catch (_) {}
+}
+
 function appendLanguageSelector(actions, source, key, entry) {
   const available = availableLanguageCodes(entry);
   if (!available.length) return;
@@ -11373,6 +11548,23 @@ function renderEditorStructurePanel(node) {
   }
 
   if (node.kind === 'root') {
+    if (node.source === 'system') {
+      kicker.textContent = treeText('rootKicker', 'Collection');
+      title.textContent = node.label || treeText('system', 'System');
+      meta.textContent = treeText('rootMeta', `${node.children.length} items`, { count: node.children.length });
+      appendEditorLanguageControl(body);
+      const list = document.createElement('div');
+      list.className = 'editor-structure-list';
+      node.children.forEach((child) => {
+        const detail = child.id === 'system:updates'
+          ? treeText('systemUpdatesMeta', 'Review and apply NanoSite updates.')
+          : treeText('siteSettingsMeta', 'Edit site.yaml settings.');
+        list.appendChild(renderStructureItem(child.label, detail, () => handleEditorTreeSelection(child.id)));
+      });
+      body.appendChild(list);
+      animate();
+      return;
+    }
     const isPages = node.source === 'tabs';
     kicker.textContent = treeText('rootKicker', 'Collection');
     title.textContent = node.label || (isPages ? treeText('pages', 'Pages') : treeText('articles', 'Articles'));
@@ -12343,10 +12535,10 @@ async function addComposerEntry(kind, anchor) {
 }
 
 function bindComposerUI(state) {
+  mountEditorSystemPanels();
   initEditorOverlay();
   initEditorRailResize();
   initMobileEditorRail();
-  initEditorRailSettingsMenu();
 
   // Overlay launchers and legacy mode buttons
   $$('.mode-tab').forEach(btn => {
@@ -12354,7 +12546,6 @@ function bindComposerUI(state) {
       const mode = btn.dataset.mode;
       if (mode === 'composer' || mode === 'updates') {
         event.preventDefault();
-        closeEditorRailSettingsMenu();
         openEditorOverlay(mode, btn);
         return;
       }
@@ -12805,57 +12996,6 @@ function showStatus(msg, kind = 'info') {
   updateUnsyncedSummary();
 }
 
-function closeEditorRailSettingsMenu({ restoreFocus = false } = {}) {
-  const root = document.getElementById('editorRailSettings');
-  const toggle = document.getElementById('editorRailSettingsToggle');
-  const menu = document.getElementById('editorRailSettingsMenu');
-  if (!root || !toggle || !menu) return;
-  root.classList.remove('is-open');
-  menu.hidden = true;
-  menu.setAttribute('aria-hidden', 'true');
-  toggle.setAttribute('aria-expanded', 'false');
-  if (restoreFocus) {
-    try { toggle.focus(); } catch (_) {}
-  }
-}
-
-function openEditorRailSettingsMenu() {
-  const root = document.getElementById('editorRailSettings');
-  const toggle = document.getElementById('editorRailSettingsToggle');
-  const menu = document.getElementById('editorRailSettingsMenu');
-  if (!root || !toggle || !menu) return;
-  root.classList.add('is-open');
-  menu.hidden = false;
-  menu.setAttribute('aria-hidden', 'false');
-  toggle.setAttribute('aria-expanded', 'true');
-}
-
-function initEditorRailSettingsMenu() {
-  const root = document.getElementById('editorRailSettings');
-  const toggle = document.getElementById('editorRailSettingsToggle');
-  const menu = document.getElementById('editorRailSettingsMenu');
-  if (!root || !toggle || !menu || toggle.dataset.bound === '1') return;
-  toggle.dataset.bound = '1';
-  toggle.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (menu.hidden) openEditorRailSettingsMenu();
-    else closeEditorRailSettingsMenu({ restoreFocus: true });
-  });
-  menu.addEventListener('click', (event) => {
-    event.stopPropagation();
-  });
-  document.addEventListener('click', (event) => {
-    if (!root.contains(event.target)) closeEditorRailSettingsMenu();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !menu.hidden) {
-      event.preventDefault();
-      closeEditorRailSettingsMenu({ restoreFocus: true });
-    }
-  });
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   const pushBtn = document.getElementById('btnPushMarkdown');
   if (pushBtn) {
@@ -13059,56 +13199,9 @@ function buildSiteUI(root, state) {
   layout.className = 'cs-layout';
   container.appendChild(layout);
 
-  const nav = document.createElement('nav');
-  nav.className = 'cs-nav';
-  const navLabel = (() => {
-    try {
-      const label = t('editor.composer.site.sections.navigation');
-      if (label && label !== 'editor.composer.site.sections.navigation') return label;
-    } catch (_) {}
-    return 'Site sections';
-  })();
-  nav.setAttribute('aria-label', navLabel);
-
-  const navList = document.createElement('ul');
-  navList.className = 'cs-nav-list';
-  navList.setAttribute('role', 'tablist');
-  nav.appendChild(navList);
-  layout.appendChild(nav);
-
   const viewport = document.createElement('div');
   viewport.className = 'cs-viewport';
   layout.appendChild(viewport);
-
-  const navOrientationQuery = (() => {
-    try {
-      if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return null;
-      return window.matchMedia('(max-width: 920px)');
-    } catch (_) {
-      return null;
-    }
-  })();
-
-  const updateNavOrientation = () => {
-    const horizontal = !!(navOrientationQuery && navOrientationQuery.matches);
-    navList.setAttribute('aria-orientation', horizontal ? 'horizontal' : 'vertical');
-  };
-
-  updateNavOrientation();
-  if (navOrientationQuery) {
-    const orientationHandler = () => {
-      updateNavOrientation();
-      try { scheduleScrollSync(); } catch (_) {}
-    };
-    if (typeof navOrientationQuery.addEventListener === 'function') navOrientationQuery.addEventListener('change', orientationHandler);
-    else if (typeof navOrientationQuery.addListener === 'function') navOrientationQuery.addListener(orientationHandler);
-    try {
-      root.__nsSiteNavOrientationCleanup = () => {
-        if (typeof navOrientationQuery.removeEventListener === 'function') navOrientationQuery.removeEventListener('change', orientationHandler);
-        else if (typeof navOrientationQuery.removeListener === 'function') navOrientationQuery.removeListener(orientationHandler);
-      };
-    } catch (_) {}
-  }
 
   const resolveViewportAnchorTop = () => {
     if (typeof window === 'undefined') return 0;
@@ -13129,18 +13222,6 @@ function buildSiteUI(root, state) {
         }
       }
     } catch (_) {}
-    try {
-      if (nav && typeof nav.getBoundingClientRect === 'function') {
-        const navStyles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(nav) : null;
-        const navVisible = (!navStyles || (navStyles.display !== 'none' && navStyles.visibility !== 'hidden'))
-          && (!nav.getClientRects || nav.getClientRects().length > 0);
-        const navRect = navVisible ? nav.getBoundingClientRect() : null;
-        if (navRect && Number.isFinite(navRect.top)) {
-          desiredTop = Math.min(desiredTop, Math.max(navRect.top - 8, 12));
-        }
-      }
-    } catch (_) {}
-
     return desiredTop;
   };
 
@@ -13210,19 +13291,6 @@ function buildSiteUI(root, state) {
     }
   };
 
-  function focusNavAt(index) {
-    if (!sectionsMeta.length) return;
-    const len = sectionsMeta.length;
-    let next = index;
-    if (Number.isNaN(next)) next = 0;
-    if (next < 0) next = len - 1;
-    if (next >= len) next = 0;
-    const target = sectionsMeta[next];
-    if (target && target.navButton && typeof target.navButton.focus === 'function') {
-      try { target.navButton.focus(); } catch (_) {}
-    }
-  }
-
   function setActiveSection(sectionId, options = {}) {
     if (!sectionId || !sectionsMeta.length) return;
     let resolved = false;
@@ -13231,7 +13299,7 @@ function buildSiteUI(root, state) {
     const shouldScroll = options && options.scrollViewport !== false;
     const skipScrollLock = !!(options && options.skipScrollLock);
     sectionsMeta.forEach((meta) => {
-      if (!meta || !meta.section || !meta.navButton) return;
+      if (!meta || !meta.section) return;
       const isActive = meta.id === sectionId;
       if (isActive) {
         activeSectionId = sectionId;
@@ -13240,10 +13308,6 @@ function buildSiteUI(root, state) {
         try { meta.section.removeAttribute('hidden'); } catch (_) {}
         meta.section.classList.add('is-active');
         meta.section.setAttribute('aria-hidden', 'false');
-        meta.navButton.classList.add('is-active');
-        meta.navButton.setAttribute('aria-selected', 'true');
-        meta.navButton.setAttribute('tabindex', '0');
-        navList.setAttribute('aria-activedescendant', meta.navButton.id);
         try { root.__nsSiteActiveSection = meta.label || ''; } catch (_) {}
         if (options.focusPanel) {
           const focusable = meta.section.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])');
@@ -13253,13 +13317,9 @@ function buildSiteUI(root, state) {
         try { meta.section.removeAttribute('hidden'); } catch (_) {}
         meta.section.classList.remove('is-active');
         try { meta.section.removeAttribute('aria-hidden'); } catch (_) {}
-        meta.navButton.classList.remove('is-active');
-        meta.navButton.setAttribute('aria-selected', 'false');
-        meta.navButton.setAttribute('tabindex', '-1');
       }
     });
     if (!resolved) return;
-    try { syncCompactNavState(); } catch (_) {}
     let focusCommitted = false;
     const commitFocus = (delay = 0) => {
       if (!focusTarget || focusCommitted) return;
@@ -13339,150 +13399,7 @@ function buildSiteUI(root, state) {
   }
 
   function refreshNavDiffState() {
-    sectionsMeta.forEach((meta) => {
-      if (!meta || !meta.navButton || !meta.section) return;
-      const hasDiff = !!meta.section.querySelector('[data-diff]');
-      if (hasDiff) meta.navButton.setAttribute('data-has-diff', 'true');
-      else meta.navButton.removeAttribute('data-has-diff');
-    });
-    try { syncCompactNavState(); } catch (_) {}
-  }
-
-  function renderCompactSectionMenu() {
-    if (typeof document === 'undefined' || !sectionsMeta.length) return;
-    const host = document.createElement('div');
-    host.className = 'cs-mobile-section-nav';
-
-    const toggle = document.createElement('button');
-    toggle.type = 'button';
-    toggle.className = 'cs-mobile-section-nav-toggle';
-    toggle.setAttribute('aria-label', navLabel);
-    toggle.setAttribute('title', navLabel);
-    toggle.setAttribute('aria-haspopup', 'menu');
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="5" cy="6" r="1.5"></circle><circle cx="5" cy="12" r="1.5"></circle><circle cx="5" cy="18" r="1.5"></circle><path d="M9 6h10M9 12h10M9 18h10"></path></svg>';
-
-    const menu = document.createElement('div');
-    menu.className = 'cs-mobile-section-menu';
-    menu.id = 'cs-mobile-section-menu';
-    menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', navLabel);
-    menu.setAttribute('aria-hidden', 'true');
-
-    const itemButtons = [];
-    sectionsMeta.forEach((meta) => {
-      if (!meta || !meta.id) return;
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'cs-mobile-section-menu-item';
-      item.textContent = meta.label || meta.id;
-      item.setAttribute('role', 'menuitem');
-      item.addEventListener('click', () => {
-        closeMenu();
-        setActiveSection(meta.id, { focusPanel: false });
-      });
-      menu.appendChild(item);
-      itemButtons.push({ meta, item });
-    });
-
-    const isOpen = () => host.classList.contains('is-open');
-    function closeMenu(options = {}) {
-      if (!isOpen()) return;
-      host.classList.remove('is-open');
-      toggle.setAttribute('aria-expanded', 'false');
-      menu.setAttribute('aria-hidden', 'true');
-      if (options.focusToggle) {
-        try { toggle.focus({ preventScroll: true }); }
-        catch (_) { try { toggle.focus(); } catch (_) {} }
-      }
-    }
-    function openMenu() {
-      if (isOpen()) return;
-      host.classList.add('is-open');
-      toggle.setAttribute('aria-expanded', 'true');
-      menu.setAttribute('aria-hidden', 'false');
-    }
-    function toggleMenu() {
-      if (isOpen()) closeMenu();
-      else openMenu();
-    }
-
-    toggle.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      toggleMenu();
-    });
-    toggle.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openMenu();
-        const active = itemButtons.find(({ item }) => item.classList.contains('is-active')) || itemButtons[0];
-        if (active && active.item && typeof active.item.focus === 'function') active.item.focus();
-      }
-    });
-    menu.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeMenu({ focusToggle: true });
-        return;
-      }
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
-      event.preventDefault();
-      const enabled = itemButtons.map(({ item }) => item).filter(Boolean);
-      const current = enabled.indexOf(document.activeElement);
-      let next = current;
-      if (event.key === 'Home') next = 0;
-      else if (event.key === 'End') next = enabled.length - 1;
-      else if (event.key === 'ArrowDown') next = current < 0 ? 0 : current + 1;
-      else next = current < 0 ? enabled.length - 1 : current - 1;
-      if (next < 0) next = enabled.length - 1;
-      if (next >= enabled.length) next = 0;
-      const target = enabled[next];
-      if (target && typeof target.focus === 'function') target.focus();
-    });
-
-    const onPointerDown = (event) => {
-      if (!host.contains(event.target)) closeMenu();
-    };
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') closeMenu({ focusToggle: true });
-    };
-    const onResize = () => {
-      if (typeof window !== 'undefined' && window.matchMedia && !window.matchMedia('(max-width: 920px)').matches) {
-        closeMenu();
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    if (typeof window !== 'undefined') window.addEventListener('resize', onResize);
-
-    host.append(toggle, menu);
-    document.body.appendChild(host);
-
-    syncCompactNavState = () => {
-      itemButtons.forEach(({ meta, item }) => {
-        const active = !!(meta && meta.id === activeSectionId);
-        item.classList.toggle('is-active', active);
-        if (active) item.setAttribute('aria-current', 'true');
-        else item.removeAttribute('aria-current');
-        const sourceButton = meta && meta.navButton;
-        const hasDiff = !!(sourceButton && sourceButton.getAttribute('data-has-diff') === 'true');
-        if (hasDiff) item.setAttribute('data-has-diff', 'true');
-        else item.removeAttribute('data-has-diff');
-      });
-    };
-    syncCompactNavState();
-
-    root.__nsSiteCompactNavCleanup = () => {
-      closeMenu();
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-      if (typeof window !== 'undefined') window.removeEventListener('resize', onResize);
-      try { host.remove(); } catch (_) {
-        if (host.parentNode) host.parentNode.removeChild(host);
-      }
-      syncCompactNavState = () => {};
-    };
+    // Section navigation was removed; diff state is surfaced in the system tree instead.
   }
 
   function cancelScheduledScrollSync() {
@@ -13597,41 +13514,7 @@ function buildSiteUI(root, state) {
       return fromHeading && fromHeading.textContent ? fromHeading.textContent.trim() : `Section ${sectionsMeta.length + 1}`;
     })();
 
-    const navItem = document.createElement('li');
-    navItem.className = 'cs-nav-item';
-    const navButton = document.createElement('button');
-    navButton.type = 'button';
-    navButton.className = 'cs-nav-button';
-    const navButtonId = `${sectionId}-tab`;
-    navButton.id = navButtonId;
-    navButton.textContent = labelText;
-    navButton.setAttribute('role', 'tab');
-    navButton.setAttribute('aria-controls', sectionId);
-    navButton.setAttribute('aria-selected', 'false');
-    navButton.setAttribute('tabindex', '-1');
-    navButton.addEventListener('click', () => setActiveSection(sectionId, { focusPanel: true }));
-    navButton.addEventListener('keydown', (event) => {
-      const key = event.key;
-      if (!key) return;
-      const currentIndex = sectionsMeta.findIndex((meta) => meta && meta.id === sectionId);
-      if (key === 'ArrowDown' || key === 'ArrowRight') {
-        event.preventDefault();
-        focusNavAt(currentIndex + 1);
-      } else if (key === 'ArrowUp' || key === 'ArrowLeft') {
-        event.preventDefault();
-        focusNavAt(currentIndex - 1);
-      } else if (key === 'Home') {
-        event.preventDefault();
-        focusNavAt(0);
-      } else if (key === 'End') {
-        event.preventDefault();
-        focusNavAt(sectionsMeta.length - 1);
-      }
-    });
-    navItem.appendChild(navButton);
-    navList.appendChild(navItem);
-
-    const meta = { id: sectionId, section, navButton, label: labelText };
+    const meta = { id: sectionId, section, label: labelText };
     sectionsMeta.push(meta);
 
     const shouldRestore = preservedActiveLabel && labelText === preservedActiveLabel;
@@ -15712,7 +15595,6 @@ function buildSiteUI(root, state) {
     extrasSection.appendChild(list);
   }
 
-  renderCompactSectionMenu();
   syncSiteEditorSingleLabelWidth(root);
   refreshNavDiffState();
   try { scheduleScrollSync(); } catch (_) {}
@@ -16067,29 +15949,7 @@ function rebuildSiteUI() {
   .composer-site-main{width:100%;max-width:none;margin:0;padding:0}
   #composerSite{width:100%}
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
-  .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
-  .cs-nav{position:sticky;top:50%;transform:translateY(-50%);align-self:start;z-index:2;padding:.65rem 0 1rem}
-  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;overflow:visible}
-  .cs-nav-item{width:100%}
-  .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
-  .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}
-  html body button.cs-nav-button.is-active{background:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;border-color:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;color:#fff !important;box-shadow:none !important;border-radius:10px !important;font-weight:700 !important}
-  .cs-nav-button:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
-  .cs-nav-button[data-has-diff="true"]::after{content:'';width:.55rem;height:.55rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
-  html body button.cs-nav-button.is-active[data-has-diff="true"]::after{background:#fff !important;box-shadow:0 0 0 3px color-mix(in srgb,#fff 28%, transparent) !important}
-  .cs-mobile-section-nav{display:none;position:fixed;right:1rem;bottom:4.05rem;z-index:1000}
-  .cs-mobile-section-nav-toggle{width:2.5rem;height:2.5rem;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--text);display:inline-flex;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer;transition:background-color .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease,transform .18s ease}
-  .cs-mobile-section-nav-toggle:hover,.cs-mobile-section-nav.is-open .cs-mobile-section-nav-toggle{background:color-mix(in srgb,var(--primary) 10%, var(--card));border-color:color-mix(in srgb,var(--primary) 48%, var(--border));color:color-mix(in srgb,var(--primary) 96%, var(--text));box-shadow:0 14px 26px color-mix(in srgb,var(--primary) 18%, transparent)}
-  .cs-mobile-section-nav-toggle:focus-visible{outline:2px solid color-mix(in srgb,var(--primary) 58%, transparent);outline-offset:2px}
-  .cs-mobile-section-nav-toggle svg{width:1.2rem;height:1.2rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .cs-mobile-section-nav-toggle svg circle{fill:currentColor;stroke:none}
-  .cs-mobile-section-menu{position:absolute;right:0;bottom:calc(100% + .55rem);width:max-content;min-width:13rem;max-width:min(18rem,calc(100vw - 2rem));padding:.45rem;border:1px solid color-mix(in srgb,var(--border) 82%, transparent);border-radius:12px;background:color-mix(in srgb,var(--card) 98%, transparent);box-shadow:0 18px 42px rgba(15,23,42,0.18);display:flex;flex-direction:column;gap:.25rem;opacity:0;visibility:hidden;transform:translateY(8px) scale(.98);transform-origin:bottom right;pointer-events:none;transition:opacity .16s ease,transform .16s ease,visibility 0s linear .16s}
-  .cs-mobile-section-nav.is-open .cs-mobile-section-menu{opacity:1;visibility:visible;transform:translateY(0) scale(1);pointer-events:auto;transition:opacity .16s ease,transform .16s ease,visibility 0s}
-  .cs-mobile-section-menu-item{appearance:none;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 82%, transparent);border-radius:9px;padding:.5rem .62rem;text-align:left;font:inherit;font-size:.9rem;font-weight:650;line-height:1.2;cursor:pointer;display:flex;align-items:center;gap:.45rem;white-space:nowrap;transition:background-color .16s ease,border-color .16s ease,color .16s ease}
-  .cs-mobile-section-menu-item:hover,.cs-mobile-section-menu-item:focus-visible{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 96%, transparent);outline:none}
-  html body button.cs-mobile-section-menu-item.is-active{background:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;border-color:color-mix(in srgb,var(--primary) 96%, var(--text) 4%) !important;color:#fff !important;border-radius:9px !important;font-weight:700 !important}
-  .cs-mobile-section-menu-item[data-has-diff="true"]::after{content:'';width:.5rem;height:.5rem;border-radius:999px;margin-left:auto;background:color-mix(in srgb,var(--primary) 78%, var(--text));box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%, transparent)}
-  html body button.cs-mobile-section-menu-item.is-active[data-has-diff="true"]::after{background:#fff !important;box-shadow:0 0 0 3px color-mix(in srgb,#fff 28%, transparent) !important}
+  .cs-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem;align-items:start}
   .cs-viewport{min-width:0;display:flex;flex-direction:column;gap:1rem}
   .cs-section{border:1px solid color-mix(in srgb,var(--border) 96%, transparent);border-radius:12px;background:var(--card);box-shadow:0 6px 18px rgba(15,23,42,0.08);padding:.9rem 1rem;display:flex;flex-direction:column;gap:.6rem}
   .cs-section-head{display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap}
@@ -16222,16 +16082,8 @@ function rebuildSiteUI() {
   .cs-input[data-diff="changed"],.cs-select[data-diff="changed"],.cs-field[data-diff="changed"] .cs-input,.cs-field[data-diff="changed"] .cs-select,.cs-single-grid-row[data-diff="changed"] .cs-input,.cs-single-grid-row[data-diff="changed"] .cs-select{background:color-mix(in srgb,#f59e0b 10%, transparent);border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
   .cs-repo-field[data-diff="changed"],.cs-repo-grid[data-diff="changed"] .cs-repo-field,.cs-extra-list[data-diff="changed"] li{background:color-mix(in srgb,#f59e0b 10%, transparent);border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
   .cs-switch[data-diff="changed"] .cs-switch-track,.cs-field[data-diff="changed"] .cs-switch-track,.cs-single-grid-row[data-diff="changed"] .cs-switch-track{background:color-mix(in srgb,#f59e0b 18%, var(--card));border-color:color-mix(in srgb,#f59e0b 45%, var(--border))}
-  @media (max-width:1024px){
-    .cs-layout{grid-template-columns:minmax(180px,220px) minmax(0,1fr);gap:1.1rem}
-  }
   @media (max-width:920px){
     .cs-layout{grid-template-columns:minmax(0,1fr);gap:1rem}
-    .cs-nav{display:none}
-    html[data-init-mode="composer"][data-init-cfile="site"] .cs-mobile-section-nav{display:block}
-  }
-  @media (max-width:720px){
-    .cs-mobile-section-menu{max-width:calc(100vw - 2rem)}
   }
   @media (max-width:880px){
     .cs-section{padding:.9rem .9rem}

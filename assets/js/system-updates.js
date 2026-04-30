@@ -1,6 +1,6 @@
 import { mdParse } from './markdown.js';
 import { setSafeHtml } from './utils.js';
-import { t } from './i18n.js?v=20260430a';
+import { t } from './i18n.js?v=20260430c';
 import { unzipSync, strFromU8 } from './vendor/fflate.browser.js';
 
 const TEXT_EXTENSIONS = new Set([

@@ -68,110 +68,6 @@
       padding:1.4rem 1rem 1rem 1.2rem;
       scrollbar-gutter:stable;
     }
-    .editor-rail-footer {
-      flex:0 0 auto;
-      min-width:0;
-      position:relative;
-      display:flex;
-      align-items:center;
-      justify-content:flex-start;
-      padding:.5rem .75rem calc(.5rem + env(safe-area-inset-bottom, 0px)) .9rem;
-      border-top:1px solid color-mix(in srgb, var(--border) 82%, transparent);
-      background:color-mix(in srgb, var(--card) 72%, var(--bg));
-    }
-    .editor-rail-settings {
-      position:relative;
-      display:inline-flex;
-      flex:0 0 auto;
-      min-width:0;
-    }
-    .editor-rail-settings-toggle {
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      width:2rem;
-      height:2rem;
-      padding:0;
-      border:1px solid transparent;
-      border-radius:7px;
-      color:var(--muted);
-      background:transparent;
-      cursor:pointer;
-      transition:background .16s ease, color .16s ease, border-color .16s ease;
-    }
-    .editor-rail-settings-toggle:hover,
-    .editor-rail-settings-toggle:focus-visible,
-    .editor-rail-settings.is-open .editor-rail-settings-toggle {
-      color:var(--text);
-      background:color-mix(in srgb, var(--text) 6%, transparent);
-      border-color:color-mix(in srgb, var(--border) 72%, transparent);
-    }
-    .editor-rail-settings-toggle:focus-visible {
-      outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent);
-      outline-offset:2px;
-    }
-    .editor-rail-settings-toggle svg {
-      width:1.05rem;
-      height:1.05rem;
-      display:block;
-      fill:none;
-      stroke:currentColor;
-      stroke-width:2;
-      stroke-linecap:round;
-      stroke-linejoin:round;
-    }
-    .editor-rail-settings-menu {
-      position:absolute;
-      left:0;
-      bottom:calc(100% + .45rem);
-      z-index:8;
-      width:min(13rem, calc(100vw - 2rem));
-      display:flex;
-      flex-direction:column;
-      gap:.45rem;
-      padding:.55rem;
-      border:1px solid color-mix(in srgb, var(--border) 84%, transparent);
-      border-radius:8px;
-      background:color-mix(in srgb, var(--card) 96%, var(--bg));
-      box-shadow:0 16px 36px color-mix(in srgb, var(--shadow) 20%, transparent);
-    }
-    .editor-rail-settings-menu[hidden] { display:none; }
-    .editor-rail-footer .editor-lang-switcher {
-      display:flex;
-      flex-direction:column;
-      align-items:stretch;
-      margin:0;
-      width:100%;
-      min-width:0;
-      padding:0 0 .5rem;
-      border:0;
-      border-bottom:1px solid color-mix(in srgb, var(--border) 78%, transparent);
-      border-radius:0;
-      background:transparent;
-      box-shadow:none;
-      gap:.12rem;
-    }
-    .editor-rail-footer .editor-lang-switcher label {
-      display:block;
-      font-size:.68rem;
-      letter-spacing:.04em;
-    }
-    .editor-rail-footer .editor-lang-switcher select {
-      flex:1 1 auto;
-      min-width:0;
-      width:100%;
-      height:1.85rem;
-      padding:.25rem .55rem;
-      font-size:.8rem;
-      border-radius:7px;
-    }
-    .editor-rail-footer .editor-lang-switcher select:focus,
-    .editor-rail-footer .editor-lang-switcher select:focus-visible {
-      outline:0 !important;
-      outline-offset:0;
-      box-shadow:none !important;
-      border-color:color-mix(in srgb, var(--border) 85%, transparent);
-    }
     .editor-rail-action.mode-tab {
       width:100%;
       justify-content:flex-start;
@@ -309,10 +205,14 @@
     }
     .editor-detail-pane { min-width:0; min-height:0; display:flex; flex-direction:column; gap:1rem; }
     .editor-structure-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
-    .editor-markdown-panel[hidden], .editor-structure-panel[hidden] { display:none !important; }
+    .editor-system-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
+    .editor-markdown-panel[hidden], .editor-structure-panel[hidden], .editor-system-panel[hidden] { display:none !important; }
     .editor-structure-panel.is-content-entering .editor-structure-head,
     .editor-structure-panel.is-content-entering .editor-structure-body { animation:editor-structure-content-enter .2s ease-out both; }
+    .editor-system-panel.is-content-entering .editor-structure-head,
+    .editor-system-panel.is-content-entering .editor-system-body { animation:editor-structure-content-enter .2s ease-out both; }
     .editor-structure-panel.is-content-entering .editor-structure-body { animation-delay:.03s; }
+    .editor-system-panel.is-content-entering .editor-system-body { animation-delay:.03s; }
     .editor-markdown-panel.is-content-entering > .toolbar,
     .editor-markdown-panel.is-content-entering .editor-workspace { animation:editor-structure-content-enter .2s ease-out both; }
     .editor-markdown-panel.is-content-entering .editor-workspace { animation-delay:.03s; }
@@ -328,6 +228,7 @@
     .editor-structure-meta { margin:0; color:var(--muted); font-size:.92rem; line-height:1.35; }
     .editor-structure-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; align-items:center; align-self:center; }
     .editor-structure-body { display:flex; flex-direction:column; gap:.75rem; min-width:0; }
+    .editor-system-body { display:flex; flex-direction:column; gap:1rem; min-width:0; }
     .editor-structure-row { display:grid; grid-template-columns:minmax(90px, 140px) minmax(0, 1fr) auto; gap:.55rem; align-items:center; min-height:2.2rem; }
     .editor-structure-row label, .editor-structure-label { color:color-mix(in srgb, var(--text) 70%, transparent); font-weight:700; font-size:.9rem; }
     .editor-structure-row input, .editor-structure-row select { width:100%; min-width:0; height:2rem; border:1px solid var(--border); border-radius:6px; background:var(--card); color:var(--text); padding:.25rem .45rem; }
@@ -345,6 +246,8 @@
     @media (prefers-reduced-motion: reduce) {
       .editor-structure-panel.is-content-entering .editor-structure-head,
       .editor-structure-panel.is-content-entering .editor-structure-body,
+      .editor-system-panel.is-content-entering .editor-structure-head,
+      .editor-system-panel.is-content-entering .editor-system-body,
       .editor-markdown-panel.is-content-entering > .toolbar,
       .editor-markdown-panel.is-content-entering .editor-workspace { animation:none; }
     }
@@ -745,6 +648,18 @@
     .editor-lang-switcher select:focus-visible {
       outline: 2px solid color-mix(in srgb, var(--primary) 48%, transparent);
       outline-offset: 2px;
+    }
+    .editor-system-language-item {
+      align-items:center;
+    }
+    .editor-lang-switcher-inline {
+      grid-column:auto;
+      grid-row:auto;
+      justify-self:auto;
+      align-self:center;
+      margin-right:0;
+      box-shadow:none;
+      border-radius:8px;
     }
     .page-titlebar h1 { font-size: 1.35rem; margin: 0; }
     /* GitHub connection status */
@@ -2092,30 +2007,6 @@
         <div class="editor-rail-tree-scroll">
           <div class="editor-file-tree" id="editorFileTree" role="tree" aria-label="Content file tree" data-i18n-aria-label="editor.tree.treeAria"></div>
         </div>
-        <div class="editor-rail-footer">
-          <div class="editor-rail-settings" id="editorRailSettings">
-            <button type="button" class="editor-rail-settings-toggle" id="editorRailSettingsToggle" aria-haspopup="menu" aria-expanded="false" aria-controls="editorRailSettingsMenu" aria-label="Editor settings">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
-                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2.06 2.06 0 0 1-2.91 2.91l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .16 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1-.16 1.7 1.7 0 0 0-1.88.34l-.06.06a2.06 2.06 0 0 1-2.91-2.91l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.16-1 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0 .16-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2.06 2.06 0 0 1 2.91-2.91l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.16A1.7 1.7 0 0 0 11 2.89V3a2 2 0 0 1 4 0v-.11a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1 .16 1.7 1.7 0 0 0 1.88-.34l.06-.06a2.06 2.06 0 0 1 2.91 2.91l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .16 1 1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"></path>
-              </svg>
-            </button>
-            <div class="editor-rail-settings-menu" id="editorRailSettingsMenu" role="menu" hidden aria-hidden="true">
-              <div class="editor-lang-switcher" id="editorLangSwitcher">
-                <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
-                <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
-              </div>
-              <button type="button" class="mode-tab editor-rail-action" data-mode="composer" data-tab-label="Site Settings" data-i18n-data-tab-label="editor.modes.composer" aria-controls="mode-composer" aria-haspopup="dialog" aria-expanded="false" aria-label="Site Settings" data-i18n-aria-label="editor.modes.composer">
-                <span class="mode-tab-text" data-i18n="editor.modes.composer">Site Settings</span>
-                <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-              </button>
-              <button type="button" class="mode-tab editor-rail-action" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" aria-controls="mode-updates" aria-haspopup="dialog" aria-expanded="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
-                <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
-                <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-              </button>
-            </div>
-          </div>
-        </div>
       <div class="status-stack">
         <div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">
           <div class="gs-flow">
@@ -2256,6 +2147,19 @@
           </aside>
         </div>
           </section>
+          <section class="editor-system-panel" id="editorSystemPanel" hidden aria-hidden="true" aria-live="polite">
+            <div class="editor-structure-head">
+              <div class="editor-structure-heading">
+                <p class="editor-structure-kicker" id="editorSystemKicker" data-i18n="editor.tree.system">System</p>
+                <div class="editor-structure-title-row">
+                  <h2 id="editorSystemTitle" data-i18n="editor.tree.system">System</h2>
+                  <p id="editorSystemMeta" class="editor-structure-meta"></p>
+                </div>
+              </div>
+              <div class="editor-structure-actions" id="editorSystemActions"></div>
+            </div>
+            <div class="editor-system-body" id="editorSystemBody"></div>
+          </section>
         </div>
       </section>
 
@@ -2393,10 +2297,10 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-panel-mode-20260430c"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-panel-mode-20260430c"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-panel-mode-20260430c"></script>
-  <script type="module" src="assets/js/editor-github.js?v=editor-panel-mode-20260430c"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-system-tree-20260430a"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-system-tree-20260430a"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-system-tree-20260430a"></script>
+  <script type="module" src="assets/js/editor-github.js?v=editor-system-tree-20260430a"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
