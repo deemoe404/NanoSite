@@ -286,6 +286,18 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.editor-structure-head \{ display:flex; justify-content:space-between; align-items:center;[\s\S]*\.editor-structure-title-row \{ display:flex; align-items:baseline;[\s\S]*\.editor-structure-kicker \{ display:none !important; \}/,
+  'editor structure header should hide the kicker and place the item count beside the title'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-structure-heading"[\s\S]*class="editor-structure-title-row"[\s\S]*id="editorStructureTitle"[\s\S]*id="editorStructureMeta"/,
+  'editor structure header markup should group the title and metadata in one row'
+);
+
+assert.match(
+  editorSource,
   /\.editor-markdown-panel\.is-content-entering > \.toolbar,[\s\S]*\.editor-markdown-panel\.is-content-entering \.editor-workspace \{ animation:editor-structure-content-enter \.2s ease-out both; \}/,
   'markdown editor panel should animate in when a file is opened from the tree'
 );
