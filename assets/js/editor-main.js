@@ -958,11 +958,6 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.rows = 4;
         entry.input = textarea;
         controls.appendChild(textarea);
-        const hint = document.createElement('p');
-        hint.className = 'frontmatter-list-hint';
-        hint.textContent = translate('editor.frontMatter.listHint', 'One item per line');
-        hint.dataset.i18n = 'editor.frontMatter.listHint';
-        controls.appendChild(hint);
       } else if (entry.type === 'date') {
         const input = document.createElement('input');
         input.type = 'date';
