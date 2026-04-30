@@ -8732,6 +8732,7 @@ function syncEditorOverlayUi() {
   const title = document.getElementById('editorModalTitle');
   const composerActions = document.getElementById('editorModalComposerActions');
   const updateActions = document.getElementById('editorModalUpdateActions');
+  const modalBody = document.querySelector('.editor-modal-body');
   const hasOverlay = activeEditorOverlayMode === 'composer' || activeEditorOverlayMode === 'updates';
   const isComposerOverlay = activeEditorOverlayMode === 'composer';
   const isUpdatesOverlay = activeEditorOverlayMode === 'updates';
@@ -8749,6 +8750,10 @@ function syncEditorOverlayUi() {
   if (updateActions) {
     updateActions.hidden = !isUpdatesOverlay;
     updateActions.setAttribute('aria-hidden', isUpdatesOverlay ? 'false' : 'true');
+  }
+  if (modalBody) {
+    modalBody.classList.toggle('is-composer-overlay', isComposerOverlay);
+    modalBody.classList.toggle('is-updates-overlay', isUpdatesOverlay);
   }
 
   ['composer', 'updates'].forEach((mode) => {
@@ -8789,6 +8794,43 @@ function focusEditorOverlay() {
   catch (_) { try { focusTarget.focus(); } catch (__) {} }
 }
 
+function resetSiteSettingsNavOnOpen() {
+  const root = document.getElementById('composerSite');
+  if (!root) return;
+  try {
+    const viewport = root.querySelector('.cs-viewport');
+    if (viewport) viewport.scrollTop = 0;
+  } catch (_) {}
+  try {
+    const modalBody = typeof root.closest === 'function' ? root.closest('.editor-modal-body') : null;
+    if (modalBody) modalBody.scrollTop = 0;
+  } catch (_) {}
+  const firstSectionId = (() => {
+    try { return String(root.__nsSiteFirstSectionId || '').trim(); }
+    catch (_) { return ''; }
+  })();
+  const setActive = (() => {
+    try { return typeof root.__nsSiteNavSetActive === 'function' ? root.__nsSiteNavSetActive : null; }
+    catch (_) { return null; }
+  })();
+  if (!firstSectionId || !setActive) return;
+  const activateFirst = () => {
+    try {
+      setActive(firstSectionId, {
+        focusPanel: false,
+        scrollViewport: false,
+        skipScrollLock: true
+      });
+    } catch (_) {}
+  };
+  activateFirst();
+  try {
+    requestAnimationFrame(() => requestAnimationFrame(activateFirst));
+  } catch (_) {
+    activateFirst();
+  }
+}
+
 function openEditorOverlay(mode, trigger = null) {
   const nextMode = mode === 'updates' ? 'updates' : mode === 'composer' ? 'composer' : null;
   if (!nextMode) return;
@@ -8798,6 +8840,7 @@ function openEditorOverlay(mode, trigger = null) {
     try { applyComposerFile('site', { force: true, immediate: true }); } catch (_) {}
   }
   syncEditorOverlayUi();
+  if (nextMode === 'composer') resetSiteSettingsNavOnOpen();
   try { requestAnimationFrame(focusEditorOverlay); }
   catch (_) { focusEditorOverlay(); }
 }
@@ -12787,6 +12830,7 @@ function buildSiteUI(root, state) {
   try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
   try { root.__nsSiteNavRefresh = null; } catch (_) {}
   try { root.__nsSiteNavSetActive = null; } catch (_) {}
+  try { root.__nsSiteFirstSectionId = null; } catch (_) {}
   try { root.__nsSiteRevealField = null; } catch (_) {}
   if (!state || typeof state !== 'object') return;
   let site = state.site;
@@ -12803,7 +12847,12 @@ function buildSiteUI(root, state) {
   const sectionsMeta = [];
   let activeSectionId = '';
   let syncCompactNavState = () => {};
+  const rootHadVisibleLayout = (() => {
+    try { return !!(root.getClientRects && root.getClientRects().length); }
+    catch (_) { return false; }
+  })();
   const preservedActiveLabel = (() => {
+    if (!rootHadVisibleLayout) return '';
     try { return String(root.__nsSiteActiveSection || '').trim(); }
     catch (_) { return ''; }
   })();
@@ -12918,6 +12967,16 @@ function buildSiteUI(root, state) {
 
   const resolveSiteScrollContainer = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return null;
+    try {
+      const viewport = root ? root.querySelector('.cs-viewport') : null;
+      if (viewport) {
+        const styles = typeof window.getComputedStyle === 'function' ? window.getComputedStyle(viewport) : null;
+        const overflowY = styles ? String(styles.overflowY || '') : '';
+        const canOwnScroll = /(auto|scroll|overlay)/.test(overflowY)
+          && (!viewport.getClientRects || viewport.getClientRects().length > 0);
+        if (canOwnScroll) return viewport;
+      }
+    } catch (_) {}
     try {
       const modalBody = root && typeof root.closest === 'function' ? root.closest('.editor-modal-body') : null;
       if (modalBody) return modalBody;
@@ -13277,15 +13336,18 @@ function buildSiteUI(root, state) {
       if (!sectionsMeta.length) return;
       const scrollContainer = resolveSiteScrollContainer();
       const anchorTop = resolveViewportAnchorTop();
+      const scrollTop = getSiteScrollTop(scrollContainer);
       const viewportHeight = getSiteViewportHeight(scrollContainer);
       const tolerance = Math.max(48, Math.min(viewportHeight * 0.25 || 0, 180));
       let candidate = null;
+      let measuredAnySection = false;
 
       for (let i = 0; i < sectionsMeta.length; i += 1) {
         const meta = sectionsMeta[i];
         if (!meta || !meta.section) continue;
         const rect = meta.section.getBoundingClientRect();
         if (!rect || rect.height <= 4) continue;
+        measuredAnySection = true;
         if (rect.top <= anchorTop + tolerance) {
           candidate = meta;
           continue;
@@ -13294,7 +13356,9 @@ function buildSiteUI(root, state) {
         break;
       }
 
-      if (!candidate) candidate = sectionsMeta[sectionsMeta.length - 1] || null;
+      if (!measuredAnySection) return;
+      if (scrollTop <= 4) candidate = sectionsMeta[0] || null;
+      if (!candidate) candidate = sectionsMeta[0] || null;
       if (!candidate || candidate.id === activeSectionId) return;
       setActiveSection(candidate.id, { focusPanel: false, scrollViewport: false, skipScrollLock: true });
     }
@@ -13513,6 +13577,7 @@ function buildSiteUI(root, state) {
 
   try { root.__nsSiteNavRefresh = refreshNavDiffState; } catch (_) {}
   try { root.__nsSiteNavSetActive = setActiveSection; } catch (_) {}
+  try { root.__nsSiteFirstSectionId = sectionsMeta[0] && sectionsMeta[0].id ? sectionsMeta[0].id : ''; } catch (_) {}
 
   const markDirty = () => {
     setStateSlice('site', site);
@@ -15822,11 +15887,10 @@ function rebuildSiteUI() {
   .composer-site-host{padding:.35rem 0 1.2rem}
   .composer-site-main{width:100%;max-width:none;margin:0;padding:0}
   #composerSite{width:100%}
-
   .cs-root{display:flex;flex-direction:column;gap:1.1rem;padding:.2rem 0 1.1rem}
   .cs-layout{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr);gap:1.2rem;align-items:start}
   .cs-nav{position:sticky;top:50%;transform:translateY(-50%);align-self:start;z-index:2;padding:.65rem 0 1rem}
-  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;max-height:calc(100vh - 6rem);overflow:auto}
+  .cs-nav-list{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:.55rem;overflow:visible}
   .cs-nav-item{width:100%}
   .cs-nav-button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:.5rem;text-align:left;padding:.52rem .7rem;border-radius:10px;border:1px solid transparent;background:transparent;color:color-mix(in srgb,var(--text) 78%, transparent);font-weight:600;font-size:.9rem;cursor:pointer;transition:color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease}
   .cs-nav-button:hover{background:color-mix(in srgb,var(--text) 6%, transparent);color:color-mix(in srgb,var(--text) 94%, transparent)}

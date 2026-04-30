@@ -821,14 +821,32 @@ assert.match(
 
 assert.match(
   source,
-  /const resolveSiteScrollContainer = \(\) => \{[\s\S]*root\.closest\('\.editor-modal-body'\)[\s\S]*return modalBody;[\s\S]*return window;[\s\S]*\};/,
-  'site section navigation should use the modal body as its scroll container when rendered in the overlay'
+  /const resolveSiteScrollContainer = \(\) => \{[\s\S]*root \? root\.querySelector\('\.cs-viewport'\)[\s\S]*canOwnScroll[\s\S]*return viewport;[\s\S]*root\.closest\('\.editor-modal-body'\)[\s\S]*return modalBody;[\s\S]*return window;[\s\S]*\};/,
+  'site section navigation should prefer the internal content viewport before falling back to the modal body'
 );
 
 assert.match(
   source,
   /const scrollContainer = resolveSiteScrollContainer\(\);[\s\S]*scrollContainer\.addEventListener\('scroll', onScroll, \{ passive: true \}\);[\s\S]*scrollContainer\.removeEventListener\('scroll', onScroll, \{ passive: true \}\);/,
-  'site section active-state sync should listen to modal-body scroll events, not only window scroll'
+  'site section active-state sync should listen to its resolved scroll container, not only window scroll'
+);
+
+assert.match(
+  source,
+  /let measuredAnySection = false;[\s\S]*if \(!rect \|\| rect\.height <= 4\) continue;[\s\S]*measuredAnySection = true;[\s\S]*if \(!measuredAnySection\) return;[\s\S]*if \(!candidate\) candidate = sectionsMeta\[0\] \|\| null;/,
+  'site section active-state sync should ignore hidden modal measurements instead of falling back to the last section'
+);
+
+assert.match(
+  source,
+  /const scrollTop = getSiteScrollTop\(scrollContainer\);[\s\S]*if \(scrollTop <= 4\) candidate = sectionsMeta\[0\] \|\| null;/,
+  'site section active-state sync should keep the repository section active when the modal body is at the top'
+);
+
+assert.match(
+  source,
+  /function resetSiteSettingsNavOnOpen\(\) \{[\s\S]*modalBody\.scrollTop = 0;[\s\S]*root\.__nsSiteFirstSectionId[\s\S]*setActive\(firstSectionId,[\s\S]*scrollViewport: false[\s\S]*activateFirst\(\);[\s\S]*requestAnimationFrame/,
+  'opening Site Settings should reset the modal body and left navigation to the first section'
 );
 
 assert.match(
@@ -1089,10 +1107,28 @@ assert.match(
   'desktop site section navigation should stay vertically centered in the modal body viewport'
 );
 
+assert.doesNotMatch(
+  source,
+  /\.editor-modal-body\.is-composer-overlay\{overflow:hidden\}/,
+  'site settings overlay should keep the modal body scrollable so the section navigation remains visible'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.editor-modal-body\.is-composer-overlay[\s\S]*\.cs-layout\{height:100%;min-height:0\}/,
+  'site settings overlay should not force a full-height composer layout that can collapse the left navigation'
+);
+
 assert.match(
   source,
-  /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;/,
-  'desktop site section navigation should not render as a card container'
+  /\.cs-nav-list\{list-style:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;display:flex;flex-direction:column;gap:\.55rem;overflow:visible\}/,
+  'desktop site section navigation should not render as a card container or scroll independently'
+);
+
+assert.doesNotMatch(
+  source,
+  /\.cs-nav-list\{[^}]*overflow:auto/,
+  'desktop site section navigation list should not be independently scrollable'
 );
 
 assert.match(
