@@ -75,6 +75,8 @@ const LS_KEYS = {
   editorState: 'ns_composer_editor_state', // persisted dynamic editor info
   systemTreeExpanded: 'ns_editor_system_tree_expanded'
 };
+const EDITOR_STATE_VERSION = 3;
+const EDITOR_SCROLL_SAVE_DELAY = 120;
 
 // Track additional markdown editor tabs spawned from Composer
 const dynamicEditorTabs = new Map();       // modeId -> { path, button, content, loaded, baseDir }
@@ -88,8 +90,14 @@ let allowEditorStatePersist = false;
 let editorContentTree = [];
 let activeEditorTreeNodeId = 'articles';
 const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
+let hasEditorStateV3Snapshot = false;
 try {
-  if (window.localStorage.getItem(LS_KEYS.systemTreeExpanded) === '1') {
+  const rawEditorState = window.localStorage.getItem(LS_KEYS.editorState);
+  const parsedEditorState = rawEditorState ? JSON.parse(rawEditorState) : null;
+  hasEditorStateV3Snapshot = !!(parsedEditorState && parsedEditorState.v === EDITOR_STATE_VERSION);
+} catch (_) {}
+try {
+  if (!hasEditorStateV3Snapshot && window.localStorage.getItem(LS_KEYS.systemTreeExpanded) === '1') {
     expandedEditorTreeNodeIds.add('system');
   }
 } catch (_) {}
@@ -100,6 +108,9 @@ let editorOverlayReturnFocus = null;
 let editorOverlayEscapeBound = false;
 let editorRailResizeBound = false;
 let editorMobileRailBound = false;
+let editorStatePersistTimer = 0;
+let editorStateScrollBound = false;
+let editorContentScrollByKey = {};
 const EDITOR_RAIL_WIDTH_KEY = 'ns_editor_rail_width';
 const EDITOR_RAIL_DEFAULT_WIDTH = 340;
 const EDITOR_RAIL_MIN_WIDTH = 280;
@@ -4864,7 +4875,7 @@ function buildDefaultIndexHtml(metaBlock, lang) {
   html += '  <link rel="stylesheet" id="theme-pack">\n';
   html += '</head>\n\n';
   html += '<body>\n';
-  html += '  <script type="module" src="assets/main.js"></script>\n';
+  html += '  <script type="module" src="assets/main.js?v=20260430state"></script>\n';
   html += '</body>\n\n';
   html += '</html>\n';
   return html;
@@ -8714,14 +8725,16 @@ function getEditorContentPane() {
 }
 
 function scrollEditorContentToTop(behavior = 'smooth') {
-  const pane = getEditorContentPane();
+  const pane = getEditorContentScrollElement(currentMode) || getEditorContentPane();
   if (pane && typeof pane.scrollTo === 'function') {
     try {
       pane.scrollTo({ top: 0, behavior });
+      captureEditorContentScroll(currentMode);
       return;
     } catch (_) {
       try {
         pane.scrollTop = 0;
+        captureEditorContentScroll(currentMode);
         return;
       } catch (__) {}
     }
@@ -8738,6 +8751,136 @@ function persistSystemTreeExpandedState() {
       LS_KEYS.systemTreeExpanded,
       expandedEditorTreeNodeIds.has('system') ? '1' : '0'
     );
+  } catch (_) {}
+}
+
+function normalizeEditorScrollTop(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.round(numeric));
+}
+
+function normalizeEditorScrollMap(value) {
+  const out = {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return out;
+  Object.entries(value).forEach(([key, top]) => {
+    const normalizedKey = String(key || '').trim();
+    if (!normalizedKey) return;
+    out[normalizedKey] = normalizeEditorScrollTop(top);
+  });
+  return out;
+}
+
+function getEditorRailScrollElement() {
+  try { return document.querySelector('.editor-rail-tree-scroll'); }
+  catch (_) { return null; }
+}
+
+function getEditorRailScrollTop() {
+  const rail = getEditorRailScrollElement();
+  try { return rail ? normalizeEditorScrollTop(rail.scrollTop || 0) : 0; }
+  catch (_) { return 0; }
+}
+
+function setEditorRailScrollTop(top) {
+  const rail = getEditorRailScrollElement();
+  if (!rail) return;
+  try { rail.scrollTop = normalizeEditorScrollTop(top); } catch (_) {}
+}
+
+function getEditorContentScrollKey(mode = currentMode) {
+  if (mode && isDynamicMode(mode)) {
+    const tab = dynamicEditorTabs.get(mode);
+    const path = tab && tab.path ? normalizeRelPath(tab.path) : '';
+    return path ? `markdown:${path}` : 'markdown';
+  }
+  if (mode === 'composer') return 'composer';
+  if (mode === 'updates') return 'updates';
+  return 'structure';
+}
+
+function getEditorContentScrollElement(mode = currentMode) {
+  try {
+    if (mode === 'composer') {
+      const siteViewport = document.querySelector('#composerSite .cs-viewport');
+      if (siteViewport && siteViewport.getClientRects && siteViewport.getClientRects().length) {
+        return siteViewport;
+      }
+    }
+  } catch (_) {}
+  return getEditorContentPane();
+}
+
+function getEditorContentScrollTop(mode = currentMode) {
+  const scroller = getEditorContentScrollElement(mode);
+  try { return scroller ? normalizeEditorScrollTop(scroller.scrollTop || 0) : 0; }
+  catch (_) { return 0; }
+}
+
+function setEditorContentScrollTopForMode(mode, top) {
+  const scroller = getEditorContentScrollElement(mode);
+  if (!scroller) return false;
+  try {
+    scroller.scrollTop = normalizeEditorScrollTop(top);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function captureEditorContentScroll(mode = currentMode) {
+  const key = getEditorContentScrollKey(mode);
+  if (!key) return;
+  editorContentScrollByKey[key] = getEditorContentScrollTop(mode);
+}
+
+function restoreEditorContentScrollForMode(mode = currentMode) {
+  const key = getEditorContentScrollKey(mode);
+  if (!key || !Object.prototype.hasOwnProperty.call(editorContentScrollByKey, key)) return;
+  const top = editorContentScrollByKey[key];
+  const apply = () => setEditorContentScrollTopForMode(mode, top);
+  try {
+    requestAnimationFrame(() => requestAnimationFrame(apply));
+  } catch (_) {
+    setTimeout(apply, 0);
+  }
+}
+
+function scheduleEditorStatePersist() {
+  if (!allowEditorStatePersist) return;
+  try {
+    if (editorStatePersistTimer) window.clearTimeout(editorStatePersistTimer);
+    editorStatePersistTimer = window.setTimeout(() => {
+      editorStatePersistTimer = 0;
+      persistDynamicEditorState();
+    }, EDITOR_SCROLL_SAVE_DELAY);
+  } catch (_) {
+    persistDynamicEditorState();
+  }
+}
+
+function bindEditorStatePersistenceListeners() {
+  if (editorStateScrollBound) return;
+  editorStateScrollBound = true;
+  const onScroll = (event) => {
+    const target = event && event.target;
+    try {
+      if (target === getEditorRailScrollElement()) {
+        scheduleEditorStatePersist();
+        return;
+      }
+      if (target === getEditorContentPane() || target === getEditorContentScrollElement(currentMode)) {
+        captureEditorContentScroll(currentMode);
+        scheduleEditorStatePersist();
+      }
+    } catch (_) {}
+  };
+  try { document.addEventListener('scroll', onScroll, true); } catch (_) {}
+  try { window.addEventListener('pagehide', () => persistDynamicEditorState()); } catch (_) {}
+  try {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') persistDynamicEditorState();
+    });
   } catch (_) {}
 }
 
@@ -9153,16 +9296,24 @@ function persistDynamicEditorState() {
   try {
     const store = window.localStorage;
     if (!store) return;
+    captureEditorContentScroll(currentMode);
     const open = Array.from(dynamicEditorTabs.values())
       .map((tab) => (tab && tab.path) ? tab.path : '')
       .filter(Boolean);
-    const state = { v: 2, open };
+    const active = currentMode && isDynamicMode(currentMode) ? dynamicEditorTabs.get(currentMode) : null;
+    const state = {
+      v: EDITOR_STATE_VERSION,
+      mode: active ? 'markdown' : (currentMode === 'composer' ? 'composer' : currentMode === 'updates' ? 'updates' : 'structure'),
+      activeNodeId: activeEditorTreeNodeId || 'articles',
+      activePath: active && active.path ? active.path : null,
+      open,
+      expandedNodeIds: Array.from(expandedEditorTreeNodeIds).filter(Boolean),
+      railScrollTop: getEditorRailScrollTop(),
+      contentScrollByKey: { ...editorContentScrollByKey },
+      updatedAt: Date.now()
+    };
     if (currentMode && isDynamicMode(currentMode)) {
-      const active = dynamicEditorTabs.get(currentMode);
-      state.mode = 'editor';
       state.activePath = active && active.path ? active.path : null;
-    } else {
-      state.mode = 'editor';
     }
     store.setItem(LS_KEYS.editorState, JSON.stringify(state));
   } catch (_) {}
@@ -9183,6 +9334,9 @@ function restoreDynamicEditorState() {
   catch (_) { return false; }
   if (!data || typeof data !== 'object') return false;
 
+  const isV3 = data.v === EDITOR_STATE_VERSION;
+  editorContentScrollByKey = normalizeEditorScrollMap(data.contentScrollByKey);
+
   const open = Array.isArray(data.open) ? data.open : [];
   const seen = new Set();
   open.forEach((item) => {
@@ -9192,17 +9346,52 @@ function restoreDynamicEditorState() {
     getOrCreateDynamicMode(norm);
   });
 
+  if (isV3 && Array.isArray(data.expandedNodeIds)) {
+    expandedEditorTreeNodeIds.clear();
+    data.expandedNodeIds.forEach((item) => {
+      const id = String(item || '').trim();
+      if (id) expandedEditorTreeNodeIds.add(id);
+    });
+  }
+
+  const restoredNodeId = isV3 ? String(data.activeNodeId || '').trim() : '';
+  if (restoredNodeId) {
+    activeEditorTreeNodeId = restoredNodeId;
+    if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) {
+      activeEditorTreeNodeId = 'articles';
+    }
+    refreshEditorContentTree({ preserveStructure: true });
+  }
+
+  const finishRestore = (mode) => {
+    try {
+      setEditorRailScrollTop(data.railScrollTop || 0);
+      restoreEditorContentScrollForMode(mode || currentMode);
+      requestAnimationFrame(() => setEditorRailScrollTop(data.railScrollTop || 0));
+    } catch (_) {}
+    return true;
+  };
+
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
-  if (activePath) {
+  if ((isV3 ? data.mode === 'markdown' : true) && activePath) {
     const modeId = dynamicEditorTabsByPath.get(activePath) || getOrCreateDynamicMode(activePath);
     if (modeId) {
-      applyMode(modeId);
-      return true;
+      applyMode(modeId, { preserveTreeExpansion: true, restoreScroll: true });
+      return finishRestore(modeId);
     }
   }
 
-  applyMode('editor');
-  return true;
+  if (isV3 && data.mode === 'composer') {
+    applyMode('composer', { preserveTreeExpansion: true, restoreScroll: true });
+    return finishRestore('composer');
+  }
+  if (isV3 && data.mode === 'updates') {
+    applyMode('updates', { preserveTreeExpansion: true, restoreScroll: true });
+    return finishRestore('updates');
+  }
+
+  applyMode('editor', { forceStructure: true, preserveTreeExpansion: true, restoreScroll: true });
+  return finishRestore('editor');
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -9983,7 +10172,7 @@ function applyMode(mode, options = {}) {
   if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure) {
     const firstDynamicMode = getFirstDynamicModeId();
     if (firstDynamicMode) {
-      applyMode(firstDynamicMode);
+      applyMode(firstDynamicMode, options);
       return;
     }
   }
@@ -10004,25 +10193,33 @@ function applyMode(mode, options = {}) {
       activeMarkdownDocument = null;
       setEditorDetailPanelMode('structure');
       pushEditorCurrentFileInfo(null);
+      if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
     } else if (nextMode === 'composer' || nextMode === 'updates') {
       activeDynamicMode = null;
       activeMarkdownDocument = null;
       activeEditorTreeNodeId = nextMode === 'updates' ? 'system:updates' : 'system:site-settings';
-      expandEditorAncestors(getEditorTreeNodeById(activeEditorTreeNodeId) || { id: activeEditorTreeNodeId, source: 'system' });
+      if (!options.preserveTreeExpansion) {
+        expandEditorAncestors(getEditorTreeNodeById(activeEditorTreeNodeId) || { id: activeEditorTreeNodeId, source: 'system' });
+      }
       setEditorDetailPanelMode(nextMode);
       pushEditorCurrentFileInfo(null);
       refreshEditorContentTree({ preserveStructure: true });
+      if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
     } else if (isDynamicMode(nextMode)) {
       activeDynamicMode = nextMode;
       const tab = dynamicEditorTabs.get(nextMode);
       activeMarkdownDocument = tab || null;
       if (tab) {
-        try { selectEditorTreeNodeByPath(tab.path); } catch (_) {}
+        try { selectEditorTreeNodeByPath(tab.path, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
       }
       setEditorDetailPanelMode('markdown');
+      if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
     }
+    scheduleEditorStatePersist();
     return;
   }
+
+  if (previousMode) captureEditorContentScroll(previousMode);
 
   const editorApi = getPrimaryEditorApi();
   if (previousMode && isDynamicMode(previousMode) && editorApi && typeof editorApi.getValue === 'function') {
@@ -10080,7 +10277,7 @@ function applyMode(mode, options = {}) {
     activeMarkdownDocument = tab || null;
     setEditorDetailPanelMode('markdown');
     if (tab && editorApi) {
-      try { selectEditorTreeNodeByPath(tab.path); } catch (_) {}
+      try { selectEditorTreeNodeByPath(tab.path, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
       try { editorApi.setView('edit'); } catch (_) {}
       try {
         const baseDir = computeBaseDirForPath(tab.path);
@@ -10096,7 +10293,8 @@ function applyMode(mode, options = {}) {
           editorApi.setValue(tab.content, { notify: false });
           scheduleEditorLayoutRefresh();
           try { editorApi.focus(); } catch (_) {}
-          scrollEditorContentToTop('smooth');
+          if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
+          else scrollEditorContentToTop('smooth');
           updateDynamicTabDirtyState(tab, { autoSave: false });
         }
       };
@@ -10130,20 +10328,25 @@ function applyMode(mode, options = {}) {
       scheduleEditorLayoutRefresh();
     }
     pushEditorCurrentFileInfo(null);
+    if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
   } else if (nextMode === 'composer' || nextMode === 'updates') {
     activeDynamicMode = null;
     activeMarkdownDocument = null;
     activeEditorTreeNodeId = nextMode === 'updates' ? 'system:updates' : 'system:site-settings';
-    expandEditorAncestors(getEditorTreeNodeById(activeEditorTreeNodeId) || { id: activeEditorTreeNodeId, source: 'system' });
+    if (!options.preserveTreeExpansion) {
+      expandEditorAncestors(getEditorTreeNodeById(activeEditorTreeNodeId) || { id: activeEditorTreeNodeId, source: 'system' });
+    }
     setEditorDetailPanelMode(nextMode);
     pushEditorCurrentFileInfo(null);
     refreshEditorContentTree({ preserveStructure: true });
-    scrollEditorContentToTop('smooth');
+    if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
+    else scrollEditorContentToTop('smooth');
   } else {
     activeDynamicMode = null;
     activeMarkdownDocument = null;
     setEditorDetailPanelMode('structure');
     pushEditorCurrentFileInfo(null);
+    if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
   }
 
   try { document.documentElement.removeAttribute('data-init-mode'); } catch (_) {}
@@ -11029,13 +11232,13 @@ function expandEditorAncestors(node) {
   if (parts.length >= 3 && parts[0] === 'index') expandedEditorTreeNodeIds.add(`${parts[0]}:${parts[1]}:${parts[2]}`);
 }
 
-function selectEditorTreeNodeByPath(path) {
+function selectEditorTreeNodeByPath(path, options = {}) {
   const normalized = normalizeRelPath(path);
   if (!normalized) return null;
   const node = flattenEditorContentTree(editorContentTree).find(item => item && item.path === normalized);
   if (!node) return null;
   activeEditorTreeNodeId = node.id;
-  expandEditorAncestors(node);
+  if (!options || options.expandAncestors !== false) expandEditorAncestors(node);
   refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
   return node;
 }
@@ -11130,6 +11333,7 @@ function animateEditorTreeCollapse(root, node, row) {
     expandedEditorTreeNodeIds.delete(node.id);
     if (node.id === 'system') persistSystemTreeExpandedState();
     refreshEditorContentTree({ preserveStructure: true });
+    scheduleEditorStatePersist();
   };
   try { window.setTimeout(finish, 340); }
   catch (_) { finish(); }
@@ -11195,6 +11399,7 @@ function renderEditorFileTree(root) {
         }
         if (node.id === 'system') persistSystemTreeExpandedState();
         refreshEditorContentTree({ preserveStructure: true });
+        scheduleEditorStatePersist();
       });
     }
 
@@ -11275,12 +11480,14 @@ function handleEditorTreeSelection(nodeId) {
     }
     scrollEditorContentToTop('smooth');
     closeEditorRailDrawer();
+    scheduleEditorStatePersist();
     return;
   }
   if (node.kind === 'file' && node.path) {
     refreshEditorContentTree({ preserveStructure: true });
     openMarkdownInEditor(node.path);
     closeEditorRailDrawer();
+    scheduleEditorStatePersist();
     return;
   }
   applyMode('editor', { forceStructure: true });
@@ -11288,6 +11495,7 @@ function handleEditorTreeSelection(nodeId) {
   refreshEditorContentTree();
   scrollEditorContentToTop('smooth');
   closeEditorRailDrawer();
+  scheduleEditorStatePersist();
 }
 
 try {
@@ -12539,6 +12747,7 @@ function bindComposerUI(state) {
   initEditorOverlay();
   initEditorRailResize();
   initMobileEditorRail();
+  bindEditorStatePersistenceListeners();
 
   // Overlay launchers and legacy mode buttons
   $$('.mode-tab').forEach(btn => {
@@ -13119,9 +13328,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   notifyComposerChange('site', { skipAutoSave: true });
 
   refreshEditorContentTree();
-  if (!restoreDynamicEditorState()) applyMode('editor');
+  const restoredEditorState = restoreDynamicEditorState();
+  if (!restoredEditorState) applyMode('editor');
   allowEditorStatePersist = true;
-  persistDynamicEditorState();
+  if (restoredEditorState) {
+    try { window.setTimeout(() => persistDynamicEditorState(), 500); }
+    catch (_) { persistDynamicEditorState(); }
+  } else {
+    persistDynamicEditorState();
+  }
 });
 
 function buildSiteUI(root, state) {

@@ -536,19 +536,19 @@ assert.match(
 
 assert.match(
   source,
-  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*const state = \{ v: 2, open \};[\s\S]*state\.activePath = active && active\.path \? active\.path : null;/,
-  'dynamic markdown session state should persist opened files and the active file path'
+  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*v: EDITOR_STATE_VERSION,[\s\S]*activePath: active && active\.path \? active\.path : null,[\s\S]*expandedNodeIds: Array\.from\(expandedEditorTreeNodeIds\)\.filter\(Boolean\),/,
+  'dynamic markdown session state should persist opened files, active file path, and exact tree expansion'
 );
 
 assert.match(
   source,
-  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*applyMode\(modeId\);[\s\S]*return true;/,
-  'dynamic markdown session restore should recreate open files and reactivate the saved active path'
+  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
+  'dynamic markdown session restore should recreate open files, exact expansion, and active file path'
 );
 
 assert.match(
   source,
-  /refreshEditorContentTree\(\);\s*if \(!restoreDynamicEditorState\(\)\) applyMode\('editor'\);\s*allowEditorStatePersist = true;/,
+  /refreshEditorContentTree\(\);\s*const restoredEditorState = restoreDynamicEditorState\(\);\s*if \(!restoredEditorState\) applyMode\('editor'\);\s*allowEditorStatePersist = true;/,
   'editor boot should restore dynamic markdown session state before falling back to the file tree'
 );
 
