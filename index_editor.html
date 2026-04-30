@@ -668,6 +668,14 @@
     .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
     .current-file .cf-line-main { font-weight: 600; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
     .current-file .cf-line-main .cf-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .current-file .cf-breadcrumb { display:inline-flex; align-items:center; gap:.35rem; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; color:#57606a; }
+    .current-file .cf-breadcrumb-separator { color:#8c959f; font-weight:500; margin:0 -.18rem; }
+    .current-file .cf-breadcrumb-item { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; font:inherit; font-weight:600; line-height:1.25; min-width:0; max-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .current-file a.cf-breadcrumb-item:hover { text-decoration:underline; }
+    .current-file a.cf-breadcrumb-item:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
+    .current-file .cf-breadcrumb-item-current { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    .current-file a.cf-breadcrumb-item-current:hover { text-decoration:none; }
+    .current-file .cf-breadcrumb-item-static { color:inherit; cursor:default; }
     .current-file .cf-line-meta { font-size: .78rem; color: color-mix(in srgb, var(--muted) 88%, transparent); display: inline-flex; gap: .35rem; flex-wrap: wrap; }
     .current-file .cf-draft { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; color: color-mix(in srgb, #2563eb 70%, var(--text)); }
     .current-file .cf-draft::before { content: ''; width: .45rem; height: .45rem; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 18%, transparent); }
@@ -2382,8 +2390,8 @@
     })();
   </script>
   <script type="module" src="assets/js/editor-boot.js?v=editor-tree-20260429f"></script>
-  <script type="module" src="assets/js/editor-main.js?v=frontmatter-page-hide-20260430a"></script>
-  <script type="module" src="assets/js/composer.js?v=frontmatter-page-hide-20260430a"></script>
+  <script type="module" src="assets/js/editor-main.js?v=current-file-breadcrumb-20260430b"></script>
+  <script type="module" src="assets/js/composer.js?v=current-file-breadcrumb-20260430b"></script>
   <script type="module" src="assets/js/editor-github.js"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>

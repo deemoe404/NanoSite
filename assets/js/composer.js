@@ -9568,6 +9568,7 @@ function pushEditorCurrentFileInfo(tab) {
     ? {
         path: tab.path || '',
         source: tab.source || inferMarkdownSourceFromPath(tab.path),
+        breadcrumb: buildCurrentFileBreadcrumb(tab),
         status: tab.fileStatus || null,
         dirty: !!tab.isDirty,
         loaded: !!tab.loaded,
@@ -10803,6 +10804,41 @@ function inferMarkdownSourceFromPath(path) {
   return normalized.toLowerCase().startsWith('tab/') ? 'tabs' : 'index';
 }
 
+function getEditorTreeNodeById(nodeId) {
+  return findEditorContentTreeNode(editorContentTree, nodeId);
+}
+
+function getEditorTreeFileNodeByPath(path) {
+  const normalized = normalizeRelPath(path);
+  if (!normalized) return null;
+  return flattenEditorContentTree(editorContentTree)
+    .find(item => item && item.kind === 'file' && item.path === normalized) || null;
+}
+
+function buildCurrentFileBreadcrumb(tab) {
+  if (!tab || !tab.path) return [];
+  const normalizedPath = normalizeRelPath(tab.path);
+  const node = getEditorTreeFileNodeByPath(normalizedPath);
+  if (!node) return normalizedPath ? [{ label: normalizedPath, path: normalizedPath }] : [];
+  const ids = [];
+  if (node.source === 'tabs') {
+    ids.push('pages', `tabs:${node.key}`, node.id);
+  } else {
+    ids.push('articles', `index:${node.key}`, `index:${node.key}:${node.lang}`, node.id);
+  }
+  return ids
+    .map((id) => {
+      const crumbNode = getEditorTreeNodeById(id);
+      if (!crumbNode) return null;
+      return {
+        label: crumbNode.label || crumbNode.key || crumbNode.id,
+        nodeId: crumbNode.id,
+        path: crumbNode.path || ''
+      };
+    })
+    .filter(item => item && item.label);
+}
+
 function expandEditorAncestors(node) {
   if (!node) return;
   if (node.id === 'articles' || node.id === 'pages') {
@@ -11053,6 +11089,15 @@ function handleEditorTreeSelection(nodeId) {
   scrollEditorContentToTop('smooth');
   closeEditorRailDrawer();
 }
+
+try {
+  document.addEventListener('ns-editor-current-file-breadcrumb-select', (event) => {
+    const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
+    const nodeId = String(detail.nodeId || '').trim();
+    if (!nodeId) return;
+    handleEditorTreeSelection(nodeId);
+  });
+} catch (_) {}
 
 function getIndexEntry(key) {
   const state = getStateSlice('index') || {};

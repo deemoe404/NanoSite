@@ -448,6 +448,48 @@ assert.match(
 );
 
 assert.match(
+  editorSource,
+  /\.current-file \.cf-breadcrumb \{[\s\S]*gap:\.35rem;[\s\S]*\.current-file \.cf-breadcrumb-item \{[\s\S]*color:#0969da;[\s\S]*\.current-file \.cf-breadcrumb-item-current \{[\s\S]*background:#eaeef2;/,
+  'current file indicator should use the same lightweight text-toggle styling as the view toggle'
+);
+
+assert.doesNotMatch(
+  editorMainSource,
+  /<button type="button" class="cf-breadcrumb-item/,
+  'current file breadcrumb should not use native buttons that inherit the bordered toolbar style'
+);
+
+assert.match(
+  editorMainSource,
+  /<a href="#" class="cf-breadcrumb-item\$\{currentClass\}"[\s\S]*data-current-file-node-id=/,
+  'current file breadcrumb should render clickable text links instead of bordered buttons'
+);
+
+assert.match(
+  editorMainSource,
+  /const normalizeCurrentFileBreadcrumb = \(value, fallbackPath = ''\) => \{[\s\S]*const renderCurrentFileBreadcrumb = \(items, fullPath\) => \{[\s\S]*data-current-file-node-id=[\s\S]*ns-editor-current-file-breadcrumb-select/,
+  'current file indicator should normalize and emit clickable breadcrumb entries'
+);
+
+assert.match(
+  source,
+  /function buildCurrentFileBreadcrumb\(tab\) \{[\s\S]*ids\.push\('articles', `index:\$\{node\.key\}`, `index:\$\{node\.key\}:\$\{node\.lang\}`, node\.id\);/,
+  'composer should pass abstract article/page breadcrumb segments to the editor header'
+);
+
+assert.match(
+  source,
+  /breadcrumb: buildCurrentFileBreadcrumb\(tab\),/,
+  'composer should include the current file breadcrumb in the editor header payload'
+);
+
+assert.match(
+  source,
+  /ns-editor-current-file-breadcrumb-select[\s\S]*handleEditorTreeSelection\(nodeId\);/,
+  'composer should route current-file breadcrumb clicks through the editor tree selection handler'
+);
+
+assert.match(
   source,
   /function applyMode\(mode, options = \{\}\) \{[\s\S]*mode === 'editor' && dynamicEditorTabs\.size && !options\.forceStructure/,
   'editor structure selection should be able to bypass dynamic markdown document restoration'

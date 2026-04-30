@@ -1183,7 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const STATUS_STATES = new Set(['checking', 'existing', 'missing', 'error']);
-  let currentFileInfo = { path: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+  let currentFileInfo = { path: '', source: '', breadcrumb: [], status: null, dirty: false, draft: null, draftState: '', loaded: false };
   let currentFileElRef = null;
 
   const getEditorTextarea = () => {
@@ -2088,16 +2088,36 @@ document.addEventListener('DOMContentLoaded', () => {
     return Object.keys(normalized).length ? normalized : (state ? { state } : null);
   };
 
+  const normalizeCurrentFileBreadcrumb = (value, fallbackPath = '') => {
+    const source = Array.isArray(value) ? value : [];
+    const items = source
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const label = String(item.label || '').trim();
+        if (!label) return null;
+        return {
+          label,
+          nodeId: item.nodeId != null ? String(item.nodeId || '').trim() : '',
+          path: item.path != null ? String(item.path || '').trim() : ''
+        };
+      })
+      .filter(Boolean);
+    if (items.length) return items;
+    const path = String(fallbackPath || '').trim();
+    return path ? [{ label: path, nodeId: '', path }] : [];
+  };
+
   const normalizeCurrentFilePayload = (input) => {
     if (typeof input === 'string') {
       const path = String(input || '').trim();
-      return { path, source: inferCurrentFileSource(path), status: null, dirty: false, draft: null, draftState: '', loaded: false };
+      return { path, source: inferCurrentFileSource(path), breadcrumb: normalizeCurrentFileBreadcrumb(null, path), status: null, dirty: false, draft: null, draftState: '', loaded: false };
     }
     if (input && typeof input === 'object') {
       const path = input.path != null ? String(input.path || '').trim() : '';
       const source = input.source != null && String(input.source || '').trim()
         ? String(input.source || '').trim().toLowerCase()
         : inferCurrentFileSource(path);
+      const breadcrumb = normalizeCurrentFileBreadcrumb(input.breadcrumb, path);
       const status = normalizeStatusPayload(input.status);
       const dirty = !!input.dirty;
       const loaded = !!input.loaded;
@@ -2113,9 +2133,9 @@ document.addEventListener('DOMContentLoaded', () => {
           draftState = conflict ? 'conflict' : 'saved';
         }
       }
-      return { path, source, status, dirty, draft, draftState, loaded };
+      return { path, source, breadcrumb, status, dirty, draft, draftState, loaded };
     }
-    return { path: '', source: '', status: null, dirty: false, draft: null, draftState: '', loaded: false };
+    return { path: '', source: '', breadcrumb: [], status: null, dirty: false, draft: null, draftState: '', loaded: false };
   };
 
   const describeStatusLabel = (status) => {
@@ -2149,6 +2169,50 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   };
 
+  const renderCurrentFileBreadcrumb = (items, fullPath) => {
+    const crumbs = Array.isArray(items) && items.length
+      ? items
+      : normalizeCurrentFileBreadcrumb(null, fullPath);
+    if (!crumbs.length) return '';
+    const html = [];
+    crumbs.forEach((item, index) => {
+      if (index > 0) html.push('<span class="cf-breadcrumb-separator" aria-hidden="true">/</span>');
+      const label = escapeHtml(item.label || '');
+      const nodeId = item.nodeId ? escapeHtml(item.nodeId) : '';
+      const path = item.path ? escapeHtml(item.path) : '';
+      const currentClass = index === crumbs.length - 1 ? ' cf-breadcrumb-item-current' : '';
+      if (nodeId) {
+        const ariaCurrent = index === crumbs.length - 1 ? ' aria-current="page"' : '';
+        html.push(`<a href="#" class="cf-breadcrumb-item${currentClass}" data-current-file-node-id="${nodeId}" data-current-file-path="${path}"${ariaCurrent}>${label}</a>`);
+      } else {
+        html.push(`<span class="cf-breadcrumb-item cf-breadcrumb-item-static${currentClass}">${label}</span>`);
+      }
+    });
+    return `<span class="cf-breadcrumb" aria-label="Current file location">${html.join('')}</span>`;
+  };
+
+  const bindCurrentFileBreadcrumbEvents = (el) => {
+    if (!el || el.dataset.breadcrumbBound === '1') return;
+    el.dataset.breadcrumbBound = '1';
+    el.addEventListener('click', (event) => {
+      const target = event.target && event.target.closest
+        ? event.target.closest('[data-current-file-node-id]')
+        : null;
+      if (!target || !el.contains(target)) return;
+      const nodeId = String(target.dataset.currentFileNodeId || '').trim();
+      if (!nodeId) return;
+      event.preventDefault();
+      try {
+        document.dispatchEvent(new CustomEvent('ns-editor-current-file-breadcrumb-select', {
+          detail: {
+            nodeId,
+            path: target.dataset.currentFilePath || ''
+          }
+        }));
+      } catch (_) {}
+    });
+  };
+
   const renderCurrentFileIndicator = () => {
     const path = currentFileInfo.path ? String(currentFileInfo.path) : '';
     applyEditorEmptyState(!path);
@@ -2171,7 +2235,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     const mainPieces = [];
-    mainPieces.push(`<span class="cf-path">${escapeHtml(path)}</span>`);
+    const breadcrumbLabel = (currentFileInfo.breadcrumb || [])
+      .map(item => item && item.label ? String(item.label) : '')
+      .filter(Boolean)
+      .join('/');
+    mainPieces.push(renderCurrentFileBreadcrumb(currentFileInfo.breadcrumb, path));
     if (statusLabel) {
       mainPieces.push('<span aria-hidden="true">—</span>');
       mainPieces.push(`<span class="cf-status">${escapeHtml(statusLabel)}</span>`);
@@ -2201,8 +2269,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
     el.innerHTML = `${mainHtml}${metaHtml}`;
+    bindCurrentFileBreadcrumbEvents(el);
 
-    const tooltipParts = [path, statusLabel, meta, draftLabel]
+    const tooltipParts = [breadcrumbLabel, path && path !== breadcrumbLabel ? path : '', statusLabel, meta, draftLabel]
       .map(part => getPlainText(part))
       .filter(Boolean);
     el.setAttribute('title', tooltipParts.join(' — '));
