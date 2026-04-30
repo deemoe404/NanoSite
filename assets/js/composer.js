@@ -12220,6 +12220,7 @@ function bindComposerUI(state) {
   initEditorOverlay();
   initEditorRailResize();
   initMobileEditorRail();
+  initEditorRailSettingsMenu();
 
   // Overlay launchers and legacy mode buttons
   $$('.mode-tab').forEach(btn => {
@@ -12227,6 +12228,7 @@ function bindComposerUI(state) {
       const mode = btn.dataset.mode;
       if (mode === 'composer' || mode === 'updates') {
         event.preventDefault();
+        closeEditorRailSettingsMenu();
         openEditorOverlay(mode, btn);
         return;
       }
@@ -12675,6 +12677,57 @@ function showStatus(msg, kind = 'info') {
     showToast(type, msg);
   }
   updateUnsyncedSummary();
+}
+
+function closeEditorRailSettingsMenu({ restoreFocus = false } = {}) {
+  const root = document.getElementById('editorRailSettings');
+  const toggle = document.getElementById('editorRailSettingsToggle');
+  const menu = document.getElementById('editorRailSettingsMenu');
+  if (!root || !toggle || !menu) return;
+  root.classList.remove('is-open');
+  menu.hidden = true;
+  menu.setAttribute('aria-hidden', 'true');
+  toggle.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) {
+    try { toggle.focus(); } catch (_) {}
+  }
+}
+
+function openEditorRailSettingsMenu() {
+  const root = document.getElementById('editorRailSettings');
+  const toggle = document.getElementById('editorRailSettingsToggle');
+  const menu = document.getElementById('editorRailSettingsMenu');
+  if (!root || !toggle || !menu) return;
+  root.classList.add('is-open');
+  menu.hidden = false;
+  menu.setAttribute('aria-hidden', 'false');
+  toggle.setAttribute('aria-expanded', 'true');
+}
+
+function initEditorRailSettingsMenu() {
+  const root = document.getElementById('editorRailSettings');
+  const toggle = document.getElementById('editorRailSettingsToggle');
+  const menu = document.getElementById('editorRailSettingsMenu');
+  if (!root || !toggle || !menu || toggle.dataset.bound === '1') return;
+  toggle.dataset.bound = '1';
+  toggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (menu.hidden) openEditorRailSettingsMenu();
+    else closeEditorRailSettingsMenu({ restoreFocus: true });
+  });
+  menu.addEventListener('click', (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener('click', (event) => {
+    if (!root.contains(event.target)) closeEditorRailSettingsMenu();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !menu.hidden) {
+      event.preventDefault();
+      closeEditorRailSettingsMenu({ restoreFocus: true });
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

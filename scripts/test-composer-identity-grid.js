@@ -53,8 +53,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /class="editor-rail-footer"[\s\S]*id="editorLangSwitcher"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
-  'language, Site Settings, and System Updates controls should live in the left rail footer'
+  /class="editor-rail-footer"[\s\S]*id="editorRailSettingsToggle"[\s\S]*id="editorRailSettingsMenu"[\s\S]*id="editorLangSwitcher"[\s\S]*data-mode="composer"[\s\S]*data-mode="updates"/,
+  'language, Site Settings, and System Updates controls should live in the left rail settings menu'
 );
 
 assert.match(

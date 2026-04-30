@@ -71,31 +71,88 @@
     .editor-rail-footer {
       flex:0 0 auto;
       min-width:0;
-      display:grid;
-      grid-template-columns:minmax(0, 1fr) auto auto;
+      position:relative;
+      display:flex;
       align-items:center;
-      gap:.45rem;
+      justify-content:flex-start;
       padding:.5rem .75rem calc(.5rem + env(safe-area-inset-bottom, 0px)) .9rem;
       border-top:1px solid color-mix(in srgb, var(--border) 82%, transparent);
       background:color-mix(in srgb, var(--card) 72%, var(--bg));
     }
+    .editor-rail-settings {
+      position:relative;
+      display:inline-flex;
+      flex:0 0 auto;
+      min-width:0;
+    }
+    .editor-rail-settings-toggle {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:2rem;
+      height:2rem;
+      padding:0;
+      border:1px solid transparent;
+      border-radius:7px;
+      color:var(--muted);
+      background:transparent;
+      cursor:pointer;
+      transition:background .16s ease, color .16s ease, border-color .16s ease;
+    }
+    .editor-rail-settings-toggle:hover,
+    .editor-rail-settings-toggle:focus-visible,
+    .editor-rail-settings.is-open .editor-rail-settings-toggle {
+      color:var(--text);
+      background:color-mix(in srgb, var(--text) 6%, transparent);
+      border-color:color-mix(in srgb, var(--border) 72%, transparent);
+    }
+    .editor-rail-settings-toggle:focus-visible {
+      outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent);
+      outline-offset:2px;
+    }
+    .editor-rail-settings-toggle svg {
+      width:1.05rem;
+      height:1.05rem;
+      display:block;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .editor-rail-settings-menu {
+      position:absolute;
+      left:0;
+      bottom:calc(100% + .45rem);
+      z-index:8;
+      width:min(13rem, calc(100vw - 2rem));
+      display:flex;
+      flex-direction:column;
+      gap:.45rem;
+      padding:.55rem;
+      border:1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius:8px;
+      background:color-mix(in srgb, var(--card) 96%, var(--bg));
+      box-shadow:0 16px 36px color-mix(in srgb, var(--shadow) 20%, transparent);
+    }
+    .editor-rail-settings-menu[hidden] { display:none; }
     .editor-rail-footer .editor-lang-switcher {
-      grid-column:auto;
-      grid-row:auto;
-      justify-self:stretch;
-      align-self:center;
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
       margin:0;
       width:100%;
       min-width:0;
-      padding:0;
+      padding:0 0 .5rem;
       border:0;
+      border-bottom:1px solid color-mix(in srgb, var(--border) 78%, transparent);
       border-radius:0;
       background:transparent;
       box-shadow:none;
-      gap:.35rem;
+      gap:.12rem;
     }
     .editor-rail-footer .editor-lang-switcher label {
-      flex:0 0 auto;
+      display:block;
       font-size:.68rem;
       letter-spacing:.04em;
     }
@@ -108,7 +165,16 @@
       font-size:.8rem;
       border-radius:7px;
     }
+    .editor-rail-footer .editor-lang-switcher select:focus,
+    .editor-rail-footer .editor-lang-switcher select:focus-visible {
+      outline:0 !important;
+      outline-offset:0;
+      box-shadow:none !important;
+      border-color:color-mix(in srgb, var(--border) 85%, transparent);
+    }
     .editor-rail-action.mode-tab {
+      width:100%;
+      justify-content:flex-start;
       min-width:0;
       height:1.85rem;
       padding:.3rem .5rem;
@@ -2022,18 +2088,28 @@
           <div class="editor-file-tree" id="editorFileTree" role="tree" aria-label="Content file tree" data-i18n-aria-label="editor.tree.treeAria"></div>
         </div>
         <div class="editor-rail-footer">
-          <div class="editor-lang-switcher" id="editorLangSwitcher">
-            <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
-            <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
+          <div class="editor-rail-settings" id="editorRailSettings">
+            <button type="button" class="editor-rail-settings-toggle" id="editorRailSettingsToggle" aria-haspopup="menu" aria-expanded="false" aria-controls="editorRailSettingsMenu" aria-label="Editor settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2.06 2.06 0 0 1-2.91 2.91l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .16 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1-.16 1.7 1.7 0 0 0-1.88.34l-.06.06a2.06 2.06 0 0 1-2.91-2.91l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.16-1 1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0 .16-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2.06 2.06 0 0 1 2.91-2.91l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.16A1.7 1.7 0 0 0 11 2.89V3a2 2 0 0 1 4 0v-.11a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1 .16 1.7 1.7 0 0 0 1.88-.34l.06-.06a2.06 2.06 0 0 1 2.91 2.91l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 .16 1 1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z"></path>
+              </svg>
+            </button>
+            <div class="editor-rail-settings-menu" id="editorRailSettingsMenu" role="menu" hidden aria-hidden="true">
+              <div class="editor-lang-switcher" id="editorLangSwitcher">
+                <label for="editorLangSelect" data-i18n="editor.languageLabel">Language</label>
+                <select id="editorLangSelect" data-i18n-aria-label="editor.languageLabel"></select>
+              </div>
+              <button type="button" class="mode-tab editor-rail-action" data-mode="composer" data-tab-label="Site Settings" data-i18n-data-tab-label="editor.modes.composer" aria-controls="mode-composer" aria-haspopup="dialog" aria-expanded="false" aria-label="Site Settings" data-i18n-aria-label="editor.modes.composer">
+                <span class="mode-tab-text" data-i18n="editor.modes.composer">Site Settings</span>
+                <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+              </button>
+              <button type="button" class="mode-tab editor-rail-action" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" aria-controls="mode-updates" aria-haspopup="dialog" aria-expanded="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
+                <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
+                <span class="mode-tab-badge" aria-hidden="true" hidden></span>
+              </button>
+            </div>
           </div>
-          <button type="button" class="mode-tab editor-rail-action" data-mode="composer" data-tab-label="Site Settings" data-i18n-data-tab-label="editor.modes.composer" aria-controls="mode-composer" aria-haspopup="dialog" aria-expanded="false" aria-label="Site Settings" data-i18n-aria-label="editor.modes.composer">
-            <span class="mode-tab-text" data-i18n="editor.modes.composer">Site Settings</span>
-            <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-          </button>
-          <button type="button" class="mode-tab editor-rail-action" data-mode="updates" data-tab-label="System Updates" data-i18n-data-tab-label="editor.systemUpdates.tabLabel" aria-controls="mode-updates" aria-haspopup="dialog" aria-expanded="false" aria-label="System Updates" data-i18n-aria-label="editor.systemUpdates.tabLabel">
-            <span class="mode-tab-text" data-i18n="editor.systemUpdates.tabLabel">System Updates</span>
-            <span class="mode-tab-badge" aria-hidden="true" hidden></span>
-          </button>
         </div>
       <div class="status-stack">
         <div id="global-status" class="global-status is-temporarily-hidden" aria-live="polite">
