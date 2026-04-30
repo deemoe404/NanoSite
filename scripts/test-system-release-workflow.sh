@@ -10,6 +10,11 @@ if [[ ! -f "${workflow}" ]]; then
   exit 1
 fi
 
+if ! grep -F 'pull-requests: write' "${workflow}" >/dev/null; then
+  echo "system release workflow must be allowed to create manifest pull requests" >&2
+  exit 1
+fi
+
 if ! awk '
   /^  release:/ { in_release = 1; next }
   in_release && /^  [A-Za-z0-9_-]+:/ { in_release = 0 }
@@ -123,20 +128,28 @@ if ! grep -F 'git commit -m "Update system release manifest"' "${workflow}" >/de
   exit 1
 fi
 
-if ! grep -F 'git rebase "origin/${GITHUB_REF_NAME}"' "${workflow}" >/dev/null; then
-  echo "system release workflow must rebase before pushing the manifest commit" >&2
+if ! grep -F 'manifest_branch="codex/system-release-manifest-${{ steps.plan.outputs.next_tag }}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must publish manifest commits to a dedicated branch" >&2
   exit 1
 fi
 
-if ! grep -F 'Failed to push system release manifest after rebasing.' "${workflow}" >/dev/null; then
-  echo "system release workflow must retry manifest pushes and fail clearly after repeated rebase attempts" >&2
+if ! grep -F 'git push --force-with-lease origin "HEAD:${manifest_branch}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must push the manifest commit to a PR branch" >&2
   exit 1
 fi
 
-manifest_rebase_line="$(grep -nF 'git rebase "origin/${GITHUB_REF_NAME}"' "${workflow}" | head -n 1 | cut -d: -f1)"
-manifest_push_line="$(grep -nF 'git push origin "HEAD:${GITHUB_REF_NAME}"' "${workflow}" | tail -n 1 | cut -d: -f1)"
-if [[ -n "${manifest_rebase_line}" && -n "${manifest_push_line}" && "${manifest_push_line}" -lt "${manifest_rebase_line}" ]]; then
-  echo "system release workflow must rebase before pushing the manifest commit" >&2
+if ! grep -F 'gh pr create' "${workflow}" >/dev/null; then
+  echo "system release workflow must open a pull request for manifest updates" >&2
+  exit 1
+fi
+
+if ! grep -F 'gh pr edit "${pr_number}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must update an existing manifest pull request" >&2
+  exit 1
+fi
+
+if grep -F 'git push origin "HEAD:${GITHUB_REF_NAME}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must not push manifest commits directly to the protected main branch" >&2
   exit 1
 fi
 

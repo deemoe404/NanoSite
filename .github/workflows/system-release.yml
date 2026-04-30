@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: system-release
@@ -313,15 +314,37 @@ jobs:
             exit 0
           fi
           git commit -m "Update system release manifest"
-          for attempt in 1 2 3; do
-            git fetch origin "${GITHUB_REF_NAME}"
-            git rebase "origin/${GITHUB_REF_NAME}"
-            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
-              exit 0
-            fi
-            if [[ "${attempt}" == "3" ]]; then
-              echo "Failed to push system release manifest after rebasing." >&2
-              exit 1
-            fi
-            sleep 2
-          done
+          manifest_branch="codex/system-release-manifest-${{ steps.plan.outputs.next_tag }}"
+          manifest_title="Update system release manifest for ${{ steps.plan.outputs.next_tag }}"
+          manifest_body="$(mktemp)"
+          cat > "${manifest_body}" <<EOF
+          Automated manifest refresh for ${{ steps.plan.outputs.next_tag }}.
+
+          This updates assets/system-release.json after the system release has been published. It is intentionally excluded from release planning, so merging this PR will not publish another system release.
+          EOF
+
+          git fetch origin "${GITHUB_REF_NAME}"
+          git rebase "origin/${GITHUB_REF_NAME}"
+          git push --force-with-lease origin "HEAD:${manifest_branch}"
+
+          pr_number="$(
+            gh pr list \
+              --repo "${GITHUB_REPOSITORY}" \
+              --head "${manifest_branch}" \
+              --state open \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+          if [[ -n "${pr_number}" ]]; then
+            gh pr edit "${pr_number}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${manifest_title}" \
+              --body-file "${manifest_body}"
+          else
+            gh pr create \
+              --repo "${GITHUB_REPOSITORY}" \
+              --base "${GITHUB_REF_NAME}" \
+              --head "${manifest_branch}" \
+              --title "${manifest_title}" \
+              --body-file "${manifest_body}"
+          fi
