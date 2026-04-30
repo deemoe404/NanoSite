@@ -664,6 +664,16 @@ const translations = {
           errorInvalid: 'Key must contain only English letters, numbers, underscores, or hyphens.',
           errorDuplicate: 'That key already exists. Choose a different key.'
         },
+        versionPrompt: {
+          label: 'version',
+          confirm: 'Add version',
+          placeholder: 'v2.0.0',
+          message: ({ key, lang }) => `Enter a version for ${key} / ${lang}:`,
+          hint: 'Use a v-prefixed version like v2.0.0.',
+          errorEmpty: 'Version cannot be empty.',
+          errorInvalid: 'Version must start with v, for example v2.0.0.',
+          errorDuplicate: ({ version }) => `${version} already exists.`
+        },
         discardConfirm: {
           messageReload: ({ label }) => `Discard local changes for ${label} and reload the remote file? This action cannot be undone.`,
           messageSimple: ({ label }) => `Discard local changes for ${label}? This action cannot be undone.`,

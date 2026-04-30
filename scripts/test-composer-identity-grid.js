@@ -168,19 +168,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430sync';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260501versions';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260430sync"[\s\S]*"\.\/chs\.js\?v=20260430sync"[\s\S]*"\.\/cht-tw\.js\?v=20260430sync"[\s\S]*"\.\/cht-hk\.js\?v=20260430sync"[\s\S]*"\.\/ja\.js\?v=20260430sync"/,
+  /"\.\/en\.js\?v=20260501versions"[\s\S]*"\.\/chs\.js\?v=20260501versions"[\s\S]*"\.\/cht-tw\.js\?v=20260501versions"[\s\S]*"\.\/cht-hk\.js\?v=20260501versions"[\s\S]*"\.\/ja\.js\?v=20260501versions"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260430sync'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260501versions'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -1411,6 +1411,54 @@ assert.match(
   editorSource,
   /\.editor-content-pane \{[\s\S]*--editor-content-pane-padding:1rem;[\s\S]*padding:var\(--editor-content-pane-padding\);[\s\S]*\.toolbar \{[\s\S]*top:calc\(var\(--editor-content-pane-padding, 0px\) \* -1\);[\s\S]*background:var\(--card\);[\s\S]*\.editor-markdown-panel > \.toolbar \{[\s\S]*margin-top:calc\(var\(--editor-content-pane-padding, 1rem\) \* -1\);[\s\S]*\.editor-tools \{[\s\S]*top:calc\(var\(--editor-toolbar-offset, 0px\) - var\(--editor-content-pane-padding, 0px\)\);[\s\S]*background:var\(--card\);[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-content-pane \{[\s\S]*--editor-content-pane-padding:\.75rem;/,
   'markdown file toolbar should stick flush to the editor content pane top while preserving pane padding'
+);
+
+assert.match(
+  source,
+  /function buildDefaultEntryPath\(kind, key, lang\) \{[\s\S]*const baseFolder = normalizedKind === 'tabs' \? 'tab' : 'post';[\s\S]*normalizedKind === 'tabs'[\s\S]*`\$\{baseFolder\}\/\$\{safeKey\}\/v1\.0\.0`[\s\S]*`\$\{baseFolder\}\/v1\.0\.0`[\s\S]*return `\$\{folder\}\/\$\{filename\}`;/,
+  'new article defaults should place the first markdown file inside a v1.0.0 directory'
+);
+
+assert.match(
+  source,
+  /async function promptArticleVersionValue\(key, lang, entry, anchor\) \{[\s\S]*showComposerAddEntryPrompt\(anchor, \{[\s\S]*editor\.composer\.versionPrompt\.placeholder[\s\S]*if \(!isComposerVersionTag\(value\)\)[\s\S]*normalizeComposerVersionTag\(value\)[\s\S]*editor\.composer\.versionPrompt\.errorDuplicate/,
+  'adding an article version should prompt for a v-prefixed version string before creating the new path'
+);
+
+assert.match(
+  source,
+  /function normalizeComposerVersionPaths\(value\) \{[\s\S]*Array\.isArray\(value\)[\s\S]*normalizeRelPath\(value\)[\s\S]*return normalized \? \[normalized\] : \[\];[\s\S]*function collectComposerArticleVersions\(paths\) \{[\s\S]*const arr = normalizeComposerVersionPaths\(paths\);[\s\S]*async function promptArticleVersionValue\(key, lang, entry, anchor\) \{[\s\S]*const arr = normalizeComposerVersionPaths\(entry && entry\[lang\]\);/,
+  'legacy scalar article language paths should be normalized before version dedupe runs'
+);
+
+assert.match(
+  source,
+  /function findExplicitArticleVersionSegmentIndex\(segments\) \{[\s\S]*if \(parts\.length < 3\) return -1;[\s\S]*parts\[0\][\s\S]*!== 'post'[\s\S]*const candidateIndex = parts\.length - 1;[\s\S]*if \(!isComposerVersionSegment\(parts\[candidateIndex\]\)\) return -1;[\s\S]*return candidateIndex;[\s\S]*function buildDefaultLanguagePathFromEntry\(kind, key, lang, entry\) \{[\s\S]*const versionIndex = findExplicitArticleVersionSegmentIndex\(segments\);[\s\S]*segments\[versionIndex\] = 'v1\.0\.0'[\s\S]*else segments\.push\('v1\.0\.0'\);/,
+  'adding a new article language should rewrite only an explicit post/<key>/<version>/<file> version folder'
+);
+
+assert.match(
+  source,
+  /function buildArticleVersionPath\(key, lang, version, entry\) \{[\s\S]*const versionIndex = findExplicitArticleVersionSegmentIndex\(segments\);[\s\S]*segments\[versionIndex\] = normalizedVersion[\s\S]*else segments\.push\(normalizedVersion\);/,
+  'adding a version should replace only an explicit post/<key>/<version>/<file> version folder'
+);
+
+assert.match(
+  source,
+  /function extractVersionFromPath\(relPath\) \{[\s\S]*const segments = normalized\.split\('\/'\);[\s\S]*segments\.pop\(\);[\s\S]*const versionIndex = findExplicitArticleVersionSegmentIndex\(segments\);[\s\S]*return versionIndex >= 0 \? String\(segments\[versionIndex\] \|\| ''\) : '';/,
+  'article version extraction should ignore legacy root-style keys that only look like versions'
+);
+
+assert.doesNotMatch(
+  source,
+  /<input class="ci-path" type="text" placeholder="\$\{escapeHtml\(pathPlaceholder\)\}" value="\$\{escapeHtml\(p \|\| ''\)\}" \/>/,
+  'article version cards should not render an editable path input in the composer list'
+);
+
+assert.doesNotMatch(
+  source,
+  /const input = document\.createElement\('input'\);[\s\S]*input\.setAttribute\('aria-label', treeText\('location', 'Location'\)\);[\s\S]*main\.appendChild\(label\);[\s\S]*main\.appendChild\(input\);/,
+  'article language structure panel should not render an editable location input for version rows'
 );
 
 assert.doesNotMatch(

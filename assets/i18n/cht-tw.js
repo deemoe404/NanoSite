@@ -665,6 +665,16 @@ const translations = {
           errorInvalid: '鍵名只能包含英文字母、數字、下劃線或連字元。',
           errorDuplicate: '該鍵名已存在，請使用其他鍵名。'
         },
+        versionPrompt: {
+          label: '版本',
+          confirm: '新增版本',
+          placeholder: 'v2.0.0',
+          message: ({ key, lang }) => `請輸入 ${key} / ${lang} 的版本號：`,
+          hint: '請使用以 v 開頭的版本號，例如 v2.0.0。',
+          errorEmpty: '版本號不能為空。',
+          errorInvalid: '版本號必須以 v 開頭，例如 v2.0.0。',
+          errorDuplicate: ({ version }) => `${version} 已存在。`
+        },
         discardConfirm: {
           messageReload: ({ label }) => `丟棄 ${label} 的本地更改並重新載入遠端檔案？此操作無法撤銷。`,
           messageSimple: ({ label }) => `丟棄 ${label} 的本地更改？此操作無法撤銷。`,
