@@ -519,6 +519,24 @@ assert.match(
 );
 
 assert.match(
+  source,
+  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*const state = \{ v: 2, open \};[\s\S]*state\.activePath = active && active\.path \? active\.path : null;/,
+  'dynamic markdown session state should persist opened files and the active file path'
+);
+
+assert.match(
+  source,
+  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*applyMode\(modeId\);[\s\S]*return true;/,
+  'dynamic markdown session restore should recreate open files and reactivate the saved active path'
+);
+
+assert.match(
+  source,
+  /refreshEditorContentTree\(\);\s*restoreDynamicEditorState\(\);\s*allowEditorStatePersist = true;/,
+  'editor boot should restore dynamic markdown session state before persisting the next state'
+);
+
+assert.match(
   editorSource,
   /\.current-file \.cf-breadcrumb \{[\s\S]*gap:\.35rem;[\s\S]*\.current-file \.cf-breadcrumb-item \{[\s\S]*color:#0969da;[\s\S]*\.current-file \.cf-breadcrumb-item-current \{[\s\S]*background:#eaeef2;/,
   'current file indicator should use the same lightweight text-toggle styling as the view toggle'

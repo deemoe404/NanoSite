@@ -9072,7 +9072,10 @@ function persistDynamicEditorState() {
   try {
     const store = window.localStorage;
     if (!store) return;
-    const state = { v: 2 };
+    const open = Array.from(dynamicEditorTabs.values())
+      .map((tab) => (tab && tab.path) ? tab.path : '')
+      .filter(Boolean);
+    const state = { v: 2, open };
     if (currentMode && isDynamicMode(currentMode)) {
       const active = dynamicEditorTabs.get(currentMode);
       state.mode = 'editor';
@@ -9088,18 +9091,37 @@ function restoreDynamicEditorState() {
   let raw = null;
   try {
     const store = window.localStorage;
-    if (!store) return;
+    if (!store) return false;
     raw = store.getItem(LS_KEYS.editorState);
   } catch (_) {
-    return;
+    return false;
   }
-  if (!raw) return;
+  if (!raw) return false;
   let data;
   try { data = JSON.parse(raw); }
-  catch (_) { return; }
-  if (!data || typeof data !== 'object') return;
+  catch (_) { return false; }
+  if (!data || typeof data !== 'object') return false;
+
+  const open = Array.isArray(data.open) ? data.open : [];
+  const seen = new Set();
+  open.forEach((item) => {
+    const norm = normalizeRelPath(item);
+    if (!norm || seen.has(norm)) return;
+    seen.add(norm);
+    getOrCreateDynamicMode(norm);
+  });
+
+  const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
+  if (activePath) {
+    const modeId = dynamicEditorTabsByPath.get(activePath) || getOrCreateDynamicMode(activePath);
+    if (modeId) {
+      applyMode(modeId);
+      return true;
+    }
+  }
 
   applyMode('editor');
+  return true;
 }
 
 function setTabLoadingState(tab, isLoading) {
@@ -12911,7 +12933,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   notifyComposerChange('site', { skipAutoSave: true });
 
   refreshEditorContentTree();
-  applyMode('editor');
+  restoreDynamicEditorState();
   allowEditorStatePersist = true;
   persistDynamicEditorState();
 });
