@@ -1,4 +1,4 @@
-import { withLangParam, t } from './i18n.js';
+import { withLangParam, t } from './i18n.js?v=20260430a';
 import { escapeHtml } from './utils.js';
 
 export function renderPostNav(container, postsIndex, postname) {
@@ -26,4 +26,3 @@ export function renderPostNav(container, postsIndex, postname) {
     root.insertAdjacentHTML('beforeend', navHtml);
   } catch (_) { /* silent */ }
 }
-

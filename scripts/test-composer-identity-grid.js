@@ -9,11 +9,25 @@ const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
 const editorMainPath = resolve(here, '../assets/js/editor-main.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
+const enI18nPath = resolve(here, '../assets/i18n/en.js');
+const chsI18nPath = resolve(here, '../assets/i18n/chs.js');
+const chtTwI18nPath = resolve(here, '../assets/i18n/cht-tw.js');
+const chtHkI18nPath = resolve(here, '../assets/i18n/cht-hk.js');
+const jaI18nPath = resolve(here, '../assets/i18n/ja.js');
+const languagesManifestPath = resolve(here, '../assets/i18n/languages.json');
+const i18nPath = resolve(here, '../assets/js/i18n.js');
 const source = readFileSync(composerPath, 'utf8');
 const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
 const editorMainSource = readFileSync(editorMainPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
+const i18nSource = readFileSync(i18nPath, 'utf8');
+const enI18nSource = readFileSync(enI18nPath, 'utf8');
+const chsI18nSource = readFileSync(chsI18nPath, 'utf8');
+const chtTwI18nSource = readFileSync(chtTwI18nPath, 'utf8');
+const chtHkI18nSource = readFileSync(chtHkI18nPath, 'utf8');
+const jaI18nSource = readFileSync(jaI18nPath, 'utf8');
+const languagesManifestSource = readFileSync(languagesManifestPath, 'utf8');
 
 assert.match(
   editorSource,
@@ -86,6 +100,51 @@ assert.match(
   /if \(node\.kind === 'root'\) \{[\s\S]*const add = makeStructureButton\(isPages \? treeText\('addPage', 'Page'\) : treeText\('addArticle', 'Article'\)\);[\s\S]*actions\.appendChild\(add\);/,
   'root structure panels should retain add article/page entry actions'
 );
+
+assert.match(
+  [
+    enI18nSource,
+    chsI18nSource,
+    chtTwI18nSource,
+    jaI18nSource
+  ].join('\n'),
+  /addArticle: '\+ New article'[\s\S]*addArticle: '\+ 新建文章'[\s\S]*addArticle: '\+ 新增文章'[\s\S]*addArticle: '\+ 新規記事'/,
+  'root article actions should be explicit add actions in every UI language'
+);
+
+assert.match(
+  chtHkI18nSource,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260430a';/,
+  'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
+);
+
+assert.match(
+  languagesManifestSource,
+  /"\.\/en\.js\?v=20260430a"[\s\S]*"\.\/chs\.js\?v=20260430b"[\s\S]*"\.\/cht-tw\.js\?v=20260430a"[\s\S]*"\.\/cht-hk\.js\?v=20260430a"[\s\S]*"\.\/ja\.js\?v=20260430a"/,
+  'language manifest should cache-bust language bundles changed by editor action labels'
+);
+
+assert.match(
+  i18nSource,
+  /from '\.\.\/i18n\/en\.js\?v=20260430a'/,
+  'default English bundle import should be cache-busted when editor action labels change'
+);
+
+[
+  source,
+  editorMainSource,
+  readFileSync(resolve(here, '../assets/js/editor-boot.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/editor-github.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/system-updates.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/theme.js'), 'utf8'),
+  readFileSync(resolve(here, '../assets/js/seo.js'), 'utf8')
+].forEach((moduleSource) => {
+  assert.doesNotMatch(
+    moduleSource,
+    /from ['"]\.\/i18n\.js['"]/,
+    'runtime modules should import the cache-busted i18n module URL'
+  );
+});
 
 assert.match(
   editorSource,

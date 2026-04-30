@@ -93,7 +93,7 @@ const translations = {
         aria: 'Content files',
         title: 'Content',
         subtitle: 'Articles and pages',
-        addArticle: 'Article',
+        addArticle: '+ New article',
         addPage: 'Page',
         treeAria: 'Content file tree',
         kicker: 'Content structure',

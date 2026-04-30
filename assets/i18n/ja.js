@@ -93,7 +93,7 @@ const translations = {
         aria: 'コンテンツファイル',
         title: 'コンテンツ',
         subtitle: '記事とページ',
-        addArticle: '記事',
+        addArticle: '+ 新規記事',
         addPage: 'ページ',
         treeAria: 'コンテンツファイルツリー',
         kicker: 'コンテンツ構造',
