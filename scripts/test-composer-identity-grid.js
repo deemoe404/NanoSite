@@ -55,8 +55,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"/,
-  'editor should render a fixed two-pane app shell with a left rail and right content pane'
+  /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"[\s\S]*class="editor-content-frame"[\s\S]*class="editor-mobile-rail-toggle"[\s\S]*class="editor-layout" id="mode-editor"/,
+  'editor should render a fixed two-pane app shell with a left rail and a width-limited right content frame'
 );
 
 assert.doesNotMatch(
@@ -1399,6 +1399,12 @@ assert.match(
   editorSource,
   /\.editor-mobile-rail-toggle \{[\s\S]*display:none;[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-mobile-rail-toggle \{\s*display:inline-flex;/,
   'mobile layout should expose a file tree drawer toggle only on small screens'
+);
+
+assert.match(
+  editorSource,
+  /--editor-content-frame-max-width: 1280px;[\s\S]*--editor-page-max-width: calc\(var\(--editor-rail-width, 340px\) \+ 6px \+ var\(--editor-content-frame-max-width\)\);/,
+  'editor page width should be derived from the rail width plus the shared content frame width'
 );
 
 assert.match(
