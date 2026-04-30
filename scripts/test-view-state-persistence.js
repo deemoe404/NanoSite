@@ -48,8 +48,8 @@ assert.match(
 
 assert.match(
   main,
-  /function restoreLastSiteRouteIfEntry\(\) \{[\s\S]*if \(hasExplicitSiteRouteParams\(window\.location\.href\)\) return false;[\s\S]*history\.replaceState\(history\.state \|\| \{\}, document\.title, target\.toString\(\)\);[\s\S]*restoreLastSiteRouteIfEntry\(\);[\s\S]*const loadResults = await Promise\.allSettled/,
-  'front-end runtime should restore the last route only from an unqualified entry URL'
+  /function hasExplicitSiteEntryQuery\(urlLike\) \{[\s\S]*for \(const \[key, value\] of url\.searchParams\.entries\(\)\) \{[\s\S]*if \(String\(key \|\| ''\)\.trim\(\) \|\| String\(value \|\| ''\)\.trim\(\)\) return true;[\s\S]*function restoreLastSiteRouteIfEntry\(\) \{[\s\S]*if \(hasExplicitSiteEntryQuery\(window\.location\.href\)\) return false;[\s\S]*history\.replaceState\(history\.state \|\| \{\}, document\.title, target\.toString\(\)\);[\s\S]*restoreLastSiteRouteIfEntry\(\);[\s\S]*const loadResults = await Promise\.allSettled/,
+  'front-end runtime should not replace entry URLs that carry any explicit query intent, including lang'
 );
 
 assert.match(

@@ -90,6 +90,18 @@ function hasExplicitSiteRouteParams(urlLike) {
   }
 }
 
+function hasExplicitSiteEntryQuery(urlLike) {
+  try {
+    const url = urlLike ? new URL(urlLike, window.location.href) : new URL(window.location.href);
+    for (const [key, value] of url.searchParams.entries()) {
+      if (String(key || '').trim() || String(value || '').trim()) return true;
+    }
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
+
 function readSiteViewState() {
   try {
     const raw = window.localStorage.getItem(SITE_VIEW_STATE_KEY);
@@ -199,7 +211,7 @@ function scheduleSiteViewStatePersist() {
 
 function restoreLastSiteRouteIfEntry() {
   try {
-    if (hasExplicitSiteRouteParams(window.location.href)) return false;
+    if (hasExplicitSiteEntryQuery(window.location.href)) return false;
     const state = readSiteViewState();
     if (!state.lastUrl) return false;
     const current = new URL(window.location.href);
