@@ -10984,7 +10984,7 @@ function removeEditorLanguage(source, key, lang) {
 
 function addEditorVersion(key, lang, anchor = null) {
   const entry = getIndexEntry(key);
-  const arr = Array.isArray(entry[lang]) ? entry[lang] : (entry[lang] ? [entry[lang]] : []);
+  const arr = normalizeComposerVersionPaths(entry[lang]);
   return promptArticleVersionValue(key, lang, entry, anchor).then((version) => {
     if (!version) return false;
     arr.push(buildArticleVersionPath(key, lang, version, entry));
@@ -11918,6 +11918,12 @@ function normalizeComposerVersionTag(version) {
   return `v${raw.replace(/^v/i, '')}`;
 }
 
+function normalizeComposerVersionPaths(value) {
+  if (Array.isArray(value)) return value.filter(path => !!normalizeRelPath(path));
+  const normalized = normalizeRelPath(value);
+  return normalized ? [normalized] : [];
+}
+
 function isComposerVersionTag(version) {
   return /^v\d+(?:\.\d+)*$/i.test(String(version || '').trim());
 }
@@ -12008,7 +12014,7 @@ function buildArticleVersionPath(key, lang, version, entry) {
   const normalizedVersion = normalizeComposerVersionTag(version);
   const normalizedLang = normalizeComposerLangCode(lang);
   const sourceEntry = entry && typeof entry === 'object' ? entry : getIndexEntry(key);
-  const current = Array.isArray(sourceEntry[lang]) ? sourceEntry[lang] : (sourceEntry[lang] ? [sourceEntry[lang]] : []);
+  const current = normalizeComposerVersionPaths(sourceEntry[lang]);
   const reference = current[current.length - 1] || buildDefaultLanguagePathFromEntry('index', key, normalizedLang, sourceEntry);
   const fallback = buildDefaultEntryPath('index', key, normalizedLang).replace('/v1.0.0/', `/${normalizedVersion}/`);
   const normalizedPath = normalizeRelPath(reference || fallback);
@@ -12025,7 +12031,7 @@ function buildArticleVersionPath(key, lang, version, entry) {
 
 function collectComposerArticleVersions(paths) {
   const versions = new Set();
-  const arr = Array.isArray(paths) ? paths : [];
+  const arr = normalizeComposerVersionPaths(paths);
   arr.forEach((path) => {
     const explicitVersion = normalizeComposerVersionTag(extractVersionFromPath(path));
     if (explicitVersion) versions.add(explicitVersion.toLowerCase());
@@ -12035,7 +12041,7 @@ function collectComposerArticleVersions(paths) {
 }
 
 async function promptArticleVersionValue(key, lang, entry, anchor) {
-  const arr = Array.isArray(entry && entry[lang]) ? entry[lang] : [];
+  const arr = normalizeComposerVersionPaths(entry && entry[lang]);
   const existingVersions = collectComposerArticleVersions(arr);
   const langLabel = displayLangName(lang);
   const result = await showComposerAddEntryPrompt(anchor, {

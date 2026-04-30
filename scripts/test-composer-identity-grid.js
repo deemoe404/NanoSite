@@ -1427,6 +1427,12 @@ assert.match(
 
 assert.match(
   source,
+  /function normalizeComposerVersionPaths\(value\) \{[\s\S]*Array\.isArray\(value\)[\s\S]*normalizeRelPath\(value\)[\s\S]*return normalized \? \[normalized\] : \[\];[\s\S]*function collectComposerArticleVersions\(paths\) \{[\s\S]*const arr = normalizeComposerVersionPaths\(paths\);[\s\S]*async function promptArticleVersionValue\(key, lang, entry, anchor\) \{[\s\S]*const arr = normalizeComposerVersionPaths\(entry && entry\[lang\]\);/,
+  'legacy scalar article language paths should be normalized before version dedupe runs'
+);
+
+assert.match(
+  source,
   /function findTrailingVersionSegmentIndex\(segments\) \{[\s\S]*for \(let i = parts\.length - 1; i >= 0; i -= 1\) \{[\s\S]*if \(isComposerVersionSegment\(parts\[i\]\)\) return i;[\s\S]*function buildDefaultLanguagePathFromEntry\(kind, key, lang, entry\) \{[\s\S]*const versionIndex = findTrailingVersionSegmentIndex\(segments\);[\s\S]*segments\[versionIndex\] = 'v1\.0\.0'[\s\S]*else segments\.push\('v1\.0\.0'\);/,
   'adding a new article language should rewrite only the trailing version folder nearest the filename'
 );
