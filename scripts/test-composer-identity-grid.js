@@ -532,8 +532,8 @@ assert.match(
 
 assert.match(
   source,
-  /refreshEditorContentTree\(\);\s*restoreDynamicEditorState\(\);\s*allowEditorStatePersist = true;/,
-  'editor boot should restore dynamic markdown session state before persisting the next state'
+  /refreshEditorContentTree\(\);\s*if \(!restoreDynamicEditorState\(\)\) applyMode\('editor'\);\s*allowEditorStatePersist = true;/,
+  'editor boot should restore dynamic markdown session state before falling back to the file tree'
 );
 
 assert.match(

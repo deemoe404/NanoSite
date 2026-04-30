@@ -12933,7 +12933,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   notifyComposerChange('site', { skipAutoSave: true });
 
   refreshEditorContentTree();
-  restoreDynamicEditorState();
+  if (!restoreDynamicEditorState()) applyMode('editor');
   allowEditorStatePersist = true;
   persistDynamicEditorState();
 });
