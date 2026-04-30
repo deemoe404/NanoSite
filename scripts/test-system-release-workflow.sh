@@ -123,6 +123,23 @@ if ! grep -F 'git commit -m "Update system release manifest"' "${workflow}" >/de
   exit 1
 fi
 
+if ! grep -F 'git rebase "origin/${GITHUB_REF_NAME}"' "${workflow}" >/dev/null; then
+  echo "system release workflow must rebase before pushing the manifest commit" >&2
+  exit 1
+fi
+
+if ! grep -F 'Failed to push system release manifest after rebasing.' "${workflow}" >/dev/null; then
+  echo "system release workflow must retry manifest pushes and fail clearly after repeated rebase attempts" >&2
+  exit 1
+fi
+
+manifest_rebase_line="$(grep -nF 'git rebase "origin/${GITHUB_REF_NAME}"' "${workflow}" | head -n 1 | cut -d: -f1)"
+manifest_push_line="$(grep -nF 'git push origin "HEAD:${GITHUB_REF_NAME}"' "${workflow}" | tail -n 1 | cut -d: -f1)"
+if [[ -n "${manifest_rebase_line}" && -n "${manifest_push_line}" && "${manifest_push_line}" -lt "${manifest_rebase_line}" ]]; then
+  echo "system release workflow must rebase before pushing the manifest commit" >&2
+  exit 1
+fi
+
 stale_cleanup_line="$(grep -nF 'stale-draft-release-ids.txt' "${workflow}" | head -n 1 | cut -d: -f1)"
 tag_refusal_line="$(grep -nF 'Refusing to overwrite existing tag' "${workflow}" | head -n 1 | cut -d: -f1)"
 if [[ -n "${tag_refusal_line}" && -n "${stale_cleanup_line}" && "${tag_refusal_line}" -lt "${stale_cleanup_line}" ]]; then

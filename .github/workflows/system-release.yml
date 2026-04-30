@@ -313,4 +313,15 @@ jobs:
             exit 0
           fi
           git commit -m "Update system release manifest"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+            if [[ "${attempt}" == "3" ]]; then
+              echo "Failed to push system release manifest after rebasing." >&2
+              exit 1
+            fi
+            sleep 2
+          done
