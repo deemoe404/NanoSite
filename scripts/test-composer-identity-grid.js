@@ -1427,8 +1427,20 @@ assert.match(
 
 assert.match(
   source,
-  /function buildDefaultLanguagePathFromEntry\(kind, key, lang, entry\) \{[\s\S]*if \(normalizedKind === 'index'\) \{[\s\S]*const versionIndex = segments\.findIndex\(isComposerVersionSegment\);[\s\S]*segments\[versionIndex\] = 'v1\.0\.0'[\s\S]*else segments\.push\('v1\.0\.0'\);/,
-  'adding a new article language should normalize its first file into the v1.0.0 directory'
+  /function findTrailingVersionSegmentIndex\(segments\) \{[\s\S]*for \(let i = parts\.length - 1; i >= 0; i -= 1\) \{[\s\S]*if \(isComposerVersionSegment\(parts\[i\]\)\) return i;[\s\S]*function buildDefaultLanguagePathFromEntry\(kind, key, lang, entry\) \{[\s\S]*const versionIndex = findTrailingVersionSegmentIndex\(segments\);[\s\S]*segments\[versionIndex\] = 'v1\.0\.0'[\s\S]*else segments\.push\('v1\.0\.0'\);/,
+  'adding a new article language should rewrite only the trailing version folder nearest the filename'
+);
+
+assert.match(
+  source,
+  /function buildArticleVersionPath\(key, lang, version, entry\) \{[\s\S]*const versionIndex = findTrailingVersionSegmentIndex\(segments\);[\s\S]*segments\[versionIndex\] = normalizedVersion[\s\S]*else segments\.push\(normalizedVersion\);/,
+  'adding a version should replace only the trailing version folder nearest the filename'
+);
+
+assert.match(
+  source,
+  /function extractVersionFromPath\(relPath\) \{[\s\S]*const segments = normalized\.split\('\/'\);[\s\S]*segments\.pop\(\);[\s\S]*const versionIndex = findTrailingVersionSegmentIndex\(segments\);[\s\S]*return versionIndex >= 0 \? String\(segments\[versionIndex\] \|\| ''\) : '';/,
+  'article version extraction should read the version folder nearest the filename so version-like keys stay intact'
 );
 
 assert.doesNotMatch(

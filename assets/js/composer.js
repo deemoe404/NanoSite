@@ -7999,13 +7999,23 @@ function dirnameFromPath(relPath) {
   return norm.slice(0, idx);
 }
 
+function findTrailingVersionSegmentIndex(segments) {
+  const parts = Array.isArray(segments) ? segments : [];
+  for (let i = parts.length - 1; i >= 0; i -= 1) {
+    if (isComposerVersionSegment(parts[i])) return i;
+  }
+  return -1;
+}
+
 function extractVersionFromPath(relPath) {
   try {
-    const match = String(relPath || '').match(/(?:^|\/)v\d+(?:\.\d+)*(?=\/|$)/i);
-    if (!match || !match[0]) return '';
-    const segment = match[0];
-    const slash = segment.lastIndexOf('/');
-    return slash >= 0 ? segment.slice(slash + 1) : segment;
+    const normalized = normalizeRelPath(relPath);
+    if (!normalized) return '';
+    const segments = normalized.split('/');
+    if (segments.length <= 1) return '';
+    segments.pop();
+    const versionIndex = findTrailingVersionSegmentIndex(segments);
+    return versionIndex >= 0 ? String(segments[versionIndex] || '') : '';
   } catch (_) {
     return '';
   }
@@ -11986,7 +11996,7 @@ function buildDefaultLanguagePathFromEntry(kind, key, lang, entry) {
   const finalName = normalizedLang ? `${namePart}_${normalizedLang}` : namePart;
   filename = `${finalName}${extPart}`;
   if (normalizedKind === 'index') {
-    const versionIndex = segments.findIndex(isComposerVersionSegment);
+    const versionIndex = findTrailingVersionSegmentIndex(segments);
     if (versionIndex >= 0) segments[versionIndex] = 'v1.0.0';
     else segments.push('v1.0.0');
   }
@@ -12006,7 +12016,7 @@ function buildArticleVersionPath(key, lang, version, entry) {
   const segments = normalizedPath.split('/');
   let filename = segments.pop() || '';
   if (!filename) filename = normalizedLang ? `main_${normalizedLang}.md` : 'main.md';
-  const versionIndex = segments.findIndex(isComposerVersionSegment);
+  const versionIndex = findTrailingVersionSegmentIndex(segments);
   if (versionIndex >= 0) segments[versionIndex] = normalizedVersion;
   else segments.push(normalizedVersion);
   segments.push(filename);

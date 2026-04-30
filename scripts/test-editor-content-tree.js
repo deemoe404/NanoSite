@@ -9,7 +9,7 @@ import {
 
 const sample = {
   index: {
-    __order: ['nanoSite', 'guide'],
+    __order: ['nanoSite', 'guide', 'v2'],
     nanoSite: {
       en: [
         'post/main/main_en.md',
@@ -19,6 +19,12 @@ const sample = {
     },
     guide: {
       ja: ['post/guide/v1.0.0/guide_ja.md']
+    },
+    v2: {
+      en: [
+        'post/v2/v1.0.0/main_en.md',
+        'post/v2/v3.0.0/main_en.md'
+      ]
     }
   },
   tabs: {
@@ -71,7 +77,7 @@ assert.deepEqual(
 
 const articles = tree[1];
 assert.equal(articles.source, 'index');
-assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide'], 'article entry order should follow __order');
+assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide', 'index:v2'], 'article entry order should follow __order');
 
 const articleLangs = findEditorContentTreeNode(tree, 'index:nanoSite').children;
 assert.deepEqual(articleLangs.map(node => node.id), ['index:nanoSite:en', 'index:nanoSite:chs'], 'article languages should follow preferred language order');
@@ -90,6 +96,16 @@ assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').draftState, 
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').diffState, 'modified');
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:0').fileState, 'existing');
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en').draftState, 'dirty', 'language nodes should aggregate child draft state');
+
+const versionKeyVersions = findEditorContentTreeNode(tree, 'index:v2:en').children;
+assert.deepEqual(
+  versionKeyVersions.map(node => [node.id, node.path, node.label]),
+  [
+    ['index:v2:en:0', 'post/v2/v1.0.0/main_en.md', 'v1.0.0'],
+    ['index:v2:en:1', 'post/v2/v3.0.0/main_en.md', 'v3.0.0']
+  ],
+  'article version labels should use the version folder nearest the filename even when the article key looks like a version'
+);
 
 const pages = tree[2];
 assert.equal(pages.source, 'tabs');

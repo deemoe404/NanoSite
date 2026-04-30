@@ -112,10 +112,21 @@ function filenameLabel(path, fallback) {
   return parts[parts.length - 1] || fallback;
 }
 
-function versionLabel(path, index) {
+function trailingVersionLabel(path) {
   const normalized = normalizeEditorTreePath(path);
-  const match = normalized.match(/(?:^|\/)(v\d+(?:\.\d+)*)(?=\/|$)/i);
-  if (match && match[1]) return match[1];
+  if (!normalized) return '';
+  const segments = normalized.split('/');
+  if (segments.length <= 1) return '';
+  segments.pop();
+  for (let i = segments.length - 1; i >= 0; i -= 1) {
+    if (/^v\d+(?:\.\d+)*$/i.test(String(segments[i] || '').trim())) return segments[i];
+  }
+  return '';
+}
+
+function versionLabel(path, index) {
+  const version = trailingVersionLabel(path);
+  if (version) return version;
   return `Version ${index + 1}`;
 }
 
