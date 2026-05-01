@@ -11185,7 +11185,7 @@ function renderEditorStructurePanel(node) {
     actions.appendChild(add);
     const list = document.createElement('div');
     list.className = 'editor-structure-list';
-    if (node.source === 'index') {
+    if (node.source === 'index' || node.source === 'tabs') {
       let structureDragState = null;
 
       const getAnimatedStructureRows = () => Array.from(list.children)
@@ -11281,12 +11281,13 @@ function renderEditorStructurePanel(node) {
         updateStructureDragItemState();
       };
 
-      const createStructureDragHandle = (child, index) => {
+      const createStructureDragHandle = (child, index, source) => {
+        const labelKey = source === 'tabs' ? 'reorderPage' : 'reorderArticle';
         const handle = document.createElement('span');
         handle.setAttribute('role', 'button');
         handle.tabIndex = 0;
         handle.className = 'editor-structure-drag-handle';
-        handle.setAttribute('aria-label', treeText('reorderArticle', 'Reorder article'));
+        handle.setAttribute('aria-label', treeText(labelKey, source === 'tabs' ? 'Reorder page' : 'Reorder article'));
         handle.innerHTML = '<span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>';
         handle.addEventListener('pointerdown', (event) => {
           if (event.button != null && event.button !== 0) return;
@@ -11318,16 +11319,16 @@ function renderEditorStructurePanel(node) {
         handle.addEventListener('keydown', (event) => {
           if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
           event.preventDefault();
-          moveStructureRootEntry(node.source, index, event.key === 'ArrowUp' ? index - 1 : index + 1);
+          moveStructureRootEntry(source, index, event.key === 'ArrowUp' ? index - 1 : index + 1);
         });
         return handle;
       };
 
-      const renderStructureDraggableItem = (child, detail, index) => {
+      const renderStructureDraggableItem = (child, detail, index, source) => {
         const item = document.createElement('div');
         item.className = 'editor-structure-item editor-structure-item--draggable';
         item.dataset.index = String(index);
-        const handle = createStructureDragHandle(child, index);
+        const handle = createStructureDragHandle(child, index, source);
         const main = document.createElement('div');
         main.className = 'editor-structure-item-main';
         const title = document.createElement('span');
@@ -11347,7 +11348,7 @@ function renderEditorStructurePanel(node) {
       };
 
       node.children.forEach((child, index) => {
-        list.appendChild(renderStructureDraggableItem(child, `${child.children.length} ${treeText('languages', 'languages')}`, index));
+        list.appendChild(renderStructureDraggableItem(child, `${child.children.length} ${treeText('languages', 'languages')}`, index, node.source));
       });
     } else {
       node.children.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));

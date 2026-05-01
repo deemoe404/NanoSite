@@ -822,19 +822,19 @@ assert.doesNotMatch(
 assert.match(
   source,
   /const moveStructureRootEntry = \(source, from, to\) => \{[\s\S]*const order = Array\.isArray\(state\.__order\) \? state\.__order : \[\];[\s\S]*const \[key\] = order\.splice\(from, 1\);[\s\S]*order\.splice\(to, 0, key\);[\s\S]*notifyComposerChange\(source\);[\s\S]*refreshEditorContentTree\(\);/,
-  'article structure panel should reorder the backing index order and refresh the content tree'
+  'structure panels should reorder the backing root order and refresh the content tree'
 );
 
 assert.match(
   source,
-  /const createStructureDragHandle = \(child, index\) => \{[\s\S]*handle\.className = 'editor-structure-drag-handle';[\s\S]*handle\.setAttribute\('aria-label', treeText\('reorderArticle', 'Reorder article'\)\);[\s\S]*handle\.addEventListener\('pointerdown',[\s\S]*handle\.addEventListener\('keydown',/,
-  'article structure rows should render a standalone drag handle with pointer and keyboard reorder hooks'
+  /const createStructureDragHandle = \(child, index, source\) => \{[\s\S]*const labelKey = source === 'tabs' \? 'reorderPage' : 'reorderArticle';[\s\S]*handle\.className = 'editor-structure-drag-handle';[\s\S]*handle\.setAttribute\('aria-label', treeText\(labelKey, source === 'tabs' \? 'Reorder page' : 'Reorder article'\)\);[\s\S]*handle\.addEventListener\('pointerdown',[\s\S]*handle\.addEventListener\('keydown',/,
+  'article and page structure rows should render a standalone drag handle with pointer and keyboard reorder hooks'
 );
 
 assert.match(
   source,
-  /const renderStructureDraggableItem = \(child, detail, index\) => \{[\s\S]*item\.className = 'editor-structure-item editor-structure-item--draggable';[\s\S]*const handle = createStructureDragHandle\(child, index\);[\s\S]*item\.append\(handle, main, controls\);/,
-  'article structure rows should compose handle, content, and actions as separate elements'
+  /const renderStructureDraggableItem = \(child, detail, index, source\) => \{[\s\S]*item\.className = 'editor-structure-item editor-structure-item--draggable';[\s\S]*const handle = createStructureDragHandle\(child, index, source\);[\s\S]*item\.append\(handle, main, controls\);/,
+  'article and page structure rows should compose handle, content, and actions as separate elements'
 );
 
 assert.match(
@@ -846,13 +846,19 @@ assert.match(
 assert.match(
   source,
   /const applyStructureDragPreview = \(clientY\) => \{[\s\S]*structureDragState\.dragItem\.style\.transform = `translate3d\(0, \$\{clientY - structureDragState\.startY\}px, 0\)`[\s\S]*animateStructureRows\(\(\) => \{/,
-  'article structure drag should move the dragged row with the pointer while previewing the drop position'
+  'structure drag should move the dragged row with the pointer while previewing the drop position'
+);
+
+assert.match(
+  source,
+  /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*node\.children\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
+  'articles and pages root panels should both use draggable structure rows'
 );
 
 assert.doesNotMatch(
   source,
   /editor-structure-item[^\\n]*addEventListener\('pointerdown'|item\.setAttribute\('draggable', 'true'\)|className = 'btn-secondary editor-structure-move'/,
-  'article structure reordering should not start from the whole row or restore legacy move buttons'
+  'structure reordering should not start from the whole row or restore legacy move buttons'
 );
 
 assert.match(
