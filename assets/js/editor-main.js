@@ -68,6 +68,123 @@ const getContentRootPrefix = () => {
   }
 };
 
+function syncFrontMatterLabelWidth(root) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  try {
+    if (typeof root.__nsFrontMatterLabelWidthCleanup === 'function') root.__nsFrontMatterLabelWidthCleanup();
+  } catch (_) {}
+  try { root.__nsFrontMatterLabelWidthCleanup = null; } catch (_) {}
+
+  const labels = Array.from(root.querySelectorAll('.frontmatter-field-title'));
+  if (!labels.length) {
+    try { root.style.removeProperty('--frontmatter-single-label-width'); } catch (_) {}
+    return;
+  }
+
+  let frame = 0;
+  let observer = null;
+  const requestFrame = (fn) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      return window.requestAnimationFrame(fn);
+    }
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(fn, 0);
+  };
+  const cancelFrame = (id) => {
+    if (!id) return;
+    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(id);
+      return;
+    }
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
+  const measureLabelText = (label) => {
+    let width = label.scrollWidth || 0;
+    try {
+      const doc = label.ownerDocument || document;
+      if (!doc || !doc.body) return width;
+      const probe = doc.createElement('span');
+      probe.textContent = label.textContent || '';
+      probe.style.position = 'absolute';
+      probe.style.visibility = 'hidden';
+      probe.style.pointerEvents = 'none';
+      probe.style.whiteSpace = 'nowrap';
+      probe.style.left = '-9999px';
+      probe.style.top = '0';
+      const sourceStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+        ? window.getComputedStyle(label)
+        : null;
+      if (sourceStyle) {
+        probe.style.fontFamily = sourceStyle.fontFamily;
+        probe.style.fontSize = sourceStyle.fontSize;
+        probe.style.fontStyle = sourceStyle.fontStyle;
+        probe.style.fontWeight = sourceStyle.fontWeight;
+        probe.style.letterSpacing = sourceStyle.letterSpacing;
+        probe.style.textTransform = sourceStyle.textTransform;
+      }
+      doc.body.appendChild(probe);
+      width = Math.max(width, probe.scrollWidth || Math.ceil(probe.getBoundingClientRect().width) || 0);
+      probe.remove();
+    } catch (_) {}
+    return width;
+  };
+  const measure = () => {
+    frame = 0;
+    let width = 88;
+    labels.forEach((label) => {
+      const target = label.closest ? label.closest('.frontmatter-field-label-wrap') : label;
+      let measured = 0;
+      try {
+        const tooltip = target && target.querySelector ? target.querySelector('.frontmatter-help-tooltip') : null;
+        const tooltipWidth = tooltip ? tooltip.scrollWidth || 0 : 0;
+        const labelWidth = measureLabelText(label);
+        const targetStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+          ? window.getComputedStyle(target || label)
+          : null;
+        const gap = targetStyle ? parseFloat(targetStyle.gap || targetStyle.columnGap || '0') || 0 : 0;
+        measured = labelWidth + tooltipWidth + gap;
+      } catch (_) {
+        try {
+          const tooltip = target && target.querySelector ? target.querySelector('.frontmatter-help-tooltip') : null;
+          measured = measureLabelText(label) + (tooltip ? tooltip.scrollWidth || 0 : 0);
+        } catch (_) {}
+      }
+      width = Math.max(width, measured);
+    });
+    try { root.style.setProperty('--frontmatter-single-label-width', `${Math.ceil(width)}px`); } catch (_) {}
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = requestFrame(measure);
+  };
+
+  if (typeof ResizeObserver === 'function') {
+    try {
+      observer = new ResizeObserver(schedule);
+      observer.observe(root);
+      labels.forEach((label) => {
+        const cell = label.closest ? label.closest('.frontmatter-field-label-wrap') : label;
+        observer.observe(cell || label);
+      });
+    } catch (_) {
+      observer = null;
+    }
+  }
+
+  try {
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') document.fonts.ready.then(schedule).catch(() => {});
+  } catch (_) {}
+  schedule();
+
+  root.__nsFrontMatterLabelWidthCleanup = () => {
+    cancelFrame(frame);
+    frame = 0;
+    try { if (observer) observer.disconnect(); } catch (_) {}
+    observer = null;
+  };
+}
+
 const safePreviewMime = (mime) => {
   try {
     const raw = String(mime || '').trim().toLowerCase();
@@ -993,6 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (parent) parent.appendChild(entry.container);
       });
       if (extraSection) extraSection.hidden = false;
+      syncFrontMatterLabelWidth(panel);
     };
 
     const updateSummary = () => {
@@ -1014,6 +1132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyValueToEntry(entry, state.data[nextKey]);
       });
       updateSummary();
+      syncFrontMatterLabelWidth(panel);
     };
 
     const setFromMarkdown = (raw, opts = {}) => {
@@ -1042,21 +1161,187 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     };
 
+    const clear = () => {
+      state = {
+        data: {},
+        order: [],
+        eol: '\n',
+        trailingNewline: false,
+        bindings: new Map(),
+        hasFrontMatter: false,
+        document: null
+      };
+      rebuildBindings();
+    };
+
     ensureBaseFields();
     updateSummary();
     applySectionDescriptions();
+    syncFrontMatterLabelWidth(panel);
 
     return {
       panel,
       setChangeHandler: (fn) => { changeHandler = typeof fn === 'function' ? fn : () => {}; },
       setFromMarkdown,
       buildMarkdown,
+      clear,
       updateSummary,
       applySectionDescriptions
     };
   })();
 
   let frontMatterVisible = true;
+  let tabsMetadataVisible = false;
+  const tabsMetadataChangeListeners = new Set();
+
+  const tabsMetadataManager = (() => {
+    const panel = document.getElementById('frontMatterPanel');
+    const body = document.getElementById('frontMatterBody');
+    if (!panel || !body) return null;
+
+    const translate = (key, fallback) => {
+      if (!key) return fallback;
+      const translated = t(key);
+      if (translated == null || translated === key) return fallback != null ? fallback : key;
+      return translated;
+    };
+
+    const translateWithLocaleFallback = (key, fallbacks = {}) => {
+      const translated = translate(key, null);
+      if (translated != null && translated !== key) return translated;
+      let lang = 'en';
+      try {
+        lang = normalizeLangKey(getCurrentLang()) || 'en';
+      } catch (_) {
+        lang = 'en';
+      }
+      if (fallbacks[lang]) return fallbacks[lang];
+      if (lang === 'cht-hk' && fallbacks['cht-tw']) return fallbacks['cht-tw'];
+      if (lang.startsWith('cht') && fallbacks['cht-tw']) return fallbacks['cht-tw'];
+      if (lang.startsWith('ch') && fallbacks.chs) return fallbacks.chs;
+      if (lang.startsWith('ja') && fallbacks.ja) return fallbacks.ja;
+      return fallbacks.en || key;
+    };
+
+    const section = document.createElement('div');
+    section.className = 'frontmatter-section';
+    section.id = 'tabsMetadataSection';
+    section.hidden = true;
+
+    const head = document.createElement('div');
+    head.className = 'frontmatter-section-head';
+    const title = document.createElement('h3');
+    title.className = 'frontmatter-section-title';
+    title.textContent = translateWithLocaleFallback('editor.tabsMetadata.title', {
+      en: 'Page attributes',
+      chs: '页面属性',
+      'cht-tw': '頁面屬性',
+      'cht-hk': '頁面屬性',
+      ja: 'ページ属性'
+    });
+    const description = document.createElement('p');
+    description.className = 'frontmatter-section-description';
+    description.textContent = translateWithLocaleFallback('editor.tabsMetadata.description', {
+      en: 'Metadata stored in tabs.yaml for the current page language.',
+      chs: '当前页面语言在 tabs.yaml 中保存的元数据。',
+      'cht-tw': '目前頁面語言在 tabs.yaml 中儲存的中繼資料。',
+      'cht-hk': '目前頁面語言在 tabs.yaml 中儲存的中繼資料。',
+      ja: '現在のページ言語について tabs.yaml に保存されるメタデータ。'
+    });
+    head.append(title, description);
+
+    const grid = document.createElement('div');
+    grid.className = 'frontmatter-grid';
+
+    const field = document.createElement('div');
+    field.className = 'frontmatter-field frontmatter-field-text';
+    field.dataset.fieldId = 'tabs-title';
+
+    const fieldHead = document.createElement('div');
+    fieldHead.className = 'frontmatter-field-head';
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'frontmatter-field-label-wrap';
+    const label = document.createElement('span');
+    label.className = 'frontmatter-field-title';
+    label.textContent = translateWithLocaleFallback('editor.tabsMetadata.fields.title', {
+      en: 'Title',
+      chs: '标题',
+      'cht-tw': '標題',
+      'cht-hk': '標題',
+      ja: 'タイトル'
+    });
+    labelWrap.appendChild(label);
+    fieldHead.appendChild(labelWrap);
+
+    const controls = document.createElement('div');
+    controls.className = 'frontmatter-field-controls';
+    const input = document.createElement('input');
+    input.type = 'text';
+    controls.appendChild(input);
+    field.append(fieldHead, controls);
+    grid.appendChild(field);
+    section.append(head, grid);
+    body.appendChild(section);
+    syncFrontMatterLabelWidth(panel);
+
+    let suppressEvents = false;
+    let changeHandler = () => {};
+    let state = { title: '' };
+
+    const getState = () => ({ title: state.title || '' });
+
+    const emitChange = () => {
+      try { changeHandler(getState()); }
+      catch (_) {}
+    };
+
+    input.addEventListener('input', () => {
+      if (suppressEvents) return;
+      state = { title: input.value };
+      emitChange();
+    });
+
+    return {
+      panel,
+      section,
+      setVisible: (visible) => {
+        section.hidden = !visible;
+      },
+      setChangeHandler: (fn) => {
+        changeHandler = typeof fn === 'function' ? fn : () => {};
+      },
+      setValue: (value, opts = {}) => {
+        const nextTitle = value && typeof value === 'object'
+          ? String(value.title || '')
+          : String(value || '');
+        state = { title: nextTitle };
+        suppressEvents = true;
+        try {
+          input.value = nextTitle;
+        } finally {
+          suppressEvents = false;
+        }
+        if (!opts.silent) emitChange();
+      }
+    };
+  })();
+
+  const updateMetadataPanelVisibility = () => {
+    const panel = (frontMatterManager && frontMatterManager.panel) || (tabsMetadataManager && tabsMetadataManager.panel);
+    if (!panel) return;
+    const visible = !!frontMatterVisible || !!tabsMetadataVisible;
+    panel.hidden = !visible;
+    panel.dataset.state = visible ? 'ready' : 'hidden';
+    panel.dataset.frontmatterVisible = frontMatterVisible ? 'true' : 'false';
+    panel.dataset.tabsMetadataVisible = tabsMetadataVisible ? 'true' : 'false';
+    panel.dataset.tabsVisible = tabsMetadataVisible ? 'true' : 'false';
+    panel.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    panel.style.display = visible ? '' : 'none';
+    if (tabsMetadataManager && typeof tabsMetadataManager.setVisible === 'function') {
+      tabsMetadataManager.setVisible(tabsMetadataVisible);
+    }
+    syncFrontMatterLabelWidth(panel);
+  };
 
   const normalizeCurrentFilePathForMode = (path) => {
     const raw = String(path || '').trim().replace(/\\+/g, '/').replace(/^\/+/, '');
@@ -1078,13 +1363,20 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const setFrontMatterVisible = (visible) => {
-    frontMatterVisible = !!visible;
-    const panel = frontMatterManager && frontMatterManager.panel;
-    if (!panel) return;
-    panel.hidden = !frontMatterVisible;
-    panel.dataset.frontmatterVisible = frontMatterVisible ? 'true' : 'false';
-    panel.setAttribute('aria-hidden', frontMatterVisible ? 'false' : 'true');
-    panel.style.display = frontMatterVisible ? '' : 'none';
+    const nextVisible = !!visible;
+    const shouldClear = !nextVisible && frontMatterVisible;
+    frontMatterVisible = nextVisible;
+    if (shouldClear && frontMatterManager && typeof frontMatterManager.clear === 'function') frontMatterManager.clear();
+    const commonSection = document.getElementById('frontMatterCommonSection');
+    const extraSection = document.getElementById('frontMatterExtraSection');
+    if (commonSection) commonSection.hidden = !frontMatterVisible;
+    if (extraSection) extraSection.hidden = !frontMatterVisible;
+    updateMetadataPanelVisibility();
+  };
+
+  const setTabsMetadataVisible = (visible) => {
+    tabsMetadataVisible = !!visible;
+    updateMetadataPanelVisibility();
   };
 
   const changeListeners = new Set();
@@ -1100,6 +1392,16 @@ document.addEventListener('DOMContentLoaded', () => {
       notifyChange();
     });
   }
+
+  if (tabsMetadataManager) {
+    tabsMetadataManager.setChangeHandler((value) => {
+      tabsMetadataChangeListeners.forEach((fn) => {
+        try { fn(value); } catch (_) {}
+      });
+    });
+  }
+
+  updateMetadataPanelVisibility();
 
   const handleAssetPreviewEvent = (event) => {
     if (!event || !event.detail) return;
@@ -1733,6 +2035,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (frontMatterManager) {
       frontMatterManager.updateSummary();
       frontMatterManager.applySectionDescriptions();
+      syncFrontMatterLabelWidth(frontMatterManager.panel);
     }
   });
 
@@ -2293,6 +2596,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const assignCurrentFileLabel = (input) => {
     currentFileInfo = normalizeCurrentFilePayload(input);
     setFrontMatterVisible(currentFileInfo.source !== 'tabs');
+    setTabsMetadataVisible(currentFileInfo.source === 'tabs');
     previewAssetCurrentPath = normalizePreviewPath(currentFileInfo.path || '');
     renderCurrentFileIndicator();
     refreshPreviewAssetOverrides();
@@ -2397,10 +2701,16 @@ document.addEventListener('DOMContentLoaded', () => {
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
     setFrontMatterVisible: (visible) => setFrontMatterVisible(visible),
+    setTabsMetadata: (value, opts = {}) => tabsMetadataManager && tabsMetadataManager.setValue(value, opts),
     onChange: (fn) => {
       if (typeof fn !== 'function') return () => {};
       changeListeners.add(fn);
       return () => { changeListeners.delete(fn); };
+    },
+    onTabsMetadataChange: (fn) => {
+      if (typeof fn !== 'function') return () => {};
+      tabsMetadataChangeListeners.add(fn);
+      return () => { tabsMetadataChangeListeners.delete(fn); };
     },
     refreshPreview: () => { renderPreview(getValue()); },
     requestLayout: () => { requestLayout(); },

@@ -244,14 +244,25 @@
     .editor-structure-row input, .editor-structure-row select { width:100%; min-width:0; height:2rem; border:1px solid var(--border); border-radius:6px; background:var(--card); color:var(--text); padding:.25rem .45rem; }
     .editor-structure-list { display:flex; flex-direction:column; gap:.4rem; }
     .editor-structure-item { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:.5rem; padding:.4rem .55rem; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:color-mix(in srgb, var(--text) 2%, transparent); }
+    .editor-structure-item--draggable { grid-template-columns:1.95rem minmax(0, 1fr) auto; }
+    .editor-structure-item--draggable.is-dragging { pointer-events:none; background:color-mix(in srgb, var(--card) 98%, transparent); box-shadow:0 14px 30px rgba(15,23,42,0.16),0 4px 12px rgba(15,23,42,0.12); }
     .editor-structure-item-main { min-width:0; display:flex; flex-direction:column; gap:.1rem; }
     .editor-structure-item-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--text); }
     .editor-structure-item-meta { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:.82rem; }
     .editor-structure-item-actions { display:flex; gap:.35rem; flex-wrap:wrap; justify-content:flex-end; }
+    .editor-structure-drag-handle { width:1.95rem; min-height:2.2rem; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.16rem; padding:.25rem .45rem; border:0; background:transparent; border-radius:8px; cursor:grab; touch-action:none; color:color-mix(in srgb, var(--muted) 86%, transparent); box-sizing:border-box; user-select:none; }
+    .editor-structure-drag-handle:hover { background:color-mix(in srgb, var(--text) 4%, transparent); }
+    .editor-structure-drag-handle:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 36%, transparent); outline-offset:2px; background:color-mix(in srgb, var(--primary) 8%, transparent); }
+    .editor-structure-drag-handle:active { cursor:grabbing; }
+    .editor-structure-drag-handle span { display:block; width:.9rem; height:1px; border-radius:999px; background:currentColor; }
+    .editor-structure-item--draggable.is-dragging .editor-structure-drag-handle { background:color-mix(in srgb, var(--primary) 12%, transparent); color:color-mix(in srgb, var(--primary) 92%, var(--text)); }
+    .editor-structure-drop-placeholder { border:1px dashed color-mix(in srgb, var(--primary) 48%, var(--border)); border-radius:10px; background:color-mix(in srgb, var(--primary) 8%, transparent); min-height:2.2rem; box-sizing:border-box; }
     .site-settings-title { font-size:1rem; color:var(--text); }
     @media (max-width: 980px) {
       .editor-structure-row { grid-template-columns:1fr; }
       .editor-structure-actions, .editor-structure-item-actions { justify-content:flex-start; }
+      .editor-structure-item--draggable { grid-template-columns:1.95rem minmax(0, 1fr); }
+      .editor-structure-item--draggable .editor-structure-item-actions { grid-column:1 / -1; padding-left:calc(1.95rem + .5rem); }
     }
     @media (prefers-reduced-motion: reduce) {
       .editor-structure-panel.is-content-entering .editor-structure-head,
@@ -858,7 +869,7 @@
       width:100%;
     }
     .frontmatter-panel[data-state="hidden"] { display: none; }
-    .frontmatter-panel[data-frontmatter-visible="false"] { display: none !important; }
+    .frontmatter-panel[data-frontmatter-visible="false"][data-tabs-visible="false"] { display: none !important; }
     .frontmatter-body {
       display: flex;
       flex-direction: column;
@@ -877,7 +888,7 @@
       margin: 0;
       padding: 0;
       display: grid;
-      grid-template-columns: minmax(88px, 88px) minmax(0, var(--frontmatter-single-control-width));
+      grid-template-columns: var(--frontmatter-single-label-width, 88px) minmax(0, var(--frontmatter-single-control-width));
       align-items: center;
       justify-content: start;
       column-gap: var(--frontmatter-row-column-gap);
@@ -1019,6 +1030,9 @@
       display: flex;
       flex-direction: column;
       gap: 0.6rem;
+    }
+    .frontmatter-section[hidden] {
+      display: none !important;
     }
     .frontmatter-section-head {
       display: flex;
@@ -1965,9 +1979,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-system-sync-20260430a"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-system-sync-20260430a"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-system-sync-20260430a"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-tabs-meta-20260501a"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-tabs-meta-20260501a"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-tabs-meta-20260501a"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

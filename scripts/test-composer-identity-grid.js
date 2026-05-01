@@ -243,14 +243,26 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.frontmatter-panel \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*\.frontmatter-grid \{[\s\S]*--frontmatter-row-gap: 0\.35rem;[\s\S]*display: flex;[\s\S]*gap: var\(--frontmatter-row-gap\);[\s\S]*\.frontmatter-field \{[\s\S]*padding: 0;[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(88px, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
-  'front matter fields should use compact Site Settings-style label/control rows'
+  /\.frontmatter-panel \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*\.frontmatter-grid \{[\s\S]*--frontmatter-row-gap: 0\.35rem;[\s\S]*display: flex;[\s\S]*gap: var\(--frontmatter-row-gap\);[\s\S]*\.frontmatter-field \{[\s\S]*padding: 0;[\s\S]*display: grid;[\s\S]*grid-template-columns: var\(--frontmatter-single-label-width, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
+  'front matter fields should use compact Site Settings-style rows with measured label width'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.frontmatter-field \{[\s\S]*grid-template-columns: minmax\(88px, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
+  'front matter label column should not stay fixed to the old 88px width'
 );
 
 assert.match(
   editorSource,
   /\.frontmatter-section \{[\s\S]*border: 1px solid color-mix\(in srgb, var\(--border\) 96%, transparent\);[\s\S]*background: var\(--card\);[\s\S]*gap: 0\.6rem;[\s\S]*\.frontmatter-section-head \{[\s\S]*align-items: baseline;[\s\S]*\.frontmatter-section-title \{[\s\S]*font-size: 1rem;[\s\S]*\.frontmatter-section-description \{[\s\S]*font-size: 0\.82rem;[\s\S]*text-align: right;/,
   'front matter sections should mirror the Site Settings single-column section card header style'
+);
+
+assert.match(
+  editorSource,
+  /\.frontmatter-section\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/,
+  'front matter sections should honor hidden state so page files can suppress article-only metadata groups'
 );
 
 assert.match(
@@ -263,6 +275,78 @@ assert.match(
   editorMainSource,
   /head\.className = 'frontmatter-field-head';[\s\S]*labelWrap\.className = 'frontmatter-field-label-wrap';[\s\S]*labelSpan\.className = 'frontmatter-field-title';[\s\S]*controls\.className = 'frontmatter-field-controls';[\s\S]*controls\.appendChild\([\s\S]*entry\.container\.appendChild\(controls\);/,
   'front matter field DOM should include field head, label wrap, and controls wrapper'
+);
+
+assert.match(
+  editorMainSource,
+  /const clear = \(\) => \{[\s\S]*state = \{[\s\S]*data:\s*\{\}[\s\S]*hasFrontMatter:\s*false[\s\S]*rebuildBindings\(\);[\s\S]*\};[\s\S]*return \{[\s\S]*clear,/,
+  'front matter manager should expose a clear helper to reset stale article metadata state'
+);
+
+assert.match(
+  editorMainSource,
+  /const setFrontMatterVisible = \(visible\) => \{[\s\S]*const nextVisible = !!visible;[\s\S]*const shouldClear = !nextVisible && frontMatterVisible;[\s\S]*frontMatterVisible = nextVisible;[\s\S]*if \(shouldClear && frontMatterManager && typeof frontMatterManager\.clear === 'function'\) frontMatterManager\.clear\(\);[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*\};/,
+  'switching into page metadata mode should clear stale article front matter state only on visibility transitions'
+);
+
+assert.match(
+  editorMainSource,
+  /function syncFrontMatterLabelWidth\(root\) \{[\s\S]*querySelectorAll\('\.frontmatter-field-title'\)[\s\S]*requestAnimationFrame[\s\S]*ResizeObserver/,
+  'front matter labels should be measured after render and shared through a CSS variable'
+);
+
+assert.match(
+  editorMainSource,
+  /function syncFrontMatterLabelWidth\(root\) \{[\s\S]*root\.style\.setProperty\('--frontmatter-single-label-width'/,
+  'front matter label measurement should write the shared label width CSS variable'
+);
+
+assert.match(
+  editorMainSource,
+  /const measureLabelText = \(label\) => \{[\s\S]*label\.scrollWidth[\s\S]*probe\.textContent = label\.textContent \|\| '';[\s\S]*probe\.style\.whiteSpace = 'nowrap';/,
+  'front matter label measurement should probe intrinsic text width when current layout is constrained'
+);
+
+assert.match(
+  editorMainSource,
+  /querySelector\('\.frontmatter-help-tooltip'\)[\s\S]*measureLabelText\(label\)[\s\S]*getComputedStyle\(target \|\| label\)[\s\S]*gap/,
+  'front matter label measurement should use intrinsic label width plus the visible help button and gap'
+);
+
+assert.match(
+  editorMainSource,
+  /document\.addEventListener\('ns-editor-language-applied'[\s\S]*frontMatterManager\.applySectionDescriptions\(\);[\s\S]*syncFrontMatterLabelWidth\(frontMatterManager\.panel\);/,
+  'front matter labels should resync after editor language changes update localized labels'
+);
+
+assert.match(
+  editorMainSource,
+  /const updateMetadataPanelVisibility = \(\) => \{[\s\S]*tabsMetadataManager\.setVisible\(tabsMetadataVisible\);[\s\S]*syncFrontMatterLabelWidth\(panel\);/,
+  'front matter labels should resync after article/page metadata visibility changes'
+);
+
+assert.match(
+  source,
+  /function getTabsMetadataForTab\(tab\) \{[\s\S]*tab\.tabsKey[\s\S]*tab\.tabsLang[\s\S]*getTabsEntry\(tab\.tabsKey\)[\s\S]*entry && entry\[tab\.tabsLang\][\s\S]*title/,
+  'tabs metadata reads should prefer the dynamic tab stable identity over path-only lookup'
+);
+
+assert.match(
+  source,
+  /function updateTabsEntryTitleForTab\(tab, metadata\) \{[\s\S]*tab\.tabsKey[\s\S]*tab\.tabsLang[\s\S]*getTabsEntry\(tab\.tabsKey\)[\s\S]*entry\[tab\.tabsLang\]\.title = nextTitle;/,
+  'tabs metadata writes should target the dynamic tab stable identity instead of the first matching path'
+);
+
+assert.match(
+  source,
+  /detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleForTab\(tab, metadata\);/,
+  'tabs metadata bridge should write through the active dynamic tab identity'
+);
+
+assert.match(
+  source,
+  /const data = \{[\s\S]*path: normalized,[\s\S]*tabsKey:[\s\S]*tabsLang:[\s\S]*editorTreeNodeId:[\s\S]*lookupKey:/,
+  'dynamic markdown tabs should persist a stable identity for shared-path tabs content'
 );
 
 assert.doesNotMatch(
@@ -297,20 +381,32 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.frontmatter-panel\[data-frontmatter-visible="false"\] \{ display: none !important; \}/,
-  'front matter panel should have a hard hidden state for page markdown files'
+  /\.frontmatter-panel\[data-frontmatter-visible="false"\]\[data-tabs-visible="false"\] \{ display: none !important; \}/,
+  'front matter panel should only fully hide when neither article nor tabs metadata is active'
 );
 
 assert.match(
   editorMainSource,
-  /let frontMatterVisible = true;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*panel\.dataset\.frontmatterVisible = frontMatterVisible \? 'true' : 'false';[\s\S]*panel\.style\.display = frontMatterVisible \? '' : 'none';[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);/,
-  'markdown editor should hide the front matter panel for tabs.yaml page markdown files'
+  /let frontMatterVisible = true;[\s\S]*let tabsMetadataVisible = false;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*const nextVisible = !!visible;[\s\S]*const shouldClear = !nextVisible && frontMatterVisible;[\s\S]*frontMatterVisible = nextVisible;[\s\S]*if \(shouldClear && frontMatterManager && typeof frontMatterManager\.clear === 'function'\) frontMatterManager\.clear\(\);[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*const setTabsMetadataVisible = \(visible\) => \{[\s\S]*tabsMetadataVisible = !!visible;[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*assignCurrentFileLabel = \(input\) => \{[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);[\s\S]*setTabsMetadataVisible\(currentFileInfo\.source === 'tabs'\);/,
+  'markdown editor should swap between article front matter and tabs metadata visibility by file source'
 );
 
 assert.match(
   editorMainSource,
   /const getValue = \(\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) return frontMatterManager\.buildMarkdown\(body\);[\s\S]*const setValue = \(value, opts = \{\}\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) \{/,
   'page markdown should bypass front matter parsing and rebuilding while the panel is hidden'
+);
+
+assert.match(
+  editorMainSource,
+  /const tabsMetadataManager = \(\(\) => \{[\s\S]*className = 'frontmatter-section';[\s\S]*className = 'frontmatter-grid';[\s\S]*className = 'frontmatter-field frontmatter-field-text';[\s\S]*dataset\.fieldId = 'tabs-title';[\s\S]*setChangeHandler: \(fn\) => \{[\s\S]*setValue: \(value, opts = \{\}\) => \{[\s\S]*emitChange\(\);/,
+  'markdown editor should define a tabs metadata manager that reuses the frontmatter panel shell and field styling'
+);
+
+assert.match(
+  editorMainSource,
+  /const primaryEditorApi = \{[\s\S]*setTabsMetadata: \(value, opts = \{\}\) => tabsMetadataManager && tabsMetadataManager\.setValue\(value, opts\),[\s\S]*onTabsMetadataChange: \(fn\) => \{[\s\S]*tabsMetadataChangeListeners\.add\(fn\);/,
+  'primary editor API should expose tabs metadata setters and change subscriptions'
 );
 
 assert.match(
@@ -321,8 +417,20 @@ assert.match(
 
 assert.match(
   source,
-  /source: tab\.source \|\| inferMarkdownSourceFromPath\(tab\.path\),[\s\S]*source: inferMarkdownSourceFromPath\(normalized\),/,
-  'composer should pass the inferred markdown source to the primary editor'
+  /function deriveDynamicTabIdentity\(path, options = \{\}\) \{[\s\S]*const explicitLookupKey = String\(opts\.lookupKey \|\| ''\)\.trim\(\);[\s\S]*const source = String\([\s\S]*opts\.source[\s\S]*inferMarkdownSourceFromPath\(normalizedPath\)[\s\S]*const lookupKey = explicitLookupKey \|\| \(\(source === 'tabs' && key && lang\)/,
+  'composer should preserve explicit file-source identity and persisted lookup keys for dynamic markdown tabs'
+);
+
+assert.match(
+  source,
+  /\$\('\.ct-edit', block\)\.addEventListener\('click', \(\) => \{[\s\S]*const rel = normalizeRelPath\(v\.location\);[\s\S]*openMarkdownInEditor\(rel, \{[\s\S]*source: 'tabs',[\s\S]*key,[\s\S]*lang,[\s\S]*editorTreeNodeId: `tabs:\$\{key\}:\$\{lang\}`[\s\S]*\}\);/,
+  'page list edit actions should pass tabs identity when opening the markdown editor'
+);
+
+assert.match(
+  source,
+  /if \(!api \|\| typeof api\.onTabsMetadataChange !== 'function'\) return;[\s\S]*detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleForTab\(tab, metadata\);/,
+  'composer should subscribe to tabs metadata changes and write title edits back into tabs state'
 );
 
 assert.match(
@@ -547,10 +655,10 @@ assert.match(
   'markdown editor should track a single active document instead of visible tab state'
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /treeText\('fieldTitle', 'Title'\)/,
-  'page language title fields should not reuse the tree heading translation key'
+  /function renderPageLanguageStructure\(key, lang, value\) \{[\s\S]*treeText\('fieldTitle', 'Title'\)/,
+  'page structure rows should no longer render a standalone title field label'
 );
 
 const initialBootIndex = source.indexOf('Apply initial state as early as possible');
@@ -565,26 +673,26 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function getOrCreateDynamicMode\(path\) \{[\s\S]*button: null,[\s\S]*dynamicEditorTabs\.set\(modeId, data\);/,
+  /function getOrCreateDynamicMode\(path, options = \{\}\) \{[\s\S]*const identity = deriveDynamicTabIdentity\(path, options\);[\s\S]*const existing = dynamicEditorTabsByLookupKey\.get\(identity\.lookupKey\);[\s\S]*button: null,[\s\S]*dynamicEditorTabs\.set\(modeId, data\);[\s\S]*dynamicEditorTabsByLookupKey\.set\(identity\.lookupKey, modeId\);/,
   'markdown document state should no longer create visible dynamic tab buttons'
 );
 
 assert.match(
   source,
-  /function openMarkdownInEditor\(path\) \{[\s\S]*flushMarkdownDraft\(active\);[\s\S]*applyMode\(modeId\);/,
+  /function openMarkdownInEditor\(path, options = \{\}\) \{[\s\S]*flushMarkdownDraft\(active\);[\s\S]*const modeId = getOrCreateDynamicMode\(path, options\);[\s\S]*applyMode\(modeId\);/,
   'switching files from the tree should flush the current markdown draft before opening the next file'
 );
 
 assert.match(
   source,
-  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*v: EDITOR_STATE_VERSION,[\s\S]*activePath: active && active\.path \? active\.path : null,[\s\S]*expandedNodeIds: Array\.from\(expandedEditorTreeNodeIds\)\.filter\(Boolean\),/,
-  'dynamic markdown session state should persist opened files, active file path, and exact tree expansion'
+  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*lookupKey: tab\.lookupKey \|\| tab\.path,[\s\S]*path: tab\.path,[\s\S]*activeLookupKey: active && \(active\.lookupKey \|\| active\.path\) \? \(active\.lookupKey \|\| active\.path\) : null,[\s\S]*activePath: active && active\.path \? active\.path : null,[\s\S]*expandedNodeIds: Array\.from\(expandedEditorTreeNodeIds\)\.filter\(Boolean\),/,
+  'dynamic markdown session state should persist opened files with stable lookup keys, plus active file identity and exact tree expansion'
 );
 
 assert.match(
   source,
-  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
-  'dynamic markdown session restore should recreate open files, exact expansion, and active file path'
+  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*const lookupKey = item && typeof item === 'object'[\s\S]*const path = item && typeof item === 'object'[\s\S]*getOrCreateDynamicMode\(path, \{[\s\S]*source:[\s\S]*key:[\s\S]*lang:[\s\S]*editorTreeNodeId:[\s\S]*lookupKey[\s\S]*\}\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activeLookupKey = String\(data\.activeLookupKey \|\| ''\)\.trim\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*if \(\(isV3 \? data\.mode === 'markdown' : true\) && \(activeLookupKey \|\| activePath\)\) \{[\s\S]*const modeId = \(activeLookupKey && dynamicEditorTabsByLookupKey\.get\(activeLookupKey\)\)[\s\S]*\|\| \(activePath && dynamicEditorTabsByLookupKey\.get\(activePath\)\)[\s\S]*\|\| \(activePath \? getOrCreateDynamicMode\(activePath\) : null\);[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
+  'dynamic markdown session restore should recreate open files and active file identity with stable lookup keys'
 );
 
 assert.match(
@@ -817,6 +925,60 @@ assert.doesNotMatch(
   source,
   /className = 'btn-tertiary cs-move'|addEventListener\('click', \(\) => moveEntry\(index, index [-+] 1\)\)/,
   'profile links should not render old up/down reorder buttons'
+);
+
+assert.match(
+  source,
+  /const moveStructureRootEntry = \(source, from, to\) => \{[\s\S]*const order = Array\.isArray\(state\.__order\) \? state\.__order : \[\];[\s\S]*const \[key\] = order\.splice\(from, 1\);[\s\S]*order\.splice\(to, 0, key\);[\s\S]*notifyComposerChange\(source\);[\s\S]*refreshEditorContentTree\(\);/,
+  'structure panels should reorder the backing root order and refresh the content tree'
+);
+
+assert.match(
+  source,
+  /const createStructureDragHandle = \(child, index, source\) => \{[\s\S]*const labelKey = source === 'tabs' \? 'reorderPage' : 'reorderArticle';[\s\S]*handle\.className = 'editor-structure-drag-handle';[\s\S]*handle\.setAttribute\('aria-label', treeText\(labelKey, source === 'tabs' \? 'Reorder page' : 'Reorder article'\)\);[\s\S]*handle\.addEventListener\('pointerdown',[\s\S]*handle\.addEventListener\('keydown',/,
+  'article and page structure rows should render a standalone drag handle with pointer and keyboard reorder hooks'
+);
+
+assert.match(
+  source,
+  /const renderStructureDraggableItem = \(child, detail, index, source\) => \{[\s\S]*item\.className = 'editor-structure-item editor-structure-item--draggable';[\s\S]*const handle = createStructureDragHandle\(child, index, source\);[\s\S]*item\.append\(handle, main, controls\);/,
+  'article and page structure rows should compose handle, content, and actions as separate elements'
+);
+
+assert.match(
+  source,
+  /const createStructureDragPlaceholder = \(item\) => \{[\s\S]*placeholder\.className = 'editor-structure-drop-placeholder';[\s\S]*placeholder\.style\.height = `\$\{itemRect\.height\}px`;/,
+  'article structure drag should create an in-list placeholder matching the dragged row height'
+);
+
+assert.match(
+  source,
+  /const applyStructureDragPreview = \(clientY\) => \{[\s\S]*structureDragState\.dragItem\.style\.transform = `translate3d\(0, \$\{clientY - structureDragState\.startY\}px, 0\)`[\s\S]*animateStructureRows\(\(\) => \{/,
+  'structure drag should move the dragged row with the pointer while previewing the drop position'
+);
+
+assert.match(
+  source,
+  /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*node\.children\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
+  'articles and pages root panels should both use draggable structure rows'
+);
+
+assert.doesNotMatch(
+  source,
+  /class="ct-field ct-field-title"|const titleLabel = tComposerLang\('fields\.title'\)|const titleInput = \$\('\.ct-title', block\)|entry\[lang\]\.title = e\.target\.value/,
+  'page entry structure rows should no longer render editable title inputs once title moves into the markdown editor metadata panel'
+);
+
+assert.doesNotMatch(
+  source,
+  /<input class="ct-loc"|const pathPlaceholder = tComposerLang\('placeholders\.tabPath'\)|const locInput = \$\('\.ct-loc', block\)|entry\[lang\]\.location = e\.target\.value/,
+  'page entry lists should no longer render editable location inputs for tabs languages'
+);
+
+assert.doesNotMatch(
+  source,
+  /editor-structure-item[^\\n]*addEventListener\('pointerdown'|item\.setAttribute\('draggable', 'true'\)|className = 'btn-secondary editor-structure-move'/,
+  'structure reordering should not start from the whole row or restore legacy move buttons'
 );
 
 assert.match(
@@ -1459,6 +1621,12 @@ assert.doesNotMatch(
   source,
   /const input = document\.createElement\('input'\);[\s\S]*input\.setAttribute\('aria-label', treeText\('location', 'Location'\)\);[\s\S]*main\.appendChild\(label\);[\s\S]*main\.appendChild\(input\);/,
   'article language structure panel should not render an editable location input for version rows'
+);
+
+assert.doesNotMatch(
+  source,
+  /function renderPageLanguageStructure\(key, lang, value\) \{[\s\S]*const titleInput = document\.createElement\('input'\);[\s\S]*const pathInput = document\.createElement\('input'\);[\s\S]*controls\.appendChild\(titleInput\);[\s\S]*controls\.appendChild\(pathInput\);/,
+  'page structure rows should not render editable title or location inputs'
 );
 
 assert.doesNotMatch(
