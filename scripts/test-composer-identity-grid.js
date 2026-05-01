@@ -29,6 +29,23 @@ const chtHkI18nSource = readFileSync(chtHkI18nPath, 'utf8');
 const jaI18nSource = readFileSync(jaI18nPath, 'utf8');
 const languagesManifestSource = readFileSync(languagesManifestPath, 'utf8');
 
+function extractFunctionBody(text, name) {
+  const start = text.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `${name} should exist`);
+  const open = text.indexOf('{', start);
+  assert.notEqual(open, -1, `${name} should have a body`);
+  let depth = 0;
+  for (let index = open; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(open + 1, index);
+    }
+  }
+  assert.fail(`${name} body should be balanced`);
+}
+
 assert.match(
   editorSource,
   /\.view-toggle \.vt-btn \.vt-dirty-badge\{position:absolute;top:-\.45rem;right:0;min-width:1\.15rem;height:1\.15rem[\s\S]*transform:translateX\(50%\) scale\(\.72\)/,
@@ -619,6 +636,37 @@ assert.match(
   'file tree row aria labels should include the computed status summary'
 );
 
+assert.match(
+  source,
+  /function handleEditorTreeSelection\(nodeId\) \{[\s\S]*if \(node\.isDeleted\) \{[\s\S]*applyMode\('editor', \{ forceStructure: true \}\);[\s\S]*refreshEditorContentTree\(\);[\s\S]*return;[\s\S]*if \(node\.kind === 'file' && node\.path\)/,
+  'selecting deleted tombstones should route to the read-only structure panel before file nodes can open markdown'
+);
+
+assert.match(
+  source,
+  /function renderEditorStructurePanel\(node\) \{[\s\S]*if \(node\.isDeleted\) \{[\s\S]*renderEditorDeletedPanel\(node, \{ title, kicker, meta, actions, body \}\);[\s\S]*return;[\s\S]*if \(node\.kind === 'root'\)/,
+  'deleted tombstones should render a read-only deleted panel before editable entry/language panels are considered'
+);
+
+assert.match(
+  source,
+  /function restoreDeletedEditorTreeNode\(node\) \{[\s\S]*node\.deletedKind[\s\S]*restoreValue[\s\S]*notifyComposerChange\(node\.source\)[\s\S]*refreshEditorContentTree\(\);/,
+  'deleted tombstones should have an explicit restore action that writes restored baseline payloads'
+);
+
+assert.match(
+  source,
+  /const visibleChildren = node\.children\.filter\(child => !child\.isDeleted\);[\s\S]*visibleChildren\.forEach/,
+  'root structure reorder lists should exclude deleted tombstones from draggable current-order rows'
+);
+
+const deletedPanelBody = extractFunctionBody(source, 'renderEditorDeletedPanel');
+assert.doesNotMatch(
+  deletedPanelBody,
+  /getIndexEntry|getTabsEntry|appendLanguageSelector|addEditorVersion|renderEditorEntryPanel|renderEditorLanguagePanel/,
+  'deleted tombstone panel should not call editable entry/language helpers that create missing state as a side effect'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.editor-tree-badge/,
@@ -645,7 +693,7 @@ assert.match(
 
 assert.match(
   source,
-  /function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = node\.kind === 'file';[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
+  /function isEditorTreeFileKind\(kind\) \{[\s\S]*kind === 'file' \|\| kind === 'deleted-file'[\s\S]*function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = isEditorTreeFileKind\(node\.kind\);[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
   'file tree should render folder and document icon markers'
 );
 
@@ -1015,8 +1063,8 @@ assert.match(
 
 assert.match(
   source,
-  /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*node\.children\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
-  'articles and pages root panels should both use draggable structure rows'
+  /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*visibleChildren\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
+  'articles and pages root panels should both use draggable structure rows for non-deleted current entries'
 );
 
 assert.doesNotMatch(

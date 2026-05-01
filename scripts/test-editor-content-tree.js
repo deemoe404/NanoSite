@@ -180,7 +180,7 @@ assert.deepEqual(
   [
     ['index:nanoSite:en:0', 'file', 'post/main/main_en.md', 'Version 1'],
     ['index:nanoSite:en:1', 'file', 'post/main/v2.0.0/main_en.md', 'v2.0.0'],
-    ['index:nanoSite:en:removed:1', 'file', 'post/main/v1.5.0/old_en.md', 'v1.5.0']
+    ['index:nanoSite:en:removed:1', 'deleted-file', 'post/main/v1.5.0/old_en.md', 'v1.5.0']
   ],
   'article language nodes should expose current and deleted version/file leaves while tolerating legacy root-level first versions'
 );
@@ -195,6 +195,34 @@ assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').chan
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').isDeleted, true, 'removed article versions should be marked as tombstones');
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:ja:removed:0').changeState, 'deleted', 'removed article languages should expose deleted file tombstones');
 assert.equal(findEditorContentTreeNode(tree, 'index:oldArticle:en:removed:0').changeState, 'deleted', 'removed article keys should expose deleted descendant file tombstones');
+assert.deepEqual(
+  [
+    findEditorContentTreeNode(tree, 'index:oldArticle').kind,
+    findEditorContentTreeNode(tree, 'index:nanoSite:ja').kind,
+    findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').kind,
+    findEditorContentTreeNode(tree, 'tabs:Archive').kind,
+    findEditorContentTreeNode(tree, 'tabs:History:ja').kind
+  ],
+  ['deleted-entry', 'deleted-language', 'deleted-file', 'deleted-entry', 'deleted-file'],
+  'deleted entry, language, and file tombstones should use non-editable tree kinds'
+);
+assert.deepEqual(
+  [
+    findEditorContentTreeNode(tree, 'index:oldArticle').deletedKind,
+    findEditorContentTreeNode(tree, 'index:nanoSite:ja').deletedKind,
+    findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').deletedKind,
+    findEditorContentTreeNode(tree, 'tabs:Archive').deletedKind,
+    findEditorContentTreeNode(tree, 'tabs:History:ja').deletedKind
+  ],
+  ['entry', 'language', 'version', 'entry', 'page-language'],
+  'deleted tombstones should declare the explicit restore target kind'
+);
+assert.deepEqual(findEditorContentTreeNode(tree, 'index:oldArticle').restoreValue, baseline.index.oldArticle, 'deleted article entries should carry the baseline entry payload for restore');
+assert.equal(findEditorContentTreeNode(tree, 'index:oldArticle').restoreOrderIndex, 0, 'deleted article entries should remember their baseline order index');
+assert.deepEqual(findEditorContentTreeNode(tree, 'index:nanoSite:ja').restoreValue, baseline.index.nanoSite.ja, 'deleted article languages should carry the baseline language payload for restore');
+assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').restoreValue, 'post/main/v1.5.0/old_en.md', 'deleted article versions should carry their baseline file path for restore');
+assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').restoreIndex, 1, 'deleted article versions should remember their baseline version index');
+assert.deepEqual(findEditorContentTreeNode(tree, 'tabs:History:ja').restoreValue, baseline.tabs.History.ja, 'deleted page language files should carry their baseline tab-language payload for restore');
 assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en').orderChanged, true, 'article language nodes should expose version order changes');
 assert.deepEqual(
   findEditorContentTreeNode(tree, 'index:nanoSite').changeCounts,
@@ -233,7 +261,7 @@ assert.deepEqual(
   [
     ['tabs:History:en', 'file', 'tab/history/en.md'],
     ['tabs:History:chs', 'file', 'tab/history/chs.md'],
-    ['tabs:History:ja', 'file', 'tab/history/ja.md']
+    ['tabs:History:ja', 'deleted-file', 'tab/history/ja.md']
   ],
   'page languages should be direct current or deleted file leaves without a version layer'
 );
@@ -259,6 +287,10 @@ assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'changeC
 assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'checkingCount')), 'every node should carry checkingCount');
 assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'orderChanged')), 'every node should carry orderChanged');
 assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'isDeleted')), 'every node should carry isDeleted');
+assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'deletedKind')), 'every node should carry deletedKind');
+assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'restoreValue')), 'every node should carry restoreValue');
+assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'restoreIndex')), 'every node should carry restoreIndex');
+assert.ok(flat.every(node => Object.prototype.hasOwnProperty.call(node, 'restoreOrderIndex')), 'every node should carry restoreOrderIndex');
 
 assert.equal(normalizeEditorTreePath('/wwwroot/../post//demo/./main_en.md'), 'post/demo/main_en.md');
 

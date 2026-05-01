@@ -20,6 +20,14 @@ translations.editor = {
   ...translations.editor,
   tree: {
     ...translations.editor.tree,
+    deletedKicker: '已刪除項目',
+    deletedMeta: '這個項目已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedEntryMeta: '這個條目已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedLanguageMeta: '這個語言已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedFileMeta: '這個檔案已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedPageLanguageMeta: '這個頁面語言檔案已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedRestoreHint: '恢復會寫回這個刪除項目最後載入的基線內容。',
+    restoreDeleted: '恢復',
     status: {
       added: '新增',
       modified: '已修改',

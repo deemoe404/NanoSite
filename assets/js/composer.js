@@ -10827,10 +10827,14 @@ function refreshEditorContentTree(options = {}) {
   renderEditorStructurePanel(getActiveEditorTreeNode());
 }
 
+function isEditorTreeFileKind(kind) {
+  return kind === 'file' || kind === 'deleted-file';
+}
+
 function createEditorTreeIcon(node) {
   if (!node || node.kind === 'root') return null;
   const icon = document.createElement('span');
-  const isFile = node.kind === 'file';
+  const isFile = isEditorTreeFileKind(node.kind);
   icon.className = `editor-tree-icon editor-tree-icon-${isFile ? 'document' : 'folder'}`;
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = isFile
@@ -11147,6 +11151,15 @@ function handleEditorTreeSelection(nodeId) {
     scheduleEditorStatePersist();
     return;
   }
+  if (node.isDeleted) {
+    applyMode('editor', { forceStructure: true });
+    setEditorStructurePanelVisible(true);
+    refreshEditorContentTree();
+    scrollEditorContentToTop('smooth');
+    closeEditorRailDrawer();
+    scheduleEditorStatePersist();
+    return;
+  }
   if (node.kind === 'file' && node.path) {
     refreshEditorContentTree({ preserveStructure: true });
     openMarkdownInEditor(node.path, { node });
@@ -11280,6 +11293,76 @@ function removeEditorVersion(key, lang, index) {
   refreshEditorContentTree();
 }
 
+function normalizeRestoreIndex(value, length) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return length;
+  return Math.max(0, Math.min(Math.trunc(raw), length));
+}
+
+function ensureRestoredEntryOrder(source, key, restoreOrderIndex, options = {}) {
+  const state = getStateSlice(source);
+  if (!state || !key) return null;
+  if (!Array.isArray(state.__order)) state.__order = Object.keys(state).filter(item => item && item !== '__order' && item !== key);
+  if (state.__order.includes(key) && !options.reposition) return state;
+  state.__order = state.__order.filter(item => item !== key);
+  state.__order.splice(normalizeRestoreIndex(restoreOrderIndex, state.__order.length), 0, key);
+  return state;
+}
+
+function ensureRestoredEntry(source, key, restoreOrderIndex) {
+  const state = ensureRestoredEntryOrder(source, key, restoreOrderIndex);
+  if (!state) return null;
+  if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
+  return state[key];
+}
+
+function restoreDeletedEditorTreeNode(node) {
+  if (!node || !node.isDeleted || (node.source !== 'index' && node.source !== 'tabs')) return false;
+  const state = getStateSlice(node.source);
+  if (!state || !node.key) return false;
+  const restoreValue = deepClone(node.restoreValue);
+  let nextNodeId = '';
+
+  if (node.deletedKind === 'entry') {
+    state[node.key] = restoreValue && typeof restoreValue === 'object' && !Array.isArray(restoreValue) ? restoreValue : {};
+    ensureRestoredEntryOrder(node.source, node.key, node.restoreOrderIndex, { reposition: true });
+    nextNodeId = `${node.source}:${node.key}`;
+  } else if (node.deletedKind === 'language') {
+    const entry = ensureRestoredEntry('index', node.key, node.restoreOrderIndex);
+    if (!entry || !node.lang) return false;
+    entry[node.lang] = restoreValue == null ? [] : restoreValue;
+    nextNodeId = `index:${node.key}:${node.lang}`;
+  } else if (node.deletedKind === 'version') {
+    const entry = ensureRestoredEntry('index', node.key, node.restoreOrderIndex);
+    if (!entry || !node.lang) return false;
+    const path = normalizeRelPath(restoreValue || node.path);
+    if (!path) return false;
+    const arr = normalizeComposerVersionPaths(entry[node.lang]);
+    let targetIndex = arr.indexOf(path);
+    if (targetIndex === -1) {
+      targetIndex = normalizeRestoreIndex(node.restoreIndex, arr.length);
+      arr.splice(targetIndex, 0, path);
+    }
+    entry[node.lang] = arr;
+    nextNodeId = `index:${node.key}:${node.lang}:${targetIndex}`;
+  } else if (node.deletedKind === 'page-language') {
+    const entry = ensureRestoredEntry('tabs', node.key, node.restoreOrderIndex);
+    if (!entry || !node.lang) return false;
+    entry[node.lang] = restoreValue == null ? { title: node.key, location: normalizeRelPath(node.path) } : restoreValue;
+    nextNodeId = `tabs:${node.key}:${node.lang}`;
+  } else {
+    return false;
+  }
+
+  expandedEditorTreeNodeIds.add(node.source === 'tabs' ? 'pages' : 'articles');
+  expandedEditorTreeNodeIds.add(`${node.source}:${node.key}`);
+  if (node.source === 'index' && node.lang) expandedEditorTreeNodeIds.add(`index:${node.key}:${node.lang}`);
+  activeEditorTreeNodeId = nextNodeId || `${node.source}:${node.key}`;
+  notifyComposerChange(node.source);
+  refreshEditorContentTree();
+  return true;
+}
+
 function moveEditorVersion(key, lang, index, delta) {
   return moveEditorVersionTo(key, lang, index, index + delta);
 }
@@ -11322,13 +11405,15 @@ function renderStructureItem(label, detail, onOpen) {
   meta.textContent = detail || '';
   main.appendChild(title);
   main.appendChild(meta);
-  const controls = document.createElement('div');
-  controls.className = 'editor-structure-item-actions';
-  const open = makeStructureButton(treeText('select', 'Select'));
-  open.addEventListener('click', onOpen);
-  controls.appendChild(open);
   item.appendChild(main);
-  item.appendChild(controls);
+  if (typeof onOpen === 'function') {
+    const controls = document.createElement('div');
+    controls.className = 'editor-structure-item-actions';
+    const open = makeStructureButton(treeText('select', 'Select'));
+    open.addEventListener('click', onOpen);
+    controls.appendChild(open);
+    item.appendChild(controls);
+  }
   return item;
 }
 
@@ -11544,6 +11629,53 @@ function appendLanguageSelector(actions, source, key, entry) {
   actions.appendChild(add);
 }
 
+function getDeletedEditorTreeKicker(node) {
+  if (!node) return treeText('deletedKicker', 'Deleted item');
+  if (node.deletedKind === 'entry') return node.source === 'tabs' ? treeText('pageEntry', 'Page') : treeText('articleEntry', 'Article');
+  if (node.deletedKind === 'language') return treeText('languageKicker', 'Article language');
+  if (node.deletedKind === 'page-language') return treeText('pageFile', 'Page file');
+  return node.source === 'tabs' ? treeText('pageFile', 'Page file') : treeText('articleFile', 'Article file');
+}
+
+function getDeletedEditorTreeTitle(node) {
+  if (!node) return treeText('deletedKicker', 'Deleted item');
+  if (node.deletedKind === 'language') return `${node.key} / ${displayLangName(node.lang)}`;
+  if (node.deletedKind === 'version' || node.deletedKind === 'page-language') return node.path || node.label || node.id;
+  return node.key || node.label || node.id;
+}
+
+function getDeletedEditorTreeMeta(node) {
+  if (!node) return treeText('deletedMeta', 'This item was removed from the current draft. Restore it before publishing if you want to keep it.');
+  if (node.deletedKind === 'entry') return treeText('deletedEntryMeta', 'This entry was removed from the current draft. Restore it before publishing if you want to keep it.');
+  if (node.deletedKind === 'language') return treeText('deletedLanguageMeta', 'This language was removed from the current draft. Restore it before publishing if you want to keep it.');
+  if (node.deletedKind === 'page-language') return treeText('deletedPageLanguageMeta', 'This page language file was removed from the current draft. Restore it before publishing if you want to keep it.');
+  return treeText('deletedFileMeta', 'This file was removed from the current draft. Restore it before publishing if you want to keep it.');
+}
+
+function renderEditorDeletedPanel(node, refs) {
+  refs.kicker.textContent = getDeletedEditorTreeKicker(node);
+  refs.title.textContent = getDeletedEditorTreeTitle(node);
+  refs.meta.textContent = getDeletedEditorTreeMeta(node);
+
+  const restore = makeStructureButton(treeText('restoreDeleted', 'Restore'));
+  restore.addEventListener('click', () => restoreDeletedEditorTreeNode(node));
+  refs.actions.appendChild(restore);
+
+  const list = document.createElement('div');
+  list.className = 'editor-structure-list';
+  const restoreDetail = node && node.path
+    ? node.path
+    : treeText('deletedRestoreHint', 'Restore writes back the last loaded baseline value for this deleted item.');
+  list.appendChild(renderStructureItem(treeText('status.deleted', 'Deleted'), restoreDetail));
+  if (node && Array.isArray(node.children) && node.children.length) {
+    node.children.forEach((child) => {
+      const detail = child.path || (child.children ? `${child.children.length} ${treeText('versions', 'versions')}` : '');
+      list.appendChild(renderStructureItem(child.label, detail, () => handleEditorTreeSelection(child.id)));
+    });
+  }
+  refs.body.appendChild(list);
+}
+
 function renderEditorStructurePanel(node) {
   const panel = document.getElementById('editorStructurePanel');
   const title = document.getElementById('editorStructureTitle');
@@ -11561,6 +11693,12 @@ function renderEditorStructurePanel(node) {
     kicker.textContent = treeText('kicker', 'Content structure');
     title.textContent = treeText('emptyTitle', 'Select a node');
     meta.textContent = treeText('emptyMeta', 'Choose an item in the tree to manage its structure or edit a Markdown file.');
+    animate();
+    return;
+  }
+
+  if (node.isDeleted) {
+    renderEditorDeletedPanel(node, { title, kicker, meta, actions, body });
     animate();
     return;
   }
@@ -11586,9 +11724,10 @@ function renderEditorStructurePanel(node) {
       return;
     }
     const isPages = node.source === 'tabs';
+    const visibleChildren = node.children.filter(child => !child.isDeleted);
     kicker.textContent = treeText('rootKicker', 'Collection');
     title.textContent = node.label || (isPages ? treeText('pages', 'Pages') : treeText('articles', 'Articles'));
-    meta.textContent = treeText('rootMeta', `${node.children.length} items`, { count: node.children.length });
+    meta.textContent = treeText('rootMeta', `${visibleChildren.length} items`, { count: visibleChildren.length });
     const add = makeStructureButton(isPages ? treeText('addPage', 'Page') : treeText('addArticle', 'Article'));
     add.addEventListener('click', () => {
       const kind = isPages ? 'tabs' : 'index';
@@ -11630,11 +11769,11 @@ function renderEditorStructurePanel(node) {
         return item;
       };
 
-      node.children.forEach((child, index) => {
+      visibleChildren.forEach((child, index) => {
         list.appendChild(renderStructureDraggableItem(child, `${child.children.length} ${treeText('languages', 'languages')}`, index, node.source));
       });
     } else {
-      node.children.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
+      visibleChildren.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
     }
     body.appendChild(list);
     animate();

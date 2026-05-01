@@ -7,7 +7,11 @@ const emptyStatus = {
   changeState: '',
   checkingCount: 0,
   orderChanged: false,
-  isDeleted: false
+  isDeleted: false,
+  deletedKind: '',
+  restoreValue: null,
+  restoreIndex: null,
+  restoreOrderIndex: null
 };
 
 function emptyChangeCounts() {
@@ -83,6 +87,18 @@ function orderedKeys(state = {}) {
   return out;
 }
 
+function cloneTreeValue(value) {
+  if (Array.isArray(value)) return value.map(cloneTreeValue);
+  if (value && typeof value === 'object') {
+    const out = {};
+    Object.keys(value).forEach((key) => {
+      out[key] = cloneTreeValue(value[key]);
+    });
+    return out;
+  }
+  return value == null ? null : value;
+}
+
 function makeNode(input, statusMaps) {
   const node = {
     id: '',
@@ -116,6 +132,10 @@ function makeNode(input, statusMaps) {
   node.checkingCount = Number(node.checkingCount || 0);
   node.orderChanged = !!node.orderChanged;
   node.isDeleted = !!node.isDeleted;
+  node.deletedKind = node.deletedKind || '';
+  node.restoreValue = cloneTreeValue(node.restoreValue);
+  node.restoreIndex = Number.isFinite(Number(node.restoreIndex)) ? Number(node.restoreIndex) : null;
+  node.restoreOrderIndex = Number.isFinite(Number(node.restoreOrderIndex)) ? Number(node.restoreOrderIndex) : null;
   if (!Array.isArray(node.children)) node.children = [];
   return node;
 }
@@ -204,6 +224,12 @@ function removedKeys(current, baseline, diff) {
     });
   }
   return out;
+}
+
+function keyOrderIndex(state, key) {
+  const order = Array.isArray(state && state.__order) ? state.__order : orderedKeys(state || {});
+  const index = order.indexOf(key);
+  return index >= 0 ? index : null;
 }
 
 function removedLangs(currentEntry, baselineEntry, keyInfo, preferredLangs) {
@@ -361,13 +387,14 @@ export function buildEditorContentTree(input = {}, options = {}) {
     source: 'index',
     label: options.articlesLabel || 'Articles',
     orderChanged: !!(indexDiff && indexDiff.orderChanged),
-    children: orderedKeys(index).map((key) => {
-      const entry = index[key] && typeof index[key] === 'object' ? index[key] : {};
-      const baselineEntry = indexBaseline[key] && typeof indexBaseline[key] === 'object' ? indexBaseline[key] : {};
-      const keyInfo = diffInfoForKey(indexDiff, key);
-      const currentLangs = sortEditorTreeLangs(entry, preferredLangs);
-      const deletedLangs = removedLangs(entry, baselineEntry, keyInfo, preferredLangs);
-      return makeNode({
+      children: orderedKeys(index).map((key) => {
+        const entry = index[key] && typeof index[key] === 'object' ? index[key] : {};
+        const baselineEntry = indexBaseline[key] && typeof indexBaseline[key] === 'object' ? indexBaseline[key] : {};
+        const keyInfo = diffInfoForKey(indexDiff, key);
+        const orderIndex = keyOrderIndex(indexBaseline, key);
+        const currentLangs = sortEditorTreeLangs(entry, preferredLangs);
+        const deletedLangs = removedLangs(entry, baselineEntry, keyInfo, preferredLangs);
+        return makeNode({
         id: `index:${key}`,
         kind: 'entry',
         source: 'index',
@@ -403,7 +430,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
                 }, statusMaps)),
                 ...removedVersions.map(item => makeNode({
                   id: `index:${key}:${lang}:removed:${item.index}`,
-                  kind: 'file',
+                  kind: 'deleted-file',
                   source: 'index',
                   key,
                   lang,
@@ -412,23 +439,30 @@ export function buildEditorContentTree(input = {}, options = {}) {
                   label: versionLabel(item.value, item.index),
                   children: [],
                   diffState: 'removed',
-                  isDeleted: true
+                  isDeleted: true,
+                  deletedKind: 'version',
+                  restoreValue: item.value,
+                  restoreIndex: item.index,
+                  restoreOrderIndex: orderIndex
                 }, statusMaps))
               ]
             }, statusMaps);
           }),
           ...deletedLangs.map((lang) => makeNode({
             id: `index:${key}:${lang}`,
-            kind: 'language',
+            kind: 'deleted-language',
             source: 'index',
             key,
             lang,
             label: lang.toUpperCase(),
             diffState: 'removed',
             isDeleted: true,
+            deletedKind: 'language',
+            restoreValue: baselineEntry[lang],
+            restoreOrderIndex: orderIndex,
             children: normalizeIndexValue(baselineEntry[lang]).map((path, versionIndex) => makeNode({
               id: `index:${key}:${lang}:removed:${versionIndex}`,
-              kind: 'file',
+              kind: 'deleted-file',
               source: 'index',
               key,
               lang,
@@ -437,33 +471,44 @@ export function buildEditorContentTree(input = {}, options = {}) {
               label: versionLabel(path, versionIndex),
               children: [],
               diffState: 'removed',
-              isDeleted: true
+              isDeleted: true,
+              deletedKind: 'version',
+              restoreValue: path,
+              restoreIndex: versionIndex,
+              restoreOrderIndex: orderIndex
             }, statusMaps))
           }, statusMaps))
         ]
       }, statusMaps);
     }).concat(removedKeys(index, indexBaseline, indexDiff).map((key) => {
       const baselineEntry = indexBaseline[key] && typeof indexBaseline[key] === 'object' ? indexBaseline[key] : {};
+      const orderIndex = keyOrderIndex(indexBaseline, key);
       return makeNode({
         id: `index:${key}`,
-        kind: 'entry',
+        kind: 'deleted-entry',
         source: 'index',
         key,
         label: key,
         diffState: 'removed',
         isDeleted: true,
+        deletedKind: 'entry',
+        restoreValue: baselineEntry,
+        restoreOrderIndex: orderIndex,
         children: sortEditorTreeLangs(baselineEntry, preferredLangs).map((lang) => makeNode({
           id: `index:${key}:${lang}`,
-          kind: 'language',
+          kind: 'deleted-language',
           source: 'index',
           key,
           lang,
           label: lang.toUpperCase(),
           diffState: 'removed',
           isDeleted: true,
+          deletedKind: 'language',
+          restoreValue: baselineEntry[lang],
+          restoreOrderIndex: orderIndex,
           children: normalizeIndexValue(baselineEntry[lang]).map((path, versionIndex) => makeNode({
             id: `index:${key}:${lang}:removed:${versionIndex}`,
-            kind: 'file',
+            kind: 'deleted-file',
             source: 'index',
             key,
             lang,
@@ -472,7 +517,11 @@ export function buildEditorContentTree(input = {}, options = {}) {
             label: versionLabel(path, versionIndex),
             children: [],
             diffState: 'removed',
-            isDeleted: true
+            isDeleted: true,
+            deletedKind: 'version',
+            restoreValue: path,
+            restoreIndex: versionIndex,
+            restoreOrderIndex: orderIndex
           }, statusMaps))
         }, statusMaps))
       }, statusMaps);
@@ -489,6 +538,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
       const entry = tabs[key] && typeof tabs[key] === 'object' ? tabs[key] : {};
       const baselineEntry = tabsBaseline[key] && typeof tabsBaseline[key] === 'object' ? tabsBaseline[key] : {};
       const keyInfo = diffInfoForKey(tabsDiff, key);
+      const orderIndex = keyOrderIndex(tabsBaseline, key);
       const currentLangs = sortEditorTreeLangs(entry, preferredLangs);
       const deletedLangs = removedLangs(entry, baselineEntry, keyInfo, preferredLangs);
       return makeNode({
@@ -518,7 +568,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
             const path = normalizeTabValue(baselineEntry[lang]);
             return makeNode({
               id: `tabs:${key}:${lang}`,
-              kind: 'file',
+              kind: 'deleted-file',
               source: 'tabs',
               key,
               lang,
@@ -526,26 +576,33 @@ export function buildEditorContentTree(input = {}, options = {}) {
               label: lang.toUpperCase(),
               diffState: 'removed',
               isDeleted: true,
+              deletedKind: 'page-language',
+              restoreValue: baselineEntry[lang],
+              restoreOrderIndex: orderIndex,
               children: []
             }, statusMaps);
           })
         ]
-      }, statusMaps);
+    }, statusMaps);
     }).concat(removedKeys(tabs, tabsBaseline, tabsDiff).map((key) => {
       const baselineEntry = tabsBaseline[key] && typeof tabsBaseline[key] === 'object' ? tabsBaseline[key] : {};
+      const orderIndex = keyOrderIndex(tabsBaseline, key);
       return makeNode({
         id: `tabs:${key}`,
-        kind: 'entry',
+        kind: 'deleted-entry',
         source: 'tabs',
         key,
         label: key,
         diffState: 'removed',
         isDeleted: true,
+        deletedKind: 'entry',
+        restoreValue: baselineEntry,
+        restoreOrderIndex: orderIndex,
         children: sortEditorTreeLangs(baselineEntry, preferredLangs).map((lang) => {
           const path = normalizeTabValue(baselineEntry[lang]);
           return makeNode({
             id: `tabs:${key}:${lang}`,
-            kind: 'file',
+            kind: 'deleted-file',
             source: 'tabs',
             key,
             lang,
@@ -553,6 +610,9 @@ export function buildEditorContentTree(input = {}, options = {}) {
             label: lang.toUpperCase(),
             diffState: 'removed',
             isDeleted: true,
+            deletedKind: 'page-language',
+            restoreValue: baselineEntry[lang],
+            restoreOrderIndex: orderIndex,
             children: []
           }, statusMaps);
         })
