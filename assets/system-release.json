@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "name": "v3.3.17",
-  "tag": "v3.3.17",
-  "publishedAt": "2026-05-01T09:33:20Z",
-  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.17.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.17.zip`\n- SHA-256: `bc71ad1c554bad6bb387bf203fc392c22e585b9806e5527758a4fc8ee77fbd26`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/js/composer.js\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.16...v3.3.17\n",
-  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.17",
+  "name": "v3.3.18",
+  "tag": "v3.3.18",
+  "publishedAt": "2026-05-01T11:35:52Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.18.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.18.zip`\n- SHA-256: `203f0388938fe5c139a19208f02e0a64bf0593b1a2df17de4ce5ff8c2d58c6f3`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-hk.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/js/composer.js\n- assets/js/editor-content-tree.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.17...v3.3.18\n",
+  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.18",
   "asset": {
-    "name": "nanosite-system-v3.3.17.zip",
-    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.17/nanosite-system-v3.3.17.zip",
-    "size": 463202,
-    "digest": "sha256:bc71ad1c554bad6bb387bf203fc392c22e585b9806e5527758a4fc8ee77fbd26"
+    "name": "nanosite-system-v3.3.18.zip",
+    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.18/nanosite-system-v3.3.18.zip",
+    "size": 469624,
+    "digest": "sha256:203f0388938fe5c139a19208f02e0a64bf0593b1a2df17de4ce5ff8c2d58c6f3"
   }
 }
