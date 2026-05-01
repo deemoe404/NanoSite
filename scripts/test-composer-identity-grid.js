@@ -325,6 +325,30 @@ assert.match(
   'front matter labels should resync after article/page metadata visibility changes'
 );
 
+assert.match(
+  source,
+  /function getTabsMetadataForTab\(tab\) \{[\s\S]*tab\.tabsKey[\s\S]*tab\.tabsLang[\s\S]*getTabsEntry\(tab\.tabsKey\)[\s\S]*entry && entry\[tab\.tabsLang\][\s\S]*title/,
+  'tabs metadata reads should prefer the dynamic tab stable identity over path-only lookup'
+);
+
+assert.match(
+  source,
+  /function updateTabsEntryTitleForTab\(tab, metadata\) \{[\s\S]*tab\.tabsKey[\s\S]*tab\.tabsLang[\s\S]*getTabsEntry\(tab\.tabsKey\)[\s\S]*entry\[tab\.tabsLang\]\.title = nextTitle;/,
+  'tabs metadata writes should target the dynamic tab stable identity instead of the first matching path'
+);
+
+assert.match(
+  source,
+  /detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleForTab\(tab, metadata\);/,
+  'tabs metadata bridge should write through the active dynamic tab identity'
+);
+
+assert.match(
+  source,
+  /const data = \{[\s\S]*path: normalized,[\s\S]*tabsKey:[\s\S]*tabsLang:[\s\S]*editorTreeNodeId:[\s\S]*lookupKey:/,
+  'dynamic markdown tabs should persist a stable identity for shared-path tabs content'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.frontmatter-field \+ \.frontmatter-field|frontmatter-pill|frontmatter-field-hint/,
@@ -393,13 +417,13 @@ assert.match(
 
 assert.match(
   source,
-  /source: tab\.source \|\| inferMarkdownSourceFromPath\(tab\.path\),[\s\S]*source: inferMarkdownSourceFromPath\(normalized\),/,
-  'composer should pass the inferred markdown source to the primary editor'
+  /function deriveDynamicTabIdentity\(path, options = \{\}\) \{[\s\S]*const source = String\(opts\.source \|\|[\s\S]*inferMarkdownSourceFromPath\(normalizedPath\)/,
+  'composer should preserve explicit file-source identity for dynamic markdown tabs'
 );
 
 assert.match(
   source,
-  /if \(!api \|\| typeof api\.onTabsMetadataChange !== 'function'\) return;[\s\S]*detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleFromPath\(tab\.path, metadata\);/,
+  /if \(!api \|\| typeof api\.onTabsMetadataChange !== 'function'\) return;[\s\S]*detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleForTab\(tab, metadata\);/,
   'composer should subscribe to tabs metadata changes and write title edits back into tabs state'
 );
 
@@ -643,13 +667,13 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function getOrCreateDynamicMode\(path\) \{[\s\S]*button: null,[\s\S]*dynamicEditorTabs\.set\(modeId, data\);/,
+  /function getOrCreateDynamicMode\(path, options = \{\}\) \{[\s\S]*const identity = deriveDynamicTabIdentity\(path, options\);[\s\S]*const existing = dynamicEditorTabsByLookupKey\.get\(identity\.lookupKey\);[\s\S]*button: null,[\s\S]*dynamicEditorTabs\.set\(modeId, data\);[\s\S]*dynamicEditorTabsByLookupKey\.set\(identity\.lookupKey, modeId\);/,
   'markdown document state should no longer create visible dynamic tab buttons'
 );
 
 assert.match(
   source,
-  /function openMarkdownInEditor\(path\) \{[\s\S]*flushMarkdownDraft\(active\);[\s\S]*applyMode\(modeId\);/,
+  /function openMarkdownInEditor\(path, options = \{\}\) \{[\s\S]*flushMarkdownDraft\(active\);[\s\S]*const modeId = getOrCreateDynamicMode\(path, options\);[\s\S]*applyMode\(modeId\);/,
   'switching files from the tree should flush the current markdown draft before opening the next file'
 );
 
@@ -661,7 +685,7 @@ assert.match(
 
 assert.match(
   source,
-  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
+  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*const modeId = dynamicEditorTabsByLookupKey\.get\(activePath\) \|\| getOrCreateDynamicMode\(activePath\);[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
   'dynamic markdown session restore should recreate open files, exact expansion, and active file path'
 );
 

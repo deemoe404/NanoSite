@@ -73,8 +73,8 @@ const EDITOR_STATE_VERSION = 3;
 const EDITOR_SCROLL_SAVE_DELAY = 120;
 
 // Track additional markdown editor tabs spawned from Composer
-const dynamicEditorTabs = new Map();       // modeId -> { path, button, content, loaded, baseDir }
-const dynamicEditorTabsByPath = new Map(); // normalizedPath -> modeId
+const dynamicEditorTabs = new Map();            // modeId -> { path, button, content, loaded, baseDir }
+const dynamicEditorTabsByLookupKey = new Map(); // lookupKey -> modeId
 let dynamicTabCounter = 0;
 let currentMode = null;
 let activeDynamicMode = null;
@@ -3967,9 +3967,10 @@ function updateUnsyncedSummary(options = {}) {
 function findDynamicTabByPath(path) {
   const normalized = normalizeRelPath(path);
   if (!normalized) return null;
-  const modeId = dynamicEditorTabsByPath.get(normalized);
-  if (!modeId) return null;
-  return dynamicEditorTabs.get(modeId) || null;
+  for (const tab of dynamicEditorTabs.values()) {
+    if (tab && normalizeRelPath(tab.path) === normalized) return tab;
+  }
+  return null;
 }
 
 function encodeContentToBase64(text) {
@@ -7974,6 +7975,17 @@ function getTabsMetadataForPath(path) {
   return { title: String(langEntry.title || '') };
 }
 
+function getTabsMetadataForTab(tab) {
+  if (tab && tab.tabsKey && tab.tabsLang) {
+    const entry = getTabsEntry(tab.tabsKey);
+    const langEntry = entry && entry[tab.tabsLang] && typeof entry[tab.tabsLang] === 'object'
+      ? entry[tab.tabsLang]
+      : {};
+    return { title: String(langEntry.title || '') };
+  }
+  return getTabsMetadataForPath(tab && tab.path ? tab.path : '');
+}
+
 function updateTabsEntryTitleFromPath(path, metadata) {
   const node = getEditorTreeFileNodeByPath(path);
   if (!node || node.source !== 'tabs' || !node.key || !node.lang) return false;
@@ -7990,6 +8002,23 @@ function updateTabsEntryTitleFromPath(path, metadata) {
   return true;
 }
 
+function updateTabsEntryTitleForTab(tab, metadata) {
+  if (tab && tab.tabsKey && tab.tabsLang) {
+    const entry = getTabsEntry(tab.tabsKey);
+    entry[tab.tabsLang] = entry[tab.tabsLang] && typeof entry[tab.tabsLang] === 'object'
+      ? entry[tab.tabsLang]
+      : {};
+    const nextTitle = metadata && typeof metadata === 'object'
+      ? String(metadata.title || '')
+      : '';
+    if (String(entry[tab.tabsLang].title || '') === nextTitle) return false;
+    entry[tab.tabsLang].title = nextTitle;
+    notifyComposerChange('tabs');
+    return true;
+  }
+  return updateTabsEntryTitleFromPath(tab && tab.path ? tab.path : '', metadata);
+}
+
 function ensurePrimaryEditorTabsMetadataListener() {
   if (detachPrimaryEditorTabsMetadataListener) return;
   const api = getPrimaryEditorApi();
@@ -7998,7 +8027,7 @@ function ensurePrimaryEditorTabsMetadataListener() {
     if (!activeDynamicMode) return;
     const tab = dynamicEditorTabs.get(activeDynamicMode);
     if (tab && tab.source === 'tabs') {
-      updateTabsEntryTitleFromPath(tab.path, metadata);
+      updateTabsEntryTitleForTab(tab, metadata);
     }
   });
 }
@@ -8111,6 +8140,27 @@ function getActiveDynamicTab() {
   if (!activeDynamicMode) return null;
   const tab = dynamicEditorTabs.get(activeDynamicMode);
   return tab || null;
+}
+
+function deriveDynamicTabIdentity(path, options = {}) {
+  const normalizedPath = normalizeRelPath(path);
+  const opts = options && typeof options === 'object' ? options : {};
+  const node = opts.node && typeof opts.node === 'object' ? opts.node : null;
+  const source = String(opts.source || (node && node.source) || inferMarkdownSourceFromPath(normalizedPath) || '').trim().toLowerCase();
+  const key = String(opts.key || (node && node.key) || '').trim();
+  const lang = normalizeLangCode(opts.lang || (node && node.lang) || '');
+  const editorTreeNodeId = String(opts.editorTreeNodeId || opts.nodeId || (node && node.id) || '').trim();
+  const lookupKey = (source === 'tabs' && key && lang)
+    ? `tabs:${key}:${lang}`
+    : normalizedPath;
+  return {
+    path: normalizedPath,
+    source,
+    key,
+    lang,
+    editorTreeNodeId,
+    lookupKey
+  };
 }
 
 function getEditorContentPane() {
@@ -8796,7 +8846,7 @@ function restoreDynamicEditorState() {
 
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
   if ((isV3 ? data.mode === 'markdown' : true) && activePath) {
-    const modeId = dynamicEditorTabsByPath.get(activePath) || getOrCreateDynamicMode(activePath);
+    const modeId = dynamicEditorTabsByLookupKey.get(activePath) || getOrCreateDynamicMode(activePath);
     if (modeId) {
       applyMode(modeId, { preserveTreeExpansion: true, restoreScroll: true });
       return finishRestore(modeId);
@@ -9304,7 +9354,7 @@ function pushEditorCurrentFileInfo(tab) {
   catch (_) {}
   if (typeof editorApi.setTabsMetadata === 'function') {
     try {
-      editorApi.setTabsMetadata(tab && tab.source === 'tabs' ? getTabsMetadataForPath(tab.path) : null, { silent: true });
+      editorApi.setTabsMetadata(tab && tab.source === 'tabs' ? getTabsMetadataForTab(tab) : null, { silent: true });
     } catch (_) {}
   }
   const activeTab = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
@@ -9403,7 +9453,7 @@ async function closeDynamicTab(modeId, options = {}) {
   clearMarkdownDraftForTab(tab);
 
   dynamicEditorTabs.delete(modeId);
-  if (tab.path) dynamicEditorTabsByPath.delete(tab.path);
+  if (tab.lookupKey) dynamicEditorTabsByLookupKey.delete(tab.lookupKey);
   try { tab.button?.remove(); } catch (_) {}
   updateDynamicTabsGroupState();
 
@@ -9433,10 +9483,11 @@ async function closeDynamicTab(modeId, options = {}) {
   return true;
 }
 
-function getOrCreateDynamicMode(path) {
-  const normalized = normalizeRelPath(path);
+function getOrCreateDynamicMode(path, options = {}) {
+  const identity = deriveDynamicTabIdentity(path, options);
+  const normalized = identity.path;
   if (!normalized) return null;
-  const existing = dynamicEditorTabsByPath.get(normalized);
+  const existing = dynamicEditorTabsByLookupKey.get(identity.lookupKey);
   if (existing) return existing;
 
   dynamicTabCounter += 1;
@@ -9446,7 +9497,11 @@ function getOrCreateDynamicMode(path) {
   const data = {
     mode: modeId,
     path: normalized,
-    source: inferMarkdownSourceFromPath(normalized),
+    source: identity.source,
+    tabsKey: identity.key || '',
+    tabsLang: identity.lang || '',
+    editorTreeNodeId: identity.editorTreeNodeId || '',
+    lookupKey: identity.lookupKey,
     button: null,
     label,
     baseDir: computeBaseDirForPath(normalized),
@@ -9464,7 +9519,7 @@ function getOrCreateDynamicMode(path) {
   };
   restoreMarkdownDraftForTab(data);
   dynamicEditorTabs.set(modeId, data);
-  dynamicEditorTabsByPath.set(normalized, modeId);
+  dynamicEditorTabsByLookupKey.set(identity.lookupKey, modeId);
 
   loadDynamicTabContent(data).catch(() => {});
 
@@ -9552,12 +9607,12 @@ async function loadDynamicTabContent(tab) {
   return tab.pending;
 }
 
-function openMarkdownInEditor(path) {
+function openMarkdownInEditor(path, options = {}) {
   const active = getActiveDynamicTab();
   if (active && active.path && normalizeRelPath(active.path) !== normalizeRelPath(path)) {
     try { flushMarkdownDraft(active); } catch (_) {}
   }
-  const modeId = getOrCreateDynamicMode(path);
+  const modeId = getOrCreateDynamicMode(path, options);
   if (!modeId) {
     alert('Unable to open editor tab.');
     return;
@@ -9651,7 +9706,7 @@ function applyMode(mode, options = {}) {
       const tab = dynamicEditorTabs.get(nextMode);
       activeMarkdownDocument = tab || null;
       if (tab) {
-        try { selectEditorTreeNodeByPath(tab.path, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
+        try { selectEditorTreeNodeForTab(tab, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
       }
       setEditorDetailPanelMode('markdown');
       if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
@@ -9719,7 +9774,7 @@ function applyMode(mode, options = {}) {
     activeMarkdownDocument = tab || null;
     setEditorDetailPanelMode('markdown');
     if (tab && editorApi) {
-      try { selectEditorTreeNodeByPath(tab.path, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
+      try { selectEditorTreeNodeForTab(tab, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
       try { editorApi.setView('edit'); } catch (_) {}
       try {
         const baseDir = computeBaseDirForPath(tab.path);
@@ -10633,10 +10688,22 @@ function getEditorTreeFileNodeByPath(path) {
     .find(item => item && item.kind === 'file' && item.path === normalized) || null;
 }
 
+function getEditorTreeFileNodeForTab(tab) {
+  if (tab && tab.editorTreeNodeId) {
+    const byId = getEditorTreeNodeById(tab.editorTreeNodeId);
+    if (byId && byId.kind === 'file') return byId;
+  }
+  if (tab && tab.tabsKey && tab.tabsLang) {
+    const byIdentity = getEditorTreeNodeById(`tabs:${tab.tabsKey}:${tab.tabsLang}`);
+    if (byIdentity && byIdentity.kind === 'file') return byIdentity;
+  }
+  return getEditorTreeFileNodeByPath(tab && tab.path ? tab.path : '');
+}
+
 function buildCurrentFileBreadcrumb(tab) {
   if (!tab || !tab.path) return [];
   const normalizedPath = normalizeRelPath(tab.path);
-  const node = getEditorTreeFileNodeByPath(normalizedPath);
+  const node = getEditorTreeFileNodeForTab(tab);
   if (!node) return normalizedPath ? [{ label: normalizedPath, path: normalizedPath }] : [];
   const ids = [];
   if (node.source === 'tabs') {
@@ -10684,6 +10751,17 @@ function selectEditorTreeNodeByPath(path, options = {}) {
   if (!options || options.expandAncestors !== false) expandEditorAncestors(node);
   refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
   return node;
+}
+
+function selectEditorTreeNodeForTab(tab, options = {}) {
+  const node = getEditorTreeFileNodeForTab(tab);
+  if (node && node.id) {
+    activeEditorTreeNodeId = node.id;
+    if (!options || options.expandAncestors !== false) expandEditorAncestors(node);
+    refreshEditorContentTree({ preserveStructure: currentMode && isDynamicMode(currentMode) });
+    return node;
+  }
+  return selectEditorTreeNodeByPath(tab && tab.path ? tab.path : '', options);
 }
 
 function refreshEditorContentTree(options = {}) {
@@ -10930,7 +11008,7 @@ function handleEditorTreeSelection(nodeId) {
   }
   if (node.kind === 'file' && node.path) {
     refreshEditorContentTree({ preserveStructure: true });
-    openMarkdownInEditor(node.path);
+    openMarkdownInEditor(node.path, { node });
     closeEditorRailDrawer();
     scheduleEditorStatePersist();
     return;
@@ -11490,7 +11568,12 @@ function renderPageLanguageStructure(key, lang, value) {
     refreshEditorContentTree();
   });
   const open = makeStructureButton(treeText('open', 'Open'));
-  open.addEventListener('click', () => openMarkdownInEditor(entry.location || pathInput.value));
+  open.addEventListener('click', () => openMarkdownInEditor(entry.location || pathInput.value, {
+    source: 'tabs',
+    key,
+    lang,
+    editorTreeNodeId: `tabs:${key}:${lang}`
+  }));
   const remove = makeStructureButton(treeText('remove', 'Remove'));
   remove.addEventListener('click', () => removeEditorLanguage('tabs', key, lang));
   controls.appendChild(titleInput);
@@ -11530,7 +11613,12 @@ function renderEditorLanguagePanel(node, refs) {
     const controls = document.createElement('div');
     controls.className = 'editor-structure-item-actions';
     const open = makeStructureButton(treeText('open', 'Open'));
-    open.addEventListener('click', () => openMarkdownInEditor(arr[index]));
+    open.addEventListener('click', () => openMarkdownInEditor(arr[index], {
+      source: 'index',
+      key: node.key,
+      lang: node.lang,
+      editorTreeNodeId: `index:${node.key}:${node.lang}:${index}`
+    }));
     const up = makeStructureButton('↑');
     up.disabled = index === 0;
     up.addEventListener('click', () => moveEditorVersion(node.key, node.lang, index, -1));
