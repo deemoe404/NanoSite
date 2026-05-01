@@ -11556,7 +11556,7 @@ function renderEditorEntryPanel(node, refs) {
   refs.kicker.textContent = isPages ? treeText('pageEntry', 'Page') : treeText('articleEntry', 'Article');
   refs.title.textContent = node.key;
   refs.meta.textContent = isPages
-    ? treeText('pageEntryMeta', 'Manage page languages, titles, and files.')
+    ? treeText('pageEntryMeta', 'Manage page languages and open files for editing.')
     : treeText('articleEntryMeta', 'Manage article languages and versions.');
   appendLanguageSelector(refs.actions, node.source, node.key, entry);
   const del = makeStructureButton(treeText('delete', 'Delete'));
@@ -11591,37 +11591,22 @@ function renderPageLanguageStructure(key, lang, value) {
   main.appendChild(meta);
   const controls = document.createElement('div');
   controls.className = 'editor-structure-item-actions';
-  const titleInput = document.createElement('input');
-  titleInput.value = entry.title || '';
-  titleInput.setAttribute('aria-label', treeText('fieldTitle', 'Title'));
-  titleInput.addEventListener('change', () => {
-    const tabEntry = getTabsEntry(key);
-    tabEntry[lang] = tabEntry[lang] || {};
-    tabEntry[lang].title = titleInput.value;
-    notifyComposerChange('tabs');
-    refreshEditorContentTree();
-  });
-  const pathInput = document.createElement('input');
-  pathInput.value = entry.location || '';
-  pathInput.setAttribute('aria-label', treeText('location', 'Location'));
-  pathInput.addEventListener('change', () => {
-    const tabEntry = getTabsEntry(key);
-    tabEntry[lang] = tabEntry[lang] || {};
-    tabEntry[lang].location = normalizeRelPath(pathInput.value);
-    notifyComposerChange('tabs');
-    refreshEditorContentTree();
-  });
   const open = makeStructureButton(treeText('open', 'Open'));
-  open.addEventListener('click', () => openMarkdownInEditor(entry.location || pathInput.value, {
-    source: 'tabs',
-    key,
-    lang,
-    editorTreeNodeId: `tabs:${key}:${lang}`
-  }));
+  open.addEventListener('click', () => {
+    const rel = normalizeRelPath(entry.location);
+    if (!rel) {
+      alert(tComposer('markdown.openBeforeEditor'));
+      return;
+    }
+    openMarkdownInEditor(rel, {
+      source: 'tabs',
+      key,
+      lang,
+      editorTreeNodeId: `tabs:${key}:${lang}`
+    });
+  });
   const remove = makeStructureButton(treeText('remove', 'Remove'));
   remove.addEventListener('click', () => removeEditorLanguage('tabs', key, lang));
-  controls.appendChild(titleInput);
-  controls.appendChild(pathInput);
   controls.appendChild(open);
   controls.appendChild(remove);
   item.appendChild(main);
@@ -12053,8 +12038,6 @@ function buildTabsUI(root, state) {
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
-      const locationLabel = tComposerLang('fields.location');
-      const pathPlaceholder = tComposerLang('placeholders.tabPath');
       const editLabel = tComposerLang('actions.edit');
       const openLabel = tComposerLang('actions.open');
       const removeLangLabel = tComposerLang('removeLanguage');
@@ -12078,38 +12061,21 @@ function buildTabsUI(root, state) {
             <span class="ct-lang-code" aria-hidden="true">${escapeHtml(lang.toUpperCase())}</span>
           </div>
           <div class="ct-lang-main">
-            <label class="ct-field ct-field-location"><span class="ct-field-label">${escapeHtml(locationLabel)}</span> <input class="ct-loc" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(v.location || '')}" /></label>
+            <div class="ct-field ct-field-location"><span class="ct-field-label">${escapeHtml(v.location || '')}</span></div>
             <div class="ct-lang-actions">
               <button type="button" class="btn-secondary ct-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
               <button type="button" class="btn-secondary ct-lang-del">${escapeHtml(removeLangLabel)}</button>
             </div>
           </div>
         `;
-        const locInput = $('.ct-loc', block);
-        if (locInput) {
-          locInput.dataset.lang = lang;
-          locInput.dataset.field = 'location';
-        }
         const langRemoveBtn = $('.ct-lang-del', block);
         if (langRemoveBtn) {
           langRemoveBtn.setAttribute('title', removeLangLabel);
           langRemoveBtn.setAttribute('aria-label', removeLangLabel);
         }
         updateComposerMarkdownDraftIndicators({ element: block, path: initialPath });
-        locInput.addEventListener('input', (e) => {
-          const prevPath = block.dataset.mdPath || '';
-          entry[lang] = entry[lang] || {};
-          entry[lang].location = e.target.value;
-          const nextPath = normalizeRelPath(e.target.value);
-          if (nextPath) block.dataset.mdPath = nextPath;
-          else delete block.dataset.mdPath;
-          updateComposerMarkdownDraftIndicators({ element: block });
-          if (prevPath && prevPath !== nextPath) updateComposerMarkdownDraftIndicators({ path: prevPath });
-          if (nextPath) updateComposerMarkdownDraftIndicators({ path: nextPath });
-          markDirty();
-        });
         $('.ct-edit', block).addEventListener('click', () => {
-          const rel = normalizeRelPath(locInput.value);
+          const rel = normalizeRelPath(v.location);
           if (!rel) {
             alert(tComposer('markdown.openBeforeEditor'));
             return;
@@ -12465,7 +12431,7 @@ function focusComposerEntry(kind, key) {
   if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
   row.classList.add('is-open');
 
-  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-loc' : '.ci-lang-addver, .ci-edit');
+  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-edit' : '.ci-lang-addver, .ci-edit');
   const fallbackFocus = row.querySelector('input, textarea, button');
   const target = preferredFocus || fallbackFocus;
   if (target && typeof target.focus === 'function') {

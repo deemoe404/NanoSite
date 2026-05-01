@@ -423,7 +423,7 @@ assert.match(
 
 assert.match(
   source,
-  /\$\('\.ct-edit', block\)\.addEventListener\('click', \(\) => \{[\s\S]*const rel = normalizeRelPath\(locInput\.value\);[\s\S]*openMarkdownInEditor\(rel, \{[\s\S]*source: 'tabs',[\s\S]*key,[\s\S]*lang,[\s\S]*editorTreeNodeId: `tabs:\$\{key\}:\$\{lang\}`[\s\S]*\}\);/,
+  /\$\('\.ct-edit', block\)\.addEventListener\('click', \(\) => \{[\s\S]*const rel = normalizeRelPath\(v\.location\);[\s\S]*openMarkdownInEditor\(rel, \{[\s\S]*source: 'tabs',[\s\S]*key,[\s\S]*lang,[\s\S]*editorTreeNodeId: `tabs:\$\{key\}:\$\{lang\}`[\s\S]*\}\);/,
   'page list edit actions should pass tabs identity when opening the markdown editor'
 );
 
@@ -655,10 +655,10 @@ assert.match(
   'markdown editor should track a single active document instead of visible tab state'
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /treeText\('fieldTitle', 'Title'\)/,
-  'page language title fields should not reuse the tree heading translation key'
+  /function renderPageLanguageStructure\(key, lang, value\) \{[\s\S]*treeText\('fieldTitle', 'Title'\)/,
+  'page structure rows should no longer render a standalone title field label'
 );
 
 const initialBootIndex = source.indexOf('Apply initial state as early as possible');
@@ -967,6 +967,12 @@ assert.doesNotMatch(
   source,
   /class="ct-field ct-field-title"|const titleLabel = tComposerLang\('fields\.title'\)|const titleInput = \$\('\.ct-title', block\)|entry\[lang\]\.title = e\.target\.value/,
   'page entry structure rows should no longer render editable title inputs once title moves into the markdown editor metadata panel'
+);
+
+assert.doesNotMatch(
+  source,
+  /<input class="ct-loc"|const pathPlaceholder = tComposerLang\('placeholders\.tabPath'\)|const locInput = \$\('\.ct-loc', block\)|entry\[lang\]\.location = e\.target\.value/,
+  'page entry lists should no longer render editable location inputs for tabs languages'
 );
 
 assert.doesNotMatch(
@@ -1615,6 +1621,12 @@ assert.doesNotMatch(
   source,
   /const input = document\.createElement\('input'\);[\s\S]*input\.setAttribute\('aria-label', treeText\('location', 'Location'\)\);[\s\S]*main\.appendChild\(label\);[\s\S]*main\.appendChild\(input\);/,
   'article language structure panel should not render an editable location input for version rows'
+);
+
+assert.doesNotMatch(
+  source,
+  /function renderPageLanguageStructure\(key, lang, value\) \{[\s\S]*const titleInput = document\.createElement\('input'\);[\s\S]*const pathInput = document\.createElement\('input'\);[\s\S]*controls\.appendChild\(titleInput\);[\s\S]*controls\.appendChild\(pathInput\);/,
+  'page structure rows should not render editable title or location inputs'
 );
 
 assert.doesNotMatch(
