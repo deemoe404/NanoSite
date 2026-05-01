@@ -423,6 +423,12 @@ assert.match(
 
 assert.match(
   source,
+  /\$\('\.ct-edit', block\)\.addEventListener\('click', \(\) => \{[\s\S]*const rel = normalizeRelPath\(locInput\.value\);[\s\S]*openMarkdownInEditor\(rel, \{[\s\S]*source: 'tabs',[\s\S]*key,[\s\S]*lang,[\s\S]*editorTreeNodeId: `tabs:\$\{key\}:\$\{lang\}`[\s\S]*\}\);/,
+  'page list edit actions should pass tabs identity when opening the markdown editor'
+);
+
+assert.match(
+  source,
   /if \(!api \|\| typeof api\.onTabsMetadataChange !== 'function'\) return;[\s\S]*detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleForTab\(tab, metadata\);/,
   'composer should subscribe to tabs metadata changes and write title edits back into tabs state'
 );

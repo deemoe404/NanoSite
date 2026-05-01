@@ -12114,7 +12114,12 @@ function buildTabsUI(root, state) {
             alert(tComposer('markdown.openBeforeEditor'));
             return;
           }
-          openMarkdownInEditor(rel);
+          openMarkdownInEditor(rel, {
+            source: 'tabs',
+            key,
+            lang,
+            editorTreeNodeId: `tabs:${key}:${lang}`
+          });
         });
         $('.ct-lang-del', block).addEventListener('click', () => {
           delete entry[lang];
