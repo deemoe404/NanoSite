@@ -11212,18 +11212,6 @@ function renderEditorEntryPanel(node, refs) {
   del.addEventListener('click', () => deleteEditorEntry(node.source, node.key));
   refs.actions.appendChild(del);
 
-  const keyRow = document.createElement('div');
-  keyRow.className = 'editor-structure-row';
-  const keyLabel = document.createElement('label');
-  keyLabel.textContent = treeText('key', 'Key');
-  const keyInput = document.createElement('input');
-  keyInput.value = node.key;
-  keyInput.addEventListener('change', () => renameEditorEntry(node.source, node.key, keyInput.value));
-  keyRow.appendChild(keyLabel);
-  keyRow.appendChild(keyInput);
-  keyRow.appendChild(document.createElement('span'));
-  refs.body.appendChild(keyRow);
-
   const list = document.createElement('div');
   list.className = 'editor-structure-list';
   sortLangKeys(entry).forEach((lang) => {
