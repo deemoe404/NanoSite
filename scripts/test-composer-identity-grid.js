@@ -261,6 +261,12 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.frontmatter-section\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/,
+  'front matter sections should honor hidden state so page files can suppress article-only metadata groups'
+);
+
+assert.match(
+  editorSource,
   /frontMatterCommonSection[\s\S]*frontmatter-section-head[\s\S]*data-i18n="editor\.frontMatter\.commonDescription"[\s\S]*frontMatterExtraSection[\s\S]*frontmatter-section-head[\s\S]*data-i18n="editor\.frontMatter\.advancedDescription"/,
   'front matter common and advanced sections should include localized section descriptions'
 );
@@ -269,6 +275,18 @@ assert.match(
   editorMainSource,
   /head\.className = 'frontmatter-field-head';[\s\S]*labelWrap\.className = 'frontmatter-field-label-wrap';[\s\S]*labelSpan\.className = 'frontmatter-field-title';[\s\S]*controls\.className = 'frontmatter-field-controls';[\s\S]*controls\.appendChild\([\s\S]*entry\.container\.appendChild\(controls\);/,
   'front matter field DOM should include field head, label wrap, and controls wrapper'
+);
+
+assert.match(
+  editorMainSource,
+  /const clear = \(\) => \{[\s\S]*state = \{[\s\S]*data:\s*\{\}[\s\S]*hasFrontMatter:\s*false[\s\S]*rebuildBindings\(\);[\s\S]*\};[\s\S]*return \{[\s\S]*clear,/,
+  'front matter manager should expose a clear helper to reset stale article metadata state'
+);
+
+assert.match(
+  editorMainSource,
+  /const setFrontMatterVisible = \(visible\) => \{[\s\S]*frontMatterVisible = !!visible;[\s\S]*if \(!frontMatterVisible && frontMatterManager && typeof frontMatterManager\.clear === 'function'\) frontMatterManager\.clear\(\);[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*\};/,
+  'switching into page metadata mode should clear stale article front matter state before updating visibility'
 );
 
 assert.match(

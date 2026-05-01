@@ -1161,6 +1161,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     };
 
+    const clear = () => {
+      state = {
+        data: {},
+        order: [],
+        eol: '\n',
+        trailingNewline: false,
+        bindings: new Map(),
+        hasFrontMatter: false,
+        document: null
+      };
+      rebuildBindings();
+    };
+
     ensureBaseFields();
     updateSummary();
     applySectionDescriptions();
@@ -1171,6 +1184,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setChangeHandler: (fn) => { changeHandler = typeof fn === 'function' ? fn : () => {}; },
       setFromMarkdown,
       buildMarkdown,
+      clear,
       updateSummary,
       applySectionDescriptions
     };
@@ -1350,6 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const setFrontMatterVisible = (visible) => {
     frontMatterVisible = !!visible;
+    if (!frontMatterVisible && frontMatterManager && typeof frontMatterManager.clear === 'function') frontMatterManager.clear();
     const commonSection = document.getElementById('frontMatterCommonSection');
     const extraSection = document.getElementById('frontMatterExtraSection');
     if (commonSection) commonSection.hidden = !frontMatterVisible;
