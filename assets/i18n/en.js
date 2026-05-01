@@ -104,6 +104,23 @@ const translations = {
         toggle: 'Toggle',
         rootKicker: 'Collection',
         rootMeta: ({ count }) => `${count} item${count === 1 ? '' : 's'}`,
+        status: {
+          added: 'Added',
+          modified: 'Modified',
+          deleted: 'Deleted',
+          issue: 'Issue',
+          checking: 'Checking',
+          changedCount: ({ count }) => `${count} changed`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} added`);
+            if (modified) parts.push(`${modified} modified`);
+            if (deleted) parts.push(`${deleted} deleted`);
+            return parts.length ? `${total} changed: ${parts.join(', ')}` : `${total} changed`;
+          },
+          orderChanged: 'Order changed',
+          deletedSummary: 'Deleted item'
+        },
         system: 'System',
         siteSettings: 'Site Settings',
         nanoSiteUpdates: 'NanoSite Updates',
@@ -124,6 +141,14 @@ const translations = {
         pageEntryMeta: 'Manage page languages, titles, and files.',
         languageKicker: 'Article language',
         languageMeta: ({ count }) => `${count} version${count === 1 ? '' : 's'}`,
+        deletedKicker: 'Deleted item',
+        deletedMeta: 'This item was removed from the current draft. Restore it before publishing if you want to keep it.',
+        deletedEntryMeta: 'This entry was removed from the current draft. Restore it before publishing if you want to keep it.',
+        deletedLanguageMeta: 'This language was removed from the current draft. Restore it before publishing if you want to keep it.',
+        deletedFileMeta: 'This file was removed from the current draft. Restore it before publishing if you want to keep it.',
+        deletedPageLanguageMeta: 'This page language file was removed from the current draft. Restore it before publishing if you want to keep it.',
+        deletedRestoreHint: 'Restore writes back the last loaded baseline value for this deleted item.',
+        restoreDeleted: 'Restore',
         articleFile: 'Article file',
         pageFile: 'Page file',
         addLanguage: 'Add language',

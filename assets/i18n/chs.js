@@ -104,6 +104,23 @@ const translations = {
         toggle: '展开/折叠',
         rootKicker: '集合',
         rootMeta: ({ count }) => `${count} 个条目`,
+        status: {
+          added: '新增',
+          modified: '已修改',
+          deleted: '已删除',
+          issue: '需处理',
+          checking: '检查中',
+          changedCount: ({ count }) => `${count} 项变更`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} 新增`);
+            if (modified) parts.push(`${modified} 修改`);
+            if (deleted) parts.push(`${deleted} 删除`);
+            return parts.length ? `${total} 项变更：${parts.join('，')}` : `${total} 项变更`;
+          },
+          orderChanged: '顺序已变更',
+          deletedSummary: '已删除项目'
+        },
         system: '系统',
         siteSettings: '站点设置',
         nanoSiteUpdates: 'NanoSite 更新',
@@ -124,6 +141,14 @@ const translations = {
         pageEntryMeta: '管理页面语言、标题和文件。',
         languageKicker: '文章语言',
         languageMeta: ({ count }) => `${count} 个版本`,
+        deletedKicker: '已删除项目',
+        deletedMeta: '这个项目已从当前草稿中删除。如需保留，请在发布前恢复。',
+        deletedEntryMeta: '这个条目已从当前草稿中删除。如需保留，请在发布前恢复。',
+        deletedLanguageMeta: '这个语言已从当前草稿中删除。如需保留，请在发布前恢复。',
+        deletedFileMeta: '这个文件已从当前草稿中删除。如需保留，请在发布前恢复。',
+        deletedPageLanguageMeta: '这个页面语言文件已从当前草稿中删除。如需保留，请在发布前恢复。',
+        deletedRestoreHint: '恢复会写回这个删除项最后加载到的基线内容。',
+        restoreDeleted: '恢复',
         articleFile: '文章文件',
         pageFile: '页面文件',
         addLanguage: '添加语言',

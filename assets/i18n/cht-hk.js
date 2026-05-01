@@ -16,6 +16,38 @@ const clone = (value) => {
 
 const translations = clone(chtTwTranslations);
 
+translations.editor = {
+  ...translations.editor,
+  tree: {
+    ...translations.editor.tree,
+    deletedKicker: '已刪除項目',
+    deletedMeta: '這個項目已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedEntryMeta: '這個條目已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedLanguageMeta: '這個語言已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedFileMeta: '這個檔案已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedPageLanguageMeta: '這個頁面語言檔案已從目前草稿中刪除。如需保留，請在發布前恢復。',
+    deletedRestoreHint: '恢復會寫回這個刪除項目最後載入的基線內容。',
+    restoreDeleted: '恢復',
+    status: {
+      added: '新增',
+      modified: '已修改',
+      deleted: '已刪除',
+      issue: '要處理',
+      checking: '檢查緊',
+      changedCount: ({ count }) => `${count} 項變更`,
+      changedSummary: ({ total, added, modified, deleted }) => {
+        const parts = [];
+        if (added) parts.push(`${added} 新增`);
+        if (modified) parts.push(`${modified} 修改`);
+        if (deleted) parts.push(`${deleted} 刪除`);
+        return parts.length ? `${total} 項變更：${parts.join('，')}` : `${total} 項變更`;
+      },
+      orderChanged: '順序已變更',
+      deletedSummary: '已刪除項目'
+    }
+  }
+};
+
 translations.ui = {
   ...translations.ui,
   backToAllPosts: '返到全部文章',

@@ -29,6 +29,23 @@ const chtHkI18nSource = readFileSync(chtHkI18nPath, 'utf8');
 const jaI18nSource = readFileSync(jaI18nPath, 'utf8');
 const languagesManifestSource = readFileSync(languagesManifestPath, 'utf8');
 
+function extractFunctionBody(text, name) {
+  const start = text.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `${name} should exist`);
+  const open = text.indexOf('{', start);
+  assert.notEqual(open, -1, `${name} should have a body`);
+  let depth = 0;
+  for (let index = open; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '{') depth += 1;
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(open + 1, index);
+    }
+  }
+  assert.fail(`${name} body should be balanced`);
+}
+
 assert.match(
   editorSource,
   /\.view-toggle \.vt-btn \.vt-dirty-badge\{position:absolute;top:-\.45rem;right:0;min-width:1\.15rem;height:1\.15rem[\s\S]*transform:translateX\(50%\) scale\(\.72\)/,
@@ -513,8 +530,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{[^}]*font-weight:400; \}[\s\S]*\.editor-tree-label \{[^}]*font-weight:400; \}/,
-  'file tree labels should use normal text weight instead of bold labels'
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{[^}]*font-weight:700; \}[\s\S]*\.editor-tree-label \{[^}]*font-weight:400; \}[\s\S]*\.editor-tree-row\[data-kind="root"\] \.editor-tree-label \{ font-weight:700; \}/,
+  'file tree root labels should be bold while leaf labels keep normal text weight'
 );
 
 assert.match(
@@ -583,10 +600,89 @@ assert.doesNotMatch(
   'file tree rows should not support direct drag/drop reordering'
 );
 
+assert.doesNotMatch(
+  source,
+  /const states = \[node\.draftState, node\.diffState, node\.fileState\]/,
+  'file tree rows should not render the old positional draft/diff/file status dots'
+);
+
 assert.match(
   source,
-  /const states = \[node\.draftState, node\.diffState, node\.fileState\][\s\S]*\.filter\(state => state && state !== 'existing'\)[\s\S]*\.slice\(0, 3\);[\s\S]*if \(states\.length\) \{[\s\S]*badges = document\.createElement\('span'\);[\s\S]*if \(badges\) button\.appendChild\(badges\);/,
-  'file tree rows should hide normal existing-file badges and only reserve badge space for meaningful states'
+  /function createEditorTreeStatusElement\(node\) \{[\s\S]*editor-tree-status[\s\S]*editor-tree-change-badge[\s\S]*editor-tree-count-badge[\s\S]*editor-tree-order-badge[\s\S]*editor-tree-spinner/,
+  'file tree rows should render readable change, count, order, and checking status elements from one helper'
+);
+
+assert.match(
+  source,
+  /editor-tree-order-badge[\s\S]*<svg viewBox="0 0 24 24" focusable="false">[\s\S]*M3 9l4 -4l4 4m-4 -4v14[\s\S]*M21 15l-4 4l-4 -4m4 4v-14/,
+  'file tree order badges should use an inline arrows-sort SVG icon instead of a text glyph'
+);
+
+assert.match(
+  source,
+  /status\.setAttribute\('aria-hidden', 'true'\);/,
+  'file tree visual status badges should be hidden from assistive tech because the row aria-label carries the summary'
+);
+
+assert.match(
+  source,
+  /button\.appendChild\(createEditorTreeStatusElement\(node\)\);/,
+  'file tree rows should append the unified status element instead of individual status dots'
+);
+
+assert.match(
+  source,
+  /button\.setAttribute\('aria-label', getEditorTreeAccessibleLabel\(node, labelText, accessiblePath\)\);/,
+  'file tree row aria labels should include the computed status summary'
+);
+
+assert.match(
+  source,
+  /function handleEditorTreeSelection\(nodeId\) \{[\s\S]*if \(node\.isDeleted\) \{[\s\S]*applyMode\('editor', \{ forceStructure: true \}\);[\s\S]*refreshEditorContentTree\(\);[\s\S]*return;[\s\S]*if \(node\.kind === 'file' && node\.path\)/,
+  'selecting deleted tombstones should route to the read-only structure panel before file nodes can open markdown'
+);
+
+assert.match(
+  source,
+  /function renderEditorStructurePanel\(node\) \{[\s\S]*if \(node\.isDeleted\) \{[\s\S]*renderEditorDeletedPanel\(node, \{ title, kicker, meta, actions, body \}\);[\s\S]*return;[\s\S]*if \(node\.kind === 'root'\)/,
+  'deleted tombstones should render a read-only deleted panel before editable entry/language panels are considered'
+);
+
+assert.match(
+  source,
+  /function restoreDeletedEditorTreeNode\(node\) \{[\s\S]*node\.deletedKind[\s\S]*restoreValue[\s\S]*notifyComposerChange\(node\.source\)[\s\S]*refreshEditorContentTree\(\);/,
+  'deleted tombstones should have an explicit restore action that writes restored baseline payloads'
+);
+
+assert.match(
+  source,
+  /const visibleChildren = node\.children\.filter\(child => !child\.isDeleted\);[\s\S]*visibleChildren\.forEach/,
+  'root structure reorder lists should exclude deleted tombstones from draggable current-order rows'
+);
+
+const deletedPanelBody = extractFunctionBody(source, 'renderEditorDeletedPanel');
+assert.doesNotMatch(
+  deletedPanelBody,
+  /getIndexEntry|getTabsEntry|appendLanguageSelector|addEditorVersion|renderEditorEntryPanel|renderEditorLanguagePanel/,
+  'deleted tombstone panel should not call editable entry/language helpers that create missing state as a side effect'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.editor-tree-badge/,
+  'editor tree CSS should not keep the old anonymous dot badge styles'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-tree-status \{[\s\S]*\.editor-tree-change-badge \{[\s\S]*\.editor-tree-count-badge \{[\s\S]*\.editor-tree-order-badge \{[\s\S]*\.editor-tree-order-badge svg \{[\s\S]*\.editor-tree-spinner \{/,
+  'editor tree CSS should define readable status badges, order badges, and checking spinners'
+);
+
+assert.match(
+  editorSource,
+  /@keyframes editor-tree-spinner-spin[\s\S]*@media \(prefers-reduced-motion: reduce\) \{[\s\S]*\.editor-tree-spinner \{ animation:none;/,
+  'editor tree checking spinner should stop animating for reduced-motion users'
 );
 
 assert.match(
@@ -597,7 +693,7 @@ assert.match(
 
 assert.match(
   source,
-  /function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = node\.kind === 'file';[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
+  /function isEditorTreeFileKind\(kind\) \{[\s\S]*kind === 'file' \|\| kind === 'deleted-file'[\s\S]*function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = isEditorTreeFileKind\(node\.kind\);[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
   'file tree should render folder and document icon markers'
 );
 
@@ -615,9 +711,17 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{ padding-left:\.45rem; font-weight:400; \}/,
+  /\.editor-tree-row\[data-kind="root"\] \.editor-tree-node \{ padding-left:\.45rem; font-weight:700; \}/,
   'root file tree labels should have enough left inset inside the selected pill'
 );
+
+[enI18nSource, chsI18nSource, chtTwI18nSource, chtHkI18nSource, jaI18nSource].forEach((i18nText, index) => {
+  assert.match(
+    i18nText,
+    /status:\s*\{[\s\S]*added:[\s\S]*modified:[\s\S]*deleted:[\s\S]*checking:[\s\S]*changedCount:[\s\S]*changedSummary:[\s\S]*orderChanged:[\s\S]*deletedSummary:/,
+    `locale ${index} should expose editor tree status badge text`
+  );
+});
 
 assert.doesNotMatch(
   editorSource,
@@ -935,7 +1039,7 @@ assert.match(
 
 assert.match(
   source,
-  /const createStructureDragHandle = \(child, index, source\) => \{[\s\S]*const labelKey = source === 'tabs' \? 'reorderPage' : 'reorderArticle';[\s\S]*handle\.className = 'editor-structure-drag-handle';[\s\S]*handle\.setAttribute\('aria-label', treeText\(labelKey, source === 'tabs' \? 'Reorder page' : 'Reorder article'\)\);[\s\S]*handle\.addEventListener\('pointerdown',[\s\S]*handle\.addEventListener\('keydown',/,
+  /const dragController = createEditorStructureDragController\(list,[\s\S]*const createStructureDragHandle = \(child, index, source\) => \{[\s\S]*const labelKey = source === 'tabs' \? 'reorderPage' : 'reorderArticle';[\s\S]*return dragController\.createHandle\(index, treeText\(labelKey, source === 'tabs' \? 'Reorder page' : 'Reorder article'\)\);/,
   'article and page structure rows should render a standalone drag handle with pointer and keyboard reorder hooks'
 );
 
@@ -947,20 +1051,20 @@ assert.match(
 
 assert.match(
   source,
-  /const createStructureDragPlaceholder = \(item\) => \{[\s\S]*placeholder\.className = 'editor-structure-drop-placeholder';[\s\S]*placeholder\.style\.height = `\$\{itemRect\.height\}px`;/,
+  /const createPlaceholder = \(item\) => \{[\s\S]*placeholder\.className = 'editor-structure-drop-placeholder';[\s\S]*placeholder\.style\.height = `\$\{itemRect\.height\}px`;/,
   'article structure drag should create an in-list placeholder matching the dragged row height'
 );
 
 assert.match(
   source,
-  /const applyStructureDragPreview = \(clientY\) => \{[\s\S]*structureDragState\.dragItem\.style\.transform = `translate3d\(0, \$\{clientY - structureDragState\.startY\}px, 0\)`[\s\S]*animateStructureRows\(\(\) => \{/,
+  /const applyDragPreview = \(clientY\) => \{[\s\S]*dragState\.dragItem\.style\.transform = `translate3d\(0, \$\{clientY - dragState\.startY\}px, 0\)`[\s\S]*animateRows\(\(\) => \{/,
   'structure drag should move the dragged row with the pointer while previewing the drop position'
 );
 
 assert.match(
   source,
-  /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*node\.children\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
-  'articles and pages root panels should both use draggable structure rows'
+  /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*visibleChildren\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
+  'articles and pages root panels should both use draggable structure rows for non-deleted current entries'
 );
 
 assert.doesNotMatch(

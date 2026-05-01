@@ -104,6 +104,23 @@ const translations = {
         toggle: '展開/收合',
         rootKicker: '集合',
         rootMeta: ({ count }) => `${count} 個項目`,
+        status: {
+          added: '新增',
+          modified: '已修改',
+          deleted: '已刪除',
+          issue: '需處理',
+          checking: '檢查中',
+          changedCount: ({ count }) => `${count} 項變更`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} 新增`);
+            if (modified) parts.push(`${modified} 修改`);
+            if (deleted) parts.push(`${deleted} 刪除`);
+            return parts.length ? `${total} 項變更：${parts.join('，')}` : `${total} 項變更`;
+          },
+          orderChanged: '順序已變更',
+          deletedSummary: '已刪除項目'
+        },
         system: '系統',
         siteSettings: '站點設定',
         nanoSiteUpdates: 'NanoSite 更新',
@@ -124,6 +141,14 @@ const translations = {
         pageEntryMeta: '管理頁面語言、標題與檔案。',
         languageKicker: '文章語言',
         languageMeta: ({ count }) => `${count} 個版本`,
+        deletedKicker: '已刪除項目',
+        deletedMeta: '這個項目已從目前草稿中刪除。如需保留，請在發布前恢復。',
+        deletedEntryMeta: '這個條目已從目前草稿中刪除。如需保留，請在發布前恢復。',
+        deletedLanguageMeta: '這個語言已從目前草稿中刪除。如需保留，請在發布前恢復。',
+        deletedFileMeta: '這個檔案已從目前草稿中刪除。如需保留，請在發布前恢復。',
+        deletedPageLanguageMeta: '這個頁面語言檔案已從目前草稿中刪除。如需保留，請在發布前恢復。',
+        deletedRestoreHint: '恢復會寫回這個刪除項目最後載入的基線內容。',
+        restoreDeleted: '恢復',
         articleFile: '文章檔案',
         pageFile: '頁面檔案',
         addLanguage: '新增語言',

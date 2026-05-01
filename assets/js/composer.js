@@ -10700,7 +10700,11 @@ function buildCurrentEditorTree() {
     pagesLabel: treeText('pages', 'Pages'),
     draftStates: collectEditorDraftStatusMap(),
     diffStates: collectEditorDiffStatusMap(),
-    fileStates: collectEditorFileStatusMap()
+    fileStates: collectEditorFileStatusMap(),
+    indexDiff: composerDiffCache.index || null,
+    tabsDiff: composerDiffCache.tabs || null,
+    indexBaseline: remoteBaseline.index || null,
+    tabsBaseline: remoteBaseline.tabs || null
   });
 }
 
@@ -10823,16 +10827,130 @@ function refreshEditorContentTree(options = {}) {
   renderEditorStructurePanel(getActiveEditorTreeNode());
 }
 
+function isEditorTreeFileKind(kind) {
+  return kind === 'file' || kind === 'deleted-file';
+}
+
 function createEditorTreeIcon(node) {
   if (!node || node.kind === 'root') return null;
   const icon = document.createElement('span');
-  const isFile = node.kind === 'file';
+  const isFile = isEditorTreeFileKind(node.kind);
   icon.className = `editor-tree-icon editor-tree-icon-${isFile ? 'document' : 'folder'}`;
   icon.setAttribute('aria-hidden', 'true');
   icon.innerHTML = isFile
     ? '<svg viewBox="0 0 24 24" focusable="false"><path d="M7 3.75h7.25L18 7.5v12.75H7z"></path><path d="M14.25 3.75V7.5H18"></path><path d="M9.75 12h5.5M9.75 15h5.5"></path></svg>'
     : '<svg viewBox="0 0 24 24" focusable="false"><path d="M3.75 6.75h5.5l1.7 2h9.3v8.5a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2z"></path><path d="M3.75 8.75h16.5"></path></svg>';
   return icon;
+}
+
+function getEditorTreeChangeLabel(state) {
+  if (state === 'issue') return treeText('status.issue', 'Issue');
+  if (state === 'added') return treeText('status.added', 'Added');
+  if (state === 'deleted') return treeText('status.deleted', 'Deleted');
+  return treeText('status.modified', 'Modified');
+}
+
+function getEditorTreeIssueState(node) {
+  if (!node) return '';
+  if (node.draftState === 'conflict' || node.fileState === 'error' || node.diffState === 'error') return 'issue';
+  return '';
+}
+
+function getEditorTreeCountTone(counts) {
+  const safeCounts = counts || {};
+  if (safeCounts.deleted) return 'deleted';
+  if (safeCounts.added && !safeCounts.modified) return 'added';
+  return 'modified';
+}
+
+function getEditorTreeChangedSummary(counts) {
+  const safeCounts = counts || {};
+  const parts = [];
+  if (safeCounts.added) parts.push(`${safeCounts.added} ${treeText('status.added', 'added').toLowerCase()}`);
+  if (safeCounts.modified) parts.push(`${safeCounts.modified} ${treeText('status.modified', 'modified').toLowerCase()}`);
+  if (safeCounts.deleted) parts.push(`${safeCounts.deleted} ${treeText('status.deleted', 'deleted').toLowerCase()}`);
+  const fallback = parts.length
+    ? `${safeCounts.total} changed: ${parts.join(', ')}`
+    : `${safeCounts.total || 0} changed`;
+  return treeText('status.changedSummary', fallback, {
+    total: safeCounts.total || 0,
+    added: safeCounts.added || 0,
+    modified: safeCounts.modified || 0,
+    deleted: safeCounts.deleted || 0
+  });
+}
+
+function getEditorTreeStatusSummaries(node) {
+  if (!node) return [];
+  const summaries = [];
+  const counts = node.changeCounts || {};
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const issueState = getEditorTreeIssueState(node);
+  const directBadge = (!hasChildren || node.kind === 'system') && node.changeState;
+  if (issueState) {
+    summaries.push(getEditorTreeChangeLabel(issueState));
+  } else if (directBadge) {
+    summaries.push(getEditorTreeChangeLabel(node.changeState));
+  } else if (counts.total > 0) {
+    summaries.push(getEditorTreeChangedSummary(counts));
+  } else if (node.isDeleted) {
+    summaries.push(treeText('status.deletedSummary', 'Deleted item'));
+  }
+  if (node.orderChanged) summaries.push(treeText('status.orderChanged', 'Order changed'));
+  if (node.checkingCount > 0) {
+    const checking = treeText('status.checking', 'Checking');
+    summaries.push(node.checkingCount > 1 ? `${checking} (${node.checkingCount})` : checking);
+  }
+  return summaries;
+}
+
+function getEditorTreeAccessibleLabel(node, labelText, accessiblePath) {
+  const base = accessiblePath ? `${labelText} - ${accessiblePath}` : labelText;
+  const summaries = getEditorTreeStatusSummaries(node);
+  return summaries.length ? `${base} - ${summaries.join(', ')}` : base;
+}
+
+function createEditorTreeStatusElement(node) {
+  const status = document.createElement('span');
+  status.className = 'editor-tree-status';
+  status.setAttribute('aria-hidden', 'true');
+  const counts = node && node.changeCounts ? node.changeCounts : {};
+  const hasChildren = !!(node && Array.isArray(node.children) && node.children.length);
+  const issueState = getEditorTreeIssueState(node);
+  const directBadge = node && (!hasChildren || node.kind === 'system') && node.changeState;
+  if (issueState) {
+    const badge = document.createElement('span');
+    badge.className = 'editor-tree-change-badge';
+    badge.dataset.state = issueState;
+    badge.textContent = getEditorTreeChangeLabel(issueState);
+    status.appendChild(badge);
+  } else if (directBadge) {
+    const badge = document.createElement('span');
+    badge.className = 'editor-tree-change-badge';
+    badge.dataset.state = node.changeState;
+    badge.textContent = getEditorTreeChangeLabel(node.changeState);
+    status.appendChild(badge);
+  } else if (counts.total > 0) {
+    const countBadge = document.createElement('span');
+    countBadge.className = 'editor-tree-count-badge';
+    countBadge.dataset.state = getEditorTreeCountTone(counts);
+    countBadge.textContent = String(counts.total);
+    status.appendChild(countBadge);
+  }
+  if (node && node.orderChanged) {
+    const orderBadge = document.createElement('span');
+    orderBadge.className = 'editor-tree-order-badge';
+    orderBadge.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M3 9l4 -4l4 4m-4 -4v14"></path><path d="M21 15l-4 4l-4 -4m4 4v-14"></path></svg>';
+    status.appendChild(orderBadge);
+  }
+  if (node && node.checkingCount > 0) {
+    const spinner = document.createElement('span');
+    spinner.className = 'editor-tree-spinner';
+    spinner.dataset.count = String(node.checkingCount);
+    status.appendChild(spinner);
+  }
+  if (!status.childElementCount) status.hidden = true;
+  return status;
 }
 
 function getEditorTreeRowDepth(row) {
@@ -10918,6 +11036,7 @@ function renderEditorFileTree(root) {
     row.dataset.kind = node.kind || '';
     row.dataset.source = node.source || '';
     row.dataset.depth = String(Math.max(0, depth));
+    if (node.isDeleted) row.dataset.deleted = '1';
     row.classList.toggle('is-leaf', !hasChildren);
     const rowIndent = hasChildren
       ? Math.max(0, depth) * 1.12
@@ -10975,9 +11094,8 @@ function renderEditorFileTree(root) {
     button.setAttribute('aria-selected', node.id === selectedId ? 'true' : 'false');
     button.dataset.nodeId = node.id;
     const labelText = node.label || node.id;
-    const accessibleLabel = node.path ? `${labelText} - ${node.path}` : labelText;
-    button.setAttribute('aria-label', accessibleLabel);
-    button.title = accessibleLabel;
+    const accessiblePath = node.path || '';
+    button.setAttribute('aria-label', getEditorTreeAccessibleLabel(node, labelText, accessiblePath));
     const icon = createEditorTreeIcon(node);
     if (icon) button.appendChild(icon);
     const label = document.createElement('span');
@@ -10985,24 +11103,7 @@ function renderEditorFileTree(root) {
     label.textContent = labelText;
     button.appendChild(label);
     button.addEventListener('click', () => handleEditorTreeSelection(node.id));
-
-    const states = [node.draftState, node.diffState, node.fileState]
-      .filter(state => state && state !== 'existing')
-      .slice(0, 3);
-    let badges = null;
-    if (states.length) {
-      badges = document.createElement('span');
-      badges.className = 'editor-tree-badges';
-    }
-    states.forEach((state) => {
-      const badge = document.createElement('span');
-      badge.className = 'editor-tree-badge';
-      badge.dataset.state = state;
-      badge.title = state;
-      badges.appendChild(badge);
-    });
-
-    if (badges) button.appendChild(badges);
+    button.appendChild(createEditorTreeStatusElement(node));
     if (toggle) row.appendChild(toggle);
     row.appendChild(button);
     root.appendChild(row);
@@ -11045,6 +11146,15 @@ function handleEditorTreeSelection(nodeId) {
       setEditorStructurePanelVisible(true);
       refreshEditorContentTree();
     }
+    scrollEditorContentToTop('smooth');
+    closeEditorRailDrawer();
+    scheduleEditorStatePersist();
+    return;
+  }
+  if (node.isDeleted) {
+    applyMode('editor', { forceStructure: true });
+    setEditorStructurePanelVisible(true);
+    refreshEditorContentTree();
     scrollEditorContentToTop('smooth');
     closeEditorRailDrawer();
     scheduleEditorStatePersist();
@@ -11183,6 +11293,76 @@ function removeEditorVersion(key, lang, index) {
   refreshEditorContentTree();
 }
 
+function normalizeRestoreIndex(value, length) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return length;
+  return Math.max(0, Math.min(Math.trunc(raw), length));
+}
+
+function ensureRestoredEntryOrder(source, key, restoreOrderIndex, options = {}) {
+  const state = getStateSlice(source);
+  if (!state || !key) return null;
+  if (!Array.isArray(state.__order)) state.__order = Object.keys(state).filter(item => item && item !== '__order' && item !== key);
+  if (state.__order.includes(key) && !options.reposition) return state;
+  state.__order = state.__order.filter(item => item !== key);
+  state.__order.splice(normalizeRestoreIndex(restoreOrderIndex, state.__order.length), 0, key);
+  return state;
+}
+
+function ensureRestoredEntry(source, key, restoreOrderIndex) {
+  const state = ensureRestoredEntryOrder(source, key, restoreOrderIndex);
+  if (!state) return null;
+  if (!state[key] || typeof state[key] !== 'object' || Array.isArray(state[key])) state[key] = {};
+  return state[key];
+}
+
+function restoreDeletedEditorTreeNode(node) {
+  if (!node || !node.isDeleted || (node.source !== 'index' && node.source !== 'tabs')) return false;
+  const state = getStateSlice(node.source);
+  if (!state || !node.key) return false;
+  const restoreValue = deepClone(node.restoreValue);
+  let nextNodeId = '';
+
+  if (node.deletedKind === 'entry') {
+    state[node.key] = restoreValue && typeof restoreValue === 'object' && !Array.isArray(restoreValue) ? restoreValue : {};
+    ensureRestoredEntryOrder(node.source, node.key, node.restoreOrderIndex, { reposition: true });
+    nextNodeId = `${node.source}:${node.key}`;
+  } else if (node.deletedKind === 'language') {
+    const entry = ensureRestoredEntry('index', node.key, node.restoreOrderIndex);
+    if (!entry || !node.lang) return false;
+    entry[node.lang] = restoreValue == null ? [] : restoreValue;
+    nextNodeId = `index:${node.key}:${node.lang}`;
+  } else if (node.deletedKind === 'version') {
+    const entry = ensureRestoredEntry('index', node.key, node.restoreOrderIndex);
+    if (!entry || !node.lang) return false;
+    const path = normalizeRelPath(restoreValue || node.path);
+    if (!path) return false;
+    const arr = normalizeComposerVersionPaths(entry[node.lang]);
+    let targetIndex = arr.indexOf(path);
+    if (targetIndex === -1) {
+      targetIndex = normalizeRestoreIndex(node.restoreIndex, arr.length);
+      arr.splice(targetIndex, 0, path);
+    }
+    entry[node.lang] = arr;
+    nextNodeId = `index:${node.key}:${node.lang}:${targetIndex}`;
+  } else if (node.deletedKind === 'page-language') {
+    const entry = ensureRestoredEntry('tabs', node.key, node.restoreOrderIndex);
+    if (!entry || !node.lang) return false;
+    entry[node.lang] = restoreValue == null ? { title: node.key, location: normalizeRelPath(node.path) } : restoreValue;
+    nextNodeId = `tabs:${node.key}:${node.lang}`;
+  } else {
+    return false;
+  }
+
+  expandedEditorTreeNodeIds.add(node.source === 'tabs' ? 'pages' : 'articles');
+  expandedEditorTreeNodeIds.add(`${node.source}:${node.key}`);
+  if (node.source === 'index' && node.lang) expandedEditorTreeNodeIds.add(`index:${node.key}:${node.lang}`);
+  activeEditorTreeNodeId = nextNodeId || `${node.source}:${node.key}`;
+  notifyComposerChange(node.source);
+  refreshEditorContentTree();
+  return true;
+}
+
 function moveEditorVersion(key, lang, index, delta) {
   return moveEditorVersionTo(key, lang, index, index + delta);
 }
@@ -11225,13 +11405,15 @@ function renderStructureItem(label, detail, onOpen) {
   meta.textContent = detail || '';
   main.appendChild(title);
   main.appendChild(meta);
-  const controls = document.createElement('div');
-  controls.className = 'editor-structure-item-actions';
-  const open = makeStructureButton(treeText('select', 'Select'));
-  open.addEventListener('click', onOpen);
-  controls.appendChild(open);
   item.appendChild(main);
-  item.appendChild(controls);
+  if (typeof onOpen === 'function') {
+    const controls = document.createElement('div');
+    controls.className = 'editor-structure-item-actions';
+    const open = makeStructureButton(treeText('select', 'Select'));
+    open.addEventListener('click', onOpen);
+    controls.appendChild(open);
+    item.appendChild(controls);
+  }
   return item;
 }
 
@@ -11447,6 +11629,53 @@ function appendLanguageSelector(actions, source, key, entry) {
   actions.appendChild(add);
 }
 
+function getDeletedEditorTreeKicker(node) {
+  if (!node) return treeText('deletedKicker', 'Deleted item');
+  if (node.deletedKind === 'entry') return node.source === 'tabs' ? treeText('pageEntry', 'Page') : treeText('articleEntry', 'Article');
+  if (node.deletedKind === 'language') return treeText('languageKicker', 'Article language');
+  if (node.deletedKind === 'page-language') return treeText('pageFile', 'Page file');
+  return node.source === 'tabs' ? treeText('pageFile', 'Page file') : treeText('articleFile', 'Article file');
+}
+
+function getDeletedEditorTreeTitle(node) {
+  if (!node) return treeText('deletedKicker', 'Deleted item');
+  if (node.deletedKind === 'language') return `${node.key} / ${displayLangName(node.lang)}`;
+  if (node.deletedKind === 'version' || node.deletedKind === 'page-language') return node.path || node.label || node.id;
+  return node.key || node.label || node.id;
+}
+
+function getDeletedEditorTreeMeta(node) {
+  if (!node) return treeText('deletedMeta', 'This item was removed from the current draft. Restore it before publishing if you want to keep it.');
+  if (node.deletedKind === 'entry') return treeText('deletedEntryMeta', 'This entry was removed from the current draft. Restore it before publishing if you want to keep it.');
+  if (node.deletedKind === 'language') return treeText('deletedLanguageMeta', 'This language was removed from the current draft. Restore it before publishing if you want to keep it.');
+  if (node.deletedKind === 'page-language') return treeText('deletedPageLanguageMeta', 'This page language file was removed from the current draft. Restore it before publishing if you want to keep it.');
+  return treeText('deletedFileMeta', 'This file was removed from the current draft. Restore it before publishing if you want to keep it.');
+}
+
+function renderEditorDeletedPanel(node, refs) {
+  refs.kicker.textContent = getDeletedEditorTreeKicker(node);
+  refs.title.textContent = getDeletedEditorTreeTitle(node);
+  refs.meta.textContent = getDeletedEditorTreeMeta(node);
+
+  const restore = makeStructureButton(treeText('restoreDeleted', 'Restore'));
+  restore.addEventListener('click', () => restoreDeletedEditorTreeNode(node));
+  refs.actions.appendChild(restore);
+
+  const list = document.createElement('div');
+  list.className = 'editor-structure-list';
+  const restoreDetail = node && node.path
+    ? node.path
+    : treeText('deletedRestoreHint', 'Restore writes back the last loaded baseline value for this deleted item.');
+  list.appendChild(renderStructureItem(treeText('status.deleted', 'Deleted'), restoreDetail));
+  if (node && Array.isArray(node.children) && node.children.length) {
+    node.children.forEach((child) => {
+      const detail = child.path || (child.children ? `${child.children.length} ${treeText('versions', 'versions')}` : '');
+      list.appendChild(renderStructureItem(child.label, detail, () => handleEditorTreeSelection(child.id)));
+    });
+  }
+  refs.body.appendChild(list);
+}
+
 function renderEditorStructurePanel(node) {
   const panel = document.getElementById('editorStructurePanel');
   const title = document.getElementById('editorStructureTitle');
@@ -11464,6 +11693,12 @@ function renderEditorStructurePanel(node) {
     kicker.textContent = treeText('kicker', 'Content structure');
     title.textContent = treeText('emptyTitle', 'Select a node');
     meta.textContent = treeText('emptyMeta', 'Choose an item in the tree to manage its structure or edit a Markdown file.');
+    animate();
+    return;
+  }
+
+  if (node.isDeleted) {
+    renderEditorDeletedPanel(node, { title, kicker, meta, actions, body });
     animate();
     return;
   }
@@ -11489,9 +11724,10 @@ function renderEditorStructurePanel(node) {
       return;
     }
     const isPages = node.source === 'tabs';
+    const visibleChildren = node.children.filter(child => !child.isDeleted);
     kicker.textContent = treeText('rootKicker', 'Collection');
     title.textContent = node.label || (isPages ? treeText('pages', 'Pages') : treeText('articles', 'Articles'));
-    meta.textContent = treeText('rootMeta', `${node.children.length} items`, { count: node.children.length });
+    meta.textContent = treeText('rootMeta', `${visibleChildren.length} items`, { count: visibleChildren.length });
     const add = makeStructureButton(isPages ? treeText('addPage', 'Page') : treeText('addArticle', 'Article'));
     add.addEventListener('click', () => {
       const kind = isPages ? 'tabs' : 'index';
@@ -11533,11 +11769,11 @@ function renderEditorStructurePanel(node) {
         return item;
       };
 
-      node.children.forEach((child, index) => {
+      visibleChildren.forEach((child, index) => {
         list.appendChild(renderStructureDraggableItem(child, `${child.children.length} ${treeText('languages', 'languages')}`, index, node.source));
       });
     } else {
-      node.children.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
+      visibleChildren.forEach((child) => list.appendChild(renderStructureItem(child.label, `${child.children.length} ${treeText('languages', 'languages')}`, () => handleEditorTreeSelection(child.id))));
     }
     body.appendChild(list);
     animate();

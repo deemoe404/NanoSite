@@ -104,6 +104,23 @@ const translations = {
         toggle: '開閉',
         rootKicker: 'コレクション',
         rootMeta: ({ count }) => `${count} 件`,
+        status: {
+          added: '追加',
+          modified: '変更',
+          deleted: '削除',
+          issue: '要確認',
+          checking: '確認中',
+          changedCount: ({ count }) => `${count} 件の変更`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} 追加`);
+            if (modified) parts.push(`${modified} 変更`);
+            if (deleted) parts.push(`${deleted} 削除`);
+            return parts.length ? `${total} 件の変更: ${parts.join(', ')}` : `${total} 件の変更`;
+          },
+          orderChanged: '順序が変更されました',
+          deletedSummary: '削除された項目'
+        },
         system: 'システム',
         siteSettings: 'サイト設定',
         nanoSiteUpdates: 'NanoSite 更新',
@@ -124,6 +141,14 @@ const translations = {
         pageEntryMeta: 'ページの言語、タイトル、ファイルを管理します。',
         languageKicker: '記事の言語',
         languageMeta: ({ count }) => `${count} バージョン`,
+        deletedKicker: '削除された項目',
+        deletedMeta: 'この項目は現在の下書きから削除されています。残す場合は公開前に復元してください。',
+        deletedEntryMeta: 'この項目は現在の下書きから削除されています。残す場合は公開前に復元してください。',
+        deletedLanguageMeta: 'この言語は現在の下書きから削除されています。残す場合は公開前に復元してください。',
+        deletedFileMeta: 'このファイルは現在の下書きから削除されています。残す場合は公開前に復元してください。',
+        deletedPageLanguageMeta: 'このページ言語ファイルは現在の下書きから削除されています。残す場合は公開前に復元してください。',
+        deletedRestoreHint: '復元すると、この削除項目に最後に読み込まれたベースライン値を書き戻します。',
+        restoreDeleted: '復元',
         articleFile: '記事ファイル',
         pageFile: 'ページファイル',
         addLanguage: '言語を追加',
