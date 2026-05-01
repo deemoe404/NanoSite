@@ -10700,7 +10700,11 @@ function buildCurrentEditorTree() {
     pagesLabel: treeText('pages', 'Pages'),
     draftStates: collectEditorDraftStatusMap(),
     diffStates: collectEditorDiffStatusMap(),
-    fileStates: collectEditorFileStatusMap()
+    fileStates: collectEditorFileStatusMap(),
+    indexDiff: composerDiffCache.index || null,
+    tabsDiff: composerDiffCache.tabs || null,
+    indexBaseline: remoteBaseline.index || null,
+    tabsBaseline: remoteBaseline.tabs || null
   });
 }
 
@@ -10835,6 +10839,116 @@ function createEditorTreeIcon(node) {
   return icon;
 }
 
+function getEditorTreeChangeLabel(state) {
+  if (state === 'issue') return treeText('status.issue', 'Issue');
+  if (state === 'added') return treeText('status.added', 'Added');
+  if (state === 'deleted') return treeText('status.deleted', 'Deleted');
+  return treeText('status.modified', 'Modified');
+}
+
+function getEditorTreeIssueState(node) {
+  if (!node) return '';
+  if (node.draftState === 'conflict' || node.fileState === 'error' || node.diffState === 'error') return 'issue';
+  return '';
+}
+
+function getEditorTreeCountTone(counts) {
+  const safeCounts = counts || {};
+  if (safeCounts.deleted) return 'deleted';
+  if (safeCounts.added && !safeCounts.modified) return 'added';
+  return 'modified';
+}
+
+function getEditorTreeChangedSummary(counts) {
+  const safeCounts = counts || {};
+  const parts = [];
+  if (safeCounts.added) parts.push(`${safeCounts.added} ${treeText('status.added', 'added').toLowerCase()}`);
+  if (safeCounts.modified) parts.push(`${safeCounts.modified} ${treeText('status.modified', 'modified').toLowerCase()}`);
+  if (safeCounts.deleted) parts.push(`${safeCounts.deleted} ${treeText('status.deleted', 'deleted').toLowerCase()}`);
+  const fallback = parts.length
+    ? `${safeCounts.total} changed: ${parts.join(', ')}`
+    : `${safeCounts.total || 0} changed`;
+  return treeText('status.changedSummary', fallback, {
+    total: safeCounts.total || 0,
+    added: safeCounts.added || 0,
+    modified: safeCounts.modified || 0,
+    deleted: safeCounts.deleted || 0
+  });
+}
+
+function getEditorTreeStatusSummaries(node) {
+  if (!node) return [];
+  const summaries = [];
+  const counts = node.changeCounts || {};
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const issueState = getEditorTreeIssueState(node);
+  const directBadge = (!hasChildren || node.kind === 'system') && node.changeState;
+  if (issueState) {
+    summaries.push(getEditorTreeChangeLabel(issueState));
+  } else if (directBadge) {
+    summaries.push(getEditorTreeChangeLabel(node.changeState));
+  } else if (counts.total > 0) {
+    summaries.push(getEditorTreeChangedSummary(counts));
+  } else if (node.isDeleted) {
+    summaries.push(treeText('status.deletedSummary', 'Deleted item'));
+  }
+  if (node.orderChanged) summaries.push(treeText('status.orderChanged', 'Order changed'));
+  if (node.checkingCount > 0) {
+    const checking = treeText('status.checking', 'Checking');
+    summaries.push(node.checkingCount > 1 ? `${checking} (${node.checkingCount})` : checking);
+  }
+  return summaries;
+}
+
+function getEditorTreeAccessibleLabel(node, labelText, accessiblePath) {
+  const base = accessiblePath ? `${labelText} - ${accessiblePath}` : labelText;
+  const summaries = getEditorTreeStatusSummaries(node);
+  return summaries.length ? `${base} - ${summaries.join(', ')}` : base;
+}
+
+function createEditorTreeStatusElement(node) {
+  const status = document.createElement('span');
+  status.className = 'editor-tree-status';
+  status.setAttribute('aria-hidden', 'true');
+  const counts = node && node.changeCounts ? node.changeCounts : {};
+  const hasChildren = !!(node && Array.isArray(node.children) && node.children.length);
+  const issueState = getEditorTreeIssueState(node);
+  const directBadge = node && (!hasChildren || node.kind === 'system') && node.changeState;
+  if (issueState) {
+    const badge = document.createElement('span');
+    badge.className = 'editor-tree-change-badge';
+    badge.dataset.state = issueState;
+    badge.textContent = getEditorTreeChangeLabel(issueState);
+    status.appendChild(badge);
+  } else if (directBadge) {
+    const badge = document.createElement('span');
+    badge.className = 'editor-tree-change-badge';
+    badge.dataset.state = node.changeState;
+    badge.textContent = getEditorTreeChangeLabel(node.changeState);
+    status.appendChild(badge);
+  } else if (counts.total > 0) {
+    const countBadge = document.createElement('span');
+    countBadge.className = 'editor-tree-count-badge';
+    countBadge.dataset.state = getEditorTreeCountTone(counts);
+    countBadge.textContent = String(counts.total);
+    status.appendChild(countBadge);
+  }
+  if (node && node.orderChanged) {
+    const orderBadge = document.createElement('span');
+    orderBadge.className = 'editor-tree-order-badge';
+    orderBadge.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M3 9l4 -4l4 4m-4 -4v14"></path><path d="M21 15l-4 4l-4 -4m4 4v-14"></path></svg>';
+    status.appendChild(orderBadge);
+  }
+  if (node && node.checkingCount > 0) {
+    const spinner = document.createElement('span');
+    spinner.className = 'editor-tree-spinner';
+    spinner.dataset.count = String(node.checkingCount);
+    status.appendChild(spinner);
+  }
+  if (!status.childElementCount) status.hidden = true;
+  return status;
+}
+
 function getEditorTreeRowDepth(row) {
   const raw = row && row.dataset ? Number(row.dataset.depth) : 0;
   return Number.isFinite(raw) ? raw : 0;
@@ -10918,6 +11032,7 @@ function renderEditorFileTree(root) {
     row.dataset.kind = node.kind || '';
     row.dataset.source = node.source || '';
     row.dataset.depth = String(Math.max(0, depth));
+    if (node.isDeleted) row.dataset.deleted = '1';
     row.classList.toggle('is-leaf', !hasChildren);
     const rowIndent = hasChildren
       ? Math.max(0, depth) * 1.12
@@ -10975,9 +11090,8 @@ function renderEditorFileTree(root) {
     button.setAttribute('aria-selected', node.id === selectedId ? 'true' : 'false');
     button.dataset.nodeId = node.id;
     const labelText = node.label || node.id;
-    const accessibleLabel = node.path ? `${labelText} - ${node.path}` : labelText;
-    button.setAttribute('aria-label', accessibleLabel);
-    button.title = accessibleLabel;
+    const accessiblePath = node.path || '';
+    button.setAttribute('aria-label', getEditorTreeAccessibleLabel(node, labelText, accessiblePath));
     const icon = createEditorTreeIcon(node);
     if (icon) button.appendChild(icon);
     const label = document.createElement('span');
@@ -10985,24 +11099,7 @@ function renderEditorFileTree(root) {
     label.textContent = labelText;
     button.appendChild(label);
     button.addEventListener('click', () => handleEditorTreeSelection(node.id));
-
-    const states = [node.draftState, node.diffState, node.fileState]
-      .filter(state => state && state !== 'existing')
-      .slice(0, 3);
-    let badges = null;
-    if (states.length) {
-      badges = document.createElement('span');
-      badges.className = 'editor-tree-badges';
-    }
-    states.forEach((state) => {
-      const badge = document.createElement('span');
-      badge.className = 'editor-tree-badge';
-      badge.dataset.state = state;
-      badge.title = state;
-      badges.appendChild(badge);
-    });
-
-    if (badges) button.appendChild(badges);
+    button.appendChild(createEditorTreeStatusElement(node));
     if (toggle) row.appendChild(toggle);
     row.appendChild(button);
     root.appendChild(row);

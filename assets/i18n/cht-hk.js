@@ -16,6 +16,30 @@ const clone = (value) => {
 
 const translations = clone(chtTwTranslations);
 
+translations.editor = {
+  ...translations.editor,
+  tree: {
+    ...translations.editor.tree,
+    status: {
+      added: '新增',
+      modified: '已修改',
+      deleted: '已刪除',
+      issue: '要處理',
+      checking: '檢查緊',
+      changedCount: ({ count }) => `${count} 項變更`,
+      changedSummary: ({ total, added, modified, deleted }) => {
+        const parts = [];
+        if (added) parts.push(`${added} 新增`);
+        if (modified) parts.push(`${modified} 修改`);
+        if (deleted) parts.push(`${deleted} 刪除`);
+        return parts.length ? `${total} 項變更：${parts.join('，')}` : `${total} 項變更`;
+      },
+      orderChanged: '順序已變更',
+      deletedSummary: '已刪除項目'
+    }
+  }
+};
+
 translations.ui = {
   ...translations.ui,
   backToAllPosts: '返到全部文章',

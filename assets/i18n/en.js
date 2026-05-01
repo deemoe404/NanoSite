@@ -104,6 +104,23 @@ const translations = {
         toggle: 'Toggle',
         rootKicker: 'Collection',
         rootMeta: ({ count }) => `${count} item${count === 1 ? '' : 's'}`,
+        status: {
+          added: 'Added',
+          modified: 'Modified',
+          deleted: 'Deleted',
+          issue: 'Issue',
+          checking: 'Checking',
+          changedCount: ({ count }) => `${count} changed`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} added`);
+            if (modified) parts.push(`${modified} modified`);
+            if (deleted) parts.push(`${deleted} deleted`);
+            return parts.length ? `${total} changed: ${parts.join(', ')}` : `${total} changed`;
+          },
+          orderChanged: 'Order changed',
+          deletedSummary: 'Deleted item'
+        },
         system: 'System',
         siteSettings: 'Site Settings',
         nanoSiteUpdates: 'NanoSite Updates',

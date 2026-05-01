@@ -104,6 +104,23 @@ const translations = {
         toggle: '展開/收合',
         rootKicker: '集合',
         rootMeta: ({ count }) => `${count} 個項目`,
+        status: {
+          added: '新增',
+          modified: '已修改',
+          deleted: '已刪除',
+          issue: '需處理',
+          checking: '檢查中',
+          changedCount: ({ count }) => `${count} 項變更`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} 新增`);
+            if (modified) parts.push(`${modified} 修改`);
+            if (deleted) parts.push(`${deleted} 刪除`);
+            return parts.length ? `${total} 項變更：${parts.join('，')}` : `${total} 項變更`;
+          },
+          orderChanged: '順序已變更',
+          deletedSummary: '已刪除項目'
+        },
         system: '系統',
         siteSettings: '站點設定',
         nanoSiteUpdates: 'NanoSite 更新',

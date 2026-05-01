@@ -67,6 +67,7 @@
       min-height:0;
       overflow:auto;
       padding:1.4rem 1rem 1rem 1.2rem;
+      font-size:.875rem;
       scrollbar-gutter:stable;
     }
     .editor-rail-action.mode-tab {
@@ -201,17 +202,28 @@
     .editor-tree-icon { flex:0 0 auto; width:1rem; height:1rem; color:color-mix(in srgb, var(--muted) 88%, transparent); display:inline-flex; align-items:center; justify-content:center; }
     .editor-tree-icon svg { width:1rem; height:1rem; display:block; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
     #editorFileTree .editor-tree-row.is-selected > button.editor-tree-node .editor-tree-icon { color:currentColor; }
-    .editor-tree-row[data-kind="root"] .editor-tree-node { padding-left:.45rem; font-weight:400; }
+    .editor-tree-row[data-kind="root"] .editor-tree-node { padding-left:.45rem; font-weight:700; }
     .editor-tree-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:400; }
-    .editor-tree-badges { margin-left:auto; display:inline-flex; align-items:center; justify-content:flex-end; gap:.22rem; flex:0 0 auto; }
-    .editor-tree-badge { width:.46rem; height:.46rem; border-radius:999px; background:color-mix(in srgb, var(--muted) 42%, transparent); box-shadow:0 0 0 2px color-mix(in srgb, var(--card) 90%, transparent); }
-    .editor-tree-badge[data-state="dirty"] { background:#f97316; box-shadow:0 0 0 2px color-mix(in srgb, #f97316 18%, transparent); }
-    .editor-tree-badge[data-state="saved"] { background:#22c55e; box-shadow:0 0 0 2px color-mix(in srgb, #22c55e 16%, transparent); }
-    .editor-tree-badge[data-state="conflict"], .editor-tree-badge[data-state="error"] { background:#ef4444; box-shadow:0 0 0 2px color-mix(in srgb, #ef4444 18%, transparent); }
-    .editor-tree-badge[data-state="modified"], .editor-tree-badge[data-state="missing"], .editor-tree-badge[data-state="checking"] { background:#2563eb; box-shadow:0 0 0 2px color-mix(in srgb, #2563eb 16%, transparent); }
+    .editor-tree-row[data-kind="root"] .editor-tree-label { font-weight:700; }
+    .editor-tree-row[data-deleted="1"] .editor-tree-label { opacity:.72; text-decoration:line-through; text-decoration-thickness:1px; text-decoration-color:color-mix(in srgb, #dc2626 72%, transparent); }
+    .editor-tree-status { margin-left:auto; display:inline-flex; align-items:center; justify-content:flex-end; gap:.22rem; flex:0 0 auto; min-width:0; }
+    .editor-tree-status[hidden] { display:none; }
+    .editor-tree-change-badge { display:inline-flex; align-items:center; justify-content:center; min-width:0; max-width:5.5rem; height:1.05rem; padding:0 .38rem; border-radius:999px; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--text) 4%, transparent); color:color-mix(in srgb, var(--text) 78%, transparent); font-size:.64rem; font-weight:700; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .editor-tree-change-badge[data-state="added"] { color:#166534; border-color:color-mix(in srgb, #16a34a 50%, var(--border)); background:color-mix(in srgb, #16a34a 12%, transparent); }
+    .editor-tree-change-badge[data-state="modified"] { color:#1d4ed8; border-color:color-mix(in srgb, #2563eb 50%, var(--border)); background:color-mix(in srgb, #2563eb 11%, transparent); }
+    .editor-tree-change-badge[data-state="deleted"], .editor-tree-change-badge[data-state="issue"] { color:#b91c1c; border-color:color-mix(in srgb, #dc2626 52%, var(--border)); background:color-mix(in srgb, #dc2626 12%, transparent); }
+    .editor-tree-count-badge { display:inline-flex; align-items:center; justify-content:center; min-width:1.15rem; height:1.05rem; padding:0 .32rem; border-radius:999px; border:1px solid color-mix(in srgb, var(--border) 80%, transparent); background:color-mix(in srgb, var(--text) 5%, transparent); color:color-mix(in srgb, var(--text) 78%, transparent); font-size:.66rem; font-weight:800; line-height:1; font-feature-settings:'tnum' 1,'case' 1; }
+    .editor-tree-count-badge[data-state="added"] { color:#166534; border-color:color-mix(in srgb, #16a34a 52%, var(--border)); background:color-mix(in srgb, #16a34a 12%, transparent); }
+    .editor-tree-count-badge[data-state="modified"] { color:#1d4ed8; border-color:color-mix(in srgb, #2563eb 50%, var(--border)); background:color-mix(in srgb, #2563eb 11%, transparent); }
+    .editor-tree-count-badge[data-state="deleted"] { color:#b91c1c; border-color:color-mix(in srgb, #dc2626 55%, var(--border)); background:color-mix(in srgb, #dc2626 12%, transparent); }
+    .editor-tree-order-badge { display:inline-flex; align-items:center; justify-content:center; width:1.05rem; height:1.05rem; border-radius:999px; border:1px solid color-mix(in srgb, #8b5cf6 48%, var(--border)); background:color-mix(in srgb, #8b5cf6 11%, transparent); color:#6d28d9; line-height:1; }
+    .editor-tree-order-badge svg { width:.78rem; height:.78rem; display:block; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .editor-tree-spinner { display:inline-block; width:.78rem; height:.78rem; border-radius:999px; border:2px solid color-mix(in srgb, var(--muted) 28%, transparent); border-top-color:color-mix(in srgb, var(--primary) 72%, var(--text)); animation:editor-tree-spinner-spin .8s linear infinite; }
+    @keyframes editor-tree-spinner-spin { to { transform:rotate(360deg); } }
     @media (prefers-reduced-motion: reduce) {
       .editor-tree-row.is-expanding { animation:none; }
       .editor-tree-row.is-collapsing { transition:none; }
+      .editor-tree-spinner { animation:none; border-style:dotted; }
     }
     .editor-detail-pane { min-width:0; min-height:0; display:flex; flex-direction:column; gap:1rem; }
     .editor-structure-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }

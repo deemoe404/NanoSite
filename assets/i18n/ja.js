@@ -104,6 +104,23 @@ const translations = {
         toggle: '開閉',
         rootKicker: 'コレクション',
         rootMeta: ({ count }) => `${count} 件`,
+        status: {
+          added: '追加',
+          modified: '変更',
+          deleted: '削除',
+          issue: '要確認',
+          checking: '確認中',
+          changedCount: ({ count }) => `${count} 件の変更`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} 追加`);
+            if (modified) parts.push(`${modified} 変更`);
+            if (deleted) parts.push(`${deleted} 削除`);
+            return parts.length ? `${total} 件の変更: ${parts.join(', ')}` : `${total} 件の変更`;
+          },
+          orderChanged: '順序が変更されました',
+          deletedSummary: '削除された項目'
+        },
         system: 'システム',
         siteSettings: 'サイト設定',
         nanoSiteUpdates: 'NanoSite 更新',

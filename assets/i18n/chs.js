@@ -104,6 +104,23 @@ const translations = {
         toggle: '展开/折叠',
         rootKicker: '集合',
         rootMeta: ({ count }) => `${count} 个条目`,
+        status: {
+          added: '新增',
+          modified: '已修改',
+          deleted: '已删除',
+          issue: '需处理',
+          checking: '检查中',
+          changedCount: ({ count }) => `${count} 项变更`,
+          changedSummary: ({ total, added, modified, deleted }) => {
+            const parts = [];
+            if (added) parts.push(`${added} 新增`);
+            if (modified) parts.push(`${modified} 修改`);
+            if (deleted) parts.push(`${deleted} 删除`);
+            return parts.length ? `${total} 项变更：${parts.join('，')}` : `${total} 项变更`;
+          },
+          orderChanged: '顺序已变更',
+          deletedSummary: '已删除项目'
+        },
         system: '系统',
         siteSettings: '站点设置',
         nanoSiteUpdates: 'NanoSite 更新',
