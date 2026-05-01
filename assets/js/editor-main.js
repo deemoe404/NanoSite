@@ -68,6 +68,123 @@ const getContentRootPrefix = () => {
   }
 };
 
+function syncFrontMatterLabelWidth(root) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  try {
+    if (typeof root.__nsFrontMatterLabelWidthCleanup === 'function') root.__nsFrontMatterLabelWidthCleanup();
+  } catch (_) {}
+  try { root.__nsFrontMatterLabelWidthCleanup = null; } catch (_) {}
+
+  const labels = Array.from(root.querySelectorAll('.frontmatter-field-title'));
+  if (!labels.length) {
+    try { root.style.removeProperty('--frontmatter-single-label-width'); } catch (_) {}
+    return;
+  }
+
+  let frame = 0;
+  let observer = null;
+  const requestFrame = (fn) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      return window.requestAnimationFrame(fn);
+    }
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+    return setTimeout(fn, 0);
+  };
+  const cancelFrame = (id) => {
+    if (!id) return;
+    if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(id);
+      return;
+    }
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(id);
+    else clearTimeout(id);
+  };
+  const measureLabelText = (label) => {
+    let width = label.scrollWidth || 0;
+    try {
+      const doc = label.ownerDocument || document;
+      if (!doc || !doc.body) return width;
+      const probe = doc.createElement('span');
+      probe.textContent = label.textContent || '';
+      probe.style.position = 'absolute';
+      probe.style.visibility = 'hidden';
+      probe.style.pointerEvents = 'none';
+      probe.style.whiteSpace = 'nowrap';
+      probe.style.left = '-9999px';
+      probe.style.top = '0';
+      const sourceStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+        ? window.getComputedStyle(label)
+        : null;
+      if (sourceStyle) {
+        probe.style.fontFamily = sourceStyle.fontFamily;
+        probe.style.fontSize = sourceStyle.fontSize;
+        probe.style.fontStyle = sourceStyle.fontStyle;
+        probe.style.fontWeight = sourceStyle.fontWeight;
+        probe.style.letterSpacing = sourceStyle.letterSpacing;
+        probe.style.textTransform = sourceStyle.textTransform;
+      }
+      doc.body.appendChild(probe);
+      width = Math.max(width, probe.scrollWidth || Math.ceil(probe.getBoundingClientRect().width) || 0);
+      probe.remove();
+    } catch (_) {}
+    return width;
+  };
+  const measure = () => {
+    frame = 0;
+    let width = 88;
+    labels.forEach((label) => {
+      const target = label.closest ? label.closest('.frontmatter-field-label-wrap') : label;
+      let measured = 0;
+      try {
+        const tooltip = target && target.querySelector ? target.querySelector('.frontmatter-help-tooltip') : null;
+        const tooltipWidth = tooltip ? tooltip.scrollWidth || 0 : 0;
+        const labelWidth = measureLabelText(label);
+        const targetStyle = typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'
+          ? window.getComputedStyle(target || label)
+          : null;
+        const gap = targetStyle ? parseFloat(targetStyle.gap || targetStyle.columnGap || '0') || 0 : 0;
+        measured = labelWidth + tooltipWidth + gap;
+      } catch (_) {
+        try {
+          const tooltip = target && target.querySelector ? target.querySelector('.frontmatter-help-tooltip') : null;
+          measured = measureLabelText(label) + (tooltip ? tooltip.scrollWidth || 0 : 0);
+        } catch (_) {}
+      }
+      width = Math.max(width, measured);
+    });
+    try { root.style.setProperty('--frontmatter-single-label-width', `${Math.ceil(width)}px`); } catch (_) {}
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = requestFrame(measure);
+  };
+
+  if (typeof ResizeObserver === 'function') {
+    try {
+      observer = new ResizeObserver(schedule);
+      observer.observe(root);
+      labels.forEach((label) => {
+        const cell = label.closest ? label.closest('.frontmatter-field-label-wrap') : label;
+        observer.observe(cell || label);
+      });
+    } catch (_) {
+      observer = null;
+    }
+  }
+
+  try {
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') document.fonts.ready.then(schedule).catch(() => {});
+  } catch (_) {}
+  schedule();
+
+  root.__nsFrontMatterLabelWidthCleanup = () => {
+    cancelFrame(frame);
+    frame = 0;
+    try { if (observer) observer.disconnect(); } catch (_) {}
+    observer = null;
+  };
+}
+
 const safePreviewMime = (mime) => {
   try {
     const raw = String(mime || '').trim().toLowerCase();
@@ -993,6 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (parent) parent.appendChild(entry.container);
       });
       if (extraSection) extraSection.hidden = false;
+      syncFrontMatterLabelWidth(panel);
     };
 
     const updateSummary = () => {
@@ -1014,6 +1132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         applyValueToEntry(entry, state.data[nextKey]);
       });
       updateSummary();
+      syncFrontMatterLabelWidth(panel);
     };
 
     const setFromMarkdown = (raw, opts = {}) => {
@@ -1045,6 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureBaseFields();
     updateSummary();
     applySectionDescriptions();
+    syncFrontMatterLabelWidth(panel);
 
     return {
       panel,
@@ -1148,6 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     grid.appendChild(field);
     section.append(head, grid);
     body.appendChild(section);
+    syncFrontMatterLabelWidth(panel);
 
     let suppressEvents = false;
     let changeHandler = () => {};
@@ -1205,6 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabsMetadataManager && typeof tabsMetadataManager.setVisible === 'function') {
       tabsMetadataManager.setVisible(tabsMetadataVisible);
     }
+    syncFrontMatterLabelWidth(panel);
   };
 
   const normalizeCurrentFilePathForMode = (path) => {
@@ -1896,6 +2018,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (frontMatterManager) {
       frontMatterManager.updateSummary();
       frontMatterManager.applySectionDescriptions();
+      syncFrontMatterLabelWidth(frontMatterManager.panel);
     }
   });
 

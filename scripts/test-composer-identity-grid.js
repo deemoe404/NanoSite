@@ -243,8 +243,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.frontmatter-panel \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*\.frontmatter-grid \{[\s\S]*--frontmatter-row-gap: 0\.35rem;[\s\S]*display: flex;[\s\S]*gap: var\(--frontmatter-row-gap\);[\s\S]*\.frontmatter-field \{[\s\S]*padding: 0;[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(88px, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
-  'front matter fields should use compact Site Settings-style label/control rows'
+  /\.frontmatter-panel \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*\.frontmatter-grid \{[\s\S]*--frontmatter-row-gap: 0\.35rem;[\s\S]*display: flex;[\s\S]*gap: var\(--frontmatter-row-gap\);[\s\S]*\.frontmatter-field \{[\s\S]*padding: 0;[\s\S]*display: grid;[\s\S]*grid-template-columns: var\(--frontmatter-single-label-width, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
+  'front matter fields should use compact Site Settings-style rows with measured label width'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.frontmatter-field \{[\s\S]*grid-template-columns: minmax\(88px, 88px\) minmax\(0, var\(--frontmatter-single-control-width\)\);/,
+  'front matter label column should not stay fixed to the old 88px width'
 );
 
 assert.match(
@@ -263,6 +269,42 @@ assert.match(
   editorMainSource,
   /head\.className = 'frontmatter-field-head';[\s\S]*labelWrap\.className = 'frontmatter-field-label-wrap';[\s\S]*labelSpan\.className = 'frontmatter-field-title';[\s\S]*controls\.className = 'frontmatter-field-controls';[\s\S]*controls\.appendChild\([\s\S]*entry\.container\.appendChild\(controls\);/,
   'front matter field DOM should include field head, label wrap, and controls wrapper'
+);
+
+assert.match(
+  editorMainSource,
+  /function syncFrontMatterLabelWidth\(root\) \{[\s\S]*querySelectorAll\('\.frontmatter-field-title'\)[\s\S]*requestAnimationFrame[\s\S]*ResizeObserver/,
+  'front matter labels should be measured after render and shared through a CSS variable'
+);
+
+assert.match(
+  editorMainSource,
+  /function syncFrontMatterLabelWidth\(root\) \{[\s\S]*root\.style\.setProperty\('--frontmatter-single-label-width'/,
+  'front matter label measurement should write the shared label width CSS variable'
+);
+
+assert.match(
+  editorMainSource,
+  /const measureLabelText = \(label\) => \{[\s\S]*label\.scrollWidth[\s\S]*probe\.textContent = label\.textContent \|\| '';[\s\S]*probe\.style\.whiteSpace = 'nowrap';/,
+  'front matter label measurement should probe intrinsic text width when current layout is constrained'
+);
+
+assert.match(
+  editorMainSource,
+  /querySelector\('\.frontmatter-help-tooltip'\)[\s\S]*measureLabelText\(label\)[\s\S]*getComputedStyle\(target \|\| label\)[\s\S]*gap/,
+  'front matter label measurement should use intrinsic label width plus the visible help button and gap'
+);
+
+assert.match(
+  editorMainSource,
+  /document\.addEventListener\('ns-editor-language-applied'[\s\S]*frontMatterManager\.applySectionDescriptions\(\);[\s\S]*syncFrontMatterLabelWidth\(frontMatterManager\.panel\);/,
+  'front matter labels should resync after editor language changes update localized labels'
+);
+
+assert.match(
+  editorMainSource,
+  /const updateMetadataPanelVisibility = \(\) => \{[\s\S]*tabsMetadataManager\.setVisible\(tabsMetadataVisible\);[\s\S]*syncFrontMatterLabelWidth\(panel\);/,
+  'front matter labels should resync after article/page metadata visibility changes'
 );
 
 assert.doesNotMatch(
