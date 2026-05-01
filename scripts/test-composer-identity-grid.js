@@ -417,8 +417,8 @@ assert.match(
 
 assert.match(
   source,
-  /function deriveDynamicTabIdentity\(path, options = \{\}\) \{[\s\S]*const source = String\(opts\.source \|\|[\s\S]*inferMarkdownSourceFromPath\(normalizedPath\)/,
-  'composer should preserve explicit file-source identity for dynamic markdown tabs'
+  /function deriveDynamicTabIdentity\(path, options = \{\}\) \{[\s\S]*const explicitLookupKey = String\(opts\.lookupKey \|\| ''\)\.trim\(\);[\s\S]*const source = String\([\s\S]*opts\.source[\s\S]*inferMarkdownSourceFromPath\(normalizedPath\)[\s\S]*const lookupKey = explicitLookupKey \|\| \(\(source === 'tabs' && key && lang\)/,
+  'composer should preserve explicit file-source identity and persisted lookup keys for dynamic markdown tabs'
 );
 
 assert.match(
@@ -679,14 +679,14 @@ assert.match(
 
 assert.match(
   source,
-  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*v: EDITOR_STATE_VERSION,[\s\S]*activePath: active && active\.path \? active\.path : null,[\s\S]*expandedNodeIds: Array\.from\(expandedEditorTreeNodeIds\)\.filter\(Boolean\),/,
-  'dynamic markdown session state should persist opened files, active file path, and exact tree expansion'
+  /function persistDynamicEditorState\(\) \{[\s\S]*const open = Array\.from\(dynamicEditorTabs\.values\(\)\)[\s\S]*lookupKey: tab\.lookupKey \|\| tab\.path,[\s\S]*path: tab\.path,[\s\S]*activeLookupKey: active && \(active\.lookupKey \|\| active\.path\) \? \(active\.lookupKey \|\| active\.path\) : null,[\s\S]*activePath: active && active\.path \? active\.path : null,[\s\S]*expandedNodeIds: Array\.from\(expandedEditorTreeNodeIds\)\.filter\(Boolean\),/,
+  'dynamic markdown session state should persist opened files with stable lookup keys, plus active file identity and exact tree expansion'
 );
 
 assert.match(
   source,
-  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*getOrCreateDynamicMode\(norm\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*const modeId = dynamicEditorTabsByLookupKey\.get\(activePath\) \|\| getOrCreateDynamicMode\(activePath\);[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
-  'dynamic markdown session restore should recreate open files, exact expansion, and active file path'
+  /function restoreDynamicEditorState\(\) \{[\s\S]*const open = Array\.isArray\(data\.open\) \? data\.open : \[\];[\s\S]*const lookupKey = item && typeof item === 'object'[\s\S]*const path = item && typeof item === 'object'[\s\S]*getOrCreateDynamicMode\(path, \{[\s\S]*source:[\s\S]*key:[\s\S]*lang:[\s\S]*editorTreeNodeId:[\s\S]*lookupKey[\s\S]*\}\);[\s\S]*expandedEditorTreeNodeIds\.clear\(\);[\s\S]*const activeLookupKey = String\(data\.activeLookupKey \|\| ''\)\.trim\(\);[\s\S]*const activePath = data\.activePath \? normalizeRelPath\(data\.activePath\) : '';[\s\S]*if \(\(isV3 \? data\.mode === 'markdown' : true\) && \(activeLookupKey \|\| activePath\)\) \{[\s\S]*const modeId = \(activeLookupKey && dynamicEditorTabsByLookupKey\.get\(activeLookupKey\)\)[\s\S]*\|\| \(activePath && dynamicEditorTabsByLookupKey\.get\(activePath\)\)[\s\S]*\|\| \(activePath \? getOrCreateDynamicMode\(activePath\) : null\);[\s\S]*applyMode\(modeId, \{ preserveTreeExpansion: true, restoreScroll: true \}\);/,
+  'dynamic markdown session restore should recreate open files and active file identity with stable lookup keys'
 );
 
 assert.match(

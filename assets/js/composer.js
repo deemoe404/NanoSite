@@ -8146,13 +8146,30 @@ function deriveDynamicTabIdentity(path, options = {}) {
   const normalizedPath = normalizeRelPath(path);
   const opts = options && typeof options === 'object' ? options : {};
   const node = opts.node && typeof opts.node === 'object' ? opts.node : null;
-  const source = String(opts.source || (node && node.source) || inferMarkdownSourceFromPath(normalizedPath) || '').trim().toLowerCase();
-  const key = String(opts.key || (node && node.key) || '').trim();
-  const lang = normalizeLangCode(opts.lang || (node && node.lang) || '');
+  const explicitLookupKey = String(opts.lookupKey || '').trim();
+  const lookupKeyParts = explicitLookupKey.startsWith('tabs:') ? explicitLookupKey.split(':') : null;
+  const source = String(
+    opts.source
+    || (node && node.source)
+    || (lookupKeyParts && lookupKeyParts.length >= 3 ? 'tabs' : '')
+    || inferMarkdownSourceFromPath(normalizedPath)
+    || ''
+  ).trim().toLowerCase();
+  const key = String(
+    opts.key
+    || (node && node.key)
+    || (lookupKeyParts && lookupKeyParts.length >= 3 ? lookupKeyParts.slice(1, -1).join(':') : '')
+    || ''
+  ).trim();
+  const lang = normalizeLangCode(
+    opts.lang
+    || (node && node.lang)
+    || (lookupKeyParts && lookupKeyParts.length >= 3 ? lookupKeyParts[lookupKeyParts.length - 1] : '')
+  );
   const editorTreeNodeId = String(opts.editorTreeNodeId || opts.nodeId || (node && node.id) || '').trim();
-  const lookupKey = (source === 'tabs' && key && lang)
+  const lookupKey = explicitLookupKey || ((source === 'tabs' && key && lang)
     ? `tabs:${key}:${lang}`
-    : normalizedPath;
+    : normalizedPath);
   return {
     path: normalizedPath,
     source,
@@ -8767,7 +8784,17 @@ function persistDynamicEditorState() {
     if (!store) return;
     captureEditorContentScroll(currentMode);
     const open = Array.from(dynamicEditorTabs.values())
-      .map((tab) => (tab && tab.path) ? tab.path : '')
+      .map((tab) => {
+        if (!tab || !tab.path) return null;
+        return {
+          lookupKey: tab.lookupKey || tab.path,
+          path: tab.path,
+          source: tab.source || '',
+          key: tab.tabsKey || '',
+          lang: tab.tabsLang || '',
+          editorTreeNodeId: tab.editorTreeNodeId || ''
+        };
+      })
       .filter(Boolean);
     const active = currentMode && isDynamicMode(currentMode) ? dynamicEditorTabs.get(currentMode) : null;
     const systemMode = (currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync')
@@ -8777,6 +8804,7 @@ function persistDynamicEditorState() {
       v: EDITOR_STATE_VERSION,
       mode: active ? 'markdown' : systemMode,
       activeNodeId: activeEditorTreeNodeId || 'articles',
+      activeLookupKey: active && (active.lookupKey || active.path) ? (active.lookupKey || active.path) : null,
       activePath: active && active.path ? active.path : null,
       open,
       expandedNodeIds: Array.from(expandedEditorTreeNodeIds).filter(Boolean),
@@ -8785,6 +8813,7 @@ function persistDynamicEditorState() {
       updatedAt: Date.now()
     };
     if (currentMode && isDynamicMode(currentMode)) {
+      state.activeLookupKey = active && (active.lookupKey || active.path) ? (active.lookupKey || active.path) : null;
       state.activePath = active && active.path ? active.path : null;
     }
     store.setItem(LS_KEYS.editorState, JSON.stringify(state));
@@ -8812,10 +8841,22 @@ function restoreDynamicEditorState() {
   const open = Array.isArray(data.open) ? data.open : [];
   const seen = new Set();
   open.forEach((item) => {
-    const norm = normalizeRelPath(item);
-    if (!norm || seen.has(norm)) return;
-    seen.add(norm);
-    getOrCreateDynamicMode(norm);
+    const lookupKey = item && typeof item === 'object'
+      ? String(item.lookupKey || '').trim()
+      : '';
+    const path = item && typeof item === 'object'
+      ? normalizeRelPath(item.path)
+      : normalizeRelPath(item);
+    const seenKey = lookupKey || path;
+    if (!path || !seenKey || seen.has(seenKey)) return;
+    seen.add(seenKey);
+    getOrCreateDynamicMode(path, {
+      source: item && typeof item === 'object' ? item.source : '',
+      key: item && typeof item === 'object' ? item.key : '',
+      lang: item && typeof item === 'object' ? item.lang : '',
+      editorTreeNodeId: item && typeof item === 'object' ? item.editorTreeNodeId : '',
+      lookupKey
+    });
   });
 
   if (isV3 && Array.isArray(data.expandedNodeIds)) {
@@ -8844,9 +8885,12 @@ function restoreDynamicEditorState() {
     return true;
   };
 
+  const activeLookupKey = String(data.activeLookupKey || '').trim();
   const activePath = data.activePath ? normalizeRelPath(data.activePath) : '';
-  if ((isV3 ? data.mode === 'markdown' : true) && activePath) {
-    const modeId = dynamicEditorTabsByLookupKey.get(activePath) || getOrCreateDynamicMode(activePath);
+  if ((isV3 ? data.mode === 'markdown' : true) && (activeLookupKey || activePath)) {
+    const modeId = (activeLookupKey && dynamicEditorTabsByLookupKey.get(activeLookupKey))
+      || (activePath && dynamicEditorTabsByLookupKey.get(activePath))
+      || (activePath ? getOrCreateDynamicMode(activePath) : null);
     if (modeId) {
       applyMode(modeId, { preserveTreeExpansion: true, restoreScroll: true });
       return finishRestore(modeId);
