@@ -297,20 +297,32 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.frontmatter-panel\[data-frontmatter-visible="false"\] \{ display: none !important; \}/,
-  'front matter panel should have a hard hidden state for page markdown files'
+  /\.frontmatter-panel\[data-frontmatter-visible="false"\]\[data-tabs-visible="false"\] \{ display: none !important; \}/,
+  'front matter panel should only fully hide when neither article nor tabs metadata is active'
 );
 
 assert.match(
   editorMainSource,
-  /let frontMatterVisible = true;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*panel\.dataset\.frontmatterVisible = frontMatterVisible \? 'true' : 'false';[\s\S]*panel\.style\.display = frontMatterVisible \? '' : 'none';[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);/,
-  'markdown editor should hide the front matter panel for tabs.yaml page markdown files'
+  /let frontMatterVisible = true;[\s\S]*let tabsMetadataVisible = false;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*frontMatterVisible = !!visible;[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*const setTabsMetadataVisible = \(visible\) => \{[\s\S]*tabsMetadataVisible = !!visible;[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*assignCurrentFileLabel = \(input\) => \{[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);[\s\S]*setTabsMetadataVisible\(currentFileInfo\.source === 'tabs'\);/,
+  'markdown editor should swap between article front matter and tabs metadata visibility by file source'
 );
 
 assert.match(
   editorMainSource,
   /const getValue = \(\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) return frontMatterManager\.buildMarkdown\(body\);[\s\S]*const setValue = \(value, opts = \{\}\) => \{[\s\S]*if \(frontMatterVisible && frontMatterManager\) \{/,
   'page markdown should bypass front matter parsing and rebuilding while the panel is hidden'
+);
+
+assert.match(
+  editorMainSource,
+  /const tabsMetadataManager = \(\(\) => \{[\s\S]*className = 'frontmatter-section';[\s\S]*className = 'frontmatter-grid';[\s\S]*className = 'frontmatter-field frontmatter-field-text';[\s\S]*dataset\.fieldId = 'tabs-title';[\s\S]*setChangeHandler: \(fn\) => \{[\s\S]*setValue: \(value, opts = \{\}\) => \{[\s\S]*emitChange\(\);/,
+  'markdown editor should define a tabs metadata manager that reuses the frontmatter panel shell and field styling'
+);
+
+assert.match(
+  editorMainSource,
+  /const primaryEditorApi = \{[\s\S]*setTabsMetadata: \(value, opts = \{\}\) => tabsMetadataManager && tabsMetadataManager\.setValue\(value, opts\),[\s\S]*onTabsMetadataChange: \(fn\) => \{[\s\S]*tabsMetadataChangeListeners\.add\(fn\);/,
+  'primary editor API should expose tabs metadata setters and change subscriptions'
 );
 
 assert.match(
@@ -323,6 +335,12 @@ assert.match(
   source,
   /source: tab\.source \|\| inferMarkdownSourceFromPath\(tab\.path\),[\s\S]*source: inferMarkdownSourceFromPath\(normalized\),/,
   'composer should pass the inferred markdown source to the primary editor'
+);
+
+assert.match(
+  source,
+  /if \(!api \|\| typeof api\.onTabsMetadataChange !== 'function'\) return;[\s\S]*detachPrimaryEditorTabsMetadataListener = api\.onTabsMetadataChange\(\(metadata\) => \{[\s\S]*if \(tab && tab\.source === 'tabs'\) \{[\s\S]*updateTabsEntryTitleFromPath\(tab\.path, metadata\);/,
+  'composer should subscribe to tabs metadata changes and write title edits back into tabs state'
 );
 
 assert.match(
@@ -853,6 +871,12 @@ assert.match(
   source,
   /if \(node\.source === 'index' \|\| node\.source === 'tabs'\) \{[\s\S]*node\.children\.forEach\(\(child, index\) => \{[\s\S]*renderStructureDraggableItem\(child, `\$\{child\.children\.length\} \$\{treeText\('languages', 'languages'\)\}`, index, node\.source\)/,
   'articles and pages root panels should both use draggable structure rows'
+);
+
+assert.doesNotMatch(
+  source,
+  /class="ct-field ct-field-title"|const titleLabel = tComposerLang\('fields\.title'\)|const titleInput = \$\('\.ct-title', block\)|entry\[lang\]\.title = e\.target\.value/,
+  'page entry structure rows should no longer render editable title inputs once title moves into the markdown editor metadata panel'
 );
 
 assert.doesNotMatch(

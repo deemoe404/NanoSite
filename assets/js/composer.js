@@ -80,6 +80,7 @@ let currentMode = null;
 let activeDynamicMode = null;
 let activeMarkdownDocument = null;
 let detachPrimaryEditorListener = null;
+let detachPrimaryEditorTabsMetadataListener = null;
 let allowEditorStatePersist = false;
 let editorContentTree = [];
 let activeEditorTreeNodeId = 'articles';
@@ -7963,6 +7964,45 @@ function ensurePrimaryEditorListener() {
   });
 }
 
+function getTabsMetadataForPath(path) {
+  const node = getEditorTreeFileNodeByPath(path);
+  if (!node || node.source !== 'tabs' || !node.key || !node.lang) return { title: '' };
+  const entry = getTabsEntry(node.key);
+  const langEntry = entry && entry[node.lang] && typeof entry[node.lang] === 'object'
+    ? entry[node.lang]
+    : {};
+  return { title: String(langEntry.title || '') };
+}
+
+function updateTabsEntryTitleFromPath(path, metadata) {
+  const node = getEditorTreeFileNodeByPath(path);
+  if (!node || node.source !== 'tabs' || !node.key || !node.lang) return false;
+  const entry = getTabsEntry(node.key);
+  entry[node.lang] = entry[node.lang] && typeof entry[node.lang] === 'object'
+    ? entry[node.lang]
+    : {};
+  const nextTitle = metadata && typeof metadata === 'object'
+    ? String(metadata.title || '')
+    : '';
+  if (String(entry[node.lang].title || '') === nextTitle) return false;
+  entry[node.lang].title = nextTitle;
+  notifyComposerChange('tabs');
+  return true;
+}
+
+function ensurePrimaryEditorTabsMetadataListener() {
+  if (detachPrimaryEditorTabsMetadataListener) return;
+  const api = getPrimaryEditorApi();
+  if (!api || typeof api.onTabsMetadataChange !== 'function') return;
+  detachPrimaryEditorTabsMetadataListener = api.onTabsMetadataChange((metadata) => {
+    if (!activeDynamicMode) return;
+    const tab = dynamicEditorTabs.get(activeDynamicMode);
+    if (tab && tab.source === 'tabs') {
+      updateTabsEntryTitleFromPath(tab.path, metadata);
+    }
+  });
+}
+
 function normalizeRelPath(path) {
   const raw = String(path || '').trim();
   if (!raw) return '';
@@ -9262,6 +9302,11 @@ function pushEditorCurrentFileInfo(tab) {
     : { path: '', status: null, dirty: false, draft: null };
   try { editorApi.setCurrentFileLabel(payload); }
   catch (_) {}
+  if (typeof editorApi.setTabsMetadata === 'function') {
+    try {
+      editorApi.setTabsMetadata(tab && tab.source === 'tabs' ? getTabsMetadataForPath(tab.path) : null, { silent: true });
+    } catch (_) {}
+  }
   const activeTab = (tab && tab.mode && tab.mode === currentMode) ? tab : getActiveDynamicTab();
   updateMarkdownPushButton(activeTab);
   updateMarkdownDiscardButton(activeTab);
@@ -9368,6 +9413,10 @@ async function closeDynamicTab(modeId, options = {}) {
   if (!dynamicEditorTabs.size && detachPrimaryEditorListener) {
     try { detachPrimaryEditorListener(); } catch (_) {}
     detachPrimaryEditorListener = null;
+  }
+  if (!dynamicEditorTabs.size && detachPrimaryEditorTabsMetadataListener) {
+    try { detachPrimaryEditorTabsMetadataListener(); } catch (_) {}
+    detachPrimaryEditorTabsMetadataListener = null;
   }
 
   if (wasActive) {
@@ -9665,6 +9714,7 @@ function applyMode(mode, options = {}) {
   if (isDynamicMode(nextMode)) {
     activeDynamicMode = nextMode;
     ensurePrimaryEditorListener();
+    ensurePrimaryEditorTabsMetadataListener();
     const tab = dynamicEditorTabs.get(nextMode);
     activeMarkdownDocument = tab || null;
     setEditorDetailPanelMode('markdown');
@@ -11871,7 +11921,6 @@ function buildTabsUI(root, state) {
     const renderBody = () => {
       bodyInner.innerHTML = '';
       const langs = sortLangKeys(entry);
-      const titleLabel = tComposerLang('fields.title');
       const locationLabel = tComposerLang('fields.location');
       const pathPlaceholder = tComposerLang('placeholders.tabPath');
       const editLabel = tComposerLang('actions.edit');
@@ -11897,7 +11946,6 @@ function buildTabsUI(root, state) {
             <span class="ct-lang-code" aria-hidden="true">${escapeHtml(lang.toUpperCase())}</span>
           </div>
           <div class="ct-lang-main">
-            <label class="ct-field ct-field-title"><span class="ct-field-label">${escapeHtml(titleLabel)}</span> <input class="ct-title" type="text" value="${escapeHtml(v.title || '')}" /></label>
             <label class="ct-field ct-field-location"><span class="ct-field-label">${escapeHtml(locationLabel)}</span> <input class="ct-loc" type="text" placeholder="${escapeHtml(pathPlaceholder)}" value="${escapeHtml(v.location || '')}" /></label>
             <div class="ct-lang-actions">
               <button type="button" class="btn-secondary ct-edit" title="${escapeHtml(openLabel)}">${escapeHtml(editLabel)}</button>
@@ -11905,12 +11953,7 @@ function buildTabsUI(root, state) {
             </div>
           </div>
         `;
-        const titleInput = $('.ct-title', block);
         const locInput = $('.ct-loc', block);
-        if (titleInput) {
-          titleInput.dataset.lang = lang;
-          titleInput.dataset.field = 'title';
-        }
         if (locInput) {
           locInput.dataset.lang = lang;
           locInput.dataset.field = 'location';
@@ -11921,11 +11964,6 @@ function buildTabsUI(root, state) {
           langRemoveBtn.setAttribute('aria-label', removeLangLabel);
         }
         updateComposerMarkdownDraftIndicators({ element: block, path: initialPath });
-        titleInput.addEventListener('input', (e) => {
-          entry[lang] = entry[lang] || {};
-          entry[lang].title = e.target.value;
-          markDirty();
-        });
         locInput.addEventListener('input', (e) => {
           const prevPath = block.dataset.mdPath || '';
           entry[lang] = entry[lang] || {};
@@ -12290,7 +12328,7 @@ function focusComposerEntry(kind, key) {
   if (expandBtn) expandBtn.setAttribute('aria-expanded', 'true');
   row.classList.add('is-open');
 
-  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-title, .ct-loc' : '.ci-lang-addver, .ci-edit');
+  const preferredFocus = row.querySelector(normalized === 'tabs' ? '.ct-loc' : '.ci-lang-addver, .ci-edit');
   const fallbackFocus = row.querySelector('input, textarea, button');
   const target = preferredFocus || fallbackFocus;
   if (target && typeof target.focus === 'function') {
