@@ -285,8 +285,8 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /const setFrontMatterVisible = \(visible\) => \{[\s\S]*frontMatterVisible = !!visible;[\s\S]*if \(!frontMatterVisible && frontMatterManager && typeof frontMatterManager\.clear === 'function'\) frontMatterManager\.clear\(\);[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*\};/,
-  'switching into page metadata mode should clear stale article front matter state before updating visibility'
+  /const setFrontMatterVisible = \(visible\) => \{[\s\S]*const nextVisible = !!visible;[\s\S]*const shouldClear = !nextVisible && frontMatterVisible;[\s\S]*frontMatterVisible = nextVisible;[\s\S]*if \(shouldClear && frontMatterManager && typeof frontMatterManager\.clear === 'function'\) frontMatterManager\.clear\(\);[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*\};/,
+  'switching into page metadata mode should clear stale article front matter state only on visibility transitions'
 );
 
 assert.match(
@@ -363,7 +363,7 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /let frontMatterVisible = true;[\s\S]*let tabsMetadataVisible = false;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*frontMatterVisible = !!visible;[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*const setTabsMetadataVisible = \(visible\) => \{[\s\S]*tabsMetadataVisible = !!visible;[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*assignCurrentFileLabel = \(input\) => \{[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);[\s\S]*setTabsMetadataVisible\(currentFileInfo\.source === 'tabs'\);/,
+  /let frontMatterVisible = true;[\s\S]*let tabsMetadataVisible = false;[\s\S]*const inferCurrentFileSource = \(path\) => \{[\s\S]*normalized\.startsWith\('tab\/'\) \? 'tabs' : '';[\s\S]*const setFrontMatterVisible = \(visible\) => \{[\s\S]*const nextVisible = !!visible;[\s\S]*const shouldClear = !nextVisible && frontMatterVisible;[\s\S]*frontMatterVisible = nextVisible;[\s\S]*if \(shouldClear && frontMatterManager && typeof frontMatterManager\.clear === 'function'\) frontMatterManager\.clear\(\);[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*const setTabsMetadataVisible = \(visible\) => \{[\s\S]*tabsMetadataVisible = !!visible;[\s\S]*updateMetadataPanelVisibility\(\);[\s\S]*assignCurrentFileLabel = \(input\) => \{[\s\S]*setFrontMatterVisible\(currentFileInfo\.source !== 'tabs'\);[\s\S]*setTabsMetadataVisible\(currentFileInfo\.source === 'tabs'\);/,
   'markdown editor should swap between article front matter and tabs metadata visibility by file source'
 );
 

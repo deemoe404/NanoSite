@@ -1363,8 +1363,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const setFrontMatterVisible = (visible) => {
-    frontMatterVisible = !!visible;
-    if (!frontMatterVisible && frontMatterManager && typeof frontMatterManager.clear === 'function') frontMatterManager.clear();
+    const nextVisible = !!visible;
+    const shouldClear = !nextVisible && frontMatterVisible;
+    frontMatterVisible = nextVisible;
+    if (shouldClear && frontMatterManager && typeof frontMatterManager.clear === 'function') frontMatterManager.clear();
     const commonSection = document.getElementById('frontMatterCommonSection');
     const extraSection = document.getElementById('frontMatterExtraSection');
     if (commonSection) commonSection.hidden = !frontMatterVisible;
