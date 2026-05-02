@@ -9068,15 +9068,13 @@ function updateMarkdownSaveButton(tab) {
     ? getManualMarkdownSaveState(active.content, active.isDirty)
     : null;
 
-  let disabled = true;
+  let disabled = false;
   let tooltip = getMarkdownSaveTooltip('default');
 
   if (!hasActive) {
     tooltip = getMarkdownSaveTooltip('noFile');
   } else if (!saveState.canSave) {
     tooltip = getMarkdownSaveTooltip(saveState.reason);
-  } else {
-    disabled = false;
   }
 
   if (hasBusy) disabled = true;
