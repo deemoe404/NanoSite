@@ -929,10 +929,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     hydrateImages(figure);
   };
 
-  const renderListBlock = (body, block, index) => {
-    const controls = document.createElement('div');
-    controls.className = 'blocks-inspector blocks-list-inspector';
+  const createListTypeSelect = (block) => {
     const select = document.createElement('select');
+    select.className = 'blocks-list-type-select';
+    select.title = text('listType', 'List type');
     [['ul', text('unordered', 'Bulleted')], ['ol', text('ordered', 'Numbered')], ['task', text('task', 'Checklist')]].forEach(([value, label]) => {
       const option = document.createElement('option');
       option.value = value;
@@ -941,8 +941,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     select.value = block.data.listType || 'ul';
     select.addEventListener('change', () => updateFromControl(block, { listType: select.value }, true));
-    controls.appendChild(select);
+    return select;
+  };
 
+  const renderListBlock = (body, block, index) => {
     const items = Array.isArray(block.data.items) && block.data.items.length
       ? block.data.items
       : [{ text: 'List item', checked: false }];
@@ -1032,7 +1034,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
       listEl.appendChild(li);
     });
-    body.append(controls, listEl);
+    body.appendChild(listEl);
   };
 
   const renderCodeBlock = (body, block, index) => {
@@ -1175,7 +1177,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         emit();
       });
       actions.append(up, down, remove);
-      head.append(type, actions);
+      head.appendChild(type);
+      if (block.type === 'list') {
+        head.appendChild(createListTypeSelect(block));
+      }
+      head.appendChild(actions);
       item.append(head, renderBlockBody(block, index));
       item.addEventListener('focusin', () => setActive(index));
       list.appendChild(item);

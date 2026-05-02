@@ -210,6 +210,18 @@ assert.match(
   'visual list rows should keep markers and checklist boxes aligned without reserving inline button space'
 );
 
+assert.match(
+  editorBlocksSource,
+  /if \(block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createListTypeSelect\(block\)\);[\s\S]*\}/,
+  'list type control should live in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-list-inspector/,
+  'list type control should not remain as a body inspector above the list'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.blocks-list-remove/,
