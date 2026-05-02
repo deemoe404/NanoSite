@@ -354,6 +354,12 @@ assert.match(
   'source markdown textareas should expand the block instead of scrolling internally'
 );
 
+assert.match(
+  editorSource,
+  /\.blocks-source-textarea:focus \{ outline:none; box-shadow:none; border-color:color-mix\(in srgb, var\(--border\) 82%, transparent\); \}/,
+  'focused source markdown textarea should not draw an inner highlight border'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.blocks-rich-editable:focus,[^{]*\.blocks-code-preview code:focus[^{]*\{ outline:2px solid/,
