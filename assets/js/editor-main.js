@@ -651,17 +651,20 @@ function $(sel) { return document.querySelector(sel); }
 function switchView(mode) {
   const editorWrap = $('#editor-wrap');
   const previewWrap = $('#preview-wrap');
+  const viewToggle = document.querySelector('.view-toggle');
   const btnEdit = document.querySelector('.vt-btn[data-view="edit"]');
   const btnPreview = document.querySelector('.vt-btn[data-view="preview"]');
   if (!editorWrap || !previewWrap) return;
   if (mode === 'preview') {
     editorWrap.style.display = 'none';
     previewWrap.style.display = '';
+    viewToggle && (viewToggle.dataset.view = 'preview');
     btnEdit && btnEdit.classList.remove('active');
     btnPreview && btnPreview.classList.add('active');
   } else {
     previewWrap.style.display = 'none';
     editorWrap.style.display = '';
+    viewToggle && (viewToggle.dataset.view = 'edit');
     btnPreview && btnPreview.classList.remove('active');
     btnEdit && btnEdit.classList.add('active');
   }

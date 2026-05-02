@@ -1427,20 +1427,26 @@
     button#btnReview.btn-secondary:hover { background:#e6b541 !important; }
     button#btnReview.btn-secondary:active { background:#cf9830 !important; }
     button#btnReview.btn-secondary:focus-visible { outline:2px solid #f7d98f66; outline-offset:2px; }
-    .view-toggle,
+    .view-toggle { --vt-button-width:2.35rem; --vt-button-height:1.765rem; --vt-pad:.18rem; --vt-gap:.18rem; position:relative; display:inline-flex; align-items:center; gap:var(--vt-gap); padding:var(--vt-pad); border-radius:12px; border:1px solid color-mix(in srgb, var(--border) 86%, transparent); background:color-mix(in srgb, var(--text) 5%, var(--card)); box-shadow:inset 0 1px 0 color-mix(in srgb, var(--card) 92%, transparent), 0 1px 2px rgba(15,23,42,.06); overflow:visible; }
     .wrap-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
-    .view-toggle .vt-label,
+    .view-toggle .vt-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
     .wrap-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
-    .view-toggle .vt-btn,
+    .view-toggle .dim { display:none; }
+    .view-toggle .vt-slider { position:absolute; z-index:0; top:var(--vt-pad); left:var(--vt-pad); width:var(--vt-button-width); height:var(--vt-button-height); border-radius:10px; background:color-mix(in srgb, var(--card) 99%, transparent); box-shadow:0 4px 12px rgba(15,23,42,.12), 0 1px 2px rgba(15,23,42,.08); transform:translateX(0); transition:transform .22s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)), box-shadow .18s ease; pointer-events:none; }
+    .view-toggle[data-view="preview"] .vt-slider { transform:translateX(calc(var(--vt-button-width) + var(--vt-gap))); }
+    .view-toggle .vt-btn { position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; width:var(--vt-button-width); height:var(--vt-button-height); border-radius:10px; color:color-mix(in srgb, var(--muted) 82%, var(--text)); text-decoration:none; line-height:1; transition:color .16s ease, transform .16s ease; }
     .wrap-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; }
-    .view-toggle .vt-btn:hover,
+    .view-toggle .vt-btn:hover { color:color-mix(in srgb, var(--primary) 82%, var(--text)); text-decoration:none; }
     .wrap-toggle .vt-btn:hover { text-decoration:underline; }
-    .view-toggle .vt-btn.active,
+    .view-toggle .vt-btn:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 48%, transparent); outline-offset:2px; }
+    .view-toggle .vt-btn.active { color:color-mix(in srgb, var(--primary) 96%, var(--text)); text-decoration:none; cursor:default; }
     .wrap-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    .view-toggle .vt-icon { width:1.2rem; height:1.2rem; display:block; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .view-toggle .vt-code-icon { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.875rem; font-weight:700; letter-spacing:0; transform:translateY(-.02rem); }
+    .view-toggle .vt-text { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
     .view-toggle .vt-btn .vt-dirty-badge{position:absolute;top:-.45rem;right:0;min-width:1.15rem;height:1.15rem;padding:0 .32rem;border-radius:999px;background:#ef4444;color:#fff;font-size:.68rem;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 7px rgba(15,23,42,.2),0 0 0 2px var(--card);opacity:0;transform:translateX(50%) scale(.72);transition:opacity .16s ease,transform .16s ease;pointer-events:none;z-index:2;font-feature-settings:'tnum' 1,'case' 1}
     .view-toggle .vt-btn .vt-dirty-badge[hidden]{display:none}
     .view-toggle .vt-btn.has-draft .vt-dirty-badge{opacity:1;transform:translateX(50%) scale(1)}
-    .view-toggle .dim,
     .wrap-toggle .dim { color:#8c959f; }
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
     .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
@@ -1807,11 +1813,12 @@
                 <span class="current-file" id="currentFile" aria-live="polite"></span>
               </div>
               <div class="right-actions">
-                <div class="view-toggle" aria-label="View switch" data-i18n-aria-label="editor.toolbar.viewAria">
+                <div class="view-toggle" aria-label="View switch" data-view="edit" data-i18n-aria-label="editor.toolbar.viewAria">
                   <span class="vt-label" data-i18n="editor.toolbar.view">View:</span>
-                  <a href="#" class="vt-btn active" data-view="edit" data-i18n="editor.toolbar.viewEdit">Editor</a>
+                  <span class="vt-slider" aria-hidden="true"></span>
+                  <a href="#" class="vt-btn active" data-view="edit" aria-label="Editor" data-i18n-aria-label="editor.toolbar.viewEdit"><span class="vt-code-icon" aria-hidden="true">&lt;/&gt;</span><span class="vt-text" data-i18n="editor.toolbar.viewEdit">Editor</span></a>
                   <span class="dim" aria-hidden="true">/</span>
-                  <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
+                  <a href="#" class="vt-btn" data-view="preview" aria-label="Preview" data-i18n-aria-label="editor.toolbar.viewPreview"><svg class="vt-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg><span class="vt-text" data-i18n="editor.toolbar.viewPreview">Preview</span></a>
                 </div>
                 <button type="button" class="btn-secondary" id="btnSaveMarkdown" disabled>
                   <span class="btn-label" data-i18n="editor.toolbar.save">Save</span>
@@ -2037,9 +2044,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-tabs-meta-20260501a"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-tabs-meta-20260501a"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-tabs-meta-20260501a"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-view-switch-20260502a"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-view-switch-20260502a"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-view-switch-20260502a"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
