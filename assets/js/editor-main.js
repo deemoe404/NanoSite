@@ -660,6 +660,7 @@ function switchView(mode) {
   const viewToggle = document.querySelector('.view-toggle');
   const viewButtons = Array.from(document.querySelectorAll('.vt-btn[data-view]'));
   if (!editorWrap || !previewWrap) return;
+  if (editorShell) editorShell.classList.toggle('is-blocks-mode', mode === 'blocks');
   if (mode === 'preview') {
     editorWrap.style.display = 'none';
     if (blocksWrap) {

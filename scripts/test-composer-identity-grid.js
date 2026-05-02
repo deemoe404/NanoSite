@@ -140,6 +140,24 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.markdown-blocks-shell \{ display:flex; flex-direction:column; gap:\.65rem; padding:0; border-radius:0; background:transparent; color:var\(--text\); \}/,
+  'blocks wrapper should remain a visual-free layout container without padding, radius, or background'
+);
+
+assert.match(
+  editorSource,
+  /\.markdown-editor-shell\.is-blocks-mode, \.markdown-editor-shell:has\(#blocks-wrap:not\(\[hidden\]\)\) \{ border:0; border-radius:0; background:transparent; box-shadow:none; \}/,
+  'markdown editor shell should drop its visual container treatment in blocks mode'
+);
+
+assert.match(
+  editorMainSource,
+  /if \(editorShell\) editorShell\.classList\.toggle\('is-blocks-mode', mode === 'blocks'\);/,
+  'view switching should mark the markdown shell as visual-free only in blocks mode'
+);
+
+assert.match(
+  editorSource,
   /\.blocks-block \{ position:relative;[\s\S]*overflow:visible; \}/,
   'blocks should be relative containers and must not clip floating controls'
 );

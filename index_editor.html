@@ -1239,7 +1239,8 @@
       box-shadow:inset 0 1px 0 color-mix(in srgb, var(--card) 92%, transparent);
     }
     .markdown-editor-shell { border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:var(--code-bg); box-shadow:0 1px 2px rgba(15,23,42,.04); }
-    .markdown-blocks-shell { display:flex; flex-direction:column; gap:.65rem; padding:.75rem; border-radius:0 0 8px 8px; background:color-mix(in srgb, var(--card) 92%, var(--code-bg)); color:var(--text); }
+    .markdown-editor-shell.is-blocks-mode, .markdown-editor-shell:has(#blocks-wrap:not([hidden])) { border:0; border-radius:0; background:transparent; box-shadow:none; }
+    .markdown-blocks-shell { display:flex; flex-direction:column; gap:.65rem; padding:0; border-radius:0; background:transparent; color:var(--text); }
     .markdown-blocks-shell[hidden] { display:none !important; }
     .blocks-toolbar, .blocks-inline-toolbar { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; padding:.2rem .2rem .7rem; border-bottom:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
     .blocks-inline-toolbar { position:sticky; top:calc(var(--editor-toolbar-offset, 0px) - var(--editor-content-pane-padding, 0px)); z-index:105; padding:.35rem .2rem; background:color-mix(in srgb, var(--card) 96%, var(--code-bg)); }
