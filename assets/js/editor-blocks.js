@@ -557,6 +557,32 @@ function nodeContains(root, node) {
   catch (_) { return false; }
 }
 
+function closestElement(node, selector) {
+  try {
+    const start = node && node.nodeType === 1 ? node : node && node.parentElement;
+    return start && start.closest ? start.closest(selector) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function selectionLinkInEditable(editable) {
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!editable || !sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (!nodeContains(editable, range.commonAncestorContainer)) return null;
+    const candidates = [range.startContainer, range.endContainer, range.commonAncestorContainer];
+    for (const candidate of candidates) {
+      const link = closestElement(candidate, 'a[href]');
+      if (link && nodeContains(editable, link)) return link;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function getSelectionText() {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -612,6 +638,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     activeIndex: -1,
     activeEditable: null,
     activeSync: null,
+    activeLink: null,
+    activeLinkHoldUntil: 0,
     pendingListFocus: null,
     cardEntries: [],
     cardPickerOpen: false
@@ -667,6 +695,23 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     } catch (_) {}
   };
 
+  const positionLinkEditor = (link) => {
+    try {
+      if (!link || !nodeContains(root, link)) return;
+      const linkRect = link.getBoundingClientRect();
+      const rootRect = root.getBoundingClientRect();
+      const editorRect = linkEditor.getBoundingClientRect();
+      const gap = 6;
+      const minLeft = 0;
+      const maxLeft = Math.max(minLeft, rootRect.width - editorRect.width);
+      const nextLeft = Math.min(maxLeft, Math.max(minLeft, linkRect.left - rootRect.left));
+      linkEditor.style.left = `${nextLeft}px`;
+      linkEditor.style.top = `${linkRect.bottom - rootRect.top + gap}px`;
+    } catch (_) {}
+  };
+
+  let refreshLinkEditor = () => {};
+
   const setActive = (index, editable = null, sync = null) => {
     const maxIndex = state.blocks.length - 1;
     const numericIndex = Number.isFinite(Number(index)) ? Number(index) : -1;
@@ -678,6 +723,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     Array.from(list.querySelectorAll('.blocks-block')).forEach((el, idx) => {
       el.classList.toggle('is-active', idx === state.activeIndex);
     });
+    refreshLinkEditor();
   };
 
   const getBaseDir = () => {
@@ -756,6 +802,101 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     btn.addEventListener('mousedown', (event) => event.preventDefault());
     btn.addEventListener('click', () => applyInlineCommand(command));
     inlineToolbar.appendChild(btn);
+  });
+
+  const linkEditor = document.createElement('div');
+  linkEditor.className = 'blocks-link-editor';
+  linkEditor.hidden = true;
+  linkEditor.setAttribute('aria-hidden', 'true');
+  const linkText = document.createElement('input');
+  linkText.type = 'text';
+  linkText.className = 'blocks-link-text';
+  linkText.placeholder = text('linkText', 'Link text');
+  linkText.setAttribute('aria-label', text('linkText', 'Link text'));
+  const linkHref = document.createElement('input');
+  linkHref.type = 'text';
+  linkHref.className = 'blocks-link-href';
+  linkHref.placeholder = text('linkHref', 'Link URL');
+  linkHref.setAttribute('aria-label', text('linkHref', 'Link URL'));
+  const unlink = button(text('unlink', 'Unlink'), 'blocks-inline-btn blocks-unlink-btn');
+  unlink.title = text('unlink', 'Unlink');
+  unlink.setAttribute('aria-label', text('unlink', 'Unlink'));
+  const linkEditorFocused = () => {
+    try { return linkEditor.contains(document.activeElement); } catch (_) { return false; }
+  };
+  const applyLinkEditor = () => {
+    const link = state.activeLink;
+    if (!link || !state.activeEditable || !nodeContains(state.activeEditable, link)) return;
+    link.textContent = inputValue(linkText);
+    link.setAttribute('href', inputValue(linkHref).trim());
+    syncActiveEditable();
+  };
+  linkText.addEventListener('input', applyLinkEditor);
+  linkHref.addEventListener('input', applyLinkEditor);
+  unlink.addEventListener('mousedown', (event) => event.preventDefault());
+  unlink.addEventListener('click', () => {
+    const link = state.activeLink;
+    if (!link || !state.activeEditable || !nodeContains(state.activeEditable, link)) return;
+    const textNode = document.createTextNode(link.textContent || '');
+    link.replaceWith(textNode);
+    state.activeLink = null;
+    try {
+      state.activeEditable.focus();
+      const range = document.createRange();
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      const sel = window.getSelection && window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    } catch (_) {}
+    syncActiveEditable();
+    refreshLinkEditor();
+  });
+  linkEditor.append(linkText, linkHref, unlink);
+  root.appendChild(linkEditor);
+
+  refreshLinkEditor = (explicitLink = null) => {
+    const link = explicitLink && state.activeEditable && nodeContains(state.activeEditable, explicitLink)
+      ? explicitLink
+      : selectionLinkInEditable(state.activeEditable);
+    if (link) {
+      state.activeLink = link;
+      if (explicitLink) state.activeLinkHoldUntil = Date.now() + 800;
+    } else if (!linkEditorFocused()) {
+      const keepClickedLink = state.activeLink
+        && state.activeEditable
+        && nodeContains(state.activeEditable, state.activeLink)
+        && Date.now() < state.activeLinkHoldUntil;
+      if (!keepClickedLink) state.activeLink = null;
+    }
+    const activeLink = state.activeLink && state.activeEditable && nodeContains(state.activeEditable, state.activeLink)
+      ? state.activeLink
+      : null;
+    if (!activeLink) {
+      state.activeLink = null;
+      linkEditor.hidden = true;
+      linkEditor.setAttribute('aria-hidden', 'true');
+      return;
+    }
+    linkEditor.hidden = false;
+    linkEditor.setAttribute('aria-hidden', 'false');
+    if (!linkEditorFocused()) {
+      linkText.value = activeLink.textContent || '';
+      linkHref.value = activeLink.getAttribute('href') || '';
+    }
+    positionLinkEditor(activeLink);
+  };
+
+  root.addEventListener('keyup', refreshLinkEditor);
+  root.addEventListener('mouseup', refreshLinkEditor);
+  root.addEventListener('focusin', refreshLinkEditor);
+  window.addEventListener('resize', refreshLinkEditor);
+  window.addEventListener('scroll', refreshLinkEditor, true);
+  document.addEventListener('selectionchange', () => {
+    if (!state.activeEditable || !nodeContains(root, state.activeEditable)) return;
+    refreshLinkEditor();
   });
 
   const renderCardPicker = () => {
@@ -860,8 +1001,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editable.addEventListener('input', sync);
     editable.addEventListener('focus', () => setActive(index, editable, sync));
     editable.addEventListener('click', (event) => {
-      if (event.target && event.target.closest && event.target.closest('a')) event.preventDefault();
+      const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+      if (clickedLink) event.preventDefault();
       setActive(index, editable, sync);
+      if (clickedLink) refreshLinkEditor(clickedLink);
     });
     return editable;
   };
@@ -1018,8 +1161,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       });
       span.addEventListener('focus', () => setActive(index, span, sync));
       span.addEventListener('click', (event) => {
-        if (event.target && event.target.closest && event.target.closest('a')) event.preventDefault();
+        const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+        if (clickedLink) event.preventDefault();
         setActive(index, span, sync);
+        if (clickedLink) refreshLinkEditor(clickedLink);
       });
       li.appendChild(span);
       if (state.pendingListFocus && state.pendingListFocus.blockId === block.id && state.pendingListFocus.itemIndex === itemIndex) {

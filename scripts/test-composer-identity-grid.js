@@ -92,6 +92,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /function selectionLinkInEditable\(editable\)[\s\S]*closestElement\(candidate, 'a\[href\]'\)[\s\S]*const positionLinkEditor = \(link\) => \{[\s\S]*link\.getBoundingClientRect\(\)[\s\S]*root\.getBoundingClientRect\(\)[\s\S]*const linkEditor = document\.createElement\('div'\);[\s\S]*linkEditor\.className = 'blocks-link-editor'[\s\S]*linkText\.addEventListener\('input', applyLinkEditor\)[\s\S]*linkHref\.addEventListener\('input', applyLinkEditor\)[\s\S]*unlink\.addEventListener\('click',[\s\S]*root\.appendChild\(linkEditor\)[\s\S]*positionLinkEditor\(activeLink\)/,
+  'inline link editor should float near the active link and expose text, URL, and unlink controls'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /inlineToolbar\.appendChild\(linkEditor\)/,
+  'inline link editor should not be placed inside the sticky inline toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
   /const heading = createRichEditable\(`h\$\{level\}`, block, 'text', `blocks-rich-editable blocks-heading-text/,
   'heading blocks should render as real heading elements in the visual canvas'
 );
@@ -170,8 +182,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.markdown-blocks-shell \{ display:flex; flex-direction:column; gap:\.65rem; padding:0; border-radius:0; background:transparent; color:var\(--text\); \}/,
-  'blocks wrapper should remain a visual-free layout container without padding, radius, or background'
+  /\.markdown-blocks-shell \{ position:relative; display:flex; flex-direction:column; gap:\.65rem; padding:0; border-radius:0; background:transparent; color:var\(--text\); \}/,
+  'blocks wrapper should remain a visual-free layout container while anchoring floating link controls'
 );
 
 assert.match(

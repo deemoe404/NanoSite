@@ -359,6 +359,9 @@ const translations = {
         inlineCode: 'インラインコード',
         inlineLink: 'リンク',
         linkPrompt: 'リンク URL',
+        linkText: 'リンクテキスト',
+        linkHref: 'リンク URL',
+        unlink: 'リンク解除',
         listAddItem: '項目を追加',
         listRemoveItem: '項目を削除',
         imageTitle: '画像タイトル'

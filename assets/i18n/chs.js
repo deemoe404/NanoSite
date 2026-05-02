@@ -359,6 +359,9 @@ const translations = {
         inlineCode: '行内代码',
         inlineLink: '链接',
         linkPrompt: '链接 URL',
+        linkText: '链接文字',
+        linkHref: '链接 URL',
+        unlink: '取消链接',
         listAddItem: '添加项目',
         listRemoveItem: '移除项目',
         imageTitle: '图片标题'

@@ -359,6 +359,9 @@ const translations = {
         inlineCode: 'Inline code',
         inlineLink: 'Link',
         linkPrompt: 'Link URL',
+        linkText: 'Link text',
+        linkHref: 'Link URL',
+        unlink: 'Unlink',
         listAddItem: 'Add item',
         listRemoveItem: 'Remove item',
         imageTitle: 'Image title'
