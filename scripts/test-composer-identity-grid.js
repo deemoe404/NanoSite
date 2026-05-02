@@ -228,6 +228,18 @@ assert.match(
   'list type control should live in the floating block toolbar'
 );
 
+assert.match(
+  editorBlocksSource,
+  /const createHeadingLevelSelect = \(block\) => \{[\s\S]*select\.className = 'blocks-heading-level'[\s\S]*select\.addEventListener\('change', \(\) => updateFromControl\(block, \{ level: Number\(select\.value\) \|\| 2 \}, true\)\);[\s\S]*if \(block\.type === 'heading'\) \{[\s\S]*head\.appendChild\(createHeadingLevelSelect\(block\)\);[\s\S]*\}/,
+  'heading level control should live in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-heading-controls/,
+  'heading level control should not remain as a body control above the heading'
+);
+
 assert.doesNotMatch(
   editorBlocksSource,
   /blocks-list-inspector/,

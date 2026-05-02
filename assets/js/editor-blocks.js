@@ -1009,11 +1009,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return editable;
   };
 
-  const renderHeadingBlock = (body, block, index) => {
-    const row = document.createElement('div');
-    row.className = 'blocks-heading-controls';
+  const createHeadingLevelSelect = (block) => {
     const select = document.createElement('select');
     select.className = 'blocks-heading-level';
+    select.title = text('headingLevel', 'Heading level');
     [1, 2, 3, 4, 5, 6].forEach(level => {
       const option = document.createElement('option');
       option.value = String(level);
@@ -1022,10 +1021,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     select.value = String(block.data.level || 2);
     select.addEventListener('change', () => updateFromControl(block, { level: Number(select.value) || 2 }, true));
+    return select;
+  };
+
+  const renderHeadingBlock = (body, block, index) => {
     const level = Math.max(1, Math.min(6, Number(block.data.level) || 2));
     const heading = createRichEditable(`h${level}`, block, 'text', `blocks-rich-editable blocks-heading-text blocks-heading-h${level}`, index);
-    row.appendChild(select);
-    body.append(row, heading);
+    body.appendChild(heading);
   };
 
   const renderImageBlock = (body, block) => {
@@ -1323,6 +1325,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       });
       actions.append(up, down, remove);
       head.appendChild(type);
+      if (block.type === 'heading') {
+        head.appendChild(createHeadingLevelSelect(block));
+      }
       if (block.type === 'list') {
         head.appendChild(createListTypeSelect(block));
       }
