@@ -857,7 +857,7 @@
       grid-template-columns:minmax(0, 1fr);
       align-items:start;
       gap:1rem;
-      margin-top:1.1rem;
+      margin-top:.6rem;
     }
     .editor-workspace-meta {
       grid-column:1;
@@ -1227,20 +1227,36 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:.65rem;
+      gap:.7rem;
       flex-wrap:wrap;
-      margin-bottom:.6rem;
       position:sticky;
       top:calc(var(--editor-toolbar-offset, 0px) - var(--editor-content-pane-padding, 0px));
       z-index:110;
-      background:var(--card);
-      padding-top:.4rem;
-      padding-bottom:.4rem;
+      background:color-mix(in srgb, var(--card) 96%, var(--text) 4%);
+      border-bottom:1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius:8px 8px 0 0;
+      padding:.38rem .45rem;
+      box-shadow:inset 0 1px 0 color-mix(in srgb, var(--card) 92%, transparent);
     }
+    .markdown-editor-shell { border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:var(--code-bg); box-shadow:0 1px 2px rgba(15,23,42,.04); }
     .editor-tools[hidden] { display:none !important; }
-    .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
-    .editor-tool-btn { white-space:nowrap; }
-    .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
+    .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.2rem; flex-wrap:wrap; }
+    .editor-tools-right { position:relative; gap:.25rem; padding-left:.75rem; margin-left:auto; }
+    .editor-tools-right::before { content:''; position:absolute; left:.28rem; top:.35rem; bottom:.35rem; width:1px; background:color-mix(in srgb, var(--border) 88%, var(--text) 12%); }
+    .editor-tool-btn.btn-secondary { white-space:nowrap; min-width:2rem; height:2rem; padding:.2rem .45rem; border-color:transparent !important; background:transparent !important; color:color-mix(in srgb, var(--muted) 92%, var(--text)); box-shadow:none !important; font-size:.95rem; font-weight:600; line-height:1; }
+    .editor-tool-btn.btn-secondary:hover:not(:disabled), .editor-tool-btn.btn-secondary:focus-visible:not(:disabled) { background:color-mix(in srgb, var(--primary) 9%, transparent) !important; border-color:color-mix(in srgb, var(--primary) 24%, transparent) !important; color:color-mix(in srgb, var(--primary) 88%, var(--text)); text-decoration:none; }
+    .editor-tool-btn.btn-secondary:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
+    .editor-tool-btn[disabled] { opacity:.5; cursor:not-allowed; }
+    .editor-tool-icon { display:inline-flex; align-items:center; justify-content:center; min-width:1.05rem; line-height:1; font:inherit; letter-spacing:0; }
+    .editor-tool-icon-bold { font-weight:800; font-family:Georgia, "Times New Roman", serif; font-size:1.05rem; }
+    .editor-tool-icon-italic { font-style:italic; font-family:Georgia, "Times New Roman", serif; font-weight:500; font-size:1.05rem; transform:translateY(-.02rem); }
+    .editor-tool-icon-strike { text-decoration:line-through; font-weight:600; }
+    .editor-tool-icon-heading { font-weight:650; font-size:.95rem; }
+    .editor-tool-icon-heading sub { font-size:.58em; line-height:0; vertical-align:sub; }
+    .editor-tool-icon-code { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight:700; font-size:.82rem; }
+    .editor-tool-icon-codeblock { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight:700; letter-spacing:.08em; }
+    .editor-tool-btn-insert.btn-secondary { min-width:auto; padding:.35rem .7rem; border:1px solid color-mix(in srgb, var(--primary) 45%, var(--border)) !important; background:color-mix(in srgb, var(--card) 98%, transparent) !important; color:color-mix(in srgb, var(--primary) 92%, var(--text)); border-radius:8px; font-size:.9rem; font-weight:650; }
+    .editor-tool-btn-insert.btn-secondary:hover:not(:disabled), .editor-tool-btn-insert.btn-secondary:focus-visible:not(:disabled) { background:color-mix(in srgb, var(--primary) 11%, var(--card)) !important; border-color:color-mix(in srgb, var(--primary) 62%, var(--border)) !important; color:color-mix(in srgb, var(--primary) 98%, var(--text)); }
     .editor-card-popover { position:absolute; top:calc(100% + .5rem); right:0; min-width:260px; max-width:min(420px, calc(100vw - 2.5rem)); padding:.75rem; border-radius:.85rem; border:1px solid color-mix(in srgb, var(--border) 75%, var(--text) 12%); background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--card) 82%, transparent), 0 12px 28px rgba(15, 23, 42, 0.16), 0 22px 46px rgba(15, 23, 42, 0.12); z-index:1200; opacity:0; transform:translate3d(0, -10px, 0) scale(.98); pointer-events:none; transition:opacity .36s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)), transform .36s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)); will-change:opacity, transform; }
     .editor-card-popover.is-visible { opacity:1; transform:translate3d(0, 0, 0) scale(1); pointer-events:auto; }
     .editor-card-popover.is-closing { pointer-events:none; }
@@ -1449,6 +1465,7 @@
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
     .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
     .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
+    .markdown-editor-shell .hi-editor .code-scroll { border:0; border-radius:0 0 8px 8px; }
     .hi-editor .code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding: 1rem 0.5rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0; background: var(--code-bg); position: sticky; left: 0; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
     .hi-editor .code-scroll .code-gutter span { display: block; line-height: inherit; font-variant-numeric: tabular-nums; }
     .hi-editor .code-scroll .code-gutter span.is-wrap-continued { color: color-mix(in srgb, var(--code-text) 38%, transparent); }
@@ -1829,34 +1846,37 @@
 
         <div class="editor-workspace" id="editorWorkspace">
           <div class="editor-canvas">
-            <div class="editor-tools" id="editorToolbar" aria-label="Editor tools" data-i18n-aria-label="editor.editorTools.aria">
-              <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts" data-i18n-aria-label="editor.editorTools.formatGroupAria">
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled data-i18n="editor.editorTools.bold" data-i18n-title="editor.editorTools.bold" data-i18n-aria-label="editor.editorTools.bold">Bold</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled data-i18n="editor.editorTools.italic" data-i18n-title="editor.editorTools.italic" data-i18n-aria-label="editor.editorTools.italic">Italic</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled data-i18n="editor.editorTools.strike" data-i18n-title="editor.editorTools.strike" data-i18n-aria-label="editor.editorTools.strike">Strike</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled data-i18n="editor.editorTools.heading" data-i18n-title="editor.editorTools.heading" data-i18n-aria-label="editor.editorTools.heading">Heading</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled data-i18n="editor.editorTools.quote" data-i18n-title="editor.editorTools.quote" data-i18n-aria-label="editor.editorTools.quote">Quote</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled data-i18n="editor.editorTools.code" data-i18n-title="editor.editorTools.code" data-i18n-aria-label="editor.editorTools.code">Code</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled data-i18n="editor.editorTools.codeBlock" data-i18n-title="editor.editorTools.codeBlock" data-i18n-aria-label="editor.editorTools.codeBlock">Code Block</button>
-              </div>
-              <div class="editor-tools-right">
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false" data-i18n="editor.editorTools.articleCard" data-i18n-title="editor.editorTools.insertCardTitle">Article Card</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertImage">
-                  <span class="btn-label" data-i18n="editor.editorTools.insertImage">Insert Image</span>
-                </button>
-                <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
-              </div>
-              <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card" data-i18n-aria-label="editor.editorTools.cardDialogAria">
-                <div class="card-picker-search">
-                  <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles" data-i18n-placeholder="editor.editorTools.cardSearch" data-i18n-aria-label="editor.editorTools.cardSearch">
+            <div class="markdown-editor-shell" id="markdownEditorShell">
+              <div class="editor-tools" id="editorToolbar" aria-label="Editor tools" data-i18n-aria-label="editor.editorTools.aria">
+                <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts" data-i18n-aria-label="editor.editorTools.formatGroupAria">
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled data-i18n-title="editor.editorTools.bold" data-i18n-aria-label="editor.editorTools.bold"><span class="editor-tool-icon editor-tool-icon-bold" aria-hidden="true">B</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled data-i18n-title="editor.editorTools.italic" data-i18n-aria-label="editor.editorTools.italic"><span class="editor-tool-icon editor-tool-icon-italic" aria-hidden="true">I</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled data-i18n-title="editor.editorTools.strike" data-i18n-aria-label="editor.editorTools.strike"><span class="editor-tool-icon editor-tool-icon-strike" aria-hidden="true">S</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled data-i18n-title="editor.editorTools.heading" data-i18n-aria-label="editor.editorTools.heading"><span class="editor-tool-icon editor-tool-icon-heading" aria-hidden="true">H<sub>2</sub></span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled data-i18n-title="editor.editorTools.quote" data-i18n-aria-label="editor.editorTools.quote"><span class="editor-tool-icon" aria-hidden="true">"</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled data-i18n-title="editor.editorTools.code" data-i18n-aria-label="editor.editorTools.code"><span class="editor-tool-icon editor-tool-icon-code" aria-hidden="true">&lt;/&gt;</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled data-i18n-title="editor.editorTools.codeBlock" data-i18n-aria-label="editor.editorTools.codeBlock"><span class="editor-tool-icon editor-tool-icon-codeblock" aria-hidden="true">[ ]</span></button>
                 </div>
-                <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
-                <div class="card-picker-empty" id="cardPickerEmpty" hidden data-i18n="editor.editorTools.cardEmpty">No matching articles</div>
+                <div class="editor-tools-right">
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn editor-tool-btn-insert" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false" data-i18n="editor.editorTools.articleCard" data-i18n-title="editor.editorTools.insertCardTitle">Article Card</button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn editor-tool-btn-insert" id="btnInsertImage">
+                    <span class="btn-label" aria-hidden="true">+</span>
+                    <span class="btn-label" data-i18n="editor.editorTools.insertImageShort">Image</span>
+                  </button>
+                  <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
+                </div>
+                <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card" data-i18n-aria-label="editor.editorTools.cardDialogAria">
+                  <div class="card-picker-search">
+                    <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles" data-i18n-placeholder="editor.editorTools.cardSearch" data-i18n-aria-label="editor.editorTools.cardSearch">
+                  </div>
+                  <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
+                  <div class="card-picker-empty" id="cardPickerEmpty" hidden data-i18n="editor.editorTools.cardEmpty">No matching articles</div>
+                </div>
               </div>
-            </div>
 
-            <div id="editor-wrap">
-              <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source" data-i18n-placeholder="editor.editorPlaceholder" data-i18n-aria-label="editor.editorTextareaAria"></textarea>
+              <div id="editor-wrap">
+                <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source" data-i18n-placeholder="editor.editorPlaceholder" data-i18n-aria-label="editor.editorTextareaAria"></textarea>
+              </div>
             </div>
 
             <div id="preview-wrap" style="display:none;">
@@ -2042,9 +2062,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-preview-toolbar-20260503a"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-preview-toolbar-20260503a"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-preview-toolbar-20260503a"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-compact-toolbar-20260503c"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-compact-toolbar-20260503c"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-compact-toolbar-20260503c"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

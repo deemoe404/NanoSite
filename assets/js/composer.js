@@ -9019,13 +9019,17 @@ function updateMarkdownDiscardButton(tab) {
   if (!hasLocalChanges) {
     if (!hasBusy) setButtonLabel(btn, getMarkdownDiscardLabel());
     try { btn.classList.remove('is-busy'); } catch (_) {}
-    btn.hidden = true;
-    btn.setAttribute('aria-hidden', 'true');
+    btn.hidden = false;
+    btn.removeAttribute('aria-hidden');
     btn.disabled = true;
     btn.setAttribute('aria-disabled', 'true');
     btn.removeAttribute('aria-busy');
-    btn.removeAttribute('title');
-    btn.setAttribute('aria-label', getMarkdownDiscardLabel());
+    const tooltip = active && active.path
+      ? t('editor.toasts.noLocalMarkdownChanges')
+      : getMarkdownDiscardTooltip('noFile');
+    if (tooltip) btn.title = tooltip;
+    else btn.removeAttribute('title');
+    btn.setAttribute('aria-label', tooltip || getMarkdownDiscardLabel());
     return;
   }
 

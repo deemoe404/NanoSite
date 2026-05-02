@@ -338,6 +338,7 @@ const translations = {
         articleCard: 'Article Card',
         insertCardTitle: 'Insert article card',
         insertImage: 'Insert Image',
+        insertImageShort: 'Image',
         cardDialogAria: 'Insert article card',
         cardSearch: 'Search articles…',
         cardEmpty: 'No matching articles',

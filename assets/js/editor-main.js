@@ -651,6 +651,7 @@ function $(sel) { return document.querySelector(sel); }
 function switchView(mode) {
   const editorWrap = $('#editor-wrap');
   const previewWrap = $('#preview-wrap');
+  const editorShell = $('#markdownEditorShell');
   const editorToolbar = $('#editorToolbar');
   const viewToggle = document.querySelector('.view-toggle');
   const btnEdit = document.querySelector('.vt-btn[data-view="edit"]');
@@ -658,6 +659,7 @@ function switchView(mode) {
   if (!editorWrap || !previewWrap) return;
   if (mode === 'preview') {
     editorWrap.style.display = 'none';
+    if (editorShell) editorShell.style.display = 'none';
     previewWrap.style.display = '';
     if (editorToolbar) {
       editorToolbar.hidden = true;
@@ -668,6 +670,7 @@ function switchView(mode) {
     btnPreview && btnPreview.classList.add('active');
   } else {
     previewWrap.style.display = 'none';
+    if (editorShell) editorShell.style.display = '';
     editorWrap.style.display = '';
     if (editorToolbar) {
       editorToolbar.hidden = false;
