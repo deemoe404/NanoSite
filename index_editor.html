@@ -23,7 +23,11 @@
       --composer-inline-duration-in: 480ms;
       --composer-inline-duration-out: 380ms;
       --editor-toolbar-offset: 0px;
-      --editor-content-frame-max-width: 1280px;
+      --editor-article-main-width: 45rem;
+      --editor-properties-width: 20rem;
+      --editor-properties-min-width: 18rem;
+      --editor-article-gap: 1.5rem;
+      --editor-content-frame-max-width: calc(var(--editor-article-main-width) + var(--editor-article-gap) + var(--editor-properties-width));
       --editor-page-max-width: calc(var(--editor-rail-width, 340px) + 6px + var(--editor-content-frame-max-width));
       --editor-edge-offset: 0px;
       --editor-rail-width: 340px;
@@ -120,6 +124,7 @@
       overflow:auto;
       padding:var(--editor-content-pane-padding);
       position:relative;
+      container-type:inline-size;
       scrollbar-gutter:stable;
     }
     .editor-content-frame {
@@ -868,6 +873,47 @@
       flex-direction:column;
       gap:.75rem;
       min-width:0;
+    }
+    @container (min-width: 66.5rem) {
+      .editor-workspace {
+        grid-template-columns:minmax(0, var(--editor-article-main-width)) minmax(var(--editor-properties-min-width), var(--editor-properties-width));
+        column-gap:var(--editor-article-gap);
+        justify-content:center;
+      }
+      .editor-canvas {
+        grid-column:1;
+        width:min(100%, var(--editor-article-main-width));
+      }
+      .editor-workspace-meta {
+        grid-column:2;
+        align-self:start;
+        position:sticky;
+        top:calc(var(--editor-content-pane-padding, 1rem) + 3rem);
+        width:min(100%, var(--editor-properties-width));
+      }
+      .editor-workspace-meta .frontmatter-field {
+        grid-template-columns:minmax(0, 1fr);
+        justify-content:stretch;
+      }
+      .editor-workspace-meta .frontmatter-field-head,
+      .editor-workspace-meta .frontmatter-field-label-wrap {
+        justify-content:flex-start;
+      }
+      .editor-workspace-meta .frontmatter-field-title {
+        text-align:left;
+        white-space:normal;
+      }
+      .editor-workspace-meta .frontmatter-field-controls {
+        width:100%;
+      }
+      .editor-workspace-meta .frontmatter-grid {
+        --frontmatter-single-control-width: 100%;
+      }
+      .editor-workspace-meta .frontmatter-help-tooltip-bubble {
+        left:auto;
+        right:0;
+        max-width:min(18rem, calc(100vw - 2rem));
+      }
     }
     .frontmatter-panel {
       position: static;
