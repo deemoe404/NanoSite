@@ -400,6 +400,34 @@ function splitEditableTextAtSelection(el) {
   }
 }
 
+function isEditableSelectionAtStart(el) {
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!el || !sel || !sel.rangeCount) return false;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed || !nodeContains(el, range.startContainer)) return false;
+    const beforeRange = document.createRange();
+    beforeRange.selectNodeContents(el);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    return serializeInlineDom(beforeRange.cloneContents()).trim() === '';
+  } catch (_) {
+    return false;
+  }
+}
+
+function placeCaretAtEnd(el) {
+  try {
+    if (!el) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection && window.getSelection();
+    if (!sel) return;
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch (_) {}
+}
+
 function codeEditableText(el) {
   if (!el) return '';
   return String(el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
@@ -828,14 +856,29 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       };
       span.addEventListener('input', sync);
       span.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
-        event.preventDefault();
-        const split = splitEditableTextAtSelection(span);
-        const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
-        next[itemIndex] = { ...next[itemIndex], text: split.before };
-        next.splice(itemIndex + 1, 0, { text: split.after, checked: false });
-        state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1 };
-        updateFromControl(block, { items: next }, true);
+        if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const split = splitEditableTextAtSelection(span);
+          const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          next[itemIndex] = { ...next[itemIndex], text: split.before };
+          next.splice(itemIndex + 1, 0, { text: split.after, checked: false });
+          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1, atEnd: true };
+          updateFromControl(block, { items: next }, true);
+          return;
+        }
+        if ((event.key === 'Backspace' || event.key === 'Delete') && itemIndex > 0 && isEditableSelectionAtStart(span)) {
+          event.preventDefault();
+          const currentText = editableText(span);
+          const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          if (currentText) {
+            const previous = next[itemIndex - 1] || { text: '', checked: false };
+            next[itemIndex - 1] = { ...previous, text: `${previous.text || ''}${currentText}` };
+          }
+          next.splice(itemIndex, 1);
+          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex - 1, atEnd: true };
+          updateFromControl(block, { items: next.length ? next : [{ text: '', checked: false }] }, true);
+        }
       });
       span.addEventListener('focus', () => setActive(index, span, sync));
       span.addEventListener('click', (event) => {
@@ -846,20 +889,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       if (state.pendingListFocus && state.pendingListFocus.blockId === block.id && state.pendingListFocus.itemIndex === itemIndex) {
         queueMicrotask(() => {
           if (!nodeContains(root, span)) return;
+          const pending = state.pendingListFocus;
           state.pendingListFocus = null;
           try { span.focus(); } catch (_) {}
+          if (pending && pending.atEnd) placeCaretAtEnd(span);
           setActive(index, span, sync);
         });
-      }
-      if (items.length > 1) {
-        const remove = button('×', 'blocks-icon-btn blocks-list-remove');
-        remove.title = text('listRemoveItem', 'Remove item');
-        remove.addEventListener('click', () => {
-          const next = items.slice();
-          next.splice(itemIndex, 1);
-          updateFromControl(block, { items: next.length ? next : [{ text: 'List item', checked: false }] }, true);
-        });
-        li.appendChild(remove);
       }
       listEl.appendChild(li);
     });

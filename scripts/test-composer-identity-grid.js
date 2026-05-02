@@ -138,10 +138,22 @@ assert.doesNotMatch(
   'list blocks should not render a dedicated add item button'
 );
 
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-list-remove|listRemoveItem/,
+  'list blocks should not render per-item remove buttons'
+);
+
 assert.match(
   editorBlocksSource,
   /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{ text: split\.after, checked: false \}\);/,
   'pressing Enter in a visual list item should split text at the caret into a focused new item below'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*next\[itemIndex - 1\] = \{ \.\.\.previous, text: `\$\{previous\.text \|\| ''\}\$\{currentText\}` \};[\s\S]*next\.splice\(itemIndex, 1\);/,
+  'Backspace or Delete at the start of a non-first visual list item should remove or merge it into the previous item'
 );
 
 assert.match(
@@ -188,8 +200,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-list-item \{ position:relative; padding:\.28rem 3rem \.28rem 0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);[\s\S]*\.blocks-list-remove \{ position:absolute; top:50%; right:\.1rem; transform:translateY\(-50%\); margin:0; \}/,
-  'visual list rows should keep markers and checklist boxes aligned while removing delete buttons from inline flow'
+  /\.blocks-list-item \{ padding:\.28rem 0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);/,
+  'visual list rows should keep markers and checklist boxes aligned without reserving inline button space'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-list-remove/,
+  'visual list CSS should not style removed per-item delete buttons'
 );
 
 assert.doesNotMatch(
