@@ -132,6 +132,30 @@ assert.doesNotMatch(
   'list blocks should not use a textarea as their primary editing surface'
 );
 
+assert.match(
+  editorBlocksSource,
+  /activeIndex: -1[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.activeIndex = -1;/,
+  'blocks mode should start with no selected block so controls are not shown by default'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block \{ position:relative;[\s\S]*overflow:visible; \}/,
+  'blocks should be relative containers and must not clip floating controls'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \{ position:absolute; top:0; left:\.55rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*transform:translate3d\(0,-58%,0\) scale\(\.98\);/,
+  'block type and action controls should be hidden floating overlays at the outside top-left by default'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block\.is-active \.blocks-block-head, \.blocks-block:focus-within \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-58%,0\) scale\(1\); \}/,
+  'block controls should appear only for the active or focused block'
+);
+
 assert.doesNotMatch(
   editorSource,
   /id="composerOrderInlineMeta"|data-i18n="editor\.composer\.changeSummary"/,

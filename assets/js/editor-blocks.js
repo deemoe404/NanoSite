@@ -438,7 +438,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const text = (key, fallback) => labels[key] || fallback;
   const state = {
     blocks: [],
-    activeIndex: 0,
+    activeIndex: -1,
     activeEditable: null,
     activeSync: null,
     cardEntries: [],
@@ -496,7 +496,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const setActive = (index, editable = null, sync = null) => {
-    state.activeIndex = Math.max(0, Math.min(index, Math.max(0, state.blocks.length - 1)));
+    const maxIndex = state.blocks.length - 1;
+    const numericIndex = Number.isFinite(Number(index)) ? Number(index) : -1;
+    state.activeIndex = maxIndex >= 0 ? Math.max(-1, Math.min(numericIndex, maxIndex)) : -1;
     if (editable) {
       state.activeEditable = editable;
       state.activeSync = sync;
@@ -978,7 +980,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const api = {
     setMarkdown(markdown) {
       state.blocks = parseMarkdownBlocks(markdown);
-      state.activeIndex = 0;
+      state.activeIndex = -1;
       state.activeEditable = null;
       state.activeSync = null;
       render();
