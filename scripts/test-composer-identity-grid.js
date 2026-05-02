@@ -350,6 +350,12 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.blocks-code-preview code \{ display:block; min-height:1\.55em;[\s\S]*line-height:1\.55; \}/,
+  'single-line code blocks should not inherit a tall fixed minimum height'
+);
+
+assert.match(
+  editorSource,
   /\.blocks-source-textarea \{ min-height:9rem; width:100%; resize:none; overflow:hidden; \}/,
   'source markdown textareas should expand the block instead of scrolling internally'
 );
