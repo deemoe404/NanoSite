@@ -126,6 +126,18 @@ assert.match(
   'hidden non-active block toolbars should not retain inline formatting active state'
 );
 
+assert.match(
+  editorBlocksSource,
+  /const blockNodes = Array\.from\(list\.querySelectorAll\('\.blocks-block'\)\);[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*const keepEditable = state\.activeEditable && activeBlock && nodeContains\(activeBlock, state\.activeEditable\);[\s\S]*state\.activeEditable = null;[\s\S]*state\.activeSync = null;[\s\S]*state\.pendingInline = \{\};[\s\S]*blockNodes\.forEach\(\(el, idx\) => \{/,
+  'container-only block selection should clear stale editable state from another block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /item\.addEventListener\('click', \(event\) => \{[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
+  'block section container clicks should select the block without hijacking toolbar action clicks'
+);
+
 assert.doesNotMatch(
   editorBlocksSource,
   /blocks-inline-toolbar|execCommand/,
@@ -272,8 +284,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block\.is-active \.blocks-block-head, \.blocks-block:focus-within \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-58%,0\) scale\(1\); \}/,
-  'block controls should appear only for the active or focused block'
+  /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-58%,0\) scale\(1\); \}/,
+  'block controls should appear only for the active block'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block:focus-within \.blocks-block-head/,
+  'focused stale blocks should not keep a second floating toolbar visible'
 );
 
 assert.match(

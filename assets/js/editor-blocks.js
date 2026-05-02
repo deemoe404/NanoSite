@@ -1080,6 +1080,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const maxIndex = state.blocks.length - 1;
     const numericIndex = Number.isFinite(Number(index)) ? Number(index) : -1;
     state.activeIndex = maxIndex >= 0 ? Math.max(-1, Math.min(numericIndex, maxIndex)) : -1;
+    const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
+    const activeBlock = blockNodes[state.activeIndex] || null;
     if (editable) {
       if (editable !== state.activeEditable) {
         state.pendingInline = {};
@@ -1089,8 +1091,26 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
       state.activeEditable = editable;
       state.activeSync = sync;
+    } else {
+      const keepEditable = state.activeEditable && activeBlock && nodeContains(activeBlock, state.activeEditable);
+      if (!keepEditable) {
+        try {
+          const focused = document.activeElement;
+          if (focused && state.activeEditable && nodeContains(state.activeEditable, focused) && typeof focused.blur === 'function') {
+            focused.blur();
+          }
+        } catch (_) {}
+        state.activeEditable = null;
+        state.activeSync = null;
+        state.activeLink = null;
+        state.activeLinkHoldUntil = 0;
+        state.linkEditMode = '';
+        state.linkSelection = null;
+        state.lastInlineMarks = null;
+        state.pendingInline = {};
+      }
     }
-    Array.from(list.querySelectorAll('.blocks-block')).forEach((el, idx) => {
+    blockNodes.forEach((el, idx) => {
       el.classList.toggle('is-active', idx === state.activeIndex);
     });
     refreshLinkEditor();
@@ -1947,6 +1967,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
       head.appendChild(actions);
       item.append(head, renderBlockBody(block, index));
+      item.addEventListener('click', (event) => {
+        if (closestElement(event.target, '.blocks-block-head')) return;
+        setActive(index);
+      });
       item.addEventListener('focusin', () => setActive(index));
       list.appendChild(item);
     });
