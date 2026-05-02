@@ -167,10 +167,26 @@ run('inline runs serialize nested supported marks canonically', () => {
   );
 });
 
-run('inline selection toggles marks across mixed runs without flattening', () => {
-  const runs = parseInlineRuns('aa **bb** cc');
-  const next = toggleInlineMarkOnRuns(runs, 1, 7, 'italic');
-  assert.equal(serializeInlineRuns(next), 'a_a _**_bb_**_ c_c');
+run('inline selection removes a mark from mixed selected text when any selected run has it', () => {
+  [
+    ['bold', 'aa **bb** cc'],
+    ['italic', 'aa _bb_ cc'],
+    ['strike', 'aa ~~bb~~ cc']
+  ].forEach(([mark, source]) => {
+    const next = toggleInlineMarkOnRuns(parseInlineRuns(source), 1, 7, mark);
+    assert.equal(serializeInlineRuns(next), 'aa bb cc', `${mark} should be removed from marked parts only`);
+  });
+});
+
+run('inline selection applies a mark to the full range when no selected run has it', () => {
+  [
+    ['bold', 'a**a bb c**c'],
+    ['italic', 'a_a bb c_c'],
+    ['strike', 'a~~a bb c~~c']
+  ].forEach(([mark, expected]) => {
+    const next = toggleInlineMarkOnRuns(parseInlineRuns('aa bb cc'), 1, 7, mark);
+    assert.equal(serializeInlineRuns(next), expected, `${mark} should be applied across the selected range`);
+  });
 });
 
 run('inline partial selection toggles marks off only inside the range', () => {

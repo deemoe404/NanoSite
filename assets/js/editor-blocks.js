@@ -720,6 +720,61 @@ function closestElement(node, selector) {
   }
 }
 
+function selectionEditableInRoot(root) {
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!root || !sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const candidates = [range.startContainer, range.endContainer, range.commonAncestorContainer];
+    for (const candidate of candidates) {
+      const editable = closestElement(candidate, '.blocks-rich-editable');
+      if (editable && nodeContains(root, editable)) return editable;
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function inlineMarksFromDomNode(node, editable) {
+  const marks = { bold: false, italic: false, strike: false, code: false, link: '' };
+  try {
+    let current = node && node.nodeType === 1 ? node : node && node.parentElement;
+    while (current && nodeContains(editable, current)) {
+      const tag = String(current.tagName || '').toLowerCase();
+      if (tag === 'code') {
+        marks.code = true;
+        marks.bold = false;
+        marks.italic = false;
+        marks.strike = false;
+        marks.link = '';
+      } else if (!marks.code) {
+        if (tag === 'strong' || tag === 'b') marks.bold = true;
+        if (tag === 'em' || tag === 'i') marks.italic = true;
+        if (tag === 's' || tag === 'del' || tag === 'strike') marks.strike = true;
+        if (tag === 'a') marks.link = current.getAttribute('href') || '';
+      }
+      if (current === editable) break;
+      current = current.parentElement;
+    }
+  } catch (_) {}
+  return marks;
+}
+
+function inlineMarksFromPointerEvent(event, editable) {
+  let node = event && event.target;
+  try {
+    if (event && document.caretPositionFromPoint) {
+      const position = document.caretPositionFromPoint(event.clientX, event.clientY);
+      if (position && position.offsetNode) node = position.offsetNode;
+    } else if (event && document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(event.clientX, event.clientY);
+      if (range && range.startContainer) node = range.startContainer;
+    }
+  } catch (_) {}
+  return inlineMarksFromDomNode(node, editable);
+}
+
 function selectionLinkInEditable(editable) {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -749,13 +804,16 @@ function inlineMarksAtOffset(runs, offset) {
   const safeRuns = mergeInlineRuns(runs);
   const target = Math.max(0, Number(offset) || 0);
   let cursor = 0;
+  let previous = null;
   for (const run of safeRuns) {
     const length = String(run.text || '').length;
     if (!length) continue;
-    if (target === cursor || (target > cursor && target <= cursor + length)) return { ...run, text: '' };
+    const next = cursor + length;
+    if (target === cursor || (target > cursor && target < next)) return { ...run, text: '' };
+    if (target === next) previous = run;
     cursor += length;
   }
-  return { ...(safeRuns[safeRuns.length - 1] || {}), text: '' };
+  return { ...(previous || safeRuns[safeRuns.length - 1] || {}), text: '' };
 }
 
 function inlineRangeText(runs, start, end) {
@@ -827,12 +885,28 @@ function inlineRangeFullyMarked(runs, start, end, mark) {
   return sawText;
 }
 
+function inlineRangeAnyMarked(runs, start, end, mark) {
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart, Number(end) || 0);
+  if (safeEnd <= safeStart) return false;
+  let cursor = 0;
+  for (const run of mergeInlineRuns(runs)) {
+    const text = String(run.text || '');
+    const next = cursor + text.length;
+    if (next > safeStart && cursor < safeEnd && !!run[mark]) return true;
+    cursor = next;
+  }
+  return false;
+}
+
 export function toggleInlineMarkOnRuns(runs, start, end, mark) {
   const command = mark === 'strikeThrough' ? 'strike' : mark;
   if (!['bold', 'italic', 'strike', 'code'].includes(command) || !rangeHasInlineText(runs, start, end)) {
     return mergeInlineRuns(runs);
   }
-  const shouldApply = !inlineRangeFullyMarked(runs, start, end, command);
+  const shouldApply = command === 'code'
+    ? !inlineRangeFullyMarked(runs, start, end, command)
+    : !inlineRangeAnyMarked(runs, start, end, command);
   return mutateInlineRunsInRange(runs, start, end, run => {
     if (command === 'code') return shouldApply ? inlineRun(run.text, { code: true }) : inlineRun(run.text, {});
     if (run.code) return run;
@@ -918,6 +992,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     activeLinkHoldUntil: 0,
     linkEditMode: '',
     linkSelection: null,
+    lastInlineMarks: null,
     pendingInline: {},
     pendingListFocus: null,
     cardEntries: [],
@@ -942,6 +1017,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   picker.setAttribute('aria-hidden', 'true');
 
   root.append(toolbar, picker, list);
+  const editableSyncMap = new WeakMap();
 
   const markDirty = (block) => {
     if (!block) return;
@@ -1009,6 +1085,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         state.pendingInline = {};
         state.linkEditMode = '';
         state.linkSelection = null;
+        state.lastInlineMarks = null;
       }
       state.activeEditable = editable;
       state.activeSync = sync;
@@ -1269,11 +1346,35 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   updateInlineToolbarState = () => {
     const buttons = root.querySelectorAll('.blocks-inline-btn[data-inline-command]');
     if (!buttons.length) return;
+    const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
+    const selectionEditable = selectionEditableInRoot(root);
+    if (selectionEditable) {
+      const selectionBlock = closestElement(selectionEditable, '.blocks-block');
+      const selectionIndex = blockNodes.indexOf(selectionBlock);
+      if (selectionIndex >= 0) {
+        state.activeIndex = selectionIndex;
+        state.activeEditable = selectionEditable;
+        state.activeSync = editableSyncMap.get(selectionEditable) || state.activeSync;
+        blockNodes.forEach((el, idx) => {
+          el.classList.toggle('is-active', idx === state.activeIndex);
+        });
+      }
+    }
     const editable = state.activeEditable;
+    const activeBlock = blockNodes[state.activeIndex] || null;
     const offsets = editable && nodeContains(root, editable) ? getEditableSelectionOffsets(editable) : null;
     const runs = editable && nodeContains(root, editable) ? inlineRunsFromDom(editable) : [];
     const pending = hasPendingInlineMarks();
+    const fallbackMarks = state.lastInlineMarks
+      && state.lastInlineMarks.editable === editable
+      ? state.lastInlineMarks.marks
+      : null;
     buttons.forEach(btn => {
+      if (!activeBlock || !activeBlock.contains(btn)) {
+        btn.classList.remove('is-active');
+        btn.setAttribute('aria-pressed', 'false');
+        return;
+      }
       const command = btn.dataset.inlineCommand || '';
       const mark = inlineCommandMark(command);
       let active = false;
@@ -1283,9 +1384,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           || (!offsets.collapsed && inlineRangeFullyMarked(runs, offsets.start, offsets.end, 'link'));
       } else if (offsets && offsets.collapsed) {
         const marks = inlineMarksAtOffset(runs, offsets.start);
-        active = pending ? !!state.pendingInline[mark] : !!marks[mark];
+        active = pending ? !!state.pendingInline[mark] : !!(marks[mark] || (fallbackMarks && fallbackMarks[mark]));
       } else if (offsets) {
-        active = inlineRangeFullyMarked(runs, offsets.start, offsets.end, mark);
+        active = ['bold', 'italic', 'strike'].includes(mark)
+          ? inlineRangeAnyMarked(runs, offsets.start, offsets.end, mark)
+          : inlineRangeFullyMarked(runs, offsets.start, offsets.end, mark);
+      } else if (fallbackMarks && ['bold', 'italic', 'strike', 'code'].includes(mark)) {
+        active = !!fallbackMarks[mark];
       }
       btn.classList.toggle('is-active', active);
       btn.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1476,6 +1581,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editable.spellcheck = true;
     setPlainContentEditableValue(editable, block.data[key] || '');
     const sync = () => updateFromControl(block, { [key]: editableText(editable) });
+    editableSyncMap.set(editable, sync);
     editable.addEventListener('input', () => {
       sync();
       updateInlineToolbarState();
@@ -1485,6 +1591,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
       if (clickedLink) event.preventDefault();
       setActive(index, editable, sync);
+      state.lastInlineMarks = { editable, marks: inlineMarksFromPointerEvent(event, editable) };
+      updateInlineToolbarState();
       if (clickedLink) refreshLinkEditor(clickedLink);
     });
     wireInlineEditable(editable, index, sync);
@@ -1602,6 +1710,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         next[itemIndex] = { ...next[itemIndex], text: editableText(span) };
         updateFromControl(block, { items: next });
       };
+      editableSyncMap.set(span, sync);
       span.addEventListener('input', () => {
         sync();
         updateInlineToolbarState();
@@ -1651,6 +1760,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
         if (clickedLink) event.preventDefault();
         setActive(index, span, sync);
+        state.lastInlineMarks = { editable: span, marks: inlineMarksFromPointerEvent(event, span) };
+        updateInlineToolbarState();
         if (clickedLink) refreshLinkEditor(clickedLink);
       });
       wireInlineEditable(span, index, sync);

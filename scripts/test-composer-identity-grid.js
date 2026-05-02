@@ -90,6 +90,42 @@ assert.match(
   'blocks mode should create inline formatting controls inside floating block toolbars'
 );
 
+assert.match(
+  editorBlocksSource,
+  /function inlineRangeAnyMarked\(runs, start, end, mark\)[\s\S]*next > safeStart && cursor < safeEnd && !!run\[mark\][\s\S]*const shouldApply = command === 'code'[\s\S]*inlineRangeAnyMarked\(runs, start, end, command\)[\s\S]*inlineRangeAnyMarked\(runs, offsets\.start, offsets\.end, mark\)/,
+  'B/I/S inline formatting should treat mixed selected ranges as active when any selected text has the mark'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function inlineMarksAtOffset\(runs, offset\)[\s\S]*let previous = null;[\s\S]*target === cursor \|\| \(target > cursor && target < next\)[\s\S]*if \(target === next\) previous = run;[\s\S]*previous \|\| safeRuns\[safeRuns\.length - 1\]/,
+  'collapsed caret inline formatting should prefer the right-hand run at mark boundaries and only fall back to the previous run at the end'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function selectionEditableInRoot\(root\)[\s\S]*closestElement\(candidate, '\.blocks-rich-editable'\)[\s\S]*const editableSyncMap = new WeakMap\(\);[\s\S]*state\.activeEditable = selectionEditable;[\s\S]*state\.activeSync = editableSyncMap\.get\(selectionEditable\) \|\| state\.activeSync;[\s\S]*editableSyncMap\.set\(editable, sync\);[\s\S]*editableSyncMap\.set\(span, sync\);/,
+  'inline toolbar state should recover the active rich editable directly from the browser selection'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function inlineMarksFromDomNode\(node, editable\)[\s\S]*tag === 'strong' \|\| tag === 'b'[\s\S]*function inlineMarksFromPointerEvent\(event, editable\)[\s\S]*document\.caretPositionFromPoint[\s\S]*document\.caretRangeFromPoint[\s\S]*lastInlineMarks: null,[\s\S]*fallbackMarks && fallbackMarks\[mark\]/,
+  'inline toolbar state should fall back to marks from the clicked rich-text DOM path when selection offsets are unavailable or ambiguous'
+);
+
+assert.match(
+  editorBlocksSource,
+  /setActive\(index, editable, sync\);[\s\S]*state\.lastInlineMarks = \{ editable, marks: inlineMarksFromPointerEvent\(event, editable\) \};[\s\S]*updateInlineToolbarState\(\);[\s\S]*setActive\(index, span, sync\);[\s\S]*state\.lastInlineMarks = \{ editable: span, marks: inlineMarksFromPointerEvent\(event, span\) \};[\s\S]*updateInlineToolbarState\(\);/,
+  'paragraph and list rich-text clicks should capture inline marks after activation and refresh the toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const blockNodes = Array\.from\(list\.querySelectorAll\('\.blocks-block'\)\);[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*if \(!activeBlock \|\| !activeBlock\.contains\(btn\)\) \{[\s\S]*btn\.classList\.remove\('is-active'\);[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\);/,
+  'hidden non-active block toolbars should not retain inline formatting active state'
+);
+
 assert.doesNotMatch(
   editorBlocksSource,
   /blocks-inline-toolbar|execCommand/,
@@ -236,8 +272,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-inline-btn\.is-active, \.blocks-inline-btn\[aria-pressed="true"\][\s\S]*\.blocks-inline-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}/,
-  'inline formatting controls should be styled as active-state controls inside floating block heads'
+  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}/,
+  'inline formatting controls should use a visible filled active state that overrides theme button resets'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-inline-btn\.is-active, \.blocks-inline-btn\[aria-pressed="true"\] \{[^}]*var\(--primary\) 15%/,
+  'inline formatting active state should not regress to the barely visible 15% primary tint'
 );
 
 assert.doesNotMatch(
