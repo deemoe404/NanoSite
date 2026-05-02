@@ -2484,15 +2484,9 @@ document.addEventListener('DOMContentLoaded', () => {
     crumbs.forEach((item, index) => {
       if (index > 0) html.push('<span class="cf-breadcrumb-separator" aria-hidden="true">/</span>');
       const label = escapeHtml(item.label || '');
-      const nodeId = item.nodeId ? escapeHtml(item.nodeId) : '';
-      const path = item.path ? escapeHtml(item.path) : '';
       const currentClass = index === crumbs.length - 1 ? ' cf-breadcrumb-item-current' : '';
-      if (nodeId) {
-        const ariaCurrent = index === crumbs.length - 1 ? ' aria-current="page"' : '';
-        html.push(`<a href="#" class="cf-breadcrumb-item${currentClass}" data-current-file-node-id="${nodeId}" data-current-file-path="${path}"${ariaCurrent}>${label}</a>`);
-      } else {
-        html.push(`<span class="cf-breadcrumb-item cf-breadcrumb-item-static${currentClass}">${label}</span>`);
-      }
+      const ariaCurrent = index === crumbs.length - 1 ? ' aria-current="page"' : '';
+      html.push(`<span class="cf-breadcrumb-item cf-breadcrumb-item-static${currentClass}"${ariaCurrent}>${label}</span>`);
     });
     return `<span class="cf-breadcrumb" aria-label="Current file location">${html.join('')}</span>`;
   };
@@ -2538,7 +2532,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const dirty = !!currentFileInfo.dirty;
     const draft = currentFileInfo.draft;
     const draftState = currentFileInfo.draftState || '';
-    const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     const mainPieces = [];
     const breadcrumbLabel = (currentFileInfo.breadcrumb || [])
@@ -2546,10 +2539,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean)
       .join('/');
     mainPieces.push(renderCurrentFileBreadcrumb(currentFileInfo.breadcrumb, path));
-    if (statusLabel) {
-      mainPieces.push('<span aria-hidden="true">—</span>');
-      mainPieces.push(`<span class="cf-status">${escapeHtml(statusLabel)}</span>`);
-    }
     const mainHtml = `<span class="cf-line-main">${mainPieces.join(' ')}</span>`;
 
     const metaPieces = [];
