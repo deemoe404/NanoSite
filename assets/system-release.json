@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "name": "v3.3.19",
-  "tag": "v3.3.19",
-  "publishedAt": "2026-05-02T15:25:03Z",
-  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.19.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.19.zip`\n- SHA-256: `d65fe51e93a5261b198d24bf24a87a11cfb8c47e252dd3cc65a19c557f1e6a20`\n\n## Changed System Files\n\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.18...v3.3.19\n",
-  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.19",
+  "name": "v3.3.21",
+  "tag": "v3.3.21",
+  "publishedAt": "2026-05-02T17:19:14Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.21.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.21.zip`\n- SHA-256: `d895eed32ddb09d01004f2604727ecd0072bc7032ead72fccc55502af091c4df`\n\n## Changed System Files\n\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.20...v3.3.21\n",
+  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.21",
   "asset": {
-    "name": "nanosite-system-v3.3.19.zip",
-    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.19/nanosite-system-v3.3.19.zip",
-    "size": 469925,
-    "digest": "sha256:d65fe51e93a5261b198d24bf24a87a11cfb8c47e252dd3cc65a19c557f1e6a20"
+    "name": "nanosite-system-v3.3.21.zip",
+    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.21/nanosite-system-v3.3.21.zip",
+    "size": 471125,
+    "digest": "sha256:d895eed32ddb09d01004f2604727ecd0072bc7032ead72fccc55502af091c4df"
   }
 }
