@@ -320,8 +320,26 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block \{ position:relative;[\s\S]*overflow:visible; \}/,
-  'blocks should be relative containers and must not clip floating controls'
+  /\.blocks-block \{ position:relative; overflow:visible; \}/,
+  'blocks should be layout-only relative containers and must not clip floating controls'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block \{[^}]*\b(?:border|background|box-shadow|border-radius)\s*:/,
+  'block containers should not draw their own border, background, radius, or shadow'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block\.is-active \{[^}]*\b(?:border|background|box-shadow|outline)\s*:/,
+  'active block containers should not draw an outer highlight'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-body \{ display:flex; flex-direction:column; gap:\.7rem; padding:0; \}/,
+  'block body should not add outer container padding'
 );
 
 assert.match(
