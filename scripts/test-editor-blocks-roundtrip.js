@@ -5,6 +5,7 @@ import {
   insertInlineRunsAtRange,
   parseInlineRuns,
   parseMarkdownBlocks,
+  removeInlineMarkAroundOffset,
   serializeInlineRuns,
   serializeMarkdownBlocks,
   toggleInlineMarkOnRuns
@@ -199,6 +200,14 @@ run('inline code is exclusive over selected text', () => {
   const runs = parseInlineRuns('a **[bold link](https://example.com)** z');
   const next = toggleInlineMarkOnRuns(runs, 2, 11, 'code');
   assert.equal(serializeInlineRuns(next), 'a `bold link` z');
+});
+
+run('inline code can be removed around a collapsed caret', () => {
+  const runs = parseInlineRuns('a `code` z');
+  assert.equal(serializeInlineRuns(removeInlineMarkAroundOffset(runs, 4, 'code')), 'a code z');
+  assert.equal(serializeInlineRuns(removeInlineMarkAroundOffset(parseInlineRuns('a `code` z'), 2, 'code')), 'a code z');
+  assert.equal(serializeInlineRuns(removeInlineMarkAroundOffset(parseInlineRuns('a `code` z'), 6, 'code')), 'a code z');
+  assert.equal(serializeInlineRuns(removeInlineMarkAroundOffset(parseInlineRuns('a `one` and `two`'), 4, 'code')), 'a one and `two`');
 });
 
 run('inline link can be applied, replaced, and removed without losing safe marks', () => {

@@ -86,7 +86,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const createInlineControls = \(index\) => \{[\s\S]*controls\.className = 'blocks-inline-controls'[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*applyInlineCommand\(command\)/,
+  /const createInlineControls = \(index\) => \{[\s\S]*controls\.className = 'blocks-inline-controls'[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*event\.preventDefault\(\)[\s\S]*if \(btn\.getAttribute\('aria-disabled'\) === 'true'\) return;[\s\S]*applyInlineCommand\(command\)/,
   'blocks mode should create inline formatting controls inside floating block toolbars'
 );
 
@@ -116,8 +116,38 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /setActive\(index, editable, sync\);[\s\S]*state\.lastInlineMarks = \{ editable, marks: inlineMarksFromPointerEvent\(event, editable\) \};[\s\S]*updateInlineToolbarState\(\);[\s\S]*setActive\(index, span, sync\);[\s\S]*state\.lastInlineMarks = \{ editable: span, marks: inlineMarksFromPointerEvent\(event, span\) \};[\s\S]*updateInlineToolbarState\(\);/,
+  /setActive\(index, editable, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, editable\);[\s\S]*state\.lastInlineMarks = \{ editable, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);[\s\S]*setActive\(index, span, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, span\);[\s\S]*state\.lastInlineMarks = \{ editable: span, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable: span, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);/,
   'paragraph and list rich-text clicks should capture inline marks after activation and refresh the toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(\(!offsets \|\| offsets\.collapsed\) && codeRange\) \{[\s\S]*state\.pendingInline = \{\};[\s\S]*state\.lastInlineMarks = null;[\s\S]*state\.lastInlineMarkedRange = null;[\s\S]*removeInlineMarkInRange/,
+  'removing remembered inline code should clear stale toolbar mark fallback state'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(mark === 'code' && inlineMarksAtOffset\(runs, offsets\.start\)\.code\) \{[\s\S]*state\.pendingInline = \{\};[\s\S]*state\.lastInlineMarks = null;[\s\S]*state\.lastInlineMarkedRange = null;[\s\S]*removeInlineMarkAroundOffset/,
+  'removing inline code at a collapsed caret should clear stale toolbar mark fallback state'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const hasPendingInlineMarks = \(\) => !!\(state\.pendingInline\.bold[\s\S]*state\.pendingInline\.strike[\s\S]*state\.pendingInline\.link\);[\s\S]*const togglePendingInlineMark = \(kind\) => \{[\s\S]*if \(mark === 'code'\) return;[\s\S]*if \(mark === 'code'\) return;[\s\S]*togglePendingInlineMark\(kind\);/,
+  'inline code should not be stored as pending formatting for future text input'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const rememberedCodeRange = state\.lastInlineMarkedRange[\s\S]*mark === 'code'[\s\S]*else if \(mark === 'code'\) \{[\s\S]*if \(offsets && offsets\.collapsed\) \{[\s\S]*active = !!\(marks\.code \|\| \(fallbackMarks && fallbackMarks\.code\)\);[\s\S]*disabled = !active;[\s\S]*disabled = !rangeHasInlineText\(runs, offsets\.start, offsets\.end\);[\s\S]*btn\.classList\.toggle\('is-disabled', disabled\);[\s\S]*btn\.disabled = false;[\s\S]*btn\.tabIndex = disabled \? -1 : 0;/,
+  'inline code toolbar button should be aria-disabled for plain collapsed carets without using native disabled'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-inline-btn\[aria-disabled="true"\] \{ opacity:\.45; cursor:not-allowed; \}[\s\S]*\.blocks-inline-btn\[aria-disabled="true"\]:hover/,
+  'aria-disabled inline buttons should keep a disabled visual affordance without stealing editor focus'
 );
 
 assert.match(
