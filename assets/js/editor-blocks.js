@@ -376,6 +376,30 @@ function editableText(el) {
   return serializeInlineDom(el).replace(/\n{3,}/g, '\n\n').trim();
 }
 
+function splitEditableTextAtSelection(el) {
+  const fallback = editableText(el);
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!el || !sel || !sel.rangeCount) return { before: fallback, after: '' };
+    const range = sel.getRangeAt(0);
+    if (!nodeContains(el, range.startContainer) || !nodeContains(el, range.endContainer)) {
+      return { before: fallback, after: '' };
+    }
+    const beforeRange = document.createRange();
+    beforeRange.selectNodeContents(el);
+    beforeRange.setEnd(range.startContainer, range.startOffset);
+    const afterRange = document.createRange();
+    afterRange.selectNodeContents(el);
+    afterRange.setStart(range.endContainer, range.endOffset);
+    return {
+      before: serializeInlineDom(beforeRange.cloneContents()).replace(/\n{3,}/g, '\n\n').trim(),
+      after: serializeInlineDom(afterRange.cloneContents()).replace(/\n{3,}/g, '\n\n').trim()
+    };
+  } catch (_) {
+    return { before: fallback, after: '' };
+  }
+}
+
 function codeEditableText(el) {
   if (!el) return '';
   return String(el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
@@ -441,6 +465,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     activeIndex: -1,
     activeEditable: null,
     activeSync: null,
+    pendingListFocus: null,
     cardEntries: [],
     cardPickerOpen: false
   };
@@ -769,13 +794,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     select.value = block.data.listType || 'ul';
     select.addEventListener('change', () => updateFromControl(block, { listType: select.value }, true));
-    const add = button(text('listAddItem', 'Add item'), 'blocks-btn blocks-list-add');
-    add.addEventListener('click', () => {
-      const items = Array.isArray(block.data.items) ? block.data.items.slice() : [];
-      items.push({ text: 'List item', checked: false });
-      updateFromControl(block, { items }, true);
-    });
-    controls.append(select, add);
+    controls.appendChild(select);
 
     const items = Array.isArray(block.data.items) && block.data.items.length
       ? block.data.items
@@ -808,12 +827,30 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         updateFromControl(block, { items: next });
       };
       span.addEventListener('input', sync);
+      span.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+        event.preventDefault();
+        const split = splitEditableTextAtSelection(span);
+        const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+        next[itemIndex] = { ...next[itemIndex], text: split.before };
+        next.splice(itemIndex + 1, 0, { text: split.after, checked: false });
+        state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1 };
+        updateFromControl(block, { items: next }, true);
+      });
       span.addEventListener('focus', () => setActive(index, span, sync));
       span.addEventListener('click', (event) => {
         if (event.target && event.target.closest && event.target.closest('a')) event.preventDefault();
         setActive(index, span, sync);
       });
       li.appendChild(span);
+      if (state.pendingListFocus && state.pendingListFocus.blockId === block.id && state.pendingListFocus.itemIndex === itemIndex) {
+        queueMicrotask(() => {
+          if (!nodeContains(root, span)) return;
+          state.pendingListFocus = null;
+          try { span.focus(); } catch (_) {}
+          setActive(index, span, sync);
+        });
+      }
       if (items.length > 1) {
         const remove = button('×', 'blocks-icon-btn blocks-list-remove');
         remove.title = text('listRemoveItem', 'Remove item');

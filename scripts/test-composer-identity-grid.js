@@ -132,6 +132,18 @@ assert.doesNotMatch(
   'list blocks should not use a textarea as their primary editing surface'
 );
 
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-list-add|listAddItem/,
+  'list blocks should not render a dedicated add item button'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{ text: split\.after, checked: false \}\);/,
+  'pressing Enter in a visual list item should split text at the caret into a focused new item below'
+);
+
 assert.match(
   editorBlocksSource,
   /activeIndex: -1[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.activeIndex = -1;/,
