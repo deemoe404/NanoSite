@@ -150,6 +150,12 @@ assert.match(
   'inline link editor should float near the active link and expose text, URL, and unlink controls'
 );
 
+assert.match(
+  editorBlocksSource,
+  /const handleLinkEditorOutsidePointer = \(event\) => \{[\s\S]*if \(linkEditor\.hidden\) return;[\s\S]*isLinkEditorInternalTarget\(target\)[\s\S]*hideLinkEditor\(\);[\s\S]*document\.addEventListener\('pointerdown', handleLinkEditorOutsidePointer, true\);[\s\S]*document\.addEventListener\('mousedown', handleLinkEditorOutsidePointer, true\);/,
+  'inline link editor should close from a capture-phase outside pointer or mouse press'
+);
+
 assert.doesNotMatch(
   editorBlocksSource,
   /inlineToolbar\.appendChild\(linkEditor\)|blocks-inline-toolbar/,

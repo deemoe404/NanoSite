@@ -1238,6 +1238,18 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     linkEditor.hidden = true;
     linkEditor.setAttribute('aria-hidden', 'true');
   };
+  const isLinkEditorInternalTarget = (target) => {
+    if (nodeContains(linkEditor, target)) return true;
+    const clickedLink = closestElement(target, 'a[href]');
+    return !!(clickedLink && state.activeEditable && nodeContains(state.activeEditable, clickedLink));
+  };
+  const handleLinkEditorOutsidePointer = (event) => {
+    if (linkEditor.hidden) return;
+    const target = event && event.target;
+    if (!target || isLinkEditorInternalTarget(target)) return;
+    hideLinkEditor();
+    updateInlineToolbarState();
+  };
   const selectionAnchorRect = (editable, offsets) => {
     try {
       const rect = offsets && offsets.range && offsets.range.getBoundingClientRect && offsets.range.getBoundingClientRect();
@@ -1443,6 +1455,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   root.addEventListener('keyup', refreshLinkEditor);
   root.addEventListener('mouseup', refreshLinkEditor);
   root.addEventListener('focusin', refreshLinkEditor);
+  document.addEventListener('pointerdown', handleLinkEditorOutsidePointer, true);
+  document.addEventListener('mousedown', handleLinkEditorOutsidePointer, true);
   window.addEventListener('resize', refreshLinkEditor);
   window.addEventListener('scroll', refreshLinkEditor, true);
   document.addEventListener('selectionchange', () => {
