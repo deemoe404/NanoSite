@@ -708,16 +708,13 @@
     }
     .mode-switch-editor[hidden] { display: none !important; }
     .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
-    .current-file .cf-line-main { font-weight: 600; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+    .current-file .cf-line-main { font-weight: 400; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
     .current-file .cf-line-main .cf-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .current-file .cf-breadcrumb { display:inline-flex; align-items:center; gap:.35rem; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; color:#57606a; }
-    .current-file .cf-breadcrumb-separator { color:#8c959f; font-weight:500; margin:0 -.18rem; }
-    .current-file .cf-breadcrumb-item { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; font:inherit; font-weight:600; line-height:1.25; min-width:0; max-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .current-file a.cf-breadcrumb-item:hover { text-decoration:underline; }
-    .current-file a.cf-breadcrumb-item:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
-    .current-file .cf-breadcrumb-item-current { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
-    .current-file a.cf-breadcrumb-item-current:hover { text-decoration:none; }
-    .current-file .cf-breadcrumb-item-static { color:inherit; cursor:default; }
+    .current-file .cf-breadcrumb-separator { color:#8c959f; font-weight:500; margin:0 -.35rem; }
+    .current-file .cf-breadcrumb-item { color:#57606a; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; font:inherit; font-weight:inherit; line-height:1.25; min-width:0; max-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .current-file .cf-breadcrumb-item-current { background:transparent; color:var(--text); text-decoration:none; cursor:default; }
+    .current-file .cf-breadcrumb-item-static:not(.cf-breadcrumb-item-current) { color:inherit; cursor:default; }
     .current-file .cf-line-meta { font-size: .78rem; color: color-mix(in srgb, var(--muted) 88%, transparent); display: inline-flex; gap: .35rem; flex-wrap: wrap; }
     .current-file .cf-draft { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; color: color-mix(in srgb, #2563eb 70%, var(--text)); }
     .current-file .cf-draft::before { content: ''; width: .45rem; height: .45rem; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 18%, transparent); }
@@ -860,7 +857,7 @@
       grid-template-columns:minmax(0, 1fr);
       align-items:start;
       gap:1rem;
-      margin-top:1.1rem;
+      margin-top:.6rem;
     }
     .editor-workspace-meta {
       grid-column:1;
@@ -1230,19 +1227,36 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:.65rem;
+      gap:.7rem;
       flex-wrap:wrap;
-      margin-bottom:.6rem;
       position:sticky;
       top:calc(var(--editor-toolbar-offset, 0px) - var(--editor-content-pane-padding, 0px));
       z-index:110;
-      background:var(--card);
-      padding-top:.4rem;
-      padding-bottom:.4rem;
+      background:color-mix(in srgb, var(--card) 96%, var(--text) 4%);
+      border-bottom:1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius:8px 8px 0 0;
+      padding:.38rem .45rem;
+      box-shadow:inset 0 1px 0 color-mix(in srgb, var(--card) 92%, transparent);
     }
-    .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
-    .editor-tool-btn { white-space:nowrap; }
-    .editor-tool-btn[disabled] { opacity:.55; cursor:not-allowed; }
+    .markdown-editor-shell { border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:var(--code-bg); box-shadow:0 1px 2px rgba(15,23,42,.04); }
+    .editor-tools[hidden] { display:none !important; }
+    .editor-tools-left, .editor-tools-right { display:flex; align-items:center; gap:.2rem; flex-wrap:wrap; }
+    .editor-tools-right { position:relative; gap:.25rem; padding-left:.75rem; margin-left:auto; }
+    .editor-tools-right::before { content:''; position:absolute; left:.28rem; top:.35rem; bottom:.35rem; width:1px; background:color-mix(in srgb, var(--border) 88%, var(--text) 12%); }
+    .editor-tool-btn.btn-secondary { white-space:nowrap; min-width:2rem; height:2rem; padding:.2rem .45rem; border-color:transparent !important; background:transparent !important; color:color-mix(in srgb, var(--muted) 92%, var(--text)); box-shadow:none !important; font-size:.95rem; font-weight:600; line-height:1; }
+    .editor-tool-btn.btn-secondary:hover:not(:disabled), .editor-tool-btn.btn-secondary:focus-visible:not(:disabled) { background:color-mix(in srgb, var(--primary) 9%, transparent) !important; border-color:color-mix(in srgb, var(--primary) 24%, transparent) !important; color:color-mix(in srgb, var(--primary) 88%, var(--text)); text-decoration:none; }
+    .editor-tool-btn.btn-secondary:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; }
+    .editor-tool-btn[disabled] { opacity:.5; cursor:not-allowed; }
+    .editor-tool-icon { display:inline-flex; align-items:center; justify-content:center; min-width:1.05rem; line-height:1; font:inherit; letter-spacing:0; }
+    .editor-tool-icon-bold { font-weight:800; font-family:Georgia, "Times New Roman", serif; font-size:1.05rem; }
+    .editor-tool-icon-italic { font-style:italic; font-family:Georgia, "Times New Roman", serif; font-weight:500; font-size:1.05rem; transform:translateY(-.02rem); }
+    .editor-tool-icon-strike { text-decoration:line-through; font-weight:600; }
+    .editor-tool-icon-heading { font-weight:650; font-size:.95rem; }
+    .editor-tool-icon-heading sub { font-size:.58em; line-height:0; vertical-align:sub; }
+    .editor-tool-icon-code { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight:700; font-size:.82rem; }
+    .editor-tool-icon-codeblock { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight:700; letter-spacing:.08em; }
+    .editor-tool-btn-insert.btn-secondary { min-width:auto; padding:.35rem .7rem; border:1px solid color-mix(in srgb, var(--primary) 45%, var(--border)) !important; background:color-mix(in srgb, var(--card) 98%, transparent) !important; color:color-mix(in srgb, var(--primary) 92%, var(--text)); border-radius:8px; font-size:.9rem; font-weight:650; }
+    .editor-tool-btn-insert.btn-secondary:hover:not(:disabled), .editor-tool-btn-insert.btn-secondary:focus-visible:not(:disabled) { background:color-mix(in srgb, var(--primary) 11%, var(--card)) !important; border-color:color-mix(in srgb, var(--primary) 62%, var(--border)) !important; color:color-mix(in srgb, var(--primary) 98%, var(--text)); }
     .editor-card-popover { position:absolute; top:calc(100% + .5rem); right:0; min-width:260px; max-width:min(420px, calc(100vw - 2.5rem)); padding:.75rem; border-radius:.85rem; border:1px solid color-mix(in srgb, var(--border) 75%, var(--text) 12%); background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:0 0 0 1px color-mix(in srgb, var(--card) 82%, transparent), 0 12px 28px rgba(15, 23, 42, 0.16), 0 22px 46px rgba(15, 23, 42, 0.12); z-index:1200; opacity:0; transform:translate3d(0, -10px, 0) scale(.98); pointer-events:none; transition:opacity .36s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)), transform .36s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)); will-change:opacity, transform; }
     .editor-card-popover.is-visible { opacity:1; transform:translate3d(0, 0, 0) scale(1); pointer-events:auto; }
     .editor-card-popover.is-closing { pointer-events:none; }
@@ -1427,24 +1441,31 @@
     button#btnReview.btn-secondary:hover { background:#e6b541 !important; }
     button#btnReview.btn-secondary:active { background:#cf9830 !important; }
     button#btnReview.btn-secondary:focus-visible { outline:2px solid #f7d98f66; outline-offset:2px; }
-    .view-toggle,
+    .view-toggle { --vt-button-width:2.35rem; --vt-button-height:1.765rem; --vt-pad:.18rem; --vt-gap:.18rem; position:relative; display:inline-flex; align-items:center; gap:var(--vt-gap); padding:var(--vt-pad); border-radius:12px; border:1px solid color-mix(in srgb, var(--border) 86%, transparent); background:color-mix(in srgb, var(--text) 5%, var(--card)); box-shadow:inset 0 1px 0 color-mix(in srgb, var(--card) 92%, transparent), 0 1px 2px rgba(15,23,42,.06); overflow:visible; }
     .wrap-toggle { display:inline-flex; align-items:center; gap:.35rem; font-size:.92rem; color:#57606a; }
-    .view-toggle .vt-label,
+    .view-toggle .vt-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
     .wrap-toggle .vt-label { color:#6e7781; font-weight:500; margin-right:.25rem; }
-    .view-toggle .vt-btn,
+    .view-toggle .dim { display:none; }
+    .view-toggle .vt-slider { position:absolute; z-index:0; top:var(--vt-pad); left:var(--vt-pad); width:var(--vt-button-width); height:var(--vt-button-height); border-radius:10px; background:color-mix(in srgb, var(--card) 99%, transparent); box-shadow:0 4px 12px rgba(15,23,42,.12), 0 1px 2px rgba(15,23,42,.08); transform:translateX(0); transition:transform .22s var(--composer-inline-ease, cubic-bezier(0.16, 1, 0.3, 1)), box-shadow .18s ease; pointer-events:none; }
+    .view-toggle[data-view="preview"] .vt-slider { transform:translateX(calc(var(--vt-button-width) + var(--vt-gap))); }
+    .view-toggle .vt-btn { position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; width:var(--vt-button-width); height:var(--vt-button-height); border-radius:10px; color:color-mix(in srgb, var(--muted) 82%, var(--text)); text-decoration:none; line-height:1; transition:color .16s ease, transform .16s ease; }
     .wrap-toggle .vt-btn { color:#0969da; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; }
-    .view-toggle .vt-btn:hover,
+    .view-toggle .vt-btn:hover { color:color-mix(in srgb, var(--primary) 82%, var(--text)); text-decoration:none; }
     .wrap-toggle .vt-btn:hover { text-decoration:underline; }
-    .view-toggle .vt-btn.active,
+    .view-toggle .vt-btn:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 48%, transparent); outline-offset:2px; }
+    .view-toggle .vt-btn.active { color:color-mix(in srgb, var(--primary) 96%, var(--text)); text-decoration:none; cursor:default; }
     .wrap-toggle .vt-btn.active { background:#eaeef2; color:#24292f; text-decoration:none; cursor:default; }
+    .view-toggle .vt-icon { width:1.2rem; height:1.2rem; display:block; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .view-toggle .vt-code-icon { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.875rem; font-weight:700; letter-spacing:0; transform:translateY(-.02rem); }
+    .view-toggle .vt-text { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
     .view-toggle .vt-btn .vt-dirty-badge{position:absolute;top:-.45rem;right:0;min-width:1.15rem;height:1.15rem;padding:0 .32rem;border-radius:999px;background:#ef4444;color:#fff;font-size:.68rem;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 3px 7px rgba(15,23,42,.2),0 0 0 2px var(--card);opacity:0;transform:translateX(50%) scale(.72);transition:opacity .16s ease,transform .16s ease;pointer-events:none;z-index:2;font-feature-settings:'tnum' 1,'case' 1}
     .view-toggle .vt-btn .vt-dirty-badge[hidden]{display:none}
     .view-toggle .vt-btn.has-draft .vt-dirty-badge{opacity:1;transform:translateX(50%) scale(1)}
-    .view-toggle .dim,
     .wrap-toggle .dim { color:#8c959f; }
     /* Editor: reuse SEO hi-editor rules for perfect alignment */
     .hi-editor pre.hi-pre { background-color: transparent; color: var(--code-text); padding: 1rem 1rem 1rem 0.5rem; overflow: hidden; border: 0; border-radius: 8px; line-height: 20px; font-size: 12px; tab-size: 4; position: relative; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-weight: 400; font-variant-ligatures: none; letter-spacing: 0; }
     .hi-editor .code-scroll { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 8px; background: var(--code-bg); overflow-x: auto; overflow-y: hidden; position: relative; }
+    .markdown-editor-shell .hi-editor .code-scroll { border:0; border-radius:0 0 8px 8px; }
     .hi-editor .code-scroll .code-gutter { flex: 0 0 auto; text-align: right; padding: 1rem 0.5rem; user-select: none; color: color-mix(in srgb, var(--code-text) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--code-text) 12%, transparent); margin-right: 0; background: var(--code-bg); position: sticky; left: 0; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size: 12px; line-height: 20px; font-weight: 400; font-variant-ligatures: none; font-variant-numeric: tabular-nums; letter-spacing: 0; }
     .hi-editor .code-scroll .code-gutter span { display: block; line-height: inherit; font-variant-numeric: tabular-nums; }
     .hi-editor .code-scroll .code-gutter span.is-wrap-continued { color: color-mix(in srgb, var(--code-text) 38%, transparent); }
@@ -1807,11 +1828,12 @@
                 <span class="current-file" id="currentFile" aria-live="polite"></span>
               </div>
               <div class="right-actions">
-                <div class="view-toggle" aria-label="View switch" data-i18n-aria-label="editor.toolbar.viewAria">
+                <div class="view-toggle" aria-label="View switch" data-view="edit" data-i18n-aria-label="editor.toolbar.viewAria">
                   <span class="vt-label" data-i18n="editor.toolbar.view">View:</span>
-                  <a href="#" class="vt-btn active" data-view="edit" data-i18n="editor.toolbar.viewEdit">Editor</a>
+                  <span class="vt-slider" aria-hidden="true"></span>
+                  <a href="#" class="vt-btn active" data-view="edit" aria-label="Editor" data-i18n-aria-label="editor.toolbar.viewEdit"><span class="vt-code-icon" aria-hidden="true">&lt;/&gt;</span><span class="vt-text" data-i18n="editor.toolbar.viewEdit">Editor</span></a>
                   <span class="dim" aria-hidden="true">/</span>
-                  <a href="#" class="vt-btn" data-view="preview" data-i18n="editor.toolbar.viewPreview">Preview</a>
+                  <a href="#" class="vt-btn" data-view="preview" aria-label="Preview" data-i18n-aria-label="editor.toolbar.viewPreview"><svg class="vt-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg><span class="vt-text" data-i18n="editor.toolbar.viewPreview">Preview</span></a>
                 </div>
                 <button type="button" class="btn-secondary" id="btnSaveMarkdown" disabled>
                   <span class="btn-label" data-i18n="editor.toolbar.save">Save</span>
@@ -1824,34 +1846,37 @@
 
         <div class="editor-workspace" id="editorWorkspace">
           <div class="editor-canvas">
-            <div class="editor-tools" id="editorToolbar" aria-label="Editor tools" data-i18n-aria-label="editor.editorTools.aria">
-              <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts" data-i18n-aria-label="editor.editorTools.formatGroupAria">
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled data-i18n="editor.editorTools.bold" data-i18n-title="editor.editorTools.bold" data-i18n-aria-label="editor.editorTools.bold">Bold</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled data-i18n="editor.editorTools.italic" data-i18n-title="editor.editorTools.italic" data-i18n-aria-label="editor.editorTools.italic">Italic</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled data-i18n="editor.editorTools.strike" data-i18n-title="editor.editorTools.strike" data-i18n-aria-label="editor.editorTools.strike">Strike</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled data-i18n="editor.editorTools.heading" data-i18n-title="editor.editorTools.heading" data-i18n-aria-label="editor.editorTools.heading">Heading</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled data-i18n="editor.editorTools.quote" data-i18n-title="editor.editorTools.quote" data-i18n-aria-label="editor.editorTools.quote">Quote</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled data-i18n="editor.editorTools.code" data-i18n-title="editor.editorTools.code" data-i18n-aria-label="editor.editorTools.code">Code</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled data-i18n="editor.editorTools.codeBlock" data-i18n-title="editor.editorTools.codeBlock" data-i18n-aria-label="editor.editorTools.codeBlock">Code Block</button>
-              </div>
-              <div class="editor-tools-right">
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false" data-i18n="editor.editorTools.articleCard" data-i18n-title="editor.editorTools.insertCardTitle">Article Card</button>
-                <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnInsertImage">
-                  <span class="btn-label" data-i18n="editor.editorTools.insertImage">Insert Image</span>
-                </button>
-                <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
-              </div>
-              <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card" data-i18n-aria-label="editor.editorTools.cardDialogAria">
-                <div class="card-picker-search">
-                  <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles" data-i18n-placeholder="editor.editorTools.cardSearch" data-i18n-aria-label="editor.editorTools.cardSearch">
+            <div class="markdown-editor-shell" id="markdownEditorShell">
+              <div class="editor-tools" id="editorToolbar" aria-label="Editor tools" data-i18n-aria-label="editor.editorTools.aria">
+                <div class="editor-tools-left" role="group" aria-label="Formatting shortcuts" data-i18n-aria-label="editor.editorTools.formatGroupAria">
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtBold" title="Bold" aria-label="Bold" disabled data-i18n-title="editor.editorTools.bold" data-i18n-aria-label="editor.editorTools.bold"><span class="editor-tool-icon editor-tool-icon-bold" aria-hidden="true">B</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtItalic" title="Italic" aria-label="Italic" disabled data-i18n-title="editor.editorTools.italic" data-i18n-aria-label="editor.editorTools.italic"><span class="editor-tool-icon editor-tool-icon-italic" aria-hidden="true">I</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtStrike" title="Strikethrough" aria-label="Strikethrough" disabled data-i18n-title="editor.editorTools.strike" data-i18n-aria-label="editor.editorTools.strike"><span class="editor-tool-icon editor-tool-icon-strike" aria-hidden="true">S</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtHeading" title="Heading" aria-label="Heading" disabled data-i18n-title="editor.editorTools.heading" data-i18n-aria-label="editor.editorTools.heading"><span class="editor-tool-icon editor-tool-icon-heading" aria-hidden="true">H<sub>2</sub></span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtQuote" title="Quote" aria-label="Quote" disabled data-i18n-title="editor.editorTools.quote" data-i18n-aria-label="editor.editorTools.quote"><span class="editor-tool-icon" aria-hidden="true">"</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCode" title="Inline code" aria-label="Inline code" disabled data-i18n-title="editor.editorTools.code" data-i18n-aria-label="editor.editorTools.code"><span class="editor-tool-icon editor-tool-icon-code" aria-hidden="true">&lt;/&gt;</span></button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn" id="btnFmtCodeBlock" title="Code block" aria-label="Code block" disabled data-i18n-title="editor.editorTools.codeBlock" data-i18n-aria-label="editor.editorTools.codeBlock"><span class="editor-tool-icon editor-tool-icon-codeblock" aria-hidden="true">[ ]</span></button>
                 </div>
-                <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
-                <div class="card-picker-empty" id="cardPickerEmpty" hidden data-i18n="editor.editorTools.cardEmpty">No matching articles</div>
+                <div class="editor-tools-right">
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn editor-tool-btn-insert" id="btnInsertCard" title="Insert article card" aria-haspopup="dialog" aria-expanded="false" data-i18n="editor.editorTools.articleCard" data-i18n-title="editor.editorTools.insertCardTitle">Article Card</button>
+                  <button type="button" class="btn-secondary btn-compact editor-tool-btn editor-tool-btn-insert" id="btnInsertImage">
+                    <span class="btn-label" aria-hidden="true">+</span>
+                    <span class="btn-label" data-i18n="editor.editorTools.insertImageShort">Image</span>
+                  </button>
+                  <input type="file" id="editorImageInput" accept="image/*" multiple hidden>
+                </div>
+                <div class="editor-card-popover" id="editorCardPicker" hidden aria-hidden="true" role="dialog" aria-label="Insert article card" data-i18n-aria-label="editor.editorTools.cardDialogAria">
+                  <div class="card-picker-search">
+                    <input type="search" id="cardPickerSearch" placeholder="Search articles…" aria-label="Search articles" data-i18n-placeholder="editor.editorTools.cardSearch" data-i18n-aria-label="editor.editorTools.cardSearch">
+                  </div>
+                  <div class="card-picker-list" id="cardPickerList" role="listbox"></div>
+                  <div class="card-picker-empty" id="cardPickerEmpty" hidden data-i18n="editor.editorTools.cardEmpty">No matching articles</div>
+                </div>
               </div>
-            </div>
 
-            <div id="editor-wrap">
-              <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source" data-i18n-placeholder="editor.editorPlaceholder" data-i18n-aria-label="editor.editorTextareaAria"></textarea>
+              <div id="editor-wrap">
+                <textarea id="mdInput" placeholder="# Hello NanoSite\n\nStart typing Markdown…" aria-label="Markdown source" data-i18n-placeholder="editor.editorPlaceholder" data-i18n-aria-label="editor.editorTextareaAria"></textarea>
+              </div>
             </div>
 
             <div id="preview-wrap" style="display:none;">
@@ -2037,9 +2062,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-tabs-meta-20260501a"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-tabs-meta-20260501a"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-tabs-meta-20260501a"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-compact-toolbar-20260503c"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-compact-toolbar-20260503c"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-compact-toolbar-20260503c"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

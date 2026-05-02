@@ -651,17 +651,32 @@ function $(sel) { return document.querySelector(sel); }
 function switchView(mode) {
   const editorWrap = $('#editor-wrap');
   const previewWrap = $('#preview-wrap');
+  const editorShell = $('#markdownEditorShell');
+  const editorToolbar = $('#editorToolbar');
+  const viewToggle = document.querySelector('.view-toggle');
   const btnEdit = document.querySelector('.vt-btn[data-view="edit"]');
   const btnPreview = document.querySelector('.vt-btn[data-view="preview"]');
   if (!editorWrap || !previewWrap) return;
   if (mode === 'preview') {
     editorWrap.style.display = 'none';
+    if (editorShell) editorShell.style.display = 'none';
     previewWrap.style.display = '';
+    if (editorToolbar) {
+      editorToolbar.hidden = true;
+      editorToolbar.setAttribute('aria-hidden', 'true');
+    }
+    viewToggle && (viewToggle.dataset.view = 'preview');
     btnEdit && btnEdit.classList.remove('active');
     btnPreview && btnPreview.classList.add('active');
   } else {
     previewWrap.style.display = 'none';
+    if (editorShell) editorShell.style.display = '';
     editorWrap.style.display = '';
+    if (editorToolbar) {
+      editorToolbar.hidden = false;
+      editorToolbar.removeAttribute('aria-hidden');
+    }
+    viewToggle && (viewToggle.dataset.view = 'edit');
     btnPreview && btnPreview.classList.remove('active');
     btnEdit && btnEdit.classList.add('active');
   }
@@ -2481,15 +2496,9 @@ document.addEventListener('DOMContentLoaded', () => {
     crumbs.forEach((item, index) => {
       if (index > 0) html.push('<span class="cf-breadcrumb-separator" aria-hidden="true">/</span>');
       const label = escapeHtml(item.label || '');
-      const nodeId = item.nodeId ? escapeHtml(item.nodeId) : '';
-      const path = item.path ? escapeHtml(item.path) : '';
       const currentClass = index === crumbs.length - 1 ? ' cf-breadcrumb-item-current' : '';
-      if (nodeId) {
-        const ariaCurrent = index === crumbs.length - 1 ? ' aria-current="page"' : '';
-        html.push(`<a href="#" class="cf-breadcrumb-item${currentClass}" data-current-file-node-id="${nodeId}" data-current-file-path="${path}"${ariaCurrent}>${label}</a>`);
-      } else {
-        html.push(`<span class="cf-breadcrumb-item cf-breadcrumb-item-static${currentClass}">${label}</span>`);
-      }
+      const ariaCurrent = index === crumbs.length - 1 ? ' aria-current="page"' : '';
+      html.push(`<span class="cf-breadcrumb-item cf-breadcrumb-item-static${currentClass}"${ariaCurrent}>${label}</span>`);
     });
     return `<span class="cf-breadcrumb" aria-label="Current file location">${html.join('')}</span>`;
   };
@@ -2535,7 +2544,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const dirty = !!currentFileInfo.dirty;
     const draft = currentFileInfo.draft;
     const draftState = currentFileInfo.draftState || '';
-    const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     const mainPieces = [];
     const breadcrumbLabel = (currentFileInfo.breadcrumb || [])
@@ -2543,10 +2551,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean)
       .join('/');
     mainPieces.push(renderCurrentFileBreadcrumb(currentFileInfo.breadcrumb, path));
-    if (statusLabel) {
-      mainPieces.push('<span aria-hidden="true">—</span>');
-      mainPieces.push(`<span class="cf-status">${escapeHtml(statusLabel)}</span>`);
-    }
     const mainHtml = `<span class="cf-line-main">${mainPieces.join(' ')}</span>`;
 
     const metaPieces = [];

@@ -807,8 +807,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.current-file \.cf-breadcrumb \{[\s\S]*gap:\.35rem;[\s\S]*\.current-file \.cf-breadcrumb-item \{[\s\S]*color:#0969da;[\s\S]*\.current-file \.cf-breadcrumb-item-current \{[\s\S]*background:#eaeef2;/,
-  'current file indicator should use the same lightweight text-toggle styling as the view toggle'
+  /\.current-file \.cf-breadcrumb \{[\s\S]*gap:\.35rem;[\s\S]*\.current-file \.cf-breadcrumb-separator \{[\s\S]*margin:0 -\.35rem;[\s\S]*\.current-file \.cf-breadcrumb-item \{[\s\S]*color:#57606a;[\s\S]*\.current-file \.cf-breadcrumb-item-current \{[\s\S]*background:transparent;[\s\S]*color:var\(--text\);/,
+  'current file indicator should render static gray breadcrumbs with a darker current item'
 );
 
 assert.doesNotMatch(
@@ -817,16 +817,16 @@ assert.doesNotMatch(
   'current file breadcrumb should not use native buttons that inherit the bordered toolbar style'
 );
 
-assert.match(
+assert.doesNotMatch(
   editorMainSource,
   /<a href="#" class="cf-breadcrumb-item\$\{currentClass\}"[\s\S]*data-current-file-node-id=/,
-  'current file breadcrumb should render clickable text links instead of bordered buttons'
+  'current file breadcrumb should no longer render clickable links'
 );
 
 assert.match(
   editorMainSource,
-  /const normalizeCurrentFileBreadcrumb = \(value, fallbackPath = ''\) => \{[\s\S]*const renderCurrentFileBreadcrumb = \(items, fullPath\) => \{[\s\S]*data-current-file-node-id=[\s\S]*ns-editor-current-file-breadcrumb-select/,
-  'current file indicator should normalize and emit clickable breadcrumb entries'
+  /const normalizeCurrentFileBreadcrumb = \(value, fallbackPath = ''\) => \{[\s\S]*const renderCurrentFileBreadcrumb = \(items, fullPath\) => \{[\s\S]*<span class="cf-breadcrumb-item cf-breadcrumb-item-static\$\{currentClass\}"\$\{ariaCurrent\}>/,
+  'current file indicator should normalize and emit static breadcrumb entries'
 );
 
 assert.match(

@@ -338,6 +338,7 @@ const translations = {
         articleCard: '文章卡片',
         insertCardTitle: '插入文章卡片',
         insertImage: '插入图片',
+        insertImageShort: '图片',
         cardDialogAria: '插入文章卡片',
         cardSearch: '搜索文章…',
         cardEmpty: '没有匹配的文章',

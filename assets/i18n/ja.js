@@ -338,6 +338,7 @@ const translations = {
         articleCard: '記事カード',
         insertCardTitle: '記事カードを挿入',
         insertImage: '画像を挿入',
+        insertImageShort: '画像',
         cardDialogAria: '記事カードを挿入',
         cardSearch: '記事を検索…',
         cardEmpty: '該当する記事はありません',
