@@ -158,6 +158,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /function getEditableCaretTextOffset\(el\) \{[\s\S]*beforeRange\.toString\(\)[\s\S]*function placeCaretAtVisualLine\(el, x, edge, fallbackOffset = 0\) \{[\s\S]*edge === 'last' \? lineRects\[lineRects\.length - 1\] : lineRects\[0\][\s\S]*event\.key === 'ArrowUp' \|\| event\.key === 'ArrowDown'[\s\S]*const nextIndex = event\.key === 'ArrowUp' \? itemIndex - 1 : itemIndex \+ 1;[\s\S]*if \(!isEditableCaretOnEdgeLine\(span, event\.key === 'ArrowUp' \? 'up' : 'down'\)\) return;[\s\S]*placeCaretAtVisualLine\(target, caretRect \? caretRect\.left : 0, event\.key === 'ArrowUp' \? 'last' : 'first', caretOffset\);/,
+  'ArrowUp and ArrowDown should cross items only from edge lines and enter multiline targets from the correct visual edge'
+);
+
+assert.match(
+  editorBlocksSource,
   /activeIndex: -1[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.activeIndex = -1;/,
   'blocks mode should start with no selected block so controls are not shown by default'
 );
