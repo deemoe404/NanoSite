@@ -1874,6 +1874,18 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return select;
   };
 
+  const createCodeLanguageInput = (block) => {
+    const lang = document.createElement('input');
+    lang.className = 'blocks-code-language';
+    lang.type = 'text';
+    lang.value = block.data.lang || '';
+    lang.placeholder = text('codeLanguage', 'Language');
+    lang.title = text('codeLanguage', 'Language');
+    lang.setAttribute('aria-label', text('codeLanguage', 'Language'));
+    lang.addEventListener('input', () => updateFromControl(block, { lang: inputValue(lang) }));
+    return lang;
+  };
+
   const renderListBlock = (body, block, index) => {
     const items = Array.isArray(block.data.items) && block.data.items.length
       ? block.data.items
@@ -1980,15 +1992,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const renderCodeBlock = (body, block, index) => {
-    const controls = document.createElement('div');
-    controls.className = 'blocks-inspector blocks-code-inspector';
-    const lang = document.createElement('input');
-    lang.type = 'text';
-    lang.value = block.data.lang || '';
-    lang.placeholder = text('codeLanguage', 'Language');
-    lang.addEventListener('input', () => updateFromControl(block, { lang: inputValue(lang) }));
-    controls.appendChild(lang);
-
     const pre = document.createElement('pre');
     pre.className = 'blocks-code-preview';
     const code = document.createElement('code');
@@ -1999,7 +2002,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     code.addEventListener('input', sync);
     code.addEventListener('focus', () => setActive(index, code, sync));
     pre.appendChild(code);
-    body.append(controls, pre);
+    body.appendChild(pre);
   };
 
   const renderCardBlock = (body, block) => {
@@ -2125,6 +2128,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
       if (block.type === 'list') {
         head.appendChild(createListTypeSelect(block));
+      }
+      if (block.type === 'code') {
+        head.appendChild(createCodeLanguageInput(block));
       }
       if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
         head.appendChild(createInlineControls(index));

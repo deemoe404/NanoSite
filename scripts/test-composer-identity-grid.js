@@ -236,6 +236,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const createCodeLanguageInput = \(block\) => \{[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
+  'code block language control should live in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-code-inspector/,
+  'code block language control should not render as a body inspector'
+);
+
+assert.match(
+  editorBlocksSource,
   /preview\.innerHTML = `<a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);/,
   'article-card blocks should render through the card hydration path'
 );
@@ -316,6 +328,12 @@ assert.match(
   editorSource,
   /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-58%,0\) scale\(1\); \}/,
   'block controls should appear only for the active block'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; \}/,
+  'code block language input should use compact floating-toolbar styling'
 );
 
 assert.doesNotMatch(
