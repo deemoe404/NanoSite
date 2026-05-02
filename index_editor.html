@@ -1271,7 +1271,7 @@
     .blocks-inspector input, .blocks-inspector select, .blocks-heading-level, .blocks-textarea, .blocks-block input, .blocks-block select, .blocks-card-search { box-sizing:border-box; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:7px; background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); font:inherit; line-height:1.45; padding:.5rem .6rem; }
     .blocks-inspector input { min-width:min(18rem, 100%); flex:1 1 12rem; }
     .blocks-rich-editable { outline:none; min-height:1.8rem; line-height:1.65; border-radius:6px; padding:.2rem .25rem; }
-    .blocks-rich-editable:focus, .blocks-textarea:focus, .blocks-block input:focus, .blocks-block select:focus, .blocks-card-search:focus, .blocks-code-preview code:focus { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); }
+    .blocks-rich-editable:focus, .blocks-textarea:focus, .blocks-block input:focus, .blocks-block select:focus, .blocks-card-search:focus { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); }
     .blocks-rich-editable a { color:var(--primary); text-decoration:underline; cursor:text; }
     .blocks-paragraph-text { margin:0; font-size:1rem; }
     .blocks-paragraph-text:focus { outline:none; box-shadow:none; }
@@ -1300,6 +1300,7 @@
     .blocks-visual-list-task .blocks-list-text { grid-column:2; display:block; }
     .blocks-code-preview { margin:0; padding:.85rem; border-radius:8px; overflow:auto; background:color-mix(in srgb, var(--code-bg) 88%, #020617); border:1px solid color-mix(in srgb, var(--border) 80%, transparent); color:var(--text); }
     .blocks-code-preview code { display:block; min-height:4.5rem; outline:none; white-space:pre; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; line-height:1.55; }
+    .blocks-code-preview code:focus { outline:none; box-shadow:none; border-color:inherit; }
     .blocks-card-preview .link-card-wrap { margin:.1rem 0; }
     .blocks-card-preview .link-card { display:block; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:8px; color:var(--text); background:var(--card); text-decoration:none; overflow:hidden; box-shadow:0 1px 3px rgba(15,23,42,.08); }
     .blocks-card-preview .card-cover-wrap { position:relative; width:100%; aspect-ratio:16 / 9; overflow:hidden; background:color-mix(in srgb, var(--text) 5%, transparent); }

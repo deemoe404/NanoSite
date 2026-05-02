@@ -336,6 +336,18 @@ assert.match(
   'code block language input should use compact floating-toolbar styling'
 );
 
+assert.match(
+  editorSource,
+  /\.blocks-code-preview code:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
+  'focused code block editor should not draw an inner highlight border'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-rich-editable:focus,[^{]*\.blocks-code-preview code:focus[^{]*\{ outline:2px solid/,
+  'code block editor focus should not share the generic blue focus outline rule'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.blocks-block:focus-within \.blocks-block-head/,
