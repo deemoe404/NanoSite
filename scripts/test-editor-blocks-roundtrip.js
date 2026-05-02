@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
 
 import {
+  applyInlineLinkToRuns,
+  insertInlineRunsAtRange,
+  parseInlineRuns,
   parseMarkdownBlocks,
-  serializeMarkdownBlocks
+  serializeInlineRuns,
+  serializeMarkdownBlocks,
+  toggleInlineMarkOnRuns
 } from '../assets/js/editor-blocks.js';
 
 const run = (name, fn) => {
@@ -149,4 +154,47 @@ run('front matter is stripped before block parsing', () => {
   assert.equal(blocks[0].type, 'paragraph');
   assert.equal(blocks[0].data.text, 'Body paragraph.');
   assert.equal(serializeMarkdownBlocks(blocks), 'Body paragraph.\n');
+});
+
+run('inline runs serialize nested supported marks canonically', () => {
+  assert.equal(
+    serializeInlineRuns(parseInlineRuns('plain **bold** *italic* ~~strike~~ `code` [link](https://example.com)')),
+    'plain **bold** _italic_ ~~strike~~ `code` [link](https://example.com)'
+  );
+  assert.equal(
+    serializeInlineRuns(parseInlineRuns('**_both_**')),
+    '**_both_**'
+  );
+});
+
+run('inline selection toggles marks across mixed runs without flattening', () => {
+  const runs = parseInlineRuns('aa **bb** cc');
+  const next = toggleInlineMarkOnRuns(runs, 1, 7, 'italic');
+  assert.equal(serializeInlineRuns(next), 'a_a _**_bb_**_ c_c');
+});
+
+run('inline partial selection toggles marks off only inside the range', () => {
+  const runs = parseInlineRuns('**abcdef**');
+  const next = toggleInlineMarkOnRuns(runs, 2, 4, 'bold');
+  assert.equal(serializeInlineRuns(next), '**ab**cd**ef**');
+});
+
+run('inline code is exclusive over selected text', () => {
+  const runs = parseInlineRuns('a **[bold link](https://example.com)** z');
+  const next = toggleInlineMarkOnRuns(runs, 2, 11, 'code');
+  assert.equal(serializeInlineRuns(next), 'a `bold link` z');
+});
+
+run('inline link can be applied, replaced, and removed without losing safe marks', () => {
+  const linked = applyInlineLinkToRuns(parseInlineRuns('see **docs** now'), 4, 8, 'https://example.com');
+  assert.equal(serializeInlineRuns(linked), 'see [**docs**](https://example.com) now');
+  const replaced = applyInlineLinkToRuns(linked, 4, 8, 'https://example.org', 'guide');
+  assert.equal(serializeInlineRuns(replaced), 'see [**guide**](https://example.org) now');
+  const unlinked = applyInlineLinkToRuns(replaced, 4, 9, '');
+  assert.equal(serializeInlineRuns(unlinked), 'see **guide** now');
+});
+
+run('inline pending mark insertion uses selected mark set', () => {
+  const next = insertInlineRunsAtRange(parseInlineRuns('ab'), 1, 1, [{ text: 'X', bold: true, italic: true }]);
+  assert.equal(serializeInlineRuns(next), 'a**_X_**b');
 });

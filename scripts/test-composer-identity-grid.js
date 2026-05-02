@@ -86,8 +86,26 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const inlineToolbar = document\.createElement\('div'\);[\s\S]*inlineToolbar\.className = 'blocks-inline-toolbar'[\s\S]*applyInlineCommand/,
-  'blocks mode should expose its own inline formatting toolbar'
+  /const createInlineControls = \(index\) => \{[\s\S]*controls\.className = 'blocks-inline-controls'[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*applyInlineCommand\(command\)/,
+  'blocks mode should create inline formatting controls inside floating block toolbars'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-inline-toolbar|execCommand/,
+  'blocks mode should not use a standalone inline toolbar or document execCommand'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(block\.type === 'paragraph' \|\| block\.type === 'quote' \|\| block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createInlineControls\(index\)\);[\s\S]*\}/,
+  'paragraph, quote, and list blocks should receive inline controls in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /block\.type === 'heading'[\s\S]{0,160}createInlineControls/,
+  'heading block toolbar should not receive inline formatting controls'
 );
 
 assert.match(
@@ -98,7 +116,7 @@ assert.match(
 
 assert.doesNotMatch(
   editorBlocksSource,
-  /inlineToolbar\.appendChild\(linkEditor\)/,
+  /inlineToolbar\.appendChild\(linkEditor\)|blocks-inline-toolbar/,
   'inline link editor should not be placed inside the sticky inline toolbar'
 );
 
@@ -214,6 +232,18 @@ assert.match(
   editorSource,
   /\.blocks-block\.is-active \.blocks-block-head, \.blocks-block:focus-within \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-58%,0\) scale\(1\); \}/,
   'block controls should appear only for the active or focused block'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-inline-btn\.is-active, \.blocks-inline-btn\[aria-pressed="true"\][\s\S]*\.blocks-inline-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}/,
+  'inline formatting controls should be styled as active-state controls inside floating block heads'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-inline-toolbar/,
+  'blocks inline formatting should not keep a sticky standalone toolbar style'
 );
 
 assert.match(

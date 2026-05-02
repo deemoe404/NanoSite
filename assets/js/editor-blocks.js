@@ -291,72 +291,226 @@ function escapeHtml(value) {
   })[ch]);
 }
 
-function renderInlineMarkdown(text) {
-  const input = String(text || '');
-  let out = '';
-  let index = 0;
-  const emit = (value) => { out += escapeHtml(value); };
+function inlineRun(text, marks = {}) {
+  const run = {
+    text: String(text == null ? '' : text),
+    bold: !!marks.bold,
+    italic: !!marks.italic,
+    strike: !!marks.strike,
+    code: !!marks.code,
+    link: marks.link ? String(marks.link) : ''
+  };
+  if (run.code) {
+    run.bold = false;
+    run.italic = false;
+    run.strike = false;
+    run.link = '';
+  }
+  return run;
+}
 
-  while (index < input.length) {
-    const rest = input.slice(index);
-    const link = rest.match(/^\[([^\]\n]+)\]\(([^)\s\n]+)\)/);
-    if (link) {
-      out += `<a href="${escapeHtml(link[2])}">${escapeHtml(link[1])}</a>`;
-      index += link[0].length;
+function sameInlineMarks(a = {}, b = {}) {
+  return !!a.bold === !!b.bold
+    && !!a.italic === !!b.italic
+    && !!a.strike === !!b.strike
+    && !!a.code === !!b.code
+    && String(a.link || '') === String(b.link || '');
+}
+
+function appendInlineRun(runs, text, marks = {}) {
+  const run = inlineRun(text, marks);
+  if (!run.text) return runs;
+  const previous = runs[runs.length - 1];
+  if (previous && sameInlineMarks(previous, run)) {
+    previous.text += run.text;
+  } else {
+    runs.push(run);
+  }
+  return runs;
+}
+
+function mergeInlineRuns(runs) {
+  return (Array.isArray(runs) ? runs : []).reduce((out, run) => {
+    appendInlineRun(out, run && run.text, run || {});
+    return out;
+  }, []);
+}
+
+function findUnescaped(input, needle, start = 0) {
+  const text = String(input || '');
+  let index = Math.max(0, Number(start) || 0);
+  while (index < text.length) {
+    const found = text.indexOf(needle, index);
+    if (found < 0) return -1;
+    let slashCount = 0;
+    for (let cursor = found - 1; cursor >= 0 && text[cursor] === '\\'; cursor -= 1) slashCount += 1;
+    if (slashCount % 2 === 0) return found;
+    index = found + needle.length;
+  }
+  return -1;
+}
+
+function findInlineLink(input, start) {
+  const text = String(input || '');
+  if (text[start] !== '[') return null;
+  const labelEnd = findUnescaped(text, ']', start + 1);
+  if (labelEnd < 0 || text[labelEnd + 1] !== '(') return null;
+  const hrefStart = labelEnd + 2;
+  const hrefEnd = findUnescaped(text, ')', hrefStart);
+  if (hrefEnd <= hrefStart) return null;
+  const href = text.slice(hrefStart, hrefEnd).trim();
+  if (!href || /\s/.test(href)) return null;
+  return {
+    label: text.slice(start + 1, labelEnd),
+    href,
+    end: hrefEnd + 1
+  };
+}
+
+function parseInlineRunsInternal(input, marks = {}) {
+  const text = String(input || '');
+  const runs = [];
+  let index = 0;
+
+  while (index < text.length) {
+    if (text[index] === '\\' && index + 1 < text.length) {
+      appendInlineRun(runs, text[index + 1], marks);
+      index += 2;
       continue;
     }
+
+    const link = findInlineLink(text, index);
+    if (link) {
+      parseInlineRunsInternal(link.label, { ...marks, link: link.href }).forEach(run => appendInlineRun(runs, run.text, run));
+      index = link.end;
+      continue;
+    }
+
+    if (text[index] === '`') {
+      const end = findUnescaped(text, '`', index + 1);
+      if (end > index + 1) {
+        appendInlineRun(runs, text.slice(index + 1, end), { code: true });
+        index = end + 1;
+        continue;
+      }
+    }
+
     const patterns = [
-      ['**', '**', 'strong'],
-      ['~~', '~~', 's'],
-      ['`', '`', 'code'],
-      ['*', '*', 'em']
+      ['**', { bold: true }],
+      ['~~', { strike: true }],
+      ['_', { italic: true }],
+      ['*', { italic: true }]
     ];
     let matched = false;
-    for (const [open, close, tag] of patterns) {
-      if (!rest.startsWith(open)) continue;
-      const end = input.indexOf(close, index + open.length);
-      if (end <= index + open.length) continue;
-      const body = input.slice(index + open.length, end);
-      out += `<${tag}>${escapeHtml(body)}</${tag}>`;
-      index = end + close.length;
+    for (const [marker, patch] of patterns) {
+      if (!text.startsWith(marker, index)) continue;
+      const end = findUnescaped(text, marker, index + marker.length);
+      if (end <= index + marker.length) continue;
+      const body = text.slice(index + marker.length, end);
+      parseInlineRunsInternal(body, { ...marks, ...patch }).forEach(run => appendInlineRun(runs, run.text, run));
+      index = end + marker.length;
       matched = true;
       break;
     }
     if (matched) continue;
-    emit(input[index]);
+
+    appendInlineRun(runs, text[index], marks);
     index += 1;
   }
+
+  return mergeInlineRuns(runs);
+}
+
+export function parseInlineRuns(markdown) {
+  return parseInlineRunsInternal(String(markdown || ''), {});
+}
+
+function escapeMarkdownLinkHref(value) {
+  return String(value == null ? '' : value).trim().replace(/\)/g, '%29').replace(/\s+/g, '%20');
+}
+
+function serializeInlineRun(run) {
+  const text = String(run && run.text != null ? run.text : '');
+  if (!text) return '';
+  if (run && run.code) return `\`${text.replace(/`/g, '\\`')}\``;
+  let out = escapeMarkdownInline(text);
+  if (run && run.italic) out = `_${out}_`;
+  if (run && run.bold) out = `**${out}**`;
+  if (run && run.strike) out = `~~${out}~~`;
+  if (run && run.link) out = `[${out}](${escapeMarkdownLinkHref(run.link)})`;
   return out;
 }
 
-function serializeInlineDom(root) {
-  const walk = (node) => {
-    if (!node) return '';
-    if (node.nodeType === 3) return escapeMarkdownInline(node.nodeValue || '');
-    if (node.nodeType !== 1) return '';
-    const tag = String(node.tagName || '').toLowerCase();
-    if (tag === 'br') return '\n';
-    const inner = Array.from(node.childNodes || []).map(walk).join('');
-    if (tag === 'strong' || tag === 'b') return `**${inner}**`;
-    if (tag === 'em' || tag === 'i') return `*${inner}*`;
-    if (tag === 's' || tag === 'del' || tag === 'strike') return `~~${inner}~~`;
-    if (tag === 'code') return `\`${inner.replace(/`/g, '\\`')}\``;
-    if (tag === 'a') {
-      const href = node.getAttribute('href') || '';
-      return `[${inner}](${href})`;
-    }
-    if (tag === 'div' || tag === 'p') {
-      const suffix = tag === 'div' ? '\n' : '';
-      return `${inner}${suffix}`;
-    }
-    return inner;
+export function serializeInlineRuns(runs) {
+  return mergeInlineRuns(runs).map(serializeInlineRun).join('');
+}
+
+function appendInlineNode(parent, run) {
+  const textNode = document.createTextNode(String(run && run.text != null ? run.text : ''));
+  let node = textNode;
+  const wrap = (tagName, attrs = {}) => {
+    const el = document.createElement(tagName);
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+    el.appendChild(node);
+    node = el;
   };
-  return Array.from(root.childNodes || []).map(walk).join('').replace(/\n$/, '');
+  if (run && run.code) {
+    wrap('code');
+  } else {
+    if (run && run.italic) wrap('em');
+    if (run && run.bold) wrap('strong');
+    if (run && run.strike) wrap('s');
+    if (run && run.link) wrap('a', { href: run.link });
+  }
+  parent.appendChild(node);
+}
+
+function renderInlineRunsInto(root, runs) {
+  if (!root) return;
+  root.innerHTML = '';
+  mergeInlineRuns(runs).forEach(run => {
+    const lines = String(run.text || '').split('\n');
+    lines.forEach((line, index) => {
+      if (index > 0) root.appendChild(document.createElement('br'));
+      if (line) appendInlineNode(root, { ...run, text: line });
+    });
+  });
+}
+
+function inlineRunsFromDom(root) {
+  const runs = [];
+  const walk = (node, marks = {}) => {
+    if (!node) return;
+    if (node.nodeType === 3) {
+      appendInlineRun(runs, node.nodeValue || '', marks);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = String(node.tagName || '').toLowerCase();
+    if (tag === 'br') {
+      appendInlineRun(runs, '\n', marks);
+      return;
+    }
+    let nextMarks = { ...marks };
+    if (tag === 'strong' || tag === 'b') nextMarks.bold = true;
+    if (tag === 'em' || tag === 'i') nextMarks.italic = true;
+    if (tag === 's' || tag === 'del' || tag === 'strike') nextMarks.strike = true;
+    if (tag === 'code') nextMarks = { code: true };
+    if (tag === 'a' && !nextMarks.code) nextMarks.link = node.getAttribute('href') || '';
+    Array.from(node.childNodes || []).forEach(child => walk(child, nextMarks));
+    if (tag === 'div') appendInlineRun(runs, '\n', marks);
+  };
+  Array.from(root && root.childNodes ? root.childNodes : []).forEach(child => walk(child, {}));
+  return mergeInlineRuns(runs);
+}
+
+function serializeInlineDom(root) {
+  return serializeInlineRuns(inlineRunsFromDom(root));
 }
 
 function setPlainContentEditableValue(el, value) {
   if (!el) return;
-  el.innerHTML = renderInlineMarkdown(value);
+  renderInlineRunsInto(el, parseInlineRuns(value));
 }
 
 function button(label, className = 'blocks-btn') {
@@ -583,49 +737,171 @@ function selectionLinkInEditable(editable) {
   }
 }
 
-function getSelectionText() {
-  try {
-    const sel = window.getSelection && window.getSelection();
-    return sel ? String(sel.toString() || '') : '';
-  } catch (_) {
-    return '';
-  }
-}
-
 function escapeAttribute(value) {
   return escapeHtml(value).replace(/`/g, '&#096;');
 }
 
-function insertInlineHtml(html) {
-  try {
-    if (document.queryCommandSupported && document.queryCommandSupported('insertHTML')) {
-      document.execCommand('insertHTML', false, html);
-      return true;
+function inlineRunsTextLength(runs) {
+  return mergeInlineRuns(runs).reduce((total, run) => total + String(run.text || '').length, 0);
+}
+
+function inlineMarksAtOffset(runs, offset) {
+  const safeRuns = mergeInlineRuns(runs);
+  const target = Math.max(0, Number(offset) || 0);
+  let cursor = 0;
+  for (const run of safeRuns) {
+    const length = String(run.text || '').length;
+    if (!length) continue;
+    if (target === cursor || (target > cursor && target <= cursor + length)) return { ...run, text: '' };
+    cursor += length;
+  }
+  return { ...(safeRuns[safeRuns.length - 1] || {}), text: '' };
+}
+
+function inlineRangeText(runs, start, end) {
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart, Number(end) || 0);
+  let cursor = 0;
+  let out = '';
+  mergeInlineRuns(runs).forEach(run => {
+    const text = String(run.text || '');
+    const next = cursor + text.length;
+    if (next > safeStart && cursor < safeEnd) {
+      out += text.slice(Math.max(0, safeStart - cursor), Math.max(0, safeEnd - cursor));
     }
-  } catch (_) {}
+    cursor = next;
+  });
+  return out;
+}
+
+function rangeHasInlineText(runs, start, end) {
+  return inlineRangeText(runs, start, end).length > 0;
+}
+
+function mutateInlineRunsInRange(runs, start, end, mutator) {
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart, Number(end) || 0);
+  let cursor = 0;
+  const out = [];
+  mergeInlineRuns(runs).forEach(run => {
+    const text = String(run.text || '');
+    const next = cursor + text.length;
+    if (!text || next <= safeStart || cursor >= safeEnd) {
+      appendInlineRun(out, text, run);
+      cursor = next;
+      return;
+    }
+    const beforeEnd = Math.max(0, safeStart - cursor);
+    const selectedStart = Math.max(0, safeStart - cursor);
+    const selectedEnd = Math.min(text.length, safeEnd - cursor);
+    if (beforeEnd > 0) appendInlineRun(out, text.slice(0, beforeEnd), run);
+    if (selectedEnd > selectedStart) {
+      const selected = mutator({ ...run, text: text.slice(selectedStart, selectedEnd) });
+      appendInlineRun(out, selected.text, selected);
+    }
+    if (selectedEnd < text.length) appendInlineRun(out, text.slice(selectedEnd), run);
+    cursor = next;
+  });
+  return mergeInlineRuns(out);
+}
+
+function inlineRangeFullyMarked(runs, start, end, mark) {
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart, Number(end) || 0);
+  if (safeEnd <= safeStart) return false;
+  let cursor = 0;
+  let sawText = false;
+  for (const run of mergeInlineRuns(runs)) {
+    const text = String(run.text || '');
+    const next = cursor + text.length;
+    if (next > safeStart && cursor < safeEnd) {
+      sawText = true;
+      if (mark === 'link') {
+        if (!run.link) return false;
+      } else if (!run[mark]) {
+        return false;
+      }
+    }
+    cursor = next;
+  }
+  return sawText;
+}
+
+export function toggleInlineMarkOnRuns(runs, start, end, mark) {
+  const command = mark === 'strikeThrough' ? 'strike' : mark;
+  if (!['bold', 'italic', 'strike', 'code'].includes(command) || !rangeHasInlineText(runs, start, end)) {
+    return mergeInlineRuns(runs);
+  }
+  const shouldApply = !inlineRangeFullyMarked(runs, start, end, command);
+  return mutateInlineRunsInRange(runs, start, end, run => {
+    if (command === 'code') return shouldApply ? inlineRun(run.text, { code: true }) : inlineRun(run.text, {});
+    if (run.code) return run;
+    return inlineRun(run.text, { ...run, [command]: shouldApply });
+  });
+}
+
+export function insertInlineRunsAtRange(runs, start, end, insertRuns = []) {
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart, Number(end) || 0);
+  let cursor = 0;
+  let inserted = false;
+  const out = [];
+  mergeInlineRuns(runs).forEach(run => {
+    const text = String(run.text || '');
+    const next = cursor + text.length;
+    if (next <= safeStart || cursor >= safeEnd) {
+      if (!inserted && cursor >= safeEnd) {
+        mergeInlineRuns(insertRuns).forEach(insertRun => appendInlineRun(out, insertRun.text, insertRun));
+        inserted = true;
+      }
+      appendInlineRun(out, text, run);
+      cursor = next;
+      return;
+    }
+    if (cursor < safeStart) appendInlineRun(out, text.slice(0, safeStart - cursor), run);
+    if (!inserted) {
+      mergeInlineRuns(insertRuns).forEach(insertRun => appendInlineRun(out, insertRun.text, insertRun));
+      inserted = true;
+    }
+    if (next > safeEnd) appendInlineRun(out, text.slice(safeEnd - cursor), run);
+    cursor = next;
+  });
+  if (!inserted) mergeInlineRuns(insertRuns).forEach(insertRun => appendInlineRun(out, insertRun.text, insertRun));
+  return mergeInlineRuns(out);
+}
+
+export function applyInlineLinkToRuns(runs, start, end, href, replacementText = null) {
+  const safeHref = String(href || '').trim();
+  const safeStart = Math.max(0, Number(start) || 0);
+  const safeEnd = Math.max(safeStart, Number(end) || 0);
+  if (replacementText != null) {
+    const marks = inlineMarksAtOffset(runs, safeEnd > safeStart ? safeStart + 1 : safeStart);
+    const replacement = inlineRun(String(replacementText || ''), { ...marks, code: false, link: safeHref });
+    return insertInlineRunsAtRange(runs, safeStart, safeEnd, replacement.text ? [replacement] : []);
+  }
+  return mutateInlineRunsInRange(runs, safeStart, safeEnd, run => {
+    if (run.code) return run;
+    return inlineRun(run.text, { ...run, link: safeHref });
+  });
+}
+
+function getEditableSelectionOffsets(el) {
   try {
     const sel = window.getSelection && window.getSelection();
-    if (!sel || !sel.rangeCount) return false;
+    if (!el || !sel || !sel.rangeCount) return null;
     const range = sel.getRangeAt(0);
-    range.deleteContents();
-    const wrap = document.createElement('span');
-    wrap.innerHTML = html;
-    const frag = document.createDocumentFragment();
-    let last = null;
-    while (wrap.firstChild) {
-      last = wrap.firstChild;
-      frag.appendChild(last);
-    }
-    range.insertNode(frag);
-    if (last) {
-      range.setStartAfter(last);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-    return true;
+    if (!nodeContains(el, range.startContainer) || !nodeContains(el, range.endContainer)) return null;
+    const startRange = document.createRange();
+    startRange.selectNodeContents(el);
+    startRange.setEnd(range.startContainer, range.startOffset);
+    const endRange = document.createRange();
+    endRange.selectNodeContents(el);
+    endRange.setEnd(range.endContainer, range.endOffset);
+    const start = String(startRange.toString() || '').length;
+    const end = String(endRange.toString() || '').length;
+    return { start, end, collapsed: start === end, text: String(range.toString() || ''), range };
   } catch (_) {
-    return false;
+    return null;
   }
 }
 
@@ -640,6 +916,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     activeSync: null,
     activeLink: null,
     activeLinkHoldUntil: 0,
+    linkEditMode: '',
+    linkSelection: null,
+    pendingInline: {},
     pendingListFocus: null,
     cardEntries: [],
     cardPickerOpen: false
@@ -653,11 +932,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   toolbar.setAttribute('role', 'toolbar');
   toolbar.setAttribute('aria-label', text('toolbarAria', 'Block tools'));
 
-  const inlineToolbar = document.createElement('div');
-  inlineToolbar.className = 'blocks-inline-toolbar';
-  inlineToolbar.setAttribute('role', 'toolbar');
-  inlineToolbar.setAttribute('aria-label', text('inlineToolbarAria', 'Inline formatting'));
-
   const list = document.createElement('div');
   list.className = 'blocks-list';
   list.setAttribute('aria-label', text('listAria', 'Markdown blocks'));
@@ -667,7 +941,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   picker.hidden = true;
   picker.setAttribute('aria-hidden', 'true');
 
-  root.append(toolbar, inlineToolbar, picker, list);
+  root.append(toolbar, picker, list);
 
   const markDirty = (block) => {
     if (!block) return;
@@ -710,6 +984,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     } catch (_) {}
   };
 
+  const positionLinkEditorAtRect = (rect) => {
+    try {
+      if (!rect) return;
+      const rootRect = root.getBoundingClientRect();
+      const editorRect = linkEditor.getBoundingClientRect();
+      const gap = 6;
+      const minLeft = 0;
+      const maxLeft = Math.max(minLeft, rootRect.width - editorRect.width);
+      const nextLeft = Math.min(maxLeft, Math.max(minLeft, rect.left - rootRect.left));
+      linkEditor.style.left = `${nextLeft}px`;
+      linkEditor.style.top = `${rect.bottom - rootRect.top + gap}px`;
+    } catch (_) {}
+  };
+
   let refreshLinkEditor = () => {};
 
   const setActive = (index, editable = null, sync = null) => {
@@ -717,6 +1005,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const numericIndex = Number.isFinite(Number(index)) ? Number(index) : -1;
     state.activeIndex = maxIndex >= 0 ? Math.max(-1, Math.min(numericIndex, maxIndex)) : -1;
     if (editable) {
+      if (editable !== state.activeEditable) {
+        state.pendingInline = {};
+        state.linkEditMode = '';
+        state.linkSelection = null;
+      }
       state.activeEditable = editable;
       state.activeSync = sync;
     }
@@ -724,6 +1017,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       el.classList.toggle('is-active', idx === state.activeIndex);
     });
     refreshLinkEditor();
+    updateInlineToolbarState();
   };
 
   const getBaseDir = () => {
@@ -763,46 +1057,82 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return block;
   };
 
+  const inlineCommandMark = (kind) => (kind === 'strikeThrough' ? 'strike' : kind);
+  const hasPendingInlineMarks = () => !!(state.pendingInline.bold
+    || state.pendingInline.italic
+    || state.pendingInline.strike
+    || state.pendingInline.code
+    || state.pendingInline.link);
+  let updateInlineToolbarState = () => {};
+  let openLinkEditorForSelection = () => {};
+
+  const applyRunsToEditable = (editable, runs, caretOffset = null) => {
+    renderInlineRunsInto(editable, runs);
+    if (caretOffset != null) placeCaretAtTextOffset(editable, caretOffset);
+    syncActiveEditable();
+    updateInlineToolbarState();
+  };
+
+  const togglePendingInlineMark = (kind) => {
+    const mark = inlineCommandMark(kind);
+    if (mark === 'code') {
+      const active = !!state.pendingInline.code;
+      state.pendingInline = active ? {} : { code: true };
+    } else {
+      const active = !!state.pendingInline[mark];
+      state.pendingInline = { ...state.pendingInline, code: false, [mark]: !active };
+    }
+    updateInlineToolbarState();
+  };
+
   const applyInlineCommand = (kind) => {
     const editable = state.activeEditable;
     if (!editable || !nodeContains(root, editable)) return;
     try { editable.focus(); } catch (_) {}
-    if (kind === 'bold' || kind === 'italic' || kind === 'strikeThrough') {
-      try { document.execCommand(kind, false, null); } catch (_) {}
-      syncActiveEditable();
-      return;
-    }
-    const selected = getSelectionText();
-    if (!selected) return;
-    if (kind === 'code') {
-      insertInlineHtml(`<code>${escapeHtml(selected)}</code>`);
-      syncActiveEditable();
-      return;
-    }
     if (kind === 'link') {
-      let href = '';
-      try { href = window.prompt(text('linkPrompt', 'Link URL'), ''); } catch (_) {}
-      href = String(href || '').trim();
-      if (!href) return;
-      insertInlineHtml(`<a href="${escapeAttribute(href)}">${escapeHtml(selected)}</a>`);
-      syncActiveEditable();
+      openLinkEditorForSelection();
+      return;
     }
+    const offsets = getEditableSelectionOffsets(editable);
+    if (!offsets) return;
+    if (offsets.collapsed) {
+      togglePendingInlineMark(kind);
+      return;
+    }
+    state.pendingInline = {};
+    const runs = inlineRunsFromDom(editable);
+    const nextRuns = toggleInlineMarkOnRuns(runs, offsets.start, offsets.end, inlineCommandMark(kind));
+    applyRunsToEditable(editable, nextRuns, offsets.end);
   };
 
-  [
+  const inlineControls = [
     ['B', 'bold', 'inlineBold', 'Bold'],
     ['I', 'italic', 'inlineItalic', 'Italic'],
     ['S', 'strikeThrough', 'inlineStrike', 'Strikethrough'],
     ['`', 'code', 'inlineCode', 'Inline code'],
     ['Link', 'link', 'inlineLink', 'Link']
-  ].forEach(([label, command, key, fallback]) => {
-    const btn = button(label, 'blocks-inline-btn');
-    btn.title = text(key, fallback);
-    btn.setAttribute('aria-label', text(key, fallback));
-    btn.addEventListener('mousedown', (event) => event.preventDefault());
-    btn.addEventListener('click', () => applyInlineCommand(command));
-    inlineToolbar.appendChild(btn);
-  });
+  ];
+
+  const createInlineControls = (index) => {
+    const controls = document.createElement('div');
+    controls.className = 'blocks-inline-controls';
+    controls.setAttribute('role', 'toolbar');
+    controls.setAttribute('aria-label', text('inlineToolbarAria', 'Inline formatting'));
+    inlineControls.forEach(([label, command, key, fallback]) => {
+      const btn = button(label, 'blocks-inline-btn');
+      btn.dataset.inlineCommand = command;
+      btn.title = text(key, fallback);
+      btn.setAttribute('aria-label', text(key, fallback));
+      btn.setAttribute('aria-pressed', 'false');
+      btn.addEventListener('mousedown', (event) => event.preventDefault());
+      btn.addEventListener('click', () => {
+        setActive(index);
+        applyInlineCommand(command);
+      });
+      controls.appendChild(btn);
+    });
+    return controls;
+  };
 
   const linkEditor = document.createElement('div');
   linkEditor.className = 'blocks-link-editor';
@@ -824,17 +1154,68 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const linkEditorFocused = () => {
     try { return linkEditor.contains(document.activeElement); } catch (_) { return false; }
   };
+  const hideLinkEditor = () => {
+    state.activeLink = null;
+    state.linkEditMode = '';
+    state.linkSelection = null;
+    linkEditor.hidden = true;
+    linkEditor.setAttribute('aria-hidden', 'true');
+  };
+  const selectionAnchorRect = (editable, offsets) => {
+    try {
+      const rect = offsets && offsets.range && offsets.range.getBoundingClientRect && offsets.range.getBoundingClientRect();
+      if (rect && (rect.width || rect.height)) return rect;
+      return caretRectForEditable(editable);
+    } catch (_) {
+      return caretRectForEditable(editable);
+    }
+  };
   const applyLinkEditor = () => {
+    const href = inputValue(linkHref).trim();
+    if (state.linkEditMode === 'pending') {
+      state.pendingInline = { ...state.pendingInline, code: false, link: href };
+      updateInlineToolbarState();
+      return;
+    }
+    if (state.linkEditMode === 'range') {
+      const selection = state.linkSelection;
+      if (!selection || !selection.editable || !nodeContains(root, selection.editable)) return;
+      const runs = inlineRunsFromDom(selection.editable);
+      const currentText = inlineRangeText(runs, selection.start, selection.end);
+      const nextText = inputValue(linkText);
+      const replacementText = nextText !== currentText ? nextText : null;
+      const nextRuns = applyInlineLinkToRuns(runs, selection.start, selection.end, href, replacementText);
+      const nextEnd = selection.start + (replacementText != null ? nextText.length : currentText.length);
+      renderInlineRunsInto(selection.editable, nextRuns);
+      state.linkSelection = { ...selection, end: nextEnd, text: nextText };
+      syncActiveEditable();
+      updateInlineToolbarState();
+      return;
+    }
     const link = state.activeLink;
     if (!link || !state.activeEditable || !nodeContains(state.activeEditable, link)) return;
     link.textContent = inputValue(linkText);
-    link.setAttribute('href', inputValue(linkHref).trim());
+    link.setAttribute('href', href);
     syncActiveEditable();
+    updateInlineToolbarState();
   };
   linkText.addEventListener('input', applyLinkEditor);
   linkHref.addEventListener('input', applyLinkEditor);
   unlink.addEventListener('mousedown', (event) => event.preventDefault());
   unlink.addEventListener('click', () => {
+    if (state.linkEditMode === 'pending') {
+      state.pendingInline = { ...state.pendingInline, link: '' };
+      hideLinkEditor();
+      updateInlineToolbarState();
+      return;
+    }
+    if (state.linkEditMode === 'range') {
+      linkHref.value = '';
+      applyLinkEditor();
+      hideLinkEditor();
+      updateInlineToolbarState();
+      return;
+    }
     const link = state.activeLink;
     if (!link || !state.activeEditable || !nodeContains(state.activeEditable, link)) return;
     const textNode = document.createTextNode(link.textContent || '');
@@ -852,12 +1233,75 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
     } catch (_) {}
     syncActiveEditable();
-    refreshLinkEditor();
+    hideLinkEditor();
+    updateInlineToolbarState();
   });
+  openLinkEditorForSelection = () => {
+    const editable = state.activeEditable;
+    if (!editable || !nodeContains(root, editable)) return;
+    const existingLink = selectionLinkInEditable(editable);
+    if (existingLink) {
+      state.linkEditMode = 'dom';
+      state.linkSelection = null;
+      refreshLinkEditor(existingLink);
+      setTimeout(() => {
+        try { linkHref.focus(); linkHref.select(); } catch (_) {}
+      }, 0);
+      return;
+    }
+    const offsets = getEditableSelectionOffsets(editable);
+    if (!offsets) return;
+    const anchorRect = selectionAnchorRect(editable, offsets);
+    state.activeLink = null;
+    state.linkEditMode = offsets.collapsed ? 'pending' : 'range';
+    state.linkSelection = { editable, start: offsets.start, end: offsets.end, text: offsets.text, anchorRect };
+    linkText.value = offsets.collapsed ? '' : offsets.text;
+    linkHref.value = offsets.collapsed ? (state.pendingInline.link || '') : '';
+    linkEditor.hidden = false;
+    linkEditor.setAttribute('aria-hidden', 'false');
+    positionLinkEditorAtRect(anchorRect);
+    setTimeout(() => {
+      try { linkHref.focus(); linkHref.select(); } catch (_) {}
+    }, 0);
+    updateInlineToolbarState();
+  };
+
+  updateInlineToolbarState = () => {
+    const buttons = root.querySelectorAll('.blocks-inline-btn[data-inline-command]');
+    if (!buttons.length) return;
+    const editable = state.activeEditable;
+    const offsets = editable && nodeContains(root, editable) ? getEditableSelectionOffsets(editable) : null;
+    const runs = editable && nodeContains(root, editable) ? inlineRunsFromDom(editable) : [];
+    const pending = hasPendingInlineMarks();
+    buttons.forEach(btn => {
+      const command = btn.dataset.inlineCommand || '';
+      const mark = inlineCommandMark(command);
+      let active = false;
+      if (offsets && command === 'link') {
+        active = !!state.pendingInline.link
+          || !!selectionLinkInEditable(editable)
+          || (!offsets.collapsed && inlineRangeFullyMarked(runs, offsets.start, offsets.end, 'link'));
+      } else if (offsets && offsets.collapsed) {
+        const marks = inlineMarksAtOffset(runs, offsets.start);
+        active = pending ? !!state.pendingInline[mark] : !!marks[mark];
+      } else if (offsets) {
+        active = inlineRangeFullyMarked(runs, offsets.start, offsets.end, mark);
+      }
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  };
   linkEditor.append(linkText, linkHref, unlink);
   root.appendChild(linkEditor);
 
   refreshLinkEditor = (explicitLink = null) => {
+    if (state.linkEditMode === 'range' || state.linkEditMode === 'pending') {
+      if (!linkEditor.hidden && state.linkSelection && state.linkSelection.anchorRect) {
+        positionLinkEditorAtRect(state.linkSelection.anchorRect);
+      }
+      updateInlineToolbarState();
+      return;
+    }
     const link = explicitLink && state.activeEditable && nodeContains(state.activeEditable, explicitLink)
       ? explicitLink
       : selectionLinkInEditable(state.activeEditable);
@@ -875,11 +1319,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       ? state.activeLink
       : null;
     if (!activeLink) {
-      state.activeLink = null;
-      linkEditor.hidden = true;
-      linkEditor.setAttribute('aria-hidden', 'true');
+      if (!linkEditorFocused()) hideLinkEditor();
+      updateInlineToolbarState();
       return;
     }
+    state.linkEditMode = 'dom';
+    state.linkSelection = null;
     linkEditor.hidden = false;
     linkEditor.setAttribute('aria-hidden', 'false');
     if (!linkEditorFocused()) {
@@ -887,6 +1332,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       linkHref.value = activeLink.getAttribute('href') || '';
     }
     positionLinkEditor(activeLink);
+    updateInlineToolbarState();
   };
 
   root.addEventListener('keyup', refreshLinkEditor);
@@ -898,6 +1344,38 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!state.activeEditable || !nodeContains(root, state.activeEditable)) return;
     refreshLinkEditor();
   });
+
+  const insertPendingInlineText = (editable, value) => {
+    const textValue = String(value || '');
+    if (!editable || !textValue || !hasPendingInlineMarks()) return false;
+    const offsets = getEditableSelectionOffsets(editable);
+    if (!offsets) return false;
+    const runs = inlineRunsFromDom(editable);
+    const insertRun = inlineRun(textValue, state.pendingInline);
+    const nextRuns = insertInlineRunsAtRange(runs, offsets.start, offsets.end, [insertRun]);
+    applyRunsToEditable(editable, nextRuns, offsets.start + textValue.length);
+    return true;
+  };
+
+  const wireInlineEditable = (editable, index, sync) => {
+    editable.addEventListener('beforeinput', (event) => {
+      if (event.isComposing || !hasPendingInlineMarks()) return;
+      if (event.inputType !== 'insertText' || event.data == null) return;
+      event.preventDefault();
+      setActive(index, editable, sync);
+      insertPendingInlineText(editable, event.data);
+    });
+    editable.addEventListener('paste', (event) => {
+      if (!hasPendingInlineMarks()) return;
+      const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
+      if (!pasted) return;
+      event.preventDefault();
+      setActive(index, editable, sync);
+      insertPendingInlineText(editable, pasted);
+    });
+    editable.addEventListener('keyup', () => updateInlineToolbarState());
+    editable.addEventListener('mouseup', () => updateInlineToolbarState());
+  };
 
   const renderCardPicker = () => {
     picker.innerHTML = '';
@@ -998,7 +1476,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editable.spellcheck = true;
     setPlainContentEditableValue(editable, block.data[key] || '');
     const sync = () => updateFromControl(block, { [key]: editableText(editable) });
-    editable.addEventListener('input', sync);
+    editable.addEventListener('input', () => {
+      sync();
+      updateInlineToolbarState();
+    });
     editable.addEventListener('focus', () => setActive(index, editable, sync));
     editable.addEventListener('click', (event) => {
       const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
@@ -1006,6 +1487,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       setActive(index, editable, sync);
       if (clickedLink) refreshLinkEditor(clickedLink);
     });
+    wireInlineEditable(editable, index, sync);
     return editable;
   };
 
@@ -1120,7 +1602,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         next[itemIndex] = { ...next[itemIndex], text: editableText(span) };
         updateFromControl(block, { items: next });
       };
-      span.addEventListener('input', sync);
+      span.addEventListener('input', () => {
+        sync();
+        updateInlineToolbarState();
+      });
       span.addEventListener('keydown', (event) => {
         if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
         if (event.key === 'Enter') {
@@ -1168,6 +1653,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         setActive(index, span, sync);
         if (clickedLink) refreshLinkEditor(clickedLink);
       });
+      wireInlineEditable(span, index, sync);
       li.appendChild(span);
       if (state.pendingListFocus && state.pendingListFocus.blockId === block.id && state.pendingListFocus.itemIndex === itemIndex) {
         queueMicrotask(() => {
@@ -1331,6 +1817,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       if (block.type === 'list') {
         head.appendChild(createListTypeSelect(block));
       }
+      if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
+        head.appendChild(createInlineControls(index));
+      }
       head.appendChild(actions);
       item.append(head, renderBlockBody(block, index));
       item.addEventListener('focusin', () => setActive(index));
@@ -1345,6 +1834,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.activeIndex = -1;
       state.activeEditable = null;
       state.activeSync = null;
+      state.activeLink = null;
+      state.linkEditMode = '';
+      state.linkSelection = null;
+      state.pendingInline = {};
       render();
     },
     getMarkdown() {
