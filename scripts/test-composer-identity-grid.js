@@ -252,6 +252,12 @@ assert.match(
   'article-card blocks should render through the card hydration path'
 );
 
+assert.match(
+  editorBlocksSource,
+  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{Math\.max\(area\.scrollHeight, area\.offsetHeight \|\| 0\)\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
+  'source markdown textareas should auto-size to their content'
+);
+
 assert.doesNotMatch(
   editorBlocksSource,
   /area\.value = \(block\.data\.items \|\| \[\]\)\.map\(item => item\.checked/,
@@ -340,6 +346,12 @@ assert.match(
   editorSource,
   /\.blocks-code-preview code:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
   'focused code block editor should not draw an inner highlight border'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-source-textarea \{ min-height:9rem; width:100%; resize:none; overflow:hidden; \}/,
+  'source markdown textareas should expand the block instead of scrolling internally'
 );
 
 assert.doesNotMatch(

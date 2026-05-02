@@ -1886,6 +1886,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return lang;
   };
 
+  const autoSizeTextarea = (area) => {
+    if (!area) return;
+    area.style.height = 'auto';
+    area.style.height = `${Math.max(area.scrollHeight, area.offsetHeight || 0)}px`;
+  };
+
   const renderListBlock = (body, block, index) => {
     const items = Array.isArray(block.data.items) && block.data.items.length
       ? block.data.items
@@ -2061,7 +2067,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       area.className = 'blocks-textarea blocks-source-textarea';
       area.spellcheck = false;
       area.value = block.data.text != null ? block.data.text : block.raw || '';
-      area.addEventListener('input', () => updateFromControl(block, { text: area.value }));
+      area.addEventListener('input', () => {
+        updateFromControl(block, { text: area.value });
+        autoSizeTextarea(area);
+      });
+      area.addEventListener('focus', () => autoSizeTextarea(area));
+      queueMicrotask(() => autoSizeTextarea(area));
       body.appendChild(area);
     }
     body.addEventListener('click', () => setActive(index));
