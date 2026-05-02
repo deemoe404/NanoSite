@@ -174,6 +174,12 @@ assert.match(
   'block controls should appear only for the active or focused block'
 );
 
+assert.match(
+  editorSource,
+  /\.blocks-list-item \{ position:relative; padding:\.28rem 3rem \.28rem 0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);[\s\S]*\.blocks-list-remove \{ position:absolute; top:50%; right:\.1rem; transform:translateY\(-50%\); margin:0; \}/,
+  'visual list rows should keep markers and checklist boxes aligned while removing delete buttons from inline flow'
+);
+
 assert.doesNotMatch(
   editorSource,
   /id="composerOrderInlineMeta"|data-i18n="editor\.composer\.changeSummary"/,
