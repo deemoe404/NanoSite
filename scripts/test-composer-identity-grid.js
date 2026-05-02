@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
 const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
 const editorMainPath = resolve(here, '../assets/js/editor-main.js');
+const editorBlocksPath = resolve(here, '../assets/js/editor-blocks.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const enI18nPath = resolve(here, '../assets/i18n/en.js');
@@ -19,6 +20,7 @@ const i18nPath = resolve(here, '../assets/js/i18n.js');
 const source = readFileSync(composerPath, 'utf8');
 const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
 const editorMainSource = readFileSync(editorMainPath, 'utf8');
+const editorBlocksSource = readFileSync(editorBlocksPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 const i18nSource = readFileSync(i18nPath, 'utf8');
@@ -56,6 +58,78 @@ assert.doesNotMatch(
   editorSource,
   /\.view-toggle \.vt-btn\.has-draft::before/,
   'composer file switch dirty indicators should not render as inline orange dots'
+);
+
+assert.match(
+  editorSource,
+  /class="vt-btn active" data-view="edit"[\s\S]*class="vt-btn" data-view="blocks"[\s\S]*class="vt-btn" data-view="preview"[\s\S]*id="blocks-wrap" hidden aria-hidden="true"/,
+  'markdown editor should expose Edit, Blocks, and Preview views with a dedicated blocks surface'
+);
+
+assert.match(
+  editorMainSource,
+  /function switchView\(mode\) \{[\s\S]*const blocksWrap = \$\('#blocks-wrap'\);[\s\S]*mode === 'blocks'[\s\S]*blocksWrap\.hidden = false;[\s\S]*editorToolbar\.hidden = true;[\s\S]*viewToggle && \(viewToggle\.dataset\.view = 'blocks'\);/,
+  'markdown view switcher should show blocks mode while hiding source toolbar and preview'
+);
+
+assert.match(
+  editorMainSource,
+  /const nextView = mode === 'preview' \? 'preview' : \(mode === 'blocks' \? 'blocks' : 'edit'\);[\s\S]*switchView\(nextView\);/,
+  'primary editor API should accept blocks mode'
+);
+
+assert.match(
+  editorBlocksSource,
+  /export function parseMarkdownBlocks\(markdown\)[\s\S]*export function serializeMarkdownBlocks\(blocks\)[\s\S]*export function createMarkdownBlocksEditor\(root, options = \{\}\)/,
+  'blocks mode should provide parser, serializer, and DOM controller entrypoints'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const inlineToolbar = document\.createElement\('div'\);[\s\S]*inlineToolbar\.className = 'blocks-inline-toolbar'[\s\S]*applyInlineCommand/,
+  'blocks mode should expose its own inline formatting toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const heading = createRichEditable\(`h\$\{level\}`, block, 'text', `blocks-rich-editable blocks-heading-text/,
+  'heading blocks should render as real heading elements in the visual canvas'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
+  'image blocks should render a real image element instead of a path-only placeholder'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const listEl = document\.createElement\(listType === 'ol' \? 'ol' : 'ul'\);[\s\S]*const li = document\.createElement\('li'\);[\s\S]*span\.contentEditable = 'true'/,
+  'list blocks should render editable list item elements instead of a textarea'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const quote = document\.createElement\('blockquote'\);[\s\S]*blocks-quote-preview/,
+  'quote blocks should render as blockquote elements'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const pre = document\.createElement\('pre'\);[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.contentEditable = 'true'/,
+  'code blocks should render a pre/code editing surface'
+);
+
+assert.match(
+  editorBlocksSource,
+  /preview\.innerHTML = `<a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);/,
+  'article-card blocks should render through the card hydration path'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /area\.value = \(block\.data\.items \|\| \[\]\)\.map\(item => item\.checked/,
+  'list blocks should not use a textarea as their primary editing surface'
 );
 
 assert.doesNotMatch(
