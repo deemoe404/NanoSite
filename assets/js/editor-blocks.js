@@ -984,6 +984,19 @@ function textRangeForDomNode(editable, node) {
   }
 }
 
+function linkForTextRange(editable, start, end) {
+  try {
+    const safeStart = Math.max(0, Number(start) || 0);
+    const safeEnd = Math.max(safeStart, Number(end) || 0);
+    return Array.from(editable ? editable.querySelectorAll('a') : []).find(link => {
+      const range = textRangeForDomNode(editable, link);
+      return range && range.start === safeStart && range.end === safeEnd;
+    }) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function inlineMarkedDomRangeFromNode(editable, node, mark) {
   const command = mark === 'strikeThrough' ? 'strike' : mark;
   if (command !== 'code') return null;
@@ -2217,8 +2230,16 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
     const link = state.activeLink;
     if (!link || !state.activeEditable || !nodeContains(state.activeEditable, link)) return;
-    link.textContent = inputValue(linkText);
-    link.setAttribute('href', href);
+    const linkRange = textRangeForDomNode(state.activeEditable, link);
+    if (!linkRange) return;
+    const runs = inlineRunsFromDom(state.activeEditable);
+    const currentText = inlineRangeText(runs, linkRange.start, linkRange.end);
+    const nextText = inputValue(linkText);
+    const replacementText = nextText !== currentText ? nextText : null;
+    const nextRuns = applyInlineLinkToRuns(runs, linkRange.start, linkRange.end, href, replacementText);
+    const nextEnd = linkRange.start + (replacementText != null ? nextText.length : currentText.length);
+    renderInlineRunsInto(state.activeEditable, nextRuns);
+    state.activeLink = linkForTextRange(state.activeEditable, linkRange.start, nextEnd);
     syncActiveEditable();
     updateInlineToolbarState();
   };
