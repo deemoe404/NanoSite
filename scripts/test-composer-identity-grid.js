@@ -338,19 +338,31 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
+  /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
+  'block hover affordance should use an out-of-flow left glow instead of container chrome'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block:hover::before \{ opacity:1; transform:scaleY\(1\); \}/,
+  'block hover should reveal the left glow cue'
+);
+
+assert.match(
+  editorSource,
   /\.blocks-block-body \{ display:flex; flex-direction:column; gap:\.7rem; padding:0; \}/,
   'block body should not add outer container padding'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \{ position:absolute; top:0; left:\.55rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*transform:translate3d\(0,-58%,0\) scale\(\.98\);/,
+  /\.blocks-block-head \{ position:absolute; top:0; left:\.55rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*transform:translate3d\(0,-112%,0\) scale\(\.98\);/,
   'block type and action controls should be hidden floating overlays at the outside top-left by default'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-58%,0\) scale\(1\); \}/,
+  /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-112%,0\) scale\(1\); \}/,
   'block controls should appear only for the active block'
 );
 
