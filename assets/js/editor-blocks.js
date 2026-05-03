@@ -632,7 +632,7 @@ function caretBoundaryDistance(rect, boundaryX, x, y) {
   return (dx * dx) + (dy * dy * 4);
 }
 
-function measuredTextOffsetFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
+function measuredTextOffsetDetailsFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
   try {
     if (!el) return null;
     const doc = el.ownerDocument || document;
@@ -642,6 +642,8 @@ function measuredTextOffsetFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT
     let offset = 0;
     let bestOffset = null;
     let bestDistance = Number.POSITIVE_INFINITY;
+    let insideTextRect = false;
+    let textRectCount = 0;
     while (node) {
       const value = String(node.nodeValue || '');
       if (offset + value.length > limit) {
@@ -654,6 +656,8 @@ function measuredTextOffsetFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT
         const rects = Array.from(range.getClientRects ? range.getClientRects() : [])
           .filter(rect => rect && rect.width >= 0 && rect.height > 0);
         rects.forEach(rect => {
+          textRectCount += 1;
+          if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) insideTextRect = true;
           const startDistance = caretBoundaryDistance(rect, rect.left, x, y);
           if (startDistance < bestDistance) {
             bestDistance = startDistance;
@@ -670,17 +674,23 @@ function measuredTextOffsetFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT
       node = walker.nextNode();
     }
     range.detach && range.detach();
-    if (offset === 0) return 0;
-    return bestOffset;
+    if (offset === 0) return { offset: 0, distance: 0, insideTextRect: false, textRectCount: 0 };
+    if (bestOffset == null) return null;
+    return { offset: bestOffset, distance: bestDistance, insideTextRect, textRectCount };
   } catch (_) {
     return null;
   }
 }
 
-function textareaTextOffsetFromPoint(area, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
+function measuredTextOffsetFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
+  const details = measuredTextOffsetDetailsFromPoint(el, x, y, limit);
+  return details ? details.offset : null;
+}
+
+function textareaTextOffsetDetailsFromPoint(area, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
   const value = String(area && area.value != null ? area.value : '');
   if (!area || !document.body) return null;
-  if (!value) return 0;
+  if (!value) return { offset: 0, distance: 0, insideTextRect: false, textRectCount: 0 };
   if (value.length > limit) return null;
   const rect = area.getBoundingClientRect ? area.getBoundingClientRect() : null;
   if (!rect) return null;
@@ -709,6 +719,7 @@ function textareaTextOffsetFromPoint(area, x, y, limit = CARET_POINT_MEASURE_LIM
     'fontStretch',
     'lineHeight',
     'letterSpacing',
+    'tabSize',
     'textTransform',
     'textIndent',
     'textAlign',
@@ -725,9 +736,18 @@ function textareaTextOffsetFromPoint(area, x, y, limit = CARET_POINT_MEASURE_LIM
   });
   mirror.textContent = value;
   document.body.appendChild(mirror);
-  const offset = measuredTextOffsetFromPoint(mirror, x, y, limit);
+  const details = measuredTextOffsetDetailsFromPoint(mirror, x, y, limit);
   mirror.remove();
-  return offset == null ? null : Math.max(0, Math.min(value.length, offset));
+  if (!details) return null;
+  return {
+    ...details,
+    offset: Math.max(0, Math.min(value.length, details.offset))
+  };
+}
+
+function textareaTextOffsetFromPoint(area, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
+  const details = textareaTextOffsetDetailsFromPoint(area, x, y, limit);
+  return details ? details.offset : null;
 }
 
 function caretRectForEditable(el) {
@@ -2348,11 +2368,50 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       area.spellcheck = false;
       area.value = block.data.text != null ? block.data.text : block.raw || '';
       const sync = () => updateFromControl(block, { text: area.value });
+      let sourcePointer = null;
       editableSyncMap.set(area, sync);
       area.addEventListener('input', () => {
         sync();
         autoSizeTextarea(area);
       });
+      area.addEventListener('pointerdown', (event) => {
+        if (!event || event.button !== 0 || event.isPrimary === false) return;
+        const details = textareaTextOffsetDetailsFromPoint(area, event.clientX, event.clientY);
+        if (details && !details.insideTextRect) {
+          event.preventDefault();
+          sourcePointer = { x: event.clientX, y: event.clientY, moved: false, corrected: true };
+          try { area.focus({ preventScroll: true }); }
+          catch (_) {
+            try { area.focus(); } catch (__) {}
+          }
+          try {
+            area.setSelectionRange(details.offset, details.offset);
+            autoSizeTextarea(area);
+            setActive(index, area, sync);
+          } catch (_) {}
+          return;
+        }
+        sourcePointer = { x: event.clientX, y: event.clientY, moved: false, corrected: false };
+      });
+      area.addEventListener('pointermove', (event) => {
+        if (!sourcePointer) return;
+        const dx = event.clientX - sourcePointer.x;
+        const dy = event.clientY - sourcePointer.y;
+        if ((dx * dx) + (dy * dy) > 16) sourcePointer.moved = true;
+      });
+      area.addEventListener('click', (event) => {
+        const pointer = sourcePointer;
+        sourcePointer = null;
+        if (!pointer || pointer.moved || pointer.corrected) return;
+        const details = textareaTextOffsetDetailsFromPoint(area, event.clientX, event.clientY);
+        if (!details || details.insideTextRect) return;
+        try {
+          area.setSelectionRange(details.offset, details.offset);
+          autoSizeTextarea(area);
+          setActive(index, area, sync);
+        } catch (_) {}
+      });
+      area.addEventListener('blur', () => { sourcePointer = null; });
       area.addEventListener('focus', () => {
         autoSizeTextarea(area);
         setActive(index, area, sync);
