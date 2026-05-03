@@ -164,8 +164,80 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /item\.addEventListener\('click', \(event\) => \{[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
-  'block section container clicks should select the block without hijacking toolbar action clicks'
+  /item\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
+  'block section container clicks should select the block without hijacking toolbar action clicks or routed carets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /suppressNextBlockContainerClickUntil: 0,[\s\S]*const shouldSuppressRoutedBlockContainerClick = \(\) => \{[\s\S]*Date\.now\(\) > state\.suppressNextBlockContainerClickUntil[\s\S]*state\.suppressNextBlockContainerClickUntil = 0;[\s\S]*return true;/,
+  'routed caret pointerdowns should suppress the following container click from clearing activeEditable'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-toolbar'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
+  'blocks caret routing should exclude toolbars, link editors, controls, links, and native editable targets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const editableCaretCandidates = \(\) => \{[\s\S]*querySelectorAll\('\.blocks-list-item \.blocks-list-text'\)[\s\S]*hitTarget: closestElement\(editable, '\.blocks-list-item'\) \|\| editable[\s\S]*querySelectorAll\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)[\s\S]*sync: editableSyncMap\.get\(editable\) \|\| null/,
+  'routed caret candidates should include whole-row list item hit targets, rich text, code editors, and source markdown textareas with sync callbacks'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editableCaretCandidates\(\)\.forEach\(candidate => \{[\s\S]*nearestRectForPoint\(candidate\.hitTarget \|\| candidate\.editable, x, y\)[\s\S]*best = candidate;/,
+  'nearest editable routing should measure list items by their larger hit target while focusing the editable surface'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const CARET_POINT_MEASURE_LIMIT = 12000;[\s\S]*function measuredTextOffsetFromPoint\(el, x, y, limit = CARET_POINT_MEASURE_LIMIT\)[\s\S]*doc\.createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*range\.setStart\(node, i\);[\s\S]*range\.setEnd\(node, i \+ 1\);[\s\S]*caretBoundaryDistance\(rect, rect\.left, x, y\)[\s\S]*bestOffset = offset \+ i;[\s\S]*caretBoundaryDistance\(rect, rect\.right, x, y\)[\s\S]*bestOffset = offset \+ i \+ 1;/,
+  'routed caret fallback should measure text-node character boundaries and return the nearest text offset'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function textareaTextOffsetFromPoint\(area, x, y, limit = CARET_POINT_MEASURE_LIMIT\)[\s\S]*const mirror = document\.createElement\('div'\);[\s\S]*mirror\.style\.whiteSpace = 'pre-wrap';[\s\S]*mirror\.style\.overflowWrap = 'break-word';[\s\S]*mirror\.textContent = value;[\s\S]*const offset = measuredTextOffsetFromPoint\(mirror, x, y, limit\);[\s\S]*return offset == null \? null : Math\.max\(0, Math\.min\(value\.length, offset\)\);/,
+  'routed source markdown textarea focus should use a styled mirror to measure the nearest external click offset'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const setContentEditableCaretFromPoint = \(editable, x, y, hitTarget = editable\) => \{[\s\S]*document\.caretPositionFromPoint[\s\S]*pos\.offsetNode\.nodeType === Node\.TEXT_NODE[\s\S]*document\.caretRangeFromPoint[\s\S]*pointRange\.startContainer\.nodeType === Node\.TEXT_NODE[\s\S]*const hitRect = hitTarget && hitTarget\.getBoundingClientRect \? hitTarget\.getBoundingClientRect\(\) : rect;[\s\S]*const pointInsideEditableRect = !rect \|\| \([\s\S]*x >= rect\.left[\s\S]*y <= rect\.bottom[\s\S]*if \(pointInsideEditableRect && setRangeFromPoint\(x, y\)\) return;[\s\S]*const measuredOffset = measuredTextOffsetFromPoint\(editable, x, y\);[\s\S]*placeCaretAtTextOffset\(editable, measuredOffset\)[\s\S]*nearestRectForPoint\(editable, x, y\)[\s\S]*if \(hitRect && y < hitRect\.top \+ \(hitRect\.height \/ 2\)\) placeCaretAtTextOffset\(editable, 0\);/,
+  'routed rich/list/code caret placement should use browser APIs first, then measured offsets for line gaps, then coarse fallback'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /pointInsideHitRect[\s\S]{0,160}setRangeFromPoint\(x, y\)/,
+  'list item edge clicks should not use the larger list-item hit rectangle for native caret placement'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /if \(hitRect && y <= hitRect\.top\)[\s\S]{0,120}placeCaretAtTextOffset\(editable, 0\)[\s\S]{0,120}if \(hitRect && y >= hitRect\.bottom\)[\s\S]{0,120}placeCaretAtEnd\(editable\)/,
+  'line-gap clicks should not early-return to editable start/end before measured caret placement'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const setTextareaCaretFromPoint = \(area, x, y\) => \{[\s\S]*const measuredOffset = textareaTextOffsetFromPoint\(area, x, y\);[\s\S]*const fallbackOffset = rect && y < rect\.top \+ \(rect\.height \/ 2\) \? 0 : valueLength;[\s\S]*const offset = measuredOffset != null \? measuredOffset : fallbackOffset;[\s\S]*area\.setSelectionRange\(offset, offset\);/,
+  'routed source markdown textarea focus should prefer mirror-measured offsets before start/end fallback'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*nearestEditableFromPoint\(event\.clientX, event\.clientY\)[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*const \{ editable, hitTarget, index, sync \} = candidate;[\s\S]*setTextareaCaretFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*setContentEditableCaretFromPoint\(editable, event\.clientX, event\.clientY, hitTarget\)[\s\S]*setActive\(index, editable, sync\);[\s\S]*list\.addEventListener\('pointerdown', routeBlocksCaretFromPointer\);/,
+  'blocks list pointerdown should route blank clicks to the nearest editable without dropping active sync'
+);
+
+assert.match(
+  editorBlocksSource,
+  /body\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*event\.stopPropagation\(\);[\s\S]*setActive\(index\);/,
+  'block body click selection should not override a caret that was just routed on pointerdown'
 );
 
 assert.doesNotMatch(
@@ -236,6 +308,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const sync = \(\) => updateFromControl\(block, \{ text: codeEditableText\(code\) \}\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);/,
+  'code block editing surfaces should register active sync for routed caret focus'
+);
+
+assert.match(
+  editorBlocksSource,
   /const createCodeLanguageInput = \(block\) => \{[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
   'code block language control should live in the floating block toolbar'
 );
@@ -256,6 +334,12 @@ assert.match(
   editorBlocksSource,
   /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
   'source markdown textareas should auto-size to their content'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const sync = \(\) => updateFromControl\(block, \{ text: area\.value \}\);[\s\S]*editableSyncMap\.set\(area, sync\);[\s\S]*area\.addEventListener\('focus', \(\) => \{[\s\S]*setActive\(index, area, sync\);/,
+  'source markdown textareas should register active sync for routed caret focus'
 );
 
 assert.doesNotMatch(
@@ -304,6 +388,36 @@ assert.match(
   editorSource,
   /\.markdown-blocks-shell \{ position:relative; display:flex; flex-direction:column; gap:\.65rem; padding:0; border-radius:0; background:transparent; color:var\(--text\); \}/,
   'blocks wrapper should remain a visual-free layout container while anchoring floating link controls'
+);
+
+assert.match(
+  editorSource,
+  /\.markdown-blocks-shell, \.blocks-list, \.blocks-block, \.blocks-block-body \{ cursor:text; \}/,
+  'blocks editing canvas should use the text cursor across blank layout areas'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker \{ cursor:default; \}/,
+  'blocks controls and floating panels should not inherit the canvas text cursor'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result \{[^}]*cursor:pointer;/,
+  'toolbar buttons and card picker results should keep pointer cursors'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-rich-editable, \.blocks-code-preview code, \.blocks-block input, \.blocks-block textarea, \.blocks-link-editor input, \.blocks-card-search \{ cursor:text; \}/,
+  'editable text surfaces and text inputs should keep text cursors'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block select \{ cursor:default; \}/,
+  'select controls should keep their control cursor semantics'
 );
 
 assert.match(
@@ -400,6 +514,18 @@ assert.match(
   editorSource,
   /\.blocks-source-textarea:focus \{ outline:none; box-shadow:none; border-color:color-mix\(in srgb, var\(--border\) 82%, transparent\); \}/,
   'focused source markdown textarea should not draw an inner highlight border'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-list-item input\[type="checkbox"\] \{[^}]*cursor:pointer; \}/,
+  'task-list checkbox controls should keep pointer cursors inside the text-cursor canvas'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-card-preview a \{ cursor:pointer; \}/,
+  'article card links should keep pointer cursors inside the text-cursor canvas'
 );
 
 assert.doesNotMatch(

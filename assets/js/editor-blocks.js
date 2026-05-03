@@ -623,6 +623,113 @@ function placeCaretAtTextOffset(el, offset) {
   } catch (_) {}
 }
 
+const CARET_POINT_MEASURE_LIMIT = 12000;
+
+function caretBoundaryDistance(rect, boundaryX, x, y) {
+  if (!rect) return Number.POSITIVE_INFINITY;
+  const dx = Number(x) - boundaryX;
+  const dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+  return (dx * dx) + (dy * dy * 4);
+}
+
+function measuredTextOffsetFromPoint(el, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
+  try {
+    if (!el) return null;
+    const doc = el.ownerDocument || document;
+    const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = doc.createRange();
+    let node = walker.nextNode();
+    let offset = 0;
+    let bestOffset = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    while (node) {
+      const value = String(node.nodeValue || '');
+      if (offset + value.length > limit) {
+        range.detach && range.detach();
+        return null;
+      }
+      for (let i = 0; i < value.length; i += 1) {
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const rects = Array.from(range.getClientRects ? range.getClientRects() : [])
+          .filter(rect => rect && rect.width >= 0 && rect.height > 0);
+        rects.forEach(rect => {
+          const startDistance = caretBoundaryDistance(rect, rect.left, x, y);
+          if (startDistance < bestDistance) {
+            bestDistance = startDistance;
+            bestOffset = offset + i;
+          }
+          const endDistance = caretBoundaryDistance(rect, rect.right, x, y);
+          if (endDistance < bestDistance) {
+            bestDistance = endDistance;
+            bestOffset = offset + i + 1;
+          }
+        });
+      }
+      offset += value.length;
+      node = walker.nextNode();
+    }
+    range.detach && range.detach();
+    if (offset === 0) return 0;
+    return bestOffset;
+  } catch (_) {
+    return null;
+  }
+}
+
+function textareaTextOffsetFromPoint(area, x, y, limit = CARET_POINT_MEASURE_LIMIT) {
+  const value = String(area && area.value != null ? area.value : '');
+  if (!area || !document.body) return null;
+  if (!value) return 0;
+  if (value.length > limit) return null;
+  const rect = area.getBoundingClientRect ? area.getBoundingClientRect() : null;
+  if (!rect) return null;
+  const computed = window.getComputedStyle ? window.getComputedStyle(area) : null;
+  const mirror = document.createElement('div');
+  mirror.setAttribute('aria-hidden', 'true');
+  mirror.style.position = 'fixed';
+  mirror.style.left = `${rect.left}px`;
+  mirror.style.top = `${rect.top}px`;
+  mirror.style.width = `${rect.width}px`;
+  mirror.style.minHeight = `${rect.height}px`;
+  mirror.style.visibility = 'hidden';
+  mirror.style.pointerEvents = 'none';
+  mirror.style.zIndex = '-1';
+  mirror.style.overflow = 'hidden';
+  mirror.style.whiteSpace = 'pre-wrap';
+  mirror.style.overflowWrap = 'break-word';
+  mirror.style.wordBreak = computed ? computed.wordBreak : 'normal';
+  mirror.style.boxSizing = computed ? computed.boxSizing : 'border-box';
+  [
+    'fontFamily',
+    'fontSize',
+    'fontStyle',
+    'fontVariant',
+    'fontWeight',
+    'fontStretch',
+    'lineHeight',
+    'letterSpacing',
+    'textTransform',
+    'textIndent',
+    'textAlign',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'borderTopWidth',
+    'borderRightWidth',
+    'borderBottomWidth',
+    'borderLeftWidth'
+  ].forEach(prop => {
+    if (computed && computed[prop]) mirror.style[prop] = computed[prop];
+  });
+  mirror.textContent = value;
+  document.body.appendChild(mirror);
+  const offset = measuredTextOffsetFromPoint(mirror, x, y, limit);
+  mirror.remove();
+  return offset == null ? null : Math.max(0, Math.min(value.length, offset));
+}
+
 function caretRectForEditable(el) {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -1098,6 +1205,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     lastInlineMarkedRange: null,
     pendingInline: {},
     pendingListFocus: null,
+    suppressNextBlockContainerClickUntil: 0,
     cardEntries: [],
     cardPickerOpen: false
   };
@@ -1221,6 +1329,177 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     refreshLinkEditor();
     updateInlineToolbarState();
   };
+
+  const shouldSuppressRoutedBlockContainerClick = () => {
+    if (!state.suppressNextBlockContainerClickUntil) return false;
+    if (Date.now() > state.suppressNextBlockContainerClickUntil) {
+      state.suppressNextBlockContainerClickUntil = 0;
+      return false;
+    }
+    state.suppressNextBlockContainerClickUntil = 0;
+    return true;
+  };
+
+  const isBlocksCaretInteractiveTarget = (target) => {
+    return !!closestElement(target, [
+      '.blocks-block-head',
+      '.blocks-toolbar',
+      '.blocks-link-editor',
+      '.blocks-card-picker',
+      '.blocks-inspector',
+      'button',
+      'input',
+      'select',
+      'textarea',
+      'label',
+      'a[href]',
+      '[contenteditable="true"]'
+    ].join(','));
+  };
+
+  const rectDistanceSquared = (rect, x, y) => {
+    if (!rect) return Number.POSITIVE_INFINITY;
+    const dx = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
+    const dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
+    return (dx * dx) + (dy * dy);
+  };
+
+  const nearestRectForPoint = (el, x, y) => {
+    const rects = Array.from(el && el.getClientRects ? el.getClientRects() : [])
+      .filter(rect => rect && (rect.width > 0 || rect.height > 0));
+    if (!rects.length && el && el.getBoundingClientRect) rects.push(el.getBoundingClientRect());
+    let best = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    rects.forEach(rect => {
+      const distance = rectDistanceSquared(rect, x, y);
+      if (distance < bestDistance) {
+        best = rect;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  };
+
+  const editableCaretCandidates = () => {
+    const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
+    const candidates = [];
+    blockNodes.forEach((blockEl, index) => {
+      const listTexts = blockEl.querySelectorAll('.blocks-list-item .blocks-list-text');
+      listTexts.forEach(editable => {
+        candidates.push({
+          editable,
+          hitTarget: closestElement(editable, '.blocks-list-item') || editable,
+          index,
+          sync: editableSyncMap.get(editable) || null
+        });
+      });
+      const editables = blockEl.querySelectorAll('.blocks-rich-editable:not(.blocks-list-text), .blocks-code-preview code[contenteditable="true"], .blocks-source-textarea');
+      editables.forEach(editable => {
+        candidates.push({
+          editable,
+          hitTarget: editable,
+          index,
+          sync: editableSyncMap.get(editable) || null
+        });
+      });
+    });
+    return candidates;
+  };
+
+  const nearestEditableFromPoint = (x, y) => {
+    let best = null;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    editableCaretCandidates().forEach(candidate => {
+      const rect = nearestRectForPoint(candidate.hitTarget || candidate.editable, x, y);
+      const distance = rectDistanceSquared(rect, x, y);
+      if (distance < bestDistance) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  };
+
+  const setContentEditableCaretFromPoint = (editable, x, y, hitTarget = editable) => {
+    const setRangeFromPoint = (targetX, targetY) => {
+      let range = null;
+      if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(targetX, targetY);
+        if (pos && pos.offsetNode && pos.offsetNode.nodeType === Node.TEXT_NODE && nodeContains(editable, pos.offsetNode)) {
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+        }
+      }
+      if (!range && document.caretRangeFromPoint) {
+        const pointRange = document.caretRangeFromPoint(targetX, targetY);
+        if (pointRange && pointRange.startContainer && pointRange.startContainer.nodeType === Node.TEXT_NODE && nodeContains(editable, pointRange.startContainer)) range = pointRange;
+      }
+      if (!range) return false;
+      range.collapse(true);
+      const sel = window.getSelection && window.getSelection();
+      if (!sel) return false;
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return true;
+    };
+    const rect = editable.getBoundingClientRect ? editable.getBoundingClientRect() : null;
+    const hitRect = hitTarget && hitTarget.getBoundingClientRect ? hitTarget.getBoundingClientRect() : rect;
+    const pointInsideEditableRect = !rect || (
+      x >= rect.left &&
+      x <= rect.right &&
+      y >= rect.top &&
+      y <= rect.bottom
+    );
+    if (pointInsideEditableRect && setRangeFromPoint(x, y)) return;
+    const measuredOffset = measuredTextOffsetFromPoint(editable, x, y);
+    if (measuredOffset != null) {
+      placeCaretAtTextOffset(editable, measuredOffset);
+      return;
+    }
+    const nearestRect = nearestRectForPoint(editable, x, y);
+    if (nearestRect) {
+      const targetX = Math.max(nearestRect.left + 1, Math.min(Number(x) || nearestRect.left, nearestRect.right - 1));
+      const targetY = nearestRect.top + (nearestRect.height / 2);
+      if (setRangeFromPoint(targetX, targetY)) return;
+    }
+    if (hitRect && y < hitRect.top + (hitRect.height / 2)) placeCaretAtTextOffset(editable, 0);
+    else placeCaretAtEnd(editable);
+  };
+
+  const setTextareaCaretFromPoint = (area, x, y) => {
+    try {
+      const rect = area.getBoundingClientRect ? area.getBoundingClientRect() : null;
+      const valueLength = String(area.value || '').length;
+      const measuredOffset = textareaTextOffsetFromPoint(area, x, y);
+      const fallbackOffset = rect && y < rect.top + (rect.height / 2) ? 0 : valueLength;
+      const offset = measuredOffset != null ? measuredOffset : fallbackOffset;
+      area.setSelectionRange(offset, offset);
+      autoSizeTextarea(area);
+    } catch (_) {}
+  };
+
+  const routeBlocksCaretFromPointer = (event) => {
+    if (!event || event.defaultPrevented || event.button !== 0) return;
+    if (event.isPrimary === false) return;
+    if (isBlocksCaretInteractiveTarget(event.target)) return;
+    const candidate = nearestEditableFromPoint(event.clientX, event.clientY);
+    if (!candidate || !candidate.editable) return;
+    event.preventDefault();
+    state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    const { editable, hitTarget, index, sync } = candidate;
+    try { editable.focus({ preventScroll: true }); }
+    catch (_) {
+      try { editable.focus(); } catch (__) {}
+    }
+    if (editable.matches && editable.matches('textarea')) {
+      setTextareaCaretFromPoint(editable, event.clientX, event.clientY);
+    } else {
+      setContentEditableCaretFromPoint(editable, event.clientX, event.clientY, hitTarget);
+    }
+    setActive(index, editable, sync);
+  };
+
+  list.addEventListener('pointerdown', routeBlocksCaretFromPointer);
 
   const getBaseDir = () => {
     try {
@@ -2005,6 +2284,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     code.spellcheck = false;
     code.textContent = block.data.text || '';
     const sync = () => updateFromControl(block, { text: codeEditableText(code) });
+    editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
     code.addEventListener('focus', () => setActive(index, code, sync));
     pre.appendChild(code);
@@ -2067,15 +2347,26 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       area.className = 'blocks-textarea blocks-source-textarea';
       area.spellcheck = false;
       area.value = block.data.text != null ? block.data.text : block.raw || '';
+      const sync = () => updateFromControl(block, { text: area.value });
+      editableSyncMap.set(area, sync);
       area.addEventListener('input', () => {
-        updateFromControl(block, { text: area.value });
+        sync();
         autoSizeTextarea(area);
       });
-      area.addEventListener('focus', () => autoSizeTextarea(area));
+      area.addEventListener('focus', () => {
+        autoSizeTextarea(area);
+        setActive(index, area, sync);
+      });
       queueMicrotask(() => autoSizeTextarea(area));
       body.appendChild(area);
     }
-    body.addEventListener('click', () => setActive(index));
+    body.addEventListener('click', (event) => {
+      if (shouldSuppressRoutedBlockContainerClick()) {
+        event.stopPropagation();
+        return;
+      }
+      setActive(index);
+    });
     return body;
   };
 
@@ -2149,6 +2440,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       head.appendChild(actions);
       item.append(head, renderBlockBody(block, index));
       item.addEventListener('click', (event) => {
+        if (shouldSuppressRoutedBlockContainerClick()) return;
         if (closestElement(event.target, '.blocks-block-head')) return;
         setActive(index);
       });
