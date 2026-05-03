@@ -212,6 +212,17 @@ run('front matter is stripped before block parsing', () => {
   assert.equal(serializeMarkdownBlocks(blocks), 'Body paragraph.\n');
 });
 
+run('opening thematic breaks are preserved as body content', () => {
+  const source = [
+    '---',
+    'Intro paragraph.',
+    '---',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  assert.equal(serializeMarkdownBlocks(parseMarkdownBlocks(source)), source);
+});
+
 run('inline runs serialize nested supported marks canonically', () => {
   assert.equal(
     serializeInlineRuns(parseInlineRuns('plain **bold** *italic* ~~strike~~ `code` [link](https://example.com)')),

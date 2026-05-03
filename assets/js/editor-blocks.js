@@ -6,11 +6,20 @@ function normalizeText(value) {
 
 function stripFrontMatterIfPresent(markdown) {
   const text = normalizeText(markdown);
-  if (!text.startsWith('---\n')) return text;
-  const end = text.indexOf('\n---', 4);
-  if (end < 0) return text;
-  const after = text.slice(end + 4);
-  return after.startsWith('\n') ? after.slice(1) : after;
+  const lines = text.split('\n');
+  if (!isFrontMatterFence(lines[0])) return text;
+  const endIndex = lines.findIndex((line, index) => index > 0 && isFrontMatterFence(line));
+  if (endIndex < 0) return text;
+  if (!frontMatterLinesHaveKey(lines.slice(1, endIndex))) return text;
+  return lines.slice(endIndex + 1).join('\n');
+}
+
+function isFrontMatterFence(line) {
+  return /^---\s*$/.test(String(line || ''));
+}
+
+function frontMatterLinesHaveKey(lines) {
+  return (Array.isArray(lines) ? lines : []).some(line => /^[A-Za-z_][A-Za-z0-9_.-]*\s*:/.test(String(line || '')));
 }
 
 function makeBlock(type, raw, data = {}) {
@@ -2286,19 +2295,14 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
     const link = state.activeLink;
     if (!link || !state.activeEditable || !nodeContains(state.activeEditable, link)) return;
-    const textNode = document.createTextNode(link.textContent || '');
-    link.replaceWith(textNode);
+    const linkRange = textRangeForDomNode(state.activeEditable, link);
+    if (!linkRange) return;
+    const nextRuns = applyInlineLinkToRuns(inlineRunsFromDom(state.activeEditable), linkRange.start, linkRange.end, '');
+    renderInlineRunsInto(state.activeEditable, nextRuns);
     state.activeLink = null;
     try {
       state.activeEditable.focus();
-      const range = document.createRange();
-      range.setStartAfter(textNode);
-      range.collapse(true);
-      const sel = window.getSelection && window.getSelection();
-      if (sel) {
-        sel.removeAllRanges();
-        sel.addRange(range);
-      }
+      placeCaretAtTextOffset(state.activeEditable, linkRange.end);
     } catch (_) {}
     syncActiveEditable();
     hideLinkEditor();
