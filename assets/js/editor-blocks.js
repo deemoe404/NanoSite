@@ -104,10 +104,19 @@ function parseCardBlock(raw) {
   const title = match[3] || '';
   return {
     label: match[1] || '',
-    location: decodeURIComponent(match[2] || ''),
+    location: decodeCardLocation(match[2] || ''),
     title,
     forceCard: /\b(card|preview)\b/i.test(title)
   };
+}
+
+function decodeCardLocation(value) {
+  const raw = String(value || '');
+  try {
+    return decodeURIComponent(raw);
+  } catch (_) {
+    return raw;
+  }
 }
 
 function parseCodeBlock(raw) {
@@ -331,6 +340,21 @@ export function serializeMarkdownBlocks(blocks) {
     const after = block && block.data && block.data.after != null ? String(block.data.after) : '\n\n';
     return `${before}${serializeBlock(block)}${after}`;
   }).join('');
+}
+
+function defaultListItems() {
+  return [{ text: 'List item', checked: false }];
+}
+
+function editableListItems(items) {
+  return Array.isArray(items) && items.length ? items : defaultListItems();
+}
+
+export function patchListItem(items, itemIndex, patch = {}) {
+  const next = editableListItems(items).slice();
+  const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, next.length - 1));
+  next[safeIndex] = { ...(next[safeIndex] || {}), ...(patch || {}) };
+  return next;
 }
 
 function escapeHtml(value) {
@@ -2722,9 +2746,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const renderListBlock = (body, block, index) => {
-    const items = Array.isArray(block.data.items) && block.data.items.length
-      ? block.data.items
-      : [{ text: 'List item', checked: false }];
+    const items = editableListItems(block.data.items);
     const listType = block.data.listType === 'ol' || block.data.listType === 'task' ? block.data.listType : 'ul';
     const listEl = document.createElement(listType === 'ol' ? 'ol' : 'ul');
     listEl.className = `blocks-visual-list blocks-visual-list-${listType}`;
@@ -2740,8 +2762,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         checkbox.type = 'checkbox';
         checkbox.checked = !!item.checked;
         checkbox.addEventListener('change', () => {
-          const next = items.slice();
-          next[itemIndex] = { ...next[itemIndex], checked: checkbox.checked };
+          const next = patchListItem(block.data.items, itemIndex, { checked: checkbox.checked });
           updateFromControl(block, { items: next });
         });
         li.appendChild(checkbox);
@@ -2752,8 +2773,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       span.spellcheck = true;
       setPlainContentEditableValue(span, item.text || '');
       const sync = () => {
-        const next = items.slice();
-        next[itemIndex] = { ...next[itemIndex], text: editableText(span) };
+        const next = patchListItem(block.data.items, itemIndex, { text: editableText(span) });
         updateFromControl(block, { items: next });
       };
       editableSyncMap.set(span, sync);

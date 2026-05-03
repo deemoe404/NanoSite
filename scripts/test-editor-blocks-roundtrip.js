@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   applyInlineLinkToRuns,
   insertInlineRunsAtRange,
+  patchListItem,
   parseInlineRuns,
   parseMarkdownBlocks,
   removeInlineMarkAroundOffset,
@@ -179,6 +180,22 @@ run('indented task lists preserve checkbox state and spacing when edited', () =>
     '  - [x] child',
     ''
   ].join('\n'));
+});
+
+run('list item patches preserve latest item state', () => {
+  const initial = [{ text: 'A', checked: false }, { text: 'B', checked: false }];
+  const afterTextEdit = patchListItem(initial, 0, { text: 'AA' });
+  const afterCheckboxEdit = patchListItem(afterTextEdit, 1, { checked: true });
+  assert.deepEqual(afterCheckboxEdit, [{ text: 'AA', checked: false }, { text: 'B', checked: true }]);
+});
+
+run('malformed card ids stay editable instead of throwing', () => {
+  const source = '[Bad card](?id=post/100%foo.md "card")\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'card');
+  assert.equal(blocks[0].data.location, 'post/100%foo.md');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
 });
 
 run('front matter is stripped before block parsing', () => {
