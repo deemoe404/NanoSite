@@ -437,6 +437,17 @@ run('markdown parser treats HTML comments as literal text', () => {
   assert.equal(output, '<p>Before &lt;!-- hidden --&gt; after.</p>');
 });
 
+run('markdown parser supports tilde fenced code blocks', () => {
+  const output = mdParse([
+    '~~~js',
+    'const x = 1 < 2;',
+    '~~~'
+  ].join('\n')).post;
+  assert.match(output, /<pre class="code-block"><code class="language-js">/);
+  assert.match(output, /const x = 1 &lt; 2;\n/);
+  assert.match(output, /<\/code><\/pre>/);
+});
+
 run('local site overrides merge into tracked site config without dropping fields', () => {
   const merged = mergeYamlConfig(
     {

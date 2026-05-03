@@ -1,4 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
+import { createMarkdownBlocksEditor } from './editor-blocks.js';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -11,7 +12,7 @@ import {
   resolveFrontMatterBindings,
   valueIsPresent
 } from './frontmatter-document.js';
-import { getContentRoot, setSafeHtml } from './utils.js';
+import { getContentRoot, resolveImageSrc, setSafeHtml } from './utils.js';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
 import { hydrateInternalLinkCards } from './link-cards.js';
@@ -49,6 +50,8 @@ const FRONT_MATTER_SECTION_DESCRIPTIONS = [
 
 const previewAssetBuckets = new Map();
 let previewAssetCurrentPath = '';
+let markdownBlocksEditor = null;
+let syncMarkdownBlocksFromSource = null;
 
 const ensureKeyOrder = (order = [], key) => {
   if (!key) return order;
@@ -650,15 +653,20 @@ function $(sel) { return document.querySelector(sel); }
 
 function switchView(mode) {
   const editorWrap = $('#editor-wrap');
+  const blocksWrap = $('#blocks-wrap');
   const previewWrap = $('#preview-wrap');
   const editorShell = $('#markdownEditorShell');
   const editorToolbar = $('#editorToolbar');
   const viewToggle = document.querySelector('.view-toggle');
-  const btnEdit = document.querySelector('.vt-btn[data-view="edit"]');
-  const btnPreview = document.querySelector('.vt-btn[data-view="preview"]');
+  const viewButtons = Array.from(document.querySelectorAll('.vt-btn[data-view]'));
   if (!editorWrap || !previewWrap) return;
+  if (editorShell) editorShell.classList.toggle('is-blocks-mode', mode === 'blocks');
   if (mode === 'preview') {
     editorWrap.style.display = 'none';
+    if (blocksWrap) {
+      blocksWrap.hidden = true;
+      blocksWrap.setAttribute('aria-hidden', 'true');
+    }
     if (editorShell) editorShell.style.display = 'none';
     previewWrap.style.display = '';
     if (editorToolbar) {
@@ -666,20 +674,38 @@ function switchView(mode) {
       editorToolbar.setAttribute('aria-hidden', 'true');
     }
     viewToggle && (viewToggle.dataset.view = 'preview');
-    btnEdit && btnEdit.classList.remove('active');
-    btnPreview && btnPreview.classList.add('active');
+  } else if (mode === 'blocks') {
+    if (typeof syncMarkdownBlocksFromSource === 'function') {
+      try { syncMarkdownBlocksFromSource(); } catch (_) {}
+    }
+    previewWrap.style.display = 'none';
+    if (editorShell) editorShell.style.display = '';
+    editorWrap.style.display = 'none';
+    if (blocksWrap) {
+      blocksWrap.hidden = false;
+      blocksWrap.removeAttribute('aria-hidden');
+    }
+    if (editorToolbar) {
+      editorToolbar.hidden = true;
+      editorToolbar.setAttribute('aria-hidden', 'true');
+    }
+    viewToggle && (viewToggle.dataset.view = 'blocks');
+    try { if (markdownBlocksEditor && typeof markdownBlocksEditor.focus === 'function') markdownBlocksEditor.focus(); } catch (_) {}
   } else {
     previewWrap.style.display = 'none';
     if (editorShell) editorShell.style.display = '';
     editorWrap.style.display = '';
+    if (blocksWrap) {
+      blocksWrap.hidden = true;
+      blocksWrap.setAttribute('aria-hidden', 'true');
+    }
     if (editorToolbar) {
       editorToolbar.hidden = false;
       editorToolbar.removeAttribute('aria-hidden');
     }
     viewToggle && (viewToggle.dataset.view = 'edit');
-    btnPreview && btnPreview.classList.remove('active');
-    btnEdit && btnEdit.classList.add('active');
   }
+  viewButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === (mode === 'preview' ? 'preview' : mode === 'blocks' ? 'blocks' : 'edit')));
 }
 
 function renderPreview(mdText) {
@@ -719,6 +745,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const imageButton = document.getElementById('btnInsertImage');
   const imageInput = document.getElementById('editorImageInput');
   const editorToolbarEl = document.getElementById('editorToolbar');
+  const blocksWrap = document.getElementById('blocks-wrap');
   const cardButton = document.getElementById('btnInsertCard');
   const cardPopover = document.getElementById('editorCardPicker');
   const cardSearchInput = document.getElementById('cardPickerSearch');
@@ -1475,6 +1502,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (editor) editor.setValue(bodyText);
     else if (ta) ta.value = bodyText;
     requestLayout();
+    if (markdownBlocksEditor && blocksWrap && !blocksWrap.hidden && typeof markdownBlocksEditor.setMarkdown === 'function') {
+      try { markdownBlocksEditor.setMarkdown(bodyText); } catch (_) {}
+    }
     if (preview) renderPreview(getValue());
     if (notify) notifyChange();
   };
@@ -1491,6 +1521,113 @@ document.addEventListener('DOMContentLoaded', () => {
       try { window.__ns_editor_base_dir = fallback; } catch (__) {}
     }
   };
+
+  const blockLabelFallbacks = {
+    toolbarAria: 'Block tools',
+    listAria: 'Markdown blocks',
+    paragraph: 'Paragraph',
+    heading: 'Heading',
+    image: 'Image',
+    list: 'List',
+    quote: 'Quote',
+    code: 'Code',
+    source: 'Markdown',
+    articleCard: 'Article Card',
+    uploadImage: 'Upload Image',
+    cardSearch: 'Search articles...',
+    cardEmpty: 'No matching articles',
+    empty: 'No blocks yet.',
+    actions: 'More actions',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    delete: 'Delete',
+    imageAlt: 'Alt text',
+    imagePath: 'Image path',
+    unordered: 'Bulleted',
+    ordered: 'Numbered',
+    task: 'Checklist',
+    codeLanguage: 'Language',
+    cardLabel: 'Card label',
+    cardLocation: 'post/path/file.md',
+    inlineToolbarAria: 'Inline formatting',
+    inlineBold: 'Bold',
+    inlineItalic: 'Italic',
+    inlineStrike: 'Strikethrough',
+    inlineCode: 'Inline code',
+    inlineLink: 'Link',
+    inlineMore: 'More formatting',
+    linkPrompt: 'Link URL',
+    linkText: 'Link text',
+    linkHref: 'Link URL',
+    linkTitle: 'Link title',
+    unlink: 'Unlink',
+    listAddItem: 'Add item',
+    listRemoveItem: 'Remove item',
+    imageTitle: 'Image title'
+  };
+  const blockLabels = new Proxy({}, {
+    get: (_target, key) => {
+      const name = String(key || '');
+      const translationKey = `editor.blocks.${name}`;
+      const translated = t(translationKey);
+      return translated != null && translated !== translationKey ? translated : (blockLabelFallbacks[name] || name);
+    }
+  });
+  let pendingBlocksImageInsert = null;
+  const setEditorBodyFromBlocks = (body) => {
+    const text = body == null ? '' : String(body);
+    if (editor) editor.setValue(text);
+    else if (ta) ta.value = text;
+    requestLayout();
+    renderPreview(getValue());
+    notifyChange();
+  };
+  if (blocksWrap) {
+    markdownBlocksEditor = createMarkdownBlocksEditor(blocksWrap, {
+      labels: blockLabels,
+      onChange: setEditorBodyFromBlocks,
+      getBaseDir: () => (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir)) || `${getContentRoot()}/`,
+      resolveImageSrc,
+      hydrateImages: (node) => {
+        try { applyPreviewAssetOverrides(node, getCurrentMarkdownPath()); } catch (_) {}
+      },
+      hydrateCard: (node) => {
+        try {
+          hydrateInternalLinkCards(node, {
+            allowedLocations: linkCardReady ? editorAllowedLocations : null,
+            locationAliasMap: linkCardReady ? editorLocationAliasMap : new Map(),
+            postsByLocationTitle: linkCardReady ? editorPostsByLocationTitle : {},
+            postsIndexCache: linkCardReady ? editorPostsIndexCache : {},
+            siteConfig: editorSiteConfig,
+            translate: t,
+            makeHref: (loc) => withLangParam(`?id=${encodeURIComponent(loc)}`),
+            fetchMarkdown: fetchMarkdownForLinkCard
+          });
+          applyPreviewAssetOverrides(node, getCurrentMarkdownPath());
+        } catch (_) {}
+      },
+      requestImageUpload: ({ index } = {}) => {
+        pendingBlocksImageInsert = { index: Number.isFinite(index) ? index : null };
+        if (!getCurrentMarkdownPath()) {
+          emitEditorToast('warn', t('editor.toasts.markdownOpenBeforeInsert'));
+          pendingBlocksImageInsert = null;
+          return;
+        }
+        if (imageInput) {
+          try { imageInput.click(); }
+          catch (_) {
+            try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+            catch (__) {}
+          }
+        }
+      }
+    });
+    syncMarkdownBlocksFromSource = () => {
+      if (markdownBlocksEditor && typeof markdownBlocksEditor.setMarkdown === 'function') {
+        markdownBlocksEditor.setMarkdown(getEditorBody());
+      }
+    };
+  }
 
   const STATUS_LABEL_KEYS = {
     checking: 'editor.currentFile.status.checking',
@@ -2047,6 +2184,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('ns-editor-language-applied', () => {
     tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
     renderCurrentFileIndicator();
+    if (markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
+      try { markdownBlocksEditor.requestLayout(); } catch (_) {}
+    }
     if (frontMatterManager) {
       frontMatterManager.updateSummary();
       frontMatterManager.applySectionDescriptions();
@@ -2075,8 +2215,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const handleBlocksCardContextUpdate = (entries) => {
+    if (!markdownBlocksEditor || typeof markdownBlocksEditor.setCardEntries !== 'function') return;
+    markdownBlocksEditor.setCardEntries(Array.isArray(entries) ? entries : editorPostPickerEntries);
+  };
   editorLinkCardContextListeners.add(handleCardContextUpdate);
+  editorLinkCardContextListeners.add(handleBlocksCardContextUpdate);
   handleCardContextUpdate();
+  handleBlocksCardContextUpdate(editorPostPickerEntries);
 
   const getCurrentMarkdownPath = () => {
     if (currentFileInfo && currentFileInfo.path) return String(currentFileInfo.path);
@@ -2240,6 +2386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const textarea = getEditorTextarea();
+    const customInsertMarkdown = typeof options.insertMarkdown === 'function' ? options.insertMarkdown : null;
     let lastSelection = null;
 
     for (let i = 0; i < files.length; i += 1) {
@@ -2259,10 +2406,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const meta = buildAssetFileMeta(file);
       const paths = computeAssetPaths(markdownPath, meta.fileName);
-      const selection = insertImageMarkdown(paths.relativePath, meta.altText);
+      const selection = customInsertMarkdown
+        ? (customInsertMarkdown(paths.relativePath, meta.altText) || {})
+        : insertImageMarkdown(paths.relativePath, meta.altText);
       lastSelection = selection;
 
-      if (textarea) {
+      if (!customInsertMarkdown && textarea) {
         try {
           textarea.focus();
           textarea.setSelectionRange(selection.altStart, selection.altEnd);
@@ -2630,6 +2779,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (imageButton) {
     imageButton.addEventListener('click', (event) => {
       if (event && typeof event.preventDefault === 'function') event.preventDefault();
+      pendingBlocksImageInsert = null;
       if (!getCurrentMarkdownPath()) {
         emitEditorToast('warn', 'Open a markdown file before inserting images.');
         return;
@@ -2648,7 +2798,19 @@ document.addEventListener('DOMContentLoaded', () => {
     imageInput.addEventListener('change', () => {
       const files = imageInput.files;
       if (files && files.length) {
-        handleImageFiles(files, { source: 'picker' }).catch((err) => {
+        const blockInsert = pendingBlocksImageInsert;
+        pendingBlocksImageInsert = null;
+        let insertIndex = blockInsert && Number.isFinite(blockInsert.index)
+          ? blockInsert.index
+          : null;
+        const insertMarkdown = blockInsert && markdownBlocksEditor && typeof markdownBlocksEditor.insertImageBlock === 'function'
+          ? (relativePath, altText) => {
+            const result = markdownBlocksEditor.insertImageBlock(relativePath, altText, insertIndex);
+            if (result && Number.isFinite(result.index)) insertIndex = result.index + 1;
+            return {};
+          }
+          : null;
+        handleImageFiles(files, insertMarkdown ? { source: 'picker', insertMarkdown } : { source: 'picker' }).catch((err) => {
           console.error('Image insertion failed', err);
         });
       }
@@ -2697,11 +2859,14 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (ta && typeof ta.focus === 'function') ta.focus();
       } catch (_) {}
     },
-    setView: (mode) => {
-      switchView(mode === 'preview' ? 'preview' : 'edit');
-      if (mode === 'preview') renderPreview(getValue());
-      else requestLayout();
-    },
+	    setView: (mode) => {
+	      const nextView = mode === 'preview' ? 'preview' : (mode === 'blocks' ? 'blocks' : 'edit');
+	      switchView(nextView);
+	      if (mode === 'preview') renderPreview(getValue());
+	      else if (mode === 'blocks' && markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
+	        try { markdownBlocksEditor.requestLayout(); } catch (_) {}
+	      } else requestLayout();
+	    },
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
     setFrontMatterVisible: (visible) => setFrontMatterVisible(visible),

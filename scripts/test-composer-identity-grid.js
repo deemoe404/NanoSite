@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const composerPath = resolve(here, '../assets/js/composer.js');
 const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
 const editorMainPath = resolve(here, '../assets/js/editor-main.js');
+const editorBlocksPath = resolve(here, '../assets/js/editor-blocks.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const enI18nPath = resolve(here, '../assets/i18n/en.js');
@@ -19,6 +20,7 @@ const i18nPath = resolve(here, '../assets/js/i18n.js');
 const source = readFileSync(composerPath, 'utf8');
 const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
 const editorMainSource = readFileSync(editorMainPath, 'utf8');
+const editorBlocksSource = readFileSync(editorBlocksPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 const i18nSource = readFileSync(i18nPath, 'utf8');
@@ -56,6 +58,735 @@ assert.doesNotMatch(
   editorSource,
   /\.view-toggle \.vt-btn\.has-draft::before/,
   'composer file switch dirty indicators should not render as inline orange dots'
+);
+
+assert.match(
+  editorSource,
+  /class="vt-btn active" data-view="edit"[\s\S]*class="vt-btn" data-view="blocks"[\s\S]*class="vt-btn" data-view="preview"[\s\S]*id="blocks-wrap" hidden aria-hidden="true"/,
+  'markdown editor should expose Edit, Blocks, and Preview views with a dedicated blocks surface'
+);
+
+assert.match(
+  editorMainSource,
+  /function switchView\(mode\) \{[\s\S]*const blocksWrap = \$\('#blocks-wrap'\);[\s\S]*mode === 'blocks'[\s\S]*blocksWrap\.hidden = false;[\s\S]*editorToolbar\.hidden = true;[\s\S]*viewToggle && \(viewToggle\.dataset\.view = 'blocks'\);/,
+  'markdown view switcher should show blocks mode while hiding source toolbar and preview'
+);
+
+assert.match(
+  editorMainSource,
+  /const nextView = mode === 'preview' \? 'preview' : \(mode === 'blocks' \? 'blocks' : 'edit'\);[\s\S]*switchView\(nextView\);/,
+  'primary editor API should accept blocks mode'
+);
+
+assert.match(
+  editorBlocksSource,
+  /export function parseMarkdownBlocks\(markdown\)[\s\S]*export function serializeMarkdownBlocks\(blocks\)[\s\S]*export function createMarkdownBlocksEditor\(root, options = \{\}\)/,
+  'blocks mode should provide parser, serializer, and DOM controller entrypoints'
+);
+
+assert.match(
+  editorMainSource,
+  /const blockLabels = new Proxy\(\{\}, \{[\s\S]*const translationKey = `editor\.blocks\.\$\{name\}`;[\s\S]*const translated = t\(translationKey\);[\s\S]*translated !== translationKey \? translated : \(blockLabelFallbacks\[name\] \|\| name\);/,
+  'block labels should use local fallbacks when i18n returns the key for a missing translation'
+);
+
+assert.match(
+  editorMainSource,
+  /linkTitle: 'Link title'/,
+  'block link title field should have a local fallback label'
+);
+
+[
+  [enI18nSource, /linkTitle: 'Link title'/],
+  [chsI18nSource, /linkTitle: '链接标题'/],
+  [chtTwI18nSource, /linkTitle: '連結標題'/],
+  [jaI18nSource, /linkTitle: 'リンクタイトル'/]
+].forEach(([sourceText, pattern]) => {
+  assert.match(sourceText, pattern, 'block link title field should have localized labels');
+});
+
+assert.match(
+  editorBlocksSource,
+  /const inlineControls = \[[\s\S]*\['B', 'bold', 'inlineBold', 'Bold'\],[\s\S]*\['I', 'italic', 'inlineItalic', 'Italic'\],[\s\S]*\['Link', 'link', 'inlineLink', 'Link'\][\s\S]*const inlineMoreControls = \[[\s\S]*\['S', 'strikeThrough', 'inlineStrike', 'Strikethrough'\],[\s\S]*\['`', 'code', 'inlineCode', 'Inline code'\]/,
+  'blocks mode should keep B/I/Link direct while moving strike and inline code into overflow formatting controls'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createInlineCommandButton = \(label, command, key, fallback, index, className = 'blocks-inline-btn'\) => \{[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*event\.preventDefault\(\)[\s\S]*if \(btn\.getAttribute\('aria-disabled'\) === 'true'\) return;[\s\S]*applyInlineCommand\(command\)/,
+  'direct and overflow inline formatting commands should share the same command button path'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createInlineMoreMenu = \(index\) => \{[\s\S]*wrap\.className = 'blocks-inline-more';[\s\S]*const trigger = button\('Aa', 'blocks-inline-btn blocks-inline-more-trigger'\);[\s\S]*trigger\.setAttribute\('aria-haspopup', 'menu'\);[\s\S]*menu\.className = 'blocks-inline-more-menu';[\s\S]*inlineMoreControls\.forEach\(\(\[_label, command, key, fallback\]\) => \{[\s\S]*createInlineCommandButton\(text\(key, fallback\), command, key, fallback, index, 'blocks-inline-menu-item'\);[\s\S]*item\.setAttribute\('role', 'menuitem'\);[\s\S]*controls\.appendChild\(createInlineMoreMenu\(index\)\);/,
+  'inline strike and code controls should show text labels in a menu immediately after the direct Link button'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createListIndentControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-list-indent-controls'[\s\S]*\['←', -1, 'listOutdent'[\s\S]*\['→', 1, 'listIndent'[\s\S]*indentListItem\(block, index, delta\)[\s\S]*if \(block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createListIndentControls\(block, index\)\);/,
+  'list blocks should expose outdent and indent buttons in the floating toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const indentListItem = \(block, index, delta\) => \{[\s\S]*activeListItemIndex\(block, index\)[\s\S]*indent: nextIndent,[\s\S]*indentText: '  '\.repeat\(nextIndent\)[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex, atEnd: false \};[\s\S]*if \(event\.key === 'Tab'[\s\S]*indentListItem\(block, index, event\.shiftKey \? -1 : 1\);/,
+  'Tab and toolbar list indentation should share the same item indentation path'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function inlineRangeAnyMarked\(runs, start, end, mark\)[\s\S]*next > safeStart && cursor < safeEnd && !!run\[mark\][\s\S]*const shouldApply = command === 'code'[\s\S]*inlineRangeAnyMarked\(runs, start, end, command\)[\s\S]*inlineRangeAnyMarked\(runs, offsets\.start, offsets\.end, mark\)/,
+  'B/I/S inline formatting should treat mixed selected ranges as active when any selected text has the mark'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function inlineMarksAtOffset\(runs, offset\)[\s\S]*let previous = null;[\s\S]*target === cursor \|\| \(target > cursor && target < next\)[\s\S]*if \(target === next\) previous = run;[\s\S]*previous \|\| safeRuns\[safeRuns\.length - 1\]/,
+  'collapsed caret inline formatting should prefer the right-hand run at mark boundaries and only fall back to the previous run at the end'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function selectionEditableInRoot\(root\)[\s\S]*closestElement\(candidate, '\.blocks-rich-editable'\)[\s\S]*const editableSyncMap = new WeakMap\(\);[\s\S]*state\.activeEditable = selectionEditable;[\s\S]*state\.activeSync = editableSyncMap\.get\(selectionEditable\) \|\| state\.activeSync;[\s\S]*editableSyncMap\.set\(editable, sync\);[\s\S]*editableSyncMap\.set\(span, sync\);/,
+  'inline toolbar state should recover the active rich editable directly from the browser selection'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function inlineMarksFromDomNode\(node, editable\)[\s\S]*tag === 'strong' \|\| tag === 'b'[\s\S]*function inlineMarksFromPointerEvent\(event, editable\)[\s\S]*document\.caretPositionFromPoint[\s\S]*document\.caretRangeFromPoint[\s\S]*lastInlineMarks: null,[\s\S]*fallbackMarks && fallbackMarks\[mark\]/,
+  'inline toolbar state should fall back to marks from the clicked rich-text DOM path when selection offsets are unavailable or ambiguous'
+);
+
+assert.match(
+  editorBlocksSource,
+  /setActive\(index, editable, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, editable\);[\s\S]*state\.lastInlineMarks = \{ editable, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);[\s\S]*setActive\(index, span, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, span\);[\s\S]*state\.lastInlineMarks = \{ editable: span, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable: span, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);/,
+  'paragraph and list rich-text clicks should capture inline marks after activation and refresh the toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(\(!offsets \|\| offsets\.collapsed\) && codeRange\) \{[\s\S]*state\.pendingInline = \{\};[\s\S]*state\.lastInlineMarks = null;[\s\S]*state\.lastInlineMarkedRange = null;[\s\S]*removeInlineMarkInRange/,
+  'removing remembered inline code should clear stale toolbar mark fallback state'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(mark === 'code' && inlineMarksAtOffset\(runs, offsets\.start\)\.code\) \{[\s\S]*state\.pendingInline = \{\};[\s\S]*state\.lastInlineMarks = null;[\s\S]*state\.lastInlineMarkedRange = null;[\s\S]*removeInlineMarkAroundOffset/,
+  'removing inline code at a collapsed caret should clear stale toolbar mark fallback state'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const hasPendingInlineMarks = \(\) => !!\(state\.pendingInline\.bold[\s\S]*state\.pendingInline\.strike[\s\S]*state\.pendingInline\.link\);[\s\S]*const togglePendingInlineMark = \(kind\) => \{[\s\S]*if \(mark === 'code'\) return;[\s\S]*if \(mark === 'code'\) return;[\s\S]*togglePendingInlineMark\(kind\);/,
+  'inline code should not be stored as pending formatting for future text input'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const rememberedCodeRange = state\.lastInlineMarkedRange[\s\S]*mark === 'code'[\s\S]*else if \(mark === 'code'\) \{[\s\S]*if \(offsets && offsets\.collapsed\) \{[\s\S]*active = !!\(marks\.code \|\| \(fallbackMarks && fallbackMarks\.code\)\);[\s\S]*disabled = !active;[\s\S]*disabled = !rangeHasInlineText\(runs, offsets\.start, offsets\.end\);[\s\S]*btn\.classList\.toggle\('is-disabled', disabled\);[\s\S]*btn\.disabled = false;[\s\S]*btn\.tabIndex = disabled \? -1 : 0;/,
+  'inline code toolbar button should be aria-disabled for plain collapsed carets without using native disabled'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-inline-btn\[aria-disabled="true"\] \{ opacity:\.45; cursor:not-allowed; \}[\s\S]*\.blocks-inline-btn\[aria-disabled="true"\]:hover/,
+  'aria-disabled inline buttons should keep a disabled visual affordance without stealing editor focus'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const blockNodes = Array\.from\(list\.querySelectorAll\('\.blocks-block'\)\);[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*if \(!activeBlock \|\| !activeBlock\.contains\(btn\)\) \{[\s\S]*btn\.classList\.remove\('is-active'\);[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\);/,
+  'hidden non-active block toolbars should not retain inline formatting active state'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const blockNodes = Array\.from\(list\.querySelectorAll\('\.blocks-block'\)\);[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*const keepEditable = state\.activeEditable && activeBlock && nodeContains\(activeBlock, state\.activeEditable\);[\s\S]*state\.activeEditable = null;[\s\S]*state\.activeSync = null;[\s\S]*state\.pendingInline = \{\};[\s\S]*blockNodes\.forEach\(\(el, idx\) => \{/,
+  'container-only block selection should clear stale editable state from another block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const editorViewportBottom = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const viewportBottom = editorViewportBottom\(\);[\s\S]*const blockBottomInViewport = blockRect\.top < stickyTop && blockRect\.bottom > stickyTop && blockRect\.bottom <= viewportBottom;[\s\S]*const blockBottomTop = Math\.min\(viewportBottomLimit, blockRect\.bottom \+ gap\);[\s\S]*blockBottomInViewport[\s\S]*Math\.max\(stickyTop, blockBottomTop\)[\s\S]*Math\.min\(blockBottomLimit, Math\.max\(stickyTop, naturalTop\)\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
+  'active block toolbar should clamp below the markdown file toolbar and move to the block bottom when only its bottom remains visible'
+);
+
+assert.match(
+  editorBlocksSource,
+  /window\.addEventListener\('scroll', requestStickyBlockHeadUpdate, true\);[\s\S]*window\.addEventListener\('resize', requestStickyBlockHeadUpdate\);/,
+  'active block toolbar sticky position should refresh on editor pane scroll and viewport resize'
+);
+
+assert.match(
+  editorBlocksSource,
+  /item\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
+  'block section container clicks should select the block without hijacking toolbar action clicks or routed carets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /reorderAnimating: false/,
+  'block move animation should guard against overlapping reorder operations'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const captureBlockRects = \(indexes = null\) => \{[\s\S]*const allowed = Array\.isArray\(indexes\) \? new Set\(indexes\) : null;[\s\S]*if \(allowed && !allowed\.has\(index\)\) return;[\s\S]*const id = el\.dataset \? el\.dataset\.blockId : '';[\s\S]*rects\.set\(id, el\.getBoundingClientRect\(\)\);[\s\S]*return rects;/,
+  'block move animation should key before-rect snapshots by stable block ids for only the affected indexes'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const animateBlockReorder = \(beforeRects\) => \{[\s\S]*const before = id \? beforeRects\.get\(id\) : null;[\s\S]*const after = el\.getBoundingClientRect\(\);[\s\S]*const dx = before\.left - after\.left;[\s\S]*const dy = before\.top - after\.top;[\s\S]*item\.el\.style\.transition = 'none';[\s\S]*item\.el\.style\.transform = `translate3d\(\$\{item\.dx\}px, \$\{item\.dy\}px, 0\)`;[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*item\.el\.style\.transition = '';[\s\S]*item\.el\.style\.transform = 'translate3d\(0, 0, 0\)';[\s\S]*window\.setTimeout\(finish, 360\)/,
+  'block move animation should FLIP the final rendered DOM from old coordinates back to zero transform'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const moveBlock = \(index, direction\) => \{[\s\S]*prefersReducedReorderMotion\(\)[\s\S]*const beforeRects = captureBlockRects\(\[index, targetIndex\]\);[\s\S]*state\.reorderAnimating = true;[\s\S]*const moved = moveBlockInState\(index, direction\);[\s\S]*replaceAdjacentBlockElements\(index, targetIndex\)[\s\S]*emit\(\);[\s\S]*animateBlockReorder\(beforeRects\);/,
+  'block move should update state and replace only the adjacent affected DOM nodes before animating'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /moved\.dirty\s*=\s*true/,
+  'block reorders should not mark untouched block content dirty'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const replaceAdjacentBlockElements = \(index, targetIndex\) => \{[\s\S]*const firstIndex = Math\.min\(index, targetIndex\);[\s\S]*const secondIndex = Math\.max\(index, targetIndex\);[\s\S]*const firstNew = renderBlockElement\(state\.blocks\[firstIndex\], firstIndex\);[\s\S]*const secondNew = renderBlockElement\(state\.blocks\[secondIndex\], secondIndex\);[\s\S]*firstOld\.remove\(\);[\s\S]*secondOld\.remove\(\);[\s\S]*setActive\(state\.activeIndex\);[\s\S]*return true;/,
+  'adjacent move should avoid a full list render by replacing only the two swapped block nodes'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const item = document\.createElement\('section'\);[\s\S]*item\.className = `blocks-block blocks-block-\$\{block\.type\}`;[\s\S]*if \(index === state\.activeIndex\) item\.classList\.add\('is-active'\);[\s\S]*item\.dataset\.blockId = block\.id;/,
+  'active block should be marked during node creation so the toolbar does not fade out and back in after reorder render'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createBlockActionMenu = \(index\) => \{[\s\S]*wrap\.className = 'blocks-block-actions';[\s\S]*const trigger = button\('⋯', 'blocks-icon-btn blocks-action-trigger'\);[\s\S]*trigger\.setAttribute\('aria-haspopup', 'menu'\);[\s\S]*trigger\.setAttribute\('aria-expanded', 'false'\);[\s\S]*menu\.className = 'blocks-action-menu';[\s\S]*menu\.setAttribute\('role', 'menu'\);/,
+  'block reorder and delete actions should live behind a right-side overflow menu trigger'
+);
+
+assert.match(
+  editorBlocksSource,
+  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
+  'overflow menu items should preserve move/delete behavior and disabled edge states'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const closeBlockActionMenu = \(restoreFocus = false\) => \{[\s\S]*document\.removeEventListener\('mousedown', current\.onDocDown, true\);[\s\S]*document\.removeEventListener\('keydown', current\.onKeyDown, true\);[\s\S]*if \(restoreFocus\)[\s\S]*const onDocDown = \(event\) => \{[\s\S]*closeBlockActionMenu\(false\);[\s\S]*const onKeyDown = \(event\) => \{[\s\S]*event\.key === 'Escape'[\s\S]*closeBlockActionMenu\(true\);/,
+  'overflow menu should close on outside click and Escape while cleaning document listeners'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /button\('↑'|button\('↓'|button\('×', 'blocks-icon-btn blocks-delete-btn'/,
+  'block toolbar should not render direct up, down, or delete icon buttons'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /animateAdjacentBlockMove|swappedRect\.left - movedRect\.left|swappedRect\.top - movedRect\.top/,
+  'block move animation should not animate stale pre-render DOM nodes to their future positions'
+);
+
+assert.match(
+  editorBlocksSource,
+  /suppressNextBlockContainerClickUntil: 0,[\s\S]*const shouldSuppressRoutedBlockContainerClick = \(\) => \{[\s\S]*Date\.now\(\) > state\.suppressNextBlockContainerClickUntil[\s\S]*state\.suppressNextBlockContainerClickUntil = 0;[\s\S]*return true;/,
+  'routed caret pointerdowns should suppress the following container click from clearing activeEditable'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-toolbar'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
+  'blocks caret routing should exclude toolbars, link editors, controls, links, and native editable targets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const editableCaretCandidates = \(\) => \{[\s\S]*querySelectorAll\('\.blocks-list-item \.blocks-list-text'\)[\s\S]*hitTarget: closestElement\(editable, '\.blocks-list-item'\) \|\| editable[\s\S]*querySelectorAll\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)[\s\S]*sync: editableSyncMap\.get\(editable\) \|\| null/,
+  'routed caret candidates should include whole-row list item hit targets, rich text, code editors, and source markdown textareas with sync callbacks'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editableCaretCandidates\(\)\.forEach\(candidate => \{[\s\S]*nearestRectForPoint\(candidate\.hitTarget \|\| candidate\.editable, x, y\)[\s\S]*best = candidate;/,
+  'nearest editable routing should measure list items by their larger hit target while focusing the editable surface'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const CARET_POINT_MEASURE_LIMIT = 12000;[\s\S]*function measuredTextOffsetDetailsFromPoint\(el, x, y, limit = CARET_POINT_MEASURE_LIMIT\)[\s\S]*doc\.createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*let insideTextRect = false;[\s\S]*range\.setStart\(node, i\);[\s\S]*range\.setEnd\(node, i \+ 1\);[\s\S]*x >= rect\.left && x <= rect\.right && y >= rect\.top && y <= rect\.bottom[\s\S]*caretBoundaryDistance\(rect, rect\.left, x, y\)[\s\S]*bestOffset = offset \+ i;[\s\S]*caretBoundaryDistance\(rect, rect\.right, x, y\)[\s\S]*bestOffset = offset \+ i \+ 1;[\s\S]*return \{ offset: bestOffset, distance: bestDistance, insideTextRect, textRectCount \};[\s\S]*function measuredTextOffsetFromPoint\(el, x, y, limit = CARET_POINT_MEASURE_LIMIT\)[\s\S]*return details \? details\.offset : null;/,
+  'routed caret fallback should measure text-node character boundaries and report nearest offsets plus text-rect hits'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function textareaTextOffsetDetailsFromPoint\(area, x, y, limit = CARET_POINT_MEASURE_LIMIT\)[\s\S]*const mirror = document\.createElement\('div'\);[\s\S]*mirror\.style\.whiteSpace = 'pre-wrap';[\s\S]*mirror\.style\.overflowWrap = 'break-word';[\s\S]*'tabSize'[\s\S]*mirror\.textContent = value;[\s\S]*const details = measuredTextOffsetDetailsFromPoint\(mirror, x, y, limit\);[\s\S]*return \{[\s\S]*\.\.\.details,[\s\S]*offset: Math\.max\(0, Math\.min\(value\.length, details\.offset\)\)[\s\S]*function textareaTextOffsetFromPoint\(area, x, y, limit = CARET_POINT_MEASURE_LIMIT\)[\s\S]*return details \? details\.offset : null;/,
+  'routed source markdown textarea focus should use a styled mirror to measure nearest offsets and text-rect hits'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const setContentEditableCaretFromPoint = \(editable, x, y, hitTarget = editable\) => \{[\s\S]*document\.caretPositionFromPoint[\s\S]*pos\.offsetNode\.nodeType === Node\.TEXT_NODE[\s\S]*document\.caretRangeFromPoint[\s\S]*pointRange\.startContainer\.nodeType === Node\.TEXT_NODE[\s\S]*const hitRect = hitTarget && hitTarget\.getBoundingClientRect \? hitTarget\.getBoundingClientRect\(\) : rect;[\s\S]*const pointInsideEditableRect = !rect \|\| \([\s\S]*x >= rect\.left[\s\S]*y <= rect\.bottom[\s\S]*if \(pointInsideEditableRect && setRangeFromPoint\(x, y\)\) return;[\s\S]*const measuredOffset = measuredTextOffsetFromPoint\(editable, x, y\);[\s\S]*placeCaretAtTextOffset\(editable, measuredOffset\)[\s\S]*nearestRectForPoint\(editable, x, y\)[\s\S]*if \(hitRect && y < hitRect\.top \+ \(hitRect\.height \/ 2\)\) placeCaretAtTextOffset\(editable, 0\);/,
+  'routed rich/list/code caret placement should use browser APIs first, then measured offsets for line gaps, then coarse fallback'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /pointInsideHitRect[\s\S]{0,160}setRangeFromPoint\(x, y\)/,
+  'list item edge clicks should not use the larger list-item hit rectangle for native caret placement'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /if \(hitRect && y <= hitRect\.top\)[\s\S]{0,120}placeCaretAtTextOffset\(editable, 0\)[\s\S]{0,120}if \(hitRect && y >= hitRect\.bottom\)[\s\S]{0,120}placeCaretAtEnd\(editable\)/,
+  'line-gap clicks should not early-return to editable start/end before measured caret placement'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const setTextareaCaretFromPoint = \(area, x, y\) => \{[\s\S]*const measuredOffset = textareaTextOffsetFromPoint\(area, x, y\);[\s\S]*const fallbackOffset = rect && y < rect\.top \+ \(rect\.height \/ 2\) \? 0 : valueLength;[\s\S]*const offset = measuredOffset != null \? measuredOffset : fallbackOffset;[\s\S]*area\.setSelectionRange\(offset, offset\);/,
+  'routed source markdown textarea focus should prefer mirror-measured offsets before start/end fallback'
+);
+
+assert.match(
+  editorBlocksSource,
+  /let sourcePointer = null;[\s\S]*area\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*const details = textareaTextOffsetDetailsFromPoint\(area, event\.clientX, event\.clientY\);[\s\S]*if \(details && !details\.insideTextRect\) \{[\s\S]*event\.preventDefault\(\);[\s\S]*sourcePointer = \{ x: event\.clientX, y: event\.clientY, moved: false, corrected: true \};[\s\S]*area\.setSelectionRange\(details\.offset, details\.offset\);[\s\S]*sourcePointer = \{ x: event\.clientX, y: event\.clientY, moved: false, corrected: false \};[\s\S]*area\.addEventListener\('pointermove', \(event\) => \{[\s\S]*> 16\) sourcePointer\.moved = true;[\s\S]*area\.addEventListener\('click', \(event\) => \{[\s\S]*if \(!pointer \|\| pointer\.moved \|\| pointer\.corrected\) return;[\s\S]*const details = textareaTextOffsetDetailsFromPoint\(area, event\.clientX, event\.clientY\);[\s\S]*if \(!details \|\| details\.insideTextRect\) return;[\s\S]*area\.setSelectionRange\(details\.offset, details\.offset\);[\s\S]*area\.addEventListener\('blur', \(\) => \{ sourcePointer = null; \}\);/,
+  'direct source markdown textarea blank-edge pointerdowns should prevent native end snaps while text clicks and drags keep native behavior'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*nearestEditableFromPoint\(event\.clientX, event\.clientY\)[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*const \{ editable, hitTarget, index, sync \} = candidate;[\s\S]*setTextareaCaretFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*setContentEditableCaretFromPoint\(editable, event\.clientX, event\.clientY, hitTarget\)[\s\S]*setActive\(index, editable, sync\);[\s\S]*list\.addEventListener\('pointerdown', routeBlocksCaretFromPointer\);/,
+  'blocks list pointerdown should route blank clicks to the nearest editable without dropping active sync'
+);
+
+assert.match(
+  editorBlocksSource,
+  /body\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*event\.stopPropagation\(\);[\s\S]*setActive\(index\);/,
+  'block body click selection should not override a caret that was just routed on pointerdown'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-inline-toolbar|execCommand/,
+  'blocks mode should not use a standalone inline toolbar or document execCommand'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(block\.type === 'paragraph' \|\| block\.type === 'quote' \|\| block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createInlineControls\(index\)\);[\s\S]*\}/,
+  'paragraph, quote, and list blocks should receive inline controls in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /block\.type === 'heading'[\s\S]{0,160}createInlineControls/,
+  'heading block toolbar should not receive inline formatting controls'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function selectionLinkInEditable\(editable\)[\s\S]*closestElement\(candidate, 'a\[href\]'\)[\s\S]*const positionLinkEditor = \(link\) => \{[\s\S]*link\.getBoundingClientRect\(\)[\s\S]*root\.getBoundingClientRect\(\)[\s\S]*const linkEditor = document\.createElement\('div'\);[\s\S]*linkEditor\.className = 'blocks-link-editor'[\s\S]*linkText\.addEventListener\('input', applyLinkEditor\)[\s\S]*linkHref\.addEventListener\('input', applyLinkEditor\)[\s\S]*unlink\.addEventListener\('click',[\s\S]*root\.appendChild\(linkEditor\)[\s\S]*positionLinkEditor\(activeLink\)/,
+  'inline link editor should float near the active link and expose text, URL, and unlink controls'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const handleLinkEditorOutsidePointer = \(event\) => \{[\s\S]*if \(linkEditor\.hidden\) return;[\s\S]*isLinkEditorInternalTarget\(target\)[\s\S]*hideLinkEditor\(\);[\s\S]*document\.addEventListener\('pointerdown', handleLinkEditorOutsidePointer, true\);[\s\S]*document\.addEventListener\('mousedown', handleLinkEditorOutsidePointer, true\);/,
+  'inline link editor should close from a capture-phase outside pointer or mouse press'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /inlineToolbar\.appendChild\(linkEditor\)|blocks-inline-toolbar/,
+  'inline link editor should not be placed inside the sticky inline toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const heading = createRichEditable\(`h\$\{level\}`, block, 'text', `blocks-rich-editable blocks-heading-text/,
+  'heading blocks should render as real heading elements in the visual canvas'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
+  'image blocks should render a real image element instead of a path-only placeholder'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const listEl = document\.createElement\(listType === 'ol' \? 'ol' : 'ul'\);[\s\S]*const li = document\.createElement\('li'\);[\s\S]*span\.contentEditable = 'true'/,
+  'list blocks should render editable list item elements instead of a textarea'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const quote = document\.createElement\('blockquote'\);[\s\S]*blocks-quote-preview/,
+  'quote blocks should render as blockquote elements'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const pre = document\.createElement\('pre'\);[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.contentEditable = 'true'/,
+  'code blocks should render a pre/code editing surface'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const sync = \(\) => updateFromControl\(block, \{ text: codeEditableText\(code\) \}\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);/,
+  'code block editing surfaces should register active sync for routed caret focus'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createCodeLanguageInput = \(block\) => \{[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
+  'code block language control should live in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-code-inspector/,
+  'code block language control should not render as a body inspector'
+);
+
+assert.match(
+  editorBlocksSource,
+  /preview\.innerHTML = `<a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);/,
+  'article-card blocks should render through the card hydration path'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
+  'source markdown textareas should auto-size to their content'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const sync = \(\) => updateFromControl\(block, \{ text: area\.value \}\);[\s\S]*editableSyncMap\.set\(area, sync\);[\s\S]*area\.addEventListener\('focus', \(\) => \{[\s\S]*setActive\(index, area, sync\);/,
+  'source markdown textareas should register active sync for routed caret focus'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /area\.value = \(block\.data\.items \|\| \[\]\)\.map\(item => item\.checked/,
+  'list blocks should not use a textarea as their primary editing surface'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-list-add|listAddItem/,
+  'list blocks should not render a dedicated add item button'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-list-remove|listRemoveItem/,
+  'list blocks should not render per-item remove buttons'
+);
+
+assert.doesNotMatch(
+  extractFunctionBody(editorBlocksSource, 'editableText'),
+  /\.trim\(/,
+  'editable text sync should preserve leading and trailing markdown whitespace'
+);
+
+assert.doesNotMatch(
+  extractFunctionBody(editorBlocksSource, 'splitEditableTextAtSelection'),
+  /\.trim\(/,
+  'splitting editable text should preserve leading and trailing markdown whitespace'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:/,
+  'pressing Enter in a visual list item should split text at the caret into a focused new item below with the same indentation'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*next\[itemIndex - 1\] = \{ \.\.\.previous, text: `\$\{previous\.text \|\| ''\}\$\{currentText\}` \};[\s\S]*next\.splice\(itemIndex, 1\);/,
+  'Backspace or Delete at the start of a non-first visual list item should remove or merge it into the previous item'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function getEditableCaretTextOffset\(el\) \{[\s\S]*beforeRange\.toString\(\)[\s\S]*function placeCaretAtVisualLine\(el, x, edge, fallbackOffset = 0\) \{[\s\S]*edge === 'last' \? lineRects\[lineRects\.length - 1\] : lineRects\[0\][\s\S]*event\.key === 'ArrowUp' \|\| event\.key === 'ArrowDown'[\s\S]*const nextIndex = event\.key === 'ArrowUp' \? itemIndex - 1 : itemIndex \+ 1;[\s\S]*if \(!isEditableCaretOnEdgeLine\(span, event\.key === 'ArrowUp' \? 'up' : 'down'\)\) return;[\s\S]*placeCaretAtVisualLine\(target, caretRect \? caretRect\.left : 0, event\.key === 'ArrowUp' \? 'last' : 'first', caretOffset\);/,
+  'ArrowUp and ArrowDown should cross items only from edge lines and enter multiline targets from the correct visual edge'
+);
+
+assert.match(
+  editorBlocksSource,
+  /activeIndex: -1[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.activeIndex = -1;/,
+  'blocks mode should start with no selected block so controls are not shown by default'
+);
+
+assert.match(
+  editorSource,
+  /\.markdown-blocks-shell \{ position:relative; display:flex; flex-direction:column; gap:\.65rem; padding:0; border-radius:0; background:transparent; color:var\(--text\); \}/,
+  'blocks wrapper should remain a visual-free layout container while anchoring floating link controls'
+);
+
+assert.match(
+  editorSource,
+  /\.markdown-blocks-shell, \.blocks-list, \.blocks-block, \.blocks-block-body \{ cursor:text; \}/,
+  'blocks editing canvas should use the text cursor across blank layout areas'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
+  'blocks controls and floating panels should not inherit the canvas text cursor'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*cursor:pointer;/,
+  'toolbar buttons, card picker results, block action menu items, and inline menu items should keep pointer cursors'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-rich-editable, \.blocks-code-preview code, \.blocks-block input, \.blocks-block textarea, \.blocks-link-editor input, \.blocks-card-search \{ cursor:text; \}/,
+  'editable text surfaces and text inputs should keep text cursors'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block select \{ cursor:default; \}/,
+  'select controls should keep their control cursor semantics'
+);
+
+assert.match(
+  editorSource,
+  /\.markdown-editor-shell\.is-blocks-mode, \.markdown-editor-shell:has\(#blocks-wrap:not\(\[hidden\]\)\) \{ border:0; border-radius:0; background:transparent; box-shadow:none; \}/,
+  'markdown editor shell should drop its visual container treatment in blocks mode'
+);
+
+assert.match(
+  editorMainSource,
+  /if \(editorShell\) editorShell\.classList\.toggle\('is-blocks-mode', mode === 'blocks'\);/,
+  'view switching should mark the markdown shell as visual-free only in blocks mode'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block \{ position:relative; overflow:visible; \}/,
+  'blocks should be layout-only relative containers and must not clip floating controls'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-list \{ display:flex; flex-direction:column; gap:3rem; padding-top:2\.5rem; \}/,
+  'blocks list should leave enough vertical room for floating block toolbars'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block\.is-reordering \{ z-index:1; transition:transform \.24s cubic-bezier\(\.2,\.8,\.2,1\); will-change:transform; \}/,
+  'moved blocks should animate their reorder transform without adding container chrome'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block::before \{[^}]*background:color-mix\(in srgb, var\(--primary\) 42%, #60a5fa\);[^}]*opacity:0;[^}]*transition:opacity \.16s ease, background \.16s ease, box-shadow \.16s ease;/,
+  'hover block indicator should use a softer default color and fade smoothly'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block:hover::before \{ opacity:1; \}[\s\S]*\.blocks-block\.is-active::before \{ opacity:1; background:color-mix\(in srgb, var\(--primary\) 82%, #60a5fa\);/,
+  'active block indicator should stay visible with the stronger selected color after hover ends'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block \{[^}]*\b(?:border|background|box-shadow|border-radius)\s*:/,
+  'block containers should not draw their own border, background, radius, or shadow'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block\.is-active \{[^}]*\b(?:border|background|box-shadow|outline)\s*:/,
+  'active block containers should not draw an outer highlight'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
+  'block hover affordance should use an out-of-flow left glow instead of container chrome'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block::before \{[^}]*\btransform\s*:/,
+  'block hover affordance should not shift block layout'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block:hover::before \{ opacity:1; \}/,
+  'block hover should reveal the left glow cue'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-body \{ display:flex; flex-direction:column; gap:\.7rem; padding:0; \}/,
+  'block body should not add outer container padding'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \{ position:absolute; top:0; left:\.55rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*transform:translate3d\(0,-112%,0\) scale\(\.98\);/,
+  'block type and action controls should be hidden floating overlays at the outside top-left by default'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-112%,0\) scale\(1\); \}/,
+  'block controls should appear only for the active block'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \{[^}]*flex-wrap:nowrap;[\s\S]*transition:opacity \.16s ease;[^}]*white-space:nowrap; \}[\s\S]*\.blocks-block\.is-active \.blocks-block-head\.is-stuck \{ position:fixed; z-index:135; transform:none; transition:none; max-width:calc\(100vw - 1rem\); \}/,
+  'active block controls should stay single-row and avoid transform transitions while sticking under the markdown file toolbar'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\); \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
+  'block action overflow menu should be separated by a left divider and anchor to the right edge of the floating toolbar actions slot'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-action-menu-delete \{ color:color-mix\(in srgb, #dc2626 82%, var\(--text\)\); \}[\s\S]*\.blocks-action-menu-delete:hover:not\(:disabled\), \.blocks-action-menu-delete:focus-visible:not\(:disabled\) \{ background:color-mix\(in srgb, #dc2626 12%, transparent\);/,
+  'delete action inside the overflow menu should retain danger styling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; \}/,
+  'code block language input should use compact floating-toolbar styling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-code-preview code:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
+  'focused code block editor should not draw an inner highlight border'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-code-preview code \{ display:block; min-height:1\.55em;[\s\S]*line-height:1\.55; \}/,
+  'single-line code blocks should not inherit a tall fixed minimum height'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; \}/,
+  'source markdown textareas should expand to content without a fixed minimum height or internal scrolling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-source-textarea:focus \{ outline:none; box-shadow:none; border-color:color-mix\(in srgb, var\(--border\) 82%, transparent\); \}/,
+  'focused source markdown textarea should not draw an inner highlight border'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-list-item input\[type="checkbox"\] \{[^}]*cursor:pointer; \}/,
+  'task-list checkbox controls should keep pointer cursors inside the text-cursor canvas'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-card-preview a \{ cursor:pointer; \}/,
+  'article card links should keep pointer cursors inside the text-cursor canvas'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-rich-editable:focus,[^{]*\.blocks-code-preview code:focus[^{]*\{ outline:2px solid/,
+  'code block editor focus should not share the generic blue focus outline rule'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block:focus-within \.blocks-block-head/,
+  'focused stale blocks should not keep a second floating toolbar visible'
+);
+
+assert.match(
+  editorSource,
+  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\], \.markdown-blocks-shell \.blocks-inline-menu-item\.is-active, \.markdown-blocks-shell \.blocks-inline-menu-item\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls, \.blocks-list-indent-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}[\s\S]*\.blocks-inline-controls \{ margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\); \}/,
+  'inline formatting controls should use a visible filled active state that overrides theme button resets'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-inline-more \{ position:relative; display:flex; align-items:center; \}[\s\S]*\.blocks-inline-more-trigger \{ min-width:2rem; font-size:\.78rem; font-weight:750; \}[\s\S]*\.blocks-inline-more-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-inline-more-menu\[hidden\] \{ display:none !important; \}[\s\S]*\.blocks-inline-menu-item \{ width:100%; border:0; background:transparent; border-radius:6px; padding:\.46rem \.58rem; text-align:left; white-space:nowrap; font-weight:700; \}[\s\S]*\.blocks-inline-menu-item\[aria-disabled="true"\] \{ opacity:\.45; cursor:not-allowed; \}/,
+  'inline formatting overflow menu should be compact and anchored after the Link button'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-inline-btn\.is-active, \.blocks-inline-btn\[aria-pressed="true"\] \{[^}]*var\(--primary\) 15%/,
+  'inline formatting active state should not regress to the barely visible 15% primary tint'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-inline-toolbar/,
+  'blocks inline formatting should not keep a sticky standalone toolbar style'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-list-item \{ padding:\.28rem 0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);/,
+  'visual list rows should keep markers and checklist boxes aligned without reserving inline button space'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createListTypeSelect\(block\)\);[\s\S]*\}/,
+  'list type control should live in the floating block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createHeadingLevelSelect = \(block\) => \{[\s\S]*select\.className = 'blocks-heading-level'[\s\S]*select\.addEventListener\('change', \(\) => updateFromControl\(block, \{ level: Number\(select\.value\) \|\| 2 \}, true\)\);[\s\S]*if \(block\.type === 'heading'\) \{[\s\S]*head\.appendChild\(createHeadingLevelSelect\(block\)\);[\s\S]*\}/,
+  'heading level control should live in the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-heading-controls/,
+  'heading level control should not remain as a body control above the heading'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-list-inspector/,
+  'list type control should not remain as a body inspector above the list'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-list-remove/,
+  'visual list CSS should not style removed per-item delete buttons'
 );
 
 assert.doesNotMatch(
