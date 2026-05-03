@@ -337,15 +337,25 @@ function escapeMarkdownInline(value) {
     .replace(/\]/g, '\\]');
 }
 
-function escapeMarkdownCodeSpan(value) {
-  return String(value == null ? '' : value)
-    .replace(/\u00a0/g, ' ')
-    .replace(/\\/g, '\\\\')
-    .replace(/`/g, '\\`');
+function codeSpanFenceForText(value) {
+  const runs = String(value == null ? '' : value).match(/`+/g) || [];
+  const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
+  return '`'.repeat(Math.max(1, longest + 1));
 }
 
-function unescapeMarkdownCodeSpan(value) {
-  return String(value == null ? '' : value).replace(/\\([\\`])/g, '$1');
+function serializeMarkdownCodeSpan(value) {
+  const text = String(value == null ? '' : value).replace(/\u00a0/g, ' ');
+  const fence = codeSpanFenceForText(text);
+  const body = text.startsWith('`') || text.endsWith('`') ? ` ${text} ` : text;
+  return `${fence}${body}${fence}`;
+}
+
+function normalizeMarkdownCodeSpanText(value) {
+  const text = String(value == null ? '' : value).replace(/\n/g, ' ');
+  if (text.length >= 2 && text.startsWith(' ') && text.endsWith(' ') && /\S/.test(text)) {
+    return text.slice(1, -1);
+  }
+  return text;
 }
 
 function sanitizeEditorLinkHref(value) {
@@ -538,6 +548,10 @@ function findUnescaped(input, needle, start = 0) {
   return -1;
 }
 
+function isMarkdownEscapablePunctuation(value) {
+  return /^[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]$/.test(String(value || ''));
+}
+
 function findInlineLink(input, start) {
   const text = String(input || '');
   if (text[start] !== '[') return null;
@@ -619,6 +633,26 @@ function findInlineMarkerEnd(text, marker, start) {
   return -1;
 }
 
+function backtickRunLength(text, start) {
+  let end = start;
+  while (end < text.length && text[end] === '`') end += 1;
+  return end - start;
+}
+
+function findCodeSpanEnd(text, start, length) {
+  let search = start;
+  while (search < text.length) {
+    if (text[search] !== '`') {
+      search += 1;
+      continue;
+    }
+    const candidateLength = backtickRunLength(text, search);
+    if (candidateLength === length) return search;
+    search += candidateLength;
+  }
+  return -1;
+}
+
 function parseInlineRunsInternal(input, marks = {}) {
   const text = String(input || '');
   const runs = [];
@@ -626,8 +660,13 @@ function parseInlineRunsInternal(input, marks = {}) {
 
   while (index < text.length) {
     if (text[index] === '\\' && index + 1 < text.length) {
-      appendInlineRun(runs, text[index + 1], marks);
-      index += 2;
+      if (isMarkdownEscapablePunctuation(text[index + 1])) {
+        appendInlineRun(runs, text[index + 1], marks);
+        index += 2;
+      } else {
+        appendInlineRun(runs, text[index], marks);
+        index += 1;
+      }
       continue;
     }
 
@@ -639,10 +678,11 @@ function parseInlineRunsInternal(input, marks = {}) {
     }
 
     if (text[index] === '`') {
-      const end = findUnescaped(text, '`', index + 1);
-      if (end > index + 1) {
-        appendInlineRun(runs, unescapeMarkdownCodeSpan(text.slice(index + 1, end)), { code: true });
-        index = end + 1;
+      const fenceLength = backtickRunLength(text, index);
+      const end = findCodeSpanEnd(text, index + fenceLength, fenceLength);
+      if (end >= index + fenceLength) {
+        appendInlineRun(runs, normalizeMarkdownCodeSpanText(text.slice(index + fenceLength, end)), { code: true });
+        index = end + fenceLength;
         continue;
       }
     }
@@ -711,7 +751,7 @@ function linkTitleForRun(run) {
 function serializeInlineRun(run) {
   const text = String(run && run.text != null ? run.text : '');
   if (!text) return '';
-  if (run && run.code) return `\`${escapeMarkdownCodeSpan(text)}\``;
+  if (run && run.code) return serializeMarkdownCodeSpan(text);
   let out = escapeMarkdownInline(text);
   if (run && run.italic) out = `_${out}_`;
   if (run && run.bold) out = `**${out}**`;

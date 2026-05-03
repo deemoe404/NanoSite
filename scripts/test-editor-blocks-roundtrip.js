@@ -349,13 +349,41 @@ run('underscore emphasis requires non-word boundaries', () => {
   assert.equal(serializeInlineRuns(parseInlineRuns('hello (_italic_) world')), 'hello (_italic_) world');
 });
 
-run('inline code escapes backslashes before backticks', () => {
+run('inline parser preserves literal non-escape backslashes', () => {
+  const source = String.raw`C:\Users\name and \alpha`;
+  const runs = parseInlineRuns(source);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].text, source);
+  assert.equal(parseInlineRuns(serializeInlineRuns(runs))[0].text, source);
+});
+
+run('inline parser consumes backslashes only before escapable punctuation', () => {
+  const runs = parseInlineRuns(String.raw`\*not italic\* and \alpha`);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].text, String.raw`*not italic* and \alpha`);
+  assert.equal(serializeInlineRuns(runs), String.raw`\*not italic\* and \\alpha`);
+});
+
+run('inline code preserves backslashes and backticks as literal code text', () => {
   const source = 'safe \\` **not bold**';
   const serialized = serializeInlineRuns([{ text: source, code: true }]);
   const parsed = parseInlineRuns(serialized);
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].code, true);
   assert.equal(parsed[0].text, source);
+});
+
+run('inline code supports variable-length backtick delimiters', () => {
+  const runs = parseInlineRuns('``foo`bar``');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].code, true);
+  assert.equal(runs[0].text, 'foo`bar');
+  assert.equal(serializeInlineRuns(runs), '``foo`bar``');
+});
+
+run('inline code serializes with enough backticks for the content', () => {
+  assert.equal(serializeInlineRuns([{ text: 'foo``bar', code: true }]), '```foo``bar```');
+  assert.equal(parseInlineRuns('```foo``bar```')[0].text, 'foo``bar');
 });
 
 run('inline selection removes a mark from mixed selected text when any selected run has it', () => {
