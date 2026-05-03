@@ -420,7 +420,8 @@ function serializeBlock(block) {
       const items = Array.isArray(data.items) ? data.items : [];
       const listType = data.listType === 'ol' || data.listType === 'task' ? data.listType : 'ul';
       return items.map((item, index) => {
-        const text = String(item && item.text != null ? item.text : '').trim() || 'List item';
+        const rawText = String(item && item.text != null ? item.text : '');
+        const text = rawText === '' ? 'List item' : rawText;
         const indent = item && typeof item.indentText === 'string'
           ? item.indentText
           : '  '.repeat(Math.max(0, Number(item && item.indent) || 0));

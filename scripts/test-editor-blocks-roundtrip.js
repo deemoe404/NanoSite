@@ -124,6 +124,15 @@ run('dirty paragraph serialization preserves edge whitespace', () => {
   assert.equal(serializeMarkdownBlocks(blocks), '  Leading and trailing  \n\n');
 });
 
+run('dirty list serialization preserves item edge whitespace', () => {
+  const blocks = parseMarkdownBlocks('- item  \n- next\n\n');
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'list');
+  blocks[0].dirty = true;
+  blocks[0].data.items[1].text = 'edited';
+  assert.equal(serializeMarkdownBlocks(blocks), '- item  \n- edited\n\n');
+});
+
 run('reordered untouched blocks keep raw markdown content', () => {
   const blocks = parseMarkdownBlocks([
     'Paragraph with hard break  ',
