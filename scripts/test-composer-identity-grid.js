@@ -494,7 +494,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-list \{ display:flex; flex-direction:column; gap:2\.5rem; padding-top:2\.5rem; \}/,
+  /\.blocks-list \{ display:flex; flex-direction:column; gap:3rem; padding-top:2\.5rem; \}/,
   'blocks list should leave enough vertical room for floating block toolbars'
 );
 
