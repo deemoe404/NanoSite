@@ -226,12 +226,26 @@ run('opening thematic breaks are preserved as body content', () => {
 run('inline runs serialize nested supported marks canonically', () => {
   assert.equal(
     serializeInlineRuns(parseInlineRuns('plain **bold** *italic* ~~strike~~ `code` [link](https://example.com)')),
-    'plain **bold** _italic_ ~~strike~~ `code` [link](https://example.com)'
+    'plain **bold** _italic_ ~~strike~~ `code` [link](https://example.com "link")'
   );
   assert.equal(
     serializeInlineRuns(parseInlineRuns('**_both_**')),
     '**_both_**'
   );
+});
+
+run('intraword underscores stay plain text', () => {
+  const runs = parseInlineRuns('snake_case foo_bar_baz version_2_alpha');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].italic, false);
+  assert.equal(serializeInlineRuns(runs), 'snake_case foo_bar_baz version_2_alpha');
+});
+
+run('underscore emphasis requires non-word boundaries', () => {
+  assert.equal(serializeInlineRuns(parseInlineRuns('hello_italic_world')), 'hello_italic_world');
+  assert.equal(serializeInlineRuns(parseInlineRuns('中文_斜体_中文')), '中文_斜体_中文');
+  assert.equal(serializeInlineRuns(parseInlineRuns('hello _italic_ world')), 'hello _italic_ world');
+  assert.equal(serializeInlineRuns(parseInlineRuns('hello (_italic_) world')), 'hello (_italic_) world');
 });
 
 run('inline code escapes backslashes before backticks', () => {
@@ -287,17 +301,25 @@ run('inline code can be removed around a collapsed caret', () => {
 
 run('inline link can be applied, replaced, and removed without losing safe marks', () => {
   const linked = applyInlineLinkToRuns(parseInlineRuns('see **docs** now'), 4, 8, 'https://example.com');
-  assert.equal(serializeInlineRuns(linked), 'see [**docs**](https://example.com) now');
+  assert.equal(serializeInlineRuns(linked), 'see [**docs**](https://example.com "docs") now');
   const replaced = applyInlineLinkToRuns(linked, 4, 8, 'https://example.org', 'guide');
-  assert.equal(serializeInlineRuns(replaced), 'see [**guide**](https://example.org) now');
+  assert.equal(serializeInlineRuns(replaced), 'see [**guide**](https://example.org "guide") now');
   const unlinked = applyInlineLinkToRuns(replaced, 4, 9, '');
   assert.equal(serializeInlineRuns(unlinked), 'see **guide** now');
 });
 
+run('inline links preserve optional title text', () => {
+  const runs = parseInlineRuns('[docs](https://example.com "Custom title")');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].link, 'https://example.com');
+  assert.equal(runs[0].linkTitle, 'Custom title');
+  assert.equal(serializeInlineRuns(runs), '[docs](https://example.com "Custom title")');
+});
+
 run('inline links sanitize unsafe hrefs', () => {
   const linked = applyInlineLinkToRuns(parseInlineRuns('see docs'), 4, 8, 'javascript:alert(1)');
-  assert.equal(serializeInlineRuns(linked), 'see [docs](#)');
-  assert.equal(serializeInlineRuns(parseInlineRuns('[docs](javascript:alert)')), '[docs](#)');
+  assert.equal(serializeInlineRuns(linked), 'see [docs](# "docs")');
+  assert.equal(serializeInlineRuns(parseInlineRuns('[docs](javascript:alert)')), '[docs](# "docs")');
 });
 
 run('inline pending mark insertion uses selected mark set', () => {

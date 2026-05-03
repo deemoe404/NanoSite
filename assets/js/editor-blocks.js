@@ -256,11 +256,11 @@ export function parseMarkdownBlocks(markdown) {
 }
 
 function escapeMarkdownInline(value) {
-  return String(value == null ? '' : value)
-    .replace(/\u00a0/g, ' ')
+  const text = String(value == null ? '' : value).replace(/\u00a0/g, ' ');
+  return text
     .replace(/\\/g, '\\\\')
     .replace(/\*/g, '\\*')
-    .replace(/_/g, '\\_')
+    .replace(/_/g, (match, offset) => shouldEscapePlainUnderscore(text, offset) ? '\\_' : match)
     .replace(/`/g, '\\`')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]');
@@ -282,6 +282,26 @@ function sanitizeEditorLinkHref(value) {
   const protocol = href.toLowerCase().match(/^([a-z][a-z0-9+.-]*):/);
   if (!protocol) return href;
   return ['http', 'https', 'mailto', 'tel'].includes(protocol[1]) ? href : '#';
+}
+
+function sanitizeEditorLinkTitle(value) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+}
+
+function escapeMarkdownLinkTitle(value) {
+  return sanitizeEditorLinkTitle(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function isInlineWordChar(value) {
+  return /^[\p{L}\p{N}]$/u.test(String(value || ''));
+}
+
+function isIntrawordUnderscore(text, index) {
+  return isInlineWordChar(text[index - 1]) && isInlineWordChar(text[index + 1]);
+}
+
+function shouldEscapePlainUnderscore(text, index) {
+  return !isIntrawordUnderscore(String(text || ''), index);
 }
 
 function serializeImage(data = {}) {
@@ -377,19 +397,22 @@ function escapeHtml(value) {
 }
 
 function inlineRun(text, marks = {}) {
+  const link = marks.link ? sanitizeEditorLinkHref(marks.link) : '';
   const run = {
     text: String(text == null ? '' : text),
     bold: !!marks.bold,
     italic: !!marks.italic,
     strike: !!marks.strike,
     code: !!marks.code,
-    link: marks.link ? sanitizeEditorLinkHref(marks.link) : ''
+    link,
+    linkTitle: link ? sanitizeEditorLinkTitle(marks.linkTitle) : ''
   };
   if (run.code) {
     run.bold = false;
     run.italic = false;
     run.strike = false;
     run.link = '';
+    run.linkTitle = '';
   }
   return run;
 }
@@ -399,7 +422,8 @@ function sameInlineMarks(a = {}, b = {}) {
     && !!a.italic === !!b.italic
     && !!a.strike === !!b.strike
     && !!a.code === !!b.code
-    && String(a.link || '') === String(b.link || '');
+    && String(a.link || '') === String(b.link || '')
+    && String(a.linkTitle || '') === String(b.linkTitle || '');
 }
 
 function appendInlineRun(runs, text, marks = {}) {
@@ -443,13 +467,47 @@ function findInlineLink(input, start) {
   const hrefStart = labelEnd + 2;
   const hrefEnd = findUnescaped(text, ')', hrefStart);
   if (hrefEnd <= hrefStart) return null;
-  const href = text.slice(hrefStart, hrefEnd).trim();
-  if (!href || /\s/.test(href)) return null;
+  const parsed = parseMarkdownLinkDestination(text.slice(hrefStart, hrefEnd));
+  if (!parsed) return null;
   return {
     label: text.slice(start + 1, labelEnd),
-    href,
+    href: parsed.href,
+    title: parsed.title,
     end: hrefEnd + 1
   };
+}
+
+function parseMarkdownLinkDestination(value) {
+  const body = String(value || '').trim();
+  if (!body) return null;
+  if (!/\s/.test(body)) return { href: body, title: '' };
+  const match = body.match(/^(\S+)\s+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))\s*$/);
+  if (!match) return null;
+  return {
+    href: match[1] || '',
+    title: match[2] != null ? match[2] : match[3] != null ? match[3] : match[4] || ''
+  };
+}
+
+function canOpenInlineMarker(text, index, marker) {
+  if (marker !== '_') return true;
+  return !isInlineWordChar(String(text || '')[index - 1]);
+}
+
+function canCloseInlineMarker(text, index, marker) {
+  if (marker !== '_') return true;
+  return !isInlineWordChar(String(text || '')[index + marker.length]);
+}
+
+function findInlineMarkerEnd(text, marker, start) {
+  let search = start;
+  while (search < text.length) {
+    const end = findUnescaped(text, marker, search);
+    if (end < 0) return -1;
+    if (end > start && canCloseInlineMarker(text, end, marker)) return end;
+    search = end + marker.length;
+  }
+  return -1;
 }
 
 function parseInlineRunsInternal(input, marks = {}) {
@@ -466,7 +524,7 @@ function parseInlineRunsInternal(input, marks = {}) {
 
     const link = findInlineLink(text, index);
     if (link) {
-      parseInlineRunsInternal(link.label, { ...marks, link: link.href }).forEach(run => appendInlineRun(runs, run.text, run));
+      parseInlineRunsInternal(link.label, { ...marks, link: link.href, linkTitle: link.title }).forEach(run => appendInlineRun(runs, run.text, run));
       index = link.end;
       continue;
     }
@@ -489,7 +547,8 @@ function parseInlineRunsInternal(input, marks = {}) {
     let matched = false;
     for (const [marker, patch] of patterns) {
       if (!text.startsWith(marker, index)) continue;
-      const end = findUnescaped(text, marker, index + marker.length);
+      if (!canOpenInlineMarker(text, index, marker)) continue;
+      const end = findInlineMarkerEnd(text, marker, index + marker.length);
       if (end <= index + marker.length) continue;
       const body = text.slice(index + marker.length, end);
       parseInlineRunsInternal(body, { ...marks, ...patch }).forEach(run => appendInlineRun(runs, run.text, run));
@@ -514,6 +573,13 @@ function escapeMarkdownLinkHref(value) {
   return sanitizeEditorLinkHref(value).replace(/\)/g, '%29').replace(/\s+/g, '%20');
 }
 
+function linkTitleForRun(run) {
+  const explicit = sanitizeEditorLinkTitle(run && run.linkTitle);
+  if (explicit) return explicit;
+  const fallback = sanitizeEditorLinkTitle(run && run.text);
+  return fallback || sanitizeEditorLinkTitle(run && run.link);
+}
+
 function serializeInlineRun(run) {
   const text = String(run && run.text != null ? run.text : '');
   if (!text) return '';
@@ -522,7 +588,7 @@ function serializeInlineRun(run) {
   if (run && run.italic) out = `_${out}_`;
   if (run && run.bold) out = `**${out}**`;
   if (run && run.strike) out = `~~${out}~~`;
-  if (run && run.link) out = `[${out}](${escapeMarkdownLinkHref(run.link)})`;
+  if (run && run.link) out = `[${out}](${escapeMarkdownLinkHref(run.link)} "${escapeMarkdownLinkTitle(linkTitleForRun(run))}")`;
   return out;
 }
 
@@ -545,7 +611,7 @@ function appendInlineNode(parent, run) {
     if (run && run.italic) wrap('em');
     if (run && run.bold) wrap('strong');
     if (run && run.strike) wrap('s');
-    if (run && run.link) wrap('a', { href: sanitizeEditorLinkHref(run.link) });
+    if (run && run.link) wrap('a', { href: sanitizeEditorLinkHref(run.link), title: linkTitleForRun(run) });
   }
   parent.appendChild(node);
 }
@@ -581,7 +647,10 @@ function inlineRunsFromDom(root) {
     if (tag === 'em' || tag === 'i') nextMarks.italic = true;
     if (tag === 's' || tag === 'del' || tag === 'strike') nextMarks.strike = true;
     if (tag === 'code') nextMarks = { code: true };
-    if (tag === 'a' && !nextMarks.code) nextMarks.link = node.getAttribute('href') || '';
+    if (tag === 'a' && !nextMarks.code) {
+      nextMarks.link = node.getAttribute('href') || '';
+      nextMarks.linkTitle = node.getAttribute('title') || '';
+    }
     Array.from(node.childNodes || []).forEach(child => walk(child, nextMarks));
     if (tag === 'div') appendInlineRun(runs, '\n', marks);
   };
@@ -977,7 +1046,10 @@ function inlineMarksFromDomNode(node, editable) {
         if (tag === 'strong' || tag === 'b') marks.bold = true;
         if (tag === 'em' || tag === 'i') marks.italic = true;
         if (tag === 's' || tag === 'del' || tag === 'strike') marks.strike = true;
-        if (tag === 'a') marks.link = current.getAttribute('href') || '';
+        if (tag === 'a') {
+          marks.link = current.getAttribute('href') || '';
+          marks.linkTitle = current.getAttribute('title') || '';
+        }
       }
       if (current === editable) break;
       current = current.parentElement;
@@ -1227,7 +1299,7 @@ function removeInlineMarkInRange(runs, start, end, mark) {
   return mutateInlineRunsInRange(runs, start, end, run => {
     if (command === 'code') return inlineRun(run.text, {});
     if (run.code) return run;
-    return inlineRun(run.text, { ...run, [command]: command === 'link' ? '' : false });
+    return inlineRun(run.text, { ...run, [command]: command === 'link' ? '' : false, ...(command === 'link' ? { linkTitle: '' } : {}) });
   });
 }
 
@@ -1284,18 +1356,19 @@ export function insertInlineRunsAtRange(runs, start, end, insertRuns = []) {
   return mergeInlineRuns(out);
 }
 
-export function applyInlineLinkToRuns(runs, start, end, href, replacementText = null) {
+export function applyInlineLinkToRuns(runs, start, end, href, replacementText = null, title = '') {
   const safeHref = sanitizeEditorLinkHref(href);
+  const safeTitle = sanitizeEditorLinkTitle(title);
   const safeStart = Math.max(0, Number(start) || 0);
   const safeEnd = Math.max(safeStart, Number(end) || 0);
   if (replacementText != null) {
     const marks = inlineMarksAtOffset(runs, safeEnd > safeStart ? safeStart + 1 : safeStart);
-    const replacement = inlineRun(String(replacementText || ''), { ...marks, code: false, link: safeHref });
+    const replacement = inlineRun(String(replacementText || ''), { ...marks, code: false, link: safeHref, linkTitle: safeTitle });
     return insertInlineRunsAtRange(runs, safeStart, safeEnd, replacement.text ? [replacement] : []);
   }
   return mutateInlineRunsInRange(runs, safeStart, safeEnd, run => {
     if (run.code) return run;
-    return inlineRun(run.text, { ...run, link: safeHref });
+    return inlineRun(run.text, { ...run, link: safeHref, linkTitle: safeTitle });
   });
 }
 
@@ -2205,6 +2278,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   linkHref.className = 'blocks-link-href';
   linkHref.placeholder = text('linkHref', 'Link URL');
   linkHref.setAttribute('aria-label', text('linkHref', 'Link URL'));
+  const linkTitle = document.createElement('input');
+  linkTitle.type = 'text';
+  linkTitle.className = 'blocks-link-title';
+  linkTitle.placeholder = text('linkTitle', 'Link title');
+  linkTitle.setAttribute('aria-label', text('linkTitle', 'Link title'));
   const unlink = button(text('unlink', 'Unlink'), 'blocks-inline-btn blocks-unlink-btn');
   unlink.title = text('unlink', 'Unlink');
   unlink.setAttribute('aria-label', text('unlink', 'Unlink'));
@@ -2241,8 +2319,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
   const applyLinkEditor = () => {
     const href = sanitizeEditorLinkHref(inputValue(linkHref));
+    const title = sanitizeEditorLinkTitle(inputValue(linkTitle));
     if (state.linkEditMode === 'pending') {
-      state.pendingInline = { ...state.pendingInline, code: false, link: href };
+      state.pendingInline = { ...state.pendingInline, code: false, link: href, linkTitle: title };
       updateInlineToolbarState();
       return;
     }
@@ -2253,7 +2332,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       const currentText = inlineRangeText(runs, selection.start, selection.end);
       const nextText = inputValue(linkText);
       const replacementText = nextText !== currentText ? nextText : null;
-      const nextRuns = applyInlineLinkToRuns(runs, selection.start, selection.end, href, replacementText);
+      const nextRuns = applyInlineLinkToRuns(runs, selection.start, selection.end, href, replacementText, title);
       const nextEnd = selection.start + (replacementText != null ? nextText.length : currentText.length);
       renderInlineRunsInto(selection.editable, nextRuns);
       state.linkSelection = { ...selection, end: nextEnd, text: nextText };
@@ -2269,7 +2348,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const currentText = inlineRangeText(runs, linkRange.start, linkRange.end);
     const nextText = inputValue(linkText);
     const replacementText = nextText !== currentText ? nextText : null;
-    const nextRuns = applyInlineLinkToRuns(runs, linkRange.start, linkRange.end, href, replacementText);
+    const nextRuns = applyInlineLinkToRuns(runs, linkRange.start, linkRange.end, href, replacementText, title);
     const nextEnd = linkRange.start + (replacementText != null ? nextText.length : currentText.length);
     renderInlineRunsInto(state.activeEditable, nextRuns);
     state.activeLink = linkForTextRange(state.activeEditable, linkRange.start, nextEnd);
@@ -2278,10 +2357,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
   linkText.addEventListener('input', applyLinkEditor);
   linkHref.addEventListener('input', applyLinkEditor);
+  linkTitle.addEventListener('input', applyLinkEditor);
   unlink.addEventListener('mousedown', (event) => event.preventDefault());
   unlink.addEventListener('click', () => {
     if (state.linkEditMode === 'pending') {
-      state.pendingInline = { ...state.pendingInline, link: '' };
+      state.pendingInline = { ...state.pendingInline, link: '', linkTitle: '' };
       hideLinkEditor();
       updateInlineToolbarState();
       return;
@@ -2329,6 +2409,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.linkSelection = { editable, start: offsets.start, end: offsets.end, text: offsets.text, anchorRect };
     linkText.value = offsets.collapsed ? '' : offsets.text;
     linkHref.value = offsets.collapsed ? (state.pendingInline.link || '') : '';
+    linkTitle.value = offsets.collapsed ? (state.pendingInline.linkTitle || '') : '';
     linkEditor.hidden = false;
     linkEditor.setAttribute('aria-hidden', 'false');
     positionLinkEditorAtRect(anchorRect);
@@ -2421,7 +2502,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
     });
   };
-  linkEditor.append(linkText, linkHref, unlink);
+  linkEditor.append(linkText, linkHref, linkTitle, unlink);
   root.appendChild(linkEditor);
 
   refreshLinkEditor = (explicitLink = null) => {
@@ -2460,6 +2541,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!linkEditorFocused()) {
       linkText.value = activeLink.textContent || '';
       linkHref.value = activeLink.getAttribute('href') || '';
+      linkTitle.value = activeLink.getAttribute('title') || '';
     }
     positionLinkEditor(activeLink);
     updateInlineToolbarState();
