@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "name": "v3.3.22",
-  "tag": "v3.3.22",
-  "publishedAt": "2026-05-02T18:28:06Z",
-  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.22.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.22.zip`\n- SHA-256: `20ee3bb9642e4cbf3f6e5d980137fa0847fbdce38941c9c0ad6e298c822f157d`\n\n## Changed System Files\n\n- assets/js/hieditor.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.21...v3.3.22\n",
-  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.22",
+  "name": "v3.3.23",
+  "tag": "v3.3.23",
+  "publishedAt": "2026-05-03T16:18:21Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.23.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.23.zip`\n- SHA-256: `bf177305f4db8010cea091fbabe179152fd4dda32cbafd4909284330ebecaced`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/js/editor-blocks.js\n- assets/js/editor-main.js\n- assets/js/markdown.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.22...v3.3.23\n",
+  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.23",
   "asset": {
-    "name": "nanosite-system-v3.3.22.zip",
-    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.22/nanosite-system-v3.3.22.zip",
-    "size": 472835,
-    "digest": "sha256:20ee3bb9642e4cbf3f6e5d980137fa0847fbdce38941c9c0ad6e298c822f157d"
+    "name": "nanosite-system-v3.3.23.zip",
+    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.23/nanosite-system-v3.3.23.zip",
+    "size": 504543,
+    "digest": "sha256:bf177305f4db8010cea091fbabe179152fd4dda32cbafd4909284330ebecaced"
   }
 }
