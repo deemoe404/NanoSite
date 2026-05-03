@@ -257,6 +257,50 @@ run('adjacent markdown block starts split without blank separators', () => {
   assert.equal(serializeMarkdownBlocks(blocks), source);
 });
 
+run('tilde fenced code blocks round-trip and dirty serialize to backticks', () => {
+  const source = [
+    '~~~js',
+    'console.log("tilde");',
+    '~~~',
+    ''
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'code');
+  assert.equal(blocks[0].data.lang, 'js');
+  assert.equal(blocks[0].data.text, 'console.log("tilde");');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+  blocks[0].dirty = true;
+  blocks[0].data.text = 'console.log("edited");';
+  assert.equal(serializeMarkdownBlocks(blocks), [
+    '```js',
+    'console.log("edited");',
+    '```',
+    ''
+  ].join('\n'));
+});
+
+run('dirty code serialization lengthens backtick fence when needed', () => {
+  const blocks = parseMarkdownBlocks([
+    '~~~md',
+    '```',
+    'inside',
+    '```',
+    '~~~',
+    ''
+  ].join('\n'));
+  assert.equal(blocks.length, 1);
+  blocks[0].dirty = true;
+  assert.equal(serializeMarkdownBlocks(blocks), [
+    '````md',
+    '```',
+    'inside',
+    '```',
+    '````',
+    ''
+  ].join('\n'));
+});
+
 run('opening thematic breaks are preserved as body content', () => {
   const source = [
     '---',

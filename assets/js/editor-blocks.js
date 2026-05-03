@@ -62,9 +62,24 @@ function lineWithoutTerminator(line) {
   return String(line || '').replace(/\n$/, '');
 }
 
-function isFenceStartLine(line) {
+function parseFenceStartLine(line) {
   const trimmed = lineWithoutTerminator(line).trimStart();
-  return trimmed.startsWith('```') || trimmed.startsWith('````');
+  const match = trimmed.match(/^(`{3,}|~{3,})(.*)$/);
+  if (!match) return null;
+  const marker = match[1] || '';
+  return { marker, char: marker[0], length: marker.length, info: match[2] || '' };
+}
+
+function isFenceStartLine(line) {
+  return !!parseFenceStartLine(line);
+}
+
+function isFenceEndLine(line, fence) {
+  if (!fence || !fence.char || !fence.length) return false;
+  const marker = fence.char === '`' ? '`' : '~';
+  const text = lineWithoutTerminator(line).trimStart();
+  const re = new RegExp(`^${marker}{${fence.length},}\\s*$`);
+  return re.test(text);
 }
 
 function isHeadingLine(line) {
@@ -116,12 +131,12 @@ function extractChunks(markdown) {
     if (frontMatterEnd >= 0) {
       index = frontMatterEnd + 1;
     } else if (isFenceStartLine(first)) {
-      const fence = trimmed.startsWith('````') ? '````' : '```';
+      const fence = parseFenceStartLine(first);
       index += 1;
       while (index < lines.length) {
-        const candidate = (lines[index] || '').trimStart();
+        const candidate = lines[index] || '';
         index += 1;
-        if (candidate.startsWith(fence)) break;
+        if (isFenceEndLine(candidate, fence)) break;
       }
     } else if (isHeadingLine(first) || isStandaloneMediaLine(first)) {
       index += 1;
@@ -186,11 +201,11 @@ function decodeCardLocation(value) {
 function parseCodeBlock(raw) {
   const lines = raw.split('\n');
   if (lines.length < 2) return null;
-  const open = lines[0].match(/^```([^\n`]*)$/);
+  const open = parseFenceStartLine(lines[0]);
   if (!open) return null;
-  if (!/^```\s*$/.test(lines[lines.length - 1])) return null;
+  if (!isFenceEndLine(lines[lines.length - 1], open)) return null;
   return {
-    lang: (open[1] || '').trim(),
+    lang: (open.info || '').trim(),
     text: lines.slice(1, -1).join('\n')
   };
 }
@@ -374,6 +389,12 @@ function serializeCard(data = {}) {
   return `[${label}](?id=${location || 'post/example.md'}${title})`;
 }
 
+function codeFenceForText(text) {
+  const runs = String(text || '').match(/`+/g) || [];
+  const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
+  return '`'.repeat(Math.max(3, longest + 1));
+}
+
 function serializeBlock(block) {
   if (!block || typeof block !== 'object') return '';
   if (!block.dirty && typeof block.raw === 'string') return block.raw;
@@ -407,7 +428,9 @@ function serializeBlock(block) {
       return String(data.text || '').split('\n').map(line => `> ${line}`).join('\n');
     case 'code': {
       const lang = String(data.lang || '').trim();
-      return `\`\`\`${lang}\n${String(data.text || '')}\n\`\`\``;
+      const text = String(data.text || '');
+      const fence = codeFenceForText(text);
+      return `${fence}${lang}\n${text}\n${fence}`;
     }
     case 'card':
       return serializeCard(data);
