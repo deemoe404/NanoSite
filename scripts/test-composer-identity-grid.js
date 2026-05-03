@@ -92,6 +92,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const createListIndentControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-list-indent-controls'[\s\S]*\['←', -1, 'listOutdent'[\s\S]*\['→', 1, 'listIndent'[\s\S]*indentListItem\(block, index, delta\)[\s\S]*if \(block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createListIndentControls\(block, index\)\);/,
+  'list blocks should expose outdent and indent buttons in the floating toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const indentListItem = \(block, index, delta\) => \{[\s\S]*activeListItemIndex\(block, index\)[\s\S]*indent: nextIndent,[\s\S]*indentText: '  '\.repeat\(nextIndent\)[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex, atEnd: false \};[\s\S]*if \(event\.key === 'Tab'[\s\S]*indentListItem\(block, index, event\.shiftKey \? -1 : 1\);/,
+  'Tab and toolbar list indentation should share the same item indentation path'
+);
+
+assert.match(
+  editorBlocksSource,
   /function inlineRangeAnyMarked\(runs, start, end, mark\)[\s\S]*next > safeStart && cursor < safeEnd && !!run\[mark\][\s\S]*const shouldApply = command === 'code'[\s\S]*inlineRangeAnyMarked\(runs, start, end, command\)[\s\S]*inlineRangeAnyMarked\(runs, offsets\.start, offsets\.end, mark\)/,
   'B/I/S inline formatting should treat mixed selected ranges as active when any selected text has the mark'
 );
@@ -416,8 +428,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{ text: split\.after, checked: false \}\);/,
-  'pressing Enter in a visual list item should split text at the caret into a focused new item below'
+  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:/,
+  'pressing Enter in a visual list item should split text at the caret into a focused new item below with the same indentation'
 );
 
 assert.match(
@@ -620,7 +632,7 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}/,
+  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls, \.blocks-list-indent-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}/,
   'inline formatting controls should use a visible filled active state that overrides theme button resets'
 );
 

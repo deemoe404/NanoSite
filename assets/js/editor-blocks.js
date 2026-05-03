@@ -122,36 +122,62 @@ function parseCodeBlock(raw) {
   };
 }
 
+function indentationColumn(value) {
+  return String(value || '').replace(/\t/g, '    ').length;
+}
+
 function parseListBlock(raw) {
   const lines = raw.split('\n');
   if (!lines.length) return null;
   let type = '';
   const items = [];
   for (const line of lines) {
-    if (/^\s/.test(line)) return null;
-    let match = line.match(/^[-*]\s+\[([ xX])\]\s+(.+)$/);
+    let match = line.match(/^([ \t]*)([-*])\s+\[([ xX])\]\s+(.+)$/);
     if (match) {
       if (type && type !== 'task') return null;
       type = 'task';
-      items.push({ checked: match[1].toLowerCase() === 'x', text: match[2] || '' });
+      items.push({
+        checked: match[3].toLowerCase() === 'x',
+        text: match[4] || '',
+        indentText: match[1] || '',
+        indentColumn: indentationColumn(match[1]),
+        marker: match[2] || '-'
+      });
       continue;
     }
-    match = line.match(/^[-*+]\s+(.+)$/);
+    match = line.match(/^([ \t]*)([-*+])\s+(.+)$/);
     if (match) {
       if (type && type !== 'ul') return null;
       type = 'ul';
-      items.push({ text: match[1] || '' });
+      items.push({
+        text: match[3] || '',
+        indentText: match[1] || '',
+        indentColumn: indentationColumn(match[1]),
+        marker: match[2] || '-'
+      });
       continue;
     }
-    match = line.match(/^(\d{1,9})[\.)]\s+(.+)$/);
+    match = line.match(/^([ \t]*)(\d{1,9})([\.)])\s+(.+)$/);
     if (match) {
       if (type && type !== 'ol') return null;
       type = 'ol';
-      items.push({ number: Number(match[1]), text: match[2] || '' });
+      items.push({
+        number: Number(match[2]),
+        delimiter: match[3] || '.',
+        text: match[4] || '',
+        indentText: match[1] || '',
+        indentColumn: indentationColumn(match[1])
+      });
       continue;
     }
     return null;
   }
+  const indentColumns = [...new Set(items.map(item => item.indentColumn || 0))].sort((a, b) => a - b);
+  if (indentColumns[0] !== 0) return null;
+  items.forEach(item => {
+    item.indent = Math.max(0, indentColumns.indexOf(item.indentColumn || 0));
+    delete item.indentColumn;
+  });
   return type && items.length ? { listType: type, items } : null;
 }
 
@@ -252,9 +278,17 @@ function serializeBlock(block) {
       const listType = data.listType === 'ol' || data.listType === 'task' ? data.listType : 'ul';
       return items.map((item, index) => {
         const text = String(item && item.text != null ? item.text : '').trim() || 'List item';
-        if (listType === 'ol') return `${index + 1}. ${text}`;
-        if (listType === 'task') return `- [${item && item.checked ? 'x' : ' '}] ${text}`;
-        return `- ${text}`;
+        const indent = item && typeof item.indentText === 'string'
+          ? item.indentText
+          : '  '.repeat(Math.max(0, Number(item && item.indent) || 0));
+        if (listType === 'ol') {
+          const number = Number(item && item.number) > 0 ? Number(item.number) : index + 1;
+          const delimiter = item && /^[.)]$/.test(item.delimiter || '') ? item.delimiter : '.';
+          return `${indent}${number}${delimiter} ${text}`;
+        }
+        const marker = item && /^[-*+]$/.test(item.marker || '') ? item.marker : '-';
+        if (listType === 'task') return `${indent}${marker === '+' ? '-' : marker} [${item && item.checked ? 'x' : ' '}] ${text}`;
+        return `${indent}${marker} ${text}`;
       }).join('\n');
     }
     case 'quote':
@@ -575,6 +609,19 @@ function placeCaretAtEnd(el) {
     const range = document.createRange();
     range.selectNodeContents(el);
     range.collapse(false);
+    const sel = window.getSelection && window.getSelection();
+    if (!sel) return;
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch (_) {}
+}
+
+function placeCaretAtStart(el) {
+  try {
+    if (!el) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(true);
     const sel = window.getSelection && window.getSelection();
     if (!sel) return;
     sel.removeAllRanges();
@@ -1400,6 +1447,34 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     try {
       if (typeof state.activeSync === 'function') state.activeSync();
     } catch (_) {}
+  };
+
+  const activeListItemIndex = (block, index) => {
+    const activeBlock = state.blocks[index];
+    if (!block || activeBlock !== block) return 0;
+    const item = closestElement(state.activeEditable, '.blocks-list-item');
+    if (!item) return 0;
+    const itemIndex = Number(item.dataset.itemIndex);
+    return Number.isFinite(itemIndex) ? itemIndex : 0;
+  };
+
+  const indentListItem = (block, index, delta) => {
+    if (!block || block.type !== 'list') return;
+    const items = Array.isArray(block.data.items) && block.data.items.length
+      ? block.data.items.slice()
+      : [{ text: 'List item', checked: false }];
+    const itemIndex = Math.max(0, Math.min(activeListItemIndex(block, index), items.length - 1));
+    const current = items[itemIndex] || {};
+    const currentIndent = Math.max(0, Number(current.indent) || 0);
+    const nextIndent = Math.max(0, currentIndent + delta);
+    if (nextIndent === currentIndent) return;
+    items[itemIndex] = {
+      ...current,
+      indent: nextIndent,
+      indentText: '  '.repeat(nextIndent)
+    };
+    state.pendingListFocus = { blockId: block.id, itemIndex, atEnd: false };
+    updateFromControl(block, { items }, true);
   };
 
   const positionLinkEditor = (link) => {
@@ -2299,6 +2374,28 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return select;
   };
 
+  const createListIndentControls = (block, index) => {
+    const controls = document.createElement('div');
+    controls.className = 'blocks-list-indent-controls';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', text('listIndentControls', 'List indentation'));
+    [
+      ['←', -1, 'listOutdent', 'Decrease list indent'],
+      ['→', 1, 'listIndent', 'Increase list indent']
+    ].forEach(([label, delta, key, fallback]) => {
+      const btn = button(label, 'blocks-icon-btn blocks-list-indent-btn');
+      btn.title = text(key, fallback);
+      btn.setAttribute('aria-label', text(key, fallback));
+      btn.addEventListener('mousedown', (event) => event.preventDefault());
+      btn.addEventListener('click', () => {
+        setActive(index);
+        indentListItem(block, index, delta);
+      });
+      controls.appendChild(btn);
+    });
+    return controls;
+  };
+
   const createCodeLanguageInput = (block) => {
     const lang = document.createElement('input');
     lang.className = 'blocks-code-language';
@@ -2327,6 +2424,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     items.forEach((item, itemIndex) => {
       const li = document.createElement('li');
       li.className = 'blocks-list-item';
+      li.dataset.itemIndex = String(itemIndex);
+      const itemIndent = Math.max(0, Number(item && item.indent) || 0);
+      li.dataset.indent = String(itemIndent);
+      if (itemIndent) li.style.marginLeft = `${itemIndent * 1.75}rem`;
       if (listType === 'task') {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -2354,13 +2455,27 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         updateInlineToolbarState();
       });
       span.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing) {
+          event.preventDefault();
+          indentListItem(block, index, event.shiftKey ? -1 : 1);
+          return;
+        }
         if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
         if (event.key === 'Enter') {
           event.preventDefault();
           const split = splitEditableTextAtSelection(span);
           const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
           next[itemIndex] = { ...next[itemIndex], text: split.before };
-          next.splice(itemIndex + 1, 0, { text: split.after, checked: false });
+          const current = next[itemIndex] || {};
+          const currentIndent = Math.max(0, Number(current.indent) || 0);
+          next.splice(itemIndex + 1, 0, {
+            text: split.after,
+            checked: false,
+            indent: currentIndent,
+            indentText: typeof current.indentText === 'string' ? current.indentText : '  '.repeat(currentIndent),
+            marker: current.marker,
+            delimiter: current.delimiter
+          });
           state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1, atEnd: true };
           updateFromControl(block, { items: next }, true);
           return;
@@ -2414,6 +2529,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           state.pendingListFocus = null;
           try { span.focus(); } catch (_) {}
           if (pending && pending.atEnd) placeCaretAtEnd(span);
+          else if (pending) placeCaretAtStart(span);
           setActive(index, span, sync);
         });
       }
@@ -2598,6 +2714,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
     if (block.type === 'list') {
       head.appendChild(createListTypeSelect(block));
+      head.appendChild(createListIndentControls(block, index));
     }
     if (block.type === 'code') {
       head.appendChild(createCodeLanguageInput(block));

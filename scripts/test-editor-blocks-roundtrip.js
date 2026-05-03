@@ -123,12 +123,9 @@ run('unsupported risky markdown becomes source blocks', () => {
     '',
     '> [!note] Title',
     '> Body',
-    '',
-    '- parent',
-    '  - child',
     ''
   ].join('\n'));
-  assert.deepEqual(blocks.map(block => block.type), ['source', 'source', 'source']);
+  assert.deepEqual(blocks.map(block => block.type), ['source', 'source']);
   assert.equal(serializeMarkdownBlocks(blocks), [
     '| A | B |',
     '| - | - |',
@@ -136,9 +133,50 @@ run('unsupported risky markdown becomes source blocks', () => {
     '',
     '> [!note] Title',
     '> Body',
-    '',
+    ''
+  ].join('\n'));
+});
+
+run('indented lists become editable visual list blocks', () => {
+  const source = [
     '- parent',
     '  - child',
+    '    - grandchild',
+    '- sibling',
+    ''
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'list');
+  assert.deepEqual(blocks[0].data.items.map(item => item.indent), [0, 1, 2, 0]);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+
+  blocks[0].dirty = true;
+  blocks[0].data.items[1].text = 'edited child';
+  assert.equal(serializeMarkdownBlocks(blocks), [
+    '- parent',
+    '  - edited child',
+    '    - grandchild',
+    '- sibling',
+    ''
+  ].join('\n'));
+});
+
+run('indented task lists preserve checkbox state and spacing when edited', () => {
+  const blocks = parseMarkdownBlocks([
+    '- [ ] parent',
+    '  - [x] child',
+    ''
+  ].join('\n'));
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'list');
+  assert.equal(blocks[0].data.listType, 'task');
+  assert.deepEqual(blocks[0].data.items.map(item => [item.indent, item.checked]), [[0, false], [1, true]]);
+  blocks[0].dirty = true;
+  blocks[0].data.items[0].checked = true;
+  assert.equal(serializeMarkdownBlocks(blocks), [
+    '- [x] parent',
+    '  - [x] child',
     ''
   ].join('\n'));
 });
