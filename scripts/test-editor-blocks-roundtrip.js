@@ -240,6 +240,23 @@ run('front matter stays as source content in block parsing', () => {
   assert.equal(serializeMarkdownBlocks(blocks), source);
 });
 
+run('adjacent markdown block starts split without blank separators', () => {
+  const source = [
+    '# Title',
+    'Body paragraph.',
+    '- item',
+    '> Quote',
+    '```js',
+    'console.log("x");',
+    '```',
+    'Tail paragraph.',
+    ''
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['heading', 'paragraph', 'list', 'quote', 'code', 'paragraph']);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
 run('opening thematic breaks are preserved as body content', () => {
   const source = [
     '---',

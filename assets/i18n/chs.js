@@ -363,6 +363,7 @@ const translations = {
         linkPrompt: '链接 URL',
         linkText: '链接文字',
         linkHref: '链接 URL',
+        linkTitle: '链接标题',
         unlink: '取消链接',
         listAddItem: '添加项目',
         listRemoveItem: '移除项目',

@@ -58,6 +58,44 @@ function detachBlockTerminator(raw, after) {
   return { raw, after: after || '' };
 }
 
+function lineWithoutTerminator(line) {
+  return String(line || '').replace(/\n$/, '');
+}
+
+function isFenceStartLine(line) {
+  const trimmed = lineWithoutTerminator(line).trimStart();
+  return trimmed.startsWith('```') || trimmed.startsWith('````');
+}
+
+function isHeadingLine(line) {
+  return /^(#{1,6})\s+.+$/.test(lineWithoutTerminator(line));
+}
+
+function isListItemLine(line) {
+  const text = lineWithoutTerminator(line);
+  return /^([ \t]*)([-*])\s+\[([ xX])\]\s+.+$/.test(text)
+    || /^([ \t]*)([-*+])\s+.+$/.test(text)
+    || /^([ \t]*)(\d{1,9})([\.)])\s+.+$/.test(text);
+}
+
+function isQuoteLine(line) {
+  return lineWithoutTerminator(line).startsWith('>');
+}
+
+function isStandaloneMediaLine(line) {
+  const text = lineWithoutTerminator(line);
+  const trimmed = text.trim();
+  return trimmed === text && !!(parseImageBlock(trimmed) || parseCardBlock(trimmed));
+}
+
+function startsMarkdownBlock(line) {
+  return isFenceStartLine(line)
+    || isHeadingLine(line)
+    || isListItemLine(line)
+    || isQuoteLine(line)
+    || isStandaloneMediaLine(line);
+}
+
 function extractChunks(markdown) {
   const lines = splitMarkdownLines(markdown);
   const chunks = [];
@@ -77,7 +115,7 @@ function extractChunks(markdown) {
 
     if (frontMatterEnd >= 0) {
       index = frontMatterEnd + 1;
-    } else if (trimmed.startsWith('```') || trimmed.startsWith('````')) {
+    } else if (isFenceStartLine(first)) {
       const fence = trimmed.startsWith('````') ? '````' : '```';
       index += 1;
       while (index < lines.length) {
@@ -85,9 +123,17 @@ function extractChunks(markdown) {
         index += 1;
         if (candidate.startsWith(fence)) break;
       }
+    } else if (isHeadingLine(first) || isStandaloneMediaLine(first)) {
+      index += 1;
+    } else if (isListItemLine(first)) {
+      index += 1;
+      while (index < lines.length && !isBlankLine(lines[index]) && isListItemLine(lines[index])) index += 1;
+    } else if (isQuoteLine(first)) {
+      index += 1;
+      while (index < lines.length && !isBlankLine(lines[index]) && isQuoteLine(lines[index])) index += 1;
     } else {
       index += 1;
-      while (index < lines.length && !isBlankLine(lines[index])) index += 1;
+      while (index < lines.length && !isBlankLine(lines[index]) && !startsMarkdownBlock(lines[index])) index += 1;
     }
 
     let raw = lines.slice(start, index).join('');

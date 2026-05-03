@@ -1559,6 +1559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     linkPrompt: 'Link URL',
     linkText: 'Link text',
     linkHref: 'Link URL',
+    linkTitle: 'Link title',
     unlink: 'Unlink',
     listAddItem: 'Add item',
     listRemoveItem: 'Remove item',

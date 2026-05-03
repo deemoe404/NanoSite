@@ -91,6 +91,21 @@ assert.match(
 );
 
 assert.match(
+  editorMainSource,
+  /linkTitle: 'Link title'/,
+  'block link title field should have a local fallback label'
+);
+
+[
+  [enI18nSource, /linkTitle: 'Link title'/],
+  [chsI18nSource, /linkTitle: '链接标题'/],
+  [chtTwI18nSource, /linkTitle: '連結標題'/],
+  [jaI18nSource, /linkTitle: 'リンクタイトル'/]
+].forEach(([sourceText, pattern]) => {
+  assert.match(sourceText, pattern, 'block link title field should have localized labels');
+});
+
+assert.match(
   editorBlocksSource,
   /const inlineControls = \[[\s\S]*\['B', 'bold', 'inlineBold', 'Bold'\],[\s\S]*\['I', 'italic', 'inlineItalic', 'Italic'\],[\s\S]*\['Link', 'link', 'inlineLink', 'Link'\][\s\S]*const inlineMoreControls = \[[\s\S]*\['S', 'strikeThrough', 'inlineStrike', 'Strikethrough'\],[\s\S]*\['`', 'code', 'inlineCode', 'Inline code'\]/,
   'blocks mode should keep B/I/Link direct while moving strike and inline code into overflow formatting controls'
