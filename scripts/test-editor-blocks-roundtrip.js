@@ -460,6 +460,29 @@ run('inline links preserve balanced parentheses before title text', () => {
   assert.equal(serializeInlineRuns(runs), '[math](https://example.com/a_(b) "Math title")');
 });
 
+run('inline links preserve nested bracket labels', () => {
+  const runs = parseInlineRuns('[a [b] c](https://example.com)');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].text, 'a [b] c');
+  assert.equal(runs[0].link, 'https://example.com');
+  assert.equal(serializeInlineRuns(runs), '[a \\[b\\] c](https://example.com "a [b] c")');
+});
+
+run('inline links accept angle-bracket destinations', () => {
+  const runs = parseInlineRuns('[foo](<https://example.com/a b>)');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].link, 'https://example.com/a b');
+  assert.equal(serializeInlineRuns(runs), '[foo](https://example.com/a%20b "foo")');
+});
+
+run('inline links accept angle-bracket destinations before title text', () => {
+  const runs = parseInlineRuns('[foo](<https://example.com/a_(b)> "Angle title")');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].link, 'https://example.com/a_(b)');
+  assert.equal(runs[0].linkTitle, 'Angle title');
+  assert.equal(serializeInlineRuns(runs), '[foo](https://example.com/a_(b) "Angle title")');
+});
+
 run('inline links sanitize unsafe hrefs', () => {
   const linked = applyInlineLinkToRuns(parseInlineRuns('see docs'), 4, 8, 'javascript:alert(1)');
   assert.equal(serializeInlineRuns(linked), 'see [docs](# "docs")');

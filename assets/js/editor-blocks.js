@@ -555,7 +555,7 @@ function isMarkdownEscapablePunctuation(value) {
 function findInlineLink(input, start) {
   const text = String(input || '');
   if (text[start] !== '[') return null;
-  const labelEnd = findUnescaped(text, ']', start + 1);
+  const labelEnd = findMarkdownLinkLabelEnd(text, start + 1);
   if (labelEnd < 0 || text[labelEnd + 1] !== '(') return null;
   const hrefStart = labelEnd + 2;
   const hrefEnd = findMarkdownLinkDestinationEnd(text, hrefStart);
@@ -570,18 +570,48 @@ function findInlineLink(input, start) {
   };
 }
 
-function findMarkdownLinkDestinationEnd(input, start) {
+function findMarkdownLinkLabelEnd(input, start) {
   const text = String(input || '');
   let depth = 0;
-  let quote = '';
   for (let index = Math.max(0, Number(start) || 0); index < text.length; index += 1) {
     const ch = text[index];
     if (ch === '\\') {
       index += 1;
       continue;
     }
+    if (ch === '[') {
+      depth += 1;
+      continue;
+    }
+    if (ch === ']') {
+      if (depth <= 0) return index;
+      depth -= 1;
+    }
+  }
+  return -1;
+}
+
+function findMarkdownLinkDestinationEnd(input, start) {
+  const text = String(input || '');
+  let depth = 0;
+  let quote = '';
+  let angle = false;
+  for (let index = Math.max(0, Number(start) || 0); index < text.length; index += 1) {
+    const ch = text[index];
+    if (ch === '\\') {
+      index += 1;
+      continue;
+    }
+    if (angle) {
+      if (ch === '>') angle = false;
+      continue;
+    }
     if (quote) {
       if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '<') {
+      angle = true;
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -603,13 +633,26 @@ function findMarkdownLinkDestinationEnd(input, start) {
 function parseMarkdownLinkDestination(value) {
   const body = String(value || '').trim();
   if (!body) return null;
+  if (body.startsWith('<')) {
+    const close = findUnescaped(body, '>', 1);
+    if (close <= 1) return null;
+    const title = parseMarkdownLinkTitle(body.slice(close + 1).trim());
+    if (title == null) return null;
+    return { href: body.slice(1, close), title };
+  }
   if (!/\s/.test(body)) return { href: body, title: '' };
-  const match = body.match(/^(\S+)\s+(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))\s*$/);
+  const match = body.match(/^(\S+)\s+(.+)$/);
   if (!match) return null;
-  return {
-    href: match[1] || '',
-    title: match[2] != null ? match[2] : match[3] != null ? match[3] : match[4] || ''
-  };
+  const title = parseMarkdownLinkTitle(match[2]);
+  return title == null ? null : { href: match[1] || '', title };
+}
+
+function parseMarkdownLinkTitle(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const match = text.match(/^(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))$/);
+  if (!match) return null;
+  return match[1] != null ? match[1] : match[2] != null ? match[2] : match[3] || '';
 }
 
 function canOpenInlineMarker(text, index, marker) {
