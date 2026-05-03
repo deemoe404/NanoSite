@@ -359,6 +359,7 @@ const translations = {
         inlineStrike: '取り消し線',
         inlineCode: 'インラインコード',
         inlineLink: 'リンク',
+        inlineMore: 'その他の書式',
         linkPrompt: 'リンク URL',
         linkText: 'リンクテキスト',
         linkHref: 'リンク URL',

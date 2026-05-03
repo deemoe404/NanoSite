@@ -92,8 +92,20 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const createInlineControls = \(index\) => \{[\s\S]*controls\.className = 'blocks-inline-controls'[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*event\.preventDefault\(\)[\s\S]*if \(btn\.getAttribute\('aria-disabled'\) === 'true'\) return;[\s\S]*applyInlineCommand\(command\)/,
-  'blocks mode should create inline formatting controls inside floating block toolbars'
+  /const inlineControls = \[[\s\S]*\['B', 'bold', 'inlineBold', 'Bold'\],[\s\S]*\['I', 'italic', 'inlineItalic', 'Italic'\],[\s\S]*\['Link', 'link', 'inlineLink', 'Link'\][\s\S]*const inlineMoreControls = \[[\s\S]*\['S', 'strikeThrough', 'inlineStrike', 'Strikethrough'\],[\s\S]*\['`', 'code', 'inlineCode', 'Inline code'\]/,
+  'blocks mode should keep B/I/Link direct while moving strike and inline code into overflow formatting controls'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createInlineCommandButton = \(label, command, key, fallback, index, className = 'blocks-inline-btn'\) => \{[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*event\.preventDefault\(\)[\s\S]*if \(btn\.getAttribute\('aria-disabled'\) === 'true'\) return;[\s\S]*applyInlineCommand\(command\)/,
+  'direct and overflow inline formatting commands should share the same command button path'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createInlineMoreMenu = \(index\) => \{[\s\S]*wrap\.className = 'blocks-inline-more';[\s\S]*const trigger = button\('Aa', 'blocks-inline-btn blocks-inline-more-trigger'\);[\s\S]*trigger\.setAttribute\('aria-haspopup', 'menu'\);[\s\S]*menu\.className = 'blocks-inline-more-menu';[\s\S]*inlineMoreControls\.forEach\(\(\[_label, command, key, fallback\]\) => \{[\s\S]*createInlineCommandButton\(text\(key, fallback\), command, key, fallback, index, 'blocks-inline-menu-item'\);[\s\S]*item\.setAttribute\('role', 'menuitem'\);[\s\S]*controls\.appendChild\(createInlineMoreMenu\(index\)\);/,
+  'inline strike and code controls should show text labels in a menu immediately after the direct Link button'
 );
 
 assert.match(
@@ -500,14 +512,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu \{ cursor:default; \}/,
+  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
   'blocks controls and floating panels should not inherit the canvas text cursor'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item \{[^}]*cursor:pointer;/,
-  'toolbar buttons, card picker results, and block action menu items should keep pointer cursors'
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*cursor:pointer;/,
+  'toolbar buttons, card picker results, block action menu items, and inline menu items should keep pointer cursors'
 );
 
 assert.match(
@@ -686,8 +698,14 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls, \.blocks-list-indent-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}/,
+  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\], \.markdown-blocks-shell \.blocks-inline-menu-item\.is-active, \.markdown-blocks-shell \.blocks-inline-menu-item\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls, \.blocks-list-indent-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}[\s\S]*\.blocks-inline-controls \{ margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\); \}/,
   'inline formatting controls should use a visible filled active state that overrides theme button resets'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-inline-more \{ position:relative; display:flex; align-items:center; \}[\s\S]*\.blocks-inline-more-trigger \{ min-width:2rem; font-size:\.78rem; font-weight:750; \}[\s\S]*\.blocks-inline-more-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-inline-more-menu\[hidden\] \{ display:none !important; \}[\s\S]*\.blocks-inline-menu-item \{ width:100%; border:0; background:transparent; border-radius:6px; padding:\.46rem \.58rem; text-align:left; white-space:nowrap; font-weight:700; \}[\s\S]*\.blocks-inline-menu-item\[aria-disabled="true"\] \{ opacity:\.45; cursor:not-allowed; \}/,
+  'inline formatting overflow menu should be compact and anchored after the Link button'
 );
 
 assert.doesNotMatch(

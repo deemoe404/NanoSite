@@ -359,6 +359,7 @@ const translations = {
         inlineStrike: '刪除線',
         inlineCode: '行內程式碼',
         inlineLink: '連結',
+        inlineMore: '更多格式',
         linkPrompt: '連結 URL',
         linkText: '連結文字',
         linkHref: '連結 URL',

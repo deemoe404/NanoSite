@@ -1555,6 +1555,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inlineStrike: 'Strikethrough',
     inlineCode: 'Inline code',
     inlineLink: 'Link',
+    inlineMore: 'More formatting',
     linkPrompt: 'Link URL',
     linkText: 'Link text',
     linkHref: 'Link URL',

@@ -1276,7 +1276,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     cardEntries: [],
     cardPickerOpen: false,
     reorderAnimating: false,
-    openActionMenu: null
+    openActionMenu: null,
+    openInlineMenu: null
   };
 
   root.classList.add('markdown-blocks-shell');
@@ -1448,6 +1449,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const current = state.openActionMenu;
     if (!current) return;
     state.openActionMenu = null;
+    try { current.menu.hidden = true; } catch (_) {}
+    try { current.trigger.setAttribute('aria-expanded', 'false'); } catch (_) {}
+    try { current.wrap.classList.remove('is-open'); } catch (_) {}
+    try { document.removeEventListener('mousedown', current.onDocDown, true); } catch (_) {}
+    try { document.removeEventListener('keydown', current.onKeyDown, true); } catch (_) {}
+    if (restoreFocus) {
+      try { current.trigger.focus(); } catch (_) {}
+    }
+  };
+
+  const closeInlineMoreMenu = (restoreFocus = false) => {
+    const current = state.openInlineMenu;
+    if (!current) return;
+    state.openInlineMenu = null;
     try { current.menu.hidden = true; } catch (_) {}
     try { current.trigger.setAttribute('aria-expanded', 'false'); } catch (_) {}
     try { current.wrap.classList.remove('is-open'); } catch (_) {}
@@ -2017,10 +2032,87 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const inlineControls = [
     ['B', 'bold', 'inlineBold', 'Bold'],
     ['I', 'italic', 'inlineItalic', 'Italic'],
-    ['S', 'strikeThrough', 'inlineStrike', 'Strikethrough'],
-    ['`', 'code', 'inlineCode', 'Inline code'],
     ['Link', 'link', 'inlineLink', 'Link']
   ];
+  const inlineMoreControls = [
+    ['S', 'strikeThrough', 'inlineStrike', 'Strikethrough'],
+    ['`', 'code', 'inlineCode', 'Inline code']
+  ];
+
+  const createInlineCommandButton = (label, command, key, fallback, index, className = 'blocks-inline-btn') => {
+    const btn = button(label, className);
+    btn.dataset.inlineCommand = command;
+    btn.title = text(key, fallback);
+    btn.setAttribute('aria-label', text(key, fallback));
+    btn.setAttribute('aria-pressed', 'false');
+    btn.addEventListener('mousedown', (event) => event.preventDefault());
+    btn.addEventListener('click', () => {
+      if (btn.getAttribute('aria-disabled') === 'true') return;
+      setActive(index);
+      applyInlineCommand(command);
+    });
+    return btn;
+  };
+
+  const createInlineMoreMenu = (index) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'blocks-inline-more';
+    const trigger = button('Aa', 'blocks-inline-btn blocks-inline-more-trigger');
+    const moreLabel = text('inlineMore', 'More formatting');
+    trigger.title = moreLabel;
+    trigger.setAttribute('aria-label', moreLabel);
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const menu = document.createElement('div');
+    menu.className = 'blocks-inline-more-menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+
+    inlineMoreControls.forEach(([_label, command, key, fallback]) => {
+      const item = createInlineCommandButton(text(key, fallback), command, key, fallback, index, 'blocks-inline-menu-item');
+      item.setAttribute('role', 'menuitem');
+      item.addEventListener('mousedown', (event) => event.preventDefault());
+      item.addEventListener('click', () => closeInlineMoreMenu(false));
+      menu.appendChild(item);
+    });
+
+    const openMenu = () => {
+      if (state.openInlineMenu && state.openInlineMenu.menu === menu) return;
+      closeInlineMoreMenu(false);
+      const onDocDown = (event) => {
+        if (nodeContains(wrap, event.target)) return;
+        closeInlineMoreMenu(false);
+      };
+      const onKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeInlineMoreMenu(true);
+        }
+      };
+      state.openInlineMenu = { wrap, trigger, menu, onDocDown, onKeyDown };
+      menu.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      wrap.classList.add('is-open');
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      const firstEnabled = menu.querySelector('.blocks-inline-menu-item:not(:disabled)');
+      try { firstEnabled?.focus(); } catch (_) {}
+    };
+
+    trigger.addEventListener('mousedown', (event) => event.preventDefault());
+    trigger.addEventListener('click', () => {
+      setActive(index);
+      if (state.openInlineMenu && state.openInlineMenu.menu === menu) {
+        closeInlineMoreMenu(false);
+      } else {
+        openMenu();
+      }
+    });
+
+    wrap.append(trigger, menu);
+    return wrap;
+  };
 
   const createInlineControls = (index) => {
     const controls = document.createElement('div');
@@ -2028,19 +2120,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     controls.setAttribute('role', 'toolbar');
     controls.setAttribute('aria-label', text('inlineToolbarAria', 'Inline formatting'));
     inlineControls.forEach(([label, command, key, fallback]) => {
-      const btn = button(label, 'blocks-inline-btn');
-      btn.dataset.inlineCommand = command;
-      btn.title = text(key, fallback);
-      btn.setAttribute('aria-label', text(key, fallback));
-      btn.setAttribute('aria-pressed', 'false');
-      btn.addEventListener('mousedown', (event) => event.preventDefault());
-      btn.addEventListener('click', () => {
-        if (btn.getAttribute('aria-disabled') === 'true') return;
-        setActive(index);
-        applyInlineCommand(command);
-      });
+      const btn = createInlineCommandButton(label, command, key, fallback, index);
       controls.appendChild(btn);
     });
+    controls.appendChild(createInlineMoreMenu(index));
     return controls;
   };
 
@@ -2189,7 +2272,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   updateInlineToolbarState = () => {
-    const buttons = root.querySelectorAll('.blocks-inline-btn[data-inline-command]');
+    const buttons = root.querySelectorAll('[data-inline-command]');
     if (!buttons.length) return;
     const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
     const selectionEditable = selectionEditableInRoot(root);
@@ -2913,6 +2996,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   function render() {
     closeBlockActionMenu(false);
+    closeInlineMoreMenu(false);
     list.innerHTML = '';
     if (!state.blocks.length) {
       const empty = document.createElement('div');
