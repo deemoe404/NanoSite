@@ -620,8 +620,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.1rem; \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
-  'block action overflow menu should anchor to the right edge of the floating toolbar actions slot'
+  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\); \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
+  'block action overflow menu should be separated by a left divider and anchor to the right edge of the floating toolbar actions slot'
 );
 
 assert.match(
