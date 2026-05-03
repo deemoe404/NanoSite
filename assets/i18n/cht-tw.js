@@ -341,6 +341,7 @@ const translations = {
         cardSearch: '搜尋文章...',
         cardEmpty: '沒有匹配的文章',
         empty: '尚無區塊。',
+        actions: '更多操作',
         moveUp: '上移',
         moveDown: '下移',
         delete: '刪除',

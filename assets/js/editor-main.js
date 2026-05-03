@@ -1537,6 +1537,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cardSearch: 'Search articles...',
     cardEmpty: 'No matching articles',
     empty: 'No blocks yet.',
+    actions: 'More actions',
     moveUp: 'Move up',
     moveDown: 'Move down',
     delete: 'Delete',
@@ -1565,8 +1566,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const blockLabels = new Proxy({}, {
     get: (_target, key) => {
       const name = String(key || '');
-      const translated = t(`editor.blocks.${name}`);
-      return translated != null ? translated : (blockLabelFallbacks[name] || name);
+      const translationKey = `editor.blocks.${name}`;
+      const translated = t(translationKey);
+      return translated != null && translated !== translationKey ? translated : (blockLabelFallbacks[name] || name);
     }
   });
   let pendingBlocksImageInsert = null;

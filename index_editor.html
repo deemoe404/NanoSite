@@ -1244,9 +1244,9 @@
     .markdown-blocks-shell, .blocks-list, .blocks-block, .blocks-block-body { cursor:text; }
     .markdown-blocks-shell[hidden] { display:none !important; }
     .blocks-toolbar { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; padding:.2rem .2rem .7rem; border-bottom:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
-    .blocks-toolbar, .blocks-block-head, .blocks-link-editor, .blocks-inspector, .blocks-card-picker { cursor:default; }
-    .blocks-btn, .blocks-icon-btn, .blocks-inline-btn, .blocks-card-result { border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); border-radius:7px; font:inherit; font-size:.86rem; line-height:1.1; padding:.42rem .58rem; cursor:pointer; transition:background .16s ease, border-color .16s ease, color .16s ease; }
-    .blocks-btn:hover, .blocks-btn:focus-visible, .blocks-icon-btn:hover:not(:disabled), .blocks-icon-btn:focus-visible:not(:disabled), .blocks-inline-btn:hover, .blocks-inline-btn:focus-visible, .blocks-card-result:hover, .blocks-card-result:focus-visible { background:color-mix(in srgb, var(--primary) 10%, var(--card)); border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); color:color-mix(in srgb, var(--primary) 92%, var(--text)); outline:none; }
+    .blocks-toolbar, .blocks-block-head, .blocks-link-editor, .blocks-inspector, .blocks-card-picker, .blocks-action-menu { cursor:default; }
+    .blocks-btn, .blocks-icon-btn, .blocks-inline-btn, .blocks-card-result, .blocks-action-menu-item { border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); border-radius:7px; font:inherit; font-size:.86rem; line-height:1.1; padding:.42rem .58rem; cursor:pointer; transition:background .16s ease, border-color .16s ease, color .16s ease; }
+    .blocks-btn:hover, .blocks-btn:focus-visible, .blocks-icon-btn:hover:not(:disabled), .blocks-icon-btn:focus-visible:not(:disabled), .blocks-inline-btn:hover, .blocks-inline-btn:focus-visible, .blocks-card-result:hover, .blocks-card-result:focus-visible, .blocks-action-menu-item:hover:not(:disabled), .blocks-action-menu-item:focus-visible:not(:disabled) { background:color-mix(in srgb, var(--primary) 10%, var(--card)); border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); color:color-mix(in srgb, var(--primary) 92%, var(--text)); outline:none; }
     .blocks-inline-btn { min-width:2rem; min-height:1.85rem; padding:.25rem .45rem; font-weight:700; }
     .blocks-inline-btn[aria-disabled="true"] { opacity:.45; cursor:not-allowed; }
     .blocks-inline-btn[aria-disabled="true"]:hover, .blocks-inline-btn[aria-disabled="true"]:focus-visible { background:color-mix(in srgb, var(--card) 96%, transparent); border-color:color-mix(in srgb, var(--border) 82%, transparent); color:var(--text); }
@@ -1256,7 +1256,6 @@
     .blocks-link-editor input { box-sizing:border-box; min-height:1.85rem; width:min(11rem, 26vw); border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:7px; background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); font:inherit; font-size:.84rem; line-height:1.2; padding:.25rem .45rem; }
     .blocks-icon-btn { min-width:1.85rem; min-height:1.85rem; padding:.25rem .4rem; font-weight:700; }
     .blocks-icon-btn:disabled { opacity:.45; cursor:not-allowed; }
-    .blocks-delete-btn { color:color-mix(in srgb, #dc2626 78%, var(--text)); }
     .blocks-list { display:flex; flex-direction:column; gap:3rem; padding-top:2.5rem; }
     .blocks-block { position:relative; overflow:visible; }
     .blocks-block.is-reordering { z-index:1; transition:transform .24s cubic-bezier(.2,.8,.2,1); will-change:transform; }
@@ -1268,7 +1267,14 @@
     .blocks-block.is-active .blocks-block-head.is-stuck { position:fixed; z-index:135; transform:none; transition:none; max-width:calc(100vw - 1rem); }
     .blocks-block-type { border-radius:999px; padding:.18rem .45rem; background:color-mix(in srgb, var(--primary) 8%, var(--card)); font-size:.72rem; font-weight:750; letter-spacing:.03em; text-transform:uppercase; color:color-mix(in srgb, var(--muted) 78%, var(--text)); }
     .blocks-inline-controls, .blocks-list-indent-controls { display:flex; align-items:center; gap:.2rem; padding-left:.1rem; }
-    .blocks-block-actions { display:flex; align-items:center; gap:.2rem; }
+    .blocks-block-actions { position:relative; display:flex; align-items:center; margin-left:.1rem; }
+    .blocks-action-trigger { min-width:1.85rem; }
+    .blocks-action-menu { position:absolute; right:0; top:calc(100% + .25rem); z-index:160; display:flex; flex-direction:column; min-width:8.75rem; padding:.28rem; border:1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius:8px; background:color-mix(in srgb, var(--card) 98%, transparent); box-shadow:0 10px 22px rgba(15,23,42,.16); }
+    .blocks-action-menu[hidden] { display:none !important; }
+    .blocks-action-menu-item { width:100%; border:0; background:transparent; border-radius:6px; padding:.46rem .58rem; text-align:left; white-space:nowrap; }
+    .blocks-action-menu-item:disabled { opacity:.45; cursor:not-allowed; }
+    .blocks-action-menu-delete { color:color-mix(in srgb, #dc2626 82%, var(--text)); }
+    .blocks-action-menu-delete:hover:not(:disabled), .blocks-action-menu-delete:focus-visible:not(:disabled) { background:color-mix(in srgb, #dc2626 12%, transparent); border-color:transparent; color:#b91c1c; }
     .blocks-block-head .blocks-heading-level, .blocks-block-head .blocks-list-type-select, .blocks-block-head .blocks-code-language { min-height:1.65rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:999px; background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); font:inherit; font-size:.8rem; line-height:1.2; padding:.12rem .55rem; }
     .blocks-block-head .blocks-heading-level, .blocks-block-head .blocks-list-type-select { padding-right:1.45rem; }
     .blocks-block-head .blocks-code-language { width:8.5rem; max-width:26vw; }
@@ -2158,9 +2164,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-blocks-20260503b"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-blocks-20260503b"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-blocks-20260503b"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-blocks-20260503d"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-blocks-20260503d"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-blocks-20260503d"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

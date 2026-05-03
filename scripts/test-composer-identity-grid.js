@@ -85,6 +85,12 @@ assert.match(
 );
 
 assert.match(
+  editorMainSource,
+  /const blockLabels = new Proxy\(\{\}, \{[\s\S]*const translationKey = `editor\.blocks\.\$\{name\}`;[\s\S]*const translated = t\(translationKey\);[\s\S]*translated !== translationKey \? translated : \(blockLabelFallbacks\[name\] \|\| name\);/,
+  'block labels should use local fallbacks when i18n returns the key for a missing translation'
+);
+
+assert.match(
   editorBlocksSource,
   /const createInlineControls = \(index\) => \{[\s\S]*controls\.className = 'blocks-inline-controls'[\s\S]*btn\.dataset\.inlineCommand = command[\s\S]*btn\.setAttribute\('aria-pressed', 'false'\)[\s\S]*event\.preventDefault\(\)[\s\S]*if \(btn\.getAttribute\('aria-disabled'\) === 'true'\) return;[\s\S]*applyInlineCommand\(command\)/,
   'blocks mode should create inline formatting controls inside floating block toolbars'
@@ -230,8 +236,26 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /up\.addEventListener\('click', \(\) => \{[\s\S]*if \(index <= 0\) return;[\s\S]*moveBlock\(index, -1\);[\s\S]*down\.addEventListener\('click', \(\) => \{[\s\S]*if \(index >= state\.blocks\.length - 1\) return;[\s\S]*moveBlock\(index, 1\);/,
-  'up and down block buttons should route through the FLIP block move path'
+  /const createBlockActionMenu = \(index\) => \{[\s\S]*wrap\.className = 'blocks-block-actions';[\s\S]*const trigger = button\('⋯', 'blocks-icon-btn blocks-action-trigger'\);[\s\S]*trigger\.setAttribute\('aria-haspopup', 'menu'\);[\s\S]*trigger\.setAttribute\('aria-expanded', 'false'\);[\s\S]*menu\.className = 'blocks-action-menu';[\s\S]*menu\.setAttribute\('role', 'menu'\);/,
+  'block reorder and delete actions should live behind a right-side overflow menu trigger'
+);
+
+assert.match(
+  editorBlocksSource,
+  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
+  'overflow menu items should preserve move/delete behavior and disabled edge states'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const closeBlockActionMenu = \(restoreFocus = false\) => \{[\s\S]*document\.removeEventListener\('mousedown', current\.onDocDown, true\);[\s\S]*document\.removeEventListener\('keydown', current\.onKeyDown, true\);[\s\S]*if \(restoreFocus\)[\s\S]*const onDocDown = \(event\) => \{[\s\S]*closeBlockActionMenu\(false\);[\s\S]*const onKeyDown = \(event\) => \{[\s\S]*event\.key === 'Escape'[\s\S]*closeBlockActionMenu\(true\);/,
+  'overflow menu should close on outside click and Escape while cleaning document listeners'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /button\('↑'|button\('↓'|button\('×', 'blocks-icon-btn blocks-delete-btn'/,
+  'block toolbar should not render direct up, down, or delete icon buttons'
 );
 
 assert.doesNotMatch(
@@ -476,14 +500,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker \{ cursor:default; \}/,
+  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu \{ cursor:default; \}/,
   'blocks controls and floating panels should not inherit the canvas text cursor'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result \{[^}]*cursor:pointer;/,
-  'toolbar buttons and card picker results should keep pointer cursors'
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item \{[^}]*cursor:pointer;/,
+  'toolbar buttons, card picker results, and block action menu items should keep pointer cursors'
 );
 
 assert.match(
@@ -592,6 +616,18 @@ assert.match(
   editorSource,
   /\.blocks-block-head \{[^}]*flex-wrap:nowrap;[\s\S]*transition:opacity \.16s ease;[^}]*white-space:nowrap; \}[\s\S]*\.blocks-block\.is-active \.blocks-block-head\.is-stuck \{ position:fixed; z-index:135; transform:none; transition:none; max-width:calc\(100vw - 1rem\); \}/,
   'active block controls should stay single-row and avoid transform transitions while sticking under the markdown file toolbar'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.1rem; \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
+  'block action overflow menu should anchor to the right edge of the floating toolbar actions slot'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-action-menu-delete \{ color:color-mix\(in srgb, #dc2626 82%, var\(--text\)\); \}[\s\S]*\.blocks-action-menu-delete:hover:not\(:disabled\), \.blocks-action-menu-delete:focus-visible:not\(:disabled\) \{ background:color-mix\(in srgb, #dc2626 12%, transparent\);/,
+  'delete action inside the overflow menu should retain danger styling'
 );
 
 assert.match(

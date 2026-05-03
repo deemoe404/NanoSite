@@ -341,6 +341,7 @@ const translations = {
         cardSearch: '記事を検索...',
         cardEmpty: '該当する記事はありません',
         empty: 'ブロックはまだありません。',
+        actions: 'その他の操作',
         moveUp: '上へ移動',
         moveDown: '下へ移動',
         delete: '削除',

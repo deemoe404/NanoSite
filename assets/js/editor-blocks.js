@@ -1275,7 +1275,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     suppressNextBlockContainerClickUntil: 0,
     cardEntries: [],
     cardPickerOpen: false,
-    reorderAnimating: false
+    reorderAnimating: false,
+    openActionMenu: null
   };
 
   root.classList.add('markdown-blocks-shell');
@@ -1441,6 +1442,96 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.reorderAnimating = false;
       commitBlockMove(index, direction);
     }
+  };
+
+  const closeBlockActionMenu = (restoreFocus = false) => {
+    const current = state.openActionMenu;
+    if (!current) return;
+    state.openActionMenu = null;
+    try { current.menu.hidden = true; } catch (_) {}
+    try { current.trigger.setAttribute('aria-expanded', 'false'); } catch (_) {}
+    try { current.wrap.classList.remove('is-open'); } catch (_) {}
+    try { document.removeEventListener('mousedown', current.onDocDown, true); } catch (_) {}
+    try { document.removeEventListener('keydown', current.onKeyDown, true); } catch (_) {}
+    if (restoreFocus) {
+      try { current.trigger.focus(); } catch (_) {}
+    }
+  };
+
+  const deleteBlockAt = (index) => {
+    state.blocks.splice(index, 1);
+    render();
+    setActive(Math.min(index, state.blocks.length - 1));
+    emit();
+  };
+
+  const createBlockActionMenu = (index) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'blocks-block-actions';
+    const trigger = button('⋯', 'blocks-icon-btn blocks-action-trigger');
+    const actionsLabel = text('actions', 'More actions');
+    trigger.title = actionsLabel;
+    trigger.setAttribute('aria-label', actionsLabel);
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const menu = document.createElement('div');
+    menu.className = 'blocks-action-menu';
+    menu.setAttribute('role', 'menu');
+    menu.hidden = true;
+
+    const makeItem = (label, className, disabled, handler) => {
+      const item = button(label, `blocks-action-menu-item${className ? ` ${className}` : ''}`);
+      item.setAttribute('role', 'menuitem');
+      item.disabled = !!disabled;
+      item.addEventListener('click', () => {
+        if (item.disabled) return;
+        closeBlockActionMenu(false);
+        handler();
+      });
+      menu.appendChild(item);
+      return item;
+    };
+
+    makeItem(text('moveUp', 'Move up'), '', index === 0, () => moveBlock(index, -1));
+    makeItem(text('moveDown', 'Move down'), '', index === state.blocks.length - 1, () => moveBlock(index, 1));
+    makeItem(text('delete', 'Delete'), 'blocks-action-menu-delete', false, () => deleteBlockAt(index));
+
+    const openMenu = () => {
+      if (state.openActionMenu && state.openActionMenu.menu === menu) return;
+      closeBlockActionMenu(false);
+      const onDocDown = (event) => {
+        if (nodeContains(wrap, event.target)) return;
+        closeBlockActionMenu(false);
+      };
+      const onKeyDown = (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeBlockActionMenu(true);
+        }
+      };
+      state.openActionMenu = { wrap, trigger, menu, onDocDown, onKeyDown };
+      menu.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      wrap.classList.add('is-open');
+      document.addEventListener('mousedown', onDocDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      const firstEnabled = menu.querySelector('.blocks-action-menu-item:not(:disabled)');
+      try { firstEnabled?.focus(); } catch (_) {}
+    };
+
+    trigger.addEventListener('mousedown', (event) => event.preventDefault());
+    trigger.addEventListener('click', () => {
+      setActive(index);
+      if (state.openActionMenu && state.openActionMenu.menu === menu) {
+        closeBlockActionMenu(false);
+      } else {
+        openMenu();
+      }
+    });
+
+    wrap.append(trigger, menu);
+    return wrap;
   };
 
   const syncActiveEditable = () => {
@@ -2777,31 +2868,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const type = document.createElement('span');
     type.className = 'blocks-block-type';
     type.textContent = text(block.type, block.type);
-    const actions = document.createElement('div');
-    actions.className = 'blocks-block-actions';
-    const up = button('↑', 'blocks-icon-btn');
-    up.title = text('moveUp', 'Move up');
-    up.disabled = index === 0;
-    up.addEventListener('click', () => {
-      if (index <= 0) return;
-      moveBlock(index, -1);
-    });
-    const down = button('↓', 'blocks-icon-btn');
-    down.title = text('moveDown', 'Move down');
-    down.disabled = index === state.blocks.length - 1;
-    down.addEventListener('click', () => {
-      if (index >= state.blocks.length - 1) return;
-      moveBlock(index, 1);
-    });
-    const remove = button('×', 'blocks-icon-btn blocks-delete-btn');
-    remove.title = text('delete', 'Delete');
-    remove.addEventListener('click', () => {
-      state.blocks.splice(index, 1);
-      render();
-      setActive(Math.min(index, state.blocks.length - 1));
-      emit();
-    });
-    actions.append(up, down, remove);
+    const actions = createBlockActionMenu(index);
     head.appendChild(type);
     if (block.type === 'heading') {
       head.appendChild(createHeadingLevelSelect(block));
@@ -2845,6 +2912,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   function render() {
+    closeBlockActionMenu(false);
     list.innerHTML = '';
     if (!state.blocks.length) {
       const empty = document.createElement('div');

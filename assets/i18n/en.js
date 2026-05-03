@@ -341,6 +341,7 @@ const translations = {
         cardSearch: 'Search articles...',
         cardEmpty: 'No matching articles',
         empty: 'No blocks yet.',
+        actions: 'More actions',
         moveUp: 'Move up',
         moveDown: 'Move down',
         delete: 'Delete',
