@@ -1449,6 +1449,83 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     } catch (_) {}
   };
 
+  const clearStickyBlockHeads = (except = null) => {
+    Array.from(list.querySelectorAll('.blocks-block-head.is-stuck')).forEach(head => {
+      if (head === except) return;
+      head.classList.remove('is-stuck');
+      head.style.removeProperty('top');
+      head.style.removeProperty('left');
+      head.style.removeProperty('width');
+    });
+  };
+
+  const editorStickyToolbarBottom = () => {
+    try {
+      const panel = root.closest ? root.closest('#editorMarkdownPanel') : null;
+      const fileToolbar = panel ? panel.querySelector(':scope > .toolbar') : document.querySelector('#editorMarkdownPanel > .toolbar');
+      const rect = fileToolbar && fileToolbar.getBoundingClientRect ? fileToolbar.getBoundingClientRect() : null;
+      if (rect && rect.height > 0) return rect.bottom;
+    } catch (_) {}
+    try {
+      const styles = getComputedStyle(document.documentElement);
+      const offset = parseFloat(styles.getPropertyValue('--editor-toolbar-offset'));
+      if (Number.isFinite(offset)) return offset;
+    } catch (_) {}
+    return 0;
+  };
+
+  const updateStickyBlockHead = () => {
+    const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
+    const activeBlock = blockNodes[state.activeIndex] || null;
+    const head = activeBlock ? activeBlock.querySelector('.blocks-block-head') : null;
+    clearStickyBlockHeads(head);
+    if (!activeBlock || !head || !nodeContains(root, activeBlock) || root.hidden) {
+      clearStickyBlockHeads();
+      return;
+    }
+
+    const wasStuck = head.classList.contains('is-stuck');
+    if (wasStuck) {
+      head.classList.remove('is-stuck');
+      head.style.removeProperty('top');
+      head.style.removeProperty('left');
+      head.style.removeProperty('width');
+    }
+
+    const blockRect = activeBlock.getBoundingClientRect ? activeBlock.getBoundingClientRect() : null;
+    if (!blockRect || blockRect.width <= 0 || blockRect.height <= 0) return;
+    const headHeight = head.offsetHeight || 0;
+    const headWidth = head.offsetWidth || 0;
+    if (headHeight <= 0 || headWidth <= 0) return;
+
+    const gap = 8;
+    const stickyTop = editorStickyToolbarBottom() + gap;
+    const naturalTop = blockRect.top + (head.offsetTop || 0) - (headHeight * 1.12);
+    const blockBottomLimit = blockRect.bottom - headHeight - gap;
+    if (blockBottomLimit <= stickyTop) return;
+
+    const margin = 8;
+    const left = Math.max(margin, Math.min(blockRect.left + (head.offsetLeft || 0), window.innerWidth - headWidth - margin));
+    const top = Math.min(blockBottomLimit, Math.max(stickyTop, naturalTop));
+    head.classList.add('is-stuck');
+    head.style.top = `${top}px`;
+    head.style.left = `${left}px`;
+    head.style.width = `${headWidth}px`;
+  };
+
+  let stickyBlockHeadFrame = 0;
+  const requestStickyBlockHeadUpdate = () => {
+    if (stickyBlockHeadFrame) return;
+    const run = () => {
+      stickyBlockHeadFrame = 0;
+      updateStickyBlockHead();
+    };
+    if (typeof requestAnimationFrame === 'function') stickyBlockHeadFrame = requestAnimationFrame(run);
+    else {
+      stickyBlockHeadFrame = setTimeout(run, 16);
+    }
+  };
+
   const activeListItemIndex = (block, index) => {
     const activeBlock = state.blocks[index];
     if (!block || activeBlock !== block) return 0;
@@ -1549,6 +1626,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     refreshLinkEditor();
     updateInlineToolbarState();
+    requestStickyBlockHeadUpdate();
   };
 
   const shouldSuppressRoutedBlockContainerClick = () => {
@@ -1721,6 +1799,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   list.addEventListener('pointerdown', routeBlocksCaretFromPointer);
+  window.addEventListener('scroll', requestStickyBlockHeadUpdate, true);
+  window.addEventListener('resize', requestStickyBlockHeadUpdate);
 
   const getBaseDir = () => {
     try {
@@ -2763,6 +2843,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       list.appendChild(renderBlockElement(block, index));
     });
     setActive(state.activeIndex);
+    requestStickyBlockHeadUpdate();
   }
 
   const api = {

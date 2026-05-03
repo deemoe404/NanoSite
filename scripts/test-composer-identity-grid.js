@@ -176,6 +176,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const top = Math\.min\(blockBottomLimit, Math\.max\(stickyTop, naturalTop\)\);[\s\S]*head\.classList\.add\('is-stuck'\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
+  'active block toolbar should use one fixed positioning path clamped below the markdown file toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /window\.addEventListener\('scroll', requestStickyBlockHeadUpdate, true\);[\s\S]*window\.addEventListener\('resize', requestStickyBlockHeadUpdate\);/,
+  'active block toolbar sticky position should refresh on editor pane scroll and viewport resize'
+);
+
+assert.match(
+  editorBlocksSource,
   /item\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
   'block section container clicks should select the block without hijacking toolbar action clicks or routed carets'
 );
@@ -574,6 +586,12 @@ assert.match(
   editorSource,
   /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-112%,0\) scale\(1\); \}/,
   'block controls should appear only for the active block'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \{[^}]*transition:opacity \.16s ease; \}[\s\S]*\.blocks-block\.is-active \.blocks-block-head\.is-stuck \{ position:fixed; z-index:135; transform:none; transition:none; max-width:calc\(100vw - 1rem\); flex-wrap:wrap; \}/,
+  'active block controls should avoid transform transitions while sticking under the markdown file toolbar'
 );
 
 assert.match(
