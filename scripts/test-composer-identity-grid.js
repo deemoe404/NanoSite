@@ -254,7 +254,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{Math\.max\(area\.scrollHeight, area\.offsetHeight \|\| 0\)\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
+  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
   'source markdown textareas should auto-size to their content'
 );
 
@@ -386,8 +386,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-source-textarea \{ min-height:9rem; width:100%; resize:none; overflow:hidden; \}/,
-  'source markdown textareas should expand the block instead of scrolling internally'
+  /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; \}/,
+  'source markdown textareas should expand to content without a fixed minimum height or internal scrolling'
 );
 
 assert.match(

@@ -1889,7 +1889,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const autoSizeTextarea = (area) => {
     if (!area) return;
     area.style.height = 'auto';
-    area.style.height = `${Math.max(area.scrollHeight, area.offsetHeight || 0)}px`;
+    area.style.height = `${area.scrollHeight}px`;
   };
 
   const renderListBlock = (body, block, index) => {
