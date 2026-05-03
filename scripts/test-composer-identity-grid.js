@@ -170,6 +170,54 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /reorderAnimating: false/,
+  'block move animation should guard against overlapping reorder operations'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const captureBlockRects = \(indexes = null\) => \{[\s\S]*const allowed = Array\.isArray\(indexes\) \? new Set\(indexes\) : null;[\s\S]*if \(allowed && !allowed\.has\(index\)\) return;[\s\S]*const id = el\.dataset \? el\.dataset\.blockId : '';[\s\S]*rects\.set\(id, el\.getBoundingClientRect\(\)\);[\s\S]*return rects;/,
+  'block move animation should key before-rect snapshots by stable block ids for only the affected indexes'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const animateBlockReorder = \(beforeRects\) => \{[\s\S]*const before = id \? beforeRects\.get\(id\) : null;[\s\S]*const after = el\.getBoundingClientRect\(\);[\s\S]*const dx = before\.left - after\.left;[\s\S]*const dy = before\.top - after\.top;[\s\S]*item\.el\.style\.transition = 'none';[\s\S]*item\.el\.style\.transform = `translate3d\(\$\{item\.dx\}px, \$\{item\.dy\}px, 0\)`;[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*item\.el\.style\.transition = '';[\s\S]*item\.el\.style\.transform = 'translate3d\(0, 0, 0\)';[\s\S]*window\.setTimeout\(finish, 360\)/,
+  'block move animation should FLIP the final rendered DOM from old coordinates back to zero transform'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const moveBlock = \(index, direction\) => \{[\s\S]*prefersReducedReorderMotion\(\)[\s\S]*const beforeRects = captureBlockRects\(\[index, targetIndex\]\);[\s\S]*state\.reorderAnimating = true;[\s\S]*const moved = moveBlockInState\(index, direction\);[\s\S]*replaceAdjacentBlockElements\(index, targetIndex\)[\s\S]*emit\(\);[\s\S]*animateBlockReorder\(beforeRects\);/,
+  'block move should update state and replace only the adjacent affected DOM nodes before animating'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const replaceAdjacentBlockElements = \(index, targetIndex\) => \{[\s\S]*const firstIndex = Math\.min\(index, targetIndex\);[\s\S]*const secondIndex = Math\.max\(index, targetIndex\);[\s\S]*const firstNew = renderBlockElement\(state\.blocks\[firstIndex\], firstIndex\);[\s\S]*const secondNew = renderBlockElement\(state\.blocks\[secondIndex\], secondIndex\);[\s\S]*firstOld\.remove\(\);[\s\S]*secondOld\.remove\(\);[\s\S]*setActive\(state\.activeIndex\);[\s\S]*return true;/,
+  'adjacent move should avoid a full list render by replacing only the two swapped block nodes'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const item = document\.createElement\('section'\);[\s\S]*item\.className = `blocks-block blocks-block-\$\{block\.type\}`;[\s\S]*if \(index === state\.activeIndex\) item\.classList\.add\('is-active'\);[\s\S]*item\.dataset\.blockId = block\.id;/,
+  'active block should be marked during node creation so the toolbar does not fade out and back in after reorder render'
+);
+
+assert.match(
+  editorBlocksSource,
+  /up\.addEventListener\('click', \(\) => \{[\s\S]*if \(index <= 0\) return;[\s\S]*moveBlock\(index, -1\);[\s\S]*down\.addEventListener\('click', \(\) => \{[\s\S]*if \(index >= state\.blocks\.length - 1\) return;[\s\S]*moveBlock\(index, 1\);/,
+  'up and down block buttons should route through the FLIP block move path'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /animateAdjacentBlockMove|swappedRect\.left - movedRect\.left|swappedRect\.top - movedRect\.top/,
+  'block move animation should not animate stale pre-render DOM nodes to their future positions'
+);
+
+assert.match(
+  editorBlocksSource,
   /suppressNextBlockContainerClickUntil: 0,[\s\S]*const shouldSuppressRoutedBlockContainerClick = \(\) => \{[\s\S]*Date\.now\(\) > state\.suppressNextBlockContainerClickUntil[\s\S]*state\.suppressNextBlockContainerClickUntil = 0;[\s\S]*return true;/,
   'routed caret pointerdowns should suppress the following container click from clearing activeEditable'
 );
@@ -448,6 +496,12 @@ assert.match(
   editorSource,
   /\.blocks-list \{ display:flex; flex-direction:column; gap:2\.5rem; padding-top:2\.5rem; \}/,
   'blocks list should leave enough vertical room for floating block toolbars'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block\.is-reordering \{ z-index:1; transition:transform \.24s cubic-bezier\(\.2,\.8,\.2,1\); will-change:transform; \}/,
+  'moved blocks should animate their reorder transform without adding container chrome'
 );
 
 assert.doesNotMatch(

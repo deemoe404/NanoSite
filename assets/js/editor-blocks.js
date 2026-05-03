@@ -1227,7 +1227,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     pendingListFocus: null,
     suppressNextBlockContainerClickUntil: 0,
     cardEntries: [],
-    cardPickerOpen: false
+    cardPickerOpen: false,
+    reorderAnimating: false
   };
 
   root.classList.add('markdown-blocks-shell');
@@ -1268,6 +1269,131 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     markDirty(block);
     if (renderAfter) render();
     emit();
+  };
+
+  const blockElements = () => Array.from(list.children).filter(el => el && el.classList && el.classList.contains('blocks-block'));
+
+  const prefersReducedReorderMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  const captureBlockRects = (indexes = null) => {
+    const allowed = Array.isArray(indexes) ? new Set(indexes) : null;
+    const rects = new Map();
+    blockElements().forEach((el, index) => {
+      if (allowed && !allowed.has(index)) return;
+      const id = el.dataset ? el.dataset.blockId : '';
+      if (id && el.getBoundingClientRect) rects.set(id, el.getBoundingClientRect());
+    });
+    return rects;
+  };
+
+  const animateBlockReorder = (beforeRects) => {
+    try {
+      if (!beforeRects || !beforeRects.size) {
+        state.reorderAnimating = false;
+        return;
+      }
+      const moves = blockElements().map((el) => {
+        const id = el.dataset ? el.dataset.blockId : '';
+        const before = id ? beforeRects.get(id) : null;
+        if (!before || !el.getBoundingClientRect) return null;
+        const after = el.getBoundingClientRect();
+        const dx = before.left - after.left;
+        const dy = before.top - after.top;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return null;
+        return { el, dx, dy };
+      }).filter(Boolean);
+      if (!moves.length) {
+        state.reorderAnimating = false;
+        return;
+      }
+      let remaining = moves.length;
+      let finished = false;
+      let fallbackTimer = null;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        if (fallbackTimer) window.clearTimeout(fallbackTimer);
+        moves.forEach((item) => {
+          item.el.removeEventListener('transitionend', item.done);
+          item.el.classList.remove('is-reordering');
+          item.el.style.transition = '';
+          item.el.style.transform = '';
+        });
+        state.reorderAnimating = false;
+      };
+      moves.forEach((item) => {
+        item.done = (event) => {
+          if (event && event.target !== item.el) return;
+          item.el.removeEventListener('transitionend', item.done);
+          remaining -= 1;
+          if (remaining <= 0) finish();
+        };
+        item.el.classList.add('is-reordering');
+        item.el.style.transition = 'none';
+        item.el.style.transform = `translate3d(${item.dx}px, ${item.dy}px, 0)`;
+        item.el.addEventListener('transitionend', item.done);
+      });
+      list.getBoundingClientRect();
+      requestAnimationFrame(() => {
+        moves.forEach((item) => {
+          item.el.style.transition = '';
+          item.el.style.transform = 'translate3d(0, 0, 0)';
+        });
+      });
+      fallbackTimer = window.setTimeout ? window.setTimeout(finish, 360) : null;
+    } catch (_) {
+      state.reorderAnimating = false;
+    }
+  };
+
+  const moveBlockInState = (index, direction) => {
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || index >= state.blocks.length || targetIndex >= state.blocks.length) return null;
+    const [moved] = state.blocks.splice(index, 1);
+    state.blocks.splice(targetIndex, 0, moved);
+    moved.dirty = true;
+    state.activeIndex = targetIndex;
+    return { targetIndex };
+  };
+
+  const commitBlockMove = (index, direction) => {
+    if (!moveBlockInState(index, direction)) return;
+    render();
+    emit();
+  };
+
+  const moveBlock = (index, direction) => {
+    try {
+      const targetIndex = index + direction;
+      const shouldMoveNow = !Number.isInteger(index)
+        || !Number.isInteger(targetIndex)
+        || targetIndex < 0
+        || index < 0
+        || targetIndex >= state.blocks.length;
+      if (shouldMoveNow) return;
+      if (state.reorderAnimating || prefersReducedReorderMotion()) {
+        if (!state.reorderAnimating) commitBlockMove(index, direction);
+        return;
+      }
+      const beforeRects = captureBlockRects([index, targetIndex]);
+      state.reorderAnimating = true;
+      const moved = moveBlockInState(index, direction);
+      if (!moved) {
+        state.reorderAnimating = false;
+        return;
+      }
+      if (!replaceAdjacentBlockElements(index, targetIndex)) {
+        render();
+        state.reorderAnimating = false;
+        emit();
+        return;
+      }
+      emit();
+      animateBlockReorder(beforeRects);
+    } catch (_) {
+      state.reorderAnimating = false;
+      commitBlockMove(index, direction);
+    }
   };
 
   const syncActiveEditable = () => {
@@ -2429,6 +2555,84 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return body;
   };
 
+  const renderBlockElement = (block, index) => {
+    const item = document.createElement('section');
+    item.className = `blocks-block blocks-block-${block.type}`;
+    if (index === state.activeIndex) item.classList.add('is-active');
+    item.dataset.type = block.type;
+    item.dataset.blockId = block.id;
+    item.tabIndex = -1;
+    const head = document.createElement('div');
+    head.className = 'blocks-block-head';
+    const type = document.createElement('span');
+    type.className = 'blocks-block-type';
+    type.textContent = text(block.type, block.type);
+    const actions = document.createElement('div');
+    actions.className = 'blocks-block-actions';
+    const up = button('↑', 'blocks-icon-btn');
+    up.title = text('moveUp', 'Move up');
+    up.disabled = index === 0;
+    up.addEventListener('click', () => {
+      if (index <= 0) return;
+      moveBlock(index, -1);
+    });
+    const down = button('↓', 'blocks-icon-btn');
+    down.title = text('moveDown', 'Move down');
+    down.disabled = index === state.blocks.length - 1;
+    down.addEventListener('click', () => {
+      if (index >= state.blocks.length - 1) return;
+      moveBlock(index, 1);
+    });
+    const remove = button('×', 'blocks-icon-btn blocks-delete-btn');
+    remove.title = text('delete', 'Delete');
+    remove.addEventListener('click', () => {
+      state.blocks.splice(index, 1);
+      render();
+      setActive(Math.min(index, state.blocks.length - 1));
+      emit();
+    });
+    actions.append(up, down, remove);
+    head.appendChild(type);
+    if (block.type === 'heading') {
+      head.appendChild(createHeadingLevelSelect(block));
+    }
+    if (block.type === 'list') {
+      head.appendChild(createListTypeSelect(block));
+    }
+    if (block.type === 'code') {
+      head.appendChild(createCodeLanguageInput(block));
+    }
+    if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
+      head.appendChild(createInlineControls(index));
+    }
+    head.appendChild(actions);
+    item.append(head, renderBlockBody(block, index));
+    item.addEventListener('click', (event) => {
+      if (shouldSuppressRoutedBlockContainerClick()) return;
+      if (closestElement(event.target, '.blocks-block-head')) return;
+      setActive(index);
+    });
+    item.addEventListener('focusin', () => setActive(index));
+    return item;
+  };
+
+  const replaceAdjacentBlockElements = (index, targetIndex) => {
+    const firstIndex = Math.min(index, targetIndex);
+    const secondIndex = Math.max(index, targetIndex);
+    const nodes = blockElements();
+    const firstOld = nodes[firstIndex];
+    const secondOld = nodes[secondIndex];
+    if (!firstOld || !secondOld || !firstOld.parentNode || !secondOld.parentNode) return false;
+    const firstNew = renderBlockElement(state.blocks[firstIndex], firstIndex);
+    const secondNew = renderBlockElement(state.blocks[secondIndex], secondIndex);
+    list.insertBefore(firstNew, firstOld);
+    firstOld.remove();
+    list.insertBefore(secondNew, secondOld);
+    secondOld.remove();
+    setActive(state.activeIndex);
+    return true;
+  };
+
   function render() {
     list.innerHTML = '';
     if (!state.blocks.length) {
@@ -2439,72 +2643,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       return;
     }
     state.blocks.forEach((block, index) => {
-      const item = document.createElement('section');
-      item.className = `blocks-block blocks-block-${block.type}`;
-      item.dataset.type = block.type;
-      item.tabIndex = -1;
-      const head = document.createElement('div');
-      head.className = 'blocks-block-head';
-      const type = document.createElement('span');
-      type.className = 'blocks-block-type';
-      type.textContent = text(block.type, block.type);
-      const actions = document.createElement('div');
-      actions.className = 'blocks-block-actions';
-      const up = button('↑', 'blocks-icon-btn');
-      up.title = text('moveUp', 'Move up');
-      up.disabled = index === 0;
-      up.addEventListener('click', () => {
-        if (index <= 0) return;
-        const [moved] = state.blocks.splice(index, 1);
-        state.blocks.splice(index - 1, 0, moved);
-        moved.dirty = true;
-        render();
-        setActive(index - 1);
-        emit();
-      });
-      const down = button('↓', 'blocks-icon-btn');
-      down.title = text('moveDown', 'Move down');
-      down.disabled = index === state.blocks.length - 1;
-      down.addEventListener('click', () => {
-        if (index >= state.blocks.length - 1) return;
-        const [moved] = state.blocks.splice(index, 1);
-        state.blocks.splice(index + 1, 0, moved);
-        moved.dirty = true;
-        render();
-        setActive(index + 1);
-        emit();
-      });
-      const remove = button('×', 'blocks-icon-btn blocks-delete-btn');
-      remove.title = text('delete', 'Delete');
-      remove.addEventListener('click', () => {
-        state.blocks.splice(index, 1);
-        render();
-        setActive(Math.min(index, state.blocks.length - 1));
-        emit();
-      });
-      actions.append(up, down, remove);
-      head.appendChild(type);
-      if (block.type === 'heading') {
-        head.appendChild(createHeadingLevelSelect(block));
-      }
-      if (block.type === 'list') {
-        head.appendChild(createListTypeSelect(block));
-      }
-      if (block.type === 'code') {
-        head.appendChild(createCodeLanguageInput(block));
-      }
-      if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
-        head.appendChild(createInlineControls(index));
-      }
-      head.appendChild(actions);
-      item.append(head, renderBlockBody(block, index));
-      item.addEventListener('click', (event) => {
-        if (shouldSuppressRoutedBlockContainerClick()) return;
-        if (closestElement(event.target, '.blocks-block-head')) return;
-        setActive(index);
-      });
-      item.addEventListener('focusin', () => setActive(index));
-      list.appendChild(item);
+      list.appendChild(renderBlockElement(block, index));
     });
     setActive(state.activeIndex);
   }
