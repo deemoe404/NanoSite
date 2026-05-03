@@ -198,18 +198,21 @@ run('malformed card ids stay editable instead of throwing', () => {
   assert.equal(serializeMarkdownBlocks(blocks), source);
 });
 
-run('front matter is stripped before block parsing', () => {
-  const blocks = parseMarkdownBlocks([
+run('front matter stays as source content in block parsing', () => {
+  const source = [
     '---',
     'title: Keep outside blocks',
     '---',
     'Body paragraph.',
     ''
-  ].join('\n'));
-  assert.equal(blocks.length, 1);
-  assert.equal(blocks[0].type, 'paragraph');
-  assert.equal(blocks[0].data.text, 'Body paragraph.');
-  assert.equal(serializeMarkdownBlocks(blocks), 'Body paragraph.\n');
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 2);
+  assert.equal(blocks[0].type, 'source');
+  assert.equal(blocks[0].raw, '---\ntitle: Keep outside blocks\n---');
+  assert.equal(blocks[1].type, 'paragraph');
+  assert.equal(blocks[1].data.text, 'Body paragraph.');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
 });
 
 run('opening thematic breaks are preserved as body content', () => {

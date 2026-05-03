@@ -4,22 +4,28 @@ function normalizeText(value) {
   return String(value == null ? '' : value).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
-function stripFrontMatterIfPresent(markdown) {
-  const text = normalizeText(markdown);
-  const lines = text.split('\n');
-  if (!isFrontMatterFence(lines[0])) return text;
-  const endIndex = lines.findIndex((line, index) => index > 0 && isFrontMatterFence(line));
-  if (endIndex < 0) return text;
-  if (!frontMatterLinesHaveKey(lines.slice(1, endIndex))) return text;
-  return lines.slice(endIndex + 1).join('\n');
-}
-
 function isFrontMatterFence(line) {
   return /^---\s*$/.test(String(line || ''));
 }
 
 function frontMatterLinesHaveKey(lines) {
   return (Array.isArray(lines) ? lines : []).some(line => /^[A-Za-z_][A-Za-z0-9_.-]*\s*:/.test(String(line || '')));
+}
+
+function findFrontMatterEndIndex(lines, start) {
+  if (!Array.isArray(lines) || !isFrontMatterFence(lines[start])) return -1;
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (!isFrontMatterFence(lines[index])) continue;
+    return frontMatterLinesHaveKey(lines.slice(start + 1, index)) ? index : -1;
+  }
+  return -1;
+}
+
+function isFrontMatterBlock(raw) {
+  const lines = normalizeText(raw).split('\n');
+  if (lines.length < 3 || !isFrontMatterFence(lines[0])) return false;
+  if (!isFrontMatterFence(lines[lines.length - 1])) return false;
+  return frontMatterLinesHaveKey(lines.slice(1, -1));
 }
 
 function makeBlock(type, raw, data = {}) {
@@ -53,7 +59,7 @@ function detachBlockTerminator(raw, after) {
 }
 
 function extractChunks(markdown) {
-  const lines = splitMarkdownLines(stripFrontMatterIfPresent(markdown));
+  const lines = splitMarkdownLines(markdown);
   const chunks = [];
   let index = 0;
   let leading = '';
@@ -67,8 +73,11 @@ function extractChunks(markdown) {
     const start = index;
     const first = lines[index] || '';
     const trimmed = first.trimStart();
+    const frontMatterEnd = !chunks.length && !leading && start === 0 ? findFrontMatterEndIndex(lines, start) : -1;
 
-    if (trimmed.startsWith('```') || trimmed.startsWith('````')) {
+    if (frontMatterEnd >= 0) {
+      index = frontMatterEnd + 1;
+    } else if (trimmed.startsWith('```') || trimmed.startsWith('````')) {
       const fence = trimmed.startsWith('````') ? '````' : '```';
       index += 1;
       while (index < lines.length) {
@@ -221,6 +230,7 @@ function classifyChunk(raw, data = {}) {
   const text = String(raw || '');
   const trimmed = text.trim();
   if (!trimmed) return makeBlock('source', text, data);
+  if (isFrontMatterBlock(text)) return makeBlock('source', text, data);
 
   const code = parseCodeBlock(text);
   if (code) return makeBlock('code', text, { ...data, ...code });
