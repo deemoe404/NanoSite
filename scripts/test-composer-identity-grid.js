@@ -444,6 +444,12 @@ assert.match(
   'blocks should be layout-only relative containers and must not clip floating controls'
 );
 
+assert.match(
+  editorSource,
+  /\.blocks-list \{ display:flex; flex-direction:column; gap:2\.5rem; padding-top:2\.5rem; \}/,
+  'blocks list should leave enough vertical room for floating block toolbars'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.blocks-block \{[^}]*\b(?:border|background|box-shadow|border-radius)\s*:/,
