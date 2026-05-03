@@ -234,6 +234,12 @@ assert.match(
   'block move should update state and replace only the adjacent affected DOM nodes before animating'
 );
 
+assert.doesNotMatch(
+  editorBlocksSource,
+  /moved\.dirty\s*=\s*true/,
+  'block reorders should not mark untouched block content dirty'
+);
+
 assert.match(
   editorBlocksSource,
   /const replaceAdjacentBlockElements = \(index, targetIndex\) => \{[\s\S]*const firstIndex = Math\.min\(index, targetIndex\);[\s\S]*const secondIndex = Math\.max\(index, targetIndex\);[\s\S]*const firstNew = renderBlockElement\(state\.blocks\[firstIndex\], firstIndex\);[\s\S]*const secondNew = renderBlockElement\(state\.blocks\[secondIndex\], secondIndex\);[\s\S]*firstOld\.remove\(\);[\s\S]*secondOld\.remove\(\);[\s\S]*setActive\(state\.activeIndex\);[\s\S]*return true;/,

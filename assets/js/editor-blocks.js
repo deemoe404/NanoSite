@@ -369,7 +369,7 @@ function serializeBlock(block) {
       return String(data.text != null ? data.text : block.raw || '');
     case 'paragraph':
     default:
-      return String(data.text || '').trim();
+      return String(data.text || '');
   }
 }
 
@@ -1547,7 +1547,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (index < 0 || targetIndex < 0 || index >= state.blocks.length || targetIndex >= state.blocks.length) return null;
     const [moved] = state.blocks.splice(index, 1);
     state.blocks.splice(targetIndex, 0, moved);
-    moved.dirty = true;
     state.activeIndex = targetIndex;
     return { targetIndex };
   };

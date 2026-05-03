@@ -116,6 +116,31 @@ run('dirty supported blocks serialize edited markdown', () => {
   ].join('\n'));
 });
 
+run('dirty paragraph serialization preserves edge whitespace', () => {
+  const blocks = parseMarkdownBlocks('  Leading and trailing  \n\n');
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'paragraph');
+  blocks[0].dirty = true;
+  assert.equal(serializeMarkdownBlocks(blocks), '  Leading and trailing  \n\n');
+});
+
+run('reordered untouched blocks keep raw markdown content', () => {
+  const blocks = parseMarkdownBlocks([
+    'Paragraph with hard break  ',
+    '',
+    '- one  ',
+    '- two',
+    ''
+  ].join('\n'));
+  assert.equal(blocks.length, 2);
+  const [moved] = blocks.splice(0, 1);
+  blocks.splice(1, 0, moved);
+  assert.equal(blocks[1].dirty, false);
+  const serialized = serializeMarkdownBlocks(blocks);
+  assert.match(serialized, /Paragraph with hard break  /);
+  assert.match(serialized, /- one  \n- two/);
+});
+
 run('unsupported risky markdown becomes source blocks', () => {
   const blocks = parseMarkdownBlocks([
     '| A | B |',
