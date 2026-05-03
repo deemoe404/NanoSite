@@ -504,6 +504,18 @@ assert.match(
   'moved blocks should animate their reorder transform without adding container chrome'
 );
 
+assert.match(
+  editorSource,
+  /\.blocks-block::before \{[^}]*background:color-mix\(in srgb, var\(--primary\) 42%, #60a5fa\);[^}]*opacity:0;[^}]*transition:opacity \.16s ease, background \.16s ease, box-shadow \.16s ease;/,
+  'hover block indicator should use a softer default color and fade smoothly'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block:hover::before \{ opacity:1; \}[\s\S]*\.blocks-block\.is-active::before \{ opacity:1; background:color-mix\(in srgb, var\(--primary\) 82%, #60a5fa\);/,
+  'active block indicator should stay visible with the stronger selected color after hover ends'
+);
+
 assert.doesNotMatch(
   editorSource,
   /\.blocks-block \{[^}]*\b(?:border|background|box-shadow|border-radius)\s*:/,
@@ -518,14 +530,14 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*0 0 6px 1px color-mix\(in srgb, var\(--primary\) 18%, transparent\)[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
+  /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
   'block hover affordance should use an out-of-flow left glow instead of container chrome'
 );
 
 assert.doesNotMatch(
   editorSource,
-  /\.blocks-block::before \{[^}]*\b(?:transition|transform)\s*:/,
-  'block hover affordance should appear without animation'
+  /\.blocks-block::before \{[^}]*\btransform\s*:/,
+  'block hover affordance should not shift block layout'
 );
 
 assert.match(
