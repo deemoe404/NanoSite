@@ -735,9 +735,13 @@ function inputValue(input) {
   return input ? String(input.value || '') : '';
 }
 
+function normalizeEditableMarkdownText(value) {
+  return String(value == null ? '' : value).replace(/\n{3,}/g, '\n\n');
+}
+
 function editableText(el) {
   if (!el) return '';
-  return serializeInlineDom(el).replace(/\n{3,}/g, '\n\n').trim();
+  return normalizeEditableMarkdownText(serializeInlineDom(el));
 }
 
 function splitEditableTextAtSelection(el) {
@@ -756,8 +760,8 @@ function splitEditableTextAtSelection(el) {
     afterRange.selectNodeContents(el);
     afterRange.setStart(range.endContainer, range.endOffset);
     return {
-      before: serializeInlineDom(beforeRange.cloneContents()).replace(/\n{3,}/g, '\n\n').trim(),
-      after: serializeInlineDom(afterRange.cloneContents()).replace(/\n{3,}/g, '\n\n').trim()
+      before: normalizeEditableMarkdownText(serializeInlineDom(beforeRange.cloneContents())),
+      after: normalizeEditableMarkdownText(serializeInlineDom(afterRange.cloneContents()))
     };
   } catch (_) {
     return { before: fallback, after: '' };
