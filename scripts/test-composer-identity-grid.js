@@ -176,8 +176,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const top = Math\.min\(blockBottomLimit, Math\.max\(stickyTop, naturalTop\)\);[\s\S]*head\.classList\.add\('is-stuck'\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
-  'active block toolbar should use one fixed positioning path clamped below the markdown file toolbar'
+  /const editorViewportBottom = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const viewportBottom = editorViewportBottom\(\);[\s\S]*const blockBottomInViewport = blockRect\.top < stickyTop && blockRect\.bottom > stickyTop && blockRect\.bottom <= viewportBottom;[\s\S]*const blockBottomTop = Math\.min\(viewportBottomLimit, blockRect\.bottom \+ gap\);[\s\S]*blockBottomInViewport[\s\S]*Math\.max\(stickyTop, blockBottomTop\)[\s\S]*Math\.min\(blockBottomLimit, Math\.max\(stickyTop, naturalTop\)\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
+  'active block toolbar should clamp below the markdown file toolbar and move to the block bottom when only its bottom remains visible'
 );
 
 assert.match(
@@ -590,8 +590,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \{[^}]*transition:opacity \.16s ease; \}[\s\S]*\.blocks-block\.is-active \.blocks-block-head\.is-stuck \{ position:fixed; z-index:135; transform:none; transition:none; max-width:calc\(100vw - 1rem\); flex-wrap:wrap; \}/,
-  'active block controls should avoid transform transitions while sticking under the markdown file toolbar'
+  /\.blocks-block-head \{[^}]*flex-wrap:nowrap;[\s\S]*transition:opacity \.16s ease;[^}]*white-space:nowrap; \}[\s\S]*\.blocks-block\.is-active \.blocks-block-head\.is-stuck \{ position:fixed; z-index:135; transform:none; transition:none; max-width:calc\(100vw - 1rem\); \}/,
+  'active block controls should stay single-row and avoid transform transitions while sticking under the markdown file toolbar'
 );
 
 assert.match(

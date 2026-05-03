@@ -1474,6 +1474,15 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return 0;
   };
 
+  const editorViewportBottom = () => {
+    try {
+      const pane = document.getElementById('editorContentPane');
+      const rect = pane && pane.getBoundingClientRect ? pane.getBoundingClientRect() : null;
+      if (rect && rect.height > 0) return rect.bottom;
+    } catch (_) {}
+    return window.innerHeight || document.documentElement.clientHeight || 0;
+  };
+
   const updateStickyBlockHead = () => {
     const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
     const activeBlock = blockNodes[state.activeIndex] || null;
@@ -1500,17 +1509,22 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
     const gap = 8;
     const stickyTop = editorStickyToolbarBottom() + gap;
+    const viewportBottom = editorViewportBottom();
     const naturalTop = blockRect.top + (head.offsetTop || 0) - (headHeight * 1.12);
     const blockBottomLimit = blockRect.bottom - headHeight - gap;
-    if (blockBottomLimit <= stickyTop) return;
+    const blockBottomInViewport = blockRect.top < stickyTop && blockRect.bottom > stickyTop && blockRect.bottom <= viewportBottom;
+    if (blockRect.bottom <= stickyTop || viewportBottom <= stickyTop) return;
 
     const margin = 8;
     const left = Math.max(margin, Math.min(blockRect.left + (head.offsetLeft || 0), window.innerWidth - headWidth - margin));
-    const top = Math.min(blockBottomLimit, Math.max(stickyTop, naturalTop));
+    const viewportBottomLimit = Math.max(stickyTop, viewportBottom - headHeight - gap);
+    const blockBottomTop = Math.min(viewportBottomLimit, blockRect.bottom + gap);
+    const top = blockBottomInViewport
+      ? Math.max(stickyTop, blockBottomTop)
+      : Math.min(blockBottomLimit, Math.max(stickyTop, naturalTop));
     head.classList.add('is-stuck');
     head.style.top = `${top}px`;
     head.style.left = `${left}px`;
-    head.style.width = `${headWidth}px`;
   };
 
   let stickyBlockHeadFrame = 0;
