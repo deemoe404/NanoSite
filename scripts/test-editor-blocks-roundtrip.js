@@ -301,6 +301,18 @@ run('dirty code serialization lengthens backtick fence when needed', () => {
   ].join('\n'));
 });
 
+run('unclosed tilde fences stay protected source blocks', () => {
+  const source = [
+    '~~~js',
+    'console.log("open");',
+    ''
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'source');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
 run('opening thematic breaks are preserved as body content', () => {
   const source = [
     '---',
@@ -403,6 +415,21 @@ run('inline links preserve optional title text', () => {
   assert.equal(runs[0].link, 'https://example.com');
   assert.equal(runs[0].linkTitle, 'Custom title');
   assert.equal(serializeInlineRuns(runs), '[docs](https://example.com "Custom title")');
+});
+
+run('inline links preserve balanced parentheses in destinations', () => {
+  const runs = parseInlineRuns('[math](https://en.wikipedia.org/wiki/Function_(mathematics))');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].link, 'https://en.wikipedia.org/wiki/Function_(mathematics)');
+  assert.equal(serializeInlineRuns(runs), '[math](https://en.wikipedia.org/wiki/Function_(mathematics) "math")');
+});
+
+run('inline links preserve balanced parentheses before title text', () => {
+  const runs = parseInlineRuns('[math](https://example.com/a_(b) "Math title")');
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].link, 'https://example.com/a_(b)');
+  assert.equal(runs[0].linkTitle, 'Math title');
+  assert.equal(serializeInlineRuns(runs), '[math](https://example.com/a_(b) "Math title")');
 });
 
 run('inline links sanitize unsafe hrefs', () => {

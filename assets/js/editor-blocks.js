@@ -295,7 +295,7 @@ function classifyChunk(raw, data = {}) {
 
   const code = parseCodeBlock(text);
   if (code) return makeBlock('code', text, { ...data, ...code });
-  if (/^```/.test(trimmed)) return makeBlock('source', text, data);
+  if (parseFenceStartLine(trimmed.split('\n')[0])) return makeBlock('source', text, data);
 
   const heading = text.match(/^(#{1,6})\s+(.+)$/);
   if (heading) {
@@ -544,7 +544,7 @@ function findInlineLink(input, start) {
   const labelEnd = findUnescaped(text, ']', start + 1);
   if (labelEnd < 0 || text[labelEnd + 1] !== '(') return null;
   const hrefStart = labelEnd + 2;
-  const hrefEnd = findUnescaped(text, ')', hrefStart);
+  const hrefEnd = findMarkdownLinkDestinationEnd(text, hrefStart);
   if (hrefEnd <= hrefStart) return null;
   const parsed = parseMarkdownLinkDestination(text.slice(hrefStart, hrefEnd));
   if (!parsed) return null;
@@ -554,6 +554,36 @@ function findInlineLink(input, start) {
     title: parsed.title,
     end: hrefEnd + 1
   };
+}
+
+function findMarkdownLinkDestinationEnd(input, start) {
+  const text = String(input || '');
+  let depth = 0;
+  let quote = '';
+  for (let index = Math.max(0, Number(start) || 0); index < text.length; index += 1) {
+    const ch = text[index];
+    if (ch === '\\') {
+      index += 1;
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === '(') {
+      depth += 1;
+      continue;
+    }
+    if (ch === ')') {
+      if (depth <= 0) return index;
+      depth -= 1;
+    }
+  }
+  return -1;
 }
 
 function parseMarkdownLinkDestination(value) {
@@ -649,7 +679,26 @@ export function parseInlineRuns(markdown) {
 }
 
 function escapeMarkdownLinkHref(value) {
-  return sanitizeEditorLinkHref(value).replace(/\)/g, '%29').replace(/\s+/g, '%20');
+  const href = sanitizeEditorLinkHref(value).replace(/\s+/g, '%20');
+  const out = [];
+  const openIndexes = [];
+  for (const ch of href) {
+    if (ch === '(') {
+      openIndexes.push(out.length);
+      out.push(ch);
+    } else if (ch === ')') {
+      if (openIndexes.length) {
+        openIndexes.pop();
+        out.push(ch);
+      } else {
+        out.push('%29');
+      }
+    } else {
+      out.push(ch);
+    }
+  }
+  openIndexes.forEach(index => { out[index] = '%28'; });
+  return out.join('');
 }
 
 function linkTitleForRun(run) {
