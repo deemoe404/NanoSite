@@ -338,13 +338,19 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
+  /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*0 0 6px 1px color-mix\(in srgb, var\(--primary\) 18%, transparent\)[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
   'block hover affordance should use an out-of-flow left glow instead of container chrome'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-block::before \{[^}]*\b(?:transition|transform)\s*:/,
+  'block hover affordance should appear without animation'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-block:hover::before \{ opacity:1; transform:scaleY\(1\); \}/,
+  /\.blocks-block:hover::before \{ opacity:1; \}/,
   'block hover should reveal the left glow cue'
 );
 

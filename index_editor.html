@@ -1257,8 +1257,8 @@
     .blocks-delete-btn { color:color-mix(in srgb, #dc2626 78%, var(--text)); }
     .blocks-list { display:flex; flex-direction:column; gap:.55rem; }
     .blocks-block { position:relative; overflow:visible; }
-    .blocks-block::before { content:""; position:absolute; z-index:40; top:.15rem; bottom:.15rem; left:-.2rem; width:.078125rem; border-radius:999px; background:color-mix(in srgb, var(--primary) 82%, #60a5fa); box-shadow:0 0 0 1px color-mix(in srgb, var(--primary) 20%, transparent), 0 0 18px 5px color-mix(in srgb, var(--primary) 38%, transparent); opacity:0; pointer-events:none; transform:scaleY(.7); transition:opacity .16s ease, transform .16s ease; }
-    .blocks-block:hover::before { opacity:1; transform:scaleY(1); }
+    .blocks-block::before { content:""; position:absolute; z-index:40; top:.15rem; bottom:.15rem; left:-.2rem; width:.078125rem; border-radius:999px; background:color-mix(in srgb, var(--primary) 82%, #60a5fa); box-shadow:0 0 0 1px color-mix(in srgb, var(--primary) 16%, transparent), 0 0 6px 1px color-mix(in srgb, var(--primary) 18%, transparent); opacity:0; pointer-events:none; }
+    .blocks-block:hover::before { opacity:1; }
     .blocks-block-head { position:absolute; top:0; left:.55rem; z-index:130; display:inline-flex; align-items:center; justify-content:flex-start; gap:.32rem; min-height:2rem; padding:.22rem .28rem; border:1px solid color-mix(in srgb, var(--border) 76%, transparent); border-radius:999px; background:color-mix(in srgb, var(--card) 96%, transparent); box-shadow:0 10px 22px rgba(15,23,42,.13); opacity:0; pointer-events:none; transform:translate3d(0,-112%,0) scale(.98); transition:opacity .16s ease, transform .16s ease; }
     .blocks-block.is-active .blocks-block-head { opacity:1; pointer-events:auto; transform:translate3d(0,-112%,0) scale(1); }
     .blocks-block-type { border-radius:999px; padding:.18rem .45rem; background:color-mix(in srgb, var(--primary) 8%, var(--card)); font-size:.72rem; font-weight:750; letter-spacing:.03em; text-transform:uppercase; color:color-mix(in srgb, var(--muted) 78%, var(--text)); }
