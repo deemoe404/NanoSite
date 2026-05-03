@@ -206,6 +206,15 @@ run('inline runs serialize nested supported marks canonically', () => {
   );
 });
 
+run('inline code escapes backslashes before backticks', () => {
+  const source = 'safe \\` **not bold**';
+  const serialized = serializeInlineRuns([{ text: source, code: true }]);
+  const parsed = parseInlineRuns(serialized);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].code, true);
+  assert.equal(parsed[0].text, source);
+});
+
 run('inline selection removes a mark from mixed selected text when any selected run has it', () => {
   [
     ['bold', 'aa **bb** cc'],
@@ -255,6 +264,12 @@ run('inline link can be applied, replaced, and removed without losing safe marks
   assert.equal(serializeInlineRuns(replaced), 'see [**guide**](https://example.org) now');
   const unlinked = applyInlineLinkToRuns(replaced, 4, 9, '');
   assert.equal(serializeInlineRuns(unlinked), 'see **guide** now');
+});
+
+run('inline links sanitize unsafe hrefs', () => {
+  const linked = applyInlineLinkToRuns(parseInlineRuns('see docs'), 4, 8, 'javascript:alert(1)');
+  assert.equal(serializeInlineRuns(linked), 'see [docs](#)');
+  assert.equal(serializeInlineRuns(parseInlineRuns('[docs](javascript:alert)')), '[docs](#)');
 });
 
 run('inline pending mark insertion uses selected mark set', () => {

@@ -248,6 +248,24 @@ function escapeMarkdownInline(value) {
     .replace(/\]/g, '\\]');
 }
 
+function escapeMarkdownCodeSpan(value) {
+  return String(value == null ? '' : value)
+    .replace(/\u00a0/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`');
+}
+
+function unescapeMarkdownCodeSpan(value) {
+  return String(value == null ? '' : value).replace(/\\([\\`])/g, '$1');
+}
+
+function sanitizeEditorLinkHref(value) {
+  const href = String(value == null ? '' : value).trim();
+  const protocol = href.toLowerCase().match(/^([a-z][a-z0-9+.-]*):/);
+  if (!protocol) return href;
+  return ['http', 'https', 'mailto', 'tel'].includes(protocol[1]) ? href : '#';
+}
+
 function serializeImage(data = {}) {
   const alt = String(data.alt || '');
   const src = String(data.src || '').trim() || 'assets/image.png';
@@ -332,7 +350,7 @@ function inlineRun(text, marks = {}) {
     italic: !!marks.italic,
     strike: !!marks.strike,
     code: !!marks.code,
-    link: marks.link ? String(marks.link) : ''
+    link: marks.link ? sanitizeEditorLinkHref(marks.link) : ''
   };
   if (run.code) {
     run.bold = false;
@@ -423,7 +441,7 @@ function parseInlineRunsInternal(input, marks = {}) {
     if (text[index] === '`') {
       const end = findUnescaped(text, '`', index + 1);
       if (end > index + 1) {
-        appendInlineRun(runs, text.slice(index + 1, end), { code: true });
+        appendInlineRun(runs, unescapeMarkdownCodeSpan(text.slice(index + 1, end)), { code: true });
         index = end + 1;
         continue;
       }
@@ -460,13 +478,13 @@ export function parseInlineRuns(markdown) {
 }
 
 function escapeMarkdownLinkHref(value) {
-  return String(value == null ? '' : value).trim().replace(/\)/g, '%29').replace(/\s+/g, '%20');
+  return sanitizeEditorLinkHref(value).replace(/\)/g, '%29').replace(/\s+/g, '%20');
 }
 
 function serializeInlineRun(run) {
   const text = String(run && run.text != null ? run.text : '');
   if (!text) return '';
-  if (run && run.code) return `\`${text.replace(/`/g, '\\`')}\``;
+  if (run && run.code) return `\`${escapeMarkdownCodeSpan(text)}\``;
   let out = escapeMarkdownInline(text);
   if (run && run.italic) out = `_${out}_`;
   if (run && run.bold) out = `**${out}**`;
@@ -494,7 +512,7 @@ function appendInlineNode(parent, run) {
     if (run && run.italic) wrap('em');
     if (run && run.bold) wrap('strong');
     if (run && run.strike) wrap('s');
-    if (run && run.link) wrap('a', { href: run.link });
+    if (run && run.link) wrap('a', { href: sanitizeEditorLinkHref(run.link) });
   }
   parent.appendChild(node);
 }
@@ -1221,7 +1239,7 @@ export function insertInlineRunsAtRange(runs, start, end, insertRuns = []) {
 }
 
 export function applyInlineLinkToRuns(runs, start, end, href, replacementText = null) {
-  const safeHref = String(href || '').trim();
+  const safeHref = sanitizeEditorLinkHref(href);
   const safeStart = Math.max(0, Number(start) || 0);
   const safeEnd = Math.max(safeStart, Number(end) || 0);
   if (replacementText != null) {
@@ -2176,7 +2194,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
   };
   const applyLinkEditor = () => {
-    const href = inputValue(linkHref).trim();
+    const href = sanitizeEditorLinkHref(inputValue(linkHref));
     if (state.linkEditMode === 'pending') {
       state.pendingInline = { ...state.pendingInline, code: false, link: href };
       updateInlineToolbarState();
