@@ -375,6 +375,7 @@ const translations = {
           callout: '这个块使用了 callout 风格的 Markdown，可视化块编辑器暂不直接编辑这种结构。',
           table: '这段像表格的 Markdown 会按源码保留，因为可视化块编辑器暂不支持表格编辑。',
           indentedList: '这个列表从缩进开始；为避免改变它到底是嵌套列表还是类似代码块的 Markdown，编辑器会按源码保留。',
+          mixedList: '这个列表混合了有序列表和项目符号子列表；可视化块编辑器暂不支持这种混合列表层级。',
           image: '这个段落包含行内图片 Markdown；为避免改变混合内容结构，编辑器会按源码保留。',
           rawHtml: '这个段落包含不在行内代码里的原始 HTML，因此会按 Markdown 源码保留。',
           unsupported: '这段 Markdown 无法安全转换成可视化块；为避免改变原始结构，编辑器会按源码保留。'

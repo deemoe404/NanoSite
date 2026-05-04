@@ -214,6 +214,17 @@ function indentationColumn(value) {
   return String(value || '').replace(/\t/g, '    ').length;
 }
 
+function parseListLineInfo(line) {
+  const text = String(line || '');
+  let match = text.match(/^([ \t]*)([-*])\s+\[([ xX])\]\s+(.+)$/);
+  if (match) return { kind: 'task', indentColumn: indentationColumn(match[1]) };
+  match = text.match(/^([ \t]*)([-*+])\s+(.+)$/);
+  if (match) return { kind: 'ul', indentColumn: indentationColumn(match[1]) };
+  match = text.match(/^([ \t]*)(\d{1,9})([\.)])\s+(.+)$/);
+  if (match) return { kind: 'ol', indentColumn: indentationColumn(match[1]) };
+  return null;
+}
+
 function parseListBlock(raw) {
   const lines = raw.split('\n');
   if (!lines.length) return null;
@@ -307,6 +318,14 @@ function maskInlineCodeSpans(raw) {
 function riskyParagraphReason(raw) {
   if (!raw.trim()) return '';
   const visible = maskInlineCodeSpans(raw);
+  const listLines = normalizeText(visible).split('\n').filter(line => !isBlankLine(line));
+  const listInfos = listLines.map(parseListLineInfo);
+  if (listInfos.length && listInfos.every(Boolean)) {
+    const indentColumns = [...new Set(listInfos.map(item => item.indentColumn || 0))].sort((a, b) => a - b);
+    const kinds = new Set(listInfos.map(item => item.kind));
+    if (indentColumns[0] === 0 && kinds.size > 1) return 'mixedList';
+    if (indentColumns[0] !== 0) return 'indentedList';
+  }
   if (/^\|/.test(visible.trimStart())) return 'table';
   if (/\n\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*(?:\n|$)/.test(visible)) return 'table';
   if (/^\s+[-*+]\s+/m.test(visible) || /^\s+\d{1,9}[\.)]\s+/m.test(visible)) return 'indentedList';
