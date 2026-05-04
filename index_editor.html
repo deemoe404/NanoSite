@@ -1276,6 +1276,7 @@
     .blocks-icon-btn:disabled { opacity:.45; cursor:not-allowed; }
     .blocks-list { display:flex; flex-direction:column; gap:3rem; padding-top:2.5rem; }
     .blocks-block { position:relative; overflow:visible; }
+    .blocks-block:focus, .blocks-block:focus-visible { outline:none; }
     .blocks-block.is-reordering { z-index:1; transition:transform .24s cubic-bezier(.2,.8,.2,1); will-change:transform; }
     .blocks-block::before { content:""; position:absolute; z-index:40; top:.15rem; bottom:.15rem; left:-.2rem; width:.078125rem; border-radius:999px; background:color-mix(in srgb, var(--primary) 42%, #60a5fa); box-shadow:0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent), 0 0 5px 1px color-mix(in srgb, var(--primary) 10%, transparent); opacity:0; pointer-events:none; transition:opacity .16s ease, background .16s ease, box-shadow .16s ease; }
     .blocks-block:hover::before { opacity:1; }

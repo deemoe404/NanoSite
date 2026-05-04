@@ -749,6 +749,12 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
+  /\.blocks-block:focus, \.blocks-block:focus-visible \{ outline:none; \}/,
+  'programmatically focused block containers should suppress the browser default focus ring'
+);
+
+assert.match(
+  editorSource,
   /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
   'block hover affordance should use an out-of-flow left glow instead of container chrome'
 );
