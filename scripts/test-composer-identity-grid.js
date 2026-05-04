@@ -239,6 +239,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const findVerticalScrollParent = \(node\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const forwardBlockHeadWheel = \(event\) => \{[\s\S]*absX > absY[\s\S]*scrollParent\.scrollTop = before \+ deltaY;[\s\S]*event\.preventDefault\(\);[\s\S]*head\.addEventListener\('wheel', forwardBlockHeadWheel, \{ passive: false \}\);/,
+  'active block toolbar should forward vertical wheel gestures to the editor content scroll pane'
+);
+
+assert.match(
+  editorBlocksSource,
   /item\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
   'block section container clicks should select the block without hijacking toolbar action clicks or routed carets'
 );
@@ -491,8 +497,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
-  'source markdown textareas should auto-size to their content'
+  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.rows = 1;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
+  'source markdown textareas should auto-size to their content from a one-row baseline'
 );
 
 assert.match(
@@ -713,14 +719,26 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview code \{ display:block; min-height:1\.55em;[\s\S]*line-height:1\.55; \}/,
-  'single-line code blocks should not inherit a tall fixed minimum height'
+  /\.blocks-code-preview code \{ display:block; min-height:1\.55em; outline:none;[\s\S]*line-height:1\.55; \}/,
+  'empty code blocks should keep one editable line as a pointer target'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; \}/,
-  'source markdown textareas should expand to content without a fixed minimum height or internal scrolling'
+  /\.blocks-rich-editable \{ outline:none; min-height:1\.65em; line-height:1\.65;/,
+  'empty rich text blocks should keep one editable line as a pointer target'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; padding-block:0; \}/,
+  'source markdown textareas should expand to content without fixed minimum height, internal scrolling, or vertical padding'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-textarea \{[^}]*min-height:/,
+  'block textareas should not reserve a fixed minimum height'
 );
 
 assert.match(

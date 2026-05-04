@@ -1318,7 +1318,7 @@
     .blocks-rich-editable, .blocks-code-preview code, .blocks-block input, .blocks-block textarea, .blocks-link-editor input, .blocks-card-search { cursor:text; }
     .blocks-block select { cursor:default; }
     .blocks-inspector input { min-width:min(18rem, 100%); flex:1 1 12rem; }
-    .blocks-rich-editable { outline:none; min-height:1.8rem; line-height:1.65; border-radius:6px; padding:.2rem .25rem; }
+    .blocks-rich-editable { outline:none; min-height:1.65em; line-height:1.65; border-radius:6px; padding:.2rem .25rem; }
     .blocks-rich-editable:focus, .blocks-textarea:focus, .blocks-block input:focus, .blocks-block select:focus, .blocks-card-search:focus { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); }
     .blocks-rich-editable a { color:var(--primary); text-decoration:underline; cursor:text; }
     .blocks-paragraph-text, .blocks-list-text, .blocks-quote-text { font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); }
@@ -1335,8 +1335,8 @@
     .blocks-quote-preview { margin:0; padding:.35rem .85rem; border-left:4px solid color-mix(in srgb, var(--primary) 58%, var(--border)); background:color-mix(in srgb, var(--primary) 6%, var(--card)); color:color-mix(in srgb, var(--text) 92%, var(--muted)); }
     .blocks-quote-preview p { margin:0; }
     .blocks-quote-text:focus { outline:none; box-shadow:none; }
-    .blocks-textarea { min-height:6.5rem; resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; }
-    .blocks-source-textarea { min-height:0; width:100%; resize:none; overflow:hidden; }
+    .blocks-textarea { resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; }
+    .blocks-source-textarea { min-height:0; width:100%; resize:none; overflow:hidden; padding-block:0; }
     .blocks-source-textarea:focus { outline:none; box-shadow:none; border-color:color-mix(in srgb, var(--border) 82%, transparent); }
     .blocks-image-figure { margin:0; display:flex; flex-direction:column; gap:.45rem; align-items:flex-start; }
     .blocks-image-preview { display:block; max-width:100%; max-height:28rem; height:auto; border-radius:8px; border:1px solid color-mix(in srgb, var(--border) 72%, transparent); background:color-mix(in srgb, var(--text) 3%, transparent); box-shadow:0 1px 2px rgba(15,23,42,.08); object-fit:contain; }
@@ -2201,7 +2201,7 @@
     })();
   </script>
   <script type="module" src="assets/js/editor-boot.js?v=editor-i18n-20260504"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-preview-images-20260504"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-block-head-wheel-20260504"></script>
   <script type="module" src="assets/js/composer.js?v=editor-i18n-20260504"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
