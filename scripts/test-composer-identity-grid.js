@@ -501,6 +501,12 @@ assert.match(
   'image upload picker should support replacing one existing image block through the existing asset pipeline'
 );
 
+assert.match(
+  editorMainSource,
+  /const refreshPreviewAssetOverrides = \(\) => \{[\s\S]*\['mainview', 'blocks-wrap'\]\.forEach\(\(id\) => \{[\s\S]*document\.getElementById\(id\)[\s\S]*applyPreviewAssetOverrides\(target, previewAssetCurrentPath\);[\s\S]*\}\);[\s\S]*\};/,
+  'asset preview refresh should update both rendered preview and WYSIWYG block images'
+);
+
 assert.doesNotMatch(
   editorBlocksSource,
   /blocks-image-inspector/,

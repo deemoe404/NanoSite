@@ -404,9 +404,11 @@ const applyPreviewAssetOverrides = (container, markdownPath) => {
 };
 
 const refreshPreviewAssetOverrides = () => {
-  const target = document.getElementById('mainview');
-  if (!target) return;
-  applyPreviewAssetOverrides(target, previewAssetCurrentPath);
+  ['mainview', 'blocks-wrap'].forEach((id) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    applyPreviewAssetOverrides(target, previewAssetCurrentPath);
+  });
 };
 
 const fetchMarkdownForLinkCard = (loc) => {
@@ -2476,7 +2478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Failed to dispatch asset-added event', err);
       }
 
-      emitEditorToast('success', `Inserted ${paths.relativePath}`);
+      emitEditorToast('success', t('editor.toasts.assetAttached', { label: paths.relativePath }));
     }
   };
 
