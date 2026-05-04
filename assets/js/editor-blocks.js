@@ -3205,7 +3205,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     hydrateImages(blockEl);
   };
 
-  const createImageMetadataControls = (block) => {
+  const createImageMetadataControls = (block, index) => {
     const controls = document.createElement('div');
     controls.className = 'blocks-image-meta-controls';
     const alt = document.createElement('input');
@@ -3214,12 +3214,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     alt.value = block.data.alt || '';
     alt.placeholder = text('imageAlt', 'Alt text');
     alt.setAttribute('aria-label', text('imageAlt', 'Alt text'));
-    const src = document.createElement('input');
-    src.type = 'text';
-    src.className = 'blocks-image-src';
-    src.value = block.data.src || '';
-    src.placeholder = text('imagePath', 'Image path');
-    src.setAttribute('aria-label', text('imagePath', 'Image path'));
+    const replace = button(text('replaceImage', 'Replace image'), 'blocks-btn blocks-image-replace');
+    replace.title = text('replaceImage', 'Replace image');
+    replace.setAttribute('aria-label', text('replaceImage', 'Replace image'));
     const title = document.createElement('input');
     title.type = 'text';
     title.className = 'blocks-image-title';
@@ -3227,13 +3224,19 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     title.placeholder = text('imageTitle', 'Image title');
     title.setAttribute('aria-label', text('imageTitle', 'Image title'));
     const update = () => {
-      updateFromControl(block, { alt: inputValue(alt), src: inputValue(src), title: inputValue(title) });
+      updateFromControl(block, { alt: inputValue(alt), title: inputValue(title) });
       syncRenderedImageBlock(block);
     };
     alt.addEventListener('input', update);
-    src.addEventListener('input', update);
     title.addEventListener('input', update);
-    controls.append(alt, src, title);
+    replace.addEventListener('mousedown', (event) => event.preventDefault());
+    replace.addEventListener('click', () => {
+      setActive(index);
+      if (typeof options.requestImageUpload === 'function') {
+        options.requestImageUpload({ replaceIndex: index });
+      }
+    });
+    controls.append(alt, replace, title);
     return controls;
   };
 
@@ -3612,7 +3615,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       head.appendChild(createCodeLanguageInput(block));
     }
     if (block.type === 'image') {
-      head.appendChild(createImageMetadataControls(block));
+      head.appendChild(createImageMetadataControls(block, index));
     }
     if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
       head.appendChild(createInlineControls(index));
@@ -3682,6 +3685,15 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     insertImageBlock(src, alt, index = state.activeIndex + 1) {
       const block = insertBlock('image', { src, alt: alt || '', title: '' }, index);
       return { index: state.blocks.indexOf(block) };
+    },
+    replaceImageBlock(src, index = state.activeIndex) {
+      const safeIndex = Math.max(0, Math.min(Number(index) || 0, state.blocks.length - 1));
+      const block = state.blocks[safeIndex];
+      if (!block || block.type !== 'image') return null;
+      updateFromControl(block, { src });
+      syncRenderedImageBlock(block);
+      setActive(safeIndex);
+      return { index: safeIndex };
     },
     setCardEntries(entries) {
       state.cardEntries = Array.isArray(entries) ? entries.slice() : [];

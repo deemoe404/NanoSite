@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-image-toolbar-v4-20260504';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-image-replace-20260504';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -1563,6 +1563,7 @@ document.addEventListener('DOMContentLoaded', () => {
     delete: 'Delete',
     imageAlt: 'Alt text',
     imagePath: 'Image path',
+    replaceImage: 'Replace image',
     unordered: 'Bulleted',
     ordered: 'Numbered',
     task: 'Checklist',
@@ -1639,8 +1640,11 @@ document.addEventListener('DOMContentLoaded', () => {
           applyPreviewAssetOverrides(node, getCurrentMarkdownPath());
         } catch (_) {}
       },
-      requestImageUpload: ({ index } = {}) => {
-        pendingBlocksImageInsert = { index: Number.isFinite(index) ? index : null };
+      requestImageUpload: ({ index, replaceIndex } = {}) => {
+        pendingBlocksImageInsert = {
+          index: Number.isFinite(index) ? index : null,
+          replaceIndex: Number.isFinite(replaceIndex) ? replaceIndex : null
+        };
         if (!getCurrentMarkdownPath()) {
           emitEditorToast('warn', t('editor.toasts.markdownOpenBeforeInsert'));
           pendingBlocksImageInsert = null;
@@ -2417,6 +2421,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (fileList && fileList.length) emitEditorToast('warn', 'Only image files can be inserted.');
       return;
     }
+    if (options.singleImage && files.length > 1) files.splice(1);
 
     const textarea = getEditorTextarea();
     const customInsertMarkdown = typeof options.insertMarkdown === 'function' ? options.insertMarkdown : null;
@@ -2833,17 +2838,31 @@ document.addEventListener('DOMContentLoaded', () => {
       if (files && files.length) {
         const blockInsert = pendingBlocksImageInsert;
         pendingBlocksImageInsert = null;
+        const replaceIndex = blockInsert && Number.isFinite(blockInsert.replaceIndex)
+          ? blockInsert.replaceIndex
+          : null;
         let insertIndex = blockInsert && Number.isFinite(blockInsert.index)
           ? blockInsert.index
           : null;
-        const insertMarkdown = blockInsert && markdownBlocksEditor && typeof markdownBlocksEditor.insertImageBlock === 'function'
+        const replaceMarkdown = replaceIndex != null
+          && markdownBlocksEditor
+          && typeof markdownBlocksEditor.replaceImageBlock === 'function'
+          ? (relativePath) => {
+            markdownBlocksEditor.replaceImageBlock(relativePath, replaceIndex);
+            return {};
+          }
+          : null;
+        const insertMarkdown = !replaceMarkdown && blockInsert && markdownBlocksEditor && typeof markdownBlocksEditor.insertImageBlock === 'function'
           ? (relativePath, altText) => {
             const result = markdownBlocksEditor.insertImageBlock(relativePath, altText, insertIndex);
             if (result && Number.isFinite(result.index)) insertIndex = result.index + 1;
             return {};
           }
           : null;
-        handleImageFiles(files, insertMarkdown ? { source: 'picker', insertMarkdown } : { source: 'picker' }).catch((err) => {
+        const markdownHandler = replaceMarkdown || insertMarkdown;
+        handleImageFiles(files, markdownHandler
+          ? { source: 'picker', insertMarkdown: markdownHandler, singleImage: !!replaceMarkdown }
+          : { source: 'picker' }).catch((err) => {
           console.error('Image insertion failed', err);
         });
       }

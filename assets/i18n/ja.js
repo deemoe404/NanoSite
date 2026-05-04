@@ -347,6 +347,7 @@ const translations = {
         delete: '削除',
         imageAlt: '代替テキスト',
         imagePath: '画像パス',
+        replaceImage: '画像を置換',
         unordered: '箇条書き',
         ordered: '番号付き',
         task: 'チェックリスト',

@@ -347,6 +347,7 @@ const translations = {
         delete: '刪除',
         imageAlt: '替代文字',
         imagePath: '圖片路徑',
+        replaceImage: '替換圖片',
         unordered: '項目符號',
         ordered: '編號',
         task: '清單',

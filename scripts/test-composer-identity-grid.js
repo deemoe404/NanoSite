@@ -114,6 +114,12 @@ assert.match(
   'block link title field should have a local fallback label'
 );
 
+assert.match(
+  editorMainSource,
+  /replaceImage: 'Replace image'/,
+  'block replace image button should have a local fallback label'
+);
+
 [
   [enI18nSource, /linkTitle: 'Link title'/],
   [chsI18nSource, /linkTitle: '链接标题'/],
@@ -473,20 +479,38 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const createImageMetadataControls = \(block\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*src\.className = 'blocks-image-src';[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), src: inputValue\(src\), title: inputValue\(title\) \}\);[\s\S]*syncRenderedImageBlock\(block\);/,
-  'image metadata controls should live in the active block toolbar and update the rendered preview'
+  /const createImageMetadataControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*const replace = button\(text\('replaceImage', 'Replace image'\), 'blocks-btn blocks-image-replace'\);[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), title: inputValue\(title\) \}\);[\s\S]*options\.requestImageUpload\(\{ replaceIndex: index \}\);[\s\S]*controls\.append\(alt, replace, title\);/,
+  'image metadata controls should replace the path input with a replace-image upload button'
 );
 
 assert.match(
   editorBlocksSource,
-  /if \(block\.type === 'image'\) \{[\s\S]*head\.appendChild\(createImageMetadataControls\(block\)\);[\s\S]*\}/,
+  /if \(block\.type === 'image'\) \{[\s\S]*head\.appendChild\(createImageMetadataControls\(block, index\)\);[\s\S]*\}/,
   'image block controls should be appended to the floating block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /replaceImageBlock\(src, index = state\.activeIndex\) \{[\s\S]*block\.type !== 'image'[\s\S]*updateFromControl\(block, \{ src \}\);[\s\S]*syncRenderedImageBlock\(block\);[\s\S]*setActive\(safeIndex\);[\s\S]*return \{ index: safeIndex \};/,
+  'image replacement should update the existing image block src without inserting another block'
+);
+
+assert.match(
+  editorMainSource,
+  /requestImageUpload: \(\{ index, replaceIndex \} = \{\}\) => \{[\s\S]*replaceIndex: Number\.isFinite\(replaceIndex\) \? replaceIndex : null[\s\S]*const replaceIndex = blockInsert && Number\.isFinite\(blockInsert\.replaceIndex\)[\s\S]*const replaceMarkdown = replaceIndex != null[\s\S]*markdownBlocksEditor\.replaceImageBlock\(relativePath, replaceIndex\);[\s\S]*singleImage: !!replaceMarkdown/,
+  'image upload picker should support replacing one existing image block through the existing asset pipeline'
 );
 
 assert.doesNotMatch(
   editorBlocksSource,
   /blocks-image-inspector/,
   'image metadata controls should not render as an inspector inside the block body'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-image-src/,
+  'image metadata controls should not expose a direct image path input'
 );
 
 assert.match(
@@ -749,8 +773,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language, \.blocks-block-head \.blocks-image-meta-controls input[\s\S]*\.blocks-image-meta-controls \{ display:flex; align-items:center; gap:\.24rem;[\s\S]*\.blocks-block-head \.blocks-image-meta-controls \.blocks-image-src \{ width:clamp\(8rem, 16vw, 13rem\); max-width:24vw; \}/,
-  'image metadata fields should use compact floating-toolbar input styling'
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language, \.blocks-block-head \.blocks-image-meta-controls input, \.blocks-block-head \.blocks-image-replace[\s\S]*\.blocks-image-meta-controls \{ display:flex; align-items:center; gap:\.24rem;[\s\S]*\.blocks-block-head \.blocks-image-replace \{ white-space:nowrap; cursor:pointer; \}/,
+  'image metadata fields and replace button should use compact floating-toolbar styling'
 );
 
 assert.match(
@@ -1547,6 +1571,14 @@ assert.match(
     i18nText,
     /status:\s*\{[\s\S]*added:[\s\S]*modified:[\s\S]*deleted:[\s\S]*checking:[\s\S]*changedCount:[\s\S]*changedSummary:[\s\S]*orderChanged:[\s\S]*deletedSummary:/,
     `locale ${index} should expose editor tree status badge text`
+  );
+});
+
+[enI18nSource, chsI18nSource, chtTwI18nSource, jaI18nSource].forEach((i18nText, index) => {
+  assert.match(
+    i18nText,
+    /replaceImage:/,
+    `locale ${index} should expose image replacement toolbar text`
   );
 });
 

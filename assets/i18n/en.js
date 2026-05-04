@@ -347,6 +347,7 @@ const translations = {
         delete: 'Delete',
         imageAlt: 'Alt text',
         imagePath: 'Image path',
+        replaceImage: 'Replace image',
         unordered: 'Bulleted',
         ordered: 'Numbered',
         task: 'Checklist',
