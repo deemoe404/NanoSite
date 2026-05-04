@@ -11,6 +11,7 @@ import {
   sanitizeImageUrl
 } from '../../../js/utils.js';
 import {
+  mountThemeControls,
   applySavedTheme,
   bindThemeToggle,
   bindThemePackPicker,
@@ -22,6 +23,7 @@ import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCo
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
+import { renderNanoPostCardHtml } from '../../../js/components.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -418,32 +420,19 @@ function fadeOut(element, onDone) {
 }
 
 function buildCard({ title, meta, translate, link, siteConfig }) {
-  const safeTitle = escapeHtml(String(title || 'Untitled'));
-  const excerpt = meta && meta.excerpt ? escapeHtml(String(meta.excerpt)) : '';
+  const excerpt = meta && meta.excerpt ? String(meta.excerpt) : '';
   const date = meta && meta.date ? formatDisplayDate(meta.date) : '';
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
-  const hasCover = Boolean(coverHtml);
-  const cardClasses = `arcus-card${hasCover ? ' arcus-card--with-cover' : ''}`;
-  const metaLine = () => {
-    if (!date && !tags) return '';
-    let html = '<div class="arcus-card__meta-line">';
-    if (date) html += `<span class="arcus-card__meta-date">${escapeHtml(date)}</span>`;
-    if (date && tags) html += '<span class="arcus-card__meta-separator" aria-hidden="true">·</span>';
-    if (tags) html += `<div class="arcus-card__tags">${tags}</div>`;
-    html += '</div>';
-    return html;
-  };
-  return `<article class="${cardClasses}">
-    <a class="arcus-card__link" href="${escapeHtml(link)}">
-      ${coverHtml}
-      <div class="arcus-card__body">
-        ${metaLine()}
-        <h3 class="arcus-card__title">${safeTitle}</h3>
-        ${excerpt ? `<p class="arcus-card__excerpt"><span class="arcus-card__excerpt-tilt">${excerpt}</span></p>` : ''}
-      </div>
-    </a>
-  </article>`;
+  return renderNanoPostCardHtml({
+    variant: 'arcus',
+    title: String(title || 'Untitled'),
+    href: link,
+    date,
+    excerpt,
+    coverHtml,
+    tagsHtml: tags
+  });
 }
 
 function ensureArcusExcerptNode(card, documentRef = defaultDocument) {
@@ -725,6 +714,11 @@ function renderLinksList(root, cfg) {
 }
 
 function updateSearchPlaceholder(documentRef = defaultDocument) {
+  const search = documentRef ? documentRef.querySelector('nano-search') : null;
+  if (search && typeof search.setPlaceholder === 'function') {
+    search.setPlaceholder(t('sidebar.searchPlaceholder'));
+    return;
+  }
   const input = documentRef ? documentRef.getElementById('searchInput') : null;
   if (!input) return;
   input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
@@ -833,74 +827,8 @@ function populateThemePackOptions(documentRef = defaultDocument, windowRef = def
 function setupToolsPanel(documentRef = defaultDocument, windowRef = defaultWindow) {
   const panel = documentRef && documentRef.getElementById('toolsPanel');
   if (!panel) return false;
-  panel.innerHTML = `
-    <div class="arcus-tools__groups" id="tools">
-      <div class="arcus-tools__group" role="group" data-group="theme" aria-label="${t('tools.toggleTheme')} & ${t('tools.themePack')}">
-        <button id="themeToggle" class="arcus-tool" type="button" aria-label="${t('tools.toggleTheme')}">
-          <span class="arcus-tool__icon">🌓</span>
-          <span class="arcus-tool__label">${t('tools.toggleTheme')}</span>
-        </button>
-        <label class="arcus-tool arcus-tool--select" for="themePack">
-          <span class="arcus-tool__label">${t('tools.themePack')}</span>
-          <select id="themePack"></select>
-        </label>
-      </div>
-      <div class="arcus-tools__group" role="group" data-group="language" aria-label="${t('tools.language')} & ${t('tools.resetLanguage')}">
-        <label class="arcus-tool arcus-tool--select" for="langSelect">
-          <span class="arcus-tool__label">${t('tools.language')}</span>
-          <select id="langSelect"></select>
-        </label>
-        <button id="langReset" class="arcus-tool" type="button" aria-label="${t('tools.resetLanguage')}">
-          <span class="arcus-tool__icon">♻️</span>
-          <span class="arcus-tool__label">${t('tools.resetLanguage')}</span>
-        </button>
-      </div>
-      <div class="arcus-tools__group arcus-tools__group--solo" role="group" data-group="editor" aria-label="${t('tools.postEditor')}">
-        <button id="postEditor" class="arcus-tool" type="button" aria-label="${t('tools.postEditor')}">
-          <span class="arcus-tool__icon">📝</span>
-          <span class="arcus-tool__label">${t('tools.postEditor')}</span>
-        </button>
-      </div>
-    </div>`;
+  try { mountThemeControls({ host: panel, variant: 'arcus' }); } catch (_) {}
   try { applySavedTheme(); } catch (_) {}
-  try { bindThemeToggle(); } catch (_) {}
-  try { bindPostEditor(); } catch (_) {}
-  try { populateThemePackOptions(documentRef, windowRef); } catch (_) {}
-  try { bindThemePackPicker(); } catch (_) {}
-  try { refreshLanguageSelector(); } catch (_) {}
-  try {
-    const langSel = documentRef.getElementById('langSelect');
-    if (langSel) {
-      langSel.addEventListener('change', () => {
-        const val = langSel.value || 'en';
-        switchLanguage(val);
-      });
-    }
-    const reset = documentRef.getElementById('langReset');
-    if (reset) {
-      reset.addEventListener('click', () => {
-        try { localStorage.removeItem('lang'); } catch (_) {}
-        try {
-          const url = new URL(windowRef ? windowRef.location.href : window.location.href);
-          url.searchParams.delete('lang');
-          if (windowRef && windowRef.history && windowRef.history.replaceState) {
-            windowRef.history.replaceState(windowRef.history.state, documentRef.title, url.toString());
-          }
-        } catch (_) {}
-        try {
-          if (windowRef && windowRef.__ns_softResetLang) {
-            windowRef.__ns_softResetLang();
-            return;
-          }
-        } catch (_) {}
-        try {
-          if (windowRef && windowRef.location) {
-            windowRef.location.reload();
-          }
-        } catch (_) {}
-      });
-    }
-  } catch (_) {}
   return true;
 }
 
@@ -1268,11 +1196,21 @@ function showToc(tocEl, tocHtml, articleTitle) {
     tocEl.__arcusTocCleanup = null;
   }
   if (!tocHtml) {
-    tocEl.innerHTML = '';
+    if (typeof tocEl.clear === 'function') tocEl.clear();
+    else tocEl.innerHTML = '';
     tocEl.hidden = true;
     return;
   }
-  tocEl.innerHTML = `<div class="arcus-toc__inner"><div class="arcus-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
+  if (typeof tocEl.renderToc === 'function') {
+    tocEl.renderToc({
+      variant: 'arcus',
+      articleTitle: articleTitle || t('ui.tableOfContents'),
+      tocHtml,
+      contentSelector: '#mainview'
+    });
+  } else {
+    tocEl.innerHTML = `<div class="arcus-toc__inner"><div class="arcus-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
+  }
   tocEl.hidden = false;
   fadeIn(tocEl);
   const cleanup = enhanceArcusTocDock(tocEl);
@@ -1401,8 +1339,11 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       toc.hidden = true;
       toc.innerHTML = '';
     }
-    const input = documentRef.getElementById('searchInput');
-    if (input) input.value = view === 'search' ? (getQueryVariable('q') || '') : '';
+    const search = documentRef.querySelector('nano-search');
+    const value = view === 'search' ? (getQueryVariable('q') || '') : '';
+    if (search) search.value = value;
+    const input = search && search.input ? search.input : documentRef.getElementById('searchInput');
+    if (input) input.value = value;
   };
 
   hooks.renderTagSidebar = ({ postsIndex, utilities }) => {

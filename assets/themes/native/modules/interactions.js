@@ -9,6 +9,7 @@ import { renderPostNav } from '../../../js/post-nav.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { applyLangHints } from '../../../js/typography.js';
+import { renderNanoPostCardHtml } from '../../../js/components.js';
 import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor } from '../../../js/theme.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
@@ -126,6 +127,11 @@ function resolveViewContainersNative(params = {}, documentRef = defaultDocument)
 
 function updateSearchPlaceholderNative(params = {}, documentRef = defaultDocument) {
   if (!documentRef) return false;
+  const search = documentRef.querySelector('nano-search');
+  if (search && typeof search.setPlaceholder === 'function') {
+    search.setPlaceholder(params && params.placeholder != null ? String(params.placeholder) : '');
+    return true;
+  }
   const input = documentRef.getElementById('searchInput');
   if (!input) return false;
   const placeholder = params && params.placeholder != null ? String(params.placeholder) : '';
@@ -490,7 +496,12 @@ function resetTOCNative(params = {}, documentRef = defaultDocument, windowRef = 
   const scope = params.containers && typeof params.containers === 'object' ? params.containers : {};
   const toc = scope.tocElement || params.tocElement || (documentRef ? documentRef.getElementById('tocview') : null);
   if (!toc) return false;
-  const clear = () => { try { toc.innerHTML = ''; } catch (_) {}; };
+  const clear = () => {
+    try {
+      if (typeof toc.clear === 'function') toc.clear();
+      else toc.innerHTML = '';
+    } catch (_) {}
+  };
   if (params.immediate) {
     clear();
     try { toc.setAttribute('aria-hidden', 'true'); } catch (_) {}
@@ -517,6 +528,18 @@ function renderPostTOCNative(params = {}, documentRef = defaultDocument, windowR
   const translate = params.translate || params.translator || t;
   const title = params.articleTitle != null ? String(params.articleTitle) : '';
   const tocHtml = params.tocHtml || '';
+  if (typeof toc.renderToc === 'function') {
+    try { toc.setAttribute('toggle-label', translate('toc.toggleAria') || 'Toggle section'); } catch (_) {}
+    toc.renderToc({
+      variant: 'native',
+      articleTitle: title,
+      tocHtml,
+      topLabel: translate('ui.top'),
+      topAria: translate('ui.backToTop') || translate('ui.top') || 'Back to top',
+      contentSelector: '#mainview'
+    });
+    return true;
+  }
   if (!tocHtml) {
     toc.innerHTML = '';
     return true;
@@ -572,9 +595,9 @@ function renderErrorStateNative(params = {}, documentRef = defaultDocument) {
 
 function handleViewChangeNative(params = {}, documentRef = defaultDocument, windowRef = defaultWindow) {
   const context = params && params.context && typeof params.context === 'object' ? params.context : {};
-  const search = context.searchElement || params.searchElement || (documentRef ? documentRef.getElementById('searchbox') : null);
+  const search = context.searchElement || params.searchElement || (documentRef ? (documentRef.querySelector('nano-search') || documentRef.getElementById('searchbox')) : null);
   const tags = context.tagElement || params.tagElement || (documentRef ? documentRef.getElementById('tagview') : null);
-  const input = context.searchInput || params.searchInput || (documentRef ? documentRef.getElementById('searchInput') : null);
+  const input = context.searchInput || params.searchInput || (search && search.input) || (documentRef ? documentRef.getElementById('searchInput') : null);
   const showSearch = context.showSearch != null ? !!context.showSearch : !!params.showSearch;
   const showTags = context.showTags != null ? !!context.showTags : !!params.showTags;
   const queryValue = context.queryValue != null ? context.queryValue : params.queryValue;
@@ -589,6 +612,10 @@ function handleViewChangeNative(params = {}, documentRef = defaultDocument, wind
   }
   if (input && typeof queryValue === 'string') {
     try { input.value = queryValue; } catch (_) {}
+    try {
+      const host = input.closest && input.closest('nano-search');
+      if (host) host.value = queryValue;
+    } catch (_) {}
   }
   return !!(search || tags || input);
 }
@@ -1099,7 +1126,10 @@ function renderStaticTabViewNative(params = {}, documentRef = defaultDocument, w
   const tocElement = documentRef.getElementById('tocview');
   if (tocElement) {
     try { hideElementNative({ element: tocElement }, windowRef); } catch (_) { try { tocElement.style.display = 'none'; } catch (_) {} }
-    try { tocElement.innerHTML = ''; } catch (_) {}
+    try {
+      if (typeof tocElement.clear === 'function') tocElement.clear();
+      else tocElement.innerHTML = '';
+    } catch (_) {}
   }
 
   const articleTitle = (() => {
@@ -1189,17 +1219,22 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
       ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
       : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
-    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
+    const dateLabel = hasDate ? formatDisplayDate(value.date) : '';
     const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
-    const versionsHtml = verCount > 1 ? `<span class="card-versions" title="${escapeHtml(translate('ui.versionLabel'))}">${escapeHtml(translate('ui.versionsCount', verCount))}</span>` : '';
-    const draftHtml = (value && value.draft) ? `<span class="card-draft">${escapeHtml(translate('ui.draftBadge'))}</span>` : '';
-    const parts = [];
-    if (dateHtml) parts.push(dateHtml);
-    if (versionsHtml) parts.push(versionsHtml);
-    if (draftHtml) parts.push(draftHtml);
-    const metaInner = parts.join('<span class="card-sep">•</span>');
+    const versionsLabel = verCount > 1 ? translate('ui.versionsCount', verCount) : '';
+    const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
-    html += `<a href="${href}" data-idx="${escapeHtml(encodeURIComponent(key))}">${cover}<div class="card-title">${escapeHtml(String(key || ''))}</div><div class="card-excerpt"></div><div class="card-meta">${metaInner}</div>${tag}</a>`;
+    html += renderNanoPostCardHtml({
+      variant: 'native',
+      title: String(key || ''),
+      href,
+      dataIdx: encodeURIComponent(key),
+      date: dateLabel,
+      versionsLabel,
+      draftLabel,
+      coverHtml: cover,
+      tagsHtml: tag
+    });
   }
   html += '</div>';
   if (totalPages > 1) {
@@ -1317,17 +1352,22 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
       ? `<div class="card-cover-wrap"><div class="ph-skeleton" aria-hidden="true"></div><img class="card-cover" alt="${escapeHtml(String(key || ''))}" src="${escapeHtml(cardImageSrc(coverSrc))}" loading="lazy" decoding="async" fetchpriority="low" width="1600" height="1000"></div>`
       : (useFallbackCover ? fallbackCover(key) : '');
     const hasDate = value && value.date;
-    const dateHtml = hasDate ? `<span class="card-date">${escapeHtml(formatDisplayDate(value.date))}</span>` : '';
+    const dateLabel = hasDate ? formatDisplayDate(value.date) : '';
     const verCount = (value && Array.isArray(value.versions)) ? value.versions.length : 0;
-    const versionsHtml = verCount > 1 ? `<span class="card-versions" title="${escapeHtml(translate('ui.versionLabel'))}">${escapeHtml(translate('ui.versionsCount', verCount))}</span>` : '';
-    const draftHtml = (value && value.draft) ? `<span class="card-draft">${escapeHtml(translate('ui.draftBadge'))}</span>` : '';
-    const parts = [];
-    if (dateHtml) parts.push(dateHtml);
-    if (versionsHtml) parts.push(versionsHtml);
-    if (draftHtml) parts.push(draftHtml);
-    const metaInner = parts.join('<span class="card-sep">•</span>');
+    const versionsLabel = verCount > 1 ? translate('ui.versionsCount', verCount) : '';
+    const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
-    html += `<a href="${href}" data-idx="${escapeHtml(encodeURIComponent(key))}">${cover}<div class="card-title">${escapeHtml(String(key || ''))}</div><div class="card-excerpt"></div><div class="card-meta">${metaInner}</div>${tag}</a>`;
+    html += renderNanoPostCardHtml({
+      variant: 'native',
+      title: String(key || ''),
+      href,
+      dataIdx: encodeURIComponent(key),
+      date: dateLabel,
+      versionsLabel,
+      draftLabel,
+      coverHtml: cover,
+      tagsHtml: tag
+    });
   }
   html += '</div>';
 

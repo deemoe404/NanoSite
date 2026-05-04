@@ -1,4 +1,5 @@
 import { configureFetchCachePolicy } from './js/cache-control.js';
+import './js/components.js';
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
@@ -1494,6 +1495,7 @@ callThemeHook('updateSearchPlaceholder', {
   document,
   window
 });
+try { setupSearch(); } catch (_) {}
 
 // Observe viewport changes for responsive tabs
 callThemeHook('setupResponsiveTabsObserver', {

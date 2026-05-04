@@ -11,6 +11,7 @@ import {
   sanitizeImageUrl
 } from '../../../js/utils.js';
 import {
+  mountThemeControls,
   applySavedTheme,
   bindThemeToggle,
   bindThemePackPicker,
@@ -22,6 +23,7 @@ import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCo
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
+import { renderNanoPostCardHtml } from '../../../js/components.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -292,24 +294,19 @@ function fadeOut(element, onDone) {
 }
 
 function buildCard({ title, meta, translate, link, siteConfig }) {
-  const safeTitle = escapeHtml(String(title || 'Untitled'));
-  const excerpt = meta && meta.excerpt ? escapeHtml(String(meta.excerpt)) : '';
+  const excerpt = meta && meta.excerpt ? String(meta.excerpt) : '';
   const date = meta && meta.date ? formatDisplayDate(meta.date) : '';
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
-  const hasCover = Boolean(coverHtml);
-  const cardClasses = `solstice-card${hasCover ? ' solstice-card--with-cover' : ''}`;
-  return `<article class="${cardClasses}">
-    <a class="solstice-card__link" href="${escapeHtml(link)}">
-      ${coverHtml}
-      <div class="solstice-card__body">
-        <h3 class="solstice-card__title">${safeTitle}</h3>
-        ${date ? `<div class="solstice-card__meta">${escapeHtml(date)}</div>` : ''}
-        ${excerpt ? `<p class="solstice-card__excerpt">${excerpt}</p>` : ''}
-        ${tags ? `<div class="solstice-card__tags">${tags}</div>` : ''}
-      </div>
-    </a>
-  </article>`;
+  return renderNanoPostCardHtml({
+    variant: 'solstice',
+    title: String(title || 'Untitled'),
+    href: link,
+    date,
+    excerpt,
+    coverHtml,
+    tagsHtml: tags
+  });
 }
 
 function ensureSolsticeExcerptNode(card, documentRef = defaultDocument) {
@@ -512,6 +509,11 @@ function renderLinksList(root, cfg) {
 }
 
 function updateSearchPlaceholder(documentRef = defaultDocument) {
+  const search = documentRef ? documentRef.querySelector('nano-search') : null;
+  if (search && typeof search.setPlaceholder === 'function') {
+    search.setPlaceholder(t('sidebar.searchPlaceholder'));
+    return;
+  }
   const input = documentRef ? documentRef.getElementById('searchInput') : null;
   if (!input) return;
   input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
@@ -619,68 +621,8 @@ function populateThemePackOptions(documentRef = defaultDocument, windowRef = def
 function setupToolsPanel(documentRef = defaultDocument, windowRef = defaultWindow) {
   const panel = documentRef && documentRef.getElementById('toolsPanel');
   if (!panel) return false;
-  panel.innerHTML = `
-    <div class="solstice-tools" id="tools">
-      <button id="themeToggle" class="solstice-tool" type="button" aria-label="${t('tools.toggleTheme')}">
-        <span class="solstice-tool__icon">🌓</span>
-        <span class="solstice-tool__label">${t('tools.toggleTheme')}</span>
-      </button>
-      <button id="postEditor" class="solstice-tool" type="button" aria-label="${t('tools.postEditor')}">
-        <span class="solstice-tool__icon">📝</span>
-        <span class="solstice-tool__label">${t('tools.postEditor')}</span>
-      </button>
-      <label class="solstice-tool solstice-tool--select" for="themePack">
-        <span class="solstice-tool__label">${t('tools.themePack')}</span>
-        <select id="themePack"></select>
-      </label>
-      <label class="solstice-tool solstice-tool--select" for="langSelect">
-        <span class="solstice-tool__label">${t('tools.language')}</span>
-        <select id="langSelect"></select>
-      </label>
-      <button id="langReset" class="solstice-tool" type="button" aria-label="${t('tools.resetLanguage')}">
-        <span class="solstice-tool__icon">♻️</span>
-        <span class="solstice-tool__label">${t('tools.resetLanguage')}</span>
-      </button>
-    </div>`;
+  try { mountThemeControls({ host: panel, variant: 'solstice' }); } catch (_) {}
   try { applySavedTheme(); } catch (_) {}
-  try { bindThemeToggle(); } catch (_) {}
-  try { bindPostEditor(); } catch (_) {}
-  try { populateThemePackOptions(documentRef, windowRef); } catch (_) {}
-  try { bindThemePackPicker(); } catch (_) {}
-  try { refreshLanguageSelector(); } catch (_) {}
-  try {
-    const langSel = documentRef.getElementById('langSelect');
-    if (langSel) {
-      langSel.addEventListener('change', () => {
-        const val = langSel.value || 'en';
-        switchLanguage(val);
-      });
-    }
-    const reset = documentRef.getElementById('langReset');
-    if (reset) {
-      reset.addEventListener('click', () => {
-        try { localStorage.removeItem('lang'); } catch (_) {}
-        try {
-          const url = new URL(windowRef ? windowRef.location.href : window.location.href);
-          url.searchParams.delete('lang');
-          if (windowRef && windowRef.history && windowRef.history.replaceState) {
-            windowRef.history.replaceState(windowRef.history.state, documentRef.title, url.toString());
-          }
-        } catch (_) {}
-        try {
-          if (windowRef && windowRef.__ns_softResetLang) {
-            windowRef.__ns_softResetLang();
-            return;
-          }
-        } catch (_) {}
-        try {
-          if (windowRef && windowRef.location) {
-            windowRef.location.reload();
-          }
-        } catch (_) {}
-      });
-    }
-  } catch (_) {}
   return true;
 }
 
@@ -694,11 +636,21 @@ function resetToolsPanel(documentRef = defaultDocument, windowRef = defaultWindo
 function showToc(tocEl, tocHtml, articleTitle) {
   if (!tocEl) return;
   if (!tocHtml) {
-    tocEl.innerHTML = '';
+    if (typeof tocEl.clear === 'function') tocEl.clear();
+    else tocEl.innerHTML = '';
     tocEl.hidden = true;
     return;
   }
-  tocEl.innerHTML = `<div class="solstice-toc__inner"><div class="solstice-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
+  if (typeof tocEl.renderToc === 'function') {
+    tocEl.renderToc({
+      variant: 'solstice',
+      articleTitle: articleTitle || t('ui.tableOfContents'),
+      tocHtml,
+      contentSelector: '#mainview'
+    });
+  } else {
+    tocEl.innerHTML = `<div class="solstice-toc__inner"><div class="solstice-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
+  }
   tocEl.hidden = false;
   fadeIn(tocEl);
 }
@@ -794,8 +746,11 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       toc.hidden = true;
       toc.innerHTML = '';
     }
-    const input = documentRef.getElementById('searchInput');
-    if (input) input.value = view === 'search' ? (getQueryVariable('q') || '') : '';
+    const search = documentRef.querySelector('nano-search');
+    const value = view === 'search' ? (getQueryVariable('q') || '') : '';
+    if (search) search.value = value;
+    const input = search && search.input ? search.input : documentRef.getElementById('searchInput');
+    if (input) input.value = value;
   };
 
   hooks.renderTagSidebar = ({ postsIndex, utilities }) => {

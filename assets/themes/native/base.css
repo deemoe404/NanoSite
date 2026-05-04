@@ -1174,6 +1174,12 @@ ul.collapsed, li > ul.collapsed { display: none; }
   min-height: 3.75rem;
 }
 
+nano-search.box,
+nano-theme-controls.box,
+nano-toc.box {
+  display: block;
+}
+
 /* Main content box special handling — class added by JavaScript */
 .box.mainview-container {
   min-height: 40rem; /* Total min-height including padding */

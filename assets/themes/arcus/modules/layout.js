@@ -158,13 +158,17 @@ export function mount(context = {}) {
   });
 
   const tocview = ensureElement(main, `#${TOCVIEW_ID}`, () => {
-    const el = doc.createElement('aside');
+    const el = doc.createElement('nano-toc');
     el.id = TOCVIEW_ID;
     el.className = 'arcus-toc';
+    el.setAttribute('variant', 'arcus');
     el.setAttribute('aria-label', 'Table of contents');
     el.hidden = true;
     return el;
   });
+  if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
+    tocview.setAttribute('variant', 'arcus');
+  }
 
   let tagBand = rightColumn.querySelector(`#${TAGVIEW_ID}`);
   if (!tagBand) {
@@ -211,23 +215,15 @@ export function mount(context = {}) {
   });
 
   const searchSection = ensureElement(rightColumn, '.arcus-utility__search', () => {
-    const el = doc.createElement('section');
+    const el = doc.createElement('nano-search');
     el.className = 'arcus-utility__search';
     el.setAttribute('aria-label', 'Search');
-    el.innerHTML = `
-      <label class="arcus-search" for="searchInput">
-        <span class="arcus-search__icon" aria-hidden="true">🔍</span>
-        <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-      </label>`;
+    el.setAttribute('variant', 'arcus');
     return el;
   });
 
-  if (!searchSection.querySelector('.arcus-search')) {
-    searchSection.innerHTML = `
-      <label class="arcus-search" for="searchInput">
-        <span class="arcus-search__icon" aria-hidden="true">🔍</span>
-        <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-      </label>`;
+  if (searchSection.tagName && searchSection.tagName.toLowerCase() === 'nano-search') {
+    searchSection.setAttribute('variant', 'arcus');
   }
 
   if (searchSection.parentElement !== rightColumn) {
@@ -266,49 +262,8 @@ export function mount(context = {}) {
     main.insertBefore(searchToggleContainer, mainview);
   }
 
-  if (!searchSection.dataset.toggleBound) {
-    searchSection.dataset.toggleBound = 'true';
-
-    const getInput = () => searchSection.querySelector('input[type="search"]');
-    const setOpen = (open) => {
-      const isOpen = Boolean(open);
-      searchSection.classList.toggle('is-open', isOpen);
-      searchToggle.classList.toggle('is-active', isOpen);
-      searchToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      if (isOpen) {
-        const input = getInput();
-        if (input) {
-          input.focus({ preventScroll: true });
-        }
-      } else if (doc.activeElement && searchSection.contains(doc.activeElement)) {
-        doc.activeElement.blur();
-      }
-    };
-
-    searchToggle.addEventListener('click', (event) => {
-      event.preventDefault();
-      const nextState = !searchSection.classList.contains('is-open');
-      setOpen(nextState);
-    });
-
-    searchSection.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        searchToggle.focus({ preventScroll: true });
-      }
-    });
-
-    searchSection.addEventListener('focusin', () => {
-      setOpen(true);
-    });
-
-    doc.addEventListener('click', (event) => {
-      if (!searchSection.classList.contains('is-open')) return;
-      const target = event.target;
-      if (searchSection.contains(target)) return;
-      if (searchToggle.contains(target)) return;
-      setOpen(false);
-    });
+  if (typeof searchSection.bindToggle === 'function') {
+    searchSection.bindToggle(searchToggle);
   }
 
   const orphanCredit = utilities.querySelector('.arcus-utility__credit');

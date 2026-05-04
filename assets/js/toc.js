@@ -34,6 +34,10 @@ export function setupAnchors() {
 export function setupTOC() {
   const tocRoot = document.getElementById('tocview');
   if (!tocRoot) return;
+  if (typeof tocRoot.enhance === 'function') {
+    try { tocRoot.enhance(); } catch (_) {}
+    return;
+  }
 
   const list = tocRoot.querySelector('ul');
   if (!list) return;

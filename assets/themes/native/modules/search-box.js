@@ -6,23 +6,19 @@ export function mount(context = {}) {
 
   let searchBox = doc.getElementById('searchbox');
   if (!searchBox) {
-    searchBox = doc.createElement('div');
+    searchBox = doc.createElement('nano-search');
     searchBox.className = 'box';
     searchBox.id = 'searchbox';
+    searchBox.setAttribute('variant', 'native');
     sidebar.appendChild(searchBox);
   } else if (!searchBox.classList.contains('box')) {
     searchBox.classList.add('box');
   }
-
-  let input = doc.getElementById('searchInput');
-  if (!input) {
-    input = doc.createElement('input');
-    input.type = 'search';
-    input.id = 'searchInput';
-    searchBox.appendChild(input);
+  if (searchBox.tagName && searchBox.tagName.toLowerCase() === 'nano-search') {
+    searchBox.setAttribute('variant', 'native');
   }
 
-  const updatedRegions = { ...regions, searchBox, searchInput: input };
+  const updatedRegions = { ...regions, searchBox, searchInput: searchBox.input || searchBox.querySelector('input[type="search"]') };
   context.regions = updatedRegions;
   return { regions: updatedRegions };
 }
