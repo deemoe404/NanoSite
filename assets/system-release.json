@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "name": "v3.3.28",
-  "tag": "v3.3.28",
-  "publishedAt": "2026-05-04T11:13:34Z",
-  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.28.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.28.zip`\n- SHA-256: `b22f42988260263b03635f92d6ea0cf410aa731a8fd67740c4fca4da2e841754`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/js/editor-blocks.js\n- assets/js/editor-main.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.27...v3.3.28\n",
-  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.28",
+  "name": "v3.3.29",
+  "tag": "v3.3.29",
+  "publishedAt": "2026-05-04T15:24:36Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.29.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.29.zip`\n- SHA-256: `7d6f6332f018c1b9e03af51d28440464ef06c681157e68dfbea7d52cc6ca180e`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-hk.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/i18n/languages.json\n- assets/js/composer.js\n- assets/js/editor-blocks.js\n- assets/js/editor-boot.js\n- assets/js/editor-content-tree.js\n- assets/js/editor-main.js\n- assets/js/errors.js\n- assets/js/i18n.js\n- assets/js/post-nav.js\n- assets/js/seo.js\n- assets/js/system-updates.js\n- assets/js/tags.js\n- assets/js/templates.js\n- assets/js/theme.js\n- assets/js/toc.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.28...v3.3.29\n",
+  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.29",
   "asset": {
-    "name": "nanosite-system-v3.3.28.zip",
-    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.28/nanosite-system-v3.3.28.zip",
-    "size": 511107,
-    "digest": "sha256:b22f42988260263b03635f92d6ea0cf410aa731a8fd67740c4fca4da2e841754"
+    "name": "nanosite-system-v3.3.29.zip",
+    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.29/nanosite-system-v3.3.29.zip",
+    "size": 512611,
+    "digest": "sha256:7d6f6332f018c1b9e03af51d28440464ef06c681157e68dfbea7d52cc6ca180e"
   }
 }
