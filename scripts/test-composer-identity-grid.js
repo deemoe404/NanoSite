@@ -179,6 +179,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /suppressSelectionActiveRecoveryUntil: 0,[\s\S]*const activateEditableFromPointer = \(index, editable, sync\) => \{[\s\S]*state\.suppressSelectionActiveRecoveryUntil = Date\.now\(\) \+ 180;[\s\S]*setActive\(index, editable, sync\);[\s\S]*const canRecoverSelectionActive = !state\.suppressSelectionActiveRecoveryUntil \|\| Date\.now\(\) > state\.suppressSelectionActiveRecoveryUntil;[\s\S]*if \(selectionEditable && canRecoverSelectionActive\) \{/,
+  'pointerdown activation should briefly prevent stale browser selection from reselecting the previous block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
   /function inlineMarksFromDomNode\(node, editable\)[\s\S]*tag === 'strong' \|\| tag === 'b'[\s\S]*function inlineMarksFromPointerEvent\(event, editable\)[\s\S]*document\.caretPositionFromPoint[\s\S]*document\.caretRangeFromPoint[\s\S]*lastInlineMarks: null,[\s\S]*fallbackMarks && fallbackMarks\[mark\]/,
   'inline toolbar state should fall back to marks from the clicked rich-text DOM path when selection offsets are unavailable or ambiguous'
 );
@@ -187,6 +193,12 @@ assert.match(
   editorBlocksSource,
   /setActive\(index, editable, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, editable\);[\s\S]*state\.lastInlineMarks = \{ editable, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);[\s\S]*setActive\(index, span, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, span\);[\s\S]*state\.lastInlineMarks = \{ editable: span, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable: span, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);/,
   'paragraph and list rich-text clicks should capture inline marks after activation and refresh the toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editable\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, editable, sync\);[\s\S]*routeDirectQuoteCaretFromPointer\(editable, index, sync, event\);[\s\S]*span\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, span, sync\);[\s\S]*code\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, code, sync\);[\s\S]*area\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, area, sync\);/,
+  'editable block pointerdowns should activate the target block before browser focus/click events can paint a stale toolbar'
 );
 
 assert.match(
@@ -233,8 +245,14 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const editorViewportBottom = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const viewportBottom = editorViewportBottom\(\);[\s\S]*const blockBottomInViewport = blockRect\.top < stickyTop && blockRect\.bottom > stickyTop && blockRect\.bottom <= viewportBottom;[\s\S]*const blockBottomTop = Math\.min\(viewportBottomLimit, blockRect\.bottom \+ gap\);[\s\S]*blockBottomInViewport[\s\S]*Math\.max\(stickyTop, blockBottomTop\)[\s\S]*Math\.min\(blockBottomLimit, Math\.max\(stickyTop, naturalTop\)\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
-  'active block toolbar should clamp below the markdown file toolbar and move to the block bottom when only its bottom remains visible'
+  /const editorViewportBottom = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const blockTopUnderStickyToolbar = blockRect\.top < stickyTop;[\s\S]*if \(blockTopUnderStickyToolbar\) \{[\s\S]*blockRect\.bottom \+ gap \+ headHeight <= stickyTop[\s\S]*head\.classList\.add\('is-bottom-docked'\);[\s\S]*head\.style\.top = `\$\{Math\.max\(0, blockRect\.height \+ gap\)\}px`;[\s\S]*return;[\s\S]*\}[\s\S]*head\.classList\.add\('is-stuck'\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
+  'active block toolbar should become a non-sticky bottom-docked overlay once the block top is covered'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block\.is-active \.blocks-block-head\.is-bottom-docked \{ position:absolute; z-index:105; transform:none; transition:none; \}/,
+  'bottom-docked active block toolbar should scroll with the block instead of sticking to the viewport'
 );
 
 assert.match(
@@ -259,6 +277,18 @@ assert.match(
   editorBlocksSource,
   /reorderAnimating: false/,
   'block move animation should guard against overlapping reorder operations'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function finishBlockReorder\(\) \{[\s\S]*state\.reorderAnimating = false;[\s\S]*requestStickyBlockHeadUpdate\(\);[\s\S]*\}/,
+  'block move animation should relayout the floating toolbar after the shared block transform finishes'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const updateStickyBlockHead = \(\) => \{[\s\S]*clearStickyBlockHeads\(head\);[\s\S]*if \(state\.reorderAnimating\) \{[\s\S]*clearStickyBlockHeads\(\);[\s\S]*return;[\s\S]*\}/,
+  'active block toolbar should stay inside the moving block while reorder animation is active'
 );
 
 assert.match(
@@ -377,8 +407,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const setContentEditableCaretFromPoint = \(editable, x, y, hitTarget = editable\) => \{[\s\S]*document\.caretPositionFromPoint[\s\S]*pos\.offsetNode\.nodeType === Node\.TEXT_NODE[\s\S]*document\.caretRangeFromPoint[\s\S]*pointRange\.startContainer\.nodeType === Node\.TEXT_NODE[\s\S]*const hitRect = hitTarget && hitTarget\.getBoundingClientRect \? hitTarget\.getBoundingClientRect\(\) : rect;[\s\S]*const pointInsideEditableRect = !rect \|\| \([\s\S]*x >= rect\.left[\s\S]*y <= rect\.bottom[\s\S]*if \(pointInsideEditableRect && setRangeFromPoint\(x, y\)\) return;[\s\S]*const measuredOffset = measuredTextOffsetFromPoint\(editable, x, y\);[\s\S]*placeCaretAtTextOffset\(editable, measuredOffset\)[\s\S]*nearestRectForPoint\(editable, x, y\)[\s\S]*if \(hitRect && y < hitRect\.top \+ \(hitRect\.height \/ 2\)\) placeCaretAtTextOffset\(editable, 0\);/,
-  'routed rich/list/code caret placement should use browser APIs first, then measured offsets for line gaps, then coarse fallback'
+  /const setContentEditableCaretFromPoint = \(editable, x, y, hitTarget = editable\) => \{[\s\S]*document\.caretPositionFromPoint[\s\S]*pos\.offsetNode\.nodeType === Node\.TEXT_NODE[\s\S]*document\.caretRangeFromPoint[\s\S]*pointRange\.startContainer\.nodeType === Node\.TEXT_NODE[\s\S]*const hitRect = hitTarget && hitTarget\.getBoundingClientRect \? hitTarget\.getBoundingClientRect\(\) : rect;[\s\S]*const measuredDetails = measuredTextOffsetDetailsFromPoint\(editable, x, y\);[\s\S]*const pointInsideEditableRect = !rect \|\| \([\s\S]*x >= rect\.left[\s\S]*y <= rect\.bottom[\s\S]*if \(measuredDetails && !measuredDetails\.insideTextRect\) \{[\s\S]*placeCaretAtTextOffset\(editable, measuredDetails\.offset\);[\s\S]*return;[\s\S]*if \(pointInsideEditableRect && setRangeFromPoint\(x, y\)\) return;[\s\S]*if \(measuredDetails\) \{[\s\S]*placeCaretAtTextOffset\(editable, measuredDetails\.offset\);[\s\S]*nearestRectForPoint\(editable, x, y\)[\s\S]*if \(hitRect && y < hitRect\.top \+ \(hitRect\.height \/ 2\)\) placeCaretAtTextOffset\(editable, 0\);/,
+  'routed rich/list/code caret placement should use measured offsets before browser APIs for blank line area clicks, then coarse fallback'
 );
 
 assert.doesNotMatch(
@@ -401,8 +431,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const routeDirectQuoteCaretFromPointer = \(editable, index, sync, event\) => \{[\s\S]*classList\.contains\('blocks-quote-text'\)[\s\S]*measuredTextOffsetDetailsFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*details\.insideTextRect[\s\S]*event\.preventDefault\(\);[\s\S]*placeCaretAtTextOffset\(editable, details\.offset\);[\s\S]*setActive\(index, editable, sync\);/,
-  'direct quote edge pointerdowns should prevent native start/end snaps and use the measured nearest offset'
+  /const routeDirectQuoteCaretFromPointer = \(editable, index, sync, event\) => \{[\s\S]*classList\.contains\('blocks-quote-text'\)[\s\S]*measuredTextOffsetDetailsFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*details\.insideTextRect[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*state\.suppressLinkEditorRefreshUntil = Date\.now\(\) \+ 500;[\s\S]*placeCaretAtTextOffset\(editable, details\.offset\);[\s\S]*activateEditableFromPointer\(index, editable, sync\);/,
+  'direct quote edge pointerdowns should prevent native start/end snaps, suppress transient link-editor refreshes, and use the measured nearest offset'
 );
 
 assert.match(
@@ -413,8 +443,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*nearestEditableFromPoint\(event\.clientX, event\.clientY\)[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*const \{ editable, hitTarget, index, sync \} = candidate;[\s\S]*setTextareaCaretFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*setContentEditableCaretFromPoint\(editable, event\.clientX, event\.clientY, hitTarget\)[\s\S]*setActive\(index, editable, sync\);[\s\S]*list\.addEventListener\('pointerdown', routeBlocksCaretFromPointer\);/,
-  'blocks list pointerdown should route blank clicks to the nearest editable without dropping active sync'
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*nearestEditableFromPoint\(event\.clientX, event\.clientY\)[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*state\.suppressLinkEditorRefreshUntil = Date\.now\(\) \+ 500;[\s\S]*const \{ editable, hitTarget, index, sync \} = candidate;[\s\S]*setTextareaCaretFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*setContentEditableCaretFromPoint\(editable, event\.clientX, event\.clientY, hitTarget\)[\s\S]*setActive\(index, editable, sync\);[\s\S]*list\.addEventListener\('pointerdown', routeBlocksCaretFromPointer\);/,
+  'blocks list pointerdown should route blank clicks to the nearest editable without dropping active sync or showing a stale link editor'
 );
 
 assert.match(
@@ -445,6 +475,12 @@ assert.match(
   editorBlocksSource,
   /function selectionLinkInEditable\(editable\)[\s\S]*closestElement\(candidate, 'a\[href\]'\)[\s\S]*const positionLinkEditor = \(link\) => \{[\s\S]*link\.getBoundingClientRect\(\)[\s\S]*root\.getBoundingClientRect\(\)[\s\S]*const linkEditor = document\.createElement\('div'\);[\s\S]*linkEditor\.className = 'blocks-link-editor'[\s\S]*linkText\.addEventListener\('input', applyLinkEditor\)[\s\S]*linkHref\.addEventListener\('input', applyLinkEditor\)[\s\S]*unlink\.addEventListener\('click',[\s\S]*root\.appendChild\(linkEditor\)[\s\S]*positionLinkEditor\(activeLink\)/,
   'inline link editor should float near the active link and expose text, URL, and unlink controls'
+);
+
+assert.match(
+  editorBlocksSource,
+  /suppressLinkEditorRefreshUntil: 0,[\s\S]*refreshLinkEditor = \(explicitLink = null\) => \{[\s\S]*const explicitLinkNode = explicitLink[\s\S]*explicitLink\.matches\('a\[href\]'\)[\s\S]*if \(!explicitLinkNode && state\.suppressLinkEditorRefreshUntil\) \{[\s\S]*Date\.now\(\) < state\.suppressLinkEditorRefreshUntil[\s\S]*hideLinkEditor\(\);[\s\S]*return;[\s\S]*const link = explicitLinkNode && state\.activeEditable && nodeContains\(state\.activeEditable, explicitLinkNode\)[\s\S]*if \(explicitLinkNode\) state\.activeLinkHoldUntil = Date\.now\(\) \+ 800;/,
+  'inline link editor should ignore automatic selection refreshes during routed blank-area caret clicks while still honoring explicit link clicks'
 );
 
 assert.match(
@@ -743,6 +779,12 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
+  /\.blocks-block:focus, \.blocks-block:focus-visible \{ outline:none; \}/,
+  'programmatically focused block containers should suppress the browser default focus ring'
+);
+
+assert.match(
+  editorSource,
   /\.blocks-block::before \{ content:""; position:absolute; z-index:40;[\s\S]*left:-\.2rem; width:\.078125rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*\}/,
   'block hover affordance should use an out-of-flow left glow instead of container chrome'
 );
@@ -769,6 +811,36 @@ assert.match(
   editorSource,
   /\.blocks-block-head \{ position:absolute; top:0; left:\.55rem;[\s\S]*opacity:0; pointer-events:none;[\s\S]*transform:translate3d\(0,-112%,0\) scale\(\.98\);/,
   'block type and action controls should be hidden floating overlays at the outside top-left by default'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \{[^}]*height:42px; min-height:42px;[\s\S]*border:1px solid color-mix\(in srgb, var\(--border\) 75\.6%, var\(--text\) 19\.4%\);[\s\S]*border-radius:0;/,
+  'block floating toolbar should use a fixed 42px square-corner shell with a 0.95-alpha darker border'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:/,
+  'block type icon map should cover every block type shown in the floating toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function createBlockTypeIcon\(blockType\) \{[\s\S]*document\.createElementNS\('http:\/\/www\.w3\.org\/2000\/svg', 'svg'\)[\s\S]*svg\.setAttribute\('viewBox', '0 0 24 24'\)[\s\S]*svg\.setAttribute\('aria-hidden', 'true'\)[\s\S]*svg\.setAttribute\('focusable', 'false'\)[\s\S]*svg\.innerHTML = BLOCK_TYPE_ICON_PATHS\[blockType\] \|\| BLOCK_TYPE_ICON_PATHS\.paragraph;/,
+  'block type icon helper should create non-focusable inline SVG icons with a paragraph fallback'
+);
+
+assert.match(
+  editorBlocksSource,
+  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
+  'block type badge should render an accessible SVG icon instead of visible uppercase type text'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-type \{ display:inline-flex; align-items:center; justify-content:center; width:1rem; height:1\.65rem; min-width:1rem; padding:0; color:color-mix\(in srgb, var\(--muted\) 78%, var\(--text\)\); \}[\s\S]*\.blocks-block-type svg \{ display:block; width:1rem; height:1rem; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; \}/,
+  'block type badge should draw the inline SVG icon without a rounded background chip'
 );
 
 assert.match(
@@ -899,8 +971,20 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.blocks-list-item \{ padding:\.28rem 0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);/,
-  'visual list rows should keep markers and checklist boxes aligned without reserving inline button space'
+  /\.blocks-visual-list \{ margin:0 0 0 1\.25rem; padding-left:0; font-family:var\(--serif, var\(--article-serif-stack, Georgia, "Times New Roman", Times, serif\)\); font-size:1\.04rem; line-height:1\.75; letter-spacing:\.005em; \}[\s\S]*\.blocks-list-item \{ margin:\.35rem 0; padding:0; line-height:1\.75; \}[\s\S]*\.blocks-list-item:first-child \{ margin-top:0; \}[\s\S]*\.blocks-list-item:last-child \{ margin-bottom:0; \}[\s\S]*\.blocks-visual-list \.blocks-list-item::marker \{ font-family:inherit; font-size:1em; font-weight:400; color:inherit; \}/,
+  'visual list rows and markers should mirror native typography without adding outer block-body whitespace'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-list-text \{ display:inline; min-width:0; vertical-align:baseline; line-height:inherit; padding:0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-text \{ grid-column:2; display:block; \}/,
+  'visual list editable text should not add editor-only padding around native list markers'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-visual-list-task \{ list-style:none; margin-left:0; padding-left:0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);/,
+  'task-list rows should keep checklist boxes aligned while regular list markers use native spacing'
 );
 
 assert.match(
@@ -977,8 +1061,8 @@ assert.match(
 
 assert.match(
   source,
-  /syncLabel: treeText\('sync', 'Sync'\),[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
-  'System tree should expose and route the Sync leaf'
+  /syncLabel: treeText\('sync', 'Publish'\),[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
+  'System tree should expose and route the Publish leaf'
 );
 
 assert.doesNotMatch(
@@ -1060,19 +1144,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504i18n';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504saved';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260504i18n"[\s\S]*"\.\/chs\.js\?v=20260504i18n"[\s\S]*"\.\/cht-tw\.js\?v=20260504i18n"[\s\S]*"\.\/cht-hk\.js\?v=20260504i18n"[\s\S]*"\.\/ja\.js\?v=20260504i18n"/,
+  /"\.\/en\.js\?v=20260504saved"[\s\S]*"\.\/chs\.js\?v=20260504saved"[\s\S]*"\.\/cht-tw\.js\?v=20260504saved"[\s\S]*"\.\/cht-hk\.js\?v=20260504saved"[\s\S]*"\.\/ja\.js\?v=20260504saved"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260504i18n'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260504saved'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -1574,8 +1658,8 @@ assert.match(
 
 assert.match(
   source,
-  /function isEditorTreeFileKind\(kind\) \{[\s\S]*kind === 'file' \|\| kind === 'deleted-file'[\s\S]*function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = isEditorTreeFileKind\(node\.kind\);[\s\S]*editor-tree-icon-\$\{isFile \? 'document' : 'folder'\}/,
-  'file tree should render folder and document icon markers'
+  /function isEditorTreeFileKind\(kind\) \{[\s\S]*kind === 'file' \|\| kind === 'deleted-file'[\s\S]*function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = isEditorTreeFileKind\(node\.kind\);[\s\S]*let iconKind = isFile \? 'document' : 'folder';[\s\S]*node\.id === 'system:site-settings'[\s\S]*iconKind = 'settings';[\s\S]*node\.id === 'system:updates'[\s\S]*iconKind = 'updates';[\s\S]*node\.id === 'system:sync'[\s\S]*iconKind = 'publish';[\s\S]*editor-tree-icon-\$\{iconKind\}/,
+  'file tree should render folder/document icons and dedicated system action icons'
 );
 
 assert.doesNotMatch(

@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-image-controls-order-20260504';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-saved-label-20260504';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -18,7 +18,7 @@ import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260504i18n';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260504saved';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 const LS_VIEW_KEY = 'ns_editor_markdown_view';
@@ -2766,6 +2766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dirty = !!currentFileInfo.dirty;
     const draft = currentFileInfo.draft;
     const draftState = currentFileInfo.draftState || '';
+    const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     const mainPieces = [];
     const breadcrumbLabel = (currentFileInfo.breadcrumb || [])
@@ -2773,10 +2774,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean)
       .join('/');
     mainPieces.push(renderCurrentFileBreadcrumb(currentFileInfo.breadcrumb, path));
-    const mainHtml = `<span class="cf-line-main">${mainPieces.join(' ')}</span>`;
-
-    const metaPieces = [];
-    if (meta) metaPieces.push(`<span class="cf-remote">${escapeHtml(meta)}</span>`);
     let draftLabel = '';
     if (draft && draft.hasContent) {
       if (Number.isFinite(draft.savedAt)) {
@@ -2794,10 +2791,12 @@ document.addEventListener('DOMContentLoaded', () => {
           : t('editor.currentFile.draft.available');
       }
       if (!draftLabel) draftLabel = '';
-      metaPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
+      mainPieces.push('<span class="cf-inline-separator" aria-hidden="true">·</span>');
+      mainPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
     }
-    const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
-    el.innerHTML = `${mainHtml}${metaHtml}`;
+    const mainHtml = `<span class="cf-line-main">${mainPieces.join('')}</span>`;
+
+    el.innerHTML = mainHtml;
     bindCurrentFileBreadcrumbEvents(el);
 
     const tooltipParts = [breadcrumbLabel, path && path !== breadcrumbLabel ? path : '', statusLabel, meta, draftLabel]

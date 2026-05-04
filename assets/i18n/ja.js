@@ -124,10 +124,10 @@ const translations = {
         system: 'システム',
         siteSettings: 'サイト設定',
         nanoSiteUpdates: 'NanoSite 更新',
-        sync: '同期',
+        sync: '公開',
         siteSettingsMeta: 'site.yaml 設定を編集します。',
         systemUpdatesMeta: 'NanoSite 更新を確認して適用します。',
-        syncMeta: 'ローカルと GitHub の同期状態を確認します。',
+        syncMeta: 'ローカルの変更を GitHub に公開します。',
         editorLanguage: 'エディター言語',
         editorLanguageMeta: 'エディター UI の言語を変更します。',
         languages: '言語',
@@ -234,11 +234,11 @@ const translations = {
         },
         draft: {
           justNow: 'たった今',
-          savedHtml: ({ time }) => `ローカル下書きを${time}に保存しました`,
-          saved: 'ローカル下書きを保存しました',
-          savedConflictHtml: ({ time }) => `ローカル下書きを${time}に保存しました（リモート更新あり）`,
-          conflict: 'ローカル下書き（リモート更新あり）',
-          available: 'ローカル下書きが利用可能です'
+          savedHtml: ({ time }) => `保存しました（${time}）`,
+          saved: '保存しました',
+          savedConflictHtml: ({ time }) => `保存しました（${time}、リモート更新あり）`,
+          conflict: '保存しました（リモート更新あり）',
+          available: '保存しました'
         }
       },
       frontMatter: {

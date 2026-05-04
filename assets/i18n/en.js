@@ -124,10 +124,10 @@ const translations = {
         system: 'System',
         siteSettings: 'Site Settings',
         nanoSiteUpdates: 'NanoSite Updates',
-        sync: 'Sync',
+        sync: 'Publish',
         siteSettingsMeta: 'Edit site.yaml settings.',
         systemUpdatesMeta: 'Review and apply NanoSite updates.',
-        syncMeta: 'Review local and GitHub sync status.',
+        syncMeta: 'Publish local changes to GitHub.',
         editorLanguage: 'Editor language',
         editorLanguageMeta: 'Change the editor interface language.',
         languages: 'languages',
@@ -234,11 +234,11 @@ const translations = {
         },
         draft: {
           justNow: 'just now',
-          savedHtml: ({ time }) => `Local draft saved ${time}`,
-          saved: 'Local draft saved',
-          savedConflictHtml: ({ time }) => `Local draft saved ${time} (remote updated)`,
-          conflict: 'Local draft (remote updated)',
-          available: 'Local draft available'
+          savedHtml: ({ time }) => `Saved ${time}`,
+          saved: 'Saved',
+          savedConflictHtml: ({ time }) => `Saved ${time} (remote updated)`,
+          conflict: 'Saved (remote updated)',
+          available: 'Saved'
         }
       },
       frontMatter: {

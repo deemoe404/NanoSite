@@ -124,10 +124,10 @@ const translations = {
         system: '系統',
         siteSettings: '站點設定',
         nanoSiteUpdates: 'NanoSite 更新',
-        sync: '同步',
+        sync: '發布',
         siteSettingsMeta: '編輯 site.yaml 設定。',
         systemUpdatesMeta: '檢視並套用 NanoSite 更新。',
-        syncMeta: '檢視本地與 GitHub 的同步狀態。',
+        syncMeta: '將本地更改發布到 GitHub。',
         editorLanguage: '編輯器語言',
         editorLanguageMeta: '調整編輯器介面語言。',
         languages: '種語言',
@@ -234,11 +234,11 @@ const translations = {
         },
         draft: {
           justNow: '剛剛',
-          savedHtml: ({ time }) => `本地草稿已於${time}儲存`,
-          saved: '本地草稿已儲存',
-          savedConflictHtml: ({ time }) => `本地草稿已於${time}儲存（遠端已更新）`,
-          conflict: '本地草稿（遠端已更新）',
-          available: '本地草稿可用'
+          savedHtml: ({ time }) => `已儲存，${time}`,
+          saved: '已儲存',
+          savedConflictHtml: ({ time }) => `已儲存，${time}（遠端已更新）`,
+          conflict: '已儲存（遠端已更新）',
+          available: '已儲存'
         }
       },
       frontMatter: {

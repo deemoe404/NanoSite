@@ -1,4 +1,4 @@
-import { t } from './i18n.js?v=20260504i18n';
+import { t } from './i18n.js?v=20260504saved';
 
 // Anchors and Table of Contents enhancements
 export function setupAnchors() {

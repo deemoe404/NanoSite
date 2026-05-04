@@ -1000,6 +1000,27 @@ function button(label, className = 'blocks-btn') {
   return el;
 }
 
+// Icons are inline Lucide SVG paths (https://lucide.dev, ISC License).
+const BLOCK_TYPE_ICON_PATHS = {
+  paragraph: '<path d="M13 4v16" /><path d="M17 4v16" /><path d="M19 4H9.5a4.5 4.5 0 0 0 0 9H13" />',
+  heading: '<path d="M4 12h8" /><path d="M4 18V6" /><path d="M12 18V6" /><path d="M21 18h-4c0-4 4-3 4-6 0-1.5-2-2.5-4-1" />',
+  image: '<rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />',
+  list: '<path d="M3 5h.01" /><path d="M3 12h.01" /><path d="M3 19h.01" /><path d="M8 5h13" /><path d="M8 12h13" /><path d="M8 19h13" />',
+  quote: '<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" /><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" />',
+  code: '<path d="m18 16 4-4-4-4" /><path d="m6 8-4 4 4 4" /><path d="m14.5 4-5 16" />',
+  source: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 12.5 8 15l2 2.5" /><path d="m14 12.5 2 2.5-2 2.5" />',
+  card: '<path d="M15 18h-5" /><path d="M18 14h-8" /><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2" /><rect width="8" height="4" x="10" y="6" rx="1" />'
+};
+
+function createBlockTypeIcon(blockType) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.innerHTML = BLOCK_TYPE_ICON_PATHS[blockType] || BLOCK_TYPE_ICON_PATHS.paragraph;
+  return svg;
+}
+
 function inputValue(input) {
   return input ? String(input.value || '') : '';
 }
@@ -1739,6 +1760,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     pendingInline: {},
     pendingListFocus: null,
     suppressNextBlockContainerClickUntil: 0,
+    suppressLinkEditorRefreshUntil: 0,
+    suppressSelectionActiveRecoveryUntil: 0,
     cardEntries: [],
     cardPickerOpen: false,
     reorderAnimating: false,
@@ -1797,6 +1820,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const prefersReducedReorderMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+  function finishBlockReorder() {
+    state.reorderAnimating = false;
+    requestStickyBlockHeadUpdate();
+  }
+
   const captureBlockRects = (indexes = null) => {
     const allowed = Array.isArray(indexes) ? new Set(indexes) : null;
     const rects = new Map();
@@ -1811,7 +1839,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const animateBlockReorder = (beforeRects) => {
     try {
       if (!beforeRects || !beforeRects.size) {
-        state.reorderAnimating = false;
+        finishBlockReorder();
         return;
       }
       const moves = blockElements().map((el) => {
@@ -1825,7 +1853,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         return { el, dx, dy };
       }).filter(Boolean);
       if (!moves.length) {
-        state.reorderAnimating = false;
+        finishBlockReorder();
         return;
       }
       let remaining = moves.length;
@@ -1841,7 +1869,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           item.el.style.transition = '';
           item.el.style.transform = '';
         });
-        state.reorderAnimating = false;
+        finishBlockReorder();
       };
       moves.forEach((item) => {
         item.done = (event) => {
@@ -1864,7 +1892,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       });
       fallbackTimer = window.setTimeout ? window.setTimeout(finish, 360) : null;
     } catch (_) {
-      state.reorderAnimating = false;
+      finishBlockReorder();
     }
   };
 
@@ -1900,19 +1928,19 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.reorderAnimating = true;
       const moved = moveBlockInState(index, direction);
       if (!moved) {
-        state.reorderAnimating = false;
+        finishBlockReorder();
         return;
       }
       if (!replaceAdjacentBlockElements(index, targetIndex)) {
         render();
-        state.reorderAnimating = false;
+        finishBlockReorder();
         emit();
         return;
       }
       emit();
       animateBlockReorder(beforeRects);
     } catch (_) {
-      state.reorderAnimating = false;
+      finishBlockReorder();
       commitBlockMove(index, direction);
     }
   };
@@ -2085,9 +2113,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const clearStickyBlockHeads = (except = null) => {
-    Array.from(list.querySelectorAll('.blocks-block-head.is-stuck')).forEach(head => {
+    Array.from(list.querySelectorAll('.blocks-block-head.is-stuck, .blocks-block-head.is-bottom-docked')).forEach(head => {
       if (head === except) return;
       head.classList.remove('is-stuck');
+      head.classList.remove('is-bottom-docked');
       head.style.removeProperty('top');
       head.style.removeProperty('left');
       head.style.removeProperty('width');
@@ -2157,14 +2186,19 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const activeBlock = blockNodes[state.activeIndex] || null;
     const head = activeBlock ? activeBlock.querySelector('.blocks-block-head') : null;
     clearStickyBlockHeads(head);
+    if (state.reorderAnimating) {
+      clearStickyBlockHeads();
+      return;
+    }
     if (!activeBlock || !head || !nodeContains(root, activeBlock) || root.hidden) {
       clearStickyBlockHeads();
       return;
     }
 
-    const wasStuck = head.classList.contains('is-stuck');
-    if (wasStuck) {
+    const wasPositioned = head.classList.contains('is-stuck') || head.classList.contains('is-bottom-docked');
+    if (wasPositioned) {
       head.classList.remove('is-stuck');
+      head.classList.remove('is-bottom-docked');
       head.style.removeProperty('top');
       head.style.removeProperty('left');
       head.style.removeProperty('width');
@@ -2181,16 +2215,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const viewportBottom = editorViewportBottom();
     const naturalTop = blockRect.top + (head.offsetTop || 0) - (headHeight * 1.12);
     const blockBottomLimit = blockRect.bottom - headHeight - gap;
-    const blockBottomInViewport = blockRect.top < stickyTop && blockRect.bottom > stickyTop && blockRect.bottom <= viewportBottom;
-    if (blockRect.bottom <= stickyTop || viewportBottom <= stickyTop) return;
+    const blockTopUnderStickyToolbar = blockRect.top < stickyTop;
+    if (viewportBottom <= stickyTop) return;
+    if (blockTopUnderStickyToolbar) {
+      if (blockRect.bottom + gap + headHeight <= stickyTop) return;
+      head.classList.add('is-bottom-docked');
+      head.style.top = `${Math.max(0, blockRect.height + gap)}px`;
+      return;
+    }
+    if (blockRect.bottom <= stickyTop) return;
 
     const margin = 8;
     const left = Math.max(margin, Math.min(blockRect.left + (head.offsetLeft || 0), window.innerWidth - headWidth - margin));
     const viewportBottomLimit = Math.max(stickyTop, viewportBottom - headHeight - gap);
-    const blockBottomTop = Math.min(viewportBottomLimit, blockRect.bottom + gap);
-    const top = blockBottomInViewport
-      ? Math.max(stickyTop, blockBottomTop)
-      : Math.min(blockBottomLimit, Math.max(stickyTop, naturalTop));
+    const top = Math.min(viewportBottomLimit, blockBottomLimit, Math.max(stickyTop, naturalTop));
     head.classList.add('is-stuck');
     head.style.top = `${top}px`;
     head.style.left = `${left}px`;
@@ -2312,6 +2350,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     requestStickyBlockHeadUpdate();
   };
 
+  const activateEditableFromPointer = (index, editable, sync) => {
+    state.suppressSelectionActiveRecoveryUntil = Date.now() + 180;
+    setActive(index, editable, sync);
+  };
+
   const shouldSuppressRoutedBlockContainerClick = () => {
     if (!state.suppressNextBlockContainerClickUntil) return false;
     if (Date.now() > state.suppressNextBlockContainerClickUntil) {
@@ -2426,16 +2469,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     };
     const rect = editable.getBoundingClientRect ? editable.getBoundingClientRect() : null;
     const hitRect = hitTarget && hitTarget.getBoundingClientRect ? hitTarget.getBoundingClientRect() : rect;
+    const measuredDetails = measuredTextOffsetDetailsFromPoint(editable, x, y);
     const pointInsideEditableRect = !rect || (
       x >= rect.left &&
       x <= rect.right &&
       y >= rect.top &&
       y <= rect.bottom
     );
+    if (measuredDetails && !measuredDetails.insideTextRect) {
+      placeCaretAtTextOffset(editable, measuredDetails.offset);
+      return;
+    }
     if (pointInsideEditableRect && setRangeFromPoint(x, y)) return;
-    const measuredOffset = measuredTextOffsetFromPoint(editable, x, y);
-    if (measuredOffset != null) {
-      placeCaretAtTextOffset(editable, measuredOffset);
+    if (measuredDetails) {
+      placeCaretAtTextOffset(editable, measuredDetails.offset);
       return;
     }
     const nearestRect = nearestRectForPoint(editable, x, y);
@@ -2467,12 +2514,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!details || details.insideTextRect) return false;
     event.preventDefault();
     state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    state.suppressLinkEditorRefreshUntil = Date.now() + 500;
     try { editable.focus({ preventScroll: true }); }
     catch (_) {
       try { editable.focus(); } catch (__) {}
     }
     placeCaretAtTextOffset(editable, details.offset);
-    setActive(index, editable, sync);
+    activateEditableFromPointer(index, editable, sync);
     updateInlineToolbarState();
     return true;
   };
@@ -2500,6 +2548,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!candidate || !candidate.editable) return;
     event.preventDefault();
     state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    state.suppressLinkEditorRefreshUntil = Date.now() + 500;
     const { editable, hitTarget, index, sync } = candidate;
     try { editable.focus({ preventScroll: true }); }
     catch (_) {
@@ -2882,7 +2931,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!buttons.length) return;
     const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
     const selectionEditable = selectionEditableInRoot(root);
-    if (selectionEditable) {
+    const canRecoverSelectionActive = !state.suppressSelectionActiveRecoveryUntil || Date.now() > state.suppressSelectionActiveRecoveryUntil;
+    if (selectionEditable && canRecoverSelectionActive) {
       const selectionBlock = closestElement(selectionEditable, '.blocks-block');
       const selectionIndex = blockNodes.indexOf(selectionBlock);
       if (selectionIndex >= 0) {
@@ -2964,6 +3014,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   root.appendChild(linkEditor);
 
   refreshLinkEditor = (explicitLink = null) => {
+    const explicitLinkNode = explicitLink
+      && explicitLink.nodeType === Node.ELEMENT_NODE
+      && explicitLink.matches
+      && explicitLink.matches('a[href]')
+      ? explicitLink
+      : null;
+    if (!explicitLinkNode && state.suppressLinkEditorRefreshUntil) {
+      if (Date.now() < state.suppressLinkEditorRefreshUntil) {
+        if (!linkEditorFocused()) hideLinkEditor();
+        updateInlineToolbarState();
+        return;
+      }
+      state.suppressLinkEditorRefreshUntil = 0;
+    }
     if (state.linkEditMode === 'range' || state.linkEditMode === 'pending') {
       if (!linkEditor.hidden && state.linkSelection && state.linkSelection.anchorRect) {
         positionLinkEditorAtRect(state.linkSelection.anchorRect);
@@ -2971,12 +3035,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       updateInlineToolbarState();
       return;
     }
-    const link = explicitLink && state.activeEditable && nodeContains(state.activeEditable, explicitLink)
-      ? explicitLink
+    const link = explicitLinkNode && state.activeEditable && nodeContains(state.activeEditable, explicitLinkNode)
+      ? explicitLinkNode
       : selectionLinkInEditable(state.activeEditable);
     if (link) {
       state.activeLink = link;
-      if (explicitLink) state.activeLinkHoldUntil = Date.now() + 800;
+      if (explicitLinkNode) state.activeLinkHoldUntil = Date.now() + 800;
     } else if (!linkEditorFocused()) {
       const keepClickedLink = state.activeLink
         && state.activeEditable
@@ -3155,6 +3219,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     editable.addEventListener('focus', () => setActive(index, editable, sync));
     editable.addEventListener('pointerdown', (event) => {
+      if (event && event.button === 0 && event.isPrimary !== false) {
+        activateEditableFromPointer(index, editable, sync);
+      }
       routeDirectQuoteCaretFromPointer(editable, index, sync, event);
     });
     editable.addEventListener('click', (event) => {
@@ -3411,6 +3478,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         }
       });
       span.addEventListener('focus', () => setActive(index, span, sync));
+      span.addEventListener('pointerdown', (event) => {
+        if (event && event.button === 0 && event.isPrimary !== false) {
+          activateEditableFromPointer(index, span, sync);
+        }
+      });
       span.addEventListener('click', (event) => {
         const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
         if (clickedLink) event.preventDefault();
@@ -3451,6 +3523,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
     code.addEventListener('focus', () => setActive(index, code, sync));
+    code.addEventListener('pointerdown', (event) => {
+      if (event && event.button === 0 && event.isPrimary !== false) {
+        activateEditableFromPointer(index, code, sync);
+      }
+    });
     pre.appendChild(code);
     body.appendChild(pre);
   };
@@ -3521,6 +3598,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       });
       area.addEventListener('pointerdown', (event) => {
         if (!event || event.button !== 0 || event.isPrimary === false) return;
+        activateEditableFromPointer(index, area, sync);
         const details = textareaTextOffsetDetailsFromPoint(area, event.clientX, event.clientY);
         if (details && !details.insideTextRect) {
           event.preventDefault();
@@ -3585,7 +3663,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     head.className = 'blocks-block-head';
     const type = document.createElement('span');
     type.className = 'blocks-block-type';
-    type.textContent = text(block.type, block.type);
+    const typeLabel = text(block.type === 'card' ? 'articleCard' : block.type, block.type);
+    type.title = typeLabel;
+    type.setAttribute('role', 'img');
+    type.setAttribute('aria-label', typeLabel);
+    type.appendChild(createBlockTypeIcon(block.type));
     const actions = createBlockActionMenu(index);
     head.appendChild(type);
     head.addEventListener('wheel', forwardBlockHeadWheel, { passive: false });
