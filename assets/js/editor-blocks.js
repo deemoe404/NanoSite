@@ -323,7 +323,7 @@ function riskyParagraphReason(raw) {
   if (listInfos.length && listInfos.every(Boolean)) {
     const indentColumns = [...new Set(listInfos.map(item => item.indentColumn || 0))].sort((a, b) => a - b);
     const kinds = new Set(listInfos.map(item => item.kind));
-    if (indentColumns[0] === 0 && kinds.size > 1) return 'mixedList';
+    if (kinds.size > 1) return 'mixedList';
     if (indentColumns[0] !== 0) return 'indentedList';
   }
   if (/^\|/.test(visible.trimStart())) return 'table';

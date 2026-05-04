@@ -234,6 +234,21 @@ run('mixed ordered and unordered nested lists explain the source fallback', () =
   assert.equal(serializeMarkdownBlocks([sourceBlock]), source);
 });
 
+run('uniformly indented mixed lists keep the mixed-list fallback reason', () => {
+  const source = [
+    '   1. Configure apex A records:',
+    '      - `185.199.108.153`',
+    '      - `185.199.109.153`',
+    '   2. Save the custom domain.',
+    ''
+  ].join('\n');
+  const [sourceBlock] = parseMarkdownBlocks(source);
+  assert.equal(sourceBlock.type, 'source');
+  assert.equal(sourceBlock.data.sourceReason, 'mixedList');
+  assert.deepEqual(autofixMarkdownSourceBlock(sourceBlock), []);
+  assert.equal(serializeMarkdownBlocks([sourceBlock]), source);
+});
+
 run('indented lists become editable visual list blocks', () => {
   const source = [
     '- parent',
