@@ -1189,6 +1189,16 @@ function enhanceArcusTocDock(tocEl) {
   };
 }
 
+function clearArcusToc(tocEl) {
+  if (!tocEl) return;
+  if (typeof tocEl.__arcusTocCleanup === 'function') {
+    try { tocEl.__arcusTocCleanup(); } catch (_) {}
+    tocEl.__arcusTocCleanup = null;
+  }
+  if (typeof tocEl.clear === 'function') tocEl.clear();
+  else tocEl.innerHTML = '';
+}
+
 function showToc(tocEl, tocHtml, articleTitle) {
   if (!tocEl) return;
   if (typeof tocEl.__arcusTocCleanup === 'function') {
@@ -1196,8 +1206,7 @@ function showToc(tocEl, tocHtml, articleTitle) {
     tocEl.__arcusTocCleanup = null;
   }
   if (!tocHtml) {
-    if (typeof tocEl.clear === 'function') tocEl.clear();
-    else tocEl.innerHTML = '';
+    clearArcusToc(tocEl);
     tocEl.hidden = true;
     return;
   }
@@ -1332,12 +1341,8 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     documentRef.body.setAttribute('data-active-view', view || 'posts');
     const toc = getRoleElement('toc', documentRef);
     if (toc && view !== 'post') {
-      if (typeof toc.__arcusTocCleanup === 'function') {
-        try { toc.__arcusTocCleanup(); } catch (_) {}
-        toc.__arcusTocCleanup = null;
-      }
+      clearArcusToc(toc);
       toc.hidden = true;
-      toc.innerHTML = '';
     }
     const search = documentRef.querySelector('nano-search');
     const value = view === 'search' ? (getQueryVariable('q') || '') : '';
@@ -1562,11 +1567,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       if (tocHtml) {
         showToc(toc, tocHtml, heading);
       } else {
-        if (typeof toc.__arcusTocCleanup === 'function') {
-          try { toc.__arcusTocCleanup(); } catch (_) {}
-          toc.__arcusTocCleanup = null;
-        }
-        toc.innerHTML = '';
+        clearArcusToc(toc);
         toc.hidden = true;
       }
     }

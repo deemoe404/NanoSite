@@ -633,11 +633,16 @@ function resetToolsPanel(documentRef = defaultDocument, windowRef = defaultWindo
   return setupToolsPanel(documentRef, windowRef);
 }
 
+function clearSolsticeToc(tocEl) {
+  if (!tocEl) return;
+  if (typeof tocEl.clear === 'function') tocEl.clear();
+  else tocEl.innerHTML = '';
+}
+
 function showToc(tocEl, tocHtml, articleTitle) {
   if (!tocEl) return;
   if (!tocHtml) {
-    if (typeof tocEl.clear === 'function') tocEl.clear();
-    else tocEl.innerHTML = '';
+    clearSolsticeToc(tocEl);
     tocEl.hidden = true;
     return;
   }
@@ -743,8 +748,8 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     documentRef.body.setAttribute('data-active-view', view || 'posts');
     const toc = getRoleElement('toc', documentRef);
     if (toc && view !== 'post') {
+      clearSolsticeToc(toc);
       toc.hidden = true;
-      toc.innerHTML = '';
     }
     const search = documentRef.querySelector('nano-search');
     const value = view === 'search' ? (getQueryVariable('q') || '') : '';
@@ -958,7 +963,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       if (tocHtml) {
         showToc(toc, tocHtml, heading);
       } else {
-        toc.innerHTML = '';
+        clearSolsticeToc(toc);
         toc.hidden = true;
       }
     }

@@ -79,6 +79,12 @@ assert.match(toc, /typeof tocRoot\.enhance === 'function'/, 'legacy setupTOC sho
 assert.match(nativeInteractions, /renderNanoPostCardHtml\(/, 'native cards should render through nano-post-card');
 assert.match(arcusInteractions, /renderNanoPostCardHtml\(/, 'arcus cards should render through nano-post-card');
 assert.match(solsticeInteractions, /renderNanoPostCardHtml\(/, 'solstice cards should render through nano-post-card');
+assert.doesNotMatch(arcusInteractions, /\btoc\.innerHTML\s*=\s*''/, 'arcus TOC teardown should use nano-toc.clear() when available');
+assert.doesNotMatch(solsticeInteractions, /\btoc\.innerHTML\s*=\s*''/, 'solstice TOC teardown should use nano-toc.clear() when available');
+assert.match(arcusInteractions, /function clearArcusToc\(tocEl\)[\s\S]*typeof tocEl\.clear === 'function'[\s\S]*tocEl\.clear\(\)/, 'arcus TOC teardown should call component cleanup');
+assert.match(solsticeInteractions, /function clearSolsticeToc\(tocEl\)[\s\S]*typeof tocEl\.clear === 'function'[\s\S]*tocEl\.clear\(\)/, 'solstice TOC teardown should call component cleanup');
+assert.match(arcusInteractions, /hooks\.handleViewChange[\s\S]*clearArcusToc\(toc\)/, 'arcus view transitions should use shared TOC teardown');
+assert.match(solsticeInteractions, /hooks\.handleViewChange[\s\S]*clearSolsticeToc\(toc\)/, 'solstice view transitions should use shared TOC teardown');
 
 assert.match(nativeCss, /nano-search\.box,[\s\S]*nano-theme-controls\.box,[\s\S]*nano-toc\.box\s*\{\s*display: block;/, 'native component hosts should preserve block layout');
 assert.match(arcusCss, /\.arcus-toc\s*\{\s*display: block;/, 'arcus nano-toc host should preserve block layout');
