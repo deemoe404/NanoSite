@@ -219,12 +219,64 @@ run('indented list source blocks can autofix into visual list blocks', () => {
   assert.equal(serializeMarkdownBlocks(fixed), '- nested-looking item\n- another item\n');
 });
 
-run('mixed ordered and unordered nested lists explain the source fallback', () => {
+run('mixed ordered and unordered nested lists become editable visual lists', () => {
   const source = [
     '1. Configure apex A records:',
     '   - `185.199.108.153`',
     '   - `185.199.109.153`',
     '2. Save the custom domain.',
+    ''
+  ].join('\n');
+  const [listBlock] = parseMarkdownBlocks(source);
+  assert.equal(listBlock.type, 'list');
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'ul', 'ul', 'ol']);
+  assert.deepEqual(listBlock.data.items.map(item => item.indent), [0, 1, 1, 0]);
+  assert.equal(serializeMarkdownBlocks([listBlock]), source);
+});
+
+run('dirty mixed standard list edits preserve per-item list types', () => {
+  const source = [
+    '1. Configure apex A records:',
+    '   - `185.199.108.153`',
+    '   - `185.199.109.153`',
+    '2. Save the custom domain.',
+    ''
+  ].join('\n');
+  const [listBlock] = parseMarkdownBlocks(source);
+  listBlock.dirty = true;
+  listBlock.data.items[1].text = '`185.199.108.153` (GitHub Pages)';
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Configure apex A records:',
+    '   - `185.199.108.153` (GitHub Pages)',
+    '   - `185.199.109.153`',
+    '2. Save the custom domain.',
+    ''
+  ].join('\n'));
+});
+
+run('generated ordered numbers ignore nested bullet items', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - Child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  listBlock.dirty = true;
+  delete listBlock.data.items[0].number;
+  delete listBlock.data.items[2].number;
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   - Child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('mixed checklist and standard lists stay source blocks', () => {
+  const source = [
+    '- [ ] Checklist item',
+    '- Standard item',
     ''
   ].join('\n');
   const [sourceBlock] = parseMarkdownBlocks(source);

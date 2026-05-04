@@ -377,7 +377,7 @@ const translations = {
           callout: 'This block uses callout-style Markdown that the visual block editor does not edit directly.',
           table: 'This table-like Markdown is kept as source because the visual block editor does not support table editing yet.',
           indentedList: 'This list starts with indentation, so it is kept as source to avoid changing whether it means a nested list or code-like Markdown.',
-          mixedList: 'This list mixes ordered and bulleted list levels, which the visual block editor does not support yet.',
+          mixedList: 'This list mixes checklist items with standard list items, or starts from an unsupported mixed indentation, so it is kept as Markdown source.',
           image: 'This paragraph contains inline image Markdown, so it is kept as source to avoid changing the mixed content.',
           rawHtml: 'This paragraph contains raw HTML outside inline code, so it is kept as Markdown source.',
           unsupported: 'This Markdown is kept as source because the block editor cannot safely convert it to a visual block without changing the original structure.'
