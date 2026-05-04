@@ -643,6 +643,33 @@ export function patchListItem(items, itemIndex, patch = {}) {
   return next;
 }
 
+export function patchStandardListItemType(items, itemIndex, nextType, blockListType = 'ul') {
+  const normalizedType = normalizeStandardListType(nextType);
+  const next = editableListItems(items).slice();
+  const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, next.length - 1));
+  const targetIndent = itemIndentLevel(next[safeIndex]);
+  const sameIndentIndexes = next
+    .map((item, index) => itemIndentLevel(item) === targetIndent ? index : -1)
+    .filter(index => index >= 0);
+  const typesAtIndent = new Set(sameIndentIndexes.map(index => effectiveStandardListType(next[index], blockListType)));
+  const targetIndexes = typesAtIndent.size === 1 ? sameIndentIndexes : [safeIndex];
+
+  targetIndexes.forEach(index => {
+    const item = next[index] || {};
+    next[index] = {
+      ...item,
+      listType: normalizedType
+    };
+    if (normalizedType === 'ul' && !/^[-*+]$/.test(next[index].marker || '')) next[index].marker = '-';
+    if (normalizedType === 'ol' && !/^[.)]$/.test(next[index].delimiter || '')) next[index].delimiter = '.';
+  });
+
+  return {
+    listType: summarizeStandardListType(next, normalizeStandardListType(blockListType)),
+    items: next
+  };
+}
+
 function escapeHtml(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
     '&': '&amp;',
@@ -2354,15 +2381,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
 
     const itemIndex = Math.max(0, Math.min(activeListItemIndex(block, index), items.length - 1));
-    const current = items[itemIndex] || {};
-    items[itemIndex] = {
-      ...current,
-      listType: normalizedType
-    };
-    if (normalizedType === 'ul' && !/^[-*+]$/.test(items[itemIndex].marker || '')) items[itemIndex].marker = '-';
-    if (normalizedType === 'ol' && !/^[.)]$/.test(items[itemIndex].delimiter || '')) items[itemIndex].delimiter = '.';
+    const nextPatch = patchStandardListItemType(items, itemIndex, normalizedType, block.data && block.data.listType);
     state.pendingListFocus = { blockId: block.id, itemIndex, atEnd: false };
-    updateFromControl(block, { listType: summarizeStandardListType(items, block.data && block.data.listType), items }, true);
+    updateFromControl(block, nextPatch, true);
   };
 
   const indentListItem = (block, index, delta) => {

@@ -8,6 +8,7 @@ import {
   parseInlineRuns,
   parseMarkdownBlocks,
   removeInlineMarkAroundOffset,
+  patchStandardListItemType,
   serializeInlineRuns,
   serializeMarkdownBlocks,
   toggleInlineMarkOnRuns
@@ -269,6 +270,48 @@ run('generated ordered numbers ignore nested bullet items', () => {
     '1. Parent',
     '   - Child',
     '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('standard list type changes apply to homogeneous indentation levels', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - First child',
+    '   - Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchStandardListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'ol');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'ol', 'ol', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   1. First child',
+    '   2. Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('standard list type changes stay item-local on mixed indentation levels', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Alpha',
+    '- Beta',
+    '2. Gamma',
+    ''
+  ].join('\n'));
+  const patch = patchStandardListItemType(listBlock.data.items, 0, 'ul', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ul', 'ul', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '- Alpha',
+    '- Beta',
+    '2. Gamma',
     ''
   ].join('\n'));
 });
