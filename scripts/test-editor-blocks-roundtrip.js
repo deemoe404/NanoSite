@@ -8,7 +8,7 @@ import {
   parseInlineRuns,
   parseMarkdownBlocks,
   removeInlineMarkAroundOffset,
-  patchStandardListItemType,
+  patchListItemType,
   serializeInlineRuns,
   serializeMarkdownBlocks,
   toggleInlineMarkOnRuns
@@ -282,7 +282,7 @@ run('standard list type changes apply to homogeneous indentation levels', () => 
     '2. Sibling',
     ''
   ].join('\n'));
-  const patch = patchStandardListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  const patch = patchListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
   listBlock.dirty = true;
   Object.assign(listBlock.data, patch);
   assert.equal(listBlock.data.listType, 'ol');
@@ -303,7 +303,7 @@ run('standard list type changes stay item-local on mixed indentation levels', ()
     '2. Gamma',
     ''
   ].join('\n'));
-  const patch = patchStandardListItemType(listBlock.data.items, 0, 'ul', listBlock.data.listType);
+  const patch = patchListItemType(listBlock.data.items, 0, 'ul', listBlock.data.listType);
   listBlock.dirty = true;
   Object.assign(listBlock.data, patch);
   assert.equal(listBlock.data.listType, 'mixed');
@@ -316,17 +316,59 @@ run('standard list type changes stay item-local on mixed indentation levels', ()
   ].join('\n'));
 });
 
-run('mixed checklist and standard lists stay source blocks', () => {
+run('checklist type changes apply to homogeneous indentation levels', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - First child',
+    '   - Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'task', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'task', 'task', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   - [ ] First child',
+    '   - [ ] Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('checklist levels convert back without changing the whole block', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '- [ ] Parent',
+    '  - [x] Child',
+    '- [ ] Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ul', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['task', 'ul', 'task']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '- [ ] Parent',
+    '  - Child',
+    '- [ ] Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('mixed checklist and standard lists become editable visual lists', () => {
   const source = [
     '- [ ] Checklist item',
     '- Standard item',
     ''
   ].join('\n');
-  const [sourceBlock] = parseMarkdownBlocks(source);
-  assert.equal(sourceBlock.type, 'source');
-  assert.equal(sourceBlock.data.sourceReason, 'mixedList');
-  assert.deepEqual(autofixMarkdownSourceBlock(sourceBlock), []);
-  assert.equal(serializeMarkdownBlocks([sourceBlock]), source);
+  const [listBlock] = parseMarkdownBlocks(source);
+  assert.equal(listBlock.type, 'list');
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['task', 'ul']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), source);
 });
 
 run('uniformly indented mixed lists keep the mixed-list fallback reason', () => {

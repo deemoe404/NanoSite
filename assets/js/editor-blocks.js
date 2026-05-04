@@ -220,14 +220,21 @@ function normalizeStandardListType(value, fallback = 'ul') {
   return fallback === 'ol' ? 'ol' : 'ul';
 }
 
-function effectiveStandardListType(item, blockListType = 'ul') {
-  return normalizeStandardListType(item && item.listType, blockListType);
+function normalizeListItemType(value, fallback = 'ul') {
+  if (value === 'task') return 'task';
+  if (fallback === 'task' && value !== 'ol' && value !== 'ul') return 'task';
+  return normalizeStandardListType(value, fallback);
 }
 
-function summarizeStandardListType(items, fallback = 'ul') {
+function effectiveListItemType(item, blockListType = 'ul') {
+  return normalizeListItemType(item && item.listType, blockListType);
+}
+
+function summarizeListType(items, fallback = 'ul') {
   const safeItems = Array.isArray(items) ? items : [];
-  const types = new Set(safeItems.map(item => effectiveStandardListType(item, fallback)));
+  const types = new Set(safeItems.map(item => effectiveListItemType(item, fallback)));
   if (types.size > 1) return 'mixed';
+  if (types.has('task')) return 'task';
   return types.has('ol') ? 'ol' : 'ul';
 }
 
@@ -271,14 +278,12 @@ function parseListLineInfo(line) {
 function parseListBlock(raw) {
   const lines = raw.split('\n');
   if (!lines.length) return null;
-  let listFamily = '';
   const items = [];
   for (const line of lines) {
     let match = line.match(/^([ \t]*)([-*])\s+\[([ xX])\]\s+(.+)$/);
     if (match) {
-      if (listFamily && listFamily !== 'task') return null;
-      listFamily = 'task';
       items.push({
+        listType: 'task',
         checked: match[3].toLowerCase() === 'x',
         text: match[4] || '',
         indentText: match[1] || '',
@@ -289,8 +294,6 @@ function parseListBlock(raw) {
     }
     match = line.match(/^([ \t]*)([-*+])\s+(.+)$/);
     if (match) {
-      if (listFamily && listFamily !== 'standard') return null;
-      listFamily = 'standard';
       items.push({
         listType: 'ul',
         text: match[3] || '',
@@ -302,8 +305,6 @@ function parseListBlock(raw) {
     }
     match = line.match(/^([ \t]*)(\d{1,9})([\.)])\s+(.+)$/);
     if (match) {
-      if (listFamily && listFamily !== 'standard') return null;
-      listFamily = 'standard';
       items.push({
         listType: 'ol',
         number: Number(match[2]),
@@ -322,11 +323,7 @@ function parseListBlock(raw) {
     item.indent = Math.max(0, indentColumns.indexOf(item.indentColumn || 0));
     delete item.indentColumn;
   });
-  if (listFamily === 'task') return items.length ? { listType: 'task', items } : null;
-  if (listFamily === 'standard') {
-    return items.length ? { listType: summarizeStandardListType(items), items } : null;
-  }
-  return null;
+  return items.length ? { listType: summarizeListType(items), items } : null;
 }
 
 function parseQuoteBlock(raw) {
@@ -586,12 +583,12 @@ function serializeBlock(block) {
         const rawText = String(item && item.text != null ? item.text : '');
         const text = rawText === '' ? 'List item' : rawText;
         const indent = itemIndentText(item);
-        if (listType === 'task') {
+        const itemType = effectiveListItemType(item, listType);
+        if (itemType === 'task') {
           const marker = item && /^[-*+]$/.test(item.marker || '') ? item.marker : '-';
           resetOrderedListNumber(item, orderedCounters);
           return `${indent}${marker === '+' ? '-' : marker} [${item && item.checked ? 'x' : ' '}] ${text}`;
         }
-        const itemType = effectiveStandardListType(item, listType);
         if (itemType === 'ol') {
           const number = nextOrderedListNumber(item, orderedCounters);
           const delimiter = item && /^[.)]$/.test(item.delimiter || '') ? item.delimiter : '.';
@@ -643,15 +640,15 @@ export function patchListItem(items, itemIndex, patch = {}) {
   return next;
 }
 
-export function patchStandardListItemType(items, itemIndex, nextType, blockListType = 'ul') {
-  const normalizedType = normalizeStandardListType(nextType);
+export function patchListItemType(items, itemIndex, nextType, blockListType = 'ul') {
+  const normalizedType = normalizeListItemType(nextType);
   const next = editableListItems(items).slice();
   const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, next.length - 1));
   const targetIndent = itemIndentLevel(next[safeIndex]);
   const sameIndentIndexes = next
     .map((item, index) => itemIndentLevel(item) === targetIndent ? index : -1)
     .filter(index => index >= 0);
-  const typesAtIndent = new Set(sameIndentIndexes.map(index => effectiveStandardListType(next[index], blockListType)));
+  const typesAtIndent = new Set(sameIndentIndexes.map(index => effectiveListItemType(next[index], blockListType)));
   const targetIndexes = typesAtIndent.size === 1 ? sameIndentIndexes : [safeIndex];
 
   targetIndexes.forEach(index => {
@@ -660,14 +657,19 @@ export function patchStandardListItemType(items, itemIndex, nextType, blockListT
       ...item,
       listType: normalizedType
     };
+    if (normalizedType === 'task') next[index].checked = !!(item && item.checked);
     if (normalizedType === 'ul' && !/^[-*+]$/.test(next[index].marker || '')) next[index].marker = '-';
     if (normalizedType === 'ol' && !/^[.)]$/.test(next[index].delimiter || '')) next[index].delimiter = '.';
   });
 
   return {
-    listType: summarizeStandardListType(next, normalizeStandardListType(blockListType)),
+    listType: summarizeListType(next, normalizeListItemType(blockListType)),
     items: next
   };
+}
+
+export function patchStandardListItemType(items, itemIndex, nextType, blockListType = 'ul') {
+  return patchListItemType(items, itemIndex, nextType, blockListType);
 }
 
 function escapeHtml(value) {
@@ -2340,10 +2342,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const listTypeControlValue = (block, index) => {
     if (!block || block.type !== 'list') return 'ul';
     const blockListType = block.data && block.data.listType;
-    if (blockListType === 'task') return 'task';
     const items = editableListItems(block.data && block.data.items);
     const itemIndex = Math.max(0, Math.min(activeListItemIndex(block, index), items.length - 1));
-    return effectiveStandardListType(items[itemIndex], blockListType);
+    return effectiveListItemType(items[itemIndex], blockListType);
   };
 
   const syncActiveListTypeSelect = (blockNodes = null) => {
@@ -2357,31 +2358,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const updateListType = (block, index, nextType) => {
     if (!block || block.type !== 'list') return;
-    const normalizedType = nextType === 'task' ? 'task' : normalizeStandardListType(nextType);
+    const normalizedType = normalizeListItemType(nextType);
     const items = editableListItems(block.data && block.data.items).slice();
-    if (normalizedType === 'task') {
-      const nextItems = items.map(item => ({
-        ...item,
-        checked: !!(item && item.checked)
-      }));
-      state.pendingListFocus = { blockId: block.id, itemIndex: Math.max(0, Math.min(activeListItemIndex(block, index), nextItems.length - 1)), atEnd: false };
-      updateFromControl(block, { listType: 'task', items: nextItems }, true);
-      return;
-    }
-
-    if (block.data && block.data.listType === 'task') {
-      const nextItems = items.map(item => ({
-        ...item,
-        listType: normalizedType,
-        checked: false
-      }));
-      state.pendingListFocus = { blockId: block.id, itemIndex: Math.max(0, Math.min(activeListItemIndex(block, index), nextItems.length - 1)), atEnd: false };
-      updateFromControl(block, { listType: summarizeStandardListType(nextItems, normalizedType), items: nextItems }, true);
-      return;
-    }
-
     const itemIndex = Math.max(0, Math.min(activeListItemIndex(block, index), items.length - 1));
-    const nextPatch = patchStandardListItemType(items, itemIndex, normalizedType, block.data && block.data.listType);
+    const nextPatch = patchListItemType(items, itemIndex, normalizedType, block.data && block.data.listType);
     state.pendingListFocus = { blockId: block.id, itemIndex, atEnd: false };
     updateFromControl(block, nextPatch, true);
   };
@@ -3525,18 +3505,21 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const listEl = document.createElement(isTaskList ? 'ul' : 'div');
     listEl.className = isTaskList
       ? 'blocks-visual-list blocks-visual-list-task'
-      : `blocks-visual-list blocks-visual-list-standard blocks-visual-list-${summarizeStandardListType(items, listType)}`;
+      : `blocks-visual-list blocks-visual-list-standard blocks-visual-list-${summarizeListType(items, listType)}`;
     if (!isTaskList) listEl.setAttribute('role', 'list');
     const visualOrderedCounters = {};
     items.forEach((item, itemIndex) => {
+      const itemType = effectiveListItemType(item, listType);
+      const isTaskItem = itemType === 'task';
       const li = document.createElement(isTaskList ? 'li' : 'div');
       li.className = 'blocks-list-item';
       li.dataset.itemIndex = String(itemIndex);
+      li.dataset.listType = itemType;
       if (!isTaskList) li.setAttribute('role', 'listitem');
       const itemIndent = itemIndentLevel(item);
       li.dataset.indent = String(itemIndent);
       if (itemIndent) li.style.marginLeft = `${itemIndent * 1.75}rem`;
-      if (isTaskList) {
+      if (isTaskItem) {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = !!item.checked;
@@ -3546,7 +3529,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         });
         li.appendChild(checkbox);
       } else {
-        const itemType = effectiveStandardListType(item, listType);
         const marker = document.createElement('span');
         marker.className = `blocks-list-marker blocks-list-marker-${itemType}`;
         marker.setAttribute('aria-hidden', 'true');
@@ -3557,7 +3539,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           resetOrderedListNumber(item, visualOrderedCounters);
           marker.textContent = '•';
         }
-        li.dataset.listType = itemType;
         li.appendChild(marker);
       }
       const span = document.createElement('span');
@@ -3593,7 +3574,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
             checked: false,
             indent: currentIndent,
             indentText: typeof current.indentText === 'string' ? current.indentText : '  '.repeat(currentIndent),
-            listType: isTaskList ? undefined : effectiveStandardListType(current, listType),
+            listType: effectiveListItemType(current, listType),
             marker: current.marker,
             delimiter: current.delimiter
           });
