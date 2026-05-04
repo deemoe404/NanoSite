@@ -785,6 +785,36 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.blocks-block-head \{[^}]*height:42px; min-height:42px;[\s\S]*border:1px solid color-mix\(in srgb, var\(--border\) 70%, var\(--text\) 18%\);[\s\S]*border-radius:0;/,
+  'block floating toolbar should use a fixed 42px square-corner shell with a darker border'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:/,
+  'block type icon map should cover every block type shown in the floating toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function createBlockTypeIcon\(blockType\) \{[\s\S]*document\.createElementNS\('http:\/\/www\.w3\.org\/2000\/svg', 'svg'\)[\s\S]*svg\.setAttribute\('viewBox', '0 0 24 24'\)[\s\S]*svg\.setAttribute\('aria-hidden', 'true'\)[\s\S]*svg\.setAttribute\('focusable', 'false'\)[\s\S]*svg\.innerHTML = BLOCK_TYPE_ICON_PATHS\[blockType\] \|\| BLOCK_TYPE_ICON_PATHS\.paragraph;/,
+  'block type icon helper should create non-focusable inline SVG icons with a paragraph fallback'
+);
+
+assert.match(
+  editorBlocksSource,
+  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
+  'block type badge should render an accessible SVG icon instead of visible uppercase type text'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-type \{ display:inline-flex; align-items:center; justify-content:center; width:1rem; height:1\.65rem; min-width:1rem; padding:0; color:color-mix\(in srgb, var\(--muted\) 78%, var\(--text\)\); \}[\s\S]*\.blocks-block-type svg \{ display:block; width:1rem; height:1rem; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; \}/,
+  'block type badge should draw the inline SVG icon without a rounded background chip'
+);
+
+assert.match(
+  editorSource,
   /\.blocks-block\.is-active \.blocks-block-head \{ opacity:1; pointer-events:auto; transform:translate3d\(0,-112%,0\) scale\(1\); \}/,
   'block controls should appear only for the active block'
 );
