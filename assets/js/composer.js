@@ -8750,14 +8750,20 @@ function isEditorMobileRailLayout() {
   }
 }
 
+function getEditorRailToggles() {
+  return Array.from(document.querySelectorAll('[data-editor-rail-toggle]'));
+}
+
 function setEditorRailOpen(open) {
   const shell = document.getElementById('editorAppShell');
-  const toggle = document.getElementById('editorMobileRailToggle');
+  const toggles = getEditorRailToggles();
   const scrim = document.getElementById('editorRailScrim');
   if (!shell) return;
   const shouldOpen = !!open && isEditorMobileRailLayout();
   shell.classList.toggle('is-rail-open', shouldOpen);
-  if (toggle) toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  toggles.forEach((toggle) => {
+    toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+  });
   if (scrim) {
     scrim.hidden = !shouldOpen;
     scrim.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
@@ -8770,14 +8776,16 @@ function closeEditorRailDrawer() {
 
 function initMobileEditorRail() {
   if (editorMobileRailBound) return;
-  const toggle = document.getElementById('editorMobileRailToggle');
+  const toggles = getEditorRailToggles();
   const scrim = document.getElementById('editorRailScrim');
-  if (!toggle) return;
+  if (!toggles.length) return;
   editorMobileRailBound = true;
-  toggle.addEventListener('click', () => {
-    const shell = document.getElementById('editorAppShell');
-    const isOpen = !!(shell && shell.classList.contains('is-rail-open'));
-    setEditorRailOpen(!isOpen);
+  toggles.forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+      const shell = document.getElementById('editorAppShell');
+      const isOpen = !!(shell && shell.classList.contains('is-rail-open'));
+      setEditorRailOpen(!isOpen);
+    });
   });
   if (scrim) scrim.addEventListener('click', closeEditorRailDrawer);
   document.addEventListener('keydown', (event) => {

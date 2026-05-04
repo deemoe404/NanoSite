@@ -121,7 +121,8 @@
       min-width:0;
       min-height:0;
       max-height:100%;
-      overflow:auto;
+      overflow-x:hidden;
+      overflow-y:auto;
       padding:var(--editor-content-pane-padding);
       position:relative;
       container-type:inline-size;
@@ -140,13 +141,12 @@
       display:none;
       align-items:center;
       justify-content:center;
-      position:sticky;
-      top:0;
-      z-index:140;
-      width:max-content;
-      min-height:2.1rem;
-      margin:0 0 .75rem;
-      padding:.35rem .65rem;
+      position:relative;
+      width:2.35rem;
+      height:2.35rem;
+      min-height:2.35rem;
+      margin:0;
+      padding:0;
       border:1px solid color-mix(in srgb, var(--border) 82%, transparent);
       border-radius:8px;
       background:color-mix(in srgb, var(--card) 96%, transparent);
@@ -154,6 +154,12 @@
       box-shadow:var(--shadow);
       font:inherit;
       cursor:pointer;
+    }
+    .editor-mobile-rail-toggle svg {
+      width:1.25rem;
+      height:1.25rem;
+      display:block;
+      flex:0 0 auto;
     }
     .editor-mobile-rail-scrim {
       display:none;
@@ -234,9 +240,9 @@
     .editor-structure-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
     .editor-system-panel { min-width:0; border:0; border-radius:0; background:transparent; padding:0; }
     .editor-markdown-panel[hidden], .editor-structure-panel[hidden], .editor-system-panel[hidden] { display:none !important; }
-    .editor-structure-panel.is-content-entering .editor-structure-head,
+    .editor-structure-panel.is-content-entering .editor-panel-head,
     .editor-structure-panel.is-content-entering .editor-structure-body { animation:editor-structure-content-enter .2s ease-out both; }
-    .editor-system-panel.is-content-entering .editor-structure-head,
+    .editor-system-panel.is-content-entering .editor-panel-head,
     .editor-system-panel.is-content-entering .editor-system-body { animation:editor-structure-content-enter .2s ease-out both; }
     .editor-structure-panel.is-content-entering .editor-structure-body { animation-delay:.03s; }
     .editor-system-panel.is-content-entering .editor-system-body { animation-delay:.03s; }
@@ -247,13 +253,13 @@
       from { opacity:0; transform:translateY(6px); }
       to { opacity:1; transform:translateY(0); }
     }
-    .editor-structure-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
-    .editor-structure-heading { min-width:0; }
+    .editor-panel-head, .editor-structure-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; min-width:0; }
+    .editor-panel-heading, .editor-structure-heading { flex:1 1 auto; min-width:0; }
     .editor-structure-title-row { display:flex; align-items:baseline; gap:.65rem; min-width:0; flex-wrap:wrap; }
     .editor-structure-kicker { display:none !important; }
-    .editor-structure-head h2 { margin:0; font-size:1.25rem; line-height:1.25; color:var(--text); }
+    .editor-panel-head h2, .editor-structure-head h2 { margin:0; font-size:1.25rem; line-height:1.25; color:var(--text); }
     .editor-structure-meta { margin:0; color:var(--muted); font-size:.92rem; line-height:1.35; }
-    .editor-structure-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; align-items:center; align-self:center; }
+    .editor-panel-actions, .editor-structure-actions { display:flex; gap:.45rem; flex-wrap:wrap; justify-content:flex-end; align-items:center; align-self:center; margin-left:auto; max-width:100%; }
     .editor-structure-body { display:flex; flex-direction:column; gap:.75rem; min-width:0; }
     .editor-system-body { display:flex; flex-direction:column; gap:1rem; min-width:0; }
     .editor-structure-row { display:grid; grid-template-columns:minmax(90px, 140px) minmax(0, 1fr) auto; gap:.55rem; align-items:center; min-height:2.2rem; }
@@ -1208,8 +1214,52 @@
       }
     }
     @media (max-width: 640px) {
+      .editor-content-pane {
+        --editor-content-pane-padding:0px;
+      }
       .editor-workspace {
         gap:.85rem;
+      }
+      .editor-markdown-panel > .toolbar {
+        display:grid;
+        grid-template-columns:auto minmax(0, 1fr);
+        align-items:center;
+        column-gap:.5rem;
+      }
+      .editor-markdown-panel > .toolbar .left-actions,
+      .editor-markdown-panel > .toolbar .right-actions {
+        min-width:0;
+      }
+      .editor-markdown-panel > .toolbar .left-actions {
+        grid-column:1;
+        flex:0 0 auto;
+        flex-wrap:nowrap;
+      }
+      .editor-markdown-panel > .toolbar .right-actions {
+        grid-column:2;
+        flex-wrap:wrap;
+        justify-content:flex-end;
+        justify-self:end;
+        max-width:100%;
+      }
+      .editor-markdown-panel > .toolbar .editor-mobile-rail-toggle {
+        flex:0 0 auto;
+      }
+      .editor-markdown-panel > .toolbar .current-file {
+        display:none;
+      }
+      .editor-panel-head {
+        flex-wrap:wrap;
+        gap:.5rem;
+      }
+      .editor-panel-head .editor-mobile-rail-toggle {
+        flex:0 0 auto;
+      }
+      .editor-panel-heading {
+        flex:1 1 10rem;
+      }
+      .editor-panel-actions {
+        justify-content:flex-end;
       }
       .frontmatter-panel {
         border-radius:0;
@@ -1633,7 +1683,7 @@
     .syntax-language-label { position: absolute; top: .5rem; right: .75rem; background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); padding: .25rem .5rem; border-radius: .25rem; font-size: .75rem; font-weight: 500; opacity: .8; border: 1px solid rgba(255,255,255,.1); cursor: pointer; user-select: none; line-height: 1; }
 
     @media (max-width: 640px) {
-      .editor-page { padding: .75rem; }
+      .editor-page { padding:0; }
     }
 
     .composer-panels { min-width: 0; display: grid; gap: 1.25rem; opacity: 1; transition: opacity 200ms ease; }
@@ -1951,28 +2001,39 @@
       <div class="editor-rail-resizer" id="editorRailResizer" role="separator" aria-orientation="vertical" aria-label="Resize file tree" tabindex="0"></div>
       <main class="editor-content-pane" id="editorContentPane">
         <div class="editor-content-frame">
-          <button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle" aria-controls="editorRail" aria-expanded="false" data-i18n="editor.tree.aria">Content files</button>
 
     <!-- Editor Mode -->
     <div class="editor-layout" id="mode-editor">
       <section class="box editor-main editor-content-shell">
         <div class="editor-detail-pane">
           <section class="editor-structure-panel" id="editorStructurePanel" aria-live="polite">
-            <div class="editor-structure-head">
-              <div class="editor-structure-heading">
+            <div class="editor-panel-head editor-structure-head">
+              <button type="button" class="editor-mobile-rail-toggle" data-editor-rail-toggle aria-controls="editorRail" aria-expanded="false" aria-label="Content files" title="Content files" data-i18n-aria-label="editor.tree.aria" data-i18n-title="editor.tree.aria">
+                <svg class="editor-mobile-rail-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                  <path d="M9 3v18"></path>
+                </svg>
+              </button>
+              <div class="editor-panel-heading editor-structure-heading">
                 <p class="editor-structure-kicker" id="editorStructureKicker" data-i18n="editor.tree.kicker">Content structure</p>
                 <div class="editor-structure-title-row">
                   <h2 id="editorStructureTitle" data-i18n="editor.tree.emptyTitle">Select a node</h2>
                   <p id="editorStructureMeta" class="editor-structure-meta" data-i18n="editor.tree.emptyMeta">Choose an item in the tree to manage its structure or edit a Markdown file.</p>
                 </div>
               </div>
-              <div class="editor-structure-actions" id="editorStructureActions"></div>
+              <div class="editor-panel-actions editor-structure-actions" id="editorStructureActions"></div>
             </div>
             <div class="editor-structure-body" id="editorStructureBody"></div>
           </section>
           <section class="editor-markdown-panel" id="editorMarkdownPanel" hidden aria-hidden="true">
             <div class="toolbar">
               <div class="left-actions">
+                <button type="button" class="editor-mobile-rail-toggle" data-editor-rail-toggle aria-controls="editorRail" aria-expanded="false" aria-label="Content files" title="Content files" data-i18n-aria-label="editor.tree.aria" data-i18n-title="editor.tree.aria">
+                  <svg class="editor-mobile-rail-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                    <path d="M9 3v18"></path>
+                  </svg>
+                </button>
                 <span class="current-file" id="currentFile" aria-live="polite"></span>
               </div>
               <div class="right-actions">
@@ -2059,15 +2120,21 @@
         </div>
           </section>
           <section class="editor-system-panel" id="editorSystemPanel" hidden aria-hidden="true" aria-live="polite">
-            <div class="editor-structure-head">
-              <div class="editor-structure-heading">
+            <div class="editor-panel-head editor-structure-head">
+              <button type="button" class="editor-mobile-rail-toggle" data-editor-rail-toggle aria-controls="editorRail" aria-expanded="false" aria-label="Content files" title="Content files" data-i18n-aria-label="editor.tree.aria" data-i18n-title="editor.tree.aria">
+                <svg class="editor-mobile-rail-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                  <path d="M9 3v18"></path>
+                </svg>
+              </button>
+              <div class="editor-panel-heading editor-structure-heading">
                 <p class="editor-structure-kicker" id="editorSystemKicker" data-i18n="editor.tree.system">System</p>
                 <div class="editor-structure-title-row">
                   <h2 id="editorSystemTitle" data-i18n="editor.tree.system">System</h2>
                   <p id="editorSystemMeta" class="editor-structure-meta"></p>
                 </div>
               </div>
-              <div class="editor-structure-actions" id="editorSystemActions"></div>
+              <div class="editor-panel-actions editor-structure-actions" id="editorSystemActions"></div>
             </div>
             <div class="editor-system-body" id="editorSystemBody"></div>
           </section>
