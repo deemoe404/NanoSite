@@ -335,6 +335,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const clearNativeSelection = \(\) => \{[\s\S]*sel\.removeAllRanges\(\);[\s\S]*\};/,
+  'non-text block selection should be able to clear stale browser text selections'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*const imageBlock = closestElement\(event\.target, '\.blocks-block-image'\);[\s\S]*event\.preventDefault\(\);[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(imageIndex\);[\s\S]*return;[\s\S]*const candidate = nearestEditableFromPoint\(event\.clientX, event\.clientY\);/,
+  'image block pointerdowns should clear stale text selections and select the image block before routing a caret to nearby text'
+);
+
+assert.match(
+  editorBlocksSource,
   /const editableCaretCandidates = \(\) => \{[\s\S]*querySelectorAll\('\.blocks-list-item \.blocks-list-text'\)[\s\S]*hitTarget: closestElement\(editable, '\.blocks-list-item'\) \|\| editable[\s\S]*querySelectorAll\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)[\s\S]*sync: editableSyncMap\.get\(editable\) \|\| null/,
   'routed caret candidates should include whole-row list item hit targets, rich text, code editors, and source markdown textareas with sync callbacks'
 );
@@ -451,6 +463,30 @@ assert.match(
   editorBlocksSource,
   /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
   'image blocks should render a real image element instead of a path-only placeholder'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const renderImageBlock = \(body, block, index\) => \{[\s\S]*const selectImageBlock = \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(index\);[\s\S]*figure\.addEventListener\('pointerdown', selectImageBlock\);[\s\S]*figure\.addEventListener\('click', selectImageBlock\);/,
+  'image figure pointer and click events should select the image block directly'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createImageMetadataControls = \(block\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*src\.className = 'blocks-image-src';[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), src: inputValue\(src\), title: inputValue\(title\) \}\);[\s\S]*syncRenderedImageBlock\(block\);/,
+  'image metadata controls should live in the active block toolbar and update the rendered preview'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(block\.type === 'image'\) \{[\s\S]*head\.appendChild\(createImageMetadataControls\(block\)\);[\s\S]*\}/,
+  'image block controls should be appended to the floating block toolbar'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-image-inspector/,
+  'image metadata controls should not render as an inspector inside the block body'
 );
 
 assert.match(
@@ -575,7 +611,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
+  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-image-meta-controls, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
   'blocks controls and floating panels should not inherit the canvas text cursor'
 );
 
@@ -709,6 +745,18 @@ assert.match(
   editorSource,
   /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; \}/,
   'code block language input should use compact floating-toolbar styling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language, \.blocks-block-head \.blocks-image-meta-controls input[\s\S]*\.blocks-image-meta-controls \{ display:flex; align-items:center; gap:\.24rem;[\s\S]*\.blocks-block-head \.blocks-image-meta-controls \.blocks-image-src \{ width:clamp\(8rem, 16vw, 13rem\); max-width:24vw; \}/,
+  'image metadata fields should use compact floating-toolbar input styling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-image-figure \{ margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*box-shadow:var\(--shadow,[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
+  'image block visual styling should mirror native article image and centered figcaption styling'
 );
 
 assert.match(
