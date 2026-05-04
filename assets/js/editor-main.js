@@ -21,7 +21,27 @@ import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
 import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260501versions';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
+const LS_VIEW_KEY = 'ns_editor_markdown_view';
 const FORCE_MARKDOWN_WRAP = true;
+
+function normalizeMarkdownEditorView(mode) {
+  if (mode === 'preview') return 'preview';
+  if (mode === 'blocks') return 'blocks';
+  return 'edit';
+}
+
+function readPersistedMarkdownEditorView() {
+  try {
+    return normalizeMarkdownEditorView(localStorage.getItem(LS_VIEW_KEY));
+  } catch (_) {
+    return 'edit';
+  }
+}
+
+function persistMarkdownEditorView(mode) {
+  try { localStorage.setItem(LS_VIEW_KEY, normalizeMarkdownEditorView(mode)); }
+  catch (_) {}
+}
 
 const FRONT_MATTER_SECTION_DESCRIPTIONS = [
   {
@@ -2840,13 +2860,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const applyMarkdownEditorView = (mode, opts = {}) => {
+    const nextView = normalizeMarkdownEditorView(mode);
+    switchView(nextView);
+    if (nextView === 'preview') renderPreview(getValue());
+    else if (nextView === 'blocks' && markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
+      try { markdownBlocksEditor.requestLayout(); } catch (_) {}
+    } else {
+      requestLayout();
+    }
+    if (opts.persist) persistMarkdownEditorView(nextView);
+  };
+
   // View toggle
   document.querySelectorAll('.vt-btn[data-view]').forEach(a => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      const mode = a.dataset.view;
-      switchView(mode);
-      if (mode === 'preview') renderPreview(getValue());
+      applyMarkdownEditorView(a.dataset.view, { persist: true });
     });
   });
 
@@ -2859,14 +2889,12 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (ta && typeof ta.focus === 'function') ta.focus();
       } catch (_) {}
     },
-	    setView: (mode) => {
-	      const nextView = mode === 'preview' ? 'preview' : (mode === 'blocks' ? 'blocks' : 'edit');
-	      switchView(nextView);
-	      if (mode === 'preview') renderPreview(getValue());
-	      else if (mode === 'blocks' && markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
-	        try { markdownBlocksEditor.requestLayout(); } catch (_) {}
-	      } else requestLayout();
-	    },
+    setView: (mode, opts = {}) => applyMarkdownEditorView(mode, opts),
+    restorePersistedView: (opts = {}) => applyMarkdownEditorView(readPersistedMarkdownEditorView(), opts),
+    getView: () => {
+      const viewToggle = document.querySelector('.view-toggle');
+      return normalizeMarkdownEditorView(viewToggle && viewToggle.dataset ? viewToggle.dataset.view : 'edit');
+    },
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
     setFrontMatterVisible: (visible) => setFrontMatterVisible(visible),

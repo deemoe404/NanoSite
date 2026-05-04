@@ -74,8 +74,26 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /const nextView = mode === 'preview' \? 'preview' : \(mode === 'blocks' \? 'blocks' : 'edit'\);[\s\S]*switchView\(nextView\);/,
+  /const LS_VIEW_KEY = 'ns_editor_markdown_view';[\s\S]*function readPersistedMarkdownEditorView\(\) \{[\s\S]*localStorage\.getItem\(LS_VIEW_KEY\)[\s\S]*function persistMarkdownEditorView\(mode\) \{[\s\S]*localStorage\.setItem\(LS_VIEW_KEY, normalizeMarkdownEditorView\(mode\)\);/,
+  'markdown editor should persist the selected source/blocks/preview view'
+);
+
+assert.match(
+  editorMainSource,
+  /const applyMarkdownEditorView = \(mode, opts = \{\}\) => \{[\s\S]*const nextView = normalizeMarkdownEditorView\(mode\);[\s\S]*switchView\(nextView\);[\s\S]*if \(opts\.persist\) persistMarkdownEditorView\(nextView\);[\s\S]*applyMarkdownEditorView\(a\.dataset\.view, \{ persist: true \}\);/,
+  'markdown view switcher clicks should store the selected view'
+);
+
+assert.match(
+  editorMainSource,
+  /setView: \(mode, opts = \{\}\) => applyMarkdownEditorView\(mode, opts\),[\s\S]*restorePersistedView: \(opts = \{\}\) => applyMarkdownEditorView\(readPersistedMarkdownEditorView\(\), opts\),/,
   'primary editor API should accept blocks mode'
+);
+
+assert.match(
+  source,
+  /function restorePrimaryEditorMarkdownView\(editorApi\) \{[\s\S]*typeof editorApi\.restorePersistedView === 'function'[\s\S]*editorApi\.restorePersistedView\(\);[\s\S]*editorApi\.setView\('edit'\);[\s\S]*restorePrimaryEditorMarkdownView\(editorApi\);/,
+  'composer should restore the persisted markdown editor view when opening markdown files'
 );
 
 assert.match(
