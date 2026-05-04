@@ -1318,7 +1318,7 @@
     .blocks-rich-editable, .blocks-code-preview code, .blocks-block input, .blocks-block textarea, .blocks-link-editor input, .blocks-card-search { cursor:text; }
     .blocks-block select { cursor:default; }
     .blocks-inspector input { min-width:min(18rem, 100%); flex:1 1 12rem; }
-    .blocks-rich-editable { outline:none; line-height:1.65; border-radius:6px; padding:.2rem .25rem; }
+    .blocks-rich-editable { outline:none; min-height:1.65em; line-height:1.65; border-radius:6px; padding:.2rem .25rem; }
     .blocks-rich-editable:focus, .blocks-textarea:focus, .blocks-block input:focus, .blocks-block select:focus, .blocks-card-search:focus { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); }
     .blocks-rich-editable a { color:var(--primary); text-decoration:underline; cursor:text; }
     .blocks-paragraph-text, .blocks-list-text, .blocks-quote-text { font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); }
@@ -1350,7 +1350,7 @@
     .blocks-list-text:focus { outline:none; box-shadow:none; }
     .blocks-visual-list-task .blocks-list-text { grid-column:2; display:block; }
     .blocks-code-preview { margin:0; padding:.85rem; border-radius:8px; overflow:auto; background:color-mix(in srgb, var(--code-bg) 88%, #020617); border:1px solid color-mix(in srgb, var(--border) 80%, transparent); color:var(--text); }
-    .blocks-code-preview code { display:block; outline:none; white-space:pre; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; line-height:1.55; }
+    .blocks-code-preview code { display:block; min-height:1.55em; outline:none; white-space:pre; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; line-height:1.55; }
     .blocks-code-preview code:focus { outline:none; box-shadow:none; border-color:inherit; }
     .blocks-card-preview .link-card-wrap { margin:.1rem 0; }
     .blocks-card-preview a { cursor:pointer; }

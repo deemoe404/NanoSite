@@ -719,26 +719,20 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview code \{ display:block; outline:none;[\s\S]*line-height:1\.55; \}/,
-  'code blocks should size from content without a fixed minimum height'
+  /\.blocks-code-preview code \{ display:block; min-height:1\.55em; outline:none;[\s\S]*line-height:1\.55; \}/,
+  'empty code blocks should keep one editable line as a pointer target'
 );
 
-assert.doesNotMatch(
+assert.match(
   editorSource,
-  /\.blocks-code-preview code \{[^}]*min-height:/,
-  'code block content should not reserve a fixed minimum height'
+  /\.blocks-rich-editable \{ outline:none; min-height:1\.65em; line-height:1\.65;/,
+  'empty rich text blocks should keep one editable line as a pointer target'
 );
 
 assert.match(
   editorSource,
   /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; padding-block:0; \}/,
   'source markdown textareas should expand to content without fixed minimum height, internal scrolling, or vertical padding'
-);
-
-assert.doesNotMatch(
-  editorSource,
-  /\.blocks-rich-editable \{[^}]*min-height:/,
-  'rich block content should not reserve a fixed minimum height'
 );
 
 assert.doesNotMatch(
