@@ -10848,11 +10848,23 @@ function createEditorTreeIcon(node) {
   if (!node || node.kind === 'root') return null;
   const icon = document.createElement('span');
   const isFile = isEditorTreeFileKind(node.kind);
-  icon.className = `editor-tree-icon editor-tree-icon-${isFile ? 'document' : 'folder'}`;
+  let iconKind = isFile ? 'document' : 'folder';
+  let iconSvg = '';
+  if (node.id === 'system:site-settings') {
+    iconKind = 'settings';
+    iconSvg = '<svg viewBox="0 0 24 24" focusable="false"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  } else if (node.id === 'system:updates') {
+    iconKind = 'updates';
+    iconSvg = '<svg viewBox="0 0 24 24" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>';
+  } else if (node.id === 'system:sync') {
+    iconKind = 'publish';
+    iconSvg = '<svg viewBox="0 0 24 24" focusable="false"><path d="M12 13v8"></path><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="m8 17 4-4 4 4"></path></svg>';
+  }
+  icon.className = `editor-tree-icon editor-tree-icon-${iconKind}`;
   icon.setAttribute('aria-hidden', 'true');
-  icon.innerHTML = isFile
+  icon.innerHTML = iconSvg || (isFile
     ? '<svg viewBox="0 0 24 24" focusable="false"><path d="M7 3.75h7.25L18 7.5v12.75H7z"></path><path d="M14.25 3.75V7.5H18"></path><path d="M9.75 12h5.5M9.75 15h5.5"></path></svg>'
-    : '<svg viewBox="0 0 24 24" focusable="false"><path d="M3.75 6.75h5.5l1.7 2h9.3v8.5a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2z"></path><path d="M3.75 8.75h16.5"></path></svg>';
+    : '<svg viewBox="0 0 24 24" focusable="false"><path d="M3.75 6.75h5.5l1.7 2h9.3v8.5a2 2 0 0 1-2 2H5.75a2 2 0 0 1-2-2z"></path><path d="M3.75 8.75h16.5"></path></svg>');
   return icon;
 }
 
