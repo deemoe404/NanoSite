@@ -1,4 +1,4 @@
-import chtTwTranslations from './cht-tw.js?v=20260501versions';
+import chtTwTranslations from './cht-tw.js?v=20260504i18n';
 
 export const languageMeta = { label: '繁體中文（香港）' };
 

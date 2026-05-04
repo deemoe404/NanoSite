@@ -74,8 +74,26 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /const nextView = mode === 'preview' \? 'preview' : \(mode === 'blocks' \? 'blocks' : 'edit'\);[\s\S]*switchView\(nextView\);/,
+  /const LS_VIEW_KEY = 'ns_editor_markdown_view';[\s\S]*function readPersistedMarkdownEditorView\(\) \{[\s\S]*localStorage\.getItem\(LS_VIEW_KEY\)[\s\S]*function persistMarkdownEditorView\(mode\) \{[\s\S]*localStorage\.setItem\(LS_VIEW_KEY, normalizeMarkdownEditorView\(mode\)\);/,
+  'markdown editor should persist the selected source/blocks/preview view'
+);
+
+assert.match(
+  editorMainSource,
+  /const applyMarkdownEditorView = \(mode, opts = \{\}\) => \{[\s\S]*const nextView = normalizeMarkdownEditorView\(mode\);[\s\S]*switchView\(nextView\);[\s\S]*if \(opts\.persist\) persistMarkdownEditorView\(nextView\);[\s\S]*applyMarkdownEditorView\(a\.dataset\.view, \{ persist: true \}\);/,
+  'markdown view switcher clicks should store the selected view'
+);
+
+assert.match(
+  editorMainSource,
+  /setView: \(mode, opts = \{\}\) => applyMarkdownEditorView\(mode, opts\),[\s\S]*restorePersistedView: \(opts = \{\}\) => applyMarkdownEditorView\(readPersistedMarkdownEditorView\(\), opts\),/,
   'primary editor API should accept blocks mode'
+);
+
+assert.match(
+  source,
+  /function restorePrimaryEditorMarkdownView\(editorApi\) \{[\s\S]*typeof editorApi\.restorePersistedView === 'function'[\s\S]*editorApi\.restorePersistedView\(\);[\s\S]*editorApi\.setView\('edit'\);[\s\S]*restorePrimaryEditorMarkdownView\(editorApi\);/,
+  'composer should restore the persisted markdown editor view when opening markdown files'
 );
 
 assert.match(
@@ -916,19 +934,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260501versions';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504i18n';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260501versions"[\s\S]*"\.\/chs\.js\?v=20260501versions"[\s\S]*"\.\/cht-tw\.js\?v=20260501versions"[\s\S]*"\.\/cht-hk\.js\?v=20260501versions"[\s\S]*"\.\/ja\.js\?v=20260501versions"/,
+  /"\.\/en\.js\?v=20260504i18n"[\s\S]*"\.\/chs\.js\?v=20260504i18n"[\s\S]*"\.\/cht-tw\.js\?v=20260504i18n"[\s\S]*"\.\/cht-hk\.js\?v=20260504i18n"[\s\S]*"\.\/ja\.js\?v=20260504i18n"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260501versions'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260504i18n'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -1005,6 +1023,12 @@ assert.match(
   editorSource,
   /\.frontmatter-section \{[\s\S]*border: 1px solid color-mix\(in srgb, var\(--border\) 96%, transparent\);[\s\S]*background: var\(--card\);[\s\S]*gap: 0\.6rem;[\s\S]*\.frontmatter-section-head \{[\s\S]*align-items: baseline;[\s\S]*\.frontmatter-section-title \{[\s\S]*font-size: 1rem;[\s\S]*\.frontmatter-section-description \{[\s\S]*font-size: 0\.82rem;[\s\S]*text-align: right;/,
   'front matter sections should mirror the Site Settings single-column section card header style'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-workspace-meta::before \{[\s\S]*width:min\(18rem, 62%\);[\s\S]*repeating-linear-gradient\([\s\S]*color-mix\(in srgb, var\(--muted\) 64%, transparent\) 0 \.72rem,[\s\S]*transparent \.72rem 1\.08rem[\s\S]*@container \(min-width: 66\.5rem\) \{[\s\S]*\.editor-workspace-meta::before \{[\s\S]*display:none;/,
+  'single-column article editor layout should show a thin decorative dashed divider above the metadata panel and hide it in the two-column rail'
 );
 
 assert.match(

@@ -367,7 +367,24 @@ const translations = {
         unlink: 'リンク解除',
         listAddItem: '項目を追加',
         listRemoveItem: '項目を削除',
-        imageTitle: '画像タイトル'
+        imageTitle: '画像タイトル',
+        sourceReason: {
+          blank: 'この空の Markdown 断片はソースとして保持されます。',
+          frontMatter: 'Front matter は文書メタデータを壊さないように、元の Markdown のまま保持されます。',
+          unclosedFence: 'このフェンス付きコードブロックは閉じられていないため、Markdown ソースとして保持されます。',
+          callout: 'このブロックは callout 形式の Markdown を使っており、ビジュアルブロックエディターではまだ直接編集できません。',
+          table: 'この表形式の Markdown は、ビジュアルブロックエディターがまだ表編集に対応していないためソースとして保持されます。',
+          indentedList: 'このリストはインデントから始まっています。ネストしたリストなのかコード風の Markdown なのかを変えないよう、ソースとして保持されます。',
+          mixedList: 'このリストは番号付きリストと箇条書きの子リストが混在しており、ビジュアルブロックエディターではまだ対応していません。',
+          image: 'この段落にはインライン画像 Markdown が含まれるため、混在した内容構造を変えないようソースとして保持されます。',
+          rawHtml: 'この段落にはインラインコード外の生 HTML が含まれるため、Markdown ソースとして保持されます。',
+          unsupported: 'この Markdown は元の構造を変えずに安全にビジュアルブロックへ変換できないため、ソースとして保持されます。'
+        },
+        sourceAutofix: {
+          label: '自動修正',
+          indentedList: '自動修正：このリストで共通しているインデントを取り除き、ビジュアルリストブロックに変換します。',
+          unsupported: '自動修正'
+        }
       },
       editorTools: {
         aria: 'エディターのツール',

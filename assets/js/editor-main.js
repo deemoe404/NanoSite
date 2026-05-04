@@ -18,10 +18,30 @@ import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260501versions';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260504i18n';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
+const LS_VIEW_KEY = 'ns_editor_markdown_view';
 const FORCE_MARKDOWN_WRAP = true;
+
+function normalizeMarkdownEditorView(mode) {
+  if (mode === 'preview') return 'preview';
+  if (mode === 'blocks') return 'blocks';
+  return 'edit';
+}
+
+function readPersistedMarkdownEditorView() {
+  try {
+    return normalizeMarkdownEditorView(localStorage.getItem(LS_VIEW_KEY));
+  } catch (_) {
+    return 'edit';
+  }
+}
+
+function persistMarkdownEditorView(mode) {
+  try { localStorage.setItem(LS_VIEW_KEY, normalizeMarkdownEditorView(mode)); }
+  catch (_) {}
+}
 
 const FRONT_MATTER_SECTION_DESCRIPTIONS = [
   {
@@ -1563,7 +1583,20 @@ document.addEventListener('DOMContentLoaded', () => {
     unlink: 'Unlink',
     listAddItem: 'Add item',
     listRemoveItem: 'Remove item',
-    imageTitle: 'Image title'
+    imageTitle: 'Image title',
+    'sourceReason.blank': 'This empty Markdown segment is preserved as source.',
+    'sourceReason.frontMatter': 'Front matter is preserved as raw Markdown so document metadata stays intact.',
+    'sourceReason.unclosedFence': 'This fenced code block is incomplete, so it is kept as Markdown source.',
+    'sourceReason.callout': 'This block uses callout-style Markdown that the visual block editor does not edit directly.',
+    'sourceReason.table': 'This table-like Markdown is kept as source because the visual block editor does not support table editing yet.',
+    'sourceReason.indentedList': 'This list starts with indentation, so it is kept as source to avoid changing whether it means a nested list or code-like Markdown.',
+    'sourceReason.mixedList': 'This list mixes ordered and bulleted list levels, which the visual block editor does not support yet.',
+    'sourceReason.image': 'This paragraph contains inline image Markdown, so it is kept as source to avoid changing the mixed content.',
+    'sourceReason.rawHtml': 'This paragraph contains raw HTML outside inline code, so it is kept as Markdown source.',
+    'sourceReason.unsupported': 'This Markdown is kept as source because the block editor cannot safely convert it to a visual block without changing the original structure.',
+    'sourceAutofix.label': 'Autofix',
+    'sourceAutofix.indentedList': 'Autofix: remove the shared list indentation and convert this Markdown into a visual list block.',
+    'sourceAutofix.unsupported': 'Autofix'
   };
   const blockLabels = new Proxy({}, {
     get: (_target, key) => {
@@ -2840,13 +2873,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const applyMarkdownEditorView = (mode, opts = {}) => {
+    const nextView = normalizeMarkdownEditorView(mode);
+    switchView(nextView);
+    if (nextView === 'preview') renderPreview(getValue());
+    else if (nextView === 'blocks' && markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
+      try { markdownBlocksEditor.requestLayout(); } catch (_) {}
+    } else {
+      requestLayout();
+    }
+    if (opts.persist) persistMarkdownEditorView(nextView);
+  };
+
   // View toggle
   document.querySelectorAll('.vt-btn[data-view]').forEach(a => {
     a.addEventListener('click', (e) => {
       e.preventDefault();
-      const mode = a.dataset.view;
-      switchView(mode);
-      if (mode === 'preview') renderPreview(getValue());
+      applyMarkdownEditorView(a.dataset.view, { persist: true });
     });
   });
 
@@ -2859,14 +2902,12 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (ta && typeof ta.focus === 'function') ta.focus();
       } catch (_) {}
     },
-	    setView: (mode) => {
-	      const nextView = mode === 'preview' ? 'preview' : (mode === 'blocks' ? 'blocks' : 'edit');
-	      switchView(nextView);
-	      if (mode === 'preview') renderPreview(getValue());
-	      else if (mode === 'blocks' && markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
-	        try { markdownBlocksEditor.requestLayout(); } catch (_) {}
-	      } else requestLayout();
-	    },
+    setView: (mode, opts = {}) => applyMarkdownEditorView(mode, opts),
+    restorePersistedView: (opts = {}) => applyMarkdownEditorView(readPersistedMarkdownEditorView(), opts),
+    getView: () => {
+      const viewToggle = document.querySelector('.view-toggle');
+      return normalizeMarkdownEditorView(viewToggle && viewToggle.dataset ? viewToggle.dataset.view : 'edit');
+    },
     setBaseDir: (dir) => setBaseDir(dir),
     setCurrentFileLabel: (label) => assignCurrentFileLabel(label),
     setFrontMatterVisible: (visible) => setFrontMatterVisible(visible),

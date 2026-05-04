@@ -214,6 +214,17 @@ function indentationColumn(value) {
   return String(value || '').replace(/\t/g, '    ').length;
 }
 
+function parseListLineInfo(line) {
+  const text = String(line || '');
+  let match = text.match(/^([ \t]*)([-*])\s+\[([ xX])\]\s+(.+)$/);
+  if (match) return { kind: 'task', indentColumn: indentationColumn(match[1]) };
+  match = text.match(/^([ \t]*)([-*+])\s+(.+)$/);
+  if (match) return { kind: 'ul', indentColumn: indentationColumn(match[1]) };
+  match = text.match(/^([ \t]*)(\d{1,9})([\.)])\s+(.+)$/);
+  if (match) return { kind: 'ol', indentColumn: indentationColumn(match[1]) };
+  return null;
+}
+
 function parseListBlock(raw) {
   const lines = raw.split('\n');
   if (!lines.length) return null;
@@ -277,25 +288,65 @@ function parseQuoteBlock(raw) {
   return { text: lines.map(line => line.replace(/^>\s?/, '')).join('\n') };
 }
 
-function isRiskyParagraph(raw) {
-  if (!raw.trim()) return false;
-  if (/^\|/.test(raw.trimStart())) return true;
-  if (/\n\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*(?:\n|$)/.test(raw)) return true;
-  if (/^\s+[-*+]\s+/m.test(raw) || /^\s+\d{1,9}[\.)]\s+/m.test(raw)) return true;
-  if (/!\[[^\]]*\]\([^)]+\)/.test(raw)) return true;
-  if (/<[A-Za-z][^>]*>/.test(raw)) return true;
-  return false;
+function maskInlineCodeSpans(raw) {
+  const text = String(raw || '');
+  let output = '';
+  let index = 0;
+  while (index < text.length) {
+    if (text[index] !== '`') {
+      output += text[index];
+      index += 1;
+      continue;
+    }
+
+    const start = index;
+    while (index < text.length && text[index] === '`') index += 1;
+    const marker = text.slice(start, index);
+    const close = text.indexOf(marker, index);
+    if (close < 0) {
+      output += marker;
+      continue;
+    }
+
+    const end = close + marker.length;
+    output += ' '.repeat(end - start);
+    index = end;
+  }
+  return output;
+}
+
+function riskyParagraphReason(raw) {
+  if (!raw.trim()) return '';
+  const visible = maskInlineCodeSpans(raw);
+  const listLines = normalizeText(visible).split('\n').filter(line => !isBlankLine(line));
+  const listInfos = listLines.map(parseListLineInfo);
+  if (listInfos.length && listInfos.every(Boolean)) {
+    const indentColumns = [...new Set(listInfos.map(item => item.indentColumn || 0))].sort((a, b) => a - b);
+    const kinds = new Set(listInfos.map(item => item.kind));
+    if (kinds.size > 1) return 'mixedList';
+    if (indentColumns[0] !== 0) return 'indentedList';
+  }
+  if (/^\|/.test(visible.trimStart())) return 'table';
+  if (/\n\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*(?:\n|$)/.test(visible)) return 'table';
+  if (/^\s+[-*+]\s+/m.test(visible) || /^\s+\d{1,9}[\.)]\s+/m.test(visible)) return 'indentedList';
+  if (/!\[[^\]]*\]\([^)]+\)/.test(visible)) return 'image';
+  if (/<[A-Za-z][^>]*>/.test(visible)) return 'rawHtml';
+  return '';
+}
+
+function makeSourceBlock(raw, data = {}, sourceReason = 'unsupported') {
+  return makeBlock('source', raw, { ...data, sourceReason });
 }
 
 function classifyChunk(raw, data = {}) {
   const text = String(raw || '');
   const trimmed = text.trim();
-  if (!trimmed) return makeBlock('source', text, data);
-  if (isFrontMatterBlock(text)) return makeBlock('source', text, data);
+  if (!trimmed) return makeSourceBlock(text, data, 'blank');
+  if (isFrontMatterBlock(text)) return makeSourceBlock(text, data, 'frontMatter');
 
   const code = parseCodeBlock(text);
   if (code) return makeBlock('code', text, { ...data, ...code });
-  if (parseFenceStartLine(trimmed.split('\n')[0])) return makeBlock('source', text, data);
+  if (parseFenceStartLine(trimmed.split('\n')[0])) return makeSourceBlock(text, data, 'unclosedFence');
 
   const heading = text.match(/^(#{1,6})\s+(.+)$/);
   if (heading) {
@@ -310,12 +361,13 @@ function classifyChunk(raw, data = {}) {
 
   const quote = parseQuoteBlock(text);
   if (quote) return makeBlock('quote', text, { ...data, ...quote });
-  if (text.trimStart().startsWith('>')) return makeBlock('source', text, data);
+  if (text.trimStart().startsWith('>')) return makeSourceBlock(text, data, 'callout');
 
   const list = parseListBlock(text);
   if (list) return makeBlock('list', text, { ...data, ...list });
 
-  if (isRiskyParagraph(text)) return makeBlock('source', text, data);
+  const reason = riskyParagraphReason(text);
+  if (reason) return makeSourceBlock(text, data, reason);
   return makeBlock('paragraph', text, { ...data, text });
 }
 
@@ -324,6 +376,67 @@ export function parseMarkdownBlocks(markdown) {
     before: chunk.before || '',
     after: chunk.after || ''
   }));
+}
+
+function removeIndentColumns(line, columns) {
+  const target = Math.max(0, Number(columns) || 0);
+  if (!target) return String(line || '');
+  const text = String(line || '');
+  let index = 0;
+  let removed = 0;
+  while (index < text.length && removed < target) {
+    const char = text[index];
+    if (char === ' ') {
+      index += 1;
+      removed += 1;
+      continue;
+    }
+    if (char === '\t') {
+      if (removed + 4 > target) break;
+      index += 1;
+      removed += 4;
+      continue;
+    }
+    break;
+  }
+  return text.slice(index);
+}
+
+function dedentIndentedListSource(raw) {
+  const lines = normalizeText(raw).split('\n');
+  const indents = [];
+  lines.forEach(line => {
+    const match = String(line || '').match(/^([ \t]+)(?:[-*]\s+\[[ xX]\]\s+|[-*+]\s+|\d{1,9}[\.)]\s+)/);
+    if (match) indents.push(indentationColumn(match[1] || ''));
+  });
+  const minIndent = indents.length ? Math.min(...indents) : 0;
+  if (minIndent <= 0) return '';
+  return lines.map(line => removeIndentColumns(line, minIndent)).join('\n');
+}
+
+function sourceBlockText(block) {
+  if (!block || typeof block !== 'object') return '';
+  const data = block.data || {};
+  return String(data.text != null ? data.text : block.raw || '');
+}
+
+export function autofixMarkdownSourceBlock(block) {
+  if (!block || block.type !== 'source') return [];
+  const data = block.data || {};
+  const reason = String(data.sourceReason || '');
+  let fixed = '';
+  if (reason === 'indentedList') fixed = dedentIndentedListSource(sourceBlockText(block));
+  if (!fixed) return [];
+
+  const nextBlocks = parseMarkdownBlocks(fixed);
+  if (!nextBlocks.length || nextBlocks.some(next => next.type === 'source')) return [];
+  nextBlocks.forEach((next, index) => {
+    next.dirty = true;
+    next.data = next.data || {};
+    if (index === 0) next.data.before = data.before || '';
+    if (index === nextBlocks.length - 1) next.data.after = data.after != null ? data.after : '\n\n';
+  });
+  return nextBlocks;
 }
 
 function escapeMarkdownInline(value) {
@@ -1901,6 +2014,63 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return wrap;
   };
 
+  const sourceReasonText = (block) => {
+    const reason = block && block.data && block.data.sourceReason ? String(block.data.sourceReason) : 'unsupported';
+    return text(`sourceReason.${reason}`, text('sourceReason.unsupported', 'This Markdown is kept as source because the block editor cannot safely convert it to a visual block without changing the original structure.'));
+  };
+
+  const createSourceReasonHelp = (block, index) => {
+    const wrap = document.createElement('span');
+    wrap.className = 'blocks-source-help-wrap';
+    const help = button('?', 'blocks-source-help');
+    const tooltipId = `blocks-source-help-${block && block.id ? block.id : index}`;
+    const message = sourceReasonText(block);
+    help.setAttribute('aria-label', message);
+    help.setAttribute('aria-describedby', tooltipId);
+    const bubble = document.createElement('span');
+    bubble.id = tooltipId;
+    bubble.className = 'blocks-source-help-bubble';
+    bubble.setAttribute('role', 'tooltip');
+    bubble.textContent = message;
+    wrap.append(help, bubble);
+    return wrap;
+  };
+
+  const sourceAutofixLabel = (block) => {
+    const reason = block && block.data && block.data.sourceReason ? String(block.data.sourceReason) : '';
+    return text(`sourceAutofix.${reason}`, text('sourceAutofix.unsupported', 'Autofix'));
+  };
+
+  const canAutofixSourceBlock = (block) => !!(block && block.type === 'source' && block.data && block.data.sourceReason === 'indentedList');
+
+  const applySourceAutofix = (index) => {
+    const block = state.blocks[index];
+    const nextBlocks = autofixMarkdownSourceBlock(block);
+    if (!nextBlocks.length) return;
+    state.blocks.splice(index, 1, ...nextBlocks);
+    state.activeIndex = index;
+    render();
+    setActive(index);
+    emit();
+  };
+
+  const createSourceAutofixButton = (block, index) => {
+    const label = sourceAutofixLabel(block);
+    const autofix = button('', 'blocks-source-autofix');
+    autofix.innerHTML = '<span aria-hidden="true">★</span><span class="blocks-source-autofix-label"></span>';
+    const labelSpan = autofix.querySelector('.blocks-source-autofix-label');
+    if (labelSpan) labelSpan.textContent = text('sourceAutofix.label', 'Autofix');
+    autofix.title = label;
+    autofix.setAttribute('aria-label', label);
+    autofix.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setActive(index);
+      applySourceAutofix(index);
+    });
+    return autofix;
+  };
+
   const syncActiveEditable = () => {
     try {
       if (typeof state.activeSync === 'function') state.activeSync();
@@ -3313,6 +3483,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     type.textContent = text(block.type, block.type);
     const actions = createBlockActionMenu(index);
     head.appendChild(type);
+    if (block.type === 'source') {
+      head.appendChild(createSourceReasonHelp(block, index));
+      if (canAutofixSourceBlock(block)) head.appendChild(createSourceAutofixButton(block, index));
+    }
     if (block.type === 'heading') {
       head.appendChild(createHeadingLevelSelect(block));
     }

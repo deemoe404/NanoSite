@@ -8,7 +8,7 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260501versions';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260504i18n';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
@@ -7951,6 +7951,17 @@ function getPrimaryEditorApi() {
   }
 }
 
+function restorePrimaryEditorMarkdownView(editorApi) {
+  if (!editorApi) return;
+  try {
+    if (typeof editorApi.restorePersistedView === 'function') {
+      editorApi.restorePersistedView();
+      return;
+    }
+    if (typeof editorApi.setView === 'function') editorApi.setView('edit');
+  } catch (_) {}
+}
+
 function ensurePrimaryEditorListener() {
   if (detachPrimaryEditorListener) return;
   const api = getPrimaryEditorApi();
@@ -9821,7 +9832,7 @@ function applyMode(mode, options = {}) {
     setEditorDetailPanelMode('markdown');
     if (tab && editorApi) {
       try { selectEditorTreeNodeForTab(tab, { expandAncestors: !options.preserveTreeExpansion }); } catch (_) {}
-      try { editorApi.setView('edit'); } catch (_) {}
+      restorePrimaryEditorMarkdownView(editorApi);
       try {
         const baseDir = computeBaseDirForPath(tab.path);
         tab.baseDir = baseDir;

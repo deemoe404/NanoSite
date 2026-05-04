@@ -367,7 +367,24 @@ const translations = {
         unlink: '取消链接',
         listAddItem: '添加项目',
         listRemoveItem: '移除项目',
-        imageTitle: '图片标题'
+        imageTitle: '图片标题',
+        sourceReason: {
+          blank: '这个空的 Markdown 片段会按源码保留。',
+          frontMatter: 'Front matter 会按原始 Markdown 保留，以避免破坏文档元数据。',
+          unclosedFence: '这个围栏代码块没有闭合，因此会按 Markdown 源码保留。',
+          callout: '这个块使用了 callout 风格的 Markdown，可视化块编辑器暂不直接编辑这种结构。',
+          table: '这段像表格的 Markdown 会按源码保留，因为可视化块编辑器暂不支持表格编辑。',
+          indentedList: '这个列表从缩进开始；为避免改变它到底是嵌套列表还是类似代码块的 Markdown，编辑器会按源码保留。',
+          mixedList: '这个列表混合了有序列表和项目符号子列表；可视化块编辑器暂不支持这种混合列表层级。',
+          image: '这个段落包含行内图片 Markdown；为避免改变混合内容结构，编辑器会按源码保留。',
+          rawHtml: '这个段落包含不在行内代码里的原始 HTML，因此会按 Markdown 源码保留。',
+          unsupported: '这段 Markdown 无法安全转换成可视化块；为避免改变原始结构，编辑器会按源码保留。'
+        },
+        sourceAutofix: {
+          label: '自动修复',
+          indentedList: '自动修复：移除这组列表共有的缩进，并转换成可视化列表块。',
+          unsupported: '自动修复'
+        }
       },
       editorTools: {
         aria: '编辑器工具',

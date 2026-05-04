@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   applyInlineLinkToRuns,
+  autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
   patchListItem,
   parseInlineRuns,
@@ -170,6 +171,82 @@ run('unsupported risky markdown becomes source blocks', () => {
     '> Body',
     ''
   ].join('\n'));
+});
+
+run('inline code that looks like html stays an editable paragraph', () => {
+  const source = 'Generate the initial `<head>` tags from `site.yaml`.\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'paragraph');
+  assert.equal(blocks[0].data.text, 'Generate the initial `<head>` tags from `site.yaml`.');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('raw html outside inline code still becomes source', () => {
+  const source = 'Generate <head> tags from `site.yaml`.\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'source');
+  assert.equal(blocks[0].data.sourceReason, 'rawHtml');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('indented list source blocks explain the markdown fallback', () => {
+  const source = [
+    '\t- nested-looking item',
+    '\t- another item',
+    ''
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'source');
+  assert.equal(blocks[0].data.sourceReason, 'indentedList');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('indented list source blocks can autofix into visual list blocks', () => {
+  const source = [
+    '\t- nested-looking item',
+    '\t- another item',
+    ''
+  ].join('\n');
+  const [sourceBlock] = parseMarkdownBlocks(source);
+  const fixed = autofixMarkdownSourceBlock(sourceBlock);
+  assert.equal(fixed.length, 1);
+  assert.equal(fixed[0].type, 'list');
+  assert.equal(fixed[0].dirty, true);
+  assert.deepEqual(fixed[0].data.items.map(item => item.text), ['nested-looking item', 'another item']);
+  assert.equal(serializeMarkdownBlocks(fixed), '- nested-looking item\n- another item\n');
+});
+
+run('mixed ordered and unordered nested lists explain the source fallback', () => {
+  const source = [
+    '1. Configure apex A records:',
+    '   - `185.199.108.153`',
+    '   - `185.199.109.153`',
+    '2. Save the custom domain.',
+    ''
+  ].join('\n');
+  const [sourceBlock] = parseMarkdownBlocks(source);
+  assert.equal(sourceBlock.type, 'source');
+  assert.equal(sourceBlock.data.sourceReason, 'mixedList');
+  assert.deepEqual(autofixMarkdownSourceBlock(sourceBlock), []);
+  assert.equal(serializeMarkdownBlocks([sourceBlock]), source);
+});
+
+run('uniformly indented mixed lists keep the mixed-list fallback reason', () => {
+  const source = [
+    '   1. Configure apex A records:',
+    '      - `185.199.108.153`',
+    '      - `185.199.109.153`',
+    '   2. Save the custom domain.',
+    ''
+  ].join('\n');
+  const [sourceBlock] = parseMarkdownBlocks(source);
+  assert.equal(sourceBlock.type, 'source');
+  assert.equal(sourceBlock.data.sourceReason, 'mixedList');
+  assert.deepEqual(autofixMarkdownSourceBlock(sourceBlock), []);
+  assert.equal(serializeMarkdownBlocks([sourceBlock]), source);
 });
 
 run('indented lists become editable visual list blocks', () => {

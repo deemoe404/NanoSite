@@ -367,7 +367,24 @@ const translations = {
         unlink: 'Unlink',
         listAddItem: 'Add item',
         listRemoveItem: 'Remove item',
-        imageTitle: 'Image title'
+        imageTitle: 'Image title',
+        sourceReason: {
+          blank: 'This empty Markdown segment is preserved as source.',
+          frontMatter: 'Front matter is preserved as raw Markdown so document metadata stays intact.',
+          unclosedFence: 'This fenced code block is incomplete, so it is kept as Markdown source.',
+          callout: 'This block uses callout-style Markdown that the visual block editor does not edit directly.',
+          table: 'This table-like Markdown is kept as source because the visual block editor does not support table editing yet.',
+          indentedList: 'This list starts with indentation, so it is kept as source to avoid changing whether it means a nested list or code-like Markdown.',
+          mixedList: 'This list mixes ordered and bulleted list levels, which the visual block editor does not support yet.',
+          image: 'This paragraph contains inline image Markdown, so it is kept as source to avoid changing the mixed content.',
+          rawHtml: 'This paragraph contains raw HTML outside inline code, so it is kept as Markdown source.',
+          unsupported: 'This Markdown is kept as source because the block editor cannot safely convert it to a visual block without changing the original structure.'
+        },
+        sourceAutofix: {
+          label: 'Autofix',
+          indentedList: 'Autofix: remove the shared list indentation and convert this Markdown into a visual list block.',
+          unsupported: 'Autofix'
+        }
       },
       editorTools: {
         aria: 'Editor tools',

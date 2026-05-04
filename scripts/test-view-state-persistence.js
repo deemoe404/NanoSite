@@ -30,7 +30,7 @@ assert.match(
 
 assert.match(
   composer,
-  /selectEditorTreeNodeByPath\(tab\.path, \{ expandAncestors: !options\.preserveTreeExpansion \}\)/,
+  /selectEditorTreeNodeForTab\(tab, \{ expandAncestors: !options\.preserveTreeExpansion \}\)/,
   'restore-mode markdown selection should be able to preserve the saved expansion set without auto-expanding ancestors'
 );
 

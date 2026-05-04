@@ -864,6 +864,21 @@
       position:relative;
       min-width:0;
     }
+    .editor-workspace-meta::before {
+      content:"";
+      display:block;
+      width:min(18rem, 62%);
+      height:.7rem;
+      margin:.1rem auto 1rem;
+      opacity:.78;
+      pointer-events:none;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--muted) 64%, transparent) 0 .72rem,
+          transparent .72rem 1.08rem
+        ) 0 50% / 1.08rem 1px repeat-x;
+    }
     .editor-canvas {
       grid-column:1;
       display:flex;
@@ -887,6 +902,9 @@
         position:sticky;
         top:calc(var(--editor-content-pane-padding, 1rem) + 3rem);
         width:min(100%, var(--editor-properties-width));
+      }
+      .editor-workspace-meta::before {
+        display:none;
       }
       .editor-workspace-meta .frontmatter-field {
         grid-template-columns:minmax(0, 1fr);
@@ -1266,6 +1284,13 @@
     .blocks-block.is-active .blocks-block-head { opacity:1; pointer-events:auto; transform:translate3d(0,-112%,0) scale(1); }
     .blocks-block.is-active .blocks-block-head.is-stuck { position:fixed; z-index:135; transform:none; transition:none; max-width:calc(100vw - 1rem); }
     .blocks-block-type { border-radius:999px; padding:.18rem .45rem; background:color-mix(in srgb, var(--primary) 8%, var(--card)); font-size:.72rem; font-weight:750; letter-spacing:.03em; text-transform:uppercase; color:color-mix(in srgb, var(--muted) 78%, var(--text)); }
+    .blocks-source-help-wrap { position:relative; display:inline-flex; align-items:center; }
+    .blocks-source-help { appearance:none; width:1rem; height:1rem; min-width:1rem; min-height:1rem; border-radius:999px; border:1px solid color-mix(in srgb, var(--primary) 42%, var(--border)); background:color-mix(in srgb, var(--card) 99%, transparent); color:color-mix(in srgb, var(--primary) 88%, var(--text)); font-size:.68rem; font-weight:700; line-height:1; display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:help; }
+    .blocks-source-help:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent); outline-offset:2px; }
+    .blocks-source-help-bubble { position:absolute; left:0; bottom:calc(100% + .35rem); width:max-content; max-width:min(22rem,70vw); padding:.38rem .5rem; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:color-mix(in srgb, var(--card) 99%, transparent); box-shadow:0 10px 24px rgba(15,23,42,0.14); color:color-mix(in srgb,var(--text) 82%, transparent); font-size:.76rem; line-height:1.3; font-weight:500; text-align:left; white-space:normal; text-transform:none; letter-spacing:0; opacity:0; transform:translateY(3px); pointer-events:none; transition:opacity .14s ease,transform .14s ease; z-index:170; }
+    .blocks-source-help-wrap:hover .blocks-source-help-bubble, .blocks-source-help:focus-visible + .blocks-source-help-bubble { opacity:1; transform:translateY(0); pointer-events:auto; }
+    .blocks-source-autofix { appearance:none; min-height:1.65rem; display:inline-flex; align-items:center; gap:.28rem; border:1px solid color-mix(in srgb, var(--primary) 42%, var(--border)); border-radius:999px; background:color-mix(in srgb, var(--primary) 8%, var(--card)); color:color-mix(in srgb, var(--primary) 90%, var(--text)); font:inherit; font-size:.76rem; font-weight:750; line-height:1; padding:.18rem .5rem; cursor:pointer; }
+    .blocks-source-autofix:hover, .blocks-source-autofix:focus-visible { background:color-mix(in srgb, var(--primary) 14%, var(--card)); border-color:color-mix(in srgb, var(--primary) 55%, var(--border)); outline:none; }
     .blocks-inline-controls, .blocks-list-indent-controls { display:flex; align-items:center; gap:.2rem; padding-left:.1rem; }
     .blocks-inline-controls { margin-left:.16rem; padding-left:.34rem; border-left:1px solid color-mix(in srgb, var(--border) 82%, transparent); }
     .blocks-inline-more { position:relative; display:flex; align-items:center; }
@@ -1296,11 +1321,12 @@
     .blocks-rich-editable { outline:none; min-height:1.8rem; line-height:1.65; border-radius:6px; padding:.2rem .25rem; }
     .blocks-rich-editable:focus, .blocks-textarea:focus, .blocks-block input:focus, .blocks-block select:focus, .blocks-card-search:focus { outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px; border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); }
     .blocks-rich-editable a { color:var(--primary); text-decoration:underline; cursor:text; }
+    .blocks-paragraph-text, .blocks-list-text, .blocks-quote-text { font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); }
     .blocks-paragraph-text { margin:0; font-size:1rem; }
     .blocks-paragraph-text:focus { outline:none; box-shadow:none; }
-    .blocks-heading-text { margin:.05rem 0 .15rem; font-weight:760; line-height:1.2; }
+    .blocks-heading-text { margin:.05rem 0 .15rem; font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-weight:760; line-height:1.2; letter-spacing:.01em; }
     .blocks-heading-text:focus { outline:none; box-shadow:none; }
-    .blocks-heading-h1 { font-size:2rem; }
+    .blocks-heading-h1 { font-family:var(--display, var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif))); font-size:2rem; letter-spacing:.005em; }
     .blocks-heading-h2 { font-size:1.65rem; }
     .blocks-heading-h3 { font-size:1.35rem; }
     .blocks-heading-h4 { font-size:1.15rem; }
@@ -1308,6 +1334,7 @@
     .blocks-heading-h6 { font-size:.92rem; color:var(--muted); text-transform:uppercase; }
     .blocks-quote-preview { margin:0; padding:.35rem .85rem; border-left:4px solid color-mix(in srgb, var(--primary) 58%, var(--border)); background:color-mix(in srgb, var(--primary) 6%, var(--card)); color:color-mix(in srgb, var(--text) 92%, var(--muted)); }
     .blocks-quote-preview p { margin:0; }
+    .blocks-quote-text:focus { outline:none; box-shadow:none; }
     .blocks-textarea { min-height:6.5rem; resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; }
     .blocks-source-textarea { min-height:0; width:100%; resize:none; overflow:hidden; }
     .blocks-source-textarea:focus { outline:none; box-shadow:none; border-color:color-mix(in srgb, var(--border) 82%, transparent); }
@@ -2173,9 +2200,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-blocks-20260503g"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-blocks-20260503g"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-blocks-20260503g"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=editor-i18n-20260504"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-i18n-20260504"></script>
+  <script type="module" src="assets/js/composer.js?v=editor-i18n-20260504"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
