@@ -12,7 +12,7 @@ import {
   resolveFrontMatterBindings,
   valueIsPresent
 } from './frontmatter-document.js';
-import { getContentRoot, resolveImageSrc, setSafeHtml } from './utils.js';
+import { getContentRoot, resolveImageSrc, setSafeHtml } from './utils.js?v=editor-preview-images-20260504';
 import { initSyntaxHighlighting } from './syntax-highlight.js';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
 import { hydrateInternalLinkCards } from './link-cards.js';
