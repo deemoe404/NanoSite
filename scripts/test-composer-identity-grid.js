@@ -785,8 +785,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \{[^}]*height:42px; min-height:42px;[\s\S]*border:1px solid color-mix\(in srgb, var\(--border\) 70%, var\(--text\) 18%\);[\s\S]*border-radius:0;/,
-  'block floating toolbar should use a fixed 42px square-corner shell with a darker border'
+  /\.blocks-block-head \{[^}]*height:42px; min-height:42px;[\s\S]*border:1px solid color-mix\(in srgb, var\(--border\) 75\.6%, var\(--text\) 19\.4%\);[\s\S]*border-radius:0;/,
+  'block floating toolbar should use a fixed 42px square-corner shell with a 0.95-alpha darker border'
 );
 
 assert.match(
