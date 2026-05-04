@@ -3236,7 +3236,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         options.requestImageUpload({ replaceIndex: index });
       }
     });
-    controls.append(alt, replace, title);
+    controls.append(alt, title, replace);
     return controls;
   };
 
