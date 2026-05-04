@@ -4,6 +4,7 @@ import {
   applyInlineLinkToRuns,
   autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
+  listVisualMarkerLabels,
   patchListItem,
   parseInlineRuns,
   parseMarkdownBlocks,
@@ -292,6 +293,24 @@ run('generated nested ordered numbers restart under each parent', () => {
     '   1. B1',
     ''
   ].join('\n'));
+});
+
+run('visual nested ordered markers restart under each parent', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. A',
+    '   - A1',
+    '2. B',
+    '   - B1',
+    ''
+  ].join('\n'));
+  listBlock.data.items[1].listType = 'ol';
+  listBlock.data.items[3].listType = 'ol';
+  assert.deepEqual(listVisualMarkerLabels(listBlock.data.items, listBlock.data.listType), [
+    '1.',
+    '1.',
+    '2.',
+    '1.'
+  ]);
 });
 
 run('standard list type changes apply to homogeneous indentation levels', () => {

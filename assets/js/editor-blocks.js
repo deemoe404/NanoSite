@@ -648,6 +648,25 @@ export function patchListItem(items, itemIndex, patch = {}) {
   return next;
 }
 
+export function listVisualMarkerLabels(items, blockListType = 'ul') {
+  const listType = blockListType === 'ol' || blockListType === 'task' || blockListType === 'mixed' ? blockListType : 'ul';
+  const counters = {};
+  return editableListItems(items).map(item => {
+    const itemType = effectiveListItemType(item, listType);
+    resetNestedOrderedListNumbers(item, counters);
+    if (itemType === 'task') {
+      resetOrderedListNumber(item, counters);
+      return '';
+    }
+    if (itemType === 'ol') {
+      const delimiter = item && /^[.)]$/.test(item.delimiter || '') ? item.delimiter : '.';
+      return `${nextOrderedListNumber(item, counters)}${delimiter}`;
+    }
+    resetOrderedListNumber(item, counters);
+    return '•';
+  });
+}
+
 export function patchListItemType(items, itemIndex, nextType, blockListType = 'ul') {
   const normalizedType = normalizeListItemType(nextType);
   const next = editableListItems(items).slice();
@@ -3530,7 +3549,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       ? 'blocks-visual-list blocks-visual-list-task'
       : `blocks-visual-list blocks-visual-list-standard blocks-visual-list-${summarizeListType(items, listType)}`;
     if (!isTaskList) listEl.setAttribute('role', 'list');
-    const visualOrderedCounters = {};
+    const visualMarkerLabels = listVisualMarkerLabels(items, listType);
     items.forEach((item, itemIndex) => {
       const itemType = effectiveListItemType(item, listType);
       const isTaskItem = itemType === 'task';
@@ -3555,13 +3574,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         const marker = document.createElement('span');
         marker.className = `blocks-list-marker blocks-list-marker-${itemType}`;
         marker.setAttribute('aria-hidden', 'true');
-        if (itemType === 'ol') {
-          const delimiter = item && /^[.)]$/.test(item.delimiter || '') ? item.delimiter : '.';
-          marker.textContent = `${nextOrderedListNumber(item, visualOrderedCounters)}${delimiter}`;
-        } else {
-          resetOrderedListNumber(item, visualOrderedCounters);
-          marker.textContent = '•';
-        }
+        marker.textContent = visualMarkerLabels[itemIndex] || (itemType === 'ol' ? '1.' : '•');
         li.appendChild(marker);
       }
       const span = document.createElement('span');
