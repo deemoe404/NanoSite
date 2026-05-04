@@ -1347,15 +1347,20 @@
     .blocks-image-figure figcaption { margin-top:.5em; color:var(--muted); font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:.9em; text-align:center; word-break:break-word; }
     .blocks-image-figure figcaption[hidden] { display:none !important; }
     .blocks-visual-list { margin:0 0 0 1.25rem; padding-left:0; font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:1.04rem; line-height:1.75; letter-spacing:.005em; }
+    .blocks-visual-list-standard { margin-left:0; padding-left:0; }
     .blocks-visual-list-task { list-style:none; margin-left:0; padding-left:0; }
     .blocks-list-item { margin:.35rem 0; padding:0; line-height:1.75; }
     .blocks-list-item:first-child { margin-top:0; }
     .blocks-list-item:last-child { margin-bottom:0; }
     .blocks-visual-list .blocks-list-item::marker { font-family:inherit; font-size:1em; font-weight:400; color:inherit; }
+    .blocks-visual-list-standard .blocks-list-item { display:grid; grid-template-columns:1.45rem minmax(0, 1fr); column-gap:.45rem; align-items:baseline; }
     .blocks-visual-list-task .blocks-list-item { display:grid; grid-template-columns:1.45rem minmax(0, 1fr); column-gap:.45rem; align-items:baseline; }
+    .blocks-list-marker { grid-column:1; display:inline-block; min-width:1.2rem; text-align:right; color:inherit; font-family:inherit; user-select:none; }
+    .blocks-list-marker-ul { text-align:center; }
     .blocks-list-item input[type="checkbox"] { grid-column:1; width:1rem; height:1rem; margin:0; transform:translateY(.12rem); cursor:pointer; }
     .blocks-list-text { display:inline; min-width:0; vertical-align:baseline; line-height:inherit; padding:0; }
     .blocks-list-text:focus { outline:none; box-shadow:none; }
+    .blocks-visual-list-standard .blocks-list-text { grid-column:2; display:block; }
     .blocks-visual-list-task .blocks-list-text { grid-column:2; display:block; }
     .blocks-code-preview { margin:0; padding:.85rem; border-radius:8px; overflow:auto; background:color-mix(in srgb, var(--code-bg) 88%, #020617); border:1px solid color-mix(in srgb, var(--border) 80%, transparent); color:var(--text); }
     .blocks-code-preview code { display:block; min-height:1.55em; outline:none; white-space:pre; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; line-height:1.55; }

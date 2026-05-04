@@ -4,10 +4,12 @@ import {
   applyInlineLinkToRuns,
   autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
+  listVisualMarkerLabels,
   patchListItem,
   parseInlineRuns,
   parseMarkdownBlocks,
   removeInlineMarkAroundOffset,
+  patchListItemType,
   serializeInlineRuns,
   serializeMarkdownBlocks,
   toggleInlineMarkOnRuns
@@ -219,7 +221,7 @@ run('indented list source blocks can autofix into visual list blocks', () => {
   assert.equal(serializeMarkdownBlocks(fixed), '- nested-looking item\n- another item\n');
 });
 
-run('mixed ordered and unordered nested lists explain the source fallback', () => {
+run('mixed ordered and unordered nested lists become editable visual lists', () => {
   const source = [
     '1. Configure apex A records:',
     '   - `185.199.108.153`',
@@ -227,11 +229,257 @@ run('mixed ordered and unordered nested lists explain the source fallback', () =
     '2. Save the custom domain.',
     ''
   ].join('\n');
-  const [sourceBlock] = parseMarkdownBlocks(source);
-  assert.equal(sourceBlock.type, 'source');
-  assert.equal(sourceBlock.data.sourceReason, 'mixedList');
-  assert.deepEqual(autofixMarkdownSourceBlock(sourceBlock), []);
-  assert.equal(serializeMarkdownBlocks([sourceBlock]), source);
+  const [listBlock] = parseMarkdownBlocks(source);
+  assert.equal(listBlock.type, 'list');
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'ul', 'ul', 'ol']);
+  assert.deepEqual(listBlock.data.items.map(item => item.indent), [0, 1, 1, 0]);
+  assert.equal(serializeMarkdownBlocks([listBlock]), source);
+});
+
+run('dirty mixed standard list edits preserve per-item list types', () => {
+  const source = [
+    '1. Configure apex A records:',
+    '   - `185.199.108.153`',
+    '   - `185.199.109.153`',
+    '2. Save the custom domain.',
+    ''
+  ].join('\n');
+  const [listBlock] = parseMarkdownBlocks(source);
+  listBlock.dirty = true;
+  listBlock.data.items[1].text = '`185.199.108.153` (GitHub Pages)';
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Configure apex A records:',
+    '   - `185.199.108.153` (GitHub Pages)',
+    '   - `185.199.109.153`',
+    '2. Save the custom domain.',
+    ''
+  ].join('\n'));
+});
+
+run('generated ordered numbers ignore nested bullet items', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - Child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  listBlock.dirty = true;
+  delete listBlock.data.items[0].number;
+  delete listBlock.data.items[2].number;
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   - Child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('generated nested ordered numbers restart under each parent', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. A',
+    '   - A1',
+    '2. B',
+    '   - B1',
+    ''
+  ].join('\n'));
+  listBlock.dirty = true;
+  listBlock.data.items[1].listType = 'ol';
+  listBlock.data.items[3].listType = 'ol';
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. A',
+    '   1. A1',
+    '2. B',
+    '   1. B1',
+    ''
+  ].join('\n'));
+});
+
+run('visual nested ordered markers restart under each parent', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. A',
+    '   - A1',
+    '2. B',
+    '   - B1',
+    ''
+  ].join('\n'));
+  listBlock.data.items[1].listType = 'ol';
+  listBlock.data.items[3].listType = 'ol';
+  assert.deepEqual(listVisualMarkerLabels(listBlock.data.items, listBlock.data.listType), [
+    '1.',
+    '1.',
+    '2.',
+    '1.'
+  ]);
+});
+
+run('standard list type changes apply to homogeneous indentation levels', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - First child',
+    '   - Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'ol');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'ol', 'ol', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   1. First child',
+    '   2. Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('standard list type changes apply to the active sibling group only', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. DNS records',
+    '   - 185.199.108.153',
+    '   - 185.199.109.153',
+    '   - 185.199.110.153',
+    '   - 185.199.111.153',
+    '2. Pages settings',
+    '   1. Custom domain',
+    '   2. Save',
+    '3. Verification',
+    '   - Wait',
+    '   - Check DNS',
+    '   - Open site',
+    '4. Done',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), [
+    'ol',
+    'ol', 'ol', 'ol', 'ol',
+    'ol',
+    'ol', 'ol',
+    'ol',
+    'ul', 'ul', 'ul',
+    'ol'
+  ]);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. DNS records',
+    '   1. 185.199.108.153',
+    '   2. 185.199.109.153',
+    '   3. 185.199.110.153',
+    '   4. 185.199.111.153',
+    '2. Pages settings',
+    '   1. Custom domain',
+    '   2. Save',
+    '3. Verification',
+    '   - Wait',
+    '   - Check DNS',
+    '   - Open site',
+    '4. Done',
+    ''
+  ].join('\n'));
+});
+
+run('sibling-group type changes skip deeper child items', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - Alpha',
+    '      - Alpha child',
+    '   - Beta',
+    '      - Beta child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'ol', 'ul', 'ol', 'ul', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   1. Alpha',
+    '      - Alpha child',
+    '   2. Beta',
+    '      - Beta child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('standard list type changes stay item-local on mixed indentation levels', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Alpha',
+    '- Beta',
+    '2. Gamma',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 0, 'ul', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ul', 'ul', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '- Alpha',
+    '- Beta',
+    '2. Gamma',
+    ''
+  ].join('\n'));
+});
+
+run('checklist type changes apply to homogeneous indentation levels', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - First child',
+    '   - Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'task', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'task', 'task', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   - [ ] First child',
+    '   - [ ] Second child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('checklist levels convert back without changing the whole block', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '- [ ] Parent',
+    '  - [x] Child',
+    '- [ ] Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ul', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['task', 'ul', 'task']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '- [ ] Parent',
+    '  - Child',
+    '- [ ] Sibling',
+    ''
+  ].join('\n'));
+});
+
+run('mixed checklist and standard lists become editable visual lists', () => {
+  const source = [
+    '- [ ] Checklist item',
+    '- Standard item',
+    ''
+  ].join('\n');
+  const [listBlock] = parseMarkdownBlocks(source);
+  assert.equal(listBlock.type, 'list');
+  assert.equal(listBlock.data.listType, 'mixed');
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['task', 'ul']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), source);
 });
 
 run('uniformly indented mixed lists keep the mixed-list fallback reason', () => {
