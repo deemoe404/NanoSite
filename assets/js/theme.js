@@ -1,4 +1,4 @@
-import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260501versions';
+import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260504i18n';
 
 const PACK_LINK_ID = 'theme-pack';
 

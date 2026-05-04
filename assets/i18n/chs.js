@@ -381,9 +381,9 @@ const translations = {
           unsupported: '这段 Markdown 无法安全转换成可视化块；为避免改变原始结构，编辑器会按源码保留。'
         },
         sourceAutofix: {
-          label: 'Autofix',
-          indentedList: 'Autofix：移除这组列表共有的缩进，并转换成可视化列表块。',
-          unsupported: 'Autofix'
+          label: '自动修复',
+          indentedList: '自动修复：移除这组列表共有的缩进，并转换成可视化列表块。',
+          unsupported: '自动修复'
         }
       },
       editorTools: {

@@ -8,7 +8,7 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260501versions';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260504i18n';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
