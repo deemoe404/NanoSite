@@ -1820,6 +1820,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const prefersReducedReorderMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+  function finishBlockReorder() {
+    state.reorderAnimating = false;
+    requestStickyBlockHeadUpdate();
+  }
+
   const captureBlockRects = (indexes = null) => {
     const allowed = Array.isArray(indexes) ? new Set(indexes) : null;
     const rects = new Map();
@@ -1834,7 +1839,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const animateBlockReorder = (beforeRects) => {
     try {
       if (!beforeRects || !beforeRects.size) {
-        state.reorderAnimating = false;
+        finishBlockReorder();
         return;
       }
       const moves = blockElements().map((el) => {
@@ -1848,7 +1853,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         return { el, dx, dy };
       }).filter(Boolean);
       if (!moves.length) {
-        state.reorderAnimating = false;
+        finishBlockReorder();
         return;
       }
       let remaining = moves.length;
@@ -1864,7 +1869,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           item.el.style.transition = '';
           item.el.style.transform = '';
         });
-        state.reorderAnimating = false;
+        finishBlockReorder();
       };
       moves.forEach((item) => {
         item.done = (event) => {
@@ -1887,7 +1892,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       });
       fallbackTimer = window.setTimeout ? window.setTimeout(finish, 360) : null;
     } catch (_) {
-      state.reorderAnimating = false;
+      finishBlockReorder();
     }
   };
 
@@ -1923,19 +1928,19 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.reorderAnimating = true;
       const moved = moveBlockInState(index, direction);
       if (!moved) {
-        state.reorderAnimating = false;
+        finishBlockReorder();
         return;
       }
       if (!replaceAdjacentBlockElements(index, targetIndex)) {
         render();
-        state.reorderAnimating = false;
+        finishBlockReorder();
         emit();
         return;
       }
       emit();
       animateBlockReorder(beforeRects);
     } catch (_) {
-      state.reorderAnimating = false;
+      finishBlockReorder();
       commitBlockMove(index, direction);
     }
   };
@@ -2181,6 +2186,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const activeBlock = blockNodes[state.activeIndex] || null;
     const head = activeBlock ? activeBlock.querySelector('.blocks-block-head') : null;
     clearStickyBlockHeads(head);
+    if (state.reorderAnimating) {
+      clearStickyBlockHeads();
+      return;
+    }
     if (!activeBlock || !head || !nodeContains(root, activeBlock) || root.hidden) {
       clearStickyBlockHeads();
       return;

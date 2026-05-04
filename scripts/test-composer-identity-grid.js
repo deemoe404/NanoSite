@@ -281,6 +281,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /function finishBlockReorder\(\) \{[\s\S]*state\.reorderAnimating = false;[\s\S]*requestStickyBlockHeadUpdate\(\);[\s\S]*\}/,
+  'block move animation should relayout the floating toolbar after the shared block transform finishes'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const updateStickyBlockHead = \(\) => \{[\s\S]*clearStickyBlockHeads\(head\);[\s\S]*if \(state\.reorderAnimating\) \{[\s\S]*clearStickyBlockHeads\(\);[\s\S]*return;[\s\S]*\}/,
+  'active block toolbar should stay inside the moving block while reorder animation is active'
+);
+
+assert.match(
+  editorBlocksSource,
   /const captureBlockRects = \(indexes = null\) => \{[\s\S]*const allowed = Array\.isArray\(indexes\) \? new Set\(indexes\) : null;[\s\S]*if \(allowed && !allowed\.has\(index\)\) return;[\s\S]*const id = el\.dataset \? el\.dataset\.blockId : '';[\s\S]*rects\.set\(id, el\.getBoundingClientRect\(\)\);[\s\S]*return rects;/,
   'block move animation should key before-rect snapshots by stable block ids for only the affected indexes'
 );
