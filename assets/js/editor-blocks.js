@@ -3249,17 +3249,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const renderImageBlock = (body, block, index) => {
     const figure = document.createElement('figure');
     figure.className = 'blocks-image-figure';
-    const selectImageBlock = (event) => {
-      if (!event || event.defaultPrevented) return;
-      if (event.type === 'pointerdown' && (event.button !== 0 || event.isPrimary === false)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      state.suppressNextBlockContainerClickUntil = Date.now() + 500;
-      clearNativeSelection();
-      setActive(index);
-    };
-    figure.addEventListener('pointerdown', selectImageBlock);
-    figure.addEventListener('click', selectImageBlock);
     const img = document.createElement('img');
     img.className = 'blocks-image-preview';
     img.alt = block.data.alt || '';

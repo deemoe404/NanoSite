@@ -471,10 +471,10 @@ assert.match(
   'image blocks should render a real image element instead of a path-only placeholder'
 );
 
-assert.match(
+assert.doesNotMatch(
   editorBlocksSource,
-  /const renderImageBlock = \(body, block, index\) => \{[\s\S]*const selectImageBlock = \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(index\);[\s\S]*figure\.addEventListener\('pointerdown', selectImageBlock\);[\s\S]*figure\.addEventListener\('click', selectImageBlock\);/,
-  'image figure pointer and click events should select the image block directly'
+  /const selectImageBlock = \(event\) => \{[\s\S]*figure\.addEventListener\('pointerdown', selectImageBlock\);[\s\S]*figure\.addEventListener\('click', selectImageBlock\);/,
+  'image figures should rely on delegated block pointer routing, not stopped local click handlers'
 );
 
 assert.match(
