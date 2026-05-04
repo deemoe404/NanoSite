@@ -179,6 +179,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /suppressSelectionActiveRecoveryUntil: 0,[\s\S]*const activateEditableFromPointer = \(index, editable, sync\) => \{[\s\S]*state\.suppressSelectionActiveRecoveryUntil = Date\.now\(\) \+ 180;[\s\S]*setActive\(index, editable, sync\);[\s\S]*const canRecoverSelectionActive = !state\.suppressSelectionActiveRecoveryUntil \|\| Date\.now\(\) > state\.suppressSelectionActiveRecoveryUntil;[\s\S]*if \(selectionEditable && canRecoverSelectionActive\) \{/,
+  'pointerdown activation should briefly prevent stale browser selection from reselecting the previous block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
   /function inlineMarksFromDomNode\(node, editable\)[\s\S]*tag === 'strong' \|\| tag === 'b'[\s\S]*function inlineMarksFromPointerEvent\(event, editable\)[\s\S]*document\.caretPositionFromPoint[\s\S]*document\.caretRangeFromPoint[\s\S]*lastInlineMarks: null,[\s\S]*fallbackMarks && fallbackMarks\[mark\]/,
   'inline toolbar state should fall back to marks from the clicked rich-text DOM path when selection offsets are unavailable or ambiguous'
 );
@@ -187,6 +193,12 @@ assert.match(
   editorBlocksSource,
   /setActive\(index, editable, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, editable\);[\s\S]*state\.lastInlineMarks = \{ editable, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);[\s\S]*setActive\(index, span, sync\);[\s\S]*const pointerMarks = inlineMarksFromPointerEvent\(event, span\);[\s\S]*state\.lastInlineMarks = \{ editable: span, marks: pointerMarks \};[\s\S]*state\.lastInlineMarkedRange = pointerCodeRange \? \{ editable: span, mark: 'code', \.\.\.pointerCodeRange \} : null;[\s\S]*updateInlineToolbarState\(\);/,
   'paragraph and list rich-text clicks should capture inline marks after activation and refresh the toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editable\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, editable, sync\);[\s\S]*routeDirectQuoteCaretFromPointer\(editable, index, sync, event\);[\s\S]*span\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, span, sync\);[\s\S]*code\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, code, sync\);[\s\S]*area\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*activateEditableFromPointer\(index, area, sync\);/,
+  'editable block pointerdowns should activate the target block before browser focus/click events can paint a stale toolbar'
 );
 
 assert.match(
@@ -401,7 +413,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const routeDirectQuoteCaretFromPointer = \(editable, index, sync, event\) => \{[\s\S]*classList\.contains\('blocks-quote-text'\)[\s\S]*measuredTextOffsetDetailsFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*details\.insideTextRect[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*state\.suppressLinkEditorRefreshUntil = Date\.now\(\) \+ 500;[\s\S]*placeCaretAtTextOffset\(editable, details\.offset\);[\s\S]*setActive\(index, editable, sync\);/,
+  /const routeDirectQuoteCaretFromPointer = \(editable, index, sync, event\) => \{[\s\S]*classList\.contains\('blocks-quote-text'\)[\s\S]*measuredTextOffsetDetailsFromPoint\(editable, event\.clientX, event\.clientY\)[\s\S]*details\.insideTextRect[\s\S]*event\.preventDefault\(\);[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*state\.suppressLinkEditorRefreshUntil = Date\.now\(\) \+ 500;[\s\S]*placeCaretAtTextOffset\(editable, details\.offset\);[\s\S]*activateEditableFromPointer\(index, editable, sync\);/,
   'direct quote edge pointerdowns should prevent native start/end snaps, suppress transient link-editor refreshes, and use the measured nearest offset'
 );
 

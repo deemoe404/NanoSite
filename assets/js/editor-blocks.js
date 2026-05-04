@@ -1761,6 +1761,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     pendingListFocus: null,
     suppressNextBlockContainerClickUntil: 0,
     suppressLinkEditorRefreshUntil: 0,
+    suppressSelectionActiveRecoveryUntil: 0,
     cardEntries: [],
     cardPickerOpen: false,
     reorderAnimating: false,
@@ -2334,6 +2335,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     requestStickyBlockHeadUpdate();
   };
 
+  const activateEditableFromPointer = (index, editable, sync) => {
+    state.suppressSelectionActiveRecoveryUntil = Date.now() + 180;
+    setActive(index, editable, sync);
+  };
+
   const shouldSuppressRoutedBlockContainerClick = () => {
     if (!state.suppressNextBlockContainerClickUntil) return false;
     if (Date.now() > state.suppressNextBlockContainerClickUntil) {
@@ -2499,7 +2505,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       try { editable.focus(); } catch (__) {}
     }
     placeCaretAtTextOffset(editable, details.offset);
-    setActive(index, editable, sync);
+    activateEditableFromPointer(index, editable, sync);
     updateInlineToolbarState();
     return true;
   };
@@ -2910,7 +2916,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!buttons.length) return;
     const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
     const selectionEditable = selectionEditableInRoot(root);
-    if (selectionEditable) {
+    const canRecoverSelectionActive = !state.suppressSelectionActiveRecoveryUntil || Date.now() > state.suppressSelectionActiveRecoveryUntil;
+    if (selectionEditable && canRecoverSelectionActive) {
       const selectionBlock = closestElement(selectionEditable, '.blocks-block');
       const selectionIndex = blockNodes.indexOf(selectionBlock);
       if (selectionIndex >= 0) {
@@ -3197,6 +3204,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     editable.addEventListener('focus', () => setActive(index, editable, sync));
     editable.addEventListener('pointerdown', (event) => {
+      if (event && event.button === 0 && event.isPrimary !== false) {
+        activateEditableFromPointer(index, editable, sync);
+      }
       routeDirectQuoteCaretFromPointer(editable, index, sync, event);
     });
     editable.addEventListener('click', (event) => {
@@ -3453,6 +3463,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         }
       });
       span.addEventListener('focus', () => setActive(index, span, sync));
+      span.addEventListener('pointerdown', (event) => {
+        if (event && event.button === 0 && event.isPrimary !== false) {
+          activateEditableFromPointer(index, span, sync);
+        }
+      });
       span.addEventListener('click', (event) => {
         const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
         if (clickedLink) event.preventDefault();
@@ -3493,6 +3508,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
     code.addEventListener('focus', () => setActive(index, code, sync));
+    code.addEventListener('pointerdown', (event) => {
+      if (event && event.button === 0 && event.isPrimary !== false) {
+        activateEditableFromPointer(index, code, sync);
+      }
+    });
     pre.appendChild(code);
     body.appendChild(pre);
   };
@@ -3563,6 +3583,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       });
       area.addEventListener('pointerdown', (event) => {
         if (!event || event.button !== 0 || event.isPrimary === false) return;
+        activateEditableFromPointer(index, area, sync);
         const details = textareaTextOffsetDetailsFromPoint(area, event.clientX, event.clientY);
         if (details && !details.insideTextRect) {
           event.preventDefault();
