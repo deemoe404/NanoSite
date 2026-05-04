@@ -1347,12 +1347,15 @@
     .blocks-image-preview { display:block; width:100%; height:auto; border-radius:.5rem; background:color-mix(in srgb, var(--text) 3%, transparent); box-shadow:var(--shadow, 0 1px 2px rgba(15,23,42,.08)); object-fit:contain; }
     .blocks-image-figure figcaption { margin-top:.5em; color:var(--muted); font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:.9em; text-align:center; word-break:break-word; }
     .blocks-image-figure figcaption[hidden] { display:none !important; }
-    .blocks-visual-list { margin:.1rem 0 .2rem; padding-left:1.65rem; line-height:1.6; }
-    .blocks-visual-list-task { list-style:none; padding-left:0; }
-    .blocks-list-item { padding:.28rem 0; }
+    .blocks-visual-list { margin:0 0 0 1.25rem; padding-left:0; font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:1.04rem; line-height:1.75; letter-spacing:.005em; }
+    .blocks-visual-list-task { list-style:none; margin-left:0; padding-left:0; }
+    .blocks-list-item { margin:.35rem 0; padding:0; line-height:1.75; }
+    .blocks-list-item:first-child { margin-top:0; }
+    .blocks-list-item:last-child { margin-bottom:0; }
+    .blocks-visual-list .blocks-list-item::marker { font-family:inherit; font-size:1em; font-weight:400; color:inherit; }
     .blocks-visual-list-task .blocks-list-item { display:grid; grid-template-columns:1.45rem minmax(0, 1fr); column-gap:.45rem; align-items:baseline; }
     .blocks-list-item input[type="checkbox"] { grid-column:1; width:1rem; height:1rem; margin:0; transform:translateY(.12rem); cursor:pointer; }
-    .blocks-list-text { display:inline; min-width:0; vertical-align:baseline; }
+    .blocks-list-text { display:inline; min-width:0; vertical-align:baseline; line-height:inherit; padding:0; }
     .blocks-list-text:focus { outline:none; box-shadow:none; }
     .blocks-visual-list-task .blocks-list-text { grid-column:2; display:block; }
     .blocks-code-preview { margin:0; padding:.85rem; border-radius:8px; overflow:auto; background:color-mix(in srgb, var(--code-bg) 88%, #020617); border:1px solid color-mix(in srgb, var(--border) 80%, transparent); color:var(--text); }

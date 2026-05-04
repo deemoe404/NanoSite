@@ -941,8 +941,20 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.blocks-list-item \{ padding:\.28rem 0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);/,
-  'visual list rows should keep markers and checklist boxes aligned without reserving inline button space'
+  /\.blocks-visual-list \{ margin:0 0 0 1\.25rem; padding-left:0; font-family:var\(--serif, var\(--article-serif-stack, Georgia, "Times New Roman", Times, serif\)\); font-size:1\.04rem; line-height:1\.75; letter-spacing:\.005em; \}[\s\S]*\.blocks-list-item \{ margin:\.35rem 0; padding:0; line-height:1\.75; \}[\s\S]*\.blocks-list-item:first-child \{ margin-top:0; \}[\s\S]*\.blocks-list-item:last-child \{ margin-bottom:0; \}[\s\S]*\.blocks-visual-list \.blocks-list-item::marker \{ font-family:inherit; font-size:1em; font-weight:400; color:inherit; \}/,
+  'visual list rows and markers should mirror native typography without adding outer block-body whitespace'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-list-text \{ display:inline; min-width:0; vertical-align:baseline; line-height:inherit; padding:0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-text \{ grid-column:2; display:block; \}/,
+  'visual list editable text should not add editor-only padding around native list markers'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-visual-list-task \{ list-style:none; margin-left:0; padding-left:0; \}[\s\S]*\.blocks-visual-list-task \.blocks-list-item \{ display:grid; grid-template-columns:1\.45rem minmax\(0, 1fr\);/,
+  'task-list rows should keep checklist boxes aligned while regular list markers use native spacing'
 );
 
 assert.match(
