@@ -2108,9 +2108,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const clearStickyBlockHeads = (except = null) => {
-    Array.from(list.querySelectorAll('.blocks-block-head.is-stuck')).forEach(head => {
+    Array.from(list.querySelectorAll('.blocks-block-head.is-stuck, .blocks-block-head.is-bottom-docked')).forEach(head => {
       if (head === except) return;
       head.classList.remove('is-stuck');
+      head.classList.remove('is-bottom-docked');
       head.style.removeProperty('top');
       head.style.removeProperty('left');
       head.style.removeProperty('width');
@@ -2185,9 +2186,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       return;
     }
 
-    const wasStuck = head.classList.contains('is-stuck');
-    if (wasStuck) {
+    const wasPositioned = head.classList.contains('is-stuck') || head.classList.contains('is-bottom-docked');
+    if (wasPositioned) {
       head.classList.remove('is-stuck');
+      head.classList.remove('is-bottom-docked');
       head.style.removeProperty('top');
       head.style.removeProperty('left');
       head.style.removeProperty('width');
@@ -2204,16 +2206,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const viewportBottom = editorViewportBottom();
     const naturalTop = blockRect.top + (head.offsetTop || 0) - (headHeight * 1.12);
     const blockBottomLimit = blockRect.bottom - headHeight - gap;
-    const blockBottomInViewport = blockRect.top < stickyTop && blockRect.bottom > stickyTop && blockRect.bottom <= viewportBottom;
-    if (blockRect.bottom <= stickyTop || viewportBottom <= stickyTop) return;
+    const blockTopUnderStickyToolbar = blockRect.top < stickyTop;
+    if (viewportBottom <= stickyTop) return;
+    if (blockTopUnderStickyToolbar) {
+      if (blockRect.bottom + gap + headHeight <= stickyTop) return;
+      head.classList.add('is-bottom-docked');
+      head.style.top = `${Math.max(0, blockRect.height + gap)}px`;
+      return;
+    }
+    if (blockRect.bottom <= stickyTop) return;
 
     const margin = 8;
     const left = Math.max(margin, Math.min(blockRect.left + (head.offsetLeft || 0), window.innerWidth - headWidth - margin));
     const viewportBottomLimit = Math.max(stickyTop, viewportBottom - headHeight - gap);
-    const blockBottomTop = Math.min(viewportBottomLimit, blockRect.bottom + gap);
-    const top = blockBottomInViewport
-      ? Math.max(stickyTop, blockBottomTop)
-      : Math.min(blockBottomLimit, Math.max(stickyTop, naturalTop));
+    const top = Math.min(viewportBottomLimit, blockBottomLimit, Math.max(stickyTop, naturalTop));
     head.classList.add('is-stuck');
     head.style.top = `${top}px`;
     head.style.left = `${left}px`;

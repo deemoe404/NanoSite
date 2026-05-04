@@ -245,8 +245,14 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const editorViewportBottom = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const viewportBottom = editorViewportBottom\(\);[\s\S]*const blockBottomInViewport = blockRect\.top < stickyTop && blockRect\.bottom > stickyTop && blockRect\.bottom <= viewportBottom;[\s\S]*const blockBottomTop = Math\.min\(viewportBottomLimit, blockRect\.bottom \+ gap\);[\s\S]*blockBottomInViewport[\s\S]*Math\.max\(stickyTop, blockBottomTop\)[\s\S]*Math\.min\(blockBottomLimit, Math\.max\(stickyTop, naturalTop\)\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
-  'active block toolbar should clamp below the markdown file toolbar and move to the block bottom when only its bottom remains visible'
+  /const editorViewportBottom = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const updateStickyBlockHead = \(\) => \{[\s\S]*const activeBlock = blockNodes\[state\.activeIndex\] \|\| null;[\s\S]*editorStickyToolbarBottom\(\) \+ gap[\s\S]*const blockTopUnderStickyToolbar = blockRect\.top < stickyTop;[\s\S]*if \(blockTopUnderStickyToolbar\) \{[\s\S]*blockRect\.bottom \+ gap \+ headHeight <= stickyTop[\s\S]*head\.classList\.add\('is-bottom-docked'\);[\s\S]*head\.style\.top = `\$\{Math\.max\(0, blockRect\.height \+ gap\)\}px`;[\s\S]*return;[\s\S]*\}[\s\S]*head\.classList\.add\('is-stuck'\);[\s\S]*head\.style\.top = `\$\{top\}px`;/,
+  'active block toolbar should become a non-sticky bottom-docked overlay once the block top is covered'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block\.is-active \.blocks-block-head\.is-bottom-docked \{ position:absolute; z-index:105; transform:none; transition:none; \}/,
+  'bottom-docked active block toolbar should scroll with the block instead of sticking to the viewport'
 );
 
 assert.match(
