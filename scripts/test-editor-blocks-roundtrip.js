@@ -172,6 +172,23 @@ run('unsupported risky markdown becomes source blocks', () => {
   ].join('\n'));
 });
 
+run('inline code that looks like html stays an editable paragraph', () => {
+  const source = 'Generate the initial `<head>` tags from `site.yaml`.\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'paragraph');
+  assert.equal(blocks[0].data.text, 'Generate the initial `<head>` tags from `site.yaml`.');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('raw html outside inline code still becomes source', () => {
+  const source = 'Generate <head> tags from `site.yaml`.\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'source');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
 run('indented lists become editable visual list blocks', () => {
   const source = [
     '- parent',

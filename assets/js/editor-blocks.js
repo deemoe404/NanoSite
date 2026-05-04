@@ -277,13 +277,41 @@ function parseQuoteBlock(raw) {
   return { text: lines.map(line => line.replace(/^>\s?/, '')).join('\n') };
 }
 
+function maskInlineCodeSpans(raw) {
+  const text = String(raw || '');
+  let output = '';
+  let index = 0;
+  while (index < text.length) {
+    if (text[index] !== '`') {
+      output += text[index];
+      index += 1;
+      continue;
+    }
+
+    const start = index;
+    while (index < text.length && text[index] === '`') index += 1;
+    const marker = text.slice(start, index);
+    const close = text.indexOf(marker, index);
+    if (close < 0) {
+      output += marker;
+      continue;
+    }
+
+    const end = close + marker.length;
+    output += ' '.repeat(end - start);
+    index = end;
+  }
+  return output;
+}
+
 function isRiskyParagraph(raw) {
   if (!raw.trim()) return false;
-  if (/^\|/.test(raw.trimStart())) return true;
-  if (/\n\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*(?:\n|$)/.test(raw)) return true;
-  if (/^\s+[-*+]\s+/m.test(raw) || /^\s+\d{1,9}[\.)]\s+/m.test(raw)) return true;
-  if (/!\[[^\]]*\]\([^)]+\)/.test(raw)) return true;
-  if (/<[A-Za-z][^>]*>/.test(raw)) return true;
+  const visible = maskInlineCodeSpans(raw);
+  if (/^\|/.test(visible.trimStart())) return true;
+  if (/\n\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*(?:\n|$)/.test(visible)) return true;
+  if (/^\s+[-*+]\s+/m.test(visible) || /^\s+\d{1,9}[\.)]\s+/m.test(visible)) return true;
+  if (/!\[[^\]]*\]\([^)]+\)/.test(visible)) return true;
+  if (/<[A-Za-z][^>]*>/.test(visible)) return true;
   return false;
 }
 
