@@ -1262,7 +1262,7 @@
     .markdown-blocks-shell, .blocks-list, .blocks-block, .blocks-block-body { cursor:text; }
     .markdown-blocks-shell[hidden] { display:none !important; }
     .blocks-toolbar { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; padding:.2rem .2rem .7rem; border-bottom:1px solid color-mix(in srgb, var(--border) 72%, transparent); }
-    .blocks-toolbar, .blocks-block-head, .blocks-link-editor, .blocks-inspector, .blocks-card-picker, .blocks-action-menu, .blocks-inline-more-menu { cursor:default; }
+    .blocks-toolbar, .blocks-block-head, .blocks-link-editor, .blocks-image-meta-controls, .blocks-inspector, .blocks-card-picker, .blocks-action-menu, .blocks-inline-more-menu { cursor:default; }
     .blocks-btn, .blocks-icon-btn, .blocks-inline-btn, .blocks-card-result, .blocks-action-menu-item, .blocks-inline-menu-item { border:1px solid color-mix(in srgb, var(--border) 82%, transparent); background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); border-radius:7px; font:inherit; font-size:.86rem; line-height:1.1; padding:.42rem .58rem; cursor:pointer; transition:background .16s ease, border-color .16s ease, color .16s ease; }
     .blocks-btn:hover, .blocks-btn:focus-visible, .blocks-icon-btn:hover:not(:disabled), .blocks-icon-btn:focus-visible:not(:disabled), .blocks-inline-btn:hover, .blocks-inline-btn:focus-visible, .blocks-card-result:hover, .blocks-card-result:focus-visible, .blocks-action-menu-item:hover:not(:disabled), .blocks-action-menu-item:focus-visible:not(:disabled), .blocks-inline-menu-item:hover:not(:disabled), .blocks-inline-menu-item:focus-visible:not(:disabled) { background:color-mix(in srgb, var(--primary) 10%, var(--card)); border-color:color-mix(in srgb, var(--primary) 45%, var(--border)); color:color-mix(in srgb, var(--primary) 92%, var(--text)); outline:none; }
     .blocks-inline-btn { min-width:2rem; min-height:1.85rem; padding:.25rem .45rem; font-weight:700; }
@@ -1309,9 +1309,12 @@
     .blocks-action-menu-item:disabled { opacity:.45; cursor:not-allowed; }
     .blocks-action-menu-delete { color:color-mix(in srgb, #dc2626 82%, var(--text)); }
     .blocks-action-menu-delete:hover:not(:disabled), .blocks-action-menu-delete:focus-visible:not(:disabled) { background:color-mix(in srgb, #dc2626 12%, transparent); border-color:transparent; color:#b91c1c; }
-    .blocks-block-head .blocks-heading-level, .blocks-block-head .blocks-list-type-select, .blocks-block-head .blocks-code-language { min-height:1.65rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:999px; background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); font:inherit; font-size:.8rem; line-height:1.2; padding:.12rem .55rem; }
+    .blocks-block-head .blocks-heading-level, .blocks-block-head .blocks-list-type-select, .blocks-block-head .blocks-code-language, .blocks-block-head .blocks-image-meta-controls input { min-height:1.65rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:999px; background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); font:inherit; font-size:.8rem; line-height:1.2; padding:.12rem .55rem; }
     .blocks-block-head .blocks-heading-level, .blocks-block-head .blocks-list-type-select { padding-right:1.45rem; }
     .blocks-block-head .blocks-code-language { width:8.5rem; max-width:26vw; }
+    .blocks-image-meta-controls { display:flex; align-items:center; gap:.24rem; margin-left:.16rem; padding-left:.34rem; border-left:1px solid color-mix(in srgb, var(--border) 82%, transparent); }
+    .blocks-block-head .blocks-image-meta-controls input { width:clamp(6.5rem, 12vw, 10rem); max-width:18vw; }
+    .blocks-block-head .blocks-image-meta-controls .blocks-image-src { width:clamp(8rem, 16vw, 13rem); max-width:24vw; }
     .blocks-block-body { display:flex; flex-direction:column; gap:.7rem; padding:0; }
     .blocks-heading-controls, .blocks-inspector { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
     .blocks-inspector input, .blocks-inspector select, .blocks-heading-level, .blocks-textarea, .blocks-block input, .blocks-block select, .blocks-card-search { box-sizing:border-box; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:7px; background:color-mix(in srgb, var(--card) 96%, transparent); color:var(--text); font:inherit; line-height:1.45; padding:.5rem .6rem; }
@@ -1338,9 +1341,10 @@
     .blocks-textarea { resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; }
     .blocks-source-textarea { min-height:0; width:100%; resize:none; overflow:hidden; padding-block:0; }
     .blocks-source-textarea:focus { outline:none; box-shadow:none; border-color:color-mix(in srgb, var(--border) 82%, transparent); }
-    .blocks-image-figure { margin:0; display:flex; flex-direction:column; gap:.45rem; align-items:flex-start; }
-    .blocks-image-preview { display:block; max-width:100%; max-height:28rem; height:auto; border-radius:8px; border:1px solid color-mix(in srgb, var(--border) 72%, transparent); background:color-mix(in srgb, var(--text) 3%, transparent); box-shadow:0 1px 2px rgba(15,23,42,.08); object-fit:contain; }
-    .blocks-image-figure figcaption { color:var(--muted); font-size:.86rem; word-break:break-word; }
+    .blocks-image-figure { margin:0; display:block; width:100%; }
+    .blocks-image-preview { display:block; width:100%; height:auto; border-radius:.5rem; background:color-mix(in srgb, var(--text) 3%, transparent); box-shadow:var(--shadow, 0 1px 2px rgba(15,23,42,.08)); object-fit:contain; }
+    .blocks-image-figure figcaption { margin-top:.5em; color:var(--muted); font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:.9em; text-align:center; word-break:break-word; }
+    .blocks-image-figure figcaption[hidden] { display:none !important; }
     .blocks-visual-list { margin:.1rem 0 .2rem; padding-left:1.65rem; line-height:1.6; }
     .blocks-visual-list-task { list-style:none; padding-left:0; }
     .blocks-list-item { padding:.28rem 0; }

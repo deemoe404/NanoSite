@@ -1788,6 +1788,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const blockElements = () => Array.from(list.children).filter(el => el && el.classList && el.classList.contains('blocks-block'));
 
+  const clearNativeSelection = () => {
+    try {
+      const sel = window.getSelection && window.getSelection();
+      if (sel) sel.removeAllRanges();
+    } catch (_) {}
+  };
+
   const prefersReducedReorderMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const captureBlockRects = (indexes = null) => {
@@ -2474,6 +2481,21 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!event || event.defaultPrevented || event.button !== 0) return;
     if (event.isPrimary === false) return;
     if (isBlocksCaretInteractiveTarget(event.target)) return;
+    const imageBlock = closestElement(event.target, '.blocks-block-image');
+    if (imageBlock) {
+      const imageIndex = blockElements().indexOf(imageBlock);
+      if (imageIndex >= 0) {
+        event.preventDefault();
+        state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+        try { imageBlock.focus({ preventScroll: true }); }
+        catch (_) {
+          try { imageBlock.focus(); } catch (__) {}
+        }
+        clearNativeSelection();
+        setActive(imageIndex);
+        return;
+      }
+    }
     const candidate = nearestEditableFromPoint(event.clientX, event.clientY);
     if (!candidate || !candidate.editable) return;
     event.preventDefault();
@@ -3165,15 +3187,76 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return select;
   };
 
+  const syncRenderedImageBlock = (block) => {
+    const blockEl = blockElements().find(el => el && el.dataset && el.dataset.blockId === block.id);
+    if (!blockEl) return;
+    const img = blockEl.querySelector('.blocks-image-preview');
+    const caption = blockEl.querySelector('.blocks-image-figure figcaption');
+    if (img) {
+      img.alt = block.data.alt || '';
+      const nextSrc = resolveAssetSrc(block.data.src || '');
+      if (nextSrc) img.src = nextSrc;
+      else img.removeAttribute('src');
+    }
+    if (caption) {
+      caption.textContent = block.data.alt || '';
+      caption.hidden = !block.data.alt;
+    }
+    hydrateImages(blockEl);
+  };
+
+  const createImageMetadataControls = (block) => {
+    const controls = document.createElement('div');
+    controls.className = 'blocks-image-meta-controls';
+    const alt = document.createElement('input');
+    alt.type = 'text';
+    alt.className = 'blocks-image-alt';
+    alt.value = block.data.alt || '';
+    alt.placeholder = text('imageAlt', 'Alt text');
+    alt.setAttribute('aria-label', text('imageAlt', 'Alt text'));
+    const src = document.createElement('input');
+    src.type = 'text';
+    src.className = 'blocks-image-src';
+    src.value = block.data.src || '';
+    src.placeholder = text('imagePath', 'Image path');
+    src.setAttribute('aria-label', text('imagePath', 'Image path'));
+    const title = document.createElement('input');
+    title.type = 'text';
+    title.className = 'blocks-image-title';
+    title.value = block.data.title || '';
+    title.placeholder = text('imageTitle', 'Image title');
+    title.setAttribute('aria-label', text('imageTitle', 'Image title'));
+    const update = () => {
+      updateFromControl(block, { alt: inputValue(alt), src: inputValue(src), title: inputValue(title) });
+      syncRenderedImageBlock(block);
+    };
+    alt.addEventListener('input', update);
+    src.addEventListener('input', update);
+    title.addEventListener('input', update);
+    controls.append(alt, src, title);
+    return controls;
+  };
+
   const renderHeadingBlock = (body, block, index) => {
     const level = Math.max(1, Math.min(6, Number(block.data.level) || 2));
     const heading = createRichEditable(`h${level}`, block, 'text', `blocks-rich-editable blocks-heading-text blocks-heading-h${level}`, index);
     body.appendChild(heading);
   };
 
-  const renderImageBlock = (body, block) => {
+  const renderImageBlock = (body, block, index) => {
     const figure = document.createElement('figure');
     figure.className = 'blocks-image-figure';
+    const selectImageBlock = (event) => {
+      if (!event || event.defaultPrevented) return;
+      if (event.type === 'pointerdown' && (event.button !== 0 || event.isPrimary === false)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+      clearNativeSelection();
+      setActive(index);
+    };
+    figure.addEventListener('pointerdown', selectImageBlock);
+    figure.addEventListener('click', selectImageBlock);
     const img = document.createElement('img');
     img.className = 'blocks-image-preview';
     img.alt = block.data.alt || '';
@@ -3182,36 +3265,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     img.loading = 'lazy';
     img.decoding = 'async';
     const caption = document.createElement('figcaption');
-    caption.textContent = block.data.alt || block.data.src || text('imagePath', 'Image path');
+    caption.textContent = block.data.alt || '';
+    caption.hidden = !block.data.alt;
     figure.append(img, caption);
 
-    const controls = document.createElement('div');
-    controls.className = 'blocks-inspector blocks-image-inspector';
-    const alt = document.createElement('input');
-    alt.type = 'text';
-    alt.value = block.data.alt || '';
-    alt.placeholder = text('imageAlt', 'Alt text');
-    const src = document.createElement('input');
-    src.type = 'text';
-    src.value = block.data.src || '';
-    src.placeholder = text('imagePath', 'Image path');
-    const title = document.createElement('input');
-    title.type = 'text';
-    title.value = block.data.title || '';
-    title.placeholder = text('imageTitle', 'Image title');
-    const update = () => {
-      updateFromControl(block, { alt: inputValue(alt), src: inputValue(src), title: inputValue(title) });
-      img.alt = block.data.alt || '';
-      const nextSrc = resolveAssetSrc(block.data.src || '');
-      if (nextSrc) img.src = nextSrc;
-      caption.textContent = block.data.alt || block.data.src || text('imagePath', 'Image path');
-      hydrateImages(figure);
-    };
-    alt.addEventListener('input', update);
-    src.addEventListener('input', update);
-    title.addEventListener('input', update);
-    controls.append(alt, src, title);
-    body.append(figure, controls);
+    body.append(figure);
     hydrateImages(figure);
   };
 
@@ -3449,7 +3507,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       quote.appendChild(createRichEditable('p', block, 'text', 'blocks-rich-editable blocks-quote-text', index));
       body.appendChild(quote);
     } else if (block.type === 'image') {
-      renderImageBlock(body, block);
+      renderImageBlock(body, block, index);
     } else if (block.type === 'list') {
       renderListBlock(body, block, index);
     } else if (block.type === 'code') {
@@ -3552,6 +3610,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
     if (block.type === 'code') {
       head.appendChild(createCodeLanguageInput(block));
+    }
+    if (block.type === 'image') {
+      head.appendChild(createImageMetadataControls(block));
     }
     if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
       head.appendChild(createInlineControls(index));
