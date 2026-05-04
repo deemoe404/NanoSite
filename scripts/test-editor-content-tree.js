@@ -162,9 +162,9 @@ assert.deepEqual(
   [
     ['system:site-settings', 'system', 'system', 'Site Settings'],
     ['system:updates', 'system', 'system', 'NanoSite Updates'],
-    ['system:sync', 'system', 'system', 'Sync']
+    ['system:sync', 'system', 'system', 'Publish']
   ],
-  'system root should expose stable Site Settings, NanoSite Updates, and Sync leaves'
+  'system root should expose stable Site Settings, NanoSite Updates, and Publish leaves'
 );
 
 const articles = tree[1];

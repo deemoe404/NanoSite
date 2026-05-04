@@ -375,7 +375,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
         kind: 'system',
         source: 'system',
         key: 'sync',
-        label: options.syncLabel || 'Sync',
+        label: options.syncLabel || 'Publish',
         children: []
       }, statusMaps)
     ]

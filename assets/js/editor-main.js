@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-block-reorder-toolbar-sync-20260504';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-publish-label-20260504';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -18,7 +18,7 @@ import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260504i18n';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260504publish';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 const LS_VIEW_KEY = 'ns_editor_markdown_view';

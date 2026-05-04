@@ -1061,8 +1061,8 @@ assert.match(
 
 assert.match(
   source,
-  /syncLabel: treeText\('sync', 'Sync'\),[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
-  'System tree should expose and route the Sync leaf'
+  /syncLabel: treeText\('sync', 'Publish'\),[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
+  'System tree should expose and route the Publish leaf'
 );
 
 assert.doesNotMatch(
@@ -1144,19 +1144,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504i18n';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504publish';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260504i18n"[\s\S]*"\.\/chs\.js\?v=20260504i18n"[\s\S]*"\.\/cht-tw\.js\?v=20260504i18n"[\s\S]*"\.\/cht-hk\.js\?v=20260504i18n"[\s\S]*"\.\/ja\.js\?v=20260504i18n"/,
+  /"\.\/en\.js\?v=20260504publish"[\s\S]*"\.\/chs\.js\?v=20260504publish"[\s\S]*"\.\/cht-tw\.js\?v=20260504publish"[\s\S]*"\.\/cht-hk\.js\?v=20260504publish"[\s\S]*"\.\/ja\.js\?v=20260504publish"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260504i18n'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260504publish'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 

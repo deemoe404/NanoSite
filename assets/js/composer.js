@@ -8,7 +8,7 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260504i18n';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260504publish';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
@@ -8427,14 +8427,14 @@ function showEditorSystemPanel(mode) {
   if (kicker) kicker.textContent = treeText('system', 'System');
   if (title) {
     title.textContent = nextMode === 'sync'
-      ? treeText('sync', 'Sync')
+      ? treeText('sync', 'Publish')
       : (nextMode === 'updates'
         ? treeText('nanoSiteUpdates', 'NanoSite Updates')
         : treeText('siteSettings', 'Site Settings'));
   }
   if (meta) {
     meta.textContent = nextMode === 'sync'
-      ? treeText('syncMeta', 'Review local and GitHub sync status.')
+      ? treeText('syncMeta', 'Publish local changes to GitHub.')
       : (nextMode === 'updates'
         ? treeText('systemUpdatesMeta', 'Review and apply NanoSite updates.')
         : treeText('siteSettingsMeta', 'Edit site.yaml settings.'));
@@ -8478,7 +8478,7 @@ function showEditorSystemPanel(mode) {
 }
 
 function getEditorOverlayTitle(mode) {
-  if (mode === 'sync') return treeText('sync', 'Sync');
+  if (mode === 'sync') return treeText('sync', 'Publish');
   if (mode === 'updates') return t('editor.systemUpdates.tabLabel');
   return t('editor.modes.composer');
 }
@@ -10708,7 +10708,7 @@ function buildCurrentEditorTree() {
     systemLabel: treeText('system', 'System'),
     siteSettingsLabel: treeText('siteSettings', 'Site Settings'),
     updatesLabel: treeText('nanoSiteUpdates', 'NanoSite Updates'),
-    syncLabel: treeText('sync', 'Sync'),
+    syncLabel: treeText('sync', 'Publish'),
     articlesLabel: treeText('articles', 'Articles'),
     pagesLabel: treeText('pages', 'Pages'),
     draftStates: collectEditorDraftStatusMap(),
@@ -11726,7 +11726,7 @@ function renderEditorStructurePanel(node) {
       list.className = 'editor-structure-list';
       node.children.forEach((child) => {
         const detail = child.id === 'system:sync'
-          ? treeText('syncMeta', 'Review local and GitHub sync status.')
+          ? treeText('syncMeta', 'Publish local changes to GitHub.')
           : (child.id === 'system:updates'
             ? treeText('systemUpdatesMeta', 'Review and apply NanoSite updates.')
             : treeText('siteSettingsMeta', 'Edit site.yaml settings.'));
