@@ -2766,6 +2766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dirty = !!currentFileInfo.dirty;
     const draft = currentFileInfo.draft;
     const draftState = currentFileInfo.draftState || '';
+    const statusLabel = describeStatusLabel(status);
     const meta = formatStatusMeta(status);
     const mainPieces = [];
     const breadcrumbLabel = (currentFileInfo.breadcrumb || [])
@@ -2773,10 +2774,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean)
       .join('/');
     mainPieces.push(renderCurrentFileBreadcrumb(currentFileInfo.breadcrumb, path));
-    const mainHtml = `<span class="cf-line-main">${mainPieces.join(' ')}</span>`;
-
-    const metaPieces = [];
-    if (meta) metaPieces.push(`<span class="cf-remote">${escapeHtml(meta)}</span>`);
     let draftLabel = '';
     if (draft && draft.hasContent) {
       if (Number.isFinite(draft.savedAt)) {
@@ -2794,10 +2791,12 @@ document.addEventListener('DOMContentLoaded', () => {
           : t('editor.currentFile.draft.available');
       }
       if (!draftLabel) draftLabel = '';
-      metaPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
+      mainPieces.push('<span class="cf-inline-separator" aria-hidden="true">·</span>');
+      mainPieces.push(`<span class="cf-draft">${draftLabel}</span>`);
     }
-    const metaHtml = metaPieces.length ? `<span class="cf-line-meta">${metaPieces.join('<span aria-hidden="true">·</span>')}</span>` : '';
-    el.innerHTML = `${mainHtml}${metaHtml}`;
+    const mainHtml = `<span class="cf-line-main">${mainPieces.join('')}</span>`;
+
+    el.innerHTML = mainHtml;
     bindCurrentFileBreadcrumbEvents(el);
 
     const tooltipParts = [breadcrumbLabel, path && path !== breadcrumbLabel ? path : '', statusLabel, meta, draftLabel]

@@ -707,20 +707,18 @@
       max-width: 100%;
     }
     .mode-switch-editor[hidden] { display: none !important; }
-    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; flex-direction: column; gap: .18rem; min-width: 0; }
-    .current-file .cf-line-main { font-weight: 400; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+    .current-file { color: var(--muted); font-size: .85rem; margin-left: .5rem; display: flex; min-width: 0; }
+    .current-file .cf-line-main { font-weight: 400; color: color-mix(in srgb, var(--text) 65%, transparent); font-size: .9rem; display: inline-flex; align-items: center; gap: 0; min-width: 0; }
     .current-file .cf-line-main .cf-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .current-file .cf-breadcrumb { display:inline-flex; align-items:center; gap:.35rem; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; color:#57606a; }
     .current-file .cf-breadcrumb-separator { color:#8c959f; font-weight:500; margin:0 -.35rem; }
     .current-file .cf-breadcrumb-item { color:#57606a; text-decoration:none; padding:.1rem .25rem; border-radius:6px; position:relative; font:inherit; font-weight:inherit; line-height:1.25; min-width:0; max-width:12rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .current-file .cf-breadcrumb-item-current { background:transparent; color:var(--text); text-decoration:none; cursor:default; }
     .current-file .cf-breadcrumb-item-static:not(.cf-breadcrumb-item-current) { color:inherit; cursor:default; }
+    .current-file .cf-inline-separator { color:#8c959f; font-weight:500; flex:0 0 auto; margin:0 .4rem 0 .15rem; }
     .current-file .cf-line-meta { font-size: .78rem; color: color-mix(in srgb, var(--muted) 88%, transparent); display: inline-flex; gap: .35rem; flex-wrap: wrap; }
-    .current-file .cf-draft { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; color: color-mix(in srgb, #2563eb 70%, var(--text)); }
-    .current-file .cf-draft::before { content: ''; width: .45rem; height: .45rem; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px color-mix(in srgb, #22c55e 18%, transparent); }
+    .current-file .cf-draft { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; color: color-mix(in srgb, #60a5fa 55%, var(--muted)); }
     .current-file[data-draft-state="conflict"] .cf-draft { color: color-mix(in srgb, #ef4444 75%, var(--text)); }
-    .current-file[data-draft-state="conflict"] .cf-draft::before { background: #ef4444; box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 26%, transparent); }
-    .current-file[data-dirty="1"] .cf-draft::before { background: #f97316; box-shadow: 0 0 0 3px color-mix(in srgb, #f97316 26%, transparent); }
     .current-file[data-file-state="checking"] .cf-line-main { color: color-mix(in srgb, #2563eb 70%, var(--text)); }
     .current-file[data-file-state="existing"] .cf-line-main { color: color-mix(in srgb, #15803d 70%, var(--text)); }
     .current-file[data-file-state="missing"] .cf-line-main { color: color-mix(in srgb, #d97706 75%, var(--text)); }
@@ -831,7 +829,7 @@
       justify-content:space-between;
       gap:.75rem;
       flex-wrap:wrap;
-      padding:.4rem 0 .55rem;
+      padding:.475rem 0;
       border-bottom:1px solid #d0d7de;
       position:sticky;
       top:calc(var(--editor-content-pane-padding, 0px) * -1);
@@ -2211,7 +2209,7 @@
     })();
   </script>
   <script type="module" src="assets/js/editor-boot.js?v=editor-saved-label-20260504"></script>
-  <script type="module" src="assets/js/editor-main.js?v=editor-saved-label-20260504"></script>
+  <script type="module" src="assets/js/editor-main.js?v=editor-current-file-inline-20260504"></script>
   <script type="module" src="assets/js/composer.js?v=editor-saved-label-20260504"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
