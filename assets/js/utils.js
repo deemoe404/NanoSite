@@ -218,15 +218,6 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
     try { target.textContent = input; } catch (_) {}
     return;
   }
-  try {
-    // Prefer native Sanitizer API when available
-    if (typeof window !== 'undefined' && 'Sanitizer' in window && typeof Element.prototype.setHTML === 'function') {
-      const s = new window.Sanitizer();
-      target.setHTML(input, { sanitizer: s });
-      return;
-    }
-  } catch (_) { /* fall through to manual sanitizer */ }
-
   // Build a DOM fragment by tokenizing the renderer output and creating
   // elements/attributes programmatically.
   try {
