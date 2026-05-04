@@ -239,6 +239,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const findVerticalScrollParent = \(node\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*const forwardBlockHeadWheel = \(event\) => \{[\s\S]*absX > absY[\s\S]*scrollParent\.scrollTop = before \+ deltaY;[\s\S]*event\.preventDefault\(\);[\s\S]*head\.addEventListener\('wheel', forwardBlockHeadWheel, \{ passive: false \}\);/,
+  'active block toolbar should forward vertical wheel gestures to the editor content scroll pane'
+);
+
+assert.match(
+  editorBlocksSource,
   /item\.addEventListener\('click', \(event\) => \{[\s\S]*shouldSuppressRoutedBlockContainerClick\(\)[\s\S]*closestElement\(event\.target, '\.blocks-block-head'\)[\s\S]*setActive\(index\);[\s\S]*\}\);[\s\S]*item\.addEventListener\('focusin', \(\) => setActive\(index\)\);/,
   'block section container clicks should select the block without hijacking toolbar action clicks or routed carets'
 );

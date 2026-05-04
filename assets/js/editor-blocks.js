@@ -2111,6 +2111,40 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return window.innerHeight || document.documentElement.clientHeight || 0;
   };
 
+  const findVerticalScrollParent = (node) => {
+    let el = node && node.parentElement;
+    while (el && el !== document.body && el !== document.documentElement) {
+      try {
+        const cs = window.getComputedStyle(el);
+        if (/(auto|scroll|overlay)/.test(cs.overflowY || '') && el.scrollHeight > el.clientHeight + 1) return el;
+      } catch (_) {}
+      el = el.parentElement;
+    }
+    return document.getElementById('editorContentPane') || document.scrollingElement || document.documentElement;
+  };
+
+  const wheelDeltaYForScroll = (event, scrollParent) => {
+    let deltaY = event && Number.isFinite(event.deltaY) ? event.deltaY : 0;
+    if (!deltaY) return 0;
+    if (event.deltaMode === 1) deltaY *= 16;
+    else if (event.deltaMode === 2) deltaY *= (scrollParent && scrollParent.clientHeight) || window.innerHeight || 600;
+    return deltaY;
+  };
+
+  const forwardBlockHeadWheel = (event) => {
+    if (!event || !event.deltaY) return;
+    const absX = Math.abs(event.deltaX || 0);
+    const absY = Math.abs(event.deltaY || 0);
+    if (absX > absY) return;
+    const scrollParent = findVerticalScrollParent(root);
+    if (!scrollParent) return;
+    const deltaY = wheelDeltaYForScroll(event, scrollParent);
+    if (!deltaY) return;
+    const before = scrollParent.scrollTop;
+    scrollParent.scrollTop = before + deltaY;
+    if (scrollParent.scrollTop !== before) event.preventDefault();
+  };
+
   const updateStickyBlockHead = () => {
     const blockNodes = Array.from(list.querySelectorAll('.blocks-block'));
     const activeBlock = blockNodes[state.activeIndex] || null;
@@ -3504,6 +3538,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     type.textContent = text(block.type, block.type);
     const actions = createBlockActionMenu(index);
     head.appendChild(type);
+    head.addEventListener('wheel', forwardBlockHeadWheel, { passive: false });
     if (block.type === 'source') {
       head.appendChild(createSourceReasonHelp(block, index));
       if (canAutofixSourceBlock(block)) head.appendChild(createSourceAutofixButton(block, index));
