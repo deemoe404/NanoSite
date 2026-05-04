@@ -1610,6 +1610,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   let pendingBlocksImageInsert = null;
+  let pendingImagePickerToken = 0;
+  const armImagePickerCancelReset = (token) => {
+    const clearIfPickerStillPending = () => {
+      window.setTimeout(() => {
+        if (token !== pendingImagePickerToken) return;
+        const hasFiles = imageInput && imageInput.files && imageInput.files.length;
+        if (!hasFiles) pendingBlocksImageInsert = null;
+      }, 250);
+    };
+    window.addEventListener('focus', clearIfPickerStillPending, { once: true });
+    if (imageInput) {
+      imageInput.addEventListener('cancel', clearIfPickerStillPending, { once: true });
+      imageInput.addEventListener('blur', clearIfPickerStillPending, { once: true });
+    }
+  };
+  const openImageInputPicker = () => {
+    if (!imageInput) {
+      pendingBlocksImageInsert = null;
+      return;
+    }
+    pendingImagePickerToken += 1;
+    const pickerToken = pendingImagePickerToken;
+    try { imageInput.value = ''; } catch (_) {}
+    armImagePickerCancelReset(pickerToken);
+    try { imageInput.click(); }
+    catch (_) {
+      try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+      catch (__) {}
+    }
+  };
   const setEditorBodyFromBlocks = (body) => {
     const text = body == null ? '' : String(body);
     if (editor) editor.setValue(text);
@@ -1653,13 +1683,7 @@ document.addEventListener('DOMContentLoaded', () => {
           pendingBlocksImageInsert = null;
           return;
         }
-        if (imageInput) {
-          try { imageInput.click(); }
-          catch (_) {
-            try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
-            catch (__) {}
-          }
-        }
+        openImageInputPicker();
       }
     });
     syncMarkdownBlocksFromSource = () => {
@@ -2825,22 +2849,17 @@ document.addEventListener('DOMContentLoaded', () => {
         emitEditorToast('warn', 'Open a markdown file before inserting images.');
         return;
       }
-      if (imageInput) {
-        try { imageInput.click(); }
-        catch (_) {
-          try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
-          catch (__) {}
-        }
-      }
+      openImageInputPicker();
     });
   }
 
   if (imageInput) {
     imageInput.addEventListener('change', () => {
       const files = imageInput.files;
+      const blockInsert = pendingBlocksImageInsert;
+      pendingBlocksImageInsert = null;
+      pendingImagePickerToken += 1;
       if (files && files.length) {
-        const blockInsert = pendingBlocksImageInsert;
-        pendingBlocksImageInsert = null;
         const replaceIndex = blockInsert && Number.isFinite(blockInsert.replaceIndex)
           ? blockInsert.replaceIndex
           : null;

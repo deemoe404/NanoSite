@@ -509,6 +509,18 @@ assert.match(
 
 assert.match(
   editorMainSource,
+  /let pendingBlocksImageInsert = null;[\s\S]*let pendingImagePickerToken = 0;[\s\S]*const armImagePickerCancelReset = \(token\) => \{[\s\S]*if \(token !== pendingImagePickerToken\) return;[\s\S]*if \(!hasFiles\) pendingBlocksImageInsert = null;[\s\S]*imageInput\.addEventListener\('cancel', clearIfPickerStillPending, \{ once: true \}\);[\s\S]*imageInput\.addEventListener\('blur', clearIfPickerStillPending, \{ once: true \}\);[\s\S]*const openImageInputPicker = \(\) => \{[\s\S]*pendingImagePickerToken \+= 1;[\s\S]*imageInput\.value = '';[\s\S]*armImagePickerCancelReset\(pickerToken\);[\s\S]*imageInput\.click\(\);/,
+  'image picker cancellation should clear stale pending replacement targets'
+);
+
+assert.match(
+  editorMainSource,
+  /imageInput\.addEventListener\('change', \(\) => \{[\s\S]*const blockInsert = pendingBlocksImageInsert;[\s\S]*pendingBlocksImageInsert = null;[\s\S]*pendingImagePickerToken \+= 1;[\s\S]*if \(files && files\.length\) \{/,
+  'image picker changes should consume the pending replacement target before handling files'
+);
+
+assert.match(
+  editorMainSource,
   /const refreshPreviewAssetOverrides = \(\) => \{[\s\S]*\['mainview', 'blocks-wrap'\]\.forEach\(\(id\) => \{[\s\S]*document\.getElementById\(id\)[\s\S]*applyPreviewAssetOverrides\(target, previewAssetCurrentPath\);[\s\S]*\}\);[\s\S]*\};/,
   'asset preview refresh should update both rendered preview and WYSIWYG block images'
 );
