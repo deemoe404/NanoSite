@@ -1583,7 +1583,19 @@ document.addEventListener('DOMContentLoaded', () => {
     unlink: 'Unlink',
     listAddItem: 'Add item',
     listRemoveItem: 'Remove item',
-    imageTitle: 'Image title'
+    imageTitle: 'Image title',
+    'sourceReason.blank': 'This empty Markdown segment is preserved as source.',
+    'sourceReason.frontMatter': 'Front matter is preserved as raw Markdown so document metadata stays intact.',
+    'sourceReason.unclosedFence': 'This fenced code block is incomplete, so it is kept as Markdown source.',
+    'sourceReason.callout': 'This block uses callout-style Markdown that the visual block editor does not edit directly.',
+    'sourceReason.table': 'This table-like Markdown is kept as source because the visual block editor does not support table editing yet.',
+    'sourceReason.indentedList': 'This list starts with indentation, so it is kept as source to avoid changing whether it means a nested list or code-like Markdown.',
+    'sourceReason.image': 'This paragraph contains inline image Markdown, so it is kept as source to avoid changing the mixed content.',
+    'sourceReason.rawHtml': 'This paragraph contains raw HTML outside inline code, so it is kept as Markdown source.',
+    'sourceReason.unsupported': 'This Markdown is kept as source because the block editor cannot safely convert it to a visual block without changing the original structure.',
+    'sourceAutofix.label': 'Autofix',
+    'sourceAutofix.indentedList': 'Autofix: remove the shared list indentation and convert this Markdown into a visual list block.',
+    'sourceAutofix.unsupported': 'Autofix'
   };
   const blockLabels = new Proxy({}, {
     get: (_target, key) => {

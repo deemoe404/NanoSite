@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   applyInlineLinkToRuns,
+  autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
   patchListItem,
   parseInlineRuns,
@@ -186,7 +187,36 @@ run('raw html outside inline code still becomes source', () => {
   const blocks = parseMarkdownBlocks(source);
   assert.equal(blocks.length, 1);
   assert.equal(blocks[0].type, 'source');
+  assert.equal(blocks[0].data.sourceReason, 'rawHtml');
   assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('indented list source blocks explain the markdown fallback', () => {
+  const source = [
+    '\t- nested-looking item',
+    '\t- another item',
+    ''
+  ].join('\n');
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'source');
+  assert.equal(blocks[0].data.sourceReason, 'indentedList');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('indented list source blocks can autofix into visual list blocks', () => {
+  const source = [
+    '\t- nested-looking item',
+    '\t- another item',
+    ''
+  ].join('\n');
+  const [sourceBlock] = parseMarkdownBlocks(source);
+  const fixed = autofixMarkdownSourceBlock(sourceBlock);
+  assert.equal(fixed.length, 1);
+  assert.equal(fixed[0].type, 'list');
+  assert.equal(fixed[0].dirty, true);
+  assert.deepEqual(fixed[0].data.items.map(item => item.text), ['nested-looking item', 'another item']);
+  assert.equal(serializeMarkdownBlocks(fixed), '- nested-looking item\n- another item\n');
 });
 
 run('indented lists become editable visual list blocks', () => {
