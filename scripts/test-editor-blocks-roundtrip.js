@@ -296,6 +296,78 @@ run('standard list type changes apply to homogeneous indentation levels', () => 
   ].join('\n'));
 });
 
+run('standard list type changes apply to the active sibling group only', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. DNS records',
+    '   - 185.199.108.153',
+    '   - 185.199.109.153',
+    '   - 185.199.110.153',
+    '   - 185.199.111.153',
+    '2. Pages settings',
+    '   1. Custom domain',
+    '   2. Save',
+    '3. Verification',
+    '   - Wait',
+    '   - Check DNS',
+    '   - Open site',
+    '4. Done',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), [
+    'ol',
+    'ol', 'ol', 'ol', 'ol',
+    'ol',
+    'ol', 'ol',
+    'ol',
+    'ul', 'ul', 'ul',
+    'ol'
+  ]);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. DNS records',
+    '   1. 185.199.108.153',
+    '   2. 185.199.109.153',
+    '   3. 185.199.110.153',
+    '   4. 185.199.111.153',
+    '2. Pages settings',
+    '   1. Custom domain',
+    '   2. Save',
+    '3. Verification',
+    '   - Wait',
+    '   - Check DNS',
+    '   - Open site',
+    '4. Done',
+    ''
+  ].join('\n'));
+});
+
+run('sibling-group type changes skip deeper child items', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. Parent',
+    '   - Alpha',
+    '      - Alpha child',
+    '   - Beta',
+    '      - Beta child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+  const patch = patchListItemType(listBlock.data.items, 1, 'ol', listBlock.data.listType);
+  listBlock.dirty = true;
+  Object.assign(listBlock.data, patch);
+  assert.deepEqual(listBlock.data.items.map(item => item.listType), ['ol', 'ol', 'ul', 'ol', 'ul', 'ol']);
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. Parent',
+    '   1. Alpha',
+    '      - Alpha child',
+    '   2. Beta',
+    '      - Beta child',
+    '2. Sibling',
+    ''
+  ].join('\n'));
+});
+
 run('standard list type changes stay item-local on mixed indentation levels', () => {
   const [listBlock] = parseMarkdownBlocks([
     '1. Alpha',

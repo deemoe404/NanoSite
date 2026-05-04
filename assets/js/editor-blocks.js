@@ -645,9 +645,24 @@ export function patchListItemType(items, itemIndex, nextType, blockListType = 'u
   const next = editableListItems(items).slice();
   const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, next.length - 1));
   const targetIndent = itemIndentLevel(next[safeIndex]);
-  const sameIndentIndexes = next
+  let groupStart = 0;
+  for (let index = safeIndex - 1; index >= 0; index -= 1) {
+    if (itemIndentLevel(next[index]) < targetIndent) {
+      groupStart = index + 1;
+      break;
+    }
+  }
+  let groupEnd = next.length;
+  for (let index = safeIndex + 1; index < next.length; index += 1) {
+    if (itemIndentLevel(next[index]) < targetIndent) {
+      groupEnd = index;
+      break;
+    }
+  }
+  const sameIndentIndexes = next.slice(groupStart, groupEnd)
     .map((item, index) => itemIndentLevel(item) === targetIndent ? index : -1)
-    .filter(index => index >= 0);
+    .filter(index => index >= 0)
+    .map(index => index + groupStart);
   const typesAtIndent = new Set(sameIndentIndexes.map(index => effectiveListItemType(next[index], blockListType)));
   const targetIndexes = typesAtIndent.size === 1 ? sameIndentIndexes : [safeIndex];
 
