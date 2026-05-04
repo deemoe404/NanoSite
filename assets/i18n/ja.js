@@ -234,11 +234,11 @@ const translations = {
         },
         draft: {
           justNow: 'たった今',
-          savedHtml: ({ time }) => `ローカル下書きを${time}に保存しました`,
-          saved: 'ローカル下書きを保存しました',
-          savedConflictHtml: ({ time }) => `ローカル下書きを${time}に保存しました（リモート更新あり）`,
-          conflict: 'ローカル下書き（リモート更新あり）',
-          available: 'ローカル下書きが利用可能です'
+          savedHtml: ({ time }) => `保存しました（${time}）`,
+          saved: '保存しました',
+          savedConflictHtml: ({ time }) => `保存しました（${time}、リモート更新あり）`,
+          conflict: '保存しました（リモート更新あり）',
+          available: '保存しました'
         }
       },
       frontMatter: {

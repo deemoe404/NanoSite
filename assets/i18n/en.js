@@ -234,11 +234,11 @@ const translations = {
         },
         draft: {
           justNow: 'just now',
-          savedHtml: ({ time }) => `Local draft saved ${time}`,
-          saved: 'Local draft saved',
-          savedConflictHtml: ({ time }) => `Local draft saved ${time} (remote updated)`,
-          conflict: 'Local draft (remote updated)',
-          available: 'Local draft available'
+          savedHtml: ({ time }) => `Saved ${time}`,
+          saved: 'Saved',
+          savedConflictHtml: ({ time }) => `Saved ${time} (remote updated)`,
+          conflict: 'Saved (remote updated)',
+          available: 'Saved'
         }
       },
       frontMatter: {

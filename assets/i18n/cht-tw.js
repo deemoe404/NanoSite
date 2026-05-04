@@ -234,11 +234,11 @@ const translations = {
         },
         draft: {
           justNow: '剛剛',
-          savedHtml: ({ time }) => `本地草稿已於${time}儲存`,
-          saved: '本地草稿已儲存',
-          savedConflictHtml: ({ time }) => `本地草稿已於${time}儲存（遠端已更新）`,
-          conflict: '本地草稿（遠端已更新）',
-          available: '本地草稿可用'
+          savedHtml: ({ time }) => `已儲存，${time}`,
+          saved: '已儲存',
+          savedConflictHtml: ({ time }) => `已儲存，${time}（遠端已更新）`,
+          conflict: '已儲存（遠端已更新）',
+          available: '已儲存'
         }
       },
       frontMatter: {

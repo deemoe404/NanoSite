@@ -1144,19 +1144,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504publish';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504saved';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260504publish"[\s\S]*"\.\/chs\.js\?v=20260504publish"[\s\S]*"\.\/cht-tw\.js\?v=20260504publish"[\s\S]*"\.\/cht-hk\.js\?v=20260504publish"[\s\S]*"\.\/ja\.js\?v=20260504publish"/,
+  /"\.\/en\.js\?v=20260504saved"[\s\S]*"\.\/chs\.js\?v=20260504saved"[\s\S]*"\.\/cht-tw\.js\?v=20260504saved"[\s\S]*"\.\/cht-hk\.js\?v=20260504saved"[\s\S]*"\.\/ja\.js\?v=20260504saved"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260504publish'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260504saved'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
