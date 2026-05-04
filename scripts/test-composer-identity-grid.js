@@ -1037,14 +1037,32 @@ assert.match(
 
 assert.match(
   editorSource,
-  /<section class="editor-markdown-panel" id="editorMarkdownPanel"[\s\S]*<div class="toolbar">[\s\S]*<div class="left-actions">\s*<button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle"[\s\S]*data-i18n-aria-label="editor\.tree\.aria"[\s\S]*data-i18n-title="editor\.tree\.aria"[\s\S]*<svg class="editor-mobile-rail-icon"[\s\S]*<path d="M9 3v18"><\/path>[\s\S]*<\/button>\s*<span class="current-file" id="currentFile"/,
-  'mobile file tree toggle should sit inside the markdown toolbar as an icon-only button before the current file breadcrumb'
+  /<section class="editor-structure-panel" id="editorStructurePanel"[\s\S]*<div class="editor-panel-head editor-structure-head">\s*<button type="button" class="editor-mobile-rail-toggle" data-editor-rail-toggle[\s\S]*data-i18n-aria-label="editor\.tree\.aria"[\s\S]*data-i18n-title="editor\.tree\.aria"[\s\S]*<svg class="editor-mobile-rail-icon"[\s\S]*<path d="M9 3v18"><\/path>[\s\S]*<\/button>\s*<div class="editor-panel-heading editor-structure-heading">[\s\S]*<div class="editor-panel-actions editor-structure-actions" id="editorStructureActions"><\/div>/,
+  'structure panel header should expose a mobile file tree drawer toggle before the shared heading'
+);
+
+assert.match(
+  editorSource,
+  /<section class="editor-markdown-panel" id="editorMarkdownPanel"[\s\S]*<div class="toolbar">[\s\S]*<div class="left-actions">\s*<button type="button" class="editor-mobile-rail-toggle" data-editor-rail-toggle[\s\S]*data-i18n-aria-label="editor\.tree\.aria"[\s\S]*data-i18n-title="editor\.tree\.aria"[\s\S]*<svg class="editor-mobile-rail-icon"[\s\S]*<path d="M9 3v18"><\/path>[\s\S]*<\/button>\s*<span class="current-file" id="currentFile"/,
+  'markdown toolbar should keep its visual mobile file tree toggle before the current file breadcrumb'
+);
+
+assert.match(
+  editorSource,
+  /<section class="editor-system-panel" id="editorSystemPanel"[\s\S]*<div class="editor-panel-head editor-structure-head">\s*<button type="button" class="editor-mobile-rail-toggle" data-editor-rail-toggle[\s\S]*data-i18n-aria-label="editor\.tree\.aria"[\s\S]*data-i18n-title="editor\.tree\.aria"[\s\S]*<svg class="editor-mobile-rail-icon"[\s\S]*<path d="M9 3v18"><\/path>[\s\S]*<\/button>\s*<div class="editor-panel-heading editor-structure-heading">[\s\S]*<div class="editor-panel-actions editor-structure-actions" id="editorSystemActions"><\/div>/,
+  'system and publish panel header should expose the shared mobile file tree drawer toggle'
+);
+
+assert.equal(
+  (editorSource.match(/data-editor-rail-toggle/g) || []).length,
+  3,
+  'editor should render one drawer toggle entry for structure, markdown, and system surfaces'
 );
 
 assert.doesNotMatch(
   editorSource,
-  /id="editorMobileRailToggle"[^>]*data-i18n="editor\.tree\.aria"/,
-  'mobile file tree toggle should not translate over its SVG icon with visible text'
+  /id="editorMobileRailToggle"/,
+  'mobile file tree toggles should not depend on one id inside a conditionally hidden panel'
 );
 
 assert.doesNotMatch(
@@ -1892,8 +1910,8 @@ assert.match(
 
 assert.match(
   source,
-  /function initMobileEditorRail\(\) \{[\s\S]*editorMobileRailBound[\s\S]*setEditorRailOpen\(!isOpen\);/,
-  'mobile editor rail should use a drawer toggle instead of the desktop resizer'
+  /function getEditorRailToggles\(\) \{[\s\S]*document\.querySelectorAll\('\[data-editor-rail-toggle\]'\)[\s\S]*function setEditorRailOpen\(open\) \{[\s\S]*const toggles = getEditorRailToggles\(\);[\s\S]*toggles\.forEach\(\(toggle\) => \{[\s\S]*toggle\.setAttribute\('aria-expanded', shouldOpen \? 'true' : 'false'\);[\s\S]*function initMobileEditorRail\(\) \{[\s\S]*const toggles = getEditorRailToggles\(\);[\s\S]*if \(!toggles\.length\) return;[\s\S]*toggles\.forEach\(\(toggle\) => \{[\s\S]*toggle\.addEventListener\('click', \(\) => \{[\s\S]*setEditorRailOpen\(!isOpen\);/,
+  'mobile editor rail should bind every shared drawer toggle and sync expanded state'
 );
 
 assert.match(
