@@ -491,8 +491,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
-  'source markdown textareas should auto-size to their content'
+  /const autoSizeTextarea = \(area\) => \{[\s\S]*area\.style\.height = 'auto';[\s\S]*area\.style\.height = `\$\{area\.scrollHeight\}px`;[\s\S]*area\.rows = 1;[\s\S]*area\.addEventListener\('input', \(\) => \{[\s\S]*autoSizeTextarea\(area\);[\s\S]*queueMicrotask\(\(\) => autoSizeTextarea\(area\)\);/,
+  'source markdown textareas should auto-size to their content from a one-row baseline'
 );
 
 assert.match(
@@ -713,14 +713,32 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview code \{ display:block; min-height:1\.55em;[\s\S]*line-height:1\.55; \}/,
-  'single-line code blocks should not inherit a tall fixed minimum height'
+  /\.blocks-code-preview code \{ display:block; outline:none;[\s\S]*line-height:1\.55; \}/,
+  'code blocks should size from content without a fixed minimum height'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-code-preview code \{[^}]*min-height:/,
+  'code block content should not reserve a fixed minimum height'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; \}/,
-  'source markdown textareas should expand to content without a fixed minimum height or internal scrolling'
+  /\.blocks-source-textarea \{ min-height:0; width:100%; resize:none; overflow:hidden; padding-block:0; \}/,
+  'source markdown textareas should expand to content without fixed minimum height, internal scrolling, or vertical padding'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-rich-editable \{[^}]*min-height:/,
+  'rich block content should not reserve a fixed minimum height'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-textarea \{[^}]*min-height:/,
+  'block textareas should not reserve a fixed minimum height'
 );
 
 assert.match(

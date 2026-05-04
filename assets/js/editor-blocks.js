@@ -3426,6 +3426,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       const area = document.createElement('textarea');
       area.className = 'blocks-textarea blocks-source-textarea';
       area.spellcheck = false;
+      area.rows = 1;
       area.value = block.data.text != null ? block.data.text : block.raw || '';
       const sync = () => updateFromControl(block, { text: area.value });
       let sourcePointer = null;
