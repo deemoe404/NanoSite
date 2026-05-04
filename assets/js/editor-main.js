@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-block-head-wheel-20260504';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-image-controls-order-20260504';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -404,9 +404,11 @@ const applyPreviewAssetOverrides = (container, markdownPath) => {
 };
 
 const refreshPreviewAssetOverrides = () => {
-  const target = document.getElementById('mainview');
-  if (!target) return;
-  applyPreviewAssetOverrides(target, previewAssetCurrentPath);
+  ['mainview', 'blocks-wrap'].forEach((id) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    applyPreviewAssetOverrides(target, previewAssetCurrentPath);
+  });
 };
 
 const fetchMarkdownForLinkCard = (loc) => {
@@ -1563,6 +1565,7 @@ document.addEventListener('DOMContentLoaded', () => {
     delete: 'Delete',
     imageAlt: 'Alt text',
     imagePath: 'Image path',
+    replaceImage: 'Replace image',
     unordered: 'Bulleted',
     ordered: 'Numbered',
     task: 'Checklist',
@@ -1607,6 +1610,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   let pendingBlocksImageInsert = null;
+  let pendingImagePickerToken = 0;
+  const armImagePickerCancelReset = (token) => {
+    const clearIfPickerStillPending = () => {
+      window.setTimeout(() => {
+        if (token !== pendingImagePickerToken) return;
+        const hasFiles = imageInput && imageInput.files && imageInput.files.length;
+        if (!hasFiles) pendingBlocksImageInsert = null;
+      }, 250);
+    };
+    window.addEventListener('focus', clearIfPickerStillPending, { once: true });
+    if (imageInput) {
+      imageInput.addEventListener('cancel', clearIfPickerStillPending, { once: true });
+      imageInput.addEventListener('blur', clearIfPickerStillPending, { once: true });
+    }
+  };
+  const openImageInputPicker = () => {
+    if (!imageInput) {
+      pendingBlocksImageInsert = null;
+      return;
+    }
+    pendingImagePickerToken += 1;
+    const pickerToken = pendingImagePickerToken;
+    try { imageInput.value = ''; } catch (_) {}
+    armImagePickerCancelReset(pickerToken);
+    try { imageInput.click(); }
+    catch (_) {
+      try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+      catch (__) {}
+    }
+  };
   const setEditorBodyFromBlocks = (body) => {
     const text = body == null ? '' : String(body);
     if (editor) editor.setValue(text);
@@ -1639,20 +1672,18 @@ document.addEventListener('DOMContentLoaded', () => {
           applyPreviewAssetOverrides(node, getCurrentMarkdownPath());
         } catch (_) {}
       },
-      requestImageUpload: ({ index } = {}) => {
-        pendingBlocksImageInsert = { index: Number.isFinite(index) ? index : null };
+      requestImageUpload: ({ index, replaceIndex, replaceBlockId } = {}) => {
+        pendingBlocksImageInsert = {
+          index: Number.isFinite(index) ? index : null,
+          replaceIndex: Number.isFinite(replaceIndex) ? replaceIndex : null,
+          replaceBlockId: typeof replaceBlockId === 'string' && replaceBlockId ? replaceBlockId : null
+        };
         if (!getCurrentMarkdownPath()) {
           emitEditorToast('warn', t('editor.toasts.markdownOpenBeforeInsert'));
           pendingBlocksImageInsert = null;
           return;
         }
-        if (imageInput) {
-          try { imageInput.click(); }
-          catch (_) {
-            try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
-            catch (__) {}
-          }
-        }
+        openImageInputPicker();
       }
     });
     syncMarkdownBlocksFromSource = () => {
@@ -2417,6 +2448,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (fileList && fileList.length) emitEditorToast('warn', 'Only image files can be inserted.');
       return;
     }
+    if (options.singleImage && files.length > 1) files.splice(1);
 
     const textarea = getEditorTextarea();
     const customInsertMarkdown = typeof options.insertMarkdown === 'function' ? options.insertMarkdown : null;
@@ -2439,9 +2471,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const meta = buildAssetFileMeta(file);
       const paths = computeAssetPaths(markdownPath, meta.fileName);
-      const selection = customInsertMarkdown
-        ? (customInsertMarkdown(paths.relativePath, meta.altText) || {})
-        : insertImageMarkdown(paths.relativePath, meta.altText);
+      let selection;
+      if (customInsertMarkdown) {
+        selection = customInsertMarkdown(paths.relativePath, meta.altText);
+        if (selection === false) {
+          if (options.insertAbortToast) emitEditorToast('warn', options.insertAbortToast);
+          continue;
+        }
+        selection = selection || {};
+      } else {
+        selection = insertImageMarkdown(paths.relativePath, meta.altText);
+      }
       lastSelection = selection;
 
       if (!customInsertMarkdown && textarea) {
@@ -2471,7 +2511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Failed to dispatch asset-added event', err);
       }
 
-      emitEditorToast('success', `Inserted ${paths.relativePath}`);
+      emitEditorToast('success', t('editor.toasts.assetAttached', { label: paths.relativePath }));
     }
   };
 
@@ -2817,33 +2857,48 @@ document.addEventListener('DOMContentLoaded', () => {
         emitEditorToast('warn', 'Open a markdown file before inserting images.');
         return;
       }
-      if (imageInput) {
-        try { imageInput.click(); }
-        catch (_) {
-          try { imageInput.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
-          catch (__) {}
-        }
-      }
+      openImageInputPicker();
     });
   }
 
   if (imageInput) {
     imageInput.addEventListener('change', () => {
       const files = imageInput.files;
+      const blockInsert = pendingBlocksImageInsert;
+      pendingBlocksImageInsert = null;
+      pendingImagePickerToken += 1;
       if (files && files.length) {
-        const blockInsert = pendingBlocksImageInsert;
-        pendingBlocksImageInsert = null;
+        const replaceIndex = blockInsert && Number.isFinite(blockInsert.replaceIndex)
+          ? blockInsert.replaceIndex
+          : null;
+        const replaceBlockId = blockInsert && typeof blockInsert.replaceBlockId === 'string'
+          ? blockInsert.replaceBlockId
+          : null;
         let insertIndex = blockInsert && Number.isFinite(blockInsert.index)
           ? blockInsert.index
           : null;
-        const insertMarkdown = blockInsert && markdownBlocksEditor && typeof markdownBlocksEditor.insertImageBlock === 'function'
+        const replaceMarkdown = (replaceIndex != null || replaceBlockId)
+          && markdownBlocksEditor
+          && typeof markdownBlocksEditor.replaceImageBlock === 'function'
+          ? (relativePath) => {
+            const result = markdownBlocksEditor.replaceImageBlock(relativePath, { index: replaceIndex, blockId: replaceBlockId });
+            if (!result) return false;
+            return {};
+          }
+          : null;
+        const insertMarkdown = !replaceMarkdown && blockInsert && markdownBlocksEditor && typeof markdownBlocksEditor.insertImageBlock === 'function'
           ? (relativePath, altText) => {
             const result = markdownBlocksEditor.insertImageBlock(relativePath, altText, insertIndex);
             if (result && Number.isFinite(result.index)) insertIndex = result.index + 1;
             return {};
           }
           : null;
-        handleImageFiles(files, insertMarkdown ? { source: 'picker', insertMarkdown } : { source: 'picker' }).catch((err) => {
+        const markdownHandler = replaceMarkdown || insertMarkdown;
+        const imageFileOptions = markdownHandler
+          ? { source: 'picker', insertMarkdown: markdownHandler, singleImage: !!replaceMarkdown }
+          : { source: 'picker' };
+        if (replaceMarkdown) imageFileOptions.insertAbortToast = t('editor.toasts.imageReplaceTargetMissing');
+        handleImageFiles(files, imageFileOptions).catch((err) => {
           console.error('Image insertion failed', err);
         });
       }

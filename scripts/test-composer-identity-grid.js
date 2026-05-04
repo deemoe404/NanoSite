@@ -114,6 +114,12 @@ assert.match(
   'block link title field should have a local fallback label'
 );
 
+assert.match(
+  editorMainSource,
+  /replaceImage: 'Replace image'/,
+  'block replace image button should have a local fallback label'
+);
+
 [
   [enI18nSource, /linkTitle: 'Link title'/],
   [chsI18nSource, /linkTitle: '链接标题'/],
@@ -335,6 +341,18 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const clearNativeSelection = \(\) => \{[\s\S]*sel\.removeAllRanges\(\);[\s\S]*\};/,
+  'non-text block selection should be able to clear stale browser text selections'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*const imageBlock = closestElement\(event\.target, '\.blocks-block-image'\);[\s\S]*event\.preventDefault\(\);[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(imageIndex\);[\s\S]*return;[\s\S]*const candidate = nearestEditableFromPoint\(event\.clientX, event\.clientY\);/,
+  'image block pointerdowns should clear stale text selections and select the image block before routing a caret to nearby text'
+);
+
+assert.match(
+  editorBlocksSource,
   /const editableCaretCandidates = \(\) => \{[\s\S]*querySelectorAll\('\.blocks-list-item \.blocks-list-text'\)[\s\S]*hitTarget: closestElement\(editable, '\.blocks-list-item'\) \|\| editable[\s\S]*querySelectorAll\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)[\s\S]*sync: editableSyncMap\.get\(editable\) \|\| null/,
   'routed caret candidates should include whole-row list item hit targets, rich text, code editors, and source markdown textareas with sync callbacks'
 );
@@ -451,6 +469,78 @@ assert.match(
   editorBlocksSource,
   /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
   'image blocks should render a real image element instead of a path-only placeholder'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /const selectImageBlock = \(event\) => \{[\s\S]*figure\.addEventListener\('pointerdown', selectImageBlock\);[\s\S]*figure\.addEventListener\('click', selectImageBlock\);/,
+  'image figures should rely on delegated block pointer routing, not stopped local click handlers'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createImageMetadataControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*const replace = button\(text\('replaceImage', 'Replace image'\), 'blocks-btn blocks-image-replace'\);[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), title: inputValue\(title\) \}\);[\s\S]*options\.requestImageUpload\(\{ replaceIndex: index, replaceBlockId: block\.id \}\);[\s\S]*controls\.append\(alt, title, replace\);/,
+  'image metadata controls should place replace-image after text fields'
+);
+
+assert.match(
+  editorBlocksSource,
+  /if \(block\.type === 'image'\) \{[\s\S]*head\.appendChild\(createImageMetadataControls\(block, index\)\);[\s\S]*\}/,
+  'image block controls should be appended to the floating block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /replaceImageBlock\(src, target = state\.activeIndex\) \{[\s\S]*const expectedBlockId = target && typeof target === 'object' && typeof target\.blockId === 'string'[\s\S]*if \(!Number\.isInteger\(safeIndex\) \|\| safeIndex < 0 \|\| safeIndex >= state\.blocks\.length\) \{[\s\S]*if \(!expectedBlockId\) return null;[\s\S]*state\.blocks\.findIndex\(item => item && item\.id === expectedBlockId\)[\s\S]*if \(expectedBlockId && \(!block \|\| block\.id !== expectedBlockId\)\) \{[\s\S]*block\.type !== 'image'[\s\S]*updateFromControl\(block, \{ src \}\);[\s\S]*syncRenderedImageBlock\(block\);[\s\S]*setActive\(safeIndex\);[\s\S]*return \{ index: safeIndex \};/,
+  'image replacement should validate the target image identity before updating an existing block'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /replaceImageBlock\(src, index = state\.activeIndex\) \{[\s\S]*Math\.max\(0, Math\.min/,
+  'image replacement should not clamp stale out-of-range indexes onto another block'
+);
+
+assert.match(
+  editorMainSource,
+  /requestImageUpload: \(\{ index, replaceIndex, replaceBlockId \} = \{\}\) => \{[\s\S]*replaceIndex: Number\.isFinite\(replaceIndex\) \? replaceIndex : null,[\s\S]*replaceBlockId: typeof replaceBlockId === 'string' && replaceBlockId \? replaceBlockId : null[\s\S]*const replaceIndex = blockInsert && Number\.isFinite\(blockInsert\.replaceIndex\)[\s\S]*const replaceBlockId = blockInsert && typeof blockInsert\.replaceBlockId === 'string'[\s\S]*const replaceMarkdown = \(replaceIndex != null \|\| replaceBlockId\)[\s\S]*const result = markdownBlocksEditor\.replaceImageBlock\(relativePath, \{ index: replaceIndex, blockId: replaceBlockId \}\);[\s\S]*if \(!result\) return false;[\s\S]*singleImage: !!replaceMarkdown[\s\S]*if \(replaceMarkdown\) imageFileOptions\.insertAbortToast = t\('editor\.toasts\.imageReplaceTargetMissing'\);/,
+  'image upload picker should support replacing one existing image block through an identity-checked target'
+);
+
+assert.match(
+  editorMainSource,
+  /let selection;[\s\S]*if \(customInsertMarkdown\) \{[\s\S]*selection = customInsertMarkdown\(paths\.relativePath, meta\.altText\);[\s\S]*if \(selection === false\) \{[\s\S]*if \(options\.insertAbortToast\) emitEditorToast\('warn', options\.insertAbortToast\);[\s\S]*continue;[\s\S]*window\.dispatchEvent\(new CustomEvent\('ns-editor-asset-added'/,
+  'image uploads should skip asset-added events and success toasts when replacement aborts'
+);
+
+assert.match(
+  editorMainSource,
+  /let pendingBlocksImageInsert = null;[\s\S]*let pendingImagePickerToken = 0;[\s\S]*const armImagePickerCancelReset = \(token\) => \{[\s\S]*if \(token !== pendingImagePickerToken\) return;[\s\S]*if \(!hasFiles\) pendingBlocksImageInsert = null;[\s\S]*imageInput\.addEventListener\('cancel', clearIfPickerStillPending, \{ once: true \}\);[\s\S]*imageInput\.addEventListener\('blur', clearIfPickerStillPending, \{ once: true \}\);[\s\S]*const openImageInputPicker = \(\) => \{[\s\S]*pendingImagePickerToken \+= 1;[\s\S]*imageInput\.value = '';[\s\S]*armImagePickerCancelReset\(pickerToken\);[\s\S]*imageInput\.click\(\);/,
+  'image picker cancellation should clear stale pending replacement targets'
+);
+
+assert.match(
+  editorMainSource,
+  /imageInput\.addEventListener\('change', \(\) => \{[\s\S]*const blockInsert = pendingBlocksImageInsert;[\s\S]*pendingBlocksImageInsert = null;[\s\S]*pendingImagePickerToken \+= 1;[\s\S]*if \(files && files\.length\) \{/,
+  'image picker changes should consume the pending replacement target before handling files'
+);
+
+assert.match(
+  editorMainSource,
+  /const refreshPreviewAssetOverrides = \(\) => \{[\s\S]*\['mainview', 'blocks-wrap'\]\.forEach\(\(id\) => \{[\s\S]*document\.getElementById\(id\)[\s\S]*applyPreviewAssetOverrides\(target, previewAssetCurrentPath\);[\s\S]*\}\);[\s\S]*\};/,
+  'asset preview refresh should update both rendered preview and WYSIWYG block images'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-image-inspector/,
+  'image metadata controls should not render as an inspector inside the block body'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-image-src/,
+  'image metadata controls should not expose a direct image path input'
 );
 
 assert.match(
@@ -575,7 +665,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
+  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-image-meta-controls, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
   'blocks controls and floating panels should not inherit the canvas text cursor'
 );
 
@@ -709,6 +799,18 @@ assert.match(
   editorSource,
   /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; \}/,
   'code block language input should use compact floating-toolbar styling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language, \.blocks-block-head \.blocks-image-meta-controls input, \.blocks-block-head \.blocks-image-replace[\s\S]*\.blocks-image-meta-controls \{ display:flex; align-items:center; gap:\.24rem;[\s\S]*\.blocks-block-head \.blocks-image-replace \{ white-space:nowrap; cursor:pointer; \}/,
+  'image metadata fields and replace button should use compact floating-toolbar styling'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-image-figure \{ margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*box-shadow:var\(--shadow,[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
+  'image block visual styling should mirror native article image and centered figcaption styling'
 );
 
 assert.match(
@@ -1499,6 +1601,14 @@ assert.match(
     i18nText,
     /status:\s*\{[\s\S]*added:[\s\S]*modified:[\s\S]*deleted:[\s\S]*checking:[\s\S]*changedCount:[\s\S]*changedSummary:[\s\S]*orderChanged:[\s\S]*deletedSummary:/,
     `locale ${index} should expose editor tree status badge text`
+  );
+});
+
+[enI18nSource, chsI18nSource, chtTwI18nSource, jaI18nSource].forEach((i18nText, index) => {
+  assert.match(
+    i18nText,
+    /replaceImage:/,
+    `locale ${index} should expose image replacement toolbar text`
   );
 });
 
