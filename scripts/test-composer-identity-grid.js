@@ -1031,8 +1031,20 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"[\s\S]*class="editor-content-frame"[\s\S]*class="editor-mobile-rail-toggle"[\s\S]*class="editor-layout" id="mode-editor"/,
+  /class="editor-app-shell" id="editorAppShell"[\s\S]*class="editor-rail editor-file-tree-pane" id="editorRail"[\s\S]*id="editorFileTree" role="tree"[\s\S]*class="editor-content-pane" id="editorContentPane"[\s\S]*class="editor-content-frame"[\s\S]*class="editor-layout" id="mode-editor"/,
   'editor should render a fixed two-pane app shell with a left rail and a width-limited right content frame'
+);
+
+assert.match(
+  editorSource,
+  /<section class="editor-markdown-panel" id="editorMarkdownPanel"[\s\S]*<div class="toolbar">[\s\S]*<div class="left-actions">\s*<button type="button" class="editor-mobile-rail-toggle" id="editorMobileRailToggle"[\s\S]*data-i18n-aria-label="editor\.tree\.aria"[\s\S]*data-i18n-title="editor\.tree\.aria"[\s\S]*<svg class="editor-mobile-rail-icon"[\s\S]*<path d="M9 3v18"><\/path>[\s\S]*<\/button>\s*<span class="current-file" id="currentFile"/,
+  'mobile file tree toggle should sit inside the markdown toolbar as an icon-only button before the current file breadcrumb'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /id="editorMobileRailToggle"[^>]*data-i18n="editor\.tree\.aria"/,
+  'mobile file tree toggle should not translate over its SVG icon with visible text'
 );
 
 assert.doesNotMatch(
@@ -1183,8 +1195,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-rail-tree-scroll \{[^}]*overflow:auto;[\s\S]*\.editor-content-pane \{[^}]*overflow:auto;/,
-  'editor rail tree and right content pane should scroll independently'
+  /@media \(max-width: 640px\) \{[\s\S]*\.editor-page \{ padding:0; \}/,
+  'extra narrow editor page should stay flush to the viewport edge'
+);
+
+assert.match(
+  editorSource,
+  /\.editor-rail-tree-scroll \{[^}]*overflow:auto;[\s\S]*\.editor-content-pane \{[^}]*overflow-x:hidden;[\s\S]*overflow-y:auto;/,
+  'editor rail tree and right content pane should scroll independently without page-level horizontal scrolling'
 );
 
 assert.match(
@@ -2638,6 +2656,12 @@ assert.match(
   editorSource,
   /\.editor-mobile-rail-toggle \{[\s\S]*display:none;[\s\S]*@media \(max-width: 820px\) \{[\s\S]*\.editor-mobile-rail-toggle \{\s*display:inline-flex;/,
   'mobile layout should expose a file tree drawer toggle only on small screens'
+);
+
+assert.match(
+  editorSource,
+  /@media \(max-width: 640px\) \{[\s\S]*\.editor-content-pane \{[\s\S]*--editor-content-pane-padding:0px;[\s\S]*\.editor-markdown-panel > \.toolbar \{[\s\S]*display:grid;[\s\S]*grid-template-columns:auto minmax\(0, 1fr\);[\s\S]*column-gap:\.5rem;[\s\S]*\.editor-markdown-panel > \.toolbar \.left-actions \{[\s\S]*grid-column:1;[\s\S]*flex:0 0 auto;[\s\S]*flex-wrap:nowrap;[\s\S]*\.editor-markdown-panel > \.toolbar \.right-actions \{[\s\S]*grid-column:2;[\s\S]*flex-wrap:wrap;[\s\S]*justify-content:flex-end;[\s\S]*justify-self:end;[\s\S]*max-width:100%;[\s\S]*\.editor-markdown-panel > \.toolbar \.editor-mobile-rail-toggle \{[\s\S]*flex:0 0 auto;[\s\S]*\.editor-markdown-panel > \.toolbar \.current-file \{[\s\S]*display:none;/,
+  'extra narrow markdown toolbar should hide the breadcrumb and right-align editor controls beside the drawer toggle'
 );
 
 assert.match(
