@@ -305,6 +305,7 @@ const translations = {
         openGithubAction: '開啟 GitHub',
         markdownOpenBeforeInsert: '請先開啟一個 Markdown 檔案再插入圖片。',
         assetAttached: ({ label }) => `已附加 ${label}`,
+        imageReplaceTargetMissing: '圖片區塊已不存在。請選擇一個圖片區塊後重試。',
         noPendingChanges: '沒有待提交的更改。',
         siteWaitStopped: '已停止等待線上站點。提交已在 GitHub 上，但顯示可能還需要幾分鐘。',
         siteWaitTimedOut: '已將檔案提交到 GitHub，但線上站點未及時更新。請手動檢查部署狀態。',

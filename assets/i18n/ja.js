@@ -305,6 +305,7 @@ const translations = {
         openGithubAction: 'GitHub を開く',
         markdownOpenBeforeInsert: '画像を挿入する前に Markdown ファイルを開いてください。',
         assetAttached: ({ label }) => `${label} を添付しました`,
+        imageReplaceTargetMissing: '画像ブロックはもう存在しません。画像ブロックを選択してからやり直してください。',
         noPendingChanges: 'コミットする変更はありません。',
         siteWaitStopped: 'ライブサイトの更新待機を停止しました。コミットは GitHub にありますが、反映まで数分かかる場合があります。',
         siteWaitTimedOut: 'GitHub にファイルをコミットしましたが、ライブサイトが時間内に更新されませんでした。デプロイ状況を手動で確認してください。',

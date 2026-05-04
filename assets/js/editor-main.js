@@ -2471,9 +2471,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const meta = buildAssetFileMeta(file);
       const paths = computeAssetPaths(markdownPath, meta.fileName);
-      const selection = customInsertMarkdown
-        ? (customInsertMarkdown(paths.relativePath, meta.altText) || {})
-        : insertImageMarkdown(paths.relativePath, meta.altText);
+      let selection;
+      if (customInsertMarkdown) {
+        selection = customInsertMarkdown(paths.relativePath, meta.altText);
+        if (selection === false) {
+          if (options.insertAbortToast) emitEditorToast('warn', options.insertAbortToast);
+          continue;
+        }
+        selection = selection || {};
+      } else {
+        selection = insertImageMarkdown(paths.relativePath, meta.altText);
+      }
       lastSelection = selection;
 
       if (!customInsertMarkdown && textarea) {
@@ -2873,7 +2881,8 @@ document.addEventListener('DOMContentLoaded', () => {
           && markdownBlocksEditor
           && typeof markdownBlocksEditor.replaceImageBlock === 'function'
           ? (relativePath) => {
-            markdownBlocksEditor.replaceImageBlock(relativePath, { index: replaceIndex, blockId: replaceBlockId });
+            const result = markdownBlocksEditor.replaceImageBlock(relativePath, { index: replaceIndex, blockId: replaceBlockId });
+            if (!result) return false;
             return {};
           }
           : null;
@@ -2885,9 +2894,11 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           : null;
         const markdownHandler = replaceMarkdown || insertMarkdown;
-        handleImageFiles(files, markdownHandler
+        const imageFileOptions = markdownHandler
           ? { source: 'picker', insertMarkdown: markdownHandler, singleImage: !!replaceMarkdown }
-          : { source: 'picker' }).catch((err) => {
+          : { source: 'picker' };
+        if (replaceMarkdown) imageFileOptions.insertAbortToast = t('editor.toasts.imageReplaceTargetMissing');
+        handleImageFiles(files, imageFileOptions).catch((err) => {
           console.error('Image insertion failed', err);
         });
       }
