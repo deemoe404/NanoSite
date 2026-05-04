@@ -1739,6 +1739,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     pendingInline: {},
     pendingListFocus: null,
     suppressNextBlockContainerClickUntil: 0,
+    suppressLinkEditorRefreshUntil: 0,
     cardEntries: [],
     cardPickerOpen: false,
     reorderAnimating: false,
@@ -2426,16 +2427,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     };
     const rect = editable.getBoundingClientRect ? editable.getBoundingClientRect() : null;
     const hitRect = hitTarget && hitTarget.getBoundingClientRect ? hitTarget.getBoundingClientRect() : rect;
+    const measuredDetails = measuredTextOffsetDetailsFromPoint(editable, x, y);
     const pointInsideEditableRect = !rect || (
       x >= rect.left &&
       x <= rect.right &&
       y >= rect.top &&
       y <= rect.bottom
     );
+    if (measuredDetails && !measuredDetails.insideTextRect) {
+      placeCaretAtTextOffset(editable, measuredDetails.offset);
+      return;
+    }
     if (pointInsideEditableRect && setRangeFromPoint(x, y)) return;
-    const measuredOffset = measuredTextOffsetFromPoint(editable, x, y);
-    if (measuredOffset != null) {
-      placeCaretAtTextOffset(editable, measuredOffset);
+    if (measuredDetails) {
+      placeCaretAtTextOffset(editable, measuredDetails.offset);
       return;
     }
     const nearestRect = nearestRectForPoint(editable, x, y);
@@ -2467,6 +2472,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!details || details.insideTextRect) return false;
     event.preventDefault();
     state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    state.suppressLinkEditorRefreshUntil = Date.now() + 500;
     try { editable.focus({ preventScroll: true }); }
     catch (_) {
       try { editable.focus(); } catch (__) {}
@@ -2500,6 +2506,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!candidate || !candidate.editable) return;
     event.preventDefault();
     state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    state.suppressLinkEditorRefreshUntil = Date.now() + 500;
     const { editable, hitTarget, index, sync } = candidate;
     try { editable.focus({ preventScroll: true }); }
     catch (_) {
@@ -2964,6 +2971,20 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   root.appendChild(linkEditor);
 
   refreshLinkEditor = (explicitLink = null) => {
+    const explicitLinkNode = explicitLink
+      && explicitLink.nodeType === Node.ELEMENT_NODE
+      && explicitLink.matches
+      && explicitLink.matches('a[href]')
+      ? explicitLink
+      : null;
+    if (!explicitLinkNode && state.suppressLinkEditorRefreshUntil) {
+      if (Date.now() < state.suppressLinkEditorRefreshUntil) {
+        if (!linkEditorFocused()) hideLinkEditor();
+        updateInlineToolbarState();
+        return;
+      }
+      state.suppressLinkEditorRefreshUntil = 0;
+    }
     if (state.linkEditMode === 'range' || state.linkEditMode === 'pending') {
       if (!linkEditor.hidden && state.linkSelection && state.linkSelection.anchorRect) {
         positionLinkEditorAtRect(state.linkSelection.anchorRect);
@@ -2971,12 +2992,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       updateInlineToolbarState();
       return;
     }
-    const link = explicitLink && state.activeEditable && nodeContains(state.activeEditable, explicitLink)
-      ? explicitLink
+    const link = explicitLinkNode && state.activeEditable && nodeContains(state.activeEditable, explicitLinkNode)
+      ? explicitLinkNode
       : selectionLinkInEditable(state.activeEditable);
     if (link) {
       state.activeLink = link;
-      if (explicitLink) state.activeLinkHoldUntil = Date.now() + 800;
+      if (explicitLinkNode) state.activeLinkHoldUntil = Date.now() + 800;
     } else if (!linkEditorFocused()) {
       const keepClickedLink = state.activeLink
         && state.activeEditable
