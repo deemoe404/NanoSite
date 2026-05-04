@@ -264,6 +264,13 @@ function resetOrderedListNumber(item, counters) {
   counters[String(itemIndentLevel(item))] = 0;
 }
 
+function resetNestedOrderedListNumbers(item, counters) {
+  const indent = itemIndentLevel(item);
+  Object.keys(counters || {}).forEach(key => {
+    if ((Number(key) || 0) > indent) delete counters[key];
+  });
+}
+
 function parseListLineInfo(line) {
   const text = String(line || '');
   let match = text.match(/^([ \t]*)([-*])\s+\[([ xX])\]\s+(.+)$/);
@@ -584,6 +591,7 @@ function serializeBlock(block) {
         const text = rawText === '' ? 'List item' : rawText;
         const indent = itemIndentText(item);
         const itemType = effectiveListItemType(item, listType);
+        resetNestedOrderedListNumbers(item, orderedCounters);
         if (itemType === 'task') {
           const marker = item && /^[-*+]$/.test(item.marker || '') ? item.marker : '-';
           resetOrderedListNumber(item, orderedCounters);

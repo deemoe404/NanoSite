@@ -274,6 +274,26 @@ run('generated ordered numbers ignore nested bullet items', () => {
   ].join('\n'));
 });
 
+run('generated nested ordered numbers restart under each parent', () => {
+  const [listBlock] = parseMarkdownBlocks([
+    '1. A',
+    '   - A1',
+    '2. B',
+    '   - B1',
+    ''
+  ].join('\n'));
+  listBlock.dirty = true;
+  listBlock.data.items[1].listType = 'ol';
+  listBlock.data.items[3].listType = 'ol';
+  assert.equal(serializeMarkdownBlocks([listBlock]), [
+    '1. A',
+    '   1. A1',
+    '2. B',
+    '   1. B1',
+    ''
+  ].join('\n'));
+});
+
 run('standard list type changes apply to homogeneous indentation levels', () => {
   const [listBlock] = parseMarkdownBlocks([
     '1. Parent',
