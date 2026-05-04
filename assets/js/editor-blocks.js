@@ -2419,6 +2419,23 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     } catch (_) {}
   };
 
+  const routeDirectQuoteCaretFromPointer = (editable, index, sync, event) => {
+    if (!event || event.defaultPrevented || event.button !== 0 || event.isPrimary === false) return false;
+    if (!editable || !(editable.classList && editable.classList.contains('blocks-quote-text'))) return false;
+    const details = measuredTextOffsetDetailsFromPoint(editable, event.clientX, event.clientY);
+    if (!details || details.insideTextRect) return false;
+    event.preventDefault();
+    state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    try { editable.focus({ preventScroll: true }); }
+    catch (_) {
+      try { editable.focus(); } catch (__) {}
+    }
+    placeCaretAtTextOffset(editable, details.offset);
+    setActive(index, editable, sync);
+    updateInlineToolbarState();
+    return true;
+  };
+
   const routeBlocksCaretFromPointer = (event) => {
     if (!event || event.defaultPrevented || event.button !== 0) return;
     if (event.isPrimary === false) return;
@@ -3081,6 +3098,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       updateInlineToolbarState();
     });
     editable.addEventListener('focus', () => setActive(index, editable, sync));
+    editable.addEventListener('pointerdown', (event) => {
+      routeDirectQuoteCaretFromPointer(editable, index, sync, event);
+    });
     editable.addEventListener('click', (event) => {
       const clickedLink = event.target && event.target.closest ? event.target.closest('a[href]') : null;
       if (clickedLink) event.preventDefault();
