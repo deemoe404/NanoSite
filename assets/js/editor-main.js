@@ -1642,10 +1642,11 @@ document.addEventListener('DOMContentLoaded', () => {
           applyPreviewAssetOverrides(node, getCurrentMarkdownPath());
         } catch (_) {}
       },
-      requestImageUpload: ({ index, replaceIndex } = {}) => {
+      requestImageUpload: ({ index, replaceIndex, replaceBlockId } = {}) => {
         pendingBlocksImageInsert = {
           index: Number.isFinite(index) ? index : null,
-          replaceIndex: Number.isFinite(replaceIndex) ? replaceIndex : null
+          replaceIndex: Number.isFinite(replaceIndex) ? replaceIndex : null,
+          replaceBlockId: typeof replaceBlockId === 'string' && replaceBlockId ? replaceBlockId : null
         };
         if (!getCurrentMarkdownPath()) {
           emitEditorToast('warn', t('editor.toasts.markdownOpenBeforeInsert'));
@@ -2843,14 +2844,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const replaceIndex = blockInsert && Number.isFinite(blockInsert.replaceIndex)
           ? blockInsert.replaceIndex
           : null;
+        const replaceBlockId = blockInsert && typeof blockInsert.replaceBlockId === 'string'
+          ? blockInsert.replaceBlockId
+          : null;
         let insertIndex = blockInsert && Number.isFinite(blockInsert.index)
           ? blockInsert.index
           : null;
-        const replaceMarkdown = replaceIndex != null
+        const replaceMarkdown = (replaceIndex != null || replaceBlockId)
           && markdownBlocksEditor
           && typeof markdownBlocksEditor.replaceImageBlock === 'function'
           ? (relativePath) => {
-            markdownBlocksEditor.replaceImageBlock(relativePath, replaceIndex);
+            markdownBlocksEditor.replaceImageBlock(relativePath, { index: replaceIndex, blockId: replaceBlockId });
             return {};
           }
           : null;

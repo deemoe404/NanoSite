@@ -479,7 +479,7 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /const createImageMetadataControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*const replace = button\(text\('replaceImage', 'Replace image'\), 'blocks-btn blocks-image-replace'\);[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), title: inputValue\(title\) \}\);[\s\S]*options\.requestImageUpload\(\{ replaceIndex: index \}\);[\s\S]*controls\.append\(alt, title, replace\);/,
+  /const createImageMetadataControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*const replace = button\(text\('replaceImage', 'Replace image'\), 'blocks-btn blocks-image-replace'\);[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), title: inputValue\(title\) \}\);[\s\S]*options\.requestImageUpload\(\{ replaceIndex: index, replaceBlockId: block\.id \}\);[\s\S]*controls\.append\(alt, title, replace\);/,
   'image metadata controls should place replace-image after text fields'
 );
 
@@ -491,14 +491,20 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /replaceImageBlock\(src, index = state\.activeIndex\) \{[\s\S]*block\.type !== 'image'[\s\S]*updateFromControl\(block, \{ src \}\);[\s\S]*syncRenderedImageBlock\(block\);[\s\S]*setActive\(safeIndex\);[\s\S]*return \{ index: safeIndex \};/,
-  'image replacement should update the existing image block src without inserting another block'
+  /replaceImageBlock\(src, target = state\.activeIndex\) \{[\s\S]*const expectedBlockId = target && typeof target === 'object' && typeof target\.blockId === 'string'[\s\S]*if \(!Number\.isInteger\(safeIndex\) \|\| safeIndex < 0 \|\| safeIndex >= state\.blocks\.length\) \{[\s\S]*if \(!expectedBlockId\) return null;[\s\S]*state\.blocks\.findIndex\(item => item && item\.id === expectedBlockId\)[\s\S]*if \(expectedBlockId && \(!block \|\| block\.id !== expectedBlockId\)\) \{[\s\S]*block\.type !== 'image'[\s\S]*updateFromControl\(block, \{ src \}\);[\s\S]*syncRenderedImageBlock\(block\);[\s\S]*setActive\(safeIndex\);[\s\S]*return \{ index: safeIndex \};/,
+  'image replacement should validate the target image identity before updating an existing block'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /replaceImageBlock\(src, index = state\.activeIndex\) \{[\s\S]*Math\.max\(0, Math\.min/,
+  'image replacement should not clamp stale out-of-range indexes onto another block'
 );
 
 assert.match(
   editorMainSource,
-  /requestImageUpload: \(\{ index, replaceIndex \} = \{\}\) => \{[\s\S]*replaceIndex: Number\.isFinite\(replaceIndex\) \? replaceIndex : null[\s\S]*const replaceIndex = blockInsert && Number\.isFinite\(blockInsert\.replaceIndex\)[\s\S]*const replaceMarkdown = replaceIndex != null[\s\S]*markdownBlocksEditor\.replaceImageBlock\(relativePath, replaceIndex\);[\s\S]*singleImage: !!replaceMarkdown/,
-  'image upload picker should support replacing one existing image block through the existing asset pipeline'
+  /requestImageUpload: \(\{ index, replaceIndex, replaceBlockId \} = \{\}\) => \{[\s\S]*replaceIndex: Number\.isFinite\(replaceIndex\) \? replaceIndex : null,[\s\S]*replaceBlockId: typeof replaceBlockId === 'string' && replaceBlockId \? replaceBlockId : null[\s\S]*const replaceIndex = blockInsert && Number\.isFinite\(blockInsert\.replaceIndex\)[\s\S]*const replaceBlockId = blockInsert && typeof blockInsert\.replaceBlockId === 'string'[\s\S]*const replaceMarkdown = \(replaceIndex != null \|\| replaceBlockId\)[\s\S]*markdownBlocksEditor\.replaceImageBlock\(relativePath, \{ index: replaceIndex, blockId: replaceBlockId \}\);[\s\S]*singleImage: !!replaceMarkdown/,
+  'image upload picker should support replacing one existing image block through an identity-checked target'
 );
 
 assert.match(

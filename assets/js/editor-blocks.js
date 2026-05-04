@@ -3233,7 +3233,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     replace.addEventListener('click', () => {
       setActive(index);
       if (typeof options.requestImageUpload === 'function') {
-        options.requestImageUpload({ replaceIndex: index });
+        options.requestImageUpload({ replaceIndex: index, replaceBlockId: block.id });
       }
     });
     controls.append(alt, title, replace);
@@ -3675,9 +3675,23 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       const block = insertBlock('image', { src, alt: alt || '', title: '' }, index);
       return { index: state.blocks.indexOf(block) };
     },
-    replaceImageBlock(src, index = state.activeIndex) {
-      const safeIndex = Math.max(0, Math.min(Number(index) || 0, state.blocks.length - 1));
-      const block = state.blocks[safeIndex];
+    replaceImageBlock(src, target = state.activeIndex) {
+      const targetIndex = target && typeof target === 'object' ? target.index : target;
+      const expectedBlockId = target && typeof target === 'object' && typeof target.blockId === 'string'
+        ? target.blockId
+        : '';
+      let safeIndex = Number.isInteger(targetIndex) ? targetIndex : state.activeIndex;
+      if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= state.blocks.length) {
+        if (!expectedBlockId) return null;
+        safeIndex = state.blocks.findIndex(item => item && item.id === expectedBlockId);
+        if (safeIndex < 0) return null;
+      }
+      let block = state.blocks[safeIndex];
+      if (expectedBlockId && (!block || block.id !== expectedBlockId)) {
+        safeIndex = state.blocks.findIndex(item => item && item.id === expectedBlockId);
+        if (safeIndex < 0) return null;
+        block = state.blocks[safeIndex];
+      }
       if (!block || block.type !== 'image') return null;
       updateFromControl(block, { src });
       syncRenderedImageBlock(block);
