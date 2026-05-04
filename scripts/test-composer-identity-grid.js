@@ -1009,6 +1009,12 @@ assert.match(
 
 assert.match(
   editorSource,
+  /\.editor-workspace-meta::before \{[\s\S]*width:min\(18rem, 62%\);[\s\S]*repeating-linear-gradient\([\s\S]*color-mix\(in srgb, var\(--muted\) 64%, transparent\) 0 \.72rem,[\s\S]*transparent \.72rem 1\.08rem[\s\S]*@container \(min-width: 66\.5rem\) \{[\s\S]*\.editor-workspace-meta::before \{[\s\S]*display:none;/,
+  'single-column article editor layout should show a thin decorative dashed divider above the metadata panel and hide it in the two-column rail'
+);
+
+assert.match(
+  editorSource,
   /\.frontmatter-section\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/,
   'front matter sections should honor hidden state so page files can suppress article-only metadata groups'
 );

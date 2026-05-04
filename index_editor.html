@@ -864,6 +864,21 @@
       position:relative;
       min-width:0;
     }
+    .editor-workspace-meta::before {
+      content:"";
+      display:block;
+      width:min(18rem, 62%);
+      height:.7rem;
+      margin:.1rem auto 1rem;
+      opacity:.78;
+      pointer-events:none;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--muted) 64%, transparent) 0 .72rem,
+          transparent .72rem 1.08rem
+        ) 0 50% / 1.08rem 1px repeat-x;
+    }
     .editor-canvas {
       grid-column:1;
       display:flex;
@@ -887,6 +902,9 @@
         position:sticky;
         top:calc(var(--editor-content-pane-padding, 1rem) + 3rem);
         width:min(100%, var(--editor-properties-width));
+      }
+      .editor-workspace-meta::before {
+        display:none;
       }
       .editor-workspace-meta .frontmatter-field {
         grid-template-columns:minmax(0, 1fr);
