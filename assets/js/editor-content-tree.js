@@ -348,6 +348,14 @@ export function buildEditorContentTree(input = {}, options = {}) {
     file: options.fileStates || null
   };
 
+  const welcomeRoot = makeNode({
+    id: 'welcome',
+    kind: 'root',
+    source: 'welcome',
+    label: options.welcomeLabel || 'welcome',
+    children: []
+  }, statusMaps);
+
   const systemRoot = makeNode({
     id: 'system',
     kind: 'root',
@@ -620,7 +628,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
     }))
   }, statusMaps);
 
-  return [systemRoot, articlesRoot, pagesRoot].map(root => annotateAggregateStatus(inheritStructuralState(root)));
+  return [welcomeRoot, systemRoot, articlesRoot, pagesRoot].map(root => annotateAggregateStatus(inheritStructuralState(root)));
 }
 
 export function flattenEditorContentTree(nodes = []) {

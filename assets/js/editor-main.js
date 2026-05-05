@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-saved-label-20260504';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=action-menu-flip-20260505';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -13,12 +13,12 @@ import {
   valueIsPresent
 } from './frontmatter-document.js';
 import { getContentRoot, resolveImageSrc, setSafeHtml } from './utils.js?v=editor-preview-images-20260504';
-import { initSyntaxHighlighting } from './syntax-highlight.js';
+import { initSyntaxHighlighting } from './syntax-highlight.js?v=blocks-code-gutter-20260505';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
-import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260504saved';
+import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260505welcome';
 
 const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
 const LS_VIEW_KEY = 'ns_editor_markdown_view';
@@ -754,7 +754,7 @@ function renderPreview(mdText) {
       fetchMarkdown: fetchMarkdownForLinkCard
     }); } catch (_) {}
     try { hydratePostVideos(target); } catch (_) {}
-    try { initSyntaxHighlighting(); } catch (_) {}
+    try { initSyntaxHighlighting(target); } catch (_) {}
     try { applyPreviewAssetOverrides(target, previewAssetCurrentPath); } catch (_) {}
   } catch (_) {}
 }
@@ -1547,6 +1547,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const blockLabelFallbacks = {
     toolbarAria: 'Block tools',
     listAria: 'Markdown blocks',
+    virtualBlockAria: 'New block',
+    virtualBlockPlaceholder: 'Type / to chose a block',
+    commandMenuAria: 'Block selector',
     paragraph: 'Paragraph',
     heading: 'Heading',
     image: 'Image',
@@ -1562,6 +1565,8 @@ document.addEventListener('DOMContentLoaded', () => {
     actions: 'More actions',
     moveUp: 'Move up',
     moveDown: 'Move down',
+    addBefore: 'Add before',
+    addAfter: 'Add after',
     delete: 'Delete',
     imageAlt: 'Alt text',
     imagePath: 'Image path',

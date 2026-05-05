@@ -8,10 +8,10 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260504saved';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260505welcome';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
-import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js';
+import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js?v=20260505welcome';
 
 // Utility helpers
 const $ = (s, r = document) => r.querySelector(s);
@@ -83,7 +83,7 @@ let detachPrimaryEditorListener = null;
 let detachPrimaryEditorTabsMetadataListener = null;
 let allowEditorStatePersist = false;
 let editorContentTree = [];
-let activeEditorTreeNodeId = 'articles';
+let activeEditorTreeNodeId = 'welcome';
 const expandedEditorTreeNodeIds = new Set(['articles', 'pages']);
 let hasEditorStateV3Snapshot = false;
 try {
@@ -3673,8 +3673,17 @@ function refreshFileDirtyBadges() {
   updateFileDirtyBadge('site');
 }
 
+function refreshEditorLanguageUi() {
+  refreshFileDirtyBadges();
+  try {
+    refreshEditorContentTree({
+      preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync')
+    });
+  } catch (_) {}
+}
+
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-  document.addEventListener('ns-editor-language-applied', refreshFileDirtyBadges);
+  document.addEventListener('ns-editor-language-applied', refreshEditorLanguageUi);
 }
 
 function collectUnsyncedMarkdownEntries() {
@@ -8822,7 +8831,7 @@ function persistDynamicEditorState() {
     const state = {
       v: EDITOR_STATE_VERSION,
       mode: active ? 'markdown' : systemMode,
-      activeNodeId: activeEditorTreeNodeId || 'articles',
+      activeNodeId: activeEditorTreeNodeId || 'welcome',
       activeLookupKey: active && (active.lookupKey || active.path) ? (active.lookupKey || active.path) : null,
       activePath: active && active.path ? active.path : null,
       open,
@@ -8890,7 +8899,7 @@ function restoreDynamicEditorState() {
   if (restoredNodeId) {
     activeEditorTreeNodeId = restoredNodeId;
     if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) {
-      activeEditorTreeNodeId = 'articles';
+      activeEditorTreeNodeId = 'welcome';
     }
     refreshEditorContentTree({ preserveStructure: true });
   }
@@ -9724,7 +9733,7 @@ function getDefaultMarkdownForPath(relPath) {
 }
 
 function applyMode(mode, options = {}) {
-  if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure) {
+  if (mode === 'editor' && dynamicEditorTabs.size && !options.forceStructure && activeEditorTreeNodeId !== 'welcome') {
     const firstDynamicMode = getFirstDynamicModeId();
     if (firstDynamicMode) {
       applyMode(firstDynamicMode, options);
@@ -9754,6 +9763,7 @@ function applyMode(mode, options = {}) {
       activeMarkdownDocument = null;
       setEditorDetailPanelMode('structure');
       pushEditorCurrentFileInfo(null);
+      refreshEditorContentTree();
       if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
     } else if (isSystemMode(nextMode)) {
       activeDynamicMode = null;
@@ -9890,6 +9900,7 @@ function applyMode(mode, options = {}) {
       scheduleEditorLayoutRefresh();
     }
     pushEditorCurrentFileInfo(null);
+    refreshEditorContentTree();
     if (options.restoreScroll) restoreEditorContentScrollForMode(nextMode);
   } else if (isSystemMode(nextMode)) {
     activeDynamicMode = null;
@@ -10573,6 +10584,12 @@ function treeText(key, fallback, params) {
   return value && value !== fullKey ? value : fallback;
 }
 
+function welcomeText(key, fallback, params) {
+  const fullKey = `editor.welcome.${key}`;
+  const value = t(fullKey, params);
+  return value && value !== fullKey ? value : fallback;
+}
+
 function setEditorStructurePanelVisible(visible) {
   const panel = document.getElementById('editorStructurePanel');
   if (!panel) return;
@@ -10713,6 +10730,7 @@ function buildCurrentEditorTree() {
     tabs: getStateSlice('tabs') || { __order: [] }
   }, {
     preferredLangs: PREFERRED_LANG_ORDER,
+    welcomeLabel: treeText('welcome', 'Welcome'),
     systemLabel: treeText('system', 'System'),
     siteSettingsLabel: treeText('siteSettings', 'Site Settings'),
     updatesLabel: treeText('nanoSiteUpdates', 'NanoSite Updates'),
@@ -10731,6 +10749,7 @@ function buildCurrentEditorTree() {
 
 function getActiveEditorTreeNode() {
   return findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)
+    || findEditorContentTreeNode(editorContentTree, 'welcome')
     || findEditorContentTreeNode(editorContentTree, 'articles')
     || (editorContentTree[0] || null);
 }
@@ -10795,6 +10814,7 @@ function buildCurrentFileBreadcrumb(tab) {
 
 function expandEditorAncestors(node) {
   if (!node) return;
+  if (node.id === 'welcome' || node.source === 'welcome') return;
   if (node.source === 'system' || node.id === 'system') {
     expandedEditorTreeNodeIds.add('system');
     persistSystemTreeExpandedState();
@@ -10839,7 +10859,7 @@ function refreshEditorContentTree(options = {}) {
   const preserveStructure = !!options.preserveStructure
     || !!(currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync'));
   editorContentTree = buildCurrentEditorTree();
-  if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'articles';
+  if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'welcome';
   renderEditorFileTree(treeEl);
   if (preserveStructure) {
     if (currentMode && isDynamicMode(currentMode)) setEditorDetailPanelMode('markdown');
@@ -11166,6 +11186,15 @@ function handleEditorTreeSelection(nodeId) {
   if (!node) return;
   activeEditorTreeNodeId = node.id;
   expandEditorAncestors(node);
+  if (node.source === 'welcome' || node.id === 'welcome') {
+    applyMode('editor', { forceStructure: true });
+    setEditorStructurePanelVisible(true);
+    refreshEditorContentTree();
+    scrollEditorContentToTop('smooth');
+    closeEditorRailDrawer();
+    scheduleEditorStatePersist();
+    return;
+  }
   if (node.source === 'system') {
     refreshEditorContentTree({ preserveStructure: true });
     if (node.id === 'system:site-settings') {
@@ -11709,6 +11738,179 @@ function renderEditorDeletedPanel(node, refs) {
   refs.body.appendChild(list);
 }
 
+function makeWelcomeButton(label, targetNodeId, className = 'btn-secondary editor-welcome-button') {
+  const button = makeStructureButton(label || treeText('select', 'Select'), className);
+  button.addEventListener('click', () => handleEditorTreeSelection(targetNodeId));
+  return button;
+}
+
+function renderWelcomeHero(refs) {
+  refs.body.classList.add('editor-welcome-body');
+  refs.kicker.textContent = welcomeText('kicker', 'Getting started');
+  refs.title.textContent = welcomeText('title', 'Welcome to NanoSite');
+  refs.meta.textContent = welcomeText('meta', 'Write content, check the site basics, and publish when everything looks ready.');
+}
+
+function renderWelcomeStep(options) {
+  const step = document.createElement('article');
+  step.className = 'editor-welcome-step';
+  if (options.featured) step.classList.add('is-featured');
+
+  const number = document.createElement('span');
+  number.className = 'editor-welcome-step-number';
+  number.textContent = options.number || '';
+
+  const content = document.createElement('div');
+  content.className = 'editor-welcome-step-content';
+
+  const title = document.createElement('h4');
+  title.className = 'editor-welcome-step-title';
+  title.textContent = options.title || '';
+
+  const detail = document.createElement('p');
+  detail.className = 'editor-welcome-step-detail';
+  detail.textContent = options.detail || '';
+
+  const actions = document.createElement('div');
+  actions.className = 'editor-welcome-step-actions';
+  (options.actions || []).forEach((action) => {
+    actions.appendChild(makeWelcomeButton(
+      action.label,
+      action.targetNodeId,
+      action.primary ? 'btn-primary editor-welcome-button editor-welcome-button-primary' : 'btn-secondary editor-welcome-button'
+    ));
+  });
+
+  content.append(title, detail, actions);
+  step.append(number, content);
+  return step;
+}
+
+function renderWelcomeSteps() {
+  const section = document.createElement('section');
+  section.className = 'editor-welcome-section editor-welcome-steps';
+
+  const title = document.createElement('h3');
+  title.className = 'editor-welcome-heading';
+  title.textContent = welcomeText('stepsTitle', 'Start here');
+  section.appendChild(title);
+
+  const list = document.createElement('div');
+  list.className = 'editor-welcome-step-list';
+  [
+    {
+      number: welcomeText('step1Number', 'Step 1'),
+      title: welcomeText('step1Title', 'Set up the site'),
+      detail: welcomeText('step1Detail', 'Confirm the site name, language, theme, and GitHub repository before editing content.'),
+      featured: true,
+      actions: [
+        { label: welcomeText('step1Button', 'Open Site Settings'), targetNodeId: 'system:site-settings', primary: true }
+      ]
+    },
+    {
+      number: welcomeText('step2Number', 'Step 2'),
+      title: welcomeText('step2Title', 'Add content'),
+      detail: welcomeText('step2Detail', 'Use Articles for posts, notes, and tutorials. Use Pages for fixed navigation pages like About or History.'),
+      actions: [
+        { label: welcomeText('step2ArticlesButton', 'Open Articles'), targetNodeId: 'articles' },
+        { label: welcomeText('step2PagesButton', 'Open Pages'), targetNodeId: 'pages' }
+      ]
+    },
+    {
+      number: welcomeText('step3Number', 'Step 3'),
+      title: welcomeText('step3Title', 'Publish when ready'),
+      detail: welcomeText('step3Detail', 'Saving keeps drafts local. Publish sends the changes you choose to GitHub.'),
+      actions: [
+        { label: welcomeText('step3Button', 'Open Publish'), targetNodeId: 'system:sync', primary: true }
+      ]
+    }
+  ].forEach((step) => list.appendChild(renderWelcomeStep(step)));
+  section.appendChild(list);
+  return section;
+}
+
+function renderWelcomeSecondaryActions() {
+  const section = document.createElement('section');
+  section.className = 'editor-welcome-secondary';
+
+  const text = document.createElement('div');
+  text.className = 'editor-welcome-secondary-text';
+
+  const title = document.createElement('h3');
+  title.className = 'editor-welcome-secondary-title';
+  title.textContent = welcomeText('updatesTitle', 'NanoSite Updates');
+
+  const detail = document.createElement('p');
+  detail.className = 'editor-welcome-secondary-detail';
+  detail.textContent = welcomeText('updatesBody', 'Check editor and runtime updates without changing your articles, pages, or site settings.');
+
+  text.append(title, detail);
+  section.append(
+    text,
+    makeWelcomeButton(welcomeText('updatesButton', 'Check updates'), 'system:updates')
+  );
+  return section;
+}
+
+function renderWelcomeFaqItem(questionText, answerText, open) {
+  const item = document.createElement('details');
+  item.className = 'editor-welcome-faq-item';
+  if (open) item.open = true;
+
+  const summary = document.createElement('summary');
+  summary.className = 'editor-welcome-faq-question';
+  summary.textContent = questionText || '';
+
+  const answer = document.createElement('p');
+  answer.className = 'editor-welcome-faq-answer';
+  answer.textContent = answerText || '';
+
+  item.append(summary, answer);
+  return item;
+}
+
+function renderWelcomeFaq() {
+  const section = document.createElement('section');
+  section.className = 'editor-welcome-section editor-welcome-faq';
+
+  const title = document.createElement('h3');
+  title.className = 'editor-welcome-heading';
+  title.textContent = welcomeText('faqTitle', 'When a word looks unfamiliar');
+
+  const intro = document.createElement('p');
+  intro.className = 'editor-welcome-faq-intro';
+  intro.textContent = welcomeText('faqIntro', 'You do not need to read everything now. Open a question only when it helps.');
+
+  const list = document.createElement('div');
+  list.className = 'editor-welcome-faq-list';
+  [
+    ['faqNanoSiteQuestion', 'What is NanoSite?', 'faqNanoSiteAnswer', 'NanoSite turns Markdown files into a static website that can be hosted on GitHub Pages.', true],
+    ['faqMarkdownQuestion', 'What is Markdown?', 'faqMarkdownAnswer', 'Markdown is a simple way to write headings, links, lists, images, and paragraphs as plain text.', false],
+    ['faqArticlesPagesQuestion', 'What is the difference between Articles and Pages?', 'faqArticlesPagesAnswer', 'Articles are listed posts for blogs, notes, and tutorials. Pages are fixed navigation pages such as About or History.', false],
+    ['faqFrontMatterQuestion', 'What is front matter?', 'faqFrontMatterAnswer', 'Front matter is the small settings block for a page or article, such as title, date, tags, excerpt, and cover image.', false],
+    ['faqPublishQuestion', 'How do local edits and Publish work?', 'faqPublishAnswer', 'Saving keeps drafts on this computer. Publish sends the changes you choose to GitHub.', false],
+    ['faqUpdatesQuestion', 'What do NanoSite Updates change?', 'faqUpdatesAnswer', 'System Updates refresh editor and runtime files. They do not overwrite your articles, pages, or site settings.', false]
+  ].forEach(([questionKey, questionFallback, answerKey, answerFallback, open]) => {
+    list.appendChild(renderWelcomeFaqItem(
+      welcomeText(questionKey, questionFallback),
+      welcomeText(answerKey, answerFallback),
+      open
+    ));
+  });
+
+  section.append(title, intro, list);
+  return section;
+}
+
+function renderEditorWelcomePanel(node, refs) {
+  renderWelcomeHero(refs);
+  refs.body.append(
+    renderWelcomeSteps(),
+    renderWelcomeSecondaryActions(),
+    renderWelcomeFaq()
+  );
+}
+
 function renderEditorStructurePanel(node) {
   const panel = document.getElementById('editorStructurePanel');
   const title = document.getElementById('editorStructureTitle');
@@ -11720,6 +11922,7 @@ function renderEditorStructurePanel(node) {
   const animate = () => animateEditorStructurePanelContent(panel);
   actions.innerHTML = '';
   body.innerHTML = '';
+  body.classList.remove('editor-welcome-body');
   setEditorDetailPanelMode('structure');
 
   if (!node) {
@@ -11737,6 +11940,11 @@ function renderEditorStructurePanel(node) {
   }
 
   if (node.kind === 'root') {
+    if (node.source === 'welcome') {
+      renderEditorWelcomePanel(node, { title, kicker, meta, actions, body });
+      animate();
+      return;
+    }
     if (node.source === 'system') {
       kicker.textContent = treeText('rootKicker', 'Collection');
       title.textContent = node.label || treeText('system', 'System');

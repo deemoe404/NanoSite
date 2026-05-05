@@ -1,5 +1,5 @@
 // Template renderers (pure functions returning HTML strings)
-import { t } from './i18n.js?v=20260504saved';
+import { t } from './i18n.js?v=20260505welcome';
 import { computeReadTime } from './content.js';
 import { escapeHtml, renderTags, formatDisplayDate } from './utils.js';
 

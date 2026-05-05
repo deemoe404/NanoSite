@@ -71,6 +71,37 @@ run('preserves complex front matter bytes when only the body changes', () => {
   assert.equal(output, `${state.parsed.document.originalFull}\nUpdated body.\n`);
 });
 
+run('treats one blank line after front matter as the normal body separator', () => {
+  const source = [
+    '---',
+    'title: Existing title',
+    '---',
+    '',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  assert.equal(state.parsed.content, 'Body paragraph.\n');
+  assert.equal(state.parsed.document.bodyLeadingSeparator, '\n');
+  assert.equal(build(state, state.parsed.content), source);
+});
+
+run('keeps extra front matter body spacing as body content after the normal separator', () => {
+  const source = [
+    '---',
+    'title: Existing title',
+    '---',
+    '',
+    '',
+    'Body paragraph.',
+    ''
+  ].join('\n');
+  const state = createState(source);
+  assert.equal(state.parsed.content, '\nBody paragraph.\n');
+  assert.equal(state.parsed.document.bodyLeadingSeparator, '\n');
+  assert.equal(build(state, state.parsed.content), source);
+});
+
 run('editing a known field preserves unknown nested metadata and comments', () => {
   const source = [
     '---',

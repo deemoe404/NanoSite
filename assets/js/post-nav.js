@@ -1,4 +1,4 @@
-import { withLangParam, t } from './i18n.js?v=20260504saved';
+import { withLangParam, t } from './i18n.js?v=20260505welcome';
 import { escapeHtml } from './utils.js';
 
 export function renderPostNav(container, postsIndex, postname) {

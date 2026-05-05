@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 globalThis.document = globalThis.document || {
   documentElement: { setAttribute() {}, getAttribute() { return 'en'; } },
   getElementById() { return null; },
+  querySelector() { return null; },
   querySelectorAll() { return []; }
 };
 globalThis.window = globalThis.window || {

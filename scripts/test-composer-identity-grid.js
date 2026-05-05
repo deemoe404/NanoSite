@@ -8,6 +8,7 @@ const composerPath = resolve(here, '../assets/js/composer.js');
 const hiEditorPath = resolve(here, '../assets/js/hieditor.js');
 const editorMainPath = resolve(here, '../assets/js/editor-main.js');
 const editorBlocksPath = resolve(here, '../assets/js/editor-blocks.js');
+const syntaxHighlightPath = resolve(here, '../assets/js/syntax-highlight.js');
 const editorPath = resolve(here, '../index_editor.html');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const enI18nPath = resolve(here, '../assets/i18n/en.js');
@@ -21,6 +22,7 @@ const source = readFileSync(composerPath, 'utf8');
 const hiEditorSource = readFileSync(hiEditorPath, 'utf8');
 const editorMainSource = readFileSync(editorMainPath, 'utf8');
 const editorBlocksSource = readFileSync(editorBlocksPath, 'utf8');
+const syntaxHighlightSource = readFileSync(syntaxHighlightPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 const i18nSource = readFileSync(i18nPath, 'utf8');
@@ -102,6 +104,84 @@ assert.match(
   'blocks mode should provide parser, serializer, and DOM controller entrypoints'
 );
 
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-toolbar|text\('uploadImage', 'Upload Image'\)|requestImageUpload\(\{ index: state\.activeIndex \+ 1 \}\)/,
+  'blocks mode should not render the old top block toolbar or visible upload-image insertion button'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const ensureEditableBlankForEmptyDocument = \(\) => \{[\s\S]*if \(state\.blocks\.length\) return null;[\s\S]*Empty documents still need one real blank block[\s\S]*non-empty documents rely on Enter at the end instead[\s\S]*state\.blocks\.push\(block\);[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.blocks = parseMarkdownBlocks\(markdown\);[\s\S]*ensureEditableBlankForEmptyDocument\(\);/,
+  'blocks mode should materialize a real blank block only for empty documents'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const placeCommandBlock = \(type, data = \{\}, index = state\.blocks\.length\) => \{[\s\S]*state\.blocks\[safeIndex\]\.type === 'blank'[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\);[\s\S]*const block = placeCommandBlock\(type, data, insertIndex\);[\s\S]*placeCommandBlock\('card',[\s\S]*const openArticleCardCommand = \(\) => \{[\s\S]*const insertIndex = Number\.isInteger\(state\.commandMenuInsertIndex\) \? state\.commandMenuInsertIndex : state\.blocks\.length;[\s\S]*state\.cardPickerInsertIndex = insertIndex;/,
+  'blank block commands should replace the active blank block and reuse the article-card picker at that position'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const renderBlankBlock = \(body, block, index\) => \{[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key === 'Enter' && !event\.shiftKey && !event\.altKey && !event\.ctrlKey && !event\.metaKey && !event\.isComposing[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\);[\s\S]*removeEmptyBlockWithBackspace/,
+  'blank block Enter should create another real blank before browser input can turn the blank into a paragraph'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function isEditableSelectionOnBlankLine\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*if \(text\.slice\(lineStart, lineEnd\)\.trim\(\) === ''\) return true;[\s\S]*const caretRect = caretRectForEditable\(el\);[\s\S]*createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*range\.selectNodeContents\(node\);[\s\S]*const hasTextOnCaretLine = rects\.some[\s\S]*if \(hasTextOnCaretLine\)[\s\S]*return true;/,
+  'rich text blocks should detect empty visual lines even when DOM line breaks are not counted by Range.toString offsets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function shouldInsertBlankBlockOnEnter\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*const text = editableVisibleText\(el\);[\s\S]*if \(offsets\.start >= text\.length\) return true;[\s\S]*return isEditableSelectionOnBlankLine\(el\);/,
+  'plain Enter at the end of a rich text block should insert a real blank block without first creating an empty line'
+);
+
+assert.match(
+  editorBlocksSource,
+  /commandMenuInsertIndex: null,[\s\S]*const insertBlankBlockAfter = \(index, editable = null, sync = null\) => \{[\s\S]*if \(typeof sync === 'function'\) sync\(\);[\s\S]*insertBlankBlock\(Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) \+ 1, state\.blocks\.length\)\), \{ focus: true \}\);/,
+  'Enter should create a focused real blank block after the current block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*!\['paragraph', 'quote', 'heading'\]\.includes\(block\.type\)[\s\S]*!shouldInsertBlankBlockOnEnter\(editable\)[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlockAfter\(index, editable, sync\);/,
+  'paragraph, quote, and heading Enter handling should exit the block when Enter would create a new empty line'
+);
+
+assert.match(
+  editorBlocksSource,
+  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*\}\);[\s\S]*renderCardPicker\(\);/,
+  'rendering should use real blank blocks for persistent insertion points without appending a terminal virtual block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /export function isBlockEmptyForBackspace\(block\) \{[\s\S]*block\.type === 'blank'[\s\S]*block\.type === 'paragraph'[\s\S]*block\.type === 'heading'[\s\S]*block\.type === 'quote'[\s\S]*block\.type === 'code'[\s\S]*block\.type === 'source'[\s\S]*block\.type === 'image'[\s\S]*block\.type === 'card'[\s\S]*block\.type === 'list'[\s\S]*editableListItems\(data\.items\)\.every\(item => blank\(item && item\.text\) && !item\.checked\);/,
+  'empty block backspace detection should cover blank, text, media, card, and list user-authored content'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const focusListItemEditable = \(block, itemIndex, options = \{\}\) => \{[\s\S]*const items = blockEl\.querySelectorAll\('\.blocks-list-item \.blocks-list-text'\);[\s\S]*else if \(options\.atEnd\) placeCaretAtEnd\(editable\);[\s\S]*const focusPreviousBlockEnd = \(index\) => \{[\s\S]*if \(target\.type === 'list'\) \{[\s\S]*const itemIndex = editableListItems\(target\.data && target\.data\.items\)\.length - 1;[\s\S]*focusListItemEditable\(target, itemIndex, \{ atEnd: true \}\);[\s\S]*return;[\s\S]*focusBlockPrimaryEditable\(target\);[\s\S]*const removeEmptyBlockWithBackspace = \(event, block, index, editable = null, sync = null\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*index <= 0[\s\S]*isEditableBackspaceAtEmptyStart\(editable\)[\s\S]*isBlockEmptyForBackspace\(block\)[\s\S]*state\.blocks\.splice\(index, 1\);[\s\S]*render\(\);[\s\S]*focusPreviousBlockEnd\(index\);[\s\S]*emit\(\);/,
+  'Backspace should remove empty non-first real blocks and move focus to the previous block end, including the last list item'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /renderVirtualBlock|handleTerminalVirtualBackspace|focusTerminalVirtualEditable|ensureTrailingBlankBlock/,
+  'terminal virtual block and forced trailing blank runtime should be removed'
+);
+
+assert.match(
+  editorBlocksSource,
+  /createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\)\) return;/,
+  'empty Backspace handling should run before rich Enter, list row, code Enter, and source textarea handling'
+);
+
 assert.match(
   editorMainSource,
   /const blockLabels = new Proxy\(\{\}, \{[\s\S]*const translationKey = `editor\.blocks\.\$\{name\}`;[\s\S]*const translated = t\(translationKey\);[\s\S]*translated !== translationKey \? translated : \(blockLabelFallbacks\[name\] \|\| name\);/,
@@ -181,6 +261,12 @@ assert.match(
   editorBlocksSource,
   /suppressSelectionActiveRecoveryUntil: 0,[\s\S]*const activateEditableFromPointer = \(index, editable, sync\) => \{[\s\S]*state\.suppressSelectionActiveRecoveryUntil = Date\.now\(\) \+ 180;[\s\S]*setActive\(index, editable, sync\);[\s\S]*const canRecoverSelectionActive = !state\.suppressSelectionActiveRecoveryUntil \|\| Date\.now\(\) > state\.suppressSelectionActiveRecoveryUntil;[\s\S]*if \(selectionEditable && canRecoverSelectionActive\) \{/,
   'pointerdown activation should briefly prevent stale browser selection from reselecting the previous block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const activateNonTextBlockFromPointer = \(index, blockEl = null\) => \{[\s\S]*state\.suppressSelectionActiveRecoveryUntil = Date\.now\(\) \+ 180;[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(index\);[\s\S]*\};/,
+  'non-text block pointer activation should clear stale browser selection before selecting the block'
 );
 
 assert.match(
@@ -335,14 +421,20 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
-  'overflow menu items should preserve move/delete behavior and disabled edge states'
+  /const actionMenuBoundaryLeft = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*return Math\.max\(8, Math\.floor\(rect\.left\)\);[\s\S]*const alignBlockActionMenu = \(menu, trigger = null\) => \{[\s\S]*menu\.classList\.remove\('is-open-right'\);[\s\S]*const boundaryLeft = actionMenuBoundaryLeft\(\);[\s\S]*const triggerRect = trigger && trigger\.getBoundingClientRect[\s\S]*const leftSpace = triggerRect \? triggerRect\.right - boundaryLeft : menuRect\.left - boundaryLeft;[\s\S]*if \(leftSpace < menuRect\.width \+ 8\) menu\.classList\.add\('is-open-right'\);/,
+  'block action overflow menu should flip right when the button has insufficient left-side room inside the editor content boundary'
 );
 
 assert.match(
   editorBlocksSource,
-  /const closeBlockActionMenu = \(restoreFocus = false\) => \{[\s\S]*document\.removeEventListener\('mousedown', current\.onDocDown, true\);[\s\S]*document\.removeEventListener\('keydown', current\.onKeyDown, true\);[\s\S]*if \(restoreFocus\)[\s\S]*const onDocDown = \(event\) => \{[\s\S]*closeBlockActionMenu\(false\);[\s\S]*const onKeyDown = \(event\) => \{[\s\S]*event\.key === 'Escape'[\s\S]*closeBlockActionMenu\(true\);/,
-  'overflow menu should close on outside click and Escape while cleaning document listeners'
+  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('addBefore', 'Add before'\), '', false, \(\) => insertBlankBlock\(index\)\);[\s\S]*makeItem\(text\('addAfter', 'Add after'\), '', false, \(\) => insertBlankBlock\(index \+ 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
+  'overflow menu items should preserve move/delete behavior and expose blank insertion before and after the block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const closeBlockActionMenu = \(restoreFocus = false\) => \{[\s\S]*current\.menu\.classList\.remove\('is-open-right'\);[\s\S]*document\.removeEventListener\('mousedown', current\.onDocDown, true\);[\s\S]*document\.removeEventListener\('keydown', current\.onKeyDown, true\);[\s\S]*window\.removeEventListener\('resize', current\.onReposition\);[\s\S]*window\.removeEventListener\('scroll', current\.onReposition, true\);[\s\S]*if \(restoreFocus\)[\s\S]*const onDocDown = \(event\) => \{[\s\S]*closeBlockActionMenu\(false\);[\s\S]*const onKeyDown = \(event\) => \{[\s\S]*event\.key === 'Escape'[\s\S]*closeBlockActionMenu\(true\);/,
+  'overflow menu should close on outside click and Escape while cleaning document and window listeners'
 );
 
 assert.doesNotMatch(
@@ -365,8 +457,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-toolbar'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
-  'blocks caret routing should exclude toolbars, link editors, controls, links, and native editable targets'
+  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-command-menu'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-card-preview'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
+  'blocks caret routing should exclude command menus, link editors, article cards, controls, links, and native editable targets'
 );
 
 assert.match(
@@ -377,8 +469,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*const imageBlock = closestElement\(event\.target, '\.blocks-block-image'\);[\s\S]*event\.preventDefault\(\);[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(imageIndex\);[\s\S]*return;[\s\S]*const candidate = nearestEditableFromPoint\(event\.clientX, event\.clientY\);/,
-  'image block pointerdowns should clear stale text selections and select the image block before routing a caret to nearby text'
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*const imageBlock = closestElement\(event\.target, '\.blocks-block-image'\);[\s\S]*event\.preventDefault\(\);[\s\S]*activateNonTextBlockFromPointer\(imageIndex, imageBlock\);[\s\S]*return;[\s\S]*const candidate = nearestEditableFromPoint\(event\.clientX, event\.clientY\);/,
+  'image block pointerdowns should use non-text block activation before routing a caret to nearby text'
 );
 
 assert.match(
@@ -502,9 +594,27 @@ assert.match(
 );
 
 assert.match(
+  editorSource,
+  /\.blocks-heading-text \{ margin:0; font-family:var\(--serif, var\(--article-serif-stack, Georgia, "Times New Roman", Times, serif\)\);/,
+  'heading block spacing should be owned by the outer block rhythm, not an inner heading margin'
+);
+
+assert.match(
   editorBlocksSource,
-  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
-  'image blocks should render a real image element instead of a path-only placeholder'
+  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*const placeholder = document\.createElement\('div'\);[\s\S]*placeholder\.className = 'blocks-image-placeholder'[\s\S]*figure\.append\(img, placeholder, caption\);/,
+  'image blocks should render a real image element with an editor-only empty-image placeholder'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const configureImagePreview = \(figure, img, src\) => \{[\s\S]*img\.onload = \(\) => \{[\s\S]*setImagePlaceholderVisible\(figure, false\);[\s\S]*img\.onerror = \(\) => \{[\s\S]*setImagePlaceholderVisible\(figure, true\);[\s\S]*if \(!nextSrc\) \{[\s\S]*img\.removeAttribute\('src'\);[\s\S]*setImagePlaceholderVisible\(figure, true\);[\s\S]*if \(img\.getAttribute\('src'\) !== nextSrc\) img\.src = nextSrc;/,
+  'image preview loading should toggle the placeholder for empty, failed, and loaded sources'
+);
+
+assert.match(
+  editorBlocksSource,
+  /\['image', 'image', 'Image', \{ alt: '', src: '' \}\]/,
+  'inserted image blocks should start with an intentionally empty src so the placeholder is visible'
 );
 
 assert.doesNotMatch(
@@ -581,7 +691,7 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /const listEl = document\.createElement\(listType === 'ol' \? 'ol' : 'ul'\);[\s\S]*const li = document\.createElement\('li'\);[\s\S]*span\.contentEditable = 'true'/,
+  /const listEl = document\.createElement\(isTaskList \? 'ul' : 'div'\);[\s\S]*const li = document\.createElement\(isTaskList \? 'li' : 'div'\);[\s\S]*span\.contentEditable = 'true'/,
   'list blocks should render editable list item elements instead of a textarea'
 );
 
@@ -593,20 +703,80 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const pre = document\.createElement\('pre'\);[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.contentEditable = 'true'/,
-  'code blocks should render a pre/code editing surface'
+  /const pre = document\.createElement\('pre'\);[\s\S]*const scroll = document\.createElement\('div'\);[\s\S]*scroll\.className = 'blocks-code-scroll';[\s\S]*const gutter = document\.createElement\('div'\);[\s\S]*gutter\.className = 'blocks-code-gutter';[\s\S]*const surface = document\.createElement\('div'\);[\s\S]*surface\.className = 'blocks-code-surface';[\s\S]*const highlight = document\.createElement\('code'\);[\s\S]*highlight\.className = 'blocks-code-highlight language-plain';[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.className = 'blocks-code-editable';[\s\S]*code\.contentEditable = 'true'/,
+  'code blocks should render a pre/code editing surface with an owned non-editable scroll wrapper, gutter, and highlight mirror'
 );
 
 assert.match(
   editorBlocksSource,
-  /const sync = \(\) => updateFromControl\(block, \{ text: codeEditableText\(code\) \}\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);/,
-  'code block editing surfaces should register active sync for routed caret focus'
+  /const renderCodeGutter = \(gutter, value\) => \{[\s\S]*String\(value == null \? '' : value\)\.split\('\\n'\)\.length[\s\S]*gutter\.replaceChildren\(frag\);[\s\S]*Array\.from\(gutter\.children\)\.forEach/,
+  'code block gutters should be rendered from plain line counts without touching code text'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /gutter\.style\.width/,
+  'code block gutters should not use a fixed inline width that can squeeze two-digit line numbers'
 );
 
 assert.match(
   editorBlocksSource,
-  /const createCodeLanguageInput = \(block\) => \{[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
+  /function normalizeCodeEditablePlainText\(value\) \{[\s\S]*\.replace\(\/\\r\\n\/g, '\\n'\)[\s\S]*\.replace\(\/\\r\/g, '\\n'\);[\s\S]*function codeEditableText\(el\) \{[\s\S]*normalizeCodeEditablePlainText\(el\.innerText \|\| el\.textContent \|\| ''\)\.replace\(\/\\n\$\/, ''\);/,
+  'code block text extraction should normalize browser Enter separators before syncing'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function insertCodeEditableTextAtSelection\(el, value\) \{[\s\S]*const offsets = codeEditableSelectionOffsets\(el\);[\s\S]*el\.textContent = next;[\s\S]*placeCaretAtTextOffset\(el, start \+ insert\.length\);[\s\S]*return next;/,
+  'code block controlled text insertion should restore the caret after rewriting Enter text'
+);
+
+assert.match(
+  editorBlocksSource,
+  /renderCodeGutter\(gutter, block\.data\.text \|\| ''\);[\s\S]*renderCodeHighlight\(highlight, languageLabel, block\.data\.text \|\| '', block\.data\.lang \|\| ''\);[\s\S]*const sync = \(\) => \{[\s\S]*const text = codeEditableText\(code\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*renderCodeHighlight\(highlight, languageLabel, text, block\.data\.lang \|\| ''\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('input', sync\);[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*const text = insertCodeEditableTextAtSelection\(code, '\\n'\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*renderCodeHighlight\(highlight, languageLabel, text, block\.data\.lang \|\| ''\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);[\s\S]*surface\.append\(highlight, code\);[\s\S]*scroll\.append\(gutter, surface\);[\s\S]*pre\.appendChild\(scroll\);[\s\S]*pre\.appendChild\(languageLabel\);/,
+  'code block editing surfaces should sync text, gutter, highlight, and badge without rewriting the editable code node'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createCodeLanguageInput = \(block\) => \{[\s\S]*const lang = document\.createElement\('select'\);[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*CODE_LANGUAGE_OPTIONS\.forEach\(\(value\) => appendOption\(value, labels\.get\(value\) \|\| value\)\);[\s\S]*lang\.addEventListener\('change', \(\) => updateFromControl\(block, \{ lang: lang\.value \}, true\)\);[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
   'code block language control should live in the floating block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function resolveCodeHighlightLanguage\(language, codeText\) \{[\s\S]*CODE_PLAIN_LANGUAGES\.has\(normalized\)[\s\S]*CODE_HIGHLIGHT_LANGUAGES\.has\(normalized\)[\s\S]*const detected = String\(detectLanguage\(String\(codeText \|\| ''\)\) \|\| ''\)\.toLowerCase\(\);[\s\S]*return \{ language: 'plain', label: 'PLAIN', highlight: false \};/,
+  'blocks code highlight resolution should support plain flags, selected languages, and auto-detection'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createCodeLanguageLabel = \(getCodeText\) => \{[\s\S]*label\.className = 'syntax-language-label blocks-code-language-label';[\s\S]*label\.setAttribute\('role', 'button'\);[\s\S]*navigator\.clipboard\.writeText\(rawText\)[\s\S]*label\.addEventListener\('mouseenter'[\s\S]*label\.addEventListener\('click', copyCode\);/,
+  'blocks code should render the native-style copy language badge inside the code frame'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const renderCodeHighlight = \(highlight, label, value, language\) => \{[\s\S]*const meta = resolveCodeHighlightLanguage\(language, raw\);[\s\S]*highlight\.className = `blocks-code-highlight language-\$\{meta\.language\}`;[\s\S]*highlight\.replaceChildren\(createSafeHighlightFragment\(raw, meta\.highlight \? meta\.language : 'plain'\)\);[\s\S]*label\.dataset\.lang = meta\.label \|\| 'PLAIN';/,
+  'blocks code should render syntax spans only into the non-editable highlight mirror and update the badge label'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const CODE_LANGUAGE_OPTIONS = \['', 'plain', 'javascript', 'json', 'python', 'html', 'xml', 'css', 'markdown', 'bash', 'shell', 'yaml', 'yml', 'robots'\];/,
+  'code block language selector should expose only supported highlighter language options plus blank/plain'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const currentLang = String\(block\.data\.lang \|\| ''\)\.trim\(\);[\s\S]*const normalizedLang = currentLang\.toLowerCase\(\);[\s\S]*if \(currentLang && !CODE_LANGUAGE_OPTIONS\.includes\(normalizedLang\)\) \{[\s\S]*appendOption\(currentLang, `Unsupported: \$\{currentLang\}`, true\);[\s\S]*\}[\s\S]*lang\.value = CODE_LANGUAGE_OPTIONS\.includes\(normalizedLang\) \? normalizedLang : currentLang;/,
+  'code block language selector should normalize supported values and preserve unsupported legacy language values'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /lang\.type = 'text'|updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)/,
+  'code block language selector should not keep the old free-text input path'
 );
 
 assert.doesNotMatch(
@@ -617,8 +787,26 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /preview\.innerHTML = `<a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);/,
-  'article-card blocks should render through the card hydration path'
+  /preview\.innerHTML = `<span class="blocks-card-source"><a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);[\s\S]*link\.tabIndex = -1;/,
+  'article-card blocks should keep the preview wrapper while rendering through the card hydration path'
+);
+
+assert.match(
+  editorBlocksSource,
+  /preview\.addEventListener\('click', \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*setActive\(index\);/,
+  'article-card block clicks should select the block instead of following the hydrated link'
+);
+
+assert.match(
+  editorBlocksSource,
+  /preview\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*activateNonTextBlockFromPointer\(index, closestElement\(preview, '\.blocks-block-card'\)\);/,
+  'article-card pointerdowns should clear stale text selection and select the card block before click recovery runs'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-card-inspector|labelInput\.placeholder = text\('cardLabel'|location\.placeholder = text\('cardLocation'/,
+  'article-card blocks should not render redundant label or location inspector inputs'
 );
 
 assert.match(
@@ -665,14 +853,44 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:/,
-  'pressing Enter in a visual list item should split text at the caret into a focused new item below with the same indentation'
+  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: itemIndex \+ 1, caretOffset: 0 \};/,
+  'pressing Enter in a visual list item should keep the caret semantic position by focusing the after item'
 );
 
 assert.match(
   editorBlocksSource,
-  /function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*next\[itemIndex - 1\] = \{ \.\.\.previous, text: `\$\{previous\.text \|\| ''\}\$\{currentText\}` \};[\s\S]*next\.splice\(itemIndex, 1\);/,
-  'Backspace or Delete at the start of a non-first visual list item should remove or merge it into the previous item'
+  /outdentEmptyListItemForEnter\(currentItems, itemIndex\)[\s\S]*updateFromControl\(block, \{ items: outdentedItems \}, true\)[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*convertListTailItemAfterEmptyToParagraph\(currentItems, itemIndex\)[\s\S]*makeBlock\('paragraph'[\s\S]*focusBlockPrimaryEditable\(paragraph, 0\)[\s\S]*splitListItemsAtEmptyItem\(currentItems, itemIndex\)[\s\S]*normalizeSplitListStartItems\(emptySplit\.after\)[\s\S]*state\.blocks\.splice\(index \+ 1, 0, nextBlock\)[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\)[\s\S]*state\.blocks\.splice\(index, 1, blank\)[\s\S]*const split = splitEditableTextAtSelection\(span\);/,
+  'pressing Enter at a list tail after an inserted empty item should convert the current tail item to a paragraph before normal split'
+);
+
+assert.match(
+  editorBlocksSource,
+  /export function inlineRenderedTextLength\(markdownText\) \{[\s\S]*parseInlineRuns\(normalizeEditableMarkdownText\(markdownText\)\)[\s\S]*export function mergeListItemIntoPreviousItem\(items, itemIndex\) \{[\s\S]*itemIndentLevel\(previous\) !== itemIndentLevel\(current\)[\s\S]*listItemHasNestedChildren\(source, safeIndex\)[\s\S]*joinMergedEditableText\(previousText, listItemText\(current\)\)[\s\S]*inlineRenderedTextLength\(previousText\) \+ mergedText\.separator\.length[\s\S]*function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*mergeListItemIntoPreviousItem\(next, itemIndex\)[\s\S]*if \(!mergedItem\) return;[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: mergedItem\.focusItemIndex, caretOffset: mergedItem\.caretOffset \}/,
+  'Backspace or Delete at the start of a non-first visual list item should merge only structurally safe same-level items'
+);
+
+assert.match(
+  editorBlocksSource,
+  /event\.key === 'Backspace' && itemIndex === 0 && index > 0 && isEditableSelectionAtStart\(span\)[\s\S]*mergeFirstListItemIntoPreviousBlock\(previous,[\s\S]*items: currentItems[\s\S]*if \(!merged\) return;[\s\S]*state\.blocks\.splice\(index - 1, 2, \.\.\.replacement\)[\s\S]*focusBlockPrimaryEditable\(merged\.previousBlock, merged\.focus\.caretOffset\)/,
+  'Backspace at the start of the first visual list item should merge into the previous block only through the safe helper'
+);
+
+assert.match(
+  editorBlocksSource,
+  /mergeTextBlockIntoPrevious\(previous, block\) \|\| mergeTextBlockIntoPreviousList\(previous, block\)[\s\S]*caretOffset: merged\.focusCaretOffset/,
+  'Backspace at the start of a text block should support merging into a previous list tail item with safe caret placement'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /text: `\$\{(?:previousText|listItemText\(previous\))\}\$\{(?:currentText|listItemText\(current\))\}`/,
+  'Backspace merge helpers should not directly concatenate merged text without the safe join helper'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /previousText\.length \+ mergedText\.separator\.length/,
+  'Backspace merge caret offsets should use rendered inline text length instead of markdown source length'
 );
 
 assert.match(
@@ -695,20 +913,26 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.markdown-blocks-shell, \.blocks-list, \.blocks-block, \.blocks-block-body \{ cursor:text; \}/,
+  /\.markdown-blocks-shell, \.blocks-list, \.blocks-block, \.blocks-block-body, \.blocks-virtual-block \{ cursor:text; \}/,
   'blocks editing canvas should use the text cursor across blank layout areas'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-image-meta-controls, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
+  /\.blocks-block-head, \.blocks-link-editor, \.blocks-image-meta-controls, \.blocks-inspector, \.blocks-card-picker, \.blocks-command-menu, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
   'blocks controls and floating panels should not inherit the canvas text cursor'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*cursor:pointer;/,
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-command-menu-item, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*cursor:pointer;/,
   'toolbar buttons, card picker results, block action menu items, and inline menu items should keep pointer cursors'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-command-menu-item, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*border:1px solid var\(--border\); background:var\(--card\);/,
+  'floating toolbar buttons should use opaque card backgrounds instead of transparent mixes'
 );
 
 assert.match(
@@ -743,8 +967,38 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-list \{ display:flex; flex-direction:column; gap:3rem; padding-top:2\.5rem; \}/,
-  'blocks list should leave enough vertical room for floating block toolbars'
+  /\.blocks-list \{ display:block; padding-top:0; \}/,
+  'blocks list should use normal article flow instead of flex gap spacing'
+);
+
+assert.match(
+  editorSource,
+  /@container \(min-width: 66\.5rem\) \{[\s\S]*\.editor-workspace:has\(#blocks-wrap:not\(\[hidden\]\)\) \.editor-canvas::after \{[\s\S]*height:50vh;[\s\S]*pointer-events:none;[\s\S]*\}/,
+  'two-column visual editor should reserve half a viewport of bottom reading space after the last block'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-virtual-block \{ position:relative; margin:\.85rem 0 1\.2rem; min-height:2\.2rem; \}[\s\S]*\.blocks-virtual-editable:empty::before \{ content:attr\(data-placeholder\);[\s\S]*\.blocks-command-menu \{ position:absolute; left:0; top:calc\(100% \+ \.35rem\);[\s\S]*\.blocks-command-menu-item \{ display:flex; align-items:center; gap:\.45rem;/,
+  'blocks mode should style the bottom virtual block and slash command menu as editor-native controls'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-list \{[^}]*gap:3rem/,
+  'blocks list should not keep the old oversized editor-only vertical gap'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-list \{[^}]*padding-top:2\.5rem/,
+  'blocks list should not reserve old top padding for floating block controls'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-paragraph, \.blocks-block-source \{ margin:\.85rem 0; \}[\s\S]*\.blocks-block-paragraph \+ \.blocks-block-paragraph \{ margin-top:1rem; \}[\s\S]*\.blocks-block-heading \{ --blocks-heading-font-size:1\.65rem; margin:calc\(var\(--blocks-heading-font-size\) \* 1\.2\) 0 calc\(var\(--blocks-heading-font-size\) \* \.5\); \}[\s\S]*\.blocks-block-heading:has\(\.blocks-heading-h1\) \{ --blocks-heading-font-size:2rem; \}[\s\S]*\.blocks-block-heading:has\(\.blocks-heading-h6\) \{ --blocks-heading-font-size:\.92rem; \}[\s\S]*\.blocks-block-list \{ margin:\.8rem 0; \}[\s\S]*\.blocks-block-quote \{ margin:1\.2em 0; \}[\s\S]*\.blocks-block-image, \.blocks-block-card \{ margin:1rem 0; \}[\s\S]*\.blocks-block-code \{ margin:\.75rem 0; \}/,
+  'blocks should use Native article rhythm margins per block type'
 );
 
 assert.match(
@@ -815,13 +1069,13 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \{[^}]*height:42px; min-height:42px;[\s\S]*border:1px solid color-mix\(in srgb, var\(--border\) 75\.6%, var\(--text\) 19\.4%\);[\s\S]*border-radius:0;/,
-  'block floating toolbar should use a fixed 42px square-corner shell with a 0.95-alpha darker border'
+  /\.blocks-block-head \{[^}]*height:42px; min-height:42px;[\s\S]*border:1px solid color-mix\(in srgb, var\(--border\) 76%, var\(--text\) 24%\);[\s\S]*border-radius:0; background:var\(--card\);/,
+  'block floating toolbar should use a fixed 42px opaque square-corner shell'
 );
 
 assert.match(
   editorBlocksSource,
-  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:/,
+  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:[\s\S]*blank:/,
   'block type icon map should cover every block type shown in the floating toolbar'
 );
 
@@ -833,8 +1087,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
-  'block type badge should render an accessible SVG icon instead of visible uppercase type text'
+  /const head = document\.createElement\('div'\);[\s\S]*head\.className = 'blocks-block-head';[\s\S]*type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);[\s\S]*item\.append\(head, renderBlockBody\(block, index\)\);/,
+  'block type badge should render an accessible SVG icon for every block, including blank blocks'
 );
 
 assert.match(
@@ -857,44 +1111,86 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\); \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
-  'block action overflow menu should be separated by a left divider and anchor to the right edge of the floating toolbar actions slot'
+  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid var\(--border\); \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*border:1px solid var\(--border\); border-radius:8px; background:var\(--card\);[\s\S]*\.blocks-action-menu\.is-open-right \{ left:0; right:auto; \}[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
+  'block action overflow menu should anchor right by default and flip rightward when left space is constrained'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-action-menu-delete \{ color:color-mix\(in srgb, #dc2626 82%, var\(--text\)\); \}[\s\S]*\.blocks-action-menu-delete:hover:not\(:disabled\), \.blocks-action-menu-delete:focus-visible:not\(:disabled\) \{ background:color-mix\(in srgb, #dc2626 12%, transparent\);/,
+  /\.blocks-action-menu-delete \{ color:color-mix\(in srgb, #dc2626 82%, var\(--text\)\); \}[\s\S]*\.blocks-action-menu-delete:hover:not\(:disabled\), \.blocks-action-menu-delete:focus-visible:not\(:disabled\) \{ background:color-mix\(in srgb, #dc2626 12%, var\(--card\)\);/,
   'delete action inside the overflow menu should retain danger styling'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; \}/,
-  'code block language input should use compact floating-toolbar styling'
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; cursor:pointer; \}/,
+  'code block language selector should use compact floating-toolbar styling'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language, \.blocks-block-head \.blocks-image-meta-controls input, \.blocks-block-head \.blocks-image-replace[\s\S]*\.blocks-image-meta-controls \{ display:flex; align-items:center; gap:\.24rem;[\s\S]*\.blocks-block-head \.blocks-image-replace \{ white-space:nowrap; cursor:pointer; \}/,
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language, \.blocks-block-head \.blocks-image-meta-controls input, \.blocks-block-head \.blocks-image-replace \{[^}]*border:1px solid var\(--border\); border-radius:999px; background:var\(--card\);[\s\S]*\.blocks-image-meta-controls \{ display:flex; align-items:center; gap:\.24rem;[\s\S]*\.blocks-block-head \.blocks-image-replace \{ white-space:nowrap; cursor:pointer; \}/,
   'image metadata fields and replace button should use compact floating-toolbar styling'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-image-figure \{ margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*box-shadow:var\(--shadow,[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
-  'image block visual styling should mirror native article image and centered figcaption styling'
+  /\.blocks-image-figure \{ position:relative; margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*\.blocks-image-figure\.is-image-placeholder \{ aspect-ratio:5 \/ 1; min-height:5rem;[\s\S]*\.blocks-image-placeholder::after \{ content:""; position:absolute; inset:0; background:linear-gradient\(to top right,[\s\S]*\.blocks-image-figure\.is-image-placeholder \.blocks-image-placeholder \{ display:flex; \}[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
+  'image block visual styling should mirror native article images and reserve a diagonal empty-image placeholder'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview code:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
+  /\.blocks-code-preview code\.blocks-code-editable:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
   'focused code block editor should not draw an inner highlight border'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview code \{ display:block; min-height:1\.55em; outline:none;[\s\S]*line-height:1\.55; \}/,
-  'empty code blocks should keep one editable line as a pointer target'
+  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:hidden; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); position:relative;[\s\S]*font-size:\.893rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-scroll \{ display:flex; align-items:stretch; min-width:0; width:100%; overflow:auto; overflow-y:hidden; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; position:sticky; left:0; z-index:1; box-sizing:border-box;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-surface \{ position:relative; flex:1 1 auto;[\s\S]*min-width:max-content; min-height:1\.55em; \}[\s\S]*\.blocks-code-preview code \{ display:block;[\s\S]*min-width:100%; min-height:1\.55em; padding:0;[\s\S]*white-space:pre; font:inherit; line-height:inherit; tab-size:inherit; background:transparent; \}[\s\S]*\.blocks-code-highlight \{ color:inherit; pointer-events:none; user-select:none; \}[\s\S]*\.blocks-code-preview code\.blocks-code-editable \{ position:absolute; inset:0; z-index:2; color:transparent; -webkit-text-fill-color:transparent; caret-color:var\(--code-text\); \}/,
+  'blocks code blocks should use native code styling while overlaying a transparent editable layer on a highlight mirror'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-code-preview code \{[^}]*overflow-x:auto/,
+  'editable blocks code should not own horizontal scrolling because browser caret scrolling clips its left edge too early'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-code-scroll \{[^}]*overflow:auto; overflow-y:hidden; \}[\s\S]*\.blocks-code-gutter \{[^}]*position:sticky; left:0; z-index:1;/,
+  'blocks code gutter should stick inside the non-editable scroll wrapper like native preview gutters'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-code-preview \{[^}]*#020617[^}]*\}/,
+  'blocks code preview should not use editor-specific dark mixed backgrounds instead of native code tokens'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-code-gutter \{[^}]*#020617[^}]*\}/,
+  'blocks code gutter should not use editor-specific dark mixed backgrounds instead of native code tokens'
+);
+
+assert.match(
+  syntaxHighlightSource,
+  /export function initSyntaxHighlighting\(root = document\) \{[\s\S]*const scope = root && typeof root\.querySelectorAll === 'function' \? root : document;[\s\S]*const codeBlocks = scope\.querySelectorAll\('pre code'\);[\s\S]*preElement\.classList\.contains\('blocks-code-preview'\)[\s\S]*preElement\.closest\('\.markdown-blocks-shell'\)[\s\S]*codeElement\.isContentEditable \|\| codeElement\.getAttribute\('contenteditable'\) === 'true'/,
+  'syntax highlighting should be scoped and skip editable blocks code surfaces'
+);
+
+assert.match(
+  syntaxHighlightSource,
+  /export function createSafeHighlightFragment\(code, language\) \{[\s\S]*return toSafeFragment\(simpleHighlight\(code \|\| '', language \|\| 'plain'\)\);[\s\S]*\}/,
+  'syntax highlighter should expose a safe fragment helper for editor-owned highlight mirrors'
+);
+
+assert.match(
+  editorMainSource,
+  /setSafeHtml\(target, post \|\| '', baseDir,[\s\S]*try \{ initSyntaxHighlighting\(target\); \} catch \(_\) \{\}/,
+  'editor preview syntax highlighting should stay scoped to the preview container'
 );
 
 assert.match(
@@ -929,8 +1225,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-card-preview a \{ cursor:pointer; \}/,
-  'article card links should keep pointer cursors inside the text-cursor canvas'
+  /\.blocks-card-preview a \{ cursor:default; \}/,
+  'article card links should not advertise navigation in blocks mode'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-card-preview \.link-card-wrap \{ margin:0; \}[\s\S]*\.blocks-card-preview \.link-card \{[^}]*border:0\.0625rem solid var\(--border\);[^}]*border-radius:0\.75rem;[^}]*box-shadow:var\(--shadow\);[\s\S]*\.blocks-card-preview \.card-cover-wrap \{[^}]*aspect-ratio:16 \/ 10;[\s\S]*\.blocks-card-preview \.card-title \{[^}]*font-family:var\(--display, var\(--serif\)\);[^}]*font-size:1\.05rem;[\s\S]*\.blocks-card-preview \.card-meta \{[^}]*text-transform:uppercase;/,
+  'article-card blocks should mirror the native link-card layout instead of using separate temporary card styling'
 );
 
 assert.doesNotMatch(
@@ -947,13 +1249,13 @@ assert.doesNotMatch(
 
 assert.match(
   editorSource,
-  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\], \.markdown-blocks-shell \.blocks-inline-menu-item\.is-active, \.markdown-blocks-shell \.blocks-inline-menu-item\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls, \.blocks-list-indent-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}[\s\S]*\.blocks-inline-controls \{ margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid color-mix\(in srgb, var\(--border\) 82%, transparent\); \}/,
+  /\.markdown-blocks-shell \.blocks-inline-btn\.is-active, \.markdown-blocks-shell \.blocks-inline-btn\[aria-pressed="true"\], \.markdown-blocks-shell \.blocks-inline-menu-item\.is-active, \.markdown-blocks-shell \.blocks-inline-menu-item\[aria-pressed="true"\][\s\S]*background:#1d4ed8 !important;[\s\S]*background-color:#1d4ed8 !important;[\s\S]*border-color:#1e40af !important;[\s\S]*color:#fff !important;[\s\S]*box-shadow:inset[\s\S]*\.blocks-inline-controls, \.blocks-list-indent-controls \{ display:flex; align-items:center; gap:\.2rem; padding-left:\.1rem; \}[\s\S]*\.blocks-inline-controls \{ margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid var\(--border\); \}/,
   'inline formatting controls should use a visible filled active state that overrides theme button resets'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-inline-more \{ position:relative; display:flex; align-items:center; \}[\s\S]*\.blocks-inline-more-trigger \{ min-width:2rem; font-size:\.78rem; font-weight:750; \}[\s\S]*\.blocks-inline-more-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*\.blocks-inline-more-menu\[hidden\] \{ display:none !important; \}[\s\S]*\.blocks-inline-menu-item \{ width:100%; border:0; background:transparent; border-radius:6px; padding:\.46rem \.58rem; text-align:left; white-space:nowrap; font-weight:700; \}[\s\S]*\.blocks-inline-menu-item\[aria-disabled="true"\] \{ opacity:\.45; cursor:not-allowed; \}/,
+  /\.blocks-inline-more \{ position:relative; display:flex; align-items:center; \}[\s\S]*\.blocks-inline-more-trigger \{ min-width:2rem; font-size:\.78rem; font-weight:750; \}[\s\S]*\.blocks-inline-more-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*border:1px solid var\(--border\); border-radius:8px; background:var\(--card\);[\s\S]*\.blocks-inline-more-menu\[hidden\] \{ display:none !important; \}[\s\S]*\.blocks-inline-menu-item \{ width:100%; border:0; background:var\(--card\); border-radius:6px; padding:\.46rem \.58rem; text-align:left; white-space:nowrap; font-weight:700; \}[\s\S]*\.blocks-inline-menu-item\[aria-disabled="true"\] \{ opacity:\.45; cursor:not-allowed; \}/,
   'inline formatting overflow menu should be compact and anchored after the Link button'
 );
 
@@ -989,7 +1291,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /if \(block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createListTypeSelect\(block\)\);[\s\S]*\}/,
+  /if \(block\.type === 'list'\) \{[\s\S]*head\.appendChild\(createListTypeSelect\(block, index\)\);[\s\S]*head\.appendChild\(createListIndentControls\(block, index\)\);[\s\S]*\}/,
   'list type control should live in the floating block toolbar'
 );
 
@@ -1174,19 +1476,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504saved';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260505welcome';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260504saved"[\s\S]*"\.\/chs\.js\?v=20260504saved"[\s\S]*"\.\/cht-tw\.js\?v=20260504saved"[\s\S]*"\.\/cht-hk\.js\?v=20260504saved"[\s\S]*"\.\/ja\.js\?v=20260504saved"/,
+  /"\.\/en\.js\?v=20260505welcome"[\s\S]*"\.\/chs\.js\?v=20260505welcome"[\s\S]*"\.\/cht-tw\.js\?v=20260505welcome"[\s\S]*"\.\/cht-hk\.js\?v=20260505welcome"[\s\S]*"\.\/ja\.js\?v=20260505welcome"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260504saved'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260505welcome'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -1459,7 +1761,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.editor-structure-panel\.is-content-entering \.editor-structure-head,[\s\S]*\.editor-structure-panel\.is-content-entering \.editor-structure-body \{ animation:editor-structure-content-enter \.2s ease-out both; \}[\s\S]*@keyframes editor-structure-content-enter/,
+  /\.editor-structure-panel\.is-content-entering \.editor-panel-head,[\s\S]*\.editor-structure-panel\.is-content-entering \.editor-structure-body \{ animation:editor-structure-content-enter \.2s ease-out both; \}[\s\S]*@keyframes editor-structure-content-enter/,
   'editor structure panel content should animate in when the selected tree node changes'
 );
 
@@ -1471,7 +1773,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /class="editor-structure-heading"[\s\S]*class="editor-structure-title-row"[\s\S]*id="editorStructureTitle"[\s\S]*id="editorStructureMeta"/,
+  /class="editor-panel-heading editor-structure-heading"[\s\S]*class="editor-structure-title-row"[\s\S]*id="editorStructureTitle"[\s\S]*id="editorStructureMeta"/,
   'editor structure header markup should group the title and metadata in one row'
 );
 
@@ -1758,7 +2060,7 @@ assert.match(
 
 assert.match(
   source,
-  /import \{ buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree \} from '\.\/editor-content-tree\.js';/,
+  /import \{ buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree \} from '\.\/editor-content-tree\.js\?v=20260505welcome';/,
   'composer should use the shared editor content tree model'
 );
 
@@ -1928,8 +2230,8 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function refreshFileDirtyBadges\(\) \{[\s\S]*updateFileDirtyBadge\('index'\);[\s\S]*updateFileDirtyBadge\('tabs'\);[\s\S]*updateFileDirtyBadge\('site'\);[\s\S]*document\.addEventListener\('ns-editor-language-applied', refreshFileDirtyBadges\)/,
-  'composer file switch dirty labels should be recomputed after editor language changes'
+  /function refreshEditorLanguageUi\(\) \{[\s\S]*refreshFileDirtyBadges\(\);[\s\S]*refreshEditorContentTree\([\s\S]*document\.addEventListener\('ns-editor-language-applied', refreshEditorLanguageUi\)/,
+  'composer file switch dirty labels and tree panels should be recomputed after editor language changes'
 );
 
 assert.match(
