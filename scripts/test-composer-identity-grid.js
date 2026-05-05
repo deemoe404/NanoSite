@@ -504,6 +504,12 @@ assert.match(
 );
 
 assert.match(
+  editorSource,
+  /\.blocks-heading-text \{ margin:0; font-family:var\(--serif, var\(--article-serif-stack, Georgia, "Times New Roman", Times, serif\)\);/,
+  'heading block spacing should be owned by the outer block rhythm, not an inner heading margin'
+);
+
+assert.match(
   editorBlocksSource,
   /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
   'image blocks should render a real image element instead of a path-only placeholder'
@@ -805,8 +811,26 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-list \{ display:flex; flex-direction:column; gap:3rem; padding-top:2\.5rem; \}/,
-  'blocks list should leave enough vertical room for floating block toolbars'
+  /\.blocks-list \{ display:block; padding-top:0; \}/,
+  'blocks list should use normal article flow instead of flex gap spacing'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-list \{[^}]*gap:3rem/,
+  'blocks list should not keep the old oversized editor-only vertical gap'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-list \{[^}]*padding-top:2\.5rem/,
+  'blocks list should not reserve old top padding for floating block controls'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-block-paragraph, \.blocks-block-source \{ margin:\.85rem 0; \}[\s\S]*\.blocks-block-paragraph \+ \.blocks-block-paragraph \{ margin-top:1rem; \}[\s\S]*\.blocks-block-heading \{ --blocks-heading-font-size:1\.65rem; margin:calc\(var\(--blocks-heading-font-size\) \* 1\.2\) 0 calc\(var\(--blocks-heading-font-size\) \* \.5\); \}[\s\S]*\.blocks-block-heading:has\(\.blocks-heading-h1\) \{ --blocks-heading-font-size:2rem; \}[\s\S]*\.blocks-block-heading:has\(\.blocks-heading-h6\) \{ --blocks-heading-font-size:\.92rem; \}[\s\S]*\.blocks-block-list \{ margin:\.8rem 0; \}[\s\S]*\.blocks-block-quote \{ margin:1\.2em 0; \}[\s\S]*\.blocks-block-image, \.blocks-block-card \{ margin:1rem 0; \}[\s\S]*\.blocks-block-code \{ margin:\.75rem 0; \}/,
+  'blocks should use Native article rhythm margins per block type'
 );
 
 assert.match(
