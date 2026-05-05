@@ -847,8 +847,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:/,
-  'pressing Enter in a visual list item should split text at the caret into a focused new item below with the same indentation'
+  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: itemIndex \+ 1, caretOffset: 0 \};/,
+  'pressing Enter in a visual list item should split text at the caret into a focused new item below at its start with the same indentation'
 );
 
 assert.match(

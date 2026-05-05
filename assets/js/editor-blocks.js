@@ -4725,7 +4725,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
             marker: current.marker,
             delimiter: current.delimiter
           });
-          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1, atEnd: true };
+          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1, caretOffset: 0 };
           updateFromControl(block, { items: next }, true);
           return;
         }
