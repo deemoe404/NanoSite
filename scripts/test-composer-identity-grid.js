@@ -859,8 +859,20 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*next\[itemIndex - 1\] = \{ \.\.\.previous, text: `\$\{previous\.text \|\| ''\}\$\{currentText\}` \};[\s\S]*next\.splice\(itemIndex, 1\);/,
-  'Backspace or Delete at the start of a non-first visual list item should remove or merge it into the previous item'
+  /export function mergeListItemIntoPreviousItem\(items, itemIndex\) \{[\s\S]*itemIndentLevel\(previous\) !== itemIndentLevel\(current\)[\s\S]*listItemHasNestedChildren\(source, safeIndex\)[\s\S]*function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*mergeListItemIntoPreviousItem\(next, itemIndex\)[\s\S]*if \(!mergedItem\) return;[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: mergedItem\.focusItemIndex, caretOffset: mergedItem\.caretOffset \}/,
+  'Backspace or Delete at the start of a non-first visual list item should merge only structurally safe same-level items'
+);
+
+assert.match(
+  editorBlocksSource,
+  /event\.key === 'Backspace' && itemIndex === 0 && index > 0 && isEditableSelectionAtStart\(span\)[\s\S]*mergeFirstListItemIntoPreviousBlock\(previous,[\s\S]*items: currentItems[\s\S]*if \(!merged\) return;[\s\S]*state\.blocks\.splice\(index - 1, 2, \.\.\.replacement\)[\s\S]*focusBlockPrimaryEditable\(merged\.previousBlock, merged\.focus\.caretOffset\)/,
+  'Backspace at the start of the first visual list item should merge into the previous block only through the safe helper'
+);
+
+assert.match(
+  editorBlocksSource,
+  /mergeTextBlockIntoPrevious\(previous, block\) \|\| mergeTextBlockIntoPreviousList\(previous, block\)[\s\S]*state\.pendingListFocus = \{ blockId: merged\.id, itemIndex: previousListItemIndex, caretOffset: previousListTextLength \}/,
+  'Backspace at the start of a text block should support merging into a previous list tail item'
 );
 
 assert.match(

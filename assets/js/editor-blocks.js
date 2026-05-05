@@ -1361,6 +1361,139 @@ export function mergeTextBlockIntoPrevious(previousBlock, currentBlock) {
   };
 }
 
+function isMergeableListBlock(block) {
+  return !!(block && block.type === 'list');
+}
+
+function listBlockItems(block) {
+  return editableListItems(block && block.data ? block.data.items : null).slice();
+}
+
+function listItemText(item) {
+  return normalizeEditableMarkdownText(item && item.text);
+}
+
+function listItemHasNestedChildren(items, itemIndex) {
+  const source = Array.isArray(items) ? items : [];
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= source.length) return false;
+  const currentIndent = itemIndentLevel(source[safeIndex]);
+  for (let index = safeIndex + 1; index < source.length; index += 1) {
+    const nextIndent = itemIndentLevel(source[index]);
+    if (nextIndent <= currentIndent) return false;
+    return true;
+  }
+  return false;
+}
+
+export function mergeTextBlockIntoPreviousList(previousBlock, currentBlock) {
+  if (!isMergeableListBlock(previousBlock) || !isMergeableTextBlock(currentBlock)) return null;
+  const items = listBlockItems(previousBlock);
+  if (!items.length) return null;
+  const lastIndex = items.length - 1;
+  const previousText = listItemText(items[lastIndex]);
+  const currentText = textBlockDataText(currentBlock);
+  items[lastIndex] = {
+    ...(items[lastIndex] || {}),
+    text: `${previousText}${currentText}`
+  };
+  return {
+    ...previousBlock,
+    dirty: true,
+    data: {
+      ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+      items
+    }
+  };
+}
+
+export function mergeListItemIntoPreviousItem(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex <= 0 || safeIndex >= source.length) return null;
+  const previous = source[safeIndex - 1] || {};
+  const current = source[safeIndex] || {};
+  if (itemIndentLevel(previous) !== itemIndentLevel(current)) return null;
+  if (listItemHasNestedChildren(source, safeIndex)) return null;
+  const next = source.slice();
+  const caretOffset = listItemText(previous).length;
+  next[safeIndex - 1] = {
+    ...previous,
+    text: `${listItemText(previous)}${listItemText(current)}`
+  };
+  next.splice(safeIndex, 1);
+  return {
+    items: next,
+    focusItemIndex: safeIndex - 1,
+    caretOffset
+  };
+}
+
+export function mergeFirstListItemIntoPreviousBlock(previousBlock, currentBlock, itemIndex = 0) {
+  if (!currentBlock || currentBlock.type !== 'list') return null;
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex !== 0) return null;
+  if (!isMergeableTextBlock(previousBlock) && !isMergeableListBlock(previousBlock)) return null;
+  const items = listBlockItems(currentBlock);
+  const currentItem = items[0] || {};
+  if (itemIndentLevel(currentItem) !== 0 || listItemHasNestedChildren(items, 0)) return null;
+  const currentText = listItemText(currentItem);
+  const remainingItems = items.slice(1);
+  if (isMergeableTextBlock(previousBlock)) {
+    const previousText = textBlockDataText(previousBlock);
+    return {
+      previousBlock: {
+        ...previousBlock,
+        dirty: true,
+        data: {
+          ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+          text: `${previousText}${currentText}`
+        }
+      },
+      currentBlock: remainingItems.length
+        ? {
+            ...currentBlock,
+            dirty: true,
+            data: {
+              ...(currentBlock.data && typeof currentBlock.data === 'object' ? currentBlock.data : {}),
+              items: remainingItems
+            }
+          }
+        : null,
+      focus: { type: 'text', caretOffset: previousText.length }
+    };
+  }
+  const previousItems = listBlockItems(previousBlock);
+  if (!previousItems.length) return null;
+  const lastIndex = previousItems.length - 1;
+  const previousText = listItemText(previousItems[lastIndex]);
+  previousItems[lastIndex] = {
+    ...(previousItems[lastIndex] || {}),
+    text: `${previousText}${currentText}`
+  };
+  return {
+    previousBlock: {
+      ...previousBlock,
+      dirty: true,
+      data: {
+        ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+        items: previousItems
+      }
+    },
+    currentBlock: remainingItems.length
+      ? {
+          ...currentBlock,
+          dirty: true,
+          data: {
+            ...(currentBlock.data && typeof currentBlock.data === 'object' ? currentBlock.data : {}),
+            items: remainingItems
+          }
+        }
+      : null,
+    focus: { type: 'list', itemIndex: lastIndex, caretOffset: previousText.length }
+  };
+}
+
 function isEditableSelectionAtStart(el) {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -2438,7 +2571,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (isBlockEmptyForBackspace(block)) return false;
     const previous = state.blocks[index - 1] || null;
     const previousTextLength = textBlockDataText(previous).length;
-    const merged = mergeTextBlockIntoPrevious(previous, block);
+    const previousItems = isMergeableListBlock(previous) ? listBlockItems(previous) : [];
+    const previousListItemIndex = previousItems.length - 1;
+    const previousListTextLength = previousListItemIndex >= 0 ? listItemText(previousItems[previousListItemIndex]).length : 0;
+    const merged = mergeTextBlockIntoPrevious(previous, block) || mergeTextBlockIntoPreviousList(previous, block);
     if (!merged) return false;
     event.preventDefault();
     state.blocks.splice(index - 1, 2, merged);
@@ -2448,8 +2584,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.cardPickerInsertIndex = null;
     state.activeEditable = null;
     state.activeSync = null;
+    if (merged.type === 'list') {
+      state.pendingListFocus = { blockId: merged.id, itemIndex: previousListItemIndex, caretOffset: previousListTextLength };
+    }
     render();
-    focusBlockPrimaryEditable(merged, previousTextLength);
+    if (merged.type !== 'list') focusBlockPrimaryEditable(merged, previousTextLength);
     emit();
     return true;
   };
@@ -4568,16 +4707,33 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           return;
         }
         if ((event.key === 'Backspace' || event.key === 'Delete') && itemIndex > 0 && isEditableSelectionAtStart(span)) {
-          event.preventDefault();
           const currentText = editableText(span);
           const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
-          if (currentText) {
-            const previous = next[itemIndex - 1] || { text: '', checked: false };
-            next[itemIndex - 1] = { ...previous, text: `${previous.text || ''}${currentText}` };
+          next[itemIndex] = { ...(next[itemIndex] || {}), text: currentText };
+          const mergedItem = mergeListItemIntoPreviousItem(next, itemIndex);
+          if (!mergedItem) return;
+          event.preventDefault();
+          state.pendingListFocus = { blockId: block.id, itemIndex: mergedItem.focusItemIndex, caretOffset: mergedItem.caretOffset };
+          updateFromControl(block, { items: mergedItem.items.length ? mergedItem.items : [{ text: '', checked: false }] }, true);
+          return;
+        }
+        if (event.key === 'Backspace' && itemIndex === 0 && index > 0 && isEditableSelectionAtStart(span)) {
+          const currentText = editableText(span);
+          const currentItems = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          currentItems[0] = { ...(currentItems[0] || {}), text: currentText };
+          const previous = state.blocks[index - 1] || null;
+          const merged = mergeFirstListItemIntoPreviousBlock(previous, { ...block, data: { ...(block.data || {}), items: currentItems } }, itemIndex);
+          if (!merged) return;
+          event.preventDefault();
+          resetTransientBlockMenus();
+          const replacement = merged.currentBlock ? [merged.previousBlock, merged.currentBlock] : [merged.previousBlock];
+          state.blocks.splice(index - 1, 2, ...replacement);
+          if (merged.focus && merged.focus.type === 'list') {
+            state.pendingListFocus = { blockId: merged.previousBlock.id, itemIndex: merged.focus.itemIndex, caretOffset: merged.focus.caretOffset };
           }
-          next.splice(itemIndex, 1);
-          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex - 1, atEnd: true };
-          updateFromControl(block, { items: next.length ? next : [{ text: '', checked: false }] }, true);
+          render();
+          if (merged.focus && merged.focus.type === 'text') focusBlockPrimaryEditable(merged.previousBlock, merged.focus.caretOffset);
+          emit();
           return;
         }
         if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && items.length > 1) {
@@ -4627,7 +4783,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           const pending = state.pendingListFocus;
           state.pendingListFocus = null;
           try { span.focus(); } catch (_) {}
-          if (pending && pending.atEnd) placeCaretAtEnd(span);
+          if (pending && pending.caretOffset != null) placeCaretAtTextOffset(span, pending.caretOffset);
+          else if (pending && pending.atEnd) placeCaretAtEnd(span);
           else if (pending) placeCaretAtStart(span);
           setActive(index, span, sync);
         });

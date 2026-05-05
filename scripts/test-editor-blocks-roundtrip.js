@@ -7,7 +7,10 @@ import {
   insertInlineRunsAtRange,
   isBlockEmptyForBackspace,
   listVisualMarkerLabels,
+  mergeFirstListItemIntoPreviousBlock,
+  mergeListItemIntoPreviousItem,
   mergeTextBlockIntoPrevious,
+  mergeTextBlockIntoPreviousList,
   normalizeSplitListStartItems,
   outdentEmptyListItemForEnter,
   patchListItem,
@@ -321,6 +324,81 @@ run('backspace merge requires two text blocks', () => {
   assert.equal(mergeTextBlockIntoPrevious(paragraph, listBlock), null);
 });
 
+run('backspace at text block start merges text into previous list tail item', () => {
+  const [listBlock] = parseMarkdownBlocks('- abc\n  - child\n\n');
+  const [paragraph] = parseMarkdownBlocks('def\n\n');
+  const merged = mergeTextBlockIntoPreviousList(listBlock, paragraph);
+  assert.equal(merged.type, 'list');
+  assert.equal(merged.dirty, true);
+  assert.equal(merged.data.items[1].text, 'childdef');
+  assert.equal(merged.data.items[1].indent, 1);
+  assert.equal(serializeMarkdownBlocks([merged]), '- abc\n  - childdef\n\n');
+});
+
+run('backspace text-to-list merge only contributes current text and preserves list metadata', () => {
+  const previous = {
+    type: 'list',
+    data: {
+      listType: 'task',
+      items: [
+        { text: 'done', checked: true, listType: 'task', marker: '+', indent: 0 },
+        { text: 'tail', checked: false, listType: 'task', marker: '*', indent: 0 }
+      ]
+    }
+  };
+  const heading = { type: 'heading', data: { level: 3, text: ' head' } };
+  const quote = { type: 'quote', data: { text: ' quote' } };
+  const withHeading = mergeTextBlockIntoPreviousList(previous, heading);
+  assert.deepEqual(withHeading.data.items[1], { text: 'tail head', checked: false, listType: 'task', marker: '*', indent: 0 });
+  assert.equal(mergeTextBlockIntoPreviousList(withHeading, quote).data.items[1].text, 'tail head quote');
+});
+
+run('list item Backspace merge only joins adjacent same-level items', () => {
+  const initial = [
+    { text: 'abc', indent: 1, checked: true, listType: 'task' },
+    { text: 'def', indent: 1, checked: false, listType: 'ul' }
+  ];
+  const merged = mergeListItemIntoPreviousItem(initial, 1);
+  assert.equal(merged.caretOffset, 3);
+  assert.equal(merged.focusItemIndex, 0);
+  assert.deepEqual(merged.items, [{ text: 'abcdef', indent: 1, checked: true, listType: 'task' }]);
+  assert.equal(mergeListItemIntoPreviousItem([{ text: 'parent', indent: 0 }, { text: 'child', indent: 1 }], 1), null);
+  assert.equal(mergeListItemIntoPreviousItem([{ text: 'child', indent: 1 }, { text: 'parent', indent: 0 }], 1), null);
+  assert.equal(mergeListItemIntoPreviousItem([{ text: 'prev', indent: 0 }, { text: 'parent', indent: 0 }, { text: 'child', indent: 1 }], 1), null);
+});
+
+run('first list item Backspace can merge into previous text or list block when structurally safe', () => {
+  const previousText = { type: 'paragraph', data: { text: 'abc' } };
+  const currentList = { type: 'list', data: { listType: 'ul', items: [{ text: 'def', indent: 0 }, { text: 'next', indent: 0 }] } };
+  const textMerge = mergeFirstListItemIntoPreviousBlock(previousText, currentList, 0);
+  assert.equal(textMerge.previousBlock.data.text, 'abcdef');
+  assert.deepEqual(textMerge.currentBlock.data.items, [{ text: 'next', indent: 0 }]);
+  assert.deepEqual(textMerge.focus, { type: 'text', caretOffset: 3 });
+
+  const previousList = { type: 'list', data: { listType: 'ul', items: [{ text: 'tail', indent: 1, marker: '*' }] } };
+  const listMerge = mergeFirstListItemIntoPreviousBlock(previousList, { type: 'list', data: { items: [{ text: 'def', indent: 0 }] } }, 0);
+  assert.equal(listMerge.previousBlock.data.items[0].text, 'taildef');
+  assert.equal(listMerge.previousBlock.data.items[0].indent, 1);
+  assert.equal(listMerge.currentBlock, null);
+  assert.deepEqual(listMerge.focus, { type: 'list', itemIndex: 0, caretOffset: 4 });
+});
+
+run('first list item Backspace refuses nested or child-owning items', () => {
+  const previousText = { type: 'paragraph', data: { text: 'abc' } };
+  assert.equal(
+    mergeFirstListItemIntoPreviousBlock(previousText, { type: 'list', data: { items: [{ text: 'child', indent: 1 }] } }, 0),
+    null
+  );
+  assert.equal(
+    mergeFirstListItemIntoPreviousBlock(previousText, { type: 'list', data: { items: [{ text: 'parent', indent: 0 }, { text: 'child', indent: 1 }] } }, 0),
+    null
+  );
+  assert.equal(
+    mergeFirstListItemIntoPreviousBlock({ type: 'image', data: { src: 'x.png' } }, { type: 'list', data: { items: [{ text: 'item', indent: 0 }] } }, 0),
+    null
+  );
+});
+
 run('backspace merge path runs after empty-block removal and before Enter handling', () => {
   assert.match(
     editorBlocksSource,
@@ -329,7 +407,7 @@ run('backspace merge path runs after empty-block removal and before Enter handli
   );
   assert.match(
     editorBlocksSource,
-    /if \(!Number\.isInteger\(index\) \|\| index <= 0\) return false;[\s\S]*mergeTextBlockIntoPrevious\(previous, block\)/,
+    /if \(!Number\.isInteger\(index\) \|\| index <= 0\) return false;[\s\S]*mergeTextBlockIntoPrevious\(previous, block\) \|\| mergeTextBlockIntoPreviousList\(previous, block\)/,
     'text block Backspace merge should never apply to the first block'
   );
 });
@@ -347,6 +425,11 @@ run('backspace merge focuses previous block at its original text length', () => 
     editorBlocksSource,
     /previousTextLength = textBlockDataText\(previous\)\.length[\s\S]*focusBlockPrimaryEditable\(merged, previousTextLength\)/,
     'caret should land at the old end of the previous block after merge'
+  );
+  assert.match(
+    editorBlocksSource,
+    /previousListTextLength = previousListItemIndex >= 0 \? listItemText\(previousItems\[previousListItemIndex\]\)\.length : 0[\s\S]*state\.pendingListFocus = \{ blockId: merged\.id, itemIndex: previousListItemIndex, caretOffset: previousListTextLength \}/,
+    'caret should land at the old end of the previous list item after text-to-list merge'
   );
 });
 
