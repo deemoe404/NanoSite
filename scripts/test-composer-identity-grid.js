@@ -919,8 +919,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:auto; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); display:flex; align-items:stretch; position:relative;[\s\S]*font-size:\.95rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; position:sticky; left:0;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-gutter span \{ display:block; line-height:inherit; \}[\s\S]*\.blocks-code-preview code \{ display:block; flex:1 0 auto;[\s\S]*min-height:1\.55em; padding:0;[\s\S]*font:inherit; background:transparent; color:inherit; \}/,
+  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:hidden; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); display:flex; align-items:stretch; position:relative;[\s\S]*font-size:\.95rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; box-sizing:border-box;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-gutter span \{ display:block; line-height:inherit; \}[\s\S]*\.blocks-code-preview code \{ display:block; flex:1 1 auto;[\s\S]*min-width:0; min-height:1\.55em; padding:0;[\s\S]*overflow-x:auto; overflow-y:hidden;[\s\S]*font:inherit; background:transparent; color:inherit; \}/,
   'blocks code blocks should use native code styling while keeping one editable line as a pointer target'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-code-gutter \{[^}]*position:sticky/,
+  'blocks code gutter should not be a sticky overlay that can cover horizontally scrolled code text'
 );
 
 assert.doesNotMatch(
