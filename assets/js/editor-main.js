@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=blocks-code-gutter-enter-20260505';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=action-menu-flip-20260505';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';

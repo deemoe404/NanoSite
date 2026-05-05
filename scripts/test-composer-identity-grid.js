@@ -205,6 +205,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const activateNonTextBlockFromPointer = \(index, blockEl = null\) => \{[\s\S]*state\.suppressSelectionActiveRecoveryUntil = Date\.now\(\) \+ 180;[\s\S]*state\.suppressNextBlockContainerClickUntil = Date\.now\(\) \+ 500;[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(index\);[\s\S]*\};/,
+  'non-text block pointer activation should clear stale browser selection before selecting the block'
+);
+
+assert.match(
+  editorBlocksSource,
   /function inlineMarksFromDomNode\(node, editable\)[\s\S]*tag === 'strong' \|\| tag === 'b'[\s\S]*function inlineMarksFromPointerEvent\(event, editable\)[\s\S]*document\.caretPositionFromPoint[\s\S]*document\.caretRangeFromPoint[\s\S]*lastInlineMarks: null,[\s\S]*fallbackMarks && fallbackMarks\[mark\]/,
   'inline toolbar state should fall back to marks from the clicked rich-text DOM path when selection offsets are unavailable or ambiguous'
 );
@@ -355,14 +361,20 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const actionMenuBoundaryLeft = \(\) => \{[\s\S]*document\.getElementById\('editorContentPane'\)[\s\S]*return Math\.max\(8, Math\.floor\(rect\.left\)\);[\s\S]*const alignBlockActionMenu = \(menu, trigger = null\) => \{[\s\S]*menu\.classList\.remove\('is-open-right'\);[\s\S]*const boundaryLeft = actionMenuBoundaryLeft\(\);[\s\S]*const triggerRect = trigger && trigger\.getBoundingClientRect[\s\S]*const leftSpace = triggerRect \? triggerRect\.right - boundaryLeft : menuRect\.left - boundaryLeft;[\s\S]*if \(leftSpace < menuRect\.width \+ 8\) menu\.classList\.add\('is-open-right'\);/,
+  'block action overflow menu should flip right when the button has insufficient left-side room inside the editor content boundary'
+);
+
+assert.match(
+  editorBlocksSource,
   /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
   'overflow menu items should preserve move/delete behavior and disabled edge states'
 );
 
 assert.match(
   editorBlocksSource,
-  /const closeBlockActionMenu = \(restoreFocus = false\) => \{[\s\S]*document\.removeEventListener\('mousedown', current\.onDocDown, true\);[\s\S]*document\.removeEventListener\('keydown', current\.onKeyDown, true\);[\s\S]*if \(restoreFocus\)[\s\S]*const onDocDown = \(event\) => \{[\s\S]*closeBlockActionMenu\(false\);[\s\S]*const onKeyDown = \(event\) => \{[\s\S]*event\.key === 'Escape'[\s\S]*closeBlockActionMenu\(true\);/,
-  'overflow menu should close on outside click and Escape while cleaning document listeners'
+  /const closeBlockActionMenu = \(restoreFocus = false\) => \{[\s\S]*current\.menu\.classList\.remove\('is-open-right'\);[\s\S]*document\.removeEventListener\('mousedown', current\.onDocDown, true\);[\s\S]*document\.removeEventListener\('keydown', current\.onKeyDown, true\);[\s\S]*window\.removeEventListener\('resize', current\.onReposition\);[\s\S]*window\.removeEventListener\('scroll', current\.onReposition, true\);[\s\S]*if \(restoreFocus\)[\s\S]*const onDocDown = \(event\) => \{[\s\S]*closeBlockActionMenu\(false\);[\s\S]*const onKeyDown = \(event\) => \{[\s\S]*event\.key === 'Escape'[\s\S]*closeBlockActionMenu\(true\);/,
+  'overflow menu should close on outside click and Escape while cleaning document and window listeners'
 );
 
 assert.doesNotMatch(
@@ -385,8 +397,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-command-menu'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
-  'blocks caret routing should exclude command menus, link editors, controls, links, and native editable targets'
+  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-command-menu'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-card-preview'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
+  'blocks caret routing should exclude command menus, link editors, article cards, controls, links, and native editable targets'
 );
 
 assert.match(
@@ -397,8 +409,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*const imageBlock = closestElement\(event\.target, '\.blocks-block-image'\);[\s\S]*event\.preventDefault\(\);[\s\S]*clearNativeSelection\(\);[\s\S]*setActive\(imageIndex\);[\s\S]*return;[\s\S]*const candidate = nearestEditableFromPoint\(event\.clientX, event\.clientY\);/,
-  'image block pointerdowns should clear stale text selections and select the image block before routing a caret to nearby text'
+  /const routeBlocksCaretFromPointer = \(event\) => \{[\s\S]*isBlocksCaretInteractiveTarget\(event\.target\)[\s\S]*const imageBlock = closestElement\(event\.target, '\.blocks-block-image'\);[\s\S]*event\.preventDefault\(\);[\s\S]*activateNonTextBlockFromPointer\(imageIndex, imageBlock\);[\s\S]*return;[\s\S]*const candidate = nearestEditableFromPoint\(event\.clientX, event\.clientY\);/,
+  'image block pointerdowns should use non-text block activation before routing a caret to nearby text'
 );
 
 assert.match(
@@ -703,8 +715,26 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /preview\.innerHTML = `<a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);/,
-  'article-card blocks should render through the card hydration path'
+  /preview\.innerHTML = `<span class="blocks-card-source"><a href="\$\{escapeAttribute\(href\)\}" title="card">[\s\S]*hydrateCard\(preview\);[\s\S]*link\.tabIndex = -1;/,
+  'article-card blocks should keep the preview wrapper while rendering through the card hydration path'
+);
+
+assert.match(
+  editorBlocksSource,
+  /preview\.addEventListener\('click', \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*setActive\(index\);/,
+  'article-card block clicks should select the block instead of following the hydrated link'
+);
+
+assert.match(
+  editorBlocksSource,
+  /preview\.addEventListener\('pointerdown', \(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*activateNonTextBlockFromPointer\(index, closestElement\(preview, '\.blocks-block-card'\)\);/,
+  'article-card pointerdowns should clear stale text selection and select the card block before click recovery runs'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-card-inspector|labelInput\.placeholder = text\('cardLabel'|location\.placeholder = text\('cardLocation'/,
+  'article-card blocks should not render redundant label or location inspector inputs'
 );
 
 assert.match(
@@ -973,8 +1003,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid var\(--border\); \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*border:1px solid var\(--border\); border-radius:8px; background:var\(--card\);[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
-  'block action overflow menu should be separated by a left divider and anchor to the right edge of the floating toolbar actions slot'
+  /\.blocks-block-actions \{ position:relative; display:flex; align-items:center; margin-left:\.16rem; padding-left:\.34rem; border-left:1px solid var\(--border\); \}[\s\S]*\.blocks-action-menu \{ position:absolute; right:0; top:calc\(100% \+ \.25rem\);[\s\S]*border:1px solid var\(--border\); border-radius:8px; background:var\(--card\);[\s\S]*\.blocks-action-menu\.is-open-right \{ left:0; right:auto; \}[\s\S]*\.blocks-action-menu\[hidden\] \{ display:none !important; \}/,
+  'block action overflow menu should anchor right by default and flip rightward when left space is constrained'
 );
 
 assert.match(
@@ -1087,8 +1117,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-card-preview a \{ cursor:pointer; \}/,
-  'article card links should keep pointer cursors inside the text-cursor canvas'
+  /\.blocks-card-preview a \{ cursor:default; \}/,
+  'article card links should not advertise navigation in blocks mode'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-card-preview \.link-card-wrap \{ margin:0; \}[\s\S]*\.blocks-card-preview \.link-card \{[^}]*border:0\.0625rem solid var\(--border\);[^}]*border-radius:0\.75rem;[^}]*box-shadow:var\(--shadow\);[\s\S]*\.blocks-card-preview \.card-cover-wrap \{[^}]*aspect-ratio:16 \/ 10;[\s\S]*\.blocks-card-preview \.card-title \{[^}]*font-family:var\(--display, var\(--serif\)\);[^}]*font-size:1\.05rem;[\s\S]*\.blocks-card-preview \.card-meta \{[^}]*text-transform:uppercase;/,
+  'article-card blocks should mirror the native link-card layout instead of using separate temporary card styling'
 );
 
 assert.doesNotMatch(

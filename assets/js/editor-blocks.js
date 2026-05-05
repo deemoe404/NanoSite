@@ -2195,8 +2195,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     try { current.menu.hidden = true; } catch (_) {}
     try { current.trigger.setAttribute('aria-expanded', 'false'); } catch (_) {}
     try { current.wrap.classList.remove('is-open'); } catch (_) {}
+    try { current.menu.classList.remove('is-open-right'); } catch (_) {}
     try { document.removeEventListener('mousedown', current.onDocDown, true); } catch (_) {}
     try { document.removeEventListener('keydown', current.onKeyDown, true); } catch (_) {}
+    try { window.removeEventListener('resize', current.onReposition); } catch (_) {}
+    try { window.removeEventListener('scroll', current.onReposition, true); } catch (_) {}
     if (restoreFocus) {
       try { current.trigger.focus(); } catch (_) {}
     }
@@ -2221,6 +2224,29 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     render();
     setActive(Math.min(index, state.blocks.length - 1));
     emit();
+  };
+
+  const actionMenuBoundaryLeft = () => {
+    try {
+      const pane = document.getElementById('editorContentPane');
+      const rect = (pane && pane.getBoundingClientRect && pane.getBoundingClientRect())
+        || (root && root.getBoundingClientRect && root.getBoundingClientRect())
+        || null;
+      if (rect && Number.isFinite(rect.left)) return Math.max(8, Math.floor(rect.left));
+    } catch (_) {}
+    return 8;
+  };
+
+  const alignBlockActionMenu = (menu, trigger = null) => {
+    try {
+      if (!menu || menu.hidden) return;
+      menu.classList.remove('is-open-right');
+      const boundaryLeft = actionMenuBoundaryLeft();
+      const menuRect = menu.getBoundingClientRect();
+      const triggerRect = trigger && trigger.getBoundingClientRect ? trigger.getBoundingClientRect() : null;
+      const leftSpace = triggerRect ? triggerRect.right - boundaryLeft : menuRect.left - boundaryLeft;
+      if (leftSpace < menuRect.width + 8) menu.classList.add('is-open-right');
+    } catch (_) {}
   };
 
   const createBlockActionMenu = (index) => {
@@ -2268,12 +2294,16 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           closeBlockActionMenu(true);
         }
       };
-      state.openActionMenu = { wrap, trigger, menu, onDocDown, onKeyDown };
+      const onReposition = () => alignBlockActionMenu(menu, trigger);
+      state.openActionMenu = { wrap, trigger, menu, onDocDown, onKeyDown, onReposition };
       menu.hidden = false;
       trigger.setAttribute('aria-expanded', 'true');
       wrap.classList.add('is-open');
+      alignBlockActionMenu(menu, trigger);
       document.addEventListener('mousedown', onDocDown, true);
       document.addEventListener('keydown', onKeyDown, true);
+      window.addEventListener('resize', onReposition);
+      window.addEventListener('scroll', onReposition, true);
       const firstEnabled = menu.querySelector('.blocks-action-menu-item:not(:disabled)');
       try { firstEnabled?.focus(); } catch (_) {}
     };
@@ -2626,6 +2656,17 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     setActive(index, editable, sync);
   };
 
+  const activateNonTextBlockFromPointer = (index, blockEl = null) => {
+    state.suppressSelectionActiveRecoveryUntil = Date.now() + 180;
+    state.suppressNextBlockContainerClickUntil = Date.now() + 500;
+    try { blockEl?.focus({ preventScroll: true }); }
+    catch (_) {
+      try { blockEl?.focus(); } catch (__) {}
+    }
+    clearNativeSelection();
+    setActive(index);
+  };
+
   const shouldSuppressRoutedBlockContainerClick = () => {
     if (!state.suppressNextBlockContainerClickUntil) return false;
     if (Date.now() > state.suppressNextBlockContainerClickUntil) {
@@ -2642,6 +2683,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       '.blocks-command-menu',
       '.blocks-link-editor',
       '.blocks-card-picker',
+      '.blocks-card-preview',
       '.blocks-inspector',
       'button',
       'input',
@@ -2805,13 +2847,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       const imageIndex = blockElements().indexOf(imageBlock);
       if (imageIndex >= 0) {
         event.preventDefault();
-        state.suppressNextBlockContainerClickUntil = Date.now() + 500;
-        try { imageBlock.focus({ preventScroll: true }); }
-        catch (_) {
-          try { imageBlock.focus(); } catch (__) {}
-        }
-        clearNativeSelection();
-        setActive(imageIndex);
+        activateNonTextBlockFromPointer(imageIndex, imageBlock);
         return;
       }
     }
@@ -4069,35 +4105,29 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     body.appendChild(pre);
   };
 
-  const renderCardBlock = (body, block) => {
+  const renderCardBlock = (body, block, index) => {
     const preview = document.createElement('div');
     preview.className = 'blocks-card-preview';
     const href = `?id=${encodeURIComponent(String(block.data.location || '').trim())}`;
     const label = String(block.data.label || block.data.location || text('articleCard', 'Article Card')).trim() || text('articleCard', 'Article Card');
-    preview.innerHTML = `<a href="${escapeAttribute(href)}" title="card">${escapeHtml(label)}</a>`;
+    preview.innerHTML = `<span class="blocks-card-source"><a href="${escapeAttribute(href)}" title="card">${escapeHtml(label)}</a></span>`;
+    preview.addEventListener('pointerdown', (event) => {
+      if (!event || event.button !== 0 || event.isPrimary === false) return;
+      event.preventDefault();
+      event.stopPropagation();
+      activateNonTextBlockFromPointer(index, closestElement(preview, '.blocks-block-card'));
+    });
+    preview.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setActive(index);
+    });
     body.appendChild(preview);
     hydrateCard(preview);
-
-    const controls = document.createElement('div');
-    controls.className = 'blocks-inspector blocks-card-inspector';
-    const labelInput = document.createElement('input');
-    labelInput.type = 'text';
-    labelInput.value = block.data.label || '';
-    labelInput.placeholder = text('cardLabel', 'Card label');
-    const location = document.createElement('input');
-    location.type = 'text';
-    location.value = block.data.location || '';
-    location.placeholder = text('cardLocation', 'post/path/file.md');
-    const update = () => updateFromControl(block, {
-      label: inputValue(labelInput),
-      location: inputValue(location),
-      title: 'card',
-      forceCard: true
-    }, true);
-    labelInput.addEventListener('input', update);
-    location.addEventListener('input', update);
-    controls.append(labelInput, location);
-    body.appendChild(controls);
+    preview.querySelectorAll('a[href]').forEach((link) => {
+      link.tabIndex = -1;
+      link.setAttribute('aria-disabled', 'true');
+    });
   };
 
   const renderBlockBody = (block, index) => {
@@ -4119,7 +4149,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     } else if (block.type === 'code') {
       renderCodeBlock(body, block, index);
     } else if (block.type === 'card') {
-      renderCardBlock(body, block);
+      renderCardBlock(body, block, index);
     } else {
       const area = document.createElement('textarea');
       area.className = 'blocks-textarea blocks-source-textarea';
