@@ -646,6 +646,20 @@ function editableListItems(items) {
   return Array.isArray(items) && items.length ? items : defaultListItems();
 }
 
+export function isBlockEmptyForBackspace(block) {
+  if (!block || typeof block !== 'object') return false;
+  const data = block.data || {};
+  const blank = (value) => String(value == null ? '' : value).trim() === '';
+  if (block.type === 'paragraph' || block.type === 'heading' || block.type === 'quote') return blank(data.text);
+  if (block.type === 'code' || block.type === 'source') return blank(data.text != null ? data.text : block.raw);
+  if (block.type === 'image') return blank(data.src) && blank(data.alt) && blank(data.title);
+  if (block.type === 'card') return blank(data.location) && blank(data.label) && blank(data.title);
+  if (block.type === 'list') {
+    return editableListItems(data.items).every(item => blank(item && item.text) && !item.checked);
+  }
+  return false;
+}
+
 export function patchListItem(items, itemIndex, patch = {}) {
   const next = editableListItems(items).slice();
   const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, next.length - 1));
@@ -1560,6 +1574,24 @@ function codeEditableText(el) {
   return normalizeCodeEditablePlainText(el.innerText || el.textContent || '').replace(/\n$/, '');
 }
 
+function isEditableBackspaceAtEmptyStart(editable) {
+  if (!editable) return false;
+  if (editable.matches && editable.matches('textarea')) {
+    try {
+      const start = Number(editable.selectionStart);
+      const end = Number(editable.selectionEnd);
+      return start === 0 && end === 0 && String(editable.value || '').trim() === '';
+    } catch (_) {
+      return false;
+    }
+  }
+  if (!isEditableSelectionAtStart(editable)) return false;
+  const value = editable.classList && editable.classList.contains('blocks-code-editable')
+    ? codeEditableText(editable)
+    : editableText(editable);
+  return String(value || '').trim() === '';
+}
+
 function codeEditableSelectionOffsets(el) {
   const fallback = codeEditableText(el).length;
   try {
@@ -2123,6 +2155,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
   };
 
+  const focusPreviousBlockEnd = (index) => {
+    const targetIndex = Math.max(0, Math.min((Number(index) || 0) - 1, state.blocks.length - 1));
+    const target = state.blocks[targetIndex] || null;
+    if (!target) return;
+    focusBlockPrimaryEditable(target);
+  };
+
   const openInlineVirtualBlockAfter = (index, editable = null, sync = null) => {
     if (typeof sync === 'function') sync();
     state.inlineVirtualIndex = Math.max(0, Math.min((Number(index) || 0) + 1, state.blocks.length));
@@ -2306,6 +2345,46 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     render();
     setActive(Math.min(index, state.blocks.length - 1));
     emit();
+  };
+
+  const removeEmptyBlockWithBackspace = (event, block, index, editable = null, sync = null) => {
+    if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!Number.isInteger(index) || index <= 0) return false;
+    if (editable && !isEditableBackspaceAtEmptyStart(editable)) return false;
+    if (typeof sync === 'function') sync();
+    if (!isBlockEmptyForBackspace(block)) return false;
+    event.preventDefault();
+    state.blocks.splice(index, 1);
+    state.inlineVirtualIndex = null;
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    focusPreviousBlockEnd(index);
+    emit();
+    return true;
+  };
+
+  const handleVirtualBackspace = (event, insertIndex, isInline) => {
+    if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!isEditableBackspaceAtEmptyStart(event.currentTarget)) return false;
+    const safeInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
+    const previousIndex = safeInsertIndex - 1;
+    if (previousIndex < 0) return false;
+    event.preventDefault();
+    if (isInline) {
+      state.inlineVirtualIndex = null;
+      if (state.commandMenuInsertIndex === safeInsertIndex) {
+        state.commandMenuOpen = false;
+        state.commandMenuInsertIndex = null;
+      }
+      render();
+    }
+    focusBlockPrimaryEditable(state.blocks[previousIndex]);
+    return true;
   };
 
   const actionMenuBoundaryLeft = () => {
@@ -3676,6 +3755,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       createParagraphFromVirtualInput(pasted, safeInsertIndex);
     });
     editable.addEventListener('keydown', (event) => {
+      if (handleVirtualBackspace(event, safeInsertIndex, isInline)) return;
       if (event.key === 'Escape' && isInline) {
         event.preventDefault();
         state.inlineVirtualIndex = null;
@@ -3753,6 +3833,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       updateInlineToolbarState();
     });
     editable.addEventListener('keydown', (event) => {
+      if (removeEmptyBlockWithBackspace(event, block, index, editable, sync)) return;
       if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       if (!['paragraph', 'quote', 'heading'].includes(block.type)) return;
       if (!shouldOpenInlineVirtualBlockOnEnter(editable)) return;
@@ -4122,6 +4203,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         updateInlineToolbarState();
       });
       span.addEventListener('keydown', (event) => {
+        if (removeEmptyBlockWithBackspace(event, block, index, span, sync)) return;
         if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing) {
           event.preventDefault();
           indentListItem(block, index, event.shiftKey ? -1 : 1);
@@ -4241,6 +4323,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
     code.addEventListener('keydown', (event) => {
+      if (removeEmptyBlockWithBackspace(event, block, index, code, sync)) return;
       if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       event.preventDefault();
       const text = insertCodeEditableTextAtSelection(code, '\n');
@@ -4318,6 +4401,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       area.addEventListener('input', () => {
         sync();
         autoSizeTextarea(area);
+      });
+      area.addEventListener('keydown', (event) => {
+        removeEmptyBlockWithBackspace(event, block, index, area, sync);
       });
       area.addEventListener('pointerdown', (event) => {
         if (!event || event.button !== 0 || event.isPrimary === false) return;
@@ -4422,6 +4508,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       setActive(index);
     });
     item.addEventListener('focusin', () => setActive(index));
+    item.addEventListener('keydown', (event) => {
+      if (event.target !== item) return;
+      removeEmptyBlockWithBackspace(event, block, index);
+    });
     return item;
   };
 

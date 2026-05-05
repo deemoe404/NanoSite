@@ -4,6 +4,7 @@ import {
   applyInlineLinkToRuns,
   autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
+  isBlockEmptyForBackspace,
   listVisualMarkerLabels,
   patchListItem,
   parseInlineRuns,
@@ -126,6 +127,20 @@ run('empty image blocks round-trip without inventing a placeholder src', () => {
   assert.equal(blocks[0].type, 'image');
   assert.equal(blocks[0].data.src, '');
   assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('empty block backspace detection only treats user-empty blocks as removable', () => {
+  assert.equal(isBlockEmptyForBackspace({ type: 'paragraph', data: { text: '   ' } }), true);
+  assert.equal(isBlockEmptyForBackspace({ type: 'heading', data: { text: 'Title' } }), false);
+  assert.equal(isBlockEmptyForBackspace({ type: 'quote', data: { text: '\n' } }), true);
+  assert.equal(isBlockEmptyForBackspace({ type: 'code', data: { text: '' } }), true);
+  assert.equal(isBlockEmptyForBackspace({ type: 'source', raw: 'raw', data: {} }), false);
+  assert.equal(isBlockEmptyForBackspace({ type: 'image', data: { src: '', alt: '', title: '' } }), true);
+  assert.equal(isBlockEmptyForBackspace({ type: 'image', data: { src: '', alt: 'diagram', title: '' } }), false);
+  assert.equal(isBlockEmptyForBackspace({ type: 'card', data: { location: '', label: '', title: '' } }), true);
+  assert.equal(isBlockEmptyForBackspace({ type: 'card', data: { location: 'post/doc.md', label: '', title: '' } }), false);
+  assert.equal(isBlockEmptyForBackspace({ type: 'list', data: { items: [{ text: '  ', checked: false }] } }), true);
+  assert.equal(isBlockEmptyForBackspace({ type: 'list', data: { items: [{ text: '', checked: true }] } }), false);
 });
 
 run('dirty paragraph serialization preserves edge whitespace', () => {

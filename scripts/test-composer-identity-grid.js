@@ -153,6 +153,30 @@ assert.match(
 );
 
 assert.match(
+  editorBlocksSource,
+  /export function isBlockEmptyForBackspace\(block\) \{[\s\S]*block\.type === 'paragraph'[\s\S]*block\.type === 'heading'[\s\S]*block\.type === 'quote'[\s\S]*block\.type === 'code'[\s\S]*block\.type === 'source'[\s\S]*block\.type === 'image'[\s\S]*block\.type === 'card'[\s\S]*block\.type === 'list'[\s\S]*editableListItems\(data\.items\)\.every\(item => blank\(item && item\.text\) && !item\.checked\);/,
+  'empty block backspace detection should cover text, media, card, and list user-authored content'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const focusPreviousBlockEnd = \(index\) => \{[\s\S]*const targetIndex = Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) - 1, state\.blocks\.length - 1\)\);[\s\S]*focusBlockPrimaryEditable\(target\);[\s\S]*const removeEmptyBlockWithBackspace = \(event, block, index, editable = null, sync = null\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*index <= 0[\s\S]*isEditableBackspaceAtEmptyStart\(editable\)[\s\S]*isBlockEmptyForBackspace\(block\)[\s\S]*state\.blocks\.splice\(index, 1\);[\s\S]*render\(\);[\s\S]*focusPreviousBlockEnd\(index\);[\s\S]*emit\(\);/,
+  'Backspace should remove empty non-first real blocks and move focus to the previous block end'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const handleVirtualBackspace = \(event, insertIndex, isInline\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*isEditableBackspaceAtEmptyStart\(event\.currentTarget\)[\s\S]*const previousIndex = safeInsertIndex - 1;[\s\S]*if \(previousIndex < 0\) return false;[\s\S]*if \(isInline\) \{[\s\S]*state\.inlineVirtualIndex = null;[\s\S]*render\(\);[\s\S]*focusBlockPrimaryEditable\(state\.blocks\[previousIndex\]\);/,
+  'virtual block Backspace should exit empty virtual blocks and focus the previous real block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*handleVirtualBackspace\(event, safeInsertIndex, isInline\)[\s\S]*if \(event\.key === 'Escape' && isInline\)[\s\S]*createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\);/,
+  'empty Backspace handling should run before virtual Escape, rich Enter, list row, code Enter, and source textarea handling'
+);
+
+assert.match(
   editorMainSource,
   /const blockLabels = new Proxy\(\{\}, \{[\s\S]*const translationKey = `editor\.blocks\.\$\{name\}`;[\s\S]*const translated = t\(translationKey\);[\s\S]*translated !== translationKey \? translated : \(blockLabelFallbacks\[name\] \|\| name\);/,
   'block labels should use local fallbacks when i18n returns the key for a missing translation'
