@@ -142,6 +142,7 @@ run('empty image blocks round-trip without inventing a placeholder src', () => {
 });
 
 run('empty block backspace detection only treats user-empty blocks as removable', () => {
+  assert.equal(isBlockEmptyForBackspace({ type: 'blank', data: {} }), true);
   assert.equal(isBlockEmptyForBackspace({ type: 'paragraph', data: { text: '   ' } }), true);
   assert.equal(isBlockEmptyForBackspace({ type: 'heading', data: { text: 'Title' } }), false);
   assert.equal(isBlockEmptyForBackspace({ type: 'quote', data: { text: '\n' } }), true);
@@ -161,6 +162,54 @@ run('dirty paragraph serialization preserves edge whitespace', () => {
   assert.equal(blocks[0].type, 'paragraph');
   blocks[0].dirty = true;
   assert.equal(serializeMarkdownBlocks(blocks), '  Leading and trailing  \n\n');
+});
+
+run('normal markdown block separators do not materialize blank blocks', () => {
+  const source = 'A\n\nB';
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['paragraph', 'paragraph']);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('one extra markdown blank line materializes one blank block', () => {
+  const source = 'A\n\n\nB';
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['paragraph', 'blank', 'paragraph']);
+  assert.equal(blocks[1].dirty, false);
+  assert.equal(blocks[1].data.after, '\n');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('multiple extra markdown blank lines materialize multiple blank blocks', () => {
+  const source = 'A\n\n\n\nB';
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['paragraph', 'blank', 'blank', 'paragraph']);
+  assert.deepEqual(blocks.filter(block => block.type === 'blank').map(block => block.data.after), ['\n', '\n']);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('trailing extra markdown blank lines round-trip as blank blocks', () => {
+  const source = 'A\n\n\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['paragraph', 'blank']);
+  assert.equal(blocks[1].dirty, false);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('leading markdown blank lines round-trip as blank blocks', () => {
+  const source = '\n\nA';
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['blank', 'blank', 'paragraph']);
+  assert.equal(blocks[0].dirty, false);
+  assert.equal(blocks[1].dirty, false);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
+run('blank-only markdown round-trips as blank blocks', () => {
+  const source = '\n\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.deepEqual(blocks.map(block => block.type), ['blank', 'blank']);
+  assert.equal(serializeMarkdownBlocks(blocks), source);
 });
 
 run('mid-enter splits a paragraph into a following paragraph block', () => {
@@ -206,7 +255,7 @@ run('text block split helper only supports editable text block types', () => {
   assert.equal(splitTextBlockIntoParagraph(listBlock, 'one', 'two'), null);
 });
 
-run('mid-enter split leaves end-of-block Enter on the virtual block path', () => {
+run('mid-enter split leaves end-of-block Enter on the blank block insertion path', () => {
   assert.match(
     editorBlocksSource,
     /offsets\.start >= currentText\.length[\s\S]*return false;[\s\S]*splitEditableTextAtSelection\(editable\)/,
@@ -214,8 +263,8 @@ run('mid-enter split leaves end-of-block Enter on the virtual block path', () =>
   );
   assert.match(
     editorBlocksSource,
-    /splitTextBlockAfterCaret\(event, block, index, editable\)[\s\S]*shouldOpenInlineVirtualBlockOnEnter\(editable\)/,
-    'plain Enter should try mid-split before falling back to the virtual block behavior'
+    /splitTextBlockAfterCaret\(event, block, index, editable\)[\s\S]*shouldInsertBlankBlockOnEnter\(editable\)[\s\S]*insertBlankBlockAfter\(index, editable, sync\)/,
+    'plain Enter should try mid-split before falling back to real blank block insertion'
   );
 });
 
@@ -392,6 +441,78 @@ run('cross-block arrows wire rich text, code, and source editables', () => {
     editorBlocksSource,
     /removeEmptyBlockWithBackspace\(event, block, index, area, sync\)[\s\S]*handleCrossBlockArrowNavigation\(event, index, area\)/,
     'source textareas should run cross-block arrows after empty-block deletion'
+  );
+});
+
+run('blank blocks replace the inline virtual insertion state', () => {
+  assert.doesNotMatch(
+    editorBlocksSource,
+    /inlineVirtualIndex|openInlineVirtualBlockAfter|createParagraphFromVirtualInput|shouldOpenInlineVirtualBlockOnEnter/,
+    'blank blocks should not depend on persistent inline virtual block state'
+  );
+  assert.match(
+    editorBlocksSource,
+    /const BLOCK_TYPES = new Set\(\[[^\]]*'blank'[^\]]*\]\)/,
+    'blank should be an internal block type'
+  );
+  assert.match(
+    editorBlocksSource,
+    /function makeBlankBlock\(after = '\\n', data = \{\}\)[\s\S]*makeBlock\('blank', '', \{ \.\.\.data, after: after \|\| '\\n' \}\)/,
+    'blank blocks should serialize as newline whitespace only'
+  );
+});
+
+run('end affordance materializes a dirty blank block only on explicit focus or input', () => {
+  assert.match(
+    editorBlocksSource,
+    /list\.appendChild\(renderVirtualBlock\(state\.blocks\.length\)\)/,
+    'render should keep a lightweight terminal affordance instead of appending a dirty block on load'
+  );
+  assert.match(
+    editorBlocksSource,
+    /editable\.addEventListener\('focus', \(\) => \{[\s\S]*insertBlankBlock\(safeInsertIndex, \{ focus: true \}\);[\s\S]*\}\)/,
+    'terminal affordance focus should materialize a real blank block'
+  );
+  assert.match(
+    editorBlocksSource,
+    /const block = makeBlankBlock\('\\n', \{ dirty: true \}\);[\s\S]*state\.blocks\.splice\(safeIndex, 0, block\)/,
+    'materialized blank blocks should be dirty real blocks'
+  );
+});
+
+run('typing or slash command on blank blocks replaces the blank block', () => {
+  assert.match(
+    editorBlocksSource,
+    /const renderBlankBlock = \(body, block, index\) => \{[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(index\)[\s\S]*createParagraphFromBlankInput\(event\.data, index\)/,
+    'blank block input should either open the command menu or become a paragraph'
+  );
+  assert.match(
+    editorBlocksSource,
+    /if \(state\.blocks\[safeIndex\] && state\.blocks\[safeIndex\]\.type === 'blank'\) \{[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\)/,
+    'command-selected blocks should replace an existing blank block'
+  );
+});
+
+run('blank blocks use existing removable and cross-block navigation paths', () => {
+  assert.match(
+    editorBlocksSource,
+    /if \(block\.type === 'blank'\) return true;/,
+    'empty-block Backspace detection should treat blank blocks as removable'
+  );
+  assert.match(
+    editorBlocksSource,
+    /if \(!Number\.isInteger\(index\) \|\| index <= 0\) return false;[\s\S]*if \(!isBlockEmptyForBackspace\(block\)\) return false;/,
+    'blank Backspace removal should still skip the first block'
+  );
+  assert.match(
+    editorBlocksSource,
+    /editable\.className = 'blocks-rich-editable blocks-paragraph-text blocks-virtual-editable blocks-blank-editable'/,
+    'blank blocks should expose a rich editable for cross-block arrow targeting'
+  );
+  assert.match(
+    editorBlocksSource,
+    /blockEl\.querySelector\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)/,
+    'cross-block target discovery should include blank rich editables'
   );
 });
 

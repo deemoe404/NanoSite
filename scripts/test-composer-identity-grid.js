@@ -112,14 +112,14 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /state\.commandMenuOpen = true;[\s\S]*state\.commandMenuInsertIndex = Math\.max\(0, Math\.min\(Number\(insertIndex\) \|\| 0, state\.blocks\.length\)\);[\s\S]*const first = list\.querySelector\(`\.blocks-virtual-block\[data-insert-index="\$\{state\.commandMenuInsertIndex\}"\] \.blocks-command-menu-item`\)[\s\S]*const renderVirtualBlock = \(insertIndex = state\.blocks\.length, isInline = false\) => \{[\s\S]*item\.dataset\.insertIndex = String\(safeInsertIndex\);[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(safeInsertIndex\);[\s\S]*createParagraphFromVirtualInput\(event\.data, safeInsertIndex\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach/,
-  'blocks mode should expose indexed virtual paragraphs that open a slash command selector and create real paragraphs only after typing'
+  /state\.commandMenuOpen = true;[\s\S]*state\.commandMenuInsertIndex = Math\.max\(0, Math\.min\(Number\(insertIndex\) \|\| 0, state\.blocks\.length\)\);[\s\S]*const first = list\.querySelector\(`\.blocks-virtual-block\[data-insert-index="\$\{state\.commandMenuInsertIndex\}"\] \.blocks-command-menu-item`\)[\s\S]*const renderVirtualBlock = \(insertIndex = state\.blocks\.length\) => \{[\s\S]*item\.dataset\.insertIndex = String\(safeInsertIndex\);[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*insertBlankBlock\(safeInsertIndex, \{ command: true \}\);[\s\S]*createParagraphFromBlankInput\(event\.data, index >= 0 \? index : safeInsertIndex\);[\s\S]*createCommandMenuElement\(isCommandOpen\)/,
+  'blocks mode should keep a terminal affordance that materializes real blank blocks only after focus, slash, or typing'
 );
 
 assert.match(
   editorBlocksSource,
-  /const openArticleCardCommand = \(\) => \{[\s\S]*const insertIndex = Number\.isInteger\(state\.commandMenuInsertIndex\) \? state\.commandMenuInsertIndex : virtualInsertionIndex\(\);[\s\S]*state\.cardPickerInsertIndex = insertIndex;[\s\S]*const runBlockCommand = \(type, data = \{\}\) => \{[\s\S]*insertCommandBlock\(type, data, \{ focus: focusTypes\.has\(type\) \}\);/,
-  'virtual block commands should insert at the active virtual insertion point and reuse the article-card picker at that position'
+  /const placeCommandBlock = \(type, data = \{\}, index = state\.blocks\.length\) => \{[\s\S]*state\.blocks\[safeIndex\]\.type === 'blank'[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\);[\s\S]*const block = placeCommandBlock\(type, data, insertIndex\);[\s\S]*placeCommandBlock\('card',[\s\S]*const openArticleCardCommand = \(\) => \{[\s\S]*const insertIndex = Number\.isInteger\(state\.commandMenuInsertIndex\) \? state\.commandMenuInsertIndex : state\.blocks\.length;[\s\S]*state\.cardPickerInsertIndex = insertIndex;/,
+  'blank block commands should replace the active blank block and reuse the article-card picker at that position'
 );
 
 assert.match(
@@ -130,32 +130,32 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /function shouldOpenInlineVirtualBlockOnEnter\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*const text = editableText\(el\)\.replace\([\s\S]*if \(offsets\.start >= text\.length\) return true;[\s\S]*return isEditableSelectionOnBlankLine\(el\);/,
-  'plain Enter at the end of a rich text block should open an inline virtual block without first creating an empty line'
+  /function shouldInsertBlankBlockOnEnter\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*const text = editableVisibleText\(el\);[\s\S]*if \(offsets\.start >= text\.length\) return true;[\s\S]*return isEditableSelectionOnBlankLine\(el\);/,
+  'plain Enter at the end of a rich text block should insert a real blank block without first creating an empty line'
 );
 
 assert.match(
   editorBlocksSource,
-  /inlineVirtualIndex: null,[\s\S]*commandMenuInsertIndex: null,[\s\S]*const virtualInsertionIndex = \(\) => \{[\s\S]*state\.inlineVirtualIndex[\s\S]*const openInlineVirtualBlockAfter = \(index, editable = null, sync = null\) => \{[\s\S]*state\.inlineVirtualIndex = Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) \+ 1, state\.blocks\.length\)\);[\s\S]*render\(\);[\s\S]*focusVirtualEditable\(state\.inlineVirtualIndex\);/,
-  'Enter should create a focused inline virtual block after the current block'
+  /commandMenuInsertIndex: null,[\s\S]*const insertBlankBlockAfter = \(index, editable = null, sync = null\) => \{[\s\S]*if \(typeof sync === 'function'\) sync\(\);[\s\S]*insertBlankBlock\(Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) \+ 1, state\.blocks\.length\)\), \{ focus: true \}\);/,
+  'Enter should create a focused real blank block after the current block'
 );
 
 assert.match(
   editorBlocksSource,
-  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*!\['paragraph', 'quote', 'heading'\]\.includes\(block\.type\)[\s\S]*!shouldOpenInlineVirtualBlockOnEnter\(editable\)[\s\S]*event\.preventDefault\(\);[\s\S]*openInlineVirtualBlockAfter\(index, editable, sync\);/,
+  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*!\['paragraph', 'quote', 'heading'\]\.includes\(block\.type\)[\s\S]*!shouldInsertBlankBlockOnEnter\(editable\)[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlockAfter\(index, editable, sync\);/,
   'paragraph, quote, and heading Enter handling should exit the block when Enter would create a new empty line'
 );
 
 assert.match(
   editorBlocksSource,
-  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*if \(state\.inlineVirtualIndex === index \+ 1\) \{[\s\S]*list\.appendChild\(renderVirtualBlock\(index \+ 1, true\)\);[\s\S]*if \(state\.inlineVirtualIndex !== state\.blocks\.length\) \{[\s\S]*list\.appendChild\(renderVirtualBlock\(state\.blocks\.length, false\)\);/,
-  'rendering should place inline virtual blocks after their owning block while preserving the bottom virtual block'
+  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*\}\);[\s\S]*list\.appendChild\(renderVirtualBlock\(state\.blocks\.length\)\);/,
+  'rendering should use real blank blocks for persistent insertion points while preserving the bottom affordance'
 );
 
 assert.match(
   editorBlocksSource,
-  /export function isBlockEmptyForBackspace\(block\) \{[\s\S]*block\.type === 'paragraph'[\s\S]*block\.type === 'heading'[\s\S]*block\.type === 'quote'[\s\S]*block\.type === 'code'[\s\S]*block\.type === 'source'[\s\S]*block\.type === 'image'[\s\S]*block\.type === 'card'[\s\S]*block\.type === 'list'[\s\S]*editableListItems\(data\.items\)\.every\(item => blank\(item && item\.text\) && !item\.checked\);/,
-  'empty block backspace detection should cover text, media, card, and list user-authored content'
+  /export function isBlockEmptyForBackspace\(block\) \{[\s\S]*block\.type === 'blank'[\s\S]*block\.type === 'paragraph'[\s\S]*block\.type === 'heading'[\s\S]*block\.type === 'quote'[\s\S]*block\.type === 'code'[\s\S]*block\.type === 'source'[\s\S]*block\.type === 'image'[\s\S]*block\.type === 'card'[\s\S]*block\.type === 'list'[\s\S]*editableListItems\(data\.items\)\.every\(item => blank\(item && item\.text\) && !item\.checked\);/,
+  'empty block backspace detection should cover blank, text, media, card, and list user-authored content'
 );
 
 assert.match(
@@ -166,14 +166,14 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const handleVirtualBackspace = \(event, insertIndex, isInline\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*isEditableBackspaceAtEmptyStart\(event\.currentTarget\)[\s\S]*const previousIndex = safeInsertIndex - 1;[\s\S]*if \(previousIndex < 0\) return false;[\s\S]*if \(isInline\) \{[\s\S]*state\.inlineVirtualIndex = null;[\s\S]*render\(\);[\s\S]*focusBlockPrimaryEditable\(state\.blocks\[previousIndex\]\);/,
-  'virtual block Backspace should exit empty virtual blocks and focus the previous real block'
+  /const handleTerminalVirtualBackspace = \(event, insertIndex\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*isEditableBackspaceAtEmptyStart\(event\.currentTarget\)[\s\S]*const previousIndex = safeInsertIndex - 1;[\s\S]*if \(previousIndex < 0\) return false;[\s\S]*event\.preventDefault\(\);[\s\S]*focusBlockPrimaryEditable\(state\.blocks\[previousIndex\]\);/,
+  'terminal affordance Backspace should focus the previous real block'
 );
 
 assert.match(
   editorBlocksSource,
-  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*handleVirtualBackspace\(event, safeInsertIndex, isInline\)[\s\S]*if \(event\.key === 'Escape' && isInline\)[\s\S]*createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\);/,
-  'empty Backspace handling should run before virtual Escape, rich Enter, list row, code Enter, and source textarea handling'
+  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*handleTerminalVirtualBackspace\(event, safeInsertIndex\)[\s\S]*if \(event\.key === 'Escape' && isCommandOpen\)[\s\S]*createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\)\) return;/,
+  'empty Backspace handling should run before terminal Escape, rich Enter, list row, code Enter, and source textarea handling'
 );
 
 assert.match(
@@ -1033,7 +1033,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:/,
+  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:[\s\S]*blank:/,
   'block type icon map should cover every block type shown in the floating toolbar'
 );
 
@@ -1045,7 +1045,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
+  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = block\.type === 'blank'[\s\S]*text\('virtualBlockAria', 'New block'\)[\s\S]*text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
   'block type badge should render an accessible SVG icon instead of visible uppercase type text'
 );
 
