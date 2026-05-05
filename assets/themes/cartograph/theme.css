@@ -231,10 +231,6 @@ a:focus-visible {
   min-width: 0;
 }
 
-.cartograph-search__legacy {
-  display: none !important;
-}
-
 .cartograph-search::part(label) {
   display: flex;
   align-items: center;
@@ -507,6 +503,93 @@ a:focus-visible {
   color: var(--cartograph-brass);
   font-family: var(--cartograph-font-mono);
   font-size: 0.72rem;
+}
+
+.cartograph-route-map__lead {
+  margin: 0 0 0.65rem;
+  color: var(--cartograph-ink);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.cartograph-route-map__sections {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartograph-route-map__sections li {
+  padding-left: 0;
+}
+
+.cartograph-route-map__sections li[data-level="2"] {
+  padding-left: 0.75rem;
+}
+
+.cartograph-route-map__sections li[data-level="3"] {
+  padding-left: 1.5rem;
+}
+
+.cartograph-route-map__sections a {
+  display: block;
+  padding: 0.25rem 0;
+  color: var(--cartograph-graphite);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.cartograph-route-map__sections a:hover,
+.cartograph-route-map__sections a:focus-visible {
+  color: var(--cartograph-vermilion);
+  outline: none;
+}
+
+.cartograph-route-map__notables {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.cartograph-route-map__notables p {
+  margin: 0;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--cartograph-line);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.cartograph-route-map__notables span,
+.cartograph-route-map__counts span {
+  color: var(--cartograph-brass);
+  font-family: var(--cartograph-font-mono);
+  font-size: 0.72rem;
+}
+
+.cartograph-route-map__notables span {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.cartograph-route-map__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+}
+
+.cartograph-route-map__counts span {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.18rem 0.4rem;
+  border: 1px solid var(--cartograph-line);
+  border-radius: 999px;
+}
+
+.cartograph-route-map__counts b {
+  color: var(--cartograph-ink);
 }
 
 .cartograph-article,

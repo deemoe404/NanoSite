@@ -21,19 +21,19 @@ effects.
   "styles": ["theme.css"],
   "modules": ["modules/layout.js", "modules/interactions.js"],
   "views": {
-    "post": { "hook": "renderPostView" },
-    "posts": { "hook": "renderIndexView" },
-    "search": { "hook": "renderSearchResults" },
-    "tab": { "hook": "renderStaticTabView" },
-    "error": { "hook": "renderErrorState" },
-    "loading": { "hooks": ["renderPostLoadingState"] }
+    "post": { "module": "modules/views.js", "handler": "post" },
+    "posts": { "module": "modules/views.js", "handler": "posts" },
+    "search": { "module": "modules/views.js", "handler": "search" },
+    "tab": { "module": "modules/views.js", "handler": "tab" },
+    "error": { "module": "modules/views.js", "handler": "error" },
+    "loading": { "module": "modules/views.js", "handler": "loading" }
   },
   "regions": {
-    "main": { "required": true, "aliases": ["mainview"] },
-    "toc": { "aliases": ["tocview"] },
-    "search": { "aliases": ["searchInput"] },
-    "nav": { "aliases": ["tabsNav"] },
-    "tags": { "aliases": ["tagview"] },
+    "main": { "required": true },
+    "toc": {},
+    "search": {},
+    "nav": {},
+    "tags": {},
     "footer": { "required": true }
   },
   "components": ["nano-search", "nano-toc", "nano-post-card"],
@@ -62,9 +62,10 @@ effects.
 - `configSchema`: JSON-schema fragment for theme-specific configuration.
 - `content.shapes`: Content model fields consumed by the theme.
 
-The legacy `contract` object remains in shipped themes as an adapter map for
-`window.__ns_themeHooks` and old DOM IDs. New theme code should target the
-top-level manifest fields and the `ctx` object.
+Compatibility themes may still include a legacy `contract` object as an adapter
+map for `window.__ns_themeHooks` and old DOM IDs. Pure contract themes should
+omit `contract`, avoid fixed legacy IDs, and target the top-level manifest fields
+plus the `ctx` object.
 
 ## Theme API
 
@@ -88,9 +89,10 @@ export default {
 ```
 
 The loader merges explicit API exports first. A `mount(ctx)` function may also
-return `{ hooks, views, components, effects }` to publish handlers created from
-runtime-local state. Legacy hooks are then attached as an adapter, so existing
-themes keep working while new themes can implement `views` directly.
+return `{ views, components, effects }` to publish handlers created from
+runtime-local state. Compatibility themes may return `hooks`; the loader exposes
+them through the adapter so existing themes keep working while new themes can
+implement `views` and `effects` directly.
 
 ## Runtime Context
 
@@ -115,10 +117,11 @@ ctx.regions.register('main', mainElement);
 ctx.regions.registerMany({ toc: tocElement, search: searchElement });
 ```
 
-The shipped themes still expose legacy IDs such as `mainview`, `tocview`,
+Compatibility themes may still expose legacy IDs such as `mainview`, `tocview`,
 `searchInput`, `tabsNav`, and `tagview`. These IDs are adapter details and are
 listed in `contract.domIds` only so the verifier and dev warnings can keep them
-visible.
+visible. Pure themes should register semantic regions and communicate through
+the registry instead.
 
 ## Content Model
 
@@ -173,9 +176,9 @@ node scripts/test-theme-contracts.js
 ```
 
 The verifier checks manifest shape, module/style paths, supported views,
-registered regions, shared components, content shapes, legacy hook adapter
-coverage, docs/schema synchronization, and direct core dependencies on legacy
-DOM IDs.
+registered regions, shared components, content shapes, pure-theme constraints,
+legacy hook adapter coverage for compatibility themes, docs/schema
+synchronization, and direct core dependencies on legacy DOM IDs.
 
 Set `?themeDev=1` in the browser or `localStorage.ns_theme_dev_mode = "1"` to
 log runtime warnings for malformed manifests, undeclared or missing regions,

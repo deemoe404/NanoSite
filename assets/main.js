@@ -682,6 +682,8 @@ function renderTabs(activeSlug, searchQuery) {
     getHomeSlug: () => getHomeSlug(),
     getHomeLabel: () => getHomeLabel(),
     postsEnabled: () => postsEnabled(),
+    translate: t,
+    withLangParam,
     document,
     window
   });

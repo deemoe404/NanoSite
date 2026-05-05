@@ -18,7 +18,10 @@ const VIEW_HOOKS = {
   renderPostView: 'post',
   renderIndexView: 'posts',
   renderSearchResults: 'search',
-  renderStaticTabView: 'tab'
+  renderStaticTabView: 'tab',
+  renderErrorState: 'error',
+  renderPostLoadingState: 'loading',
+  renderStaticTabLoadingState: 'loading'
 };
 
 const FALLBACK_MANIFEST = {
@@ -262,7 +265,16 @@ function extractThemeApi(mod) {
   if (!mod || typeof mod !== 'object') return null;
   const explicit = asObject(mod.theme) || asObject(mod.themeApi) || asObject(mod.api);
   const fromDefault = asObject(mod.default);
-  const source = explicit || fromDefault;
+  const direct = (
+    asObject(mod.views)
+    || asObject(mod.components)
+    || asObject(mod.effects)
+    || asObject(mod.hooks)
+    || asObject(mod.regions)
+    || typeof mod.mount === 'function'
+    || typeof mod.unmount === 'function'
+  ) ? mod : null;
+  const source = explicit || fromDefault || direct;
   if (!source) return null;
   if (
     typeof source.mount === 'function'

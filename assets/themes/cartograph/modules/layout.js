@@ -1,10 +1,3 @@
-const NAV_ID = 'tabsNav';
-const MAINVIEW_ID = 'mainview';
-const TOCVIEW_ID = 'tocview';
-const TAGVIEW_ID = 'tagview';
-const FOOTER_NAV_ID = 'footerNav';
-const SEARCH_ID = 'searchInput';
-
 function getOrCreateShell(doc) {
   let shell = doc.querySelector('[data-theme-root="container"]');
   if (!shell) {
@@ -43,15 +36,14 @@ export function mount(context = {}) {
           </span>
         </a>
       </div>
-      <nav id="${NAV_ID}" class="cartograph-nav" aria-label="Primary navigation"></nav>
-      <nano-search class="cartograph-search" id="searchBox" render-root="shadow" field-class="cartograph-search__field" icon-class="cartograph-search__icon" icon="/" aria-label="Search"></nano-search>
-      <input id="${SEARCH_ID}" class="cartograph-search__legacy" type="search" tabindex="-1" aria-hidden="true" hidden />
-      <section id="toolsPanel" class="cartograph-tools" aria-label="Site tools"></section>
+      <nav class="cartograph-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
+      <nano-search class="cartograph-search" data-theme-region="search" render-root="shadow" field-class="cartograph-search__field" icon-class="cartograph-search__icon" icon="/" aria-label="Search"></nano-search>
+      <section class="cartograph-tools" data-theme-region="toolsPanel" aria-label="Site tools"></section>
     </header>
     <div class="cartograph-progress" aria-hidden="true"><span></span></div>
-    <div class="cartograph-scroll" data-cartograph-scroll>
-      <div class="cartograph-board">
-        <aside class="cartograph-rail" aria-label="Site dossier">
+    <div class="cartograph-scroll" data-cartograph-scroll data-theme-region="scrollContainer">
+      <div class="cartograph-board" data-theme-region="content">
+        <aside class="cartograph-rail" data-theme-region="rail" aria-label="Site dossier">
           <section class="cartograph-rail__card cartograph-rail__card--identity">
             <div class="cartograph-rail__label">origin</div>
             <div class="cartograph-rail__title" data-site-title-rail>NanoSite</div>
@@ -63,45 +55,47 @@ export function mount(context = {}) {
           </section>
         </aside>
         <main class="cartograph-main" role="main">
-          <section id="${MAINVIEW_ID}" class="cartograph-mainview" tabindex="-1"></section>
+          <section class="cartograph-mainview" data-theme-region="main" tabindex="-1"></section>
         </main>
-        <aside class="cartograph-legend" aria-label="Route legend">
-          <nano-toc id="${TOCVIEW_ID}" class="cartograph-toc" inner-class="cartograph-toc__inner" title-class="cartograph-toc__title" show-top="false" aria-label="Table of contents" hidden></nano-toc>
-          <section class="cartograph-panel cartograph-panel--media" data-cartograph-media hidden></section>
-          <section class="cartograph-panel cartograph-panel--links" data-cartograph-links hidden></section>
-          <section id="${TAGVIEW_ID}" class="cartograph-panel cartograph-tagband" aria-label="Tag filters" hidden></section>
+        <aside class="cartograph-legend" data-theme-region="legend" aria-label="Route legend">
+          <nano-toc class="cartograph-toc" data-theme-region="toc" inner-class="cartograph-toc__inner" title-class="cartograph-toc__title" show-top="false" aria-label="Table of contents" hidden></nano-toc>
+          <section class="cartograph-panel cartograph-panel--route" data-theme-region="routeMap" data-cartograph-route-map hidden></section>
+          <section class="cartograph-panel cartograph-panel--media" data-theme-region="mediaPanel" data-cartograph-media hidden></section>
+          <section class="cartograph-panel cartograph-panel--links" data-theme-region="linksPanel" data-cartograph-links hidden></section>
+          <section class="cartograph-panel cartograph-tagband" data-theme-region="tags" aria-label="Tag filters" hidden></section>
         </aside>
       </div>
     </div>
     <footer class="cartograph-footer" role="contentinfo">
       <div class="cartograph-footer__credit">NanoSite</div>
-      <nav id="${FOOTER_NAV_ID}" class="cartograph-footer__nav" aria-label="Secondary navigation"></nav>
+      <nav class="cartograph-footer__nav" data-theme-region="footerNav" aria-label="Secondary navigation"></nav>
     </footer>`;
 
   const search = shell.querySelector('nano-search');
+  const findRegion = (name) => shell.querySelector(`[data-theme-region="${name}"]`);
   const regions = {
     container: shell,
-    content: shell.querySelector('.cartograph-board'),
+    content: findRegion('content'),
     commandStrip: shell.querySelector('.cartograph-command'),
     footer: shell.querySelector('.cartograph-footer'),
-    footerNav: shell.querySelector(`#${FOOTER_NAV_ID}`),
+    footerNav: findRegion('footerNav'),
     header: shell.querySelector('.cartograph-command'),
-    legend: shell.querySelector('.cartograph-legend'),
-    main: shell.querySelector(`#${MAINVIEW_ID}`),
-    mainview: shell.querySelector(`#${MAINVIEW_ID}`),
-    nav: shell.querySelector(`#${NAV_ID}`),
-    navBox: shell.querySelector(`#${NAV_ID}`),
-    scrollContainer: shell.querySelector('.cartograph-scroll'),
+    legend: findRegion('legend'),
+    main: findRegion('main'),
+    nav: findRegion('nav'),
+    navBox: findRegion('nav'),
+    scrollContainer: findRegion('scrollContainer'),
     search,
     searchBox: search,
-    searchInput: (search && search.input) || shell.querySelector(`#${SEARCH_ID}`),
-    sidebar: shell.querySelector('.cartograph-legend'),
-    tags: shell.querySelector(`#${TAGVIEW_ID}`),
-    tagBand: shell.querySelector(`#${TAGVIEW_ID}`),
-    toc: shell.querySelector(`#${TOCVIEW_ID}`),
-    tocview: shell.querySelector(`#${TOCVIEW_ID}`),
-    toolsPanel: shell.querySelector('#toolsPanel'),
-    utilities: shell.querySelector('.cartograph-legend')
+    sidebar: findRegion('legend'),
+    tags: findRegion('tags'),
+    tagBand: findRegion('tags'),
+    toc: findRegion('toc'),
+    toolsPanel: findRegion('toolsPanel'),
+    utilities: findRegion('legend'),
+    routeMap: findRegion('routeMap'),
+    mediaPanel: findRegion('mediaPanel'),
+    linksPanel: findRegion('linksPanel')
   };
 
   context.document = doc;

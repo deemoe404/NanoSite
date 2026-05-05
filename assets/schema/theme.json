@@ -103,7 +103,7 @@
     },
     "contract": {
       "type": "object",
-      "description": "Legacy hook adapter contract exposed by the theme.",
+      "description": "Optional legacy hook adapter contract exposed by compatibility themes.",
       "required": [
         "content",
         "domIds",
@@ -227,6 +227,9 @@
           "$ref": "#/$defs/stringList"
         },
         "module": {
+          "type": "string"
+        },
+        "handler": {
           "type": "string"
         }
       }

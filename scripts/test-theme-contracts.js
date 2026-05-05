@@ -13,6 +13,7 @@ const REQUIRED_CONTENT_SHAPES = ['rawMarkdown', 'html', 'blocks', 'tocTree', 'he
 const REQUIRED_COMPONENTS = ['nano-search', 'nano-toc', 'nano-post-card'];
 const REQUIRED_STYLE_TOKENS = ['--ns-color-text', '--ns-color-surface', '--ns-font-body', '--ns-radius-card', '--ns-space-page'];
 const LEGACY_IDS = ['mainview', 'tocview', 'searchInput', 'tabsNav', 'tagview'];
+const PURE_THEME_NAMES = new Set(['cartograph']);
 const CORE_RUNTIME_FILES = [
   'assets/main.js',
   'assets/js/dom-utils.js',
@@ -116,6 +117,12 @@ function declaredViewHooks(viewDecl = {}) {
   return [...new Set(hooks)];
 }
 
+function declaredViewHandler(viewDecl = {}) {
+  const module = typeof viewDecl.module === 'string' ? viewDecl.module.trim() : '';
+  const handler = typeof viewDecl.handler === 'string' ? viewDecl.handler.trim() : '';
+  return { module, handler };
+}
+
 const schema = readJson(schemaPath);
 if (!schema) fail('assets/schema/theme.json must be readable');
 
@@ -145,6 +152,9 @@ REQUIRED_COMPONENTS.forEach((component) => {
     fail(`assets/js/theme-layout.js must expose theme API adapter support for ${needle}`);
   }
 });
+if (!/const direct = \([\s\S]*asObject\(mod\.effects\)[\s\S]*\) \? mod : null;/.test(themeLayoutSource)) {
+  fail('assets/js/theme-layout.js must merge pure API objects returned from mount(ctx)');
+}
 
 ['createContentModel', 'blocks', 'tocTree', 'headings', 'assets', 'links'].forEach((needle) => {
   if (!contentModelSource.includes(needle)) {
@@ -173,7 +183,7 @@ CORE_RUNTIME_FILES.forEach((file) => {
   });
 });
 
-['contractVersion', 'regions', 'views', 'components', 'scrollContainer', 'configSchema', 'content', 'shapes'].forEach((needle) => {
+['contractVersion', 'regions', 'views', 'components', 'scrollContainer', 'configSchema', 'content', 'shapes', 'handler'].forEach((needle) => {
   if (!docsSource.includes(needle)) {
     fail(`docs/theme-contract.md must document manifest field ${needle}`);
   }
@@ -189,6 +199,7 @@ themeNames.forEach((themeName) => {
   const relManifest = rel(manifestPath);
   const manifest = readJson(manifestPath);
   if (!manifest) return;
+  const isPureTheme = PURE_THEME_NAMES.has(themeName);
 
   if (manifest.$schema !== '../../schema/theme.json') {
     fail(`${relManifest} must declare "$schema": "../../schema/theme.json"`);
@@ -237,8 +248,26 @@ themeNames.forEach((themeName) => {
       return fs.existsSync(modulePath) ? read(modulePath) : '';
     })
     .join('\n');
-  if (!/return\s*\{[\s\S]*hooks[\s\S]*views[\s\S]*effects/.test(moduleSource)) {
-    fail(`${relManifest} modules must return an explicit theme API object with hooks, views, and effects`);
+  if (isPureTheme) {
+    if (/__ns_themeHooks/.test(moduleSource)) {
+      fail(`${relManifest} pure theme modules must not write window.__ns_themeHooks`);
+    }
+    if (/from\s+['"]\.\.\/\.\.\/\.\.\/js\/i18n\.js['"]/.test(moduleSource)) {
+      fail(`${relManifest} pure theme modules must read i18n from ctx instead of importing js/i18n.js directly`);
+    }
+    LEGACY_IDS.forEach((id) => {
+      const directId = new RegExp(`getElementById\\(\\s*['"]${escapeRe(id)}['"]\\s*\\)`);
+      const directSelector = new RegExp(`querySelector(?:All)?\\(\\s*['"]#[^'"]*${escapeRe(id)}`);
+      if (directId.test(moduleSource) || directSelector.test(moduleSource)) {
+        fail(`${relManifest} pure theme modules must not query legacy DOM id "${id}"`);
+      }
+    });
+    if (manifest.contract != null) {
+      fail(`${relManifest} pure theme must omit legacy contract`);
+    }
+  }
+  if (!/return\s*\{[\s\S]*(views|effects)[\s\S]*components/.test(moduleSource)) {
+    fail(`${relManifest} modules must return an explicit theme API object with views/effects and components`);
   }
   if (!/export\s+default\s+\{[\s\S]*mount[\s\S]*views[\s\S]*components[\s\S]*effects/.test(moduleSource)) {
     fail(`${relManifest} modules must export a default theme API object`);
@@ -280,44 +309,58 @@ themeNames.forEach((themeName) => {
     if (!shapes.includes(shape)) fail(`${relManifest} content.shapes must include "${shape}"`);
   });
 
-  const contract = requireObject(manifest.contract, 'contract', relManifest);
-  if (contract.version !== 1) fail(`${relManifest} contract.version must be 1`);
-  const hooks = requireList(contract, 'hooks', 'contract.hooks', relManifest);
-  const contractRegions = requireList(contract, 'regions', 'contract.regions', relManifest);
-  REQUIRED_REGIONS.forEach((region) => {
-    if (!contractRegions.includes(region)) {
-      fail(`${relManifest} contract.regions must include stable region "${region}"`);
-    }
-  });
-  LEGACY_IDS.forEach((id) => {
-    if (!requireList(contract, 'domIds', 'contract.domIds', relManifest).includes(id)) {
-      fail(`${relManifest} contract.domIds should keep legacy adapter id "${id}" explicit`);
-    }
-  });
-  const contractViews = requireList(contract, 'views', 'contract.views', relManifest);
-  ['post', 'posts', 'search', 'tab'].forEach((view) => {
-    if (!contractViews.includes(view)) fail(`${relManifest} contract.views must include "${view}"`);
-  });
-  const contractContent = requireObject(contract.content, 'contract.content', relManifest);
-  if (contractContent.markdown !== 'html') fail(`${relManifest} contract.content.markdown must be "html"`);
-  if (contractContent.toc !== 'html') fail(`${relManifest} contract.content.toc must be "html"`);
-  const contractShapes = requireList(contractContent, 'shapes', 'contract.content.shapes', relManifest);
-  REQUIRED_CONTENT_SHAPES.forEach((shape) => {
-    if (!contractShapes.includes(shape)) fail(`${relManifest} contract.content.shapes must include "${shape}"`);
-  });
-
   Object.entries(views).forEach(([view, declaration]) => {
-    declaredViewHooks(declaration).forEach((hookName) => {
-      if (!hooks.includes(hookName)) fail(`${relManifest} views.${view} references hook "${hookName}" missing from contract.hooks`);
-    });
-  });
-
-  hooks.forEach((hookName) => {
-    const re = new RegExp(`hooks\\.${escapeRe(hookName)}\\s*=`);
-    if (!re.test(moduleSource)) {
-      fail(`${relManifest} declares hook "${hookName}" but no module assigns hooks.${hookName}`);
+    if (isPureTheme) {
+      const declared = declaredViewHandler(declaration);
+      if (!declared.module || !declared.handler) {
+        fail(`${relManifest} pure theme views.${view} must declare module and handler`);
+      }
+      declaredViewHooks(declaration).forEach((hookName) => {
+        fail(`${relManifest} pure theme views.${view} must not reference legacy hook "${hookName}"`);
+      });
     }
   });
+
+  if (!isPureTheme) {
+    const contract = requireObject(manifest.contract, 'contract', relManifest);
+    if (contract.version !== 1) fail(`${relManifest} contract.version must be 1`);
+    const hooks = requireList(contract, 'hooks', 'contract.hooks', relManifest);
+    const contractRegions = requireList(contract, 'regions', 'contract.regions', relManifest);
+    REQUIRED_REGIONS.forEach((region) => {
+      if (!contractRegions.includes(region)) {
+        fail(`${relManifest} contract.regions must include stable region "${region}"`);
+      }
+    });
+    LEGACY_IDS.forEach((id) => {
+      if (!requireList(contract, 'domIds', 'contract.domIds', relManifest).includes(id)) {
+        fail(`${relManifest} contract.domIds should keep legacy adapter id "${id}" explicit`);
+      }
+    });
+    const contractViews = requireList(contract, 'views', 'contract.views', relManifest);
+    ['post', 'posts', 'search', 'tab'].forEach((view) => {
+      if (!contractViews.includes(view)) fail(`${relManifest} contract.views must include "${view}"`);
+    });
+    const contractContent = requireObject(contract.content, 'contract.content', relManifest);
+    if (contractContent.markdown !== 'html') fail(`${relManifest} contract.content.markdown must be "html"`);
+    if (contractContent.toc !== 'html') fail(`${relManifest} contract.content.toc must be "html"`);
+    const contractShapes = requireList(contractContent, 'shapes', 'contract.content.shapes', relManifest);
+    REQUIRED_CONTENT_SHAPES.forEach((shape) => {
+      if (!contractShapes.includes(shape)) fail(`${relManifest} contract.content.shapes must include "${shape}"`);
+    });
+
+    Object.entries(views).forEach(([view, declaration]) => {
+      declaredViewHooks(declaration).forEach((hookName) => {
+        if (!hooks.includes(hookName)) fail(`${relManifest} views.${view} references hook "${hookName}" missing from contract.hooks`);
+      });
+    });
+
+    hooks.forEach((hookName) => {
+      const re = new RegExp(`hooks\\.${escapeRe(hookName)}\\s*=`);
+      if (!re.test(moduleSource)) {
+        fail(`${relManifest} declares hook "${hookName}" but no module assigns hooks.${hookName}`);
+      }
+    });
+  }
 });
 
 if (failures.length) {

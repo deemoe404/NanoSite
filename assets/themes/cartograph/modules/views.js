@@ -1,4 +1,3 @@
-import { t, withLangParam } from '../../../js/i18n.js';
 import {
   renderTags,
   escapeHtml,
@@ -23,6 +22,13 @@ const CARD_CLASSES = {
   tagsClass: 'cartograph-card__tags',
   metaPosition: 'before-title'
 };
+
+function fallbackT(key, ...args) {
+  try {
+    if (typeof window !== 'undefined' && typeof window.__ns_t === 'function') return window.__ns_t(key, ...args);
+  } catch (_) {}
+  return args.length ? `${key} ${args.join(' ')}` : String(key || '');
+}
 
 function safe(value) {
   return escapeHtml(String(value ?? '')) || '';
@@ -56,16 +62,56 @@ function getWindow(params = {}) {
   return params.window || (params.ctx && params.ctx.window) || window;
 }
 
+function getI18n(params = {}) {
+  const i18n = (params.ctx && params.ctx.i18n) || {};
+  const translate = typeof params.translate === 'function'
+    ? params.translate
+    : (typeof params.translator === 'function'
+        ? params.translator
+        : (typeof i18n.t === 'function' ? i18n.t : fallbackT));
+  const withLanguage = typeof params.withLangParam === 'function'
+    ? params.withLangParam
+    : (typeof i18n.withLangParam === 'function' ? i18n.withLangParam : (href) => href);
+  return { t: translate, withLangParam: withLanguage };
+}
+
+function getRegion(params = {}, names, fallbackSelector = '') {
+  const list = Array.isArray(names) ? names : [names];
+  const regions = params.ctx && params.ctx.regions;
+  if (regions && typeof regions.get === 'function') {
+    for (const name of list) {
+      const region = regions.get(name);
+      if (region) return region;
+    }
+  }
+  if (params.containers && typeof params.containers === 'object') {
+    const containerMap = {
+      main: 'mainElement',
+      toc: 'tocElement',
+      sidebar: 'sidebarElement',
+      content: 'contentElement',
+      container: 'containerElement'
+    };
+    for (const name of list) {
+      const key = containerMap[name];
+      if (key && params.containers[key]) return params.containers[key];
+    }
+  }
+  if (fallbackSelector) {
+    try { return getDocument(params).querySelector(fallbackSelector); } catch (_) {}
+  }
+  return null;
+}
+
 function getMain(params = {}) {
   return (params.containers && params.containers.mainElement)
     || params.container
-    || getDocument(params).getElementById('mainview');
+    || getRegion(params, 'main', '.cartograph-mainview');
 }
 
 function scrollToBoardTop(params = {}) {
-  const doc = getDocument(params);
   const win = getWindow(params);
-  const scroller = doc.querySelector('.cartograph-scroll');
+  const scroller = getRegion(params, 'scrollContainer', '.cartograph-scroll');
   try {
     if (scroller && typeof scroller.scrollTo === 'function') {
       scroller.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -112,8 +158,8 @@ function renderManifestPanel(panel, { title, label, items, empty, rowRenderer })
     ${hasItems ? panelList(items, rowRenderer) : `<p class="cartograph-empty">${safe(empty)}</p>`}`;
 }
 
-function renderMediaManifest(doc, content = {}) {
-  const panel = doc.querySelector('[data-cartograph-media]');
+function renderMediaManifest(params = {}, content = {}) {
+  const panel = getRegion(params, 'mediaPanel', '[data-cartograph-media]');
   const assets = Array.isArray(content.assets) ? content.assets.slice(0, 8) : [];
   renderManifestPanel(panel, {
     label: 'manifest',
@@ -132,8 +178,8 @@ function renderMediaManifest(doc, content = {}) {
   });
 }
 
-function renderLinkDocket(doc, content = {}) {
-  const panel = doc.querySelector('[data-cartograph-links]');
+function renderLinkDocket(params = {}, content = {}) {
+  const panel = getRegion(params, 'linksPanel', '[data-cartograph-links]');
   const links = Array.isArray(content.links) ? content.links.slice(0, 10) : [];
   renderManifestPanel(panel, {
     label: 'docket',
@@ -151,10 +197,65 @@ function renderLinkDocket(doc, content = {}) {
   });
 }
 
+function createRouteMap(content = {}) {
+  const blocks = Array.isArray(content.blocks) ? content.blocks : [];
+  const headings = Array.isArray(content.headings) ? content.headings : [];
+  const counts = blocks.reduce((out, block) => {
+    const type = firstText(block && block.type, 'block');
+    out[type] = (out[type] || 0) + 1;
+    return out;
+  }, {});
+  const sections = headings
+    .filter((heading) => heading && heading.level >= 1 && heading.level <= 3 && heading.text)
+    .slice(0, 8)
+    .map((heading) => ({
+      id: String(heading.id || ''),
+      level: Number(heading.level) || 1,
+      text: String(heading.text || '')
+    }));
+  const lead = blocks.find((block) => block && block.type === 'paragraph' && block.text);
+  const notable = blocks
+    .filter((block) => block && ['quote', 'code', 'table', 'list'].includes(block.type) && block.text)
+    .slice(0, 4)
+    .map((block) => ({
+      type: block.type,
+      text: String(block.text || '').slice(0, 160)
+    }));
+  return { counts, sections, lead: lead && lead.text ? String(lead.text).slice(0, 220) : '', notable };
+}
+
+function renderRouteMapPanel(params = {}, content = {}) {
+  const panel = getRegion(params, 'routeMap', '[data-cartograph-route-map]');
+  if (!panel) return;
+  const routeMap = createRouteMap(content);
+  const hasStructure = routeMap.sections.length || routeMap.lead || routeMap.notable.length;
+  if (!hasStructure) {
+    panel.innerHTML = '';
+    panel.hidden = true;
+    return;
+  }
+  const counts = Object.entries(routeMap.counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([type, count]) => `<span><b>${safe(count)}</b>${safe(type)}</span>`)
+    .join('');
+  panel.hidden = false;
+  panel.innerHTML = `
+    <div class="cartograph-panel__header">
+      <span class="cartograph-panel__label">route</span>
+      <h2>Map</h2>
+    </div>
+    ${routeMap.lead ? `<p class="cartograph-route-map__lead">${safe(routeMap.lead)}</p>` : ''}
+    ${routeMap.sections.length ? `<ol class="cartograph-route-map__sections">${routeMap.sections.map((section) => `<li data-level="${safe(section.level)}"><a href="#${safe(section.id)}">${safe(section.text)}</a></li>`).join('')}</ol>` : ''}
+    ${routeMap.notable.length ? `<div class="cartograph-route-map__notables">${routeMap.notable.map((item) => `<p><span>${safe(item.type)}</span>${safe(item.text)}</p>`).join('')}</div>` : ''}
+    ${counts ? `<div class="cartograph-route-map__counts">${counts}</div>` : ''}`;
+}
+
 export function renderContentLegend(params = {}) {
   const content = getContent(params);
-  const doc = getDocument(params);
-  const toc = (params.containers && params.containers.tocElement) || doc.getElementById('tocview');
+  const toc = getRegion(params, 'toc', '.cartograph-toc');
+  const main = getMain(params);
+  const scrollRoot = getRegion(params, 'scrollContainer', '.cartograph-scroll');
+  const { t } = getI18n(params);
   const title = params.articleTitle || firstText(content.metadata && content.metadata.title, t('ui.contents'));
   const tocHtml = params.tocHtml || content.tocHtml || '';
 
@@ -164,7 +265,8 @@ export function renderContentLegend(params = {}) {
         toc.renderToc({
           articleTitle: `Route / ${title}`,
           tocHtml,
-          contentSelector: '#mainview'
+          contentRoot: main,
+          scrollRoot
         });
       } else {
         toc.innerHTML = `<div class="cartograph-toc__inner"><div class="cartograph-toc__title">${safe(title)}</div>${tocHtml}</div>`;
@@ -177,19 +279,31 @@ export function renderContentLegend(params = {}) {
     clearToc(toc);
   }
 
-  renderMediaManifest(doc, content);
-  renderLinkDocket(doc, content);
+  renderRouteMapPanel(params, content);
+  renderMediaManifest(params, content);
+  renderLinkDocket(params, content);
   return true;
 }
 
-export function resetContentLegend(doc = document) {
-  clearToc(doc.getElementById('tocview'));
+export function resetContentLegend(params = {}) {
+  const doc = params && params.nodeType === 9 ? params : getDocument(params);
+  const toc = params && params.nodeType === 9
+    ? doc.querySelector('.cartograph-toc')
+    : getRegion(params, 'toc', '.cartograph-toc');
+  clearToc(toc);
   ['[data-cartograph-media]', '[data-cartograph-links]'].forEach((selector) => {
     const panel = doc.querySelector(selector);
     if (!panel) return;
     panel.innerHTML = '';
     panel.hidden = true;
   });
+  const routePanel = params && params.nodeType === 9
+    ? doc.querySelector('[data-cartograph-route-map]')
+    : getRegion(params, 'routeMap', '[data-cartograph-route-map]');
+  if (routePanel) {
+    routePanel.innerHTML = '';
+    routePanel.hidden = true;
+  }
 }
 
 function renderStats(content = {}, metadata = {}) {
@@ -215,6 +329,7 @@ function renderStats(content = {}, metadata = {}) {
 function decorateArticle(container, params = {}) {
   if (!container) return;
   const utilities = params.utilities || {};
+  const { t, withLangParam } = getI18n(params);
   const body = container.querySelector('.cartograph-prose') || container;
 
   try { if (typeof utilities.hydratePostImages === 'function') utilities.hydratePostImages(body); } catch (_) {}
@@ -321,7 +436,8 @@ function renderArticleShell(params = {}, options = {}) {
   return { decorated: true, title };
 }
 
-function buildCard([title, meta] = [], siteConfig = {}) {
+function buildCard([title, meta] = [], siteConfig = {}, params = {}) {
+  const { t, withLangParam } = getI18n(params);
   const href = meta && meta.location ? withLangParam(`?id=${encodeURIComponent(meta.location)}`) : '#';
   const date = meta && meta.date ? formatDisplayDate(meta.date) : '';
   const tags = meta ? renderTags(meta.tag || meta.tags) : '';
@@ -343,7 +459,8 @@ function buildCard([title, meta] = [], siteConfig = {}) {
   });
 }
 
-function buildPagination({ page, totalPages, baseHref, query = {} } = {}) {
+function buildPagination({ page, totalPages, baseHref, query = {}, translate = fallbackT } = {}) {
+  const t = typeof translate === 'function' ? translate : fallbackT;
   if (!totalPages || totalPages <= 1) return '';
   const win = typeof window !== 'undefined' ? window : null;
   const makeHref = (targetPage) => {
@@ -382,17 +499,18 @@ export function renderStaticTabView(params = {}) {
 export function renderIndexView(params = {}) {
   const container = getMain(params);
   if (!container) return false;
+  const { t, withLangParam } = getI18n(params);
   const entries = Array.isArray(params.pageEntries) ? params.pageEntries : [];
-  const cards = entries.map((entry) => buildCard(entry, params.siteConfig || {})).join('');
+  const cards = entries.map((entry) => buildCard(entry, params.siteConfig || {}, params)).join('');
   container.innerHTML = `<section class="cartograph-atlas index">
     <header class="cartograph-atlas__header">
       <div class="cartograph-coordinate"><span>catalog</span><span>${safe(params.total || entries.length)} routes</span></div>
       <h1>${safe(t('titles.allPosts'))}</h1>
     </header>
     <div class="cartograph-atlas__grid">${cards || `<p class="cartograph-empty">${safe(t('ui.noResultsTitle'))}</p>`}</div>
-    ${buildPagination({ page: params.page, totalPages: params.totalPages, baseHref: withLangParam('?tab=posts') })}
+    ${buildPagination({ page: params.page, totalPages: params.totalPages, baseHref: withLangParam('?tab=posts'), translate: t })}
   </section>`;
-  resetContentLegend(getDocument(params));
+  resetContentLegend(params);
   scrollToBoardTop(params);
   return true;
 }
@@ -400,11 +518,12 @@ export function renderIndexView(params = {}) {
 export function renderSearchResults(params = {}) {
   const container = getMain(params);
   if (!container) return false;
+  const { t, withLangParam } = getI18n(params);
   const entries = Array.isArray(params.entries) ? params.entries : [];
   const label = params.tagFilter
     ? `${t('ui.tags')} / ${params.tagFilter}`
     : (params.query ? `${t('ui.searchTab')} / ${params.query}` : t('ui.searchTab'));
-  const cards = entries.map((entry) => buildCard(entry, params.siteConfig || {})).join('');
+  const cards = entries.map((entry) => buildCard(entry, params.siteConfig || {}, params)).join('');
   container.innerHTML = `<section class="cartograph-atlas cartograph-atlas--search index">
     <header class="cartograph-atlas__header">
       <div class="cartograph-coordinate"><span>scan</span><span>${safe(params.total || entries.length)} matches</span></div>
@@ -415,10 +534,11 @@ export function renderSearchResults(params = {}) {
       page: params.page,
       totalPages: params.totalPages,
       baseHref: withLangParam('?tab=search'),
-      query: { q: params.query || '', tag: params.tagFilter || '' }
+      query: { q: params.query || '', tag: params.tagFilter || '' },
+      translate: t
     })}
   </section>`;
-  resetContentLegend(getDocument(params));
+  resetContentLegend(params);
   scrollToBoardTop(params);
   return true;
 }
@@ -426,6 +546,7 @@ export function renderSearchResults(params = {}) {
 export function renderLoadingState(params = {}) {
   const main = getMain(params);
   if (!main) return false;
+  const { t } = getI18n(params);
   main.innerHTML = `<section class="cartograph-loader" role="status">
     <span class="cartograph-loader__grid" aria-hidden="true"></span>
     <span>${safe(t('ui.loading'))}</span>
@@ -436,6 +557,7 @@ export function renderLoadingState(params = {}) {
 export function renderErrorState(params = {}) {
   const target = params.targetElement || getMain(params);
   if (!target) return false;
+  const { t } = getI18n(params);
   const actions = Array.isArray(params.actions) ? params.actions : [];
   target.innerHTML = `<section class="cartograph-error" role="alert">
     <div class="cartograph-coordinate"><span>${safe(params.variant || 'error')}</span><span>off map</span></div>
@@ -443,7 +565,7 @@ export function renderErrorState(params = {}) {
     <p>${safe(params.message || t('errors.pageUnavailableBody'))}</p>
     ${actions.length ? `<div class="cartograph-error__actions">${actions.map((action) => `<a class="cartograph-button" href="${safe(action.href || '#')}">${safe(action.label || '')}</a>`).join('')}</div>` : ''}
   </section>`;
-  resetContentLegend(getDocument(params));
+  resetContentLegend(params);
   return true;
 }
 
@@ -454,7 +576,9 @@ export default {
         post: renderPostView,
         posts: renderIndexView,
         search: renderSearchResults,
-        tab: renderStaticTabView
+        tab: renderStaticTabView,
+        error: renderErrorState,
+        loading: renderLoadingState
       },
       components: {},
       effects: {}
@@ -464,7 +588,9 @@ export default {
     post: renderPostView,
     posts: renderIndexView,
     search: renderSearchResults,
-    tab: renderStaticTabView
+    tab: renderStaticTabView,
+    error: renderErrorState,
+    loading: renderLoadingState
   },
   components: {},
   effects: {}

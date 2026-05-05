@@ -3,6 +3,7 @@ export { renderNanoPostCardHtml } from './post-card-html.js';
 
 const safe = (value) => escapeHtml(String(value ?? '')) || '';
 const asBool = (value) => value === true || value === 'true' || value === '';
+const isDomElement = (value) => value && typeof value === 'object' && value.nodeType === 1;
 
 function defineElement(name, ctor) {
   try {
@@ -500,6 +501,8 @@ export class NanoToc extends HTMLElement {
     this._articleTitle = '';
     this._headings = [];
     this._positions = [];
+    this._contentRootElement = null;
+    this._scrollRootElement = null;
     this._ticking = false;
     this._onScroll = () => this._scheduleActiveUpdate();
     this._onResize = () => {
@@ -521,6 +524,8 @@ export class NanoToc extends HTMLElement {
     this._cleanupListeners();
     this._tocHtml = String(options.tocHtml || '');
     this._articleTitle = String(options.articleTitle || '');
+    this._contentRootElement = isDomElement(options.contentRoot) ? options.contentRoot : null;
+    this._scrollRootElement = isDomElement(options.scrollRoot) ? options.scrollRoot : null;
     if (options.topLabel != null) this.setAttribute('top-label', String(options.topLabel));
     if (options.topAria != null) this.setAttribute('top-aria', String(options.topAria));
     if (options.contentSelector != null) this.setAttribute('content-selector', String(options.contentSelector));
@@ -536,6 +541,8 @@ export class NanoToc extends HTMLElement {
   clear() {
     this._cleanupListeners();
     this._tocHtml = '';
+    this._contentRootElement = null;
+    this._scrollRootElement = null;
     this.innerHTML = '';
   }
 
@@ -623,6 +630,7 @@ export class NanoToc extends HTMLElement {
   }
 
   _contentRoot() {
+    if (isDomElement(this._contentRootElement)) return this._contentRootElement;
     const selector = this.getAttribute('content-selector') || '#mainview';
     try {
       return (this.ownerDocument || document).querySelector(selector);
@@ -633,10 +641,15 @@ export class NanoToc extends HTMLElement {
 
   _computePositions() {
     const root = this._contentRoot();
+    const scrollRoot = this._scrollRoot();
+    const scrollTop = this._scrollTop(scrollRoot);
+    const scrollRootTop = scrollRoot && scrollRoot !== window && typeof scrollRoot.getBoundingClientRect === 'function'
+      ? scrollRoot.getBoundingClientRect().top
+      : 0;
     this._headings = root ? Array.from(root.querySelectorAll('h2[id], h3[id]')) : [];
     this._positions = this._headings.map((heading) => ({
       id: heading.id,
-      top: heading.getBoundingClientRect().top + (window.scrollY || 0)
+      top: heading.getBoundingClientRect().top - scrollRootTop + scrollTop
     }));
   }
 
@@ -651,7 +664,7 @@ export class NanoToc extends HTMLElement {
 
   _updateActive() {
     if (!this._positions.length) return;
-    const y = (window.scrollY || 0) + 120;
+    const y = this._scrollTop(this._scrollRoot()) + 120;
     let currentId = this._positions[0] ? this._positions[0].id : '';
     for (let i = 0; i < this._positions.length; i += 1) {
       if (this._positions[i].top <= y) currentId = this._positions[i].id;
@@ -695,6 +708,19 @@ export class NanoToc extends HTMLElement {
   }
 
   _scrollToTop() {
+    const scrollRoot = this._scrollRoot();
+    if (scrollRoot && scrollRoot !== window) {
+      try {
+        scrollRoot.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        return;
+      } catch (_) {
+        try {
+          scrollRoot.scrollTop = 0;
+          scrollRoot.scrollLeft = 0;
+          return;
+        } catch (__) {}
+      }
+    }
     try {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (_) {
@@ -704,7 +730,10 @@ export class NanoToc extends HTMLElement {
 
   _bindListeners() {
     if (this._listenersBound) return;
-    window.addEventListener('scroll', this._onScroll, { passive: true });
+    const scrollRoot = this._scrollRoot();
+    if (scrollRoot && typeof scrollRoot.addEventListener === 'function') {
+      scrollRoot.addEventListener('scroll', this._onScroll, { passive: true });
+    }
     window.addEventListener('resize', this._onResize);
     window.addEventListener('load', this._onLoad);
     this._listenersBound = true;
@@ -712,10 +741,20 @@ export class NanoToc extends HTMLElement {
 
   _cleanupListeners() {
     if (!this._listenersBound) return;
-    try { window.removeEventListener('scroll', this._onScroll); } catch (_) {}
+    const scrollRoot = this._scrollRoot();
+    try { if (scrollRoot && typeof scrollRoot.removeEventListener === 'function') scrollRoot.removeEventListener('scroll', this._onScroll); } catch (_) {}
     try { window.removeEventListener('resize', this._onResize); } catch (_) {}
     try { window.removeEventListener('load', this._onLoad); } catch (_) {}
     this._listenersBound = false;
+  }
+
+  _scrollRoot() {
+    return isDomElement(this._scrollRootElement) ? this._scrollRootElement : window;
+  }
+
+  _scrollTop(scrollRoot) {
+    if (scrollRoot && scrollRoot !== window) return scrollRoot.scrollTop || 0;
+    return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
 
   _getDepth(el) {
