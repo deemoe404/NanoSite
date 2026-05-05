@@ -96,6 +96,20 @@ const detectFrontMatterEol = (lineRanges, endIndex, fallback = '\n') => {
   return fallback;
 };
 
+const splitFrontMatterBodySeparator = (bodyLines) => {
+  const lines = Array.isArray(bodyLines) ? bodyLines : [];
+  if (lines.length > 1 && String(lines[0] || '').trim() === '') {
+    return {
+      separator: `${lines[0] || ''}\n`,
+      body: lines.slice(1).join('\n')
+    };
+  }
+  return {
+    separator: '',
+    body: lines.join('\n')
+  };
+};
+
 const stripInlineComment = (text) => {
   let out = '';
   let inSingle = false;
@@ -510,7 +524,8 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
     originalFull: '',
     originalKnownData: {},
     originalBindings: new Map(),
-    knownOrder: []
+    knownOrder: [],
+    bodyLeadingSeparator: ''
   };
   if (!lines.length || !FRONT_MATTER_FENCE_RE.test(lines[0])) {
     const body = trimContent ? normalized.trim() : normalized;
@@ -546,7 +561,8 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
 
   const innerLines = lines.slice(1, endIndex);
   const bodyLines = lines.slice(endIndex + 1);
-  const bodyNormalized = bodyLines.join('\n');
+  const bodyParts = splitFrontMatterBodySeparator(bodyLines);
+  const bodyNormalized = bodyParts.body;
   const parsedEntries = parseFrontMatterEntries(innerLines.join('\n'));
   const frontMatter = {};
   parsedEntries.entries.forEach((entry) => {
@@ -581,7 +597,8 @@ export function parseMarkdownFrontMatter(raw, options = {}) {
     originalFull,
     originalKnownData: cloneFrontMatterData(frontMatter),
     originalBindings,
-    knownOrder
+    knownOrder,
+    bodyLeadingSeparator: bodyParts.separator
   };
 
   return {
@@ -607,16 +624,20 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
         originalFull: '',
         originalKnownData: {},
         originalBindings: new Map(),
-        knownOrder: []
+        knownOrder: [],
+        bodyLeadingSeparator: ''
       };
   const eol = options.eol || doc.eol || '\n';
   const bindings = options.bindings instanceof Map ? options.bindings : new Map();
   const bodyNormalized = normalizeLineEndings(bodyRaw || '');
   const bodyOut = eol === '\n' ? bodyNormalized : bodyNormalized.split('\n').join(eol);
+  const bodyLeadingSeparator = doc.bodyLeadingSeparator
+    ? (eol === '\n' ? normalizeLineEndings(doc.bodyLeadingSeparator) : normalizeLineEndings(doc.bodyLeadingSeparator).split('\n').join(eol))
+    : '';
 
   if (isKnownStateUnchanged(doc, values || {})) {
     let unchanged = doc.originalFull || '';
-    if (bodyOut) unchanged += `${eol}${bodyOut}`;
+    if (bodyOut) unchanged += `${eol}${bodyLeadingSeparator}${bodyOut}`;
     const shouldEndWithNewline = bodyNormalized.endsWith('\n') || (!bodyNormalized && options.trailingNewline);
     if (shouldEndWithNewline && unchanged && !unchanged.endsWith(eol)) unchanged += eol;
     return unchanged || bodyOut;
@@ -697,7 +718,7 @@ export function buildMarkdownWithFrontMatter(document, bodyRaw, values, options 
   if (innerBlock) {
     const blockOut = eol === '\n' ? innerBlock : innerBlock.split('\n').join(eol);
     result = `---${eol}${blockOut}${eol}---`;
-    if (bodyOut) result += `${eol}${bodyOut}`;
+    if (bodyOut) result += `${eol}${bodyLeadingSeparator}${bodyOut}`;
     else if (options.trailingNewline) result += eol;
   } else {
     result = bodyOut;

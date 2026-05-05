@@ -112,14 +112,74 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /state\.commandMenuOpen = true;[\s\S]*const first = list\.querySelector\('\.blocks-command-menu-item'\);[\s\S]*const renderVirtualBlock = \(\) => \{[\s\S]*className = `blocks-virtual-block\$\{state\.commandMenuOpen \? ' is-command-open' : ''\}`[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(\);[\s\S]*createParagraphFromVirtualInput\(event\.data\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach[\s\S]*itemBtn\.dataset\.blockCommand = type;/,
-  'blocks mode should expose a bottom virtual paragraph that opens a slash command selector and creates real paragraphs only after typing'
+  /const ensureEditableBlankForEmptyDocument = \(\) => \{[\s\S]*if \(state\.blocks\.length\) return null;[\s\S]*Empty documents still need one real blank block[\s\S]*non-empty documents rely on Enter at the end instead[\s\S]*state\.blocks\.push\(block\);[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.blocks = parseMarkdownBlocks\(markdown\);[\s\S]*ensureEditableBlankForEmptyDocument\(\);/,
+  'blocks mode should materialize a real blank block only for empty documents'
 );
 
 assert.match(
   editorBlocksSource,
-  /const openArticleCardCommand = \(\) => \{[\s\S]*state\.cardPickerInsertIndex = state\.blocks\.length;[\s\S]*state\.cardPickerOpen = true;[\s\S]*const runBlockCommand = \(type, data = \{\}\) => \{[\s\S]*insertCommandBlock\(type, data, \{ focus: focusTypes\.has\(type\) \}\);/,
-  'virtual block commands should insert at the bottom and reuse the article-card picker at the virtual block position'
+  /const placeCommandBlock = \(type, data = \{\}, index = state\.blocks\.length\) => \{[\s\S]*state\.blocks\[safeIndex\]\.type === 'blank'[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\);[\s\S]*const block = placeCommandBlock\(type, data, insertIndex\);[\s\S]*placeCommandBlock\('card',[\s\S]*const openArticleCardCommand = \(\) => \{[\s\S]*const insertIndex = Number\.isInteger\(state\.commandMenuInsertIndex\) \? state\.commandMenuInsertIndex : state\.blocks\.length;[\s\S]*state\.cardPickerInsertIndex = insertIndex;/,
+  'blank block commands should replace the active blank block and reuse the article-card picker at that position'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const renderBlankBlock = \(body, block, index\) => \{[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key === 'Enter' && !event\.shiftKey && !event\.altKey && !event\.ctrlKey && !event\.metaKey && !event\.isComposing[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\);[\s\S]*removeEmptyBlockWithBackspace/,
+  'blank block Enter should create another real blank before browser input can turn the blank into a paragraph'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function isEditableSelectionOnBlankLine\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*if \(text\.slice\(lineStart, lineEnd\)\.trim\(\) === ''\) return true;[\s\S]*const caretRect = caretRectForEditable\(el\);[\s\S]*createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*range\.selectNodeContents\(node\);[\s\S]*const hasTextOnCaretLine = rects\.some[\s\S]*if \(hasTextOnCaretLine\)[\s\S]*return true;/,
+  'rich text blocks should detect empty visual lines even when DOM line breaks are not counted by Range.toString offsets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function shouldInsertBlankBlockOnEnter\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*const text = editableVisibleText\(el\);[\s\S]*if \(offsets\.start >= text\.length\) return true;[\s\S]*return isEditableSelectionOnBlankLine\(el\);/,
+  'plain Enter at the end of a rich text block should insert a real blank block without first creating an empty line'
+);
+
+assert.match(
+  editorBlocksSource,
+  /commandMenuInsertIndex: null,[\s\S]*const insertBlankBlockAfter = \(index, editable = null, sync = null\) => \{[\s\S]*if \(typeof sync === 'function'\) sync\(\);[\s\S]*insertBlankBlock\(Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) \+ 1, state\.blocks\.length\)\), \{ focus: true \}\);/,
+  'Enter should create a focused real blank block after the current block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*!\['paragraph', 'quote', 'heading'\]\.includes\(block\.type\)[\s\S]*!shouldInsertBlankBlockOnEnter\(editable\)[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlockAfter\(index, editable, sync\);/,
+  'paragraph, quote, and heading Enter handling should exit the block when Enter would create a new empty line'
+);
+
+assert.match(
+  editorBlocksSource,
+  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*\}\);[\s\S]*renderCardPicker\(\);/,
+  'rendering should use real blank blocks for persistent insertion points without appending a terminal virtual block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /export function isBlockEmptyForBackspace\(block\) \{[\s\S]*block\.type === 'blank'[\s\S]*block\.type === 'paragraph'[\s\S]*block\.type === 'heading'[\s\S]*block\.type === 'quote'[\s\S]*block\.type === 'code'[\s\S]*block\.type === 'source'[\s\S]*block\.type === 'image'[\s\S]*block\.type === 'card'[\s\S]*block\.type === 'list'[\s\S]*editableListItems\(data\.items\)\.every\(item => blank\(item && item\.text\) && !item\.checked\);/,
+  'empty block backspace detection should cover blank, text, media, card, and list user-authored content'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const focusListItemEditable = \(block, itemIndex, options = \{\}\) => \{[\s\S]*const items = blockEl\.querySelectorAll\('\.blocks-list-item \.blocks-list-text'\);[\s\S]*else if \(options\.atEnd\) placeCaretAtEnd\(editable\);[\s\S]*const focusPreviousBlockEnd = \(index\) => \{[\s\S]*if \(target\.type === 'list'\) \{[\s\S]*const itemIndex = editableListItems\(target\.data && target\.data\.items\)\.length - 1;[\s\S]*focusListItemEditable\(target, itemIndex, \{ atEnd: true \}\);[\s\S]*return;[\s\S]*focusBlockPrimaryEditable\(target\);[\s\S]*const removeEmptyBlockWithBackspace = \(event, block, index, editable = null, sync = null\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*index <= 0[\s\S]*isEditableBackspaceAtEmptyStart\(editable\)[\s\S]*isBlockEmptyForBackspace\(block\)[\s\S]*state\.blocks\.splice\(index, 1\);[\s\S]*render\(\);[\s\S]*focusPreviousBlockEnd\(index\);[\s\S]*emit\(\);/,
+  'Backspace should remove empty non-first real blocks and move focus to the previous block end, including the last list item'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /renderVirtualBlock|handleTerminalVirtualBackspace|focusTerminalVirtualEditable|ensureTrailingBlankBlock/,
+  'terminal virtual block and forced trailing blank runtime should be removed'
+);
+
+assert.match(
+  editorBlocksSource,
+  /createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\)\) return;/,
+  'empty Backspace handling should run before rich Enter, list row, code Enter, and source textarea handling'
 );
 
 assert.match(
@@ -367,8 +427,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
-  'overflow menu items should preserve move/delete behavior and disabled edge states'
+  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('addBefore', 'Add before'\), '', false, \(\) => insertBlankBlock\(index\)\);[\s\S]*makeItem\(text\('addAfter', 'Add after'\), '', false, \(\) => insertBlankBlock\(index \+ 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
+  'overflow menu items should preserve move/delete behavior and expose blank insertion before and after the block'
 );
 
 assert.match(
@@ -793,14 +853,44 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:/,
-  'pressing Enter in a visual list item should split text at the caret into a focused new item below with the same indentation'
+  /function splitEditableTextAtSelection\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*afterRange\.cloneContents\(\)[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*next\[itemIndex\] = \{ \.\.\.next\[itemIndex\], text: split\.before \};[\s\S]*next\.splice\(itemIndex \+ 1, 0, \{[\s\S]*text: split\.after,[\s\S]*checked: false,[\s\S]*indent: currentIndent,[\s\S]*indentText:[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: itemIndex \+ 1, caretOffset: 0 \};/,
+  'pressing Enter in a visual list item should keep the caret semantic position by focusing the after item'
 );
 
 assert.match(
   editorBlocksSource,
-  /function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*next\[itemIndex - 1\] = \{ \.\.\.previous, text: `\$\{previous\.text \|\| ''\}\$\{currentText\}` \};[\s\S]*next\.splice\(itemIndex, 1\);/,
-  'Backspace or Delete at the start of a non-first visual list item should remove or merge it into the previous item'
+  /outdentEmptyListItemForEnter\(currentItems, itemIndex\)[\s\S]*updateFromControl\(block, \{ items: outdentedItems \}, true\)[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*convertListTailItemAfterEmptyToParagraph\(currentItems, itemIndex\)[\s\S]*makeBlock\('paragraph'[\s\S]*focusBlockPrimaryEditable\(paragraph, 0\)[\s\S]*splitListItemsAtEmptyItem\(currentItems, itemIndex\)[\s\S]*normalizeSplitListStartItems\(emptySplit\.after\)[\s\S]*state\.blocks\.splice\(index \+ 1, 0, nextBlock\)[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\)[\s\S]*state\.blocks\.splice\(index, 1, blank\)[\s\S]*const split = splitEditableTextAtSelection\(span\);/,
+  'pressing Enter at a list tail after an inserted empty item should convert the current tail item to a paragraph before normal split'
+);
+
+assert.match(
+  editorBlocksSource,
+  /export function inlineRenderedTextLength\(markdownText\) \{[\s\S]*parseInlineRuns\(normalizeEditableMarkdownText\(markdownText\)\)[\s\S]*export function mergeListItemIntoPreviousItem\(items, itemIndex\) \{[\s\S]*itemIndentLevel\(previous\) !== itemIndentLevel\(current\)[\s\S]*listItemHasNestedChildren\(source, safeIndex\)[\s\S]*joinMergedEditableText\(previousText, listItemText\(current\)\)[\s\S]*inlineRenderedTextLength\(previousText\) \+ mergedText\.separator\.length[\s\S]*function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*mergeListItemIntoPreviousItem\(next, itemIndex\)[\s\S]*if \(!mergedItem\) return;[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: mergedItem\.focusItemIndex, caretOffset: mergedItem\.caretOffset \}/,
+  'Backspace or Delete at the start of a non-first visual list item should merge only structurally safe same-level items'
+);
+
+assert.match(
+  editorBlocksSource,
+  /event\.key === 'Backspace' && itemIndex === 0 && index > 0 && isEditableSelectionAtStart\(span\)[\s\S]*mergeFirstListItemIntoPreviousBlock\(previous,[\s\S]*items: currentItems[\s\S]*if \(!merged\) return;[\s\S]*state\.blocks\.splice\(index - 1, 2, \.\.\.replacement\)[\s\S]*focusBlockPrimaryEditable\(merged\.previousBlock, merged\.focus\.caretOffset\)/,
+  'Backspace at the start of the first visual list item should merge into the previous block only through the safe helper'
+);
+
+assert.match(
+  editorBlocksSource,
+  /mergeTextBlockIntoPrevious\(previous, block\) \|\| mergeTextBlockIntoPreviousList\(previous, block\)[\s\S]*caretOffset: merged\.focusCaretOffset/,
+  'Backspace at the start of a text block should support merging into a previous list tail item with safe caret placement'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /text: `\$\{(?:previousText|listItemText\(previous\))\}\$\{(?:currentText|listItemText\(current\))\}`/,
+  'Backspace merge helpers should not directly concatenate merged text without the safe join helper'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /previousText\.length \+ mergedText\.separator\.length/,
+  'Backspace merge caret offsets should use rendered inline text length instead of markdown source length'
 );
 
 assert.match(
@@ -879,6 +969,12 @@ assert.match(
   editorSource,
   /\.blocks-list \{ display:block; padding-top:0; \}/,
   'blocks list should use normal article flow instead of flex gap spacing'
+);
+
+assert.match(
+  editorSource,
+  /@container \(min-width: 66\.5rem\) \{[\s\S]*\.editor-workspace:has\(#blocks-wrap:not\(\[hidden\]\)\) \.editor-canvas::after \{[\s\S]*height:50vh;[\s\S]*pointer-events:none;[\s\S]*\}/,
+  'two-column visual editor should reserve half a viewport of bottom reading space after the last block'
 );
 
 assert.match(
@@ -979,7 +1075,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:/,
+  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:[\s\S]*blank:/,
   'block type icon map should cover every block type shown in the floating toolbar'
 );
 
@@ -991,8 +1087,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
-  'block type badge should render an accessible SVG icon instead of visible uppercase type text'
+  /const head = document\.createElement\('div'\);[\s\S]*head\.className = 'blocks-block-head';[\s\S]*type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);[\s\S]*item\.append\(head, renderBlockBody\(block, index\)\);/,
+  'block type badge should render an accessible SVG icon for every block, including blank blocks'
 );
 
 assert.match(

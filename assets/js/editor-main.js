@@ -1565,6 +1565,8 @@ document.addEventListener('DOMContentLoaded', () => {
     actions: 'More actions',
     moveUp: 'Move up',
     moveDown: 'Move down',
+    addBefore: 'Add before',
+    addAfter: 'Add after',
     delete: 'Delete',
     imageAlt: 'Alt text',
     imagePath: 'Image path',

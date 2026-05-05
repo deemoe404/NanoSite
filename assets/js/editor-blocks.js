@@ -1,6 +1,6 @@
 import { createSafeHighlightFragment, detectLanguage } from './syntax-highlight.js';
 
-const BLOCK_TYPES = new Set(['paragraph', 'heading', 'image', 'list', 'quote', 'code', 'card', 'source']);
+const BLOCK_TYPES = new Set(['paragraph', 'heading', 'image', 'list', 'quote', 'code', 'card', 'source', 'blank']);
 const CODE_LANGUAGE_OPTIONS = ['', 'plain', 'javascript', 'json', 'python', 'html', 'xml', 'css', 'markdown', 'bash', 'shell', 'yaml', 'yml', 'robots'];
 const CODE_HIGHLIGHT_LANGUAGES = new Set(CODE_LANGUAGE_OPTIONS.filter(value => value && value !== 'plain'));
 const CODE_PLAIN_LANGUAGES = new Set(['plain', 'text', 'none', 'raw', 'nohighlight']);
@@ -61,6 +61,28 @@ function detachBlockTerminator(raw, after) {
     return { raw: raw.slice(0, -1), after: `\n${after || ''}` };
   }
   return { raw, after: after || '' };
+}
+
+function splitBlankLineUnits(value) {
+  const text = String(value || '');
+  if (!text) return [];
+  const units = text.match(/[^\n]*\n/g) || [];
+  return units.join('') === text ? units : [];
+}
+
+function splitExtraBlankBlocks(after) {
+  const units = splitBlankLineUnits(after);
+  if (units.length <= 2) return { separator: after || '', blanks: [] };
+  return {
+    separator: units.slice(0, 2).join(''),
+    blanks: units.slice(2)
+  };
+}
+
+function makeBlankBlock(after = '\n', data = {}) {
+  const block = makeBlock('blank', '', { ...data, after: after || '\n' });
+  block.dirty = !!data.dirty;
+  return block;
 }
 
 function lineWithoutTerminator(line) {
@@ -430,10 +452,29 @@ function classifyChunk(raw, data = {}) {
 }
 
 export function parseMarkdownBlocks(markdown) {
-  return extractChunks(markdown).map(chunk => classifyChunk(chunk.raw, {
-    before: chunk.before || '',
-    after: chunk.after || ''
-  }));
+  const blocks = [];
+  extractChunks(markdown).forEach(chunk => {
+    const leadingUnits = splitBlankLineUnits(chunk.before || '');
+    leadingUnits.forEach(unit => {
+      blocks.push(makeBlankBlock(unit));
+    });
+    const rawBlankUnits = splitBlankLineUnits(chunk.raw || '');
+    if (rawBlankUnits.length && rawBlankUnits.join('') === String(chunk.raw || '')) {
+      rawBlankUnits.forEach(unit => {
+        blocks.push(makeBlankBlock(unit));
+      });
+      return;
+    }
+    const extra = splitExtraBlankBlocks(chunk.after || '');
+    blocks.push(classifyChunk(chunk.raw, {
+      before: leadingUnits.length ? '' : (chunk.before || ''),
+      after: extra.separator
+    }));
+    extra.blanks.forEach(unit => {
+      blocks.push(makeBlankBlock(unit));
+    });
+  });
+  return blocks;
 }
 
 function removeIndentColumns(line, columns) {
@@ -581,6 +622,8 @@ function serializeBlock(block) {
   if (!block.dirty && typeof block.raw === 'string') return block.raw;
   const data = block.data || {};
   switch (block.type) {
+    case 'blank':
+      return '';
     case 'heading': {
       const level = Math.max(1, Math.min(6, Number(data.level) || 2));
       return `${'#'.repeat(level)} ${String(data.text || '').trim()}`;
@@ -633,7 +676,8 @@ function serializeBlock(block) {
 export function serializeMarkdownBlocks(blocks) {
   return (Array.isArray(blocks) ? blocks : []).map(block => {
     const before = block && block.data && block.data.before ? String(block.data.before) : '';
-    const after = block && block.data && block.data.after != null ? String(block.data.after) : '\n\n';
+    const defaultAfter = block && block.type === 'blank' ? '\n' : '\n\n';
+    const after = block && block.data && block.data.after != null ? String(block.data.after) : defaultAfter;
     return `${before}${serializeBlock(block)}${after}`;
   }).join('');
 }
@@ -646,11 +690,89 @@ function editableListItems(items) {
   return Array.isArray(items) && items.length ? items : defaultListItems();
 }
 
+export function isBlockEmptyForBackspace(block) {
+  if (!block || typeof block !== 'object') return false;
+  const data = block.data || {};
+  const blank = (value) => String(value == null ? '' : value).trim() === '';
+  if (block.type === 'blank') return true;
+  if (block.type === 'paragraph' || block.type === 'heading' || block.type === 'quote') return blank(data.text);
+  if (block.type === 'code' || block.type === 'source') return blank(data.text != null ? data.text : block.raw);
+  if (block.type === 'image') return blank(data.src) && blank(data.alt) && blank(data.title);
+  if (block.type === 'card') return blank(data.location) && blank(data.label) && blank(data.title);
+  if (block.type === 'list') {
+    return editableListItems(data.items).every(item => blank(item && item.text) && !item.checked);
+  }
+  return false;
+}
+
 export function patchListItem(items, itemIndex, patch = {}) {
   const next = editableListItems(items).slice();
   const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, next.length - 1));
   next[safeIndex] = { ...(next[safeIndex] || {}), ...(patch || {}) };
   return next;
+}
+
+export function splitListItemsAtEmptyItem(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= source.length) return null;
+  const current = source[safeIndex] || {};
+  if (String(current.text == null ? '' : current.text).trim() !== '') return null;
+  if (itemIndentLevel(current) > 0) return null;
+  return {
+    before: source.slice(0, safeIndex),
+    after: source.slice(safeIndex + 1)
+  };
+}
+
+export function convertListTailItemAfterEmptyToParagraph(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex <= 0 || safeIndex !== source.length - 1) return null;
+  const previous = source[safeIndex - 1] || {};
+  const current = source[safeIndex] || {};
+  if (itemIndentLevel(previous) !== 0 || itemIndentLevel(current) !== 0) return null;
+  if (String(previous.text == null ? '' : previous.text).trim() !== '') return null;
+  const text = normalizeEditableMarkdownText(current.text);
+  if (!String(text).trim()) return null;
+  return {
+    before: source.slice(0, safeIndex - 1),
+    text
+  };
+}
+
+export function outdentEmptyListItemForEnter(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= source.length) return null;
+  const current = source[safeIndex] || {};
+  if (String(current.text == null ? '' : current.text).trim() !== '') return null;
+  const currentIndent = itemIndentLevel(current);
+  if (currentIndent <= 0) return null;
+  const nextIndent = currentIndent - 1;
+  const next = source.slice();
+  next[safeIndex] = {
+    ...current,
+    text: '',
+    indent: nextIndent,
+    indentText: '  '.repeat(nextIndent)
+  };
+  return next;
+}
+
+export function normalizeSplitListStartItems(items) {
+  const source = Array.isArray(items) ? items.slice() : [];
+  if (!source.length) return source;
+  const baseIndent = itemIndentLevel(source[0]);
+  if (baseIndent <= 0) return source;
+  return source.map(item => {
+    const nextIndent = Math.max(0, itemIndentLevel(item) - baseIndent);
+    return {
+      ...(item || {}),
+      indent: nextIndent,
+      indentText: '  '.repeat(nextIndent)
+    };
+  });
 }
 
 export function listVisualMarkerLabels(items, blockListType = 'ul') {
@@ -1139,7 +1261,8 @@ const BLOCK_TYPE_ICON_PATHS = {
   quote: '<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" /><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" />',
   code: '<path d="m18 16 4-4-4-4" /><path d="m6 8-4 4 4 4" /><path d="m14.5 4-5 16" />',
   source: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 12.5 8 15l2 2.5" /><path d="m14 12.5 2 2.5-2 2.5" />',
-  card: '<path d="M15 18h-5" /><path d="M18 14h-8" /><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2" /><rect width="8" height="4" x="10" y="6" rx="1" />'
+  card: '<path d="M15 18h-5" /><path d="M18 14h-8" /><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2" /><rect width="8" height="4" x="10" y="6" rx="1" />',
+  blank: '<path d="M5 6h14" /><path d="M5 18h14" /><path d="M12 10v4" /><path d="M10 12h4" />'
 };
 
 function createBlockTypeIcon(blockType) {
@@ -1185,6 +1308,10 @@ function editableText(el) {
   return normalizeEditableMarkdownText(serializeInlineDom(el));
 }
 
+function editableVisibleText(el) {
+  return String(el && el.textContent != null ? el.textContent : '').replace(/\u00a0/g, ' ');
+}
+
 function splitEditableTextAtSelection(el) {
   const fallback = editableText(el);
   try {
@@ -1209,6 +1336,207 @@ function splitEditableTextAtSelection(el) {
   }
 }
 
+export function splitTextBlockIntoParagraph(block, before, after) {
+  if (!block || !['paragraph', 'heading', 'quote'].includes(block.type)) return null;
+  const data = block.data && typeof block.data === 'object' ? block.data : {};
+  const current = {
+    ...block,
+    dirty: true,
+    data: {
+      ...data,
+      text: normalizeEditableMarkdownText(before)
+    }
+  };
+  const next = makeBlock('paragraph', '', {
+    text: normalizeEditableMarkdownText(after),
+    after: '\n\n',
+    dirty: true
+  });
+  next.dirty = true;
+  return [current, next];
+}
+
+function isMergeableTextBlock(block) {
+  return !!(block && ['paragraph', 'heading', 'quote'].includes(block.type));
+}
+
+function textBlockDataText(block) {
+  return normalizeEditableMarkdownText(block && block.data ? block.data.text : '');
+}
+
+export function joinMergedEditableText(before, after) {
+  const left = normalizeEditableMarkdownText(before);
+  const right = normalizeEditableMarkdownText(after);
+  if (!left) return { text: right, separator: '' };
+  if (!right) return { text: left, separator: '' };
+  const separator = /\s$/.test(left) || /^\s/.test(right) ? '' : ' ';
+  return {
+    text: `${left}${separator}${right}`,
+    separator
+  };
+}
+
+export function inlineRenderedTextLength(markdownText) {
+  return parseInlineRuns(normalizeEditableMarkdownText(markdownText))
+    .reduce((total, run) => total + String(run && run.text != null ? run.text : '').length, 0);
+}
+
+export function mergeTextBlockIntoPrevious(previousBlock, currentBlock) {
+  if (!isMergeableTextBlock(previousBlock) || !isMergeableTextBlock(currentBlock)) return null;
+  const previousText = textBlockDataText(previousBlock);
+  const currentText = textBlockDataText(currentBlock);
+  const mergedText = joinMergedEditableText(previousText, currentText);
+  return {
+    ...previousBlock,
+    dirty: true,
+    focusCaretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length,
+    data: {
+      ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+      text: mergedText.text
+    }
+  };
+}
+
+function isMergeableListBlock(block) {
+  return !!(block && block.type === 'list');
+}
+
+function listBlockItems(block) {
+  return editableListItems(block && block.data ? block.data.items : null).slice();
+}
+
+function listItemText(item) {
+  return normalizeEditableMarkdownText(item && item.text);
+}
+
+function listItemHasNestedChildren(items, itemIndex) {
+  const source = Array.isArray(items) ? items : [];
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= source.length) return false;
+  const currentIndent = itemIndentLevel(source[safeIndex]);
+  for (let index = safeIndex + 1; index < source.length; index += 1) {
+    const nextIndent = itemIndentLevel(source[index]);
+    if (nextIndent <= currentIndent) return false;
+    return true;
+  }
+  return false;
+}
+
+export function mergeTextBlockIntoPreviousList(previousBlock, currentBlock) {
+  if (!isMergeableListBlock(previousBlock) || !isMergeableTextBlock(currentBlock)) return null;
+  const items = listBlockItems(previousBlock);
+  if (!items.length) return null;
+  const lastIndex = items.length - 1;
+  const previousText = listItemText(items[lastIndex]);
+  const currentText = textBlockDataText(currentBlock);
+  const mergedText = joinMergedEditableText(previousText, currentText);
+  items[lastIndex] = {
+    ...(items[lastIndex] || {}),
+    text: mergedText.text
+  };
+  return {
+    ...previousBlock,
+    dirty: true,
+    focusItemIndex: lastIndex,
+    focusCaretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length,
+    data: {
+      ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+      items
+    }
+  };
+}
+
+export function mergeListItemIntoPreviousItem(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex <= 0 || safeIndex >= source.length) return null;
+  const previous = source[safeIndex - 1] || {};
+  const current = source[safeIndex] || {};
+  if (itemIndentLevel(previous) !== itemIndentLevel(current)) return null;
+  if (listItemHasNestedChildren(source, safeIndex)) return null;
+  const next = source.slice();
+  const previousText = listItemText(previous);
+  const mergedText = joinMergedEditableText(previousText, listItemText(current));
+  const caretOffset = inlineRenderedTextLength(previousText) + mergedText.separator.length;
+  next[safeIndex - 1] = {
+    ...previous,
+    text: mergedText.text
+  };
+  next.splice(safeIndex, 1);
+  return {
+    items: next,
+    focusItemIndex: safeIndex - 1,
+    caretOffset
+  };
+}
+
+export function mergeFirstListItemIntoPreviousBlock(previousBlock, currentBlock, itemIndex = 0) {
+  if (!currentBlock || currentBlock.type !== 'list') return null;
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex !== 0) return null;
+  if (!isMergeableTextBlock(previousBlock) && !isMergeableListBlock(previousBlock)) return null;
+  const items = listBlockItems(currentBlock);
+  const currentItem = items[0] || {};
+  if (itemIndentLevel(currentItem) !== 0 || listItemHasNestedChildren(items, 0)) return null;
+  const currentText = listItemText(currentItem);
+  const remainingItems = items.slice(1);
+  if (isMergeableTextBlock(previousBlock)) {
+    const previousText = textBlockDataText(previousBlock);
+    const mergedText = joinMergedEditableText(previousText, currentText);
+    return {
+      previousBlock: {
+        ...previousBlock,
+        dirty: true,
+        data: {
+          ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+          text: mergedText.text
+        }
+      },
+      currentBlock: remainingItems.length
+        ? {
+            ...currentBlock,
+            dirty: true,
+            data: {
+              ...(currentBlock.data && typeof currentBlock.data === 'object' ? currentBlock.data : {}),
+              items: remainingItems
+            }
+          }
+        : null,
+      focus: { type: 'text', caretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length }
+    };
+  }
+  const previousItems = listBlockItems(previousBlock);
+  if (!previousItems.length) return null;
+  const lastIndex = previousItems.length - 1;
+  const previousText = listItemText(previousItems[lastIndex]);
+  const mergedText = joinMergedEditableText(previousText, currentText);
+  previousItems[lastIndex] = {
+    ...(previousItems[lastIndex] || {}),
+    text: mergedText.text
+  };
+  return {
+    previousBlock: {
+      ...previousBlock,
+      dirty: true,
+      data: {
+        ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+        items: previousItems
+      }
+    },
+    currentBlock: remainingItems.length
+      ? {
+          ...currentBlock,
+          dirty: true,
+          data: {
+            ...(currentBlock.data && typeof currentBlock.data === 'object' ? currentBlock.data : {}),
+            items: remainingItems
+          }
+        }
+      : null,
+    focus: { type: 'list', itemIndex: lastIndex, caretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length }
+  };
+}
+
 function isEditableSelectionAtStart(el) {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -1219,6 +1547,58 @@ function isEditableSelectionAtStart(el) {
     beforeRange.selectNodeContents(el);
     beforeRange.setEnd(range.startContainer, range.startOffset);
     return serializeInlineDom(beforeRange.cloneContents()).trim() === '';
+  } catch (_) {
+    return false;
+  }
+}
+
+function isEditableSelectionOnBlankLine(el) {
+  try {
+    const offsets = getEditableSelectionOffsets(el);
+    if (!offsets || !offsets.collapsed) return false;
+    const text = editableVisibleText(el);
+    const lineStart = text.lastIndexOf('\n', Math.max(0, offsets.start - 1)) + 1;
+    const nextBreak = text.indexOf('\n', offsets.start);
+    const lineEnd = nextBreak >= 0 ? nextBreak : text.length;
+    if (text.slice(lineStart, lineEnd).trim() === '') return true;
+
+    const caretRect = caretRectForEditable(el);
+    if (!caretRect) return false;
+    const tolerance = Math.max(2, caretRect.height * 0.35);
+    const caretMid = caretRect.top + (caretRect.height / 2);
+    const doc = el.ownerDocument || document;
+    const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = doc.createRange();
+    let node = walker.nextNode();
+    while (node) {
+      if (/\S/.test(String(node.nodeValue || ''))) {
+        range.selectNodeContents(node);
+        const rects = Array.from(range.getClientRects ? range.getClientRects() : []);
+        const hasTextOnCaretLine = rects.some(rect => rect
+          && rect.height > 0
+          && caretMid >= rect.top - tolerance
+          && caretMid <= rect.bottom + tolerance);
+        if (hasTextOnCaretLine) {
+          range.detach && range.detach();
+          return false;
+        }
+      }
+      node = walker.nextNode();
+    }
+    range.detach && range.detach();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function shouldInsertBlankBlockOnEnter(el) {
+  try {
+    const offsets = getEditableSelectionOffsets(el);
+    if (!offsets || !offsets.collapsed) return false;
+    const text = editableVisibleText(el);
+    if (offsets.start >= text.length) return true;
+    return isEditableSelectionOnBlankLine(el);
   } catch (_) {
     return false;
   }
@@ -1441,13 +1821,63 @@ function caretRectForEditable(el) {
   }
 }
 
+function editableVisualLineRects(el) {
+  try {
+    if (!el) return [];
+    const doc = el.ownerDocument || document;
+    const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = doc.createRange();
+    const lines = [];
+    const lineTolerance = 2;
+    let node = walker.nextNode();
+    while (node) {
+      const value = String(node.nodeValue || '');
+      for (let i = 0; i < value.length; i += 1) {
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const rects = Array.from(range.getClientRects ? range.getClientRects() : [])
+          .filter(rect => rect && rect.height > 0 && rect.width >= 0);
+        rects.forEach(rect => {
+          const mid = rect.top + (rect.height / 2);
+          let line = lines.find(item => Math.abs(item.mid - mid) <= Math.max(lineTolerance, rect.height * 0.35));
+          if (!line) {
+            line = {
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+              height: rect.height,
+              mid,
+              count: 0
+            };
+            lines.push(line);
+          } else {
+            line.top = Math.min(line.top, rect.top);
+            line.bottom = Math.max(line.bottom, rect.bottom);
+            line.left = Math.min(line.left, rect.left);
+            line.right = Math.max(line.right, rect.right);
+            line.height = Math.max(line.height, rect.height);
+            line.mid = line.top + ((line.bottom - line.top) / 2);
+          }
+          line.count += 1;
+        });
+      }
+      node = walker.nextNode();
+    }
+    range.detach && range.detach();
+    return lines
+      .filter(line => line && line.count > 0)
+      .sort((a, b) => a.top - b.top);
+  } catch (_) {
+    return [];
+  }
+}
+
 function isEditableCaretOnEdgeLine(el, direction) {
   try {
     const caretRect = caretRectForEditable(el);
     if (!caretRect) return true;
-    const lineRects = Array.from(el.getClientRects ? el.getClientRects() : [])
-      .filter(rect => rect && rect.width > 0 && rect.height > 0)
-      .sort((a, b) => a.top - b.top);
+    const lineRects = editableVisualLineRects(el);
     if (lineRects.length <= 1) return true;
     const tolerance = Math.max(3, caretRect.height * 0.6);
     const caretTop = caretRect.top;
@@ -1458,11 +1888,26 @@ function isEditableCaretOnEdgeLine(el, direction) {
   }
 }
 
+function isTextareaCaretOnEdgeLine(area, direction) {
+  try {
+    if (!area) return false;
+    const start = Number(area.selectionStart);
+    const end = Number(area.selectionEnd);
+    if (start !== end) return false;
+    const text = String(area.value || '');
+    const before = text.slice(0, Math.max(0, start));
+    const lineIndex = before.split('\n').length - 1;
+    const lineCount = text.split('\n').length;
+    if (direction === 'up') return lineIndex <= 0;
+    return lineIndex >= lineCount - 1;
+  } catch (_) {
+    return false;
+  }
+}
+
 function placeCaretAtVisualLine(el, x, edge, fallbackOffset = 0) {
   try {
-    const lineRects = Array.from(el && el.getClientRects ? el.getClientRects() : [])
-      .filter(rect => rect && rect.width > 0 && rect.height > 0)
-      .sort((a, b) => a.top - b.top);
+    const lineRects = editableVisualLineRects(el);
     if (!lineRects.length) {
       placeCaretAtTextOffset(el, fallbackOffset);
       return;
@@ -1496,6 +1941,25 @@ function placeCaretAtVisualLine(el, x, edge, fallbackOffset = 0) {
   }
 }
 
+function placeTextareaCaretAtVisualLine(area, x, edge, fallbackOffset = 0) {
+  try {
+    if (!area) return;
+    const rect = area.getBoundingClientRect ? area.getBoundingClientRect() : null;
+    const computed = window.getComputedStyle ? window.getComputedStyle(area) : null;
+    const lineHeight = computed ? parseFloat(computed.lineHeight) : 0;
+    const usableLineHeight = Number.isFinite(lineHeight) && lineHeight > 0 ? lineHeight : 18;
+    const targetY = rect
+      ? (edge === 'last' ? rect.bottom - (usableLineHeight / 2) : rect.top + (usableLineHeight / 2))
+      : 0;
+    const measured = rect ? textareaTextOffsetFromPoint(area, x, targetY) : null;
+    const offset = measured == null ? Math.max(0, Number(fallbackOffset) || 0) : measured;
+    try { area.setSelectionRange(offset, offset); } catch (_) {}
+  } catch (_) {
+    const offset = Math.max(0, Number(fallbackOffset) || 0);
+    try { area.setSelectionRange(offset, offset); } catch (__) {}
+  }
+}
+
 function normalizeCodeEditablePlainText(value) {
   return String(value == null ? '' : value)
     .replace(/\u00a0/g, ' ')
@@ -1506,6 +1970,24 @@ function normalizeCodeEditablePlainText(value) {
 function codeEditableText(el) {
   if (!el) return '';
   return normalizeCodeEditablePlainText(el.innerText || el.textContent || '').replace(/\n$/, '');
+}
+
+function isEditableBackspaceAtEmptyStart(editable) {
+  if (!editable) return false;
+  if (editable.matches && editable.matches('textarea')) {
+    try {
+      const start = Number(editable.selectionStart);
+      const end = Number(editable.selectionEnd);
+      return start === 0 && end === 0 && String(editable.value || '').trim() === '';
+    } catch (_) {
+      return false;
+    }
+  }
+  if (!isEditableSelectionAtStart(editable)) return false;
+  const value = editable.classList && editable.classList.contains('blocks-code-editable')
+    ? codeEditableText(editable)
+    : editableText(editable);
+  return String(value || '').trim() === '';
 }
 
 function codeEditableSelectionOffsets(el) {
@@ -1964,6 +2446,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     cardPickerOpen: false,
     cardPickerInsertIndex: null,
     commandMenuOpen: false,
+    commandMenuInsertIndex: null,
     reorderAnimating: false,
     openActionMenu: null,
     openInlineMenu: null
@@ -2006,16 +2489,49 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const blockElements = () => Array.from(list.children).filter(el => el && el.classList && el.classList.contains('blocks-block'));
 
-  const focusVirtualEditable = () => {
-    queueMicrotask(() => {
-      const editable = list.querySelector('.blocks-virtual-editable');
-      if (!editable) return;
-      try { editable.focus({ preventScroll: true }); }
-      catch (_) {
-        try { editable.focus(); } catch (__) {}
-      }
-      placeCaretAtEnd(editable);
-    });
+  const ensureSeparatorBeforeBlank = (index) => {
+    const previous = Number.isInteger(index) ? state.blocks[index - 1] : null;
+    if (!previous || previous.type === 'blank') return;
+    previous.data = previous.data || {};
+    const after = String(previous.data.after != null ? previous.data.after : '\n\n');
+    if (splitBlankLineUnits(after).length >= 2) return;
+    previous.data.after = '\n\n';
+    previous.dirty = true;
+  };
+
+  const ensureEditableBlankForEmptyDocument = () => {
+    if (state.blocks.length) return null;
+
+    // Empty documents still need one real blank block so visual editing has a
+    // focusable surface; non-empty documents rely on Enter at the end instead.
+    const block = makeBlankBlock('\n', { dirty: true });
+    state.blocks.push(block);
+    return block;
+  };
+
+  const insertBlankBlock = (index = state.blocks.length, options = {}) => {
+    const safeIndex = Math.max(0, Math.min(Number(index) || 0, state.blocks.length));
+    ensureSeparatorBeforeBlank(safeIndex);
+    const block = makeBlankBlock('\n', { dirty: true });
+    state.blocks.splice(safeIndex, 0, block);
+    state.commandMenuOpen = !!options.command;
+    state.commandMenuInsertIndex = options.command ? safeIndex : null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    if (options.command) {
+      queueMicrotask(() => {
+        const first = list.querySelector(`.blocks-block[data-block-id="${block.id}"] .blocks-command-menu-item`)
+          || list.querySelector('.blocks-command-menu-item');
+        try { first?.focus(); } catch (_) {}
+      });
+    } else if (options.focus !== false) {
+      focusBlockPrimaryEditable(block, 0);
+    }
+    emit();
+    return block;
   };
 
   const focusBlockPrimaryEditable = (block, caretOffset = null) => {
@@ -2052,6 +2568,105 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
       setActive(index, editable, editableSyncMap.get(editable) || null);
     });
+  };
+
+  const focusListItemEditable = (block, itemIndex, options = {}) => {
+    const blockId = block && typeof block === 'object' ? block.id : String(block || '');
+    if (!blockId) return;
+    queueMicrotask(() => {
+      const nodes = blockElements();
+      const blockEl = nodes.find(el => el && el.dataset && el.dataset.blockId === blockId);
+      if (!blockEl) return;
+      const index = nodes.indexOf(blockEl);
+      const items = blockEl.querySelectorAll('.blocks-list-item .blocks-list-text');
+      if (!items.length) {
+        focusBlockPrimaryEditable(block, options.caretOffset);
+        return;
+      }
+      const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, items.length - 1));
+      const editable = items[safeIndex];
+      try { editable.focus({ preventScroll: true }); }
+      catch (_) {
+        try { editable.focus(); } catch (__) {}
+      }
+      if (options.caretOffset != null) placeCaretAtTextOffset(editable, options.caretOffset);
+      else if (options.atEnd) placeCaretAtEnd(editable);
+      else placeCaretAtStart(editable);
+      setActive(index, editable, editableSyncMap.get(editable) || null);
+    });
+  };
+
+  const focusPreviousBlockEnd = (index) => {
+    const targetIndex = Math.max(0, Math.min((Number(index) || 0) - 1, state.blocks.length - 1));
+    const target = state.blocks[targetIndex] || null;
+    if (!target) return;
+    if (target.type === 'list') {
+      const itemIndex = editableListItems(target.data && target.data.items).length - 1;
+      focusListItemEditable(target, itemIndex, { atEnd: true });
+      return;
+    }
+    focusBlockPrimaryEditable(target);
+  };
+
+  const insertBlankBlockAfter = (index, editable = null, sync = null) => {
+    if (typeof sync === 'function') sync();
+    insertBlankBlock(Math.max(0, Math.min((Number(index) || 0) + 1, state.blocks.length)), { focus: true });
+  };
+
+  const splitTextBlockAfterCaret = (event, block, index, editable = null) => {
+    if (!event || event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!block || !['paragraph', 'quote', 'heading'].includes(block.type)) return false;
+    const offsets = getEditableSelectionOffsets(editable);
+    if (!offsets || !offsets.collapsed) return false;
+    const currentText = editableVisibleText(editable);
+    if (offsets.start >= currentText.length || isEditableSelectionOnBlankLine(editable)) return false;
+    const split = splitEditableTextAtSelection(editable);
+    if (!split.after) return false;
+    const nextBlocks = splitTextBlockIntoParagraph(block, split.before, split.after);
+    if (!nextBlocks) return false;
+    event.preventDefault();
+    state.blocks.splice(index, 1, ...nextBlocks);
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    focusBlockPrimaryEditable(nextBlocks[1], 0);
+    emit();
+    return true;
+  };
+
+  const mergeTextBlockWithPreviousOnBackspace = (event, block, index, editable = null) => {
+    if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!Number.isInteger(index) || index <= 0) return false;
+    if (!editable || !isEditableSelectionAtStart(editable)) return false;
+    if (isBlockEmptyForBackspace(block)) return false;
+    const previous = state.blocks[index - 1] || null;
+    const previousItems = isMergeableListBlock(previous) ? listBlockItems(previous) : [];
+    const previousListItemIndex = previousItems.length - 1;
+    const merged = mergeTextBlockIntoPrevious(previous, block) || mergeTextBlockIntoPreviousList(previous, block);
+    if (!merged) return false;
+    event.preventDefault();
+    state.blocks.splice(index - 1, 2, merged);
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    if (merged.type === 'list') {
+      state.pendingListFocus = {
+        blockId: merged.id,
+        itemIndex: Number.isInteger(merged.focusItemIndex) ? merged.focusItemIndex : previousListItemIndex,
+        caretOffset: merged.focusCaretOffset
+      };
+    }
+    render();
+    if (merged.type !== 'list') focusBlockPrimaryEditable(merged, merged.focusCaretOffset);
+    emit();
+    return true;
   };
 
   const clearNativeSelection = () => {
@@ -2226,6 +2841,45 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     emit();
   };
 
+  const makeSplitListBlock = (block, items, after = '\n\n') => {
+    const data = block && block.data ? block.data : {};
+    return makeBlock('list', '', {
+      dirty: true,
+      listType: data.listType === 'ol' || data.listType === 'task' || data.listType === 'mixed' ? data.listType : 'ul',
+      items: Array.isArray(items) ? items.slice() : editableListItems(items).slice(),
+      after: after || '\n\n'
+    });
+  };
+
+  const resetTransientBlockMenus = () => {
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+  };
+
+  const removeEmptyBlockWithBackspace = (event, block, index, editable = null, sync = null) => {
+    if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!Number.isInteger(index) || index <= 0) return false;
+    if (editable && !isEditableBackspaceAtEmptyStart(editable)) return false;
+    if (typeof sync === 'function') sync();
+    if (!isBlockEmptyForBackspace(block)) return false;
+    event.preventDefault();
+    state.blocks.splice(index, 1);
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    focusPreviousBlockEnd(index);
+    emit();
+    return true;
+  };
+
   const actionMenuBoundaryLeft = () => {
     try {
       const pane = document.getElementById('editorContentPane');
@@ -2279,6 +2933,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
     makeItem(text('moveUp', 'Move up'), '', index === 0, () => moveBlock(index, -1));
     makeItem(text('moveDown', 'Move down'), '', index === state.blocks.length - 1, () => moveBlock(index, 1));
+    makeItem(text('addBefore', 'Add before'), '', false, () => insertBlankBlock(index));
+    makeItem(text('addAfter', 'Add after'), '', false, () => insertBlankBlock(index + 1));
     makeItem(text('delete', 'Delete'), 'blocks-action-menu-delete', false, () => deleteBlockAt(index));
 
     const openMenu = () => {
@@ -2758,6 +3414,73 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return best;
   };
 
+  const blockNavigationTarget = (index, edge = 'first') => {
+    const nodes = blockElements();
+    const blockEl = nodes[index] || null;
+    if (!blockEl) return null;
+    const listTexts = Array.from(blockEl.querySelectorAll('.blocks-list-item .blocks-list-text'));
+    const listTarget = listTexts.length ? (edge === 'last' ? listTexts[listTexts.length - 1] : listTexts[0]) : null;
+    const editable = listTarget
+      || blockEl.querySelector('.blocks-rich-editable:not(.blocks-list-text), .blocks-code-preview code[contenteditable="true"], .blocks-source-textarea');
+    if (editable) {
+      return {
+        blockEl,
+        editable,
+        index,
+        sync: editableSyncMap.get(editable) || null
+      };
+    }
+    return { blockEl, editable: null, index, sync: null };
+  };
+
+  const focusBlockNavigationTarget = (target, direction, x, fallbackOffset = 0) => {
+    if (!target || !target.blockEl) return false;
+    const edge = direction === 'up' ? 'last' : 'first';
+    const editable = target.editable || null;
+    if (!editable) {
+      activateNonTextBlockFromPointer(target.index, target.blockEl);
+      return true;
+    }
+    try { editable.focus({ preventScroll: true }); }
+    catch (_) {
+      try { editable.focus(); } catch (__) {}
+    }
+    if (editable.matches && editable.matches('textarea')) {
+      placeTextareaCaretAtVisualLine(editable, x, edge, fallbackOffset);
+    } else {
+      placeCaretAtVisualLine(editable, x, edge, fallbackOffset);
+    }
+    setActive(target.index, editable, target.sync);
+    updateInlineToolbarState();
+    return true;
+  };
+
+  const handleCrossBlockArrowNavigation = (event, index, editable = null) => {
+    if (!event || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return false;
+    if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    const direction = event.key === 'ArrowUp' ? 'up' : 'down';
+    if (!Number.isInteger(index) || index < 0 || index >= state.blocks.length) return false;
+    if (editable) {
+      const onEdge = editable.matches && editable.matches('textarea')
+        ? isTextareaCaretOnEdgeLine(editable, direction)
+        : isEditableCaretOnEdgeLine(editable, direction);
+      if (!onEdge) return false;
+    }
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= state.blocks.length) return false;
+    const caretRect = editable && !(editable.matches && editable.matches('textarea')) ? caretRectForEditable(editable) : null;
+    const editableRect = editable && editable.getBoundingClientRect ? editable.getBoundingClientRect() : null;
+    const blockRect = !editable && blockElements()[index] && blockElements()[index].getBoundingClientRect
+      ? blockElements()[index].getBoundingClientRect()
+      : null;
+    const x = caretRect ? caretRect.left : ((editableRect || blockRect) ? (editableRect || blockRect).left + 1 : 0);
+    const target = blockNavigationTarget(targetIndex, direction === 'up' ? 'last' : 'first');
+    if (!target) return false;
+    event.preventDefault();
+    focusBlockNavigationTarget(target, direction, x);
+    return true;
+  };
+
   const setContentEditableCaretFromPoint = (editable, x, y, hitTarget = editable) => {
     const setRangeFromPoint = (targetX, targetY) => {
       let range = null;
@@ -2910,39 +3633,67 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     return block;
   };
 
+  const placeCommandBlock = (type, data = {}, index = state.blocks.length) => {
+    const safeIndex = Math.max(0, Math.min(index, state.blocks.length));
+    const block = makeBlock(type, '', { after: '\n\n', dirty: true, ...data });
+    block.dirty = true;
+    if (state.blocks[safeIndex] && state.blocks[safeIndex].type === 'blank') {
+      state.blocks.splice(safeIndex, 1, block);
+      render();
+      setActive(safeIndex);
+      emit();
+      return block;
+    }
+    return insertBlock(type, data, safeIndex);
+  };
+
   const closeBlockCommandMenu = (restoreFocus = false) => {
     if (!state.commandMenuOpen) return;
     state.commandMenuOpen = false;
+    const restoreIndex = state.commandMenuInsertIndex;
+    state.commandMenuInsertIndex = null;
     render();
-    if (restoreFocus) focusVirtualEditable();
+    if (restoreFocus) {
+      if (Number.isInteger(restoreIndex) && state.blocks[restoreIndex]) focusBlockPrimaryEditable(state.blocks[restoreIndex], 0);
+      else {
+        const trailingBlank = state.blocks.slice().reverse().find(block => block && block.type === 'blank');
+        if (trailingBlank) focusBlockPrimaryEditable(trailingBlank, 0);
+      }
+    }
   };
 
-  const openBlockCommandMenu = () => {
+  const openBlockCommandMenu = (insertIndex = state.blocks.length) => {
     closeBlockActionMenu(false);
     closeInlineMoreMenu(false);
     state.cardPickerOpen = false;
     state.cardPickerInsertIndex = null;
     state.commandMenuOpen = true;
+    state.commandMenuInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
     render();
     queueMicrotask(() => {
-      const first = list.querySelector('.blocks-command-menu-item');
+      const first = list.querySelector(`.blocks-block[data-block-id="${state.blocks[state.commandMenuInsertIndex]?.id || ''}"] .blocks-command-menu-item`)
+        || list.querySelector('.blocks-command-menu-item');
       try { first?.focus(); } catch (_) {}
     });
   };
 
   const insertCommandBlock = (type, data = {}, options = {}) => {
+    const insertIndex = Number.isInteger(options.index)
+      ? options.index
+      : (Number.isInteger(state.commandMenuInsertIndex) ? state.commandMenuInsertIndex : state.blocks.length);
     state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
     state.cardPickerOpen = false;
     state.cardPickerInsertIndex = null;
-    const block = insertBlock(type, data, state.blocks.length);
+    const block = placeCommandBlock(type, data, insertIndex);
     if (options.focus) focusBlockPrimaryEditable(block, options.caretOffset);
     return block;
   };
 
-  const createParagraphFromVirtualInput = (value) => {
+  const createParagraphFromBlankInput = (value, insertIndex = state.blocks.length) => {
     const textValue = normalizeEditableMarkdownText(value);
     if (!textValue) return;
-    insertCommandBlock('paragraph', { text: textValue }, { focus: true, caretOffset: textValue.length });
+    insertCommandBlock('paragraph', { text: textValue }, { focus: true, caretOffset: textValue.length, index: insertIndex });
   };
 
   const inlineCommandMark = (kind) => (kind === 'strikeThrough' ? 'strike' : kind);
@@ -3490,7 +4241,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           const insertIndex = Number.isInteger(state.cardPickerInsertIndex) ? state.cardPickerInsertIndex : state.blocks.length;
           state.cardPickerOpen = false;
           state.cardPickerInsertIndex = null;
-          insertBlock('card', {
+          placeCommandBlock('card', {
             label: entry.title || entry.key || entry.location || 'Article',
             location: entry.location || '',
             title: 'card',
@@ -3522,10 +4273,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   ];
 
   const openArticleCardCommand = () => {
+    const insertIndex = Number.isInteger(state.commandMenuInsertIndex) ? state.commandMenuInsertIndex : state.blocks.length;
     state.commandMenuOpen = false;
-    state.cardPickerInsertIndex = state.blocks.length;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerInsertIndex = insertIndex;
     if (!state.cardEntries.length) {
-      insertCommandBlock('card', { label: 'Article', location: '', title: 'card', forceCard: true });
+      insertCommandBlock('card', { label: 'Article', location: '', title: 'card', forceCard: true }, { index: insertIndex });
       return;
     }
     state.cardPickerOpen = true;
@@ -3537,63 +4290,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     insertCommandBlock(type, data, { focus: focusTypes.has(type) });
   };
 
-  const renderVirtualBlock = () => {
-    const item = document.createElement('section');
-    item.className = `blocks-virtual-block${state.commandMenuOpen ? ' is-command-open' : ''}`;
-    item.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
-
-    const body = document.createElement('div');
-    body.className = 'blocks-virtual-body';
-    const editable = document.createElement('p');
-    editable.className = 'blocks-rich-editable blocks-paragraph-text blocks-virtual-editable';
-    editable.contentEditable = 'true';
-    editable.spellcheck = true;
-    editable.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
-    editable.dataset.placeholder = text('virtualBlockPlaceholder', 'Type / to chose a block');
-    editable.addEventListener('beforeinput', (event) => {
-      if (event.isComposing) return;
-      if (event.inputType !== 'insertText' || event.data == null) return;
-      event.preventDefault();
-      if (event.data === '/') {
-        openBlockCommandMenu();
-        return;
-      }
-      createParagraphFromVirtualInput(event.data);
-    });
-    editable.addEventListener('input', () => {
-      const value = editableText(editable);
-      if (!value) return;
-      if (value === '/') {
-        editable.textContent = '';
-        openBlockCommandMenu();
-        return;
-      }
-      createParagraphFromVirtualInput(value);
-    });
-    editable.addEventListener('paste', (event) => {
-      const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
-      if (!pasted) return;
-      event.preventDefault();
-      createParagraphFromVirtualInput(pasted);
-    });
-    editable.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && state.commandMenuOpen) {
-        event.preventDefault();
-        closeBlockCommandMenu(true);
-      }
-    });
-    editable.addEventListener('focus', () => {
-      setActive(-1);
-      updateInlineToolbarState();
-    });
-    body.appendChild(editable);
-
+  const createCommandMenuElement = (isCommandOpen) => {
     const menu = document.createElement('div');
     menu.className = 'blocks-command-menu';
     menu.setAttribute('role', 'menu');
     menu.setAttribute('aria-label', text('commandMenuAria', 'Block selector'));
-    menu.hidden = !state.commandMenuOpen;
-    menu.setAttribute('aria-hidden', state.commandMenuOpen ? 'false' : 'true');
+    menu.hidden = !isCommandOpen;
+    menu.setAttribute('aria-hidden', isCommandOpen ? 'false' : 'true');
     commandBlocks.forEach(([key, type, fallback, data]) => {
       const itemBtn = button('', 'blocks-command-menu-item');
       itemBtn.dataset.blockCommand = type;
@@ -3620,9 +4323,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         closeBlockCommandMenu(true);
       }
     });
-
-    item.append(body, menu);
-    return item;
+    return menu;
   };
 
   const createRichEditable = (tagName, block, key, className, index) => {
@@ -3636,6 +4337,17 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editable.addEventListener('input', () => {
       sync();
       updateInlineToolbarState();
+    });
+    editable.addEventListener('keydown', (event) => {
+      if (removeEmptyBlockWithBackspace(event, block, index, editable, sync)) return;
+      if (mergeTextBlockWithPreviousOnBackspace(event, block, index, editable)) return;
+      if (handleCrossBlockArrowNavigation(event, index, editable)) return;
+      if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+      if (!['paragraph', 'quote', 'heading'].includes(block.type)) return;
+      if (splitTextBlockAfterCaret(event, block, index, editable)) return;
+      if (!shouldInsertBlankBlockOnEnter(editable)) return;
+      event.preventDefault();
+      insertBlankBlockAfter(index, editable, sync);
     });
     editable.addEventListener('focus', () => setActive(index, editable, sync));
     editable.addEventListener('pointerdown', (event) => {
@@ -4000,6 +4712,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         updateInlineToolbarState();
       });
       span.addEventListener('keydown', (event) => {
+        if (removeEmptyBlockWithBackspace(event, block, index, span, sync)) return;
         if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing) {
           event.preventDefault();
           indentListItem(block, index, event.shiftKey ? -1 : 1);
@@ -4008,8 +4721,73 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
         if (event.key === 'Enter') {
           event.preventDefault();
+          const currentText = editableText(span);
+          const currentItems = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          currentItems[itemIndex] = { ...(currentItems[itemIndex] || {}), text: currentText };
+          const outdentedItems = outdentEmptyListItemForEnter(currentItems, itemIndex);
+          if (outdentedItems) {
+            state.pendingListFocus = { blockId: block.id, itemIndex, atEnd: false };
+            updateFromControl(block, { items: outdentedItems }, true);
+            return;
+          }
+          const trailingParagraph = isEditableSelectionAtStart(span)
+            ? convertListTailItemAfterEmptyToParagraph(currentItems, itemIndex)
+            : null;
+          if (trailingParagraph) {
+            const blockAfter = block.data && block.data.after != null ? block.data.after : '\n\n';
+            const paragraph = makeBlock('paragraph', '', { text: trailingParagraph.text, after: blockAfter, dirty: true });
+            resetTransientBlockMenus();
+            if (trailingParagraph.before.length) {
+              block.data.items = trailingParagraph.before;
+              block.data.after = '\n\n';
+              markDirty(block);
+              state.blocks.splice(index + 1, 0, paragraph);
+              render();
+              focusBlockPrimaryEditable(paragraph, 0);
+            } else {
+              state.blocks.splice(index, 1, paragraph);
+              render();
+              focusBlockPrimaryEditable(paragraph, 0);
+            }
+            emit();
+            return;
+          }
+          const emptySplit = splitListItemsAtEmptyItem(currentItems, itemIndex);
+          if (emptySplit) {
+            const splitAfter = normalizeSplitListStartItems(emptySplit.after);
+            const blockAfter = block.data && block.data.after != null ? block.data.after : '\n\n';
+            resetTransientBlockMenus();
+            if (splitAfter.length) {
+              if (emptySplit.before.length) {
+                block.data.items = emptySplit.before;
+                block.data.after = '\n\n';
+                markDirty(block);
+                const nextBlock = makeSplitListBlock(block, splitAfter, blockAfter);
+                state.blocks.splice(index + 1, 0, nextBlock);
+                state.pendingListFocus = { blockId: nextBlock.id, itemIndex: 0, atEnd: false };
+              } else {
+                block.data.items = splitAfter;
+                block.data.after = blockAfter;
+                markDirty(block);
+                state.pendingListFocus = { blockId: block.id, itemIndex: 0, atEnd: false };
+              }
+              render();
+              emit();
+            } else if (emptySplit.before.length) {
+              block.data.items = emptySplit.before;
+              markDirty(block);
+              insertBlankBlock(index + 1, { focus: true });
+            } else {
+              const blank = makeBlankBlock('\n', { dirty: true });
+              state.blocks.splice(index, 1, blank);
+              render();
+              focusBlockPrimaryEditable(blank, 0);
+              emit();
+            }
+            return;
+          }
           const split = splitEditableTextAtSelection(span);
-          const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          const next = currentItems;
           next[itemIndex] = { ...next[itemIndex], text: split.before };
           const current = next[itemIndex] || {};
           const currentIndent = itemIndentLevel(current);
@@ -4022,26 +4800,46 @@ export function createMarkdownBlocksEditor(root, options = {}) {
             marker: current.marker,
             delimiter: current.delimiter
           });
-          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1, atEnd: true };
+          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex + 1, caretOffset: 0 };
           updateFromControl(block, { items: next }, true);
           return;
         }
         if ((event.key === 'Backspace' || event.key === 'Delete') && itemIndex > 0 && isEditableSelectionAtStart(span)) {
-          event.preventDefault();
           const currentText = editableText(span);
           const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
-          if (currentText) {
-            const previous = next[itemIndex - 1] || { text: '', checked: false };
-            next[itemIndex - 1] = { ...previous, text: `${previous.text || ''}${currentText}` };
+          next[itemIndex] = { ...(next[itemIndex] || {}), text: currentText };
+          const mergedItem = mergeListItemIntoPreviousItem(next, itemIndex);
+          if (!mergedItem) return;
+          event.preventDefault();
+          state.pendingListFocus = { blockId: block.id, itemIndex: mergedItem.focusItemIndex, caretOffset: mergedItem.caretOffset };
+          updateFromControl(block, { items: mergedItem.items.length ? mergedItem.items : [{ text: '', checked: false }] }, true);
+          return;
+        }
+        if (event.key === 'Backspace' && itemIndex === 0 && index > 0 && isEditableSelectionAtStart(span)) {
+          const currentText = editableText(span);
+          const currentItems = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          currentItems[0] = { ...(currentItems[0] || {}), text: currentText };
+          const previous = state.blocks[index - 1] || null;
+          const merged = mergeFirstListItemIntoPreviousBlock(previous, { ...block, data: { ...(block.data || {}), items: currentItems } }, itemIndex);
+          if (!merged) return;
+          event.preventDefault();
+          resetTransientBlockMenus();
+          const replacement = merged.currentBlock ? [merged.previousBlock, merged.currentBlock] : [merged.previousBlock];
+          state.blocks.splice(index - 1, 2, ...replacement);
+          if (merged.focus && merged.focus.type === 'list') {
+            state.pendingListFocus = { blockId: merged.previousBlock.id, itemIndex: merged.focus.itemIndex, caretOffset: merged.focus.caretOffset };
           }
-          next.splice(itemIndex, 1);
-          state.pendingListFocus = { blockId: block.id, itemIndex: itemIndex - 1, atEnd: true };
-          updateFromControl(block, { items: next.length ? next : [{ text: '', checked: false }] }, true);
+          render();
+          if (merged.focus && merged.focus.type === 'text') focusBlockPrimaryEditable(merged.previousBlock, merged.focus.caretOffset);
+          emit();
           return;
         }
         if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && items.length > 1) {
           const nextIndex = event.key === 'ArrowUp' ? itemIndex - 1 : itemIndex + 1;
-          if (nextIndex < 0 || nextIndex >= items.length) return;
+          if (nextIndex < 0 || nextIndex >= items.length) {
+            handleCrossBlockArrowNavigation(event, index, span);
+            return;
+          }
           if (!isEditableCaretOnEdgeLine(span, event.key === 'ArrowUp' ? 'up' : 'down')) return;
           event.preventDefault();
           const caretOffset = getEditableCaretTextOffset(span);
@@ -4052,6 +4850,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           try { target.focus(); } catch (_) {}
           placeCaretAtVisualLine(target, caretRect ? caretRect.left : 0, event.key === 'ArrowUp' ? 'last' : 'first', caretOffset);
           setActive(index);
+          return;
+        }
+        if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && items.length <= 1) {
+          handleCrossBlockArrowNavigation(event, index, span);
         }
       });
       span.addEventListener('focus', () => setActive(index, span, sync));
@@ -4079,7 +4881,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           const pending = state.pendingListFocus;
           state.pendingListFocus = null;
           try { span.focus(); } catch (_) {}
-          if (pending && pending.atEnd) placeCaretAtEnd(span);
+          if (pending && pending.caretOffset != null) placeCaretAtTextOffset(span, pending.caretOffset);
+          else if (pending && pending.atEnd) placeCaretAtEnd(span);
           else if (pending) placeCaretAtStart(span);
           setActive(index, span, sync);
         });
@@ -4119,6 +4922,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
     code.addEventListener('keydown', (event) => {
+      if (removeEmptyBlockWithBackspace(event, block, index, code, sync)) return;
+      if (handleCrossBlockArrowNavigation(event, index, code)) return;
       if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       event.preventDefault();
       const text = insertCodeEditableTextAtSelection(code, '\n');
@@ -4164,10 +4969,68 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
   };
 
+  const renderBlankBlock = (body, block, index) => {
+    const isCommandOpen = state.commandMenuOpen && state.commandMenuInsertIndex === index;
+    body.classList.add('blocks-virtual-body');
+    const editable = document.createElement('p');
+    editable.className = 'blocks-rich-editable blocks-paragraph-text blocks-virtual-editable blocks-blank-editable';
+    editable.contentEditable = 'true';
+    editable.spellcheck = true;
+    editable.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
+    editable.dataset.placeholder = text('virtualBlockPlaceholder', 'Type / to chose a block');
+    editableSyncMap.set(editable, null);
+    editable.addEventListener('beforeinput', (event) => {
+      if (event.isComposing) return;
+      if (event.inputType !== 'insertText' || event.data == null) return;
+      event.preventDefault();
+      if (event.data === '/') {
+        openBlockCommandMenu(index);
+        return;
+      }
+      createParagraphFromBlankInput(event.data, index);
+    });
+    editable.addEventListener('input', () => {
+      const value = editableText(editable);
+      if (!value) return;
+      if (value === '/') {
+        editable.textContent = '';
+        openBlockCommandMenu(index);
+        return;
+      }
+      createParagraphFromBlankInput(value, index);
+    });
+    editable.addEventListener('paste', (event) => {
+      const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
+      if (!pasted) return;
+      event.preventDefault();
+      createParagraphFromBlankInput(pasted, index);
+    });
+    editable.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing) {
+        event.preventDefault();
+        insertBlankBlock(index + 1, { focus: true });
+        return;
+      }
+      if (removeEmptyBlockWithBackspace(event, block, index, editable, null)) return;
+      if (handleCrossBlockArrowNavigation(event, index, editable)) return;
+      if (event.key === 'Escape' && isCommandOpen) {
+        event.preventDefault();
+        closeBlockCommandMenu(true);
+      }
+    });
+    editable.addEventListener('focus', () => {
+      setActive(index, editable, null);
+      updateInlineToolbarState();
+    });
+    body.append(editable, createCommandMenuElement(isCommandOpen));
+  };
+
   const renderBlockBody = (block, index) => {
     const body = document.createElement('div');
     body.className = 'blocks-block-body blocks-visual-body';
-    if (block.type === 'heading') {
+    if (block.type === 'blank') {
+      renderBlankBlock(body, block, index);
+    } else if (block.type === 'heading') {
       renderHeadingBlock(body, block, index);
     } else if (block.type === 'paragraph') {
       body.appendChild(createRichEditable('p', block, 'text', 'blocks-rich-editable blocks-paragraph-text', index));
@@ -4196,6 +5059,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       area.addEventListener('input', () => {
         sync();
         autoSizeTextarea(area);
+      });
+      area.addEventListener('keydown', (event) => {
+        if (removeEmptyBlockWithBackspace(event, block, index, area, sync)) return;
+        handleCrossBlockArrowNavigation(event, index, area);
       });
       area.addEventListener('pointerdown', (event) => {
         if (!event || event.button !== 0 || event.isPrimary === false) return;
@@ -4300,6 +5167,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       setActive(index);
     });
     item.addEventListener('focusin', () => setActive(index));
+    item.addEventListener('keydown', (event) => {
+      if (event.target !== item) return;
+      if (removeEmptyBlockWithBackspace(event, block, index)) return;
+      handleCrossBlockArrowNavigation(event, index);
+    });
     return item;
   };
 
@@ -4327,7 +5199,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.blocks.forEach((block, index) => {
       list.appendChild(renderBlockElement(block, index));
     });
-    list.appendChild(renderVirtualBlock());
     renderCardPicker();
     setActive(state.activeIndex);
     requestStickyBlockHeadUpdate();
@@ -4336,6 +5207,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const api = {
     setMarkdown(markdown) {
       state.blocks = parseMarkdownBlocks(markdown);
+      ensureEditableBlankForEmptyDocument();
       state.activeIndex = -1;
       state.activeEditable = null;
       state.activeSync = null;
@@ -4347,6 +5219,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.cardPickerOpen = false;
       state.cardPickerInsertIndex = null;
       state.commandMenuOpen = false;
+      state.commandMenuInsertIndex = null;
       render();
     },
     getMarkdown() {
