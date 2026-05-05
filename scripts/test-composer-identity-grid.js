@@ -595,8 +595,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const pre = document\.createElement\('pre'\);[\s\S]*const scroll = document\.createElement\('div'\);[\s\S]*scroll\.className = 'blocks-code-scroll';[\s\S]*const gutter = document\.createElement\('div'\);[\s\S]*gutter\.className = 'blocks-code-gutter';[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.contentEditable = 'true'/,
-  'code blocks should render a pre/code editing surface with an owned non-editable scroll wrapper and gutter'
+  /const pre = document\.createElement\('pre'\);[\s\S]*const scroll = document\.createElement\('div'\);[\s\S]*scroll\.className = 'blocks-code-scroll';[\s\S]*const gutter = document\.createElement\('div'\);[\s\S]*gutter\.className = 'blocks-code-gutter';[\s\S]*const surface = document\.createElement\('div'\);[\s\S]*surface\.className = 'blocks-code-surface';[\s\S]*const highlight = document\.createElement\('code'\);[\s\S]*highlight\.className = 'blocks-code-highlight language-plain';[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.className = 'blocks-code-editable';[\s\S]*code\.contentEditable = 'true'/,
+  'code blocks should render a pre/code editing surface with an owned non-editable scroll wrapper, gutter, and highlight mirror'
 );
 
 assert.match(
@@ -625,14 +625,32 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /renderCodeGutter\(gutter, block\.data\.text \|\| ''\);[\s\S]*const sync = \(\) => \{[\s\S]*const text = codeEditableText\(code\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('input', sync\);[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*const text = insertCodeEditableTextAtSelection\(code, '\\n'\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);[\s\S]*scroll\.append\(gutter, code\);[\s\S]*pre\.appendChild\(scroll\);/,
-  'code block editing surfaces should sync text and gutter without rewriting the editable code node'
+  /renderCodeGutter\(gutter, block\.data\.text \|\| ''\);[\s\S]*renderCodeHighlight\(highlight, languageLabel, block\.data\.text \|\| '', block\.data\.lang \|\| ''\);[\s\S]*const sync = \(\) => \{[\s\S]*const text = codeEditableText\(code\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*renderCodeHighlight\(highlight, languageLabel, text, block\.data\.lang \|\| ''\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('input', sync\);[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*const text = insertCodeEditableTextAtSelection\(code, '\\n'\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*renderCodeHighlight\(highlight, languageLabel, text, block\.data\.lang \|\| ''\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);[\s\S]*surface\.append\(highlight, code\);[\s\S]*scroll\.append\(gutter, surface\);[\s\S]*pre\.appendChild\(scroll\);[\s\S]*pre\.appendChild\(languageLabel\);/,
+  'code block editing surfaces should sync text, gutter, highlight, and badge without rewriting the editable code node'
 );
 
 assert.match(
   editorBlocksSource,
-  /const createCodeLanguageInput = \(block\) => \{[\s\S]*const lang = document\.createElement\('select'\);[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*CODE_LANGUAGE_OPTIONS\.forEach\(\(value\) => appendOption\(value, labels\.get\(value\) \|\| value\)\);[\s\S]*lang\.addEventListener\('change', \(\) => updateFromControl\(block, \{ lang: lang\.value \}\)\);[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
+  /const createCodeLanguageInput = \(block\) => \{[\s\S]*const lang = document\.createElement\('select'\);[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*CODE_LANGUAGE_OPTIONS\.forEach\(\(value\) => appendOption\(value, labels\.get\(value\) \|\| value\)\);[\s\S]*lang\.addEventListener\('change', \(\) => updateFromControl\(block, \{ lang: lang\.value \}, true\)\);[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
   'code block language control should live in the floating block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function resolveCodeHighlightLanguage\(language, codeText\) \{[\s\S]*CODE_PLAIN_LANGUAGES\.has\(normalized\)[\s\S]*CODE_HIGHLIGHT_LANGUAGES\.has\(normalized\)[\s\S]*const detected = String\(detectLanguage\(String\(codeText \|\| ''\)\) \|\| ''\)\.toLowerCase\(\);[\s\S]*return \{ language: 'plain', label: 'PLAIN', highlight: false \};/,
+  'blocks code highlight resolution should support plain flags, selected languages, and auto-detection'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const createCodeLanguageLabel = \(getCodeText\) => \{[\s\S]*label\.className = 'syntax-language-label blocks-code-language-label';[\s\S]*label\.setAttribute\('role', 'button'\);[\s\S]*navigator\.clipboard\.writeText\(rawText\)[\s\S]*label\.addEventListener\('mouseenter'[\s\S]*label\.addEventListener\('click', copyCode\);/,
+  'blocks code should render the native-style copy language badge inside the code frame'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const renderCodeHighlight = \(highlight, label, value, language\) => \{[\s\S]*const meta = resolveCodeHighlightLanguage\(language, raw\);[\s\S]*highlight\.className = `blocks-code-highlight language-\$\{meta\.language\}`;[\s\S]*highlight\.replaceChildren\(createSafeHighlightFragment\(raw, meta\.highlight \? meta\.language : 'plain'\)\);[\s\S]*label\.dataset\.lang = meta\.label \|\| 'PLAIN';/,
+  'blocks code should render syntax spans only into the non-editable highlight mirror and update the badge label'
 );
 
 assert.match(
@@ -931,14 +949,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview code:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
+  /\.blocks-code-preview code\.blocks-code-editable:focus \{ outline:none; box-shadow:none; border-color:inherit; \}/,
   'focused code block editor should not draw an inner highlight border'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:hidden; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); position:relative;[\s\S]*font-size:\.95rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-scroll \{ display:flex; align-items:stretch; min-width:0; width:100%; overflow:auto; overflow-y:hidden; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; position:sticky; left:0; z-index:1; box-sizing:border-box;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-gutter span \{ display:block; line-height:inherit; \}[\s\S]*\.blocks-code-preview code \{ display:block; flex:1 1 auto;[\s\S]*min-width:0; min-height:1\.55em; padding:0;[\s\S]*overflow:visible;[\s\S]*font:inherit; background:transparent; color:inherit; \}/,
-  'blocks code blocks should use native code styling while keeping one editable line as a pointer target'
+  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:hidden; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); position:relative;[\s\S]*font-size:\.893rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-scroll \{ display:flex; align-items:stretch; min-width:0; width:100%; overflow:auto; overflow-y:hidden; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; position:sticky; left:0; z-index:1; box-sizing:border-box;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-surface \{ position:relative; flex:1 1 auto;[\s\S]*min-width:max-content; min-height:1\.55em; \}[\s\S]*\.blocks-code-preview code \{ display:block;[\s\S]*min-width:100%; min-height:1\.55em; padding:0;[\s\S]*white-space:pre; font:inherit; line-height:inherit; tab-size:inherit; background:transparent; \}[\s\S]*\.blocks-code-highlight \{ color:inherit; pointer-events:none; user-select:none; \}[\s\S]*\.blocks-code-preview code\.blocks-code-editable \{ position:absolute; inset:0; z-index:2; color:transparent; -webkit-text-fill-color:transparent; caret-color:var\(--code-text\); \}/,
+  'blocks code blocks should use native code styling while overlaying a transparent editable layer on a highlight mirror'
 );
 
 assert.doesNotMatch(
@@ -969,6 +987,12 @@ assert.match(
   syntaxHighlightSource,
   /export function initSyntaxHighlighting\(root = document\) \{[\s\S]*const scope = root && typeof root\.querySelectorAll === 'function' \? root : document;[\s\S]*const codeBlocks = scope\.querySelectorAll\('pre code'\);[\s\S]*preElement\.classList\.contains\('blocks-code-preview'\)[\s\S]*preElement\.closest\('\.markdown-blocks-shell'\)[\s\S]*codeElement\.isContentEditable \|\| codeElement\.getAttribute\('contenteditable'\) === 'true'/,
   'syntax highlighting should be scoped and skip editable blocks code surfaces'
+);
+
+assert.match(
+  syntaxHighlightSource,
+  /export function createSafeHighlightFragment\(code, language\) \{[\s\S]*return toSafeFragment\(simpleHighlight\(code \|\| '', language \|\| 'plain'\)\);[\s\S]*\}/,
+  'syntax highlighter should expose a safe fragment helper for editor-owned highlight mirrors'
 );
 
 assert.match(

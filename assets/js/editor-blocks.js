@@ -1,5 +1,9 @@
+import { createSafeHighlightFragment, detectLanguage } from './syntax-highlight.js';
+
 const BLOCK_TYPES = new Set(['paragraph', 'heading', 'image', 'list', 'quote', 'code', 'card', 'source']);
 const CODE_LANGUAGE_OPTIONS = ['', 'plain', 'javascript', 'json', 'python', 'html', 'xml', 'css', 'markdown', 'bash', 'shell', 'yaml', 'yml', 'robots'];
+const CODE_HIGHLIGHT_LANGUAGES = new Set(CODE_LANGUAGE_OPTIONS.filter(value => value && value !== 'plain'));
+const CODE_PLAIN_LANGUAGES = new Set(['plain', 'text', 'none', 'raw', 'nohighlight']);
 
 function normalizeText(value) {
   return String(value == null ? '' : value).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -1149,6 +1153,27 @@ function createBlockTypeIcon(blockType) {
 
 function inputValue(input) {
   return input ? String(input.value || '') : '';
+}
+
+function resolveCodeHighlightLanguage(language, codeText) {
+  const raw = String(language || '').trim();
+  const normalized = raw.toLowerCase();
+  if (CODE_PLAIN_LANGUAGES.has(normalized)) {
+    return { language: 'plain', label: 'PLAIN', highlight: false };
+  }
+  if (CODE_HIGHLIGHT_LANGUAGES.has(normalized)) {
+    return { language: normalized, label: normalized.toUpperCase(), highlight: true };
+  }
+  if (normalized === 'htm') {
+    return { language: 'html', label: 'HTML', highlight: true };
+  }
+  if (!normalized) {
+    const detected = String(detectLanguage(String(codeText || '')) || '').toLowerCase();
+    if (CODE_HIGHLIGHT_LANGUAGES.has(detected)) {
+      return { language: detected, label: detected.toUpperCase(), highlight: true };
+    }
+  }
+  return { language: 'plain', label: 'PLAIN', highlight: false };
 }
 
 function normalizeEditableMarkdownText(value) {
@@ -3596,7 +3621,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       appendOption(currentLang, `Unsupported: ${currentLang}`, true);
     }
     lang.value = CODE_LANGUAGE_OPTIONS.includes(normalizedLang) ? normalizedLang : currentLang;
-    lang.addEventListener('change', () => updateFromControl(block, { lang: lang.value }));
+    lang.addEventListener('change', () => updateFromControl(block, { lang: lang.value }, true));
     return lang;
   };
 
@@ -3622,6 +3647,76 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         const label = String(index + 1);
         if (span.textContent !== label) span.textContent = label;
       });
+    }
+  };
+
+  const codeLabelText = (key, fallback) => {
+    try {
+      return (window.__ns_t && typeof window.__ns_t === 'function') ? window.__ns_t(key) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  };
+
+  const createCodeLanguageLabel = (getCodeText) => {
+    const label = document.createElement('div');
+    label.className = 'syntax-language-label blocks-code-language-label';
+    label.dataset.lang = 'PLAIN';
+    label.textContent = 'PLAIN';
+    label.setAttribute('role', 'button');
+    label.setAttribute('tabindex', '0');
+    label.setAttribute('aria-label', codeLabelText('code.copyAria', 'Copy code'));
+
+    const restoreLabel = () => {
+      label.textContent = label.dataset.lang || 'PLAIN';
+    };
+    const copyCode = async () => {
+      const rawText = typeof getCodeText === 'function' ? String(getCodeText() || '') : '';
+      let ok = false;
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(rawText);
+          ok = true;
+        } catch (_) {
+          ok = false;
+        }
+      }
+      const old = label.dataset.lang || 'PLAIN';
+      label.classList.add('is-copied');
+      label.textContent = ok ? codeLabelText('code.copied', 'Copied').toUpperCase() : codeLabelText('code.failed', 'Failed').toUpperCase();
+      window.setTimeout(() => {
+        label.classList.remove('is-copied');
+        label.textContent = old;
+      }, 1200);
+    };
+
+    label.addEventListener('mouseenter', () => {
+      label.classList.add('is-hover');
+      label.textContent = codeLabelText('code.copy', 'Copy').toUpperCase();
+    });
+    label.addEventListener('mouseleave', () => {
+      label.classList.remove('is-hover');
+      restoreLabel();
+    });
+    label.addEventListener('click', copyCode);
+    label.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        copyCode();
+      }
+    });
+    return label;
+  };
+
+  const renderCodeHighlight = (highlight, label, value, language) => {
+    if (!highlight || !label) return;
+    const raw = String(value == null ? '' : value);
+    const meta = resolveCodeHighlightLanguage(language, raw);
+    highlight.className = `blocks-code-highlight language-${meta.language}`;
+    highlight.replaceChildren(createSafeHighlightFragment(raw, meta.highlight ? meta.language : 'plain'));
+    label.dataset.lang = meta.label || 'PLAIN';
+    if (!label.classList.contains('is-hover') && !label.classList.contains('is-copied')) {
+      label.textContent = label.dataset.lang;
     }
   };
 
@@ -3774,15 +3869,24 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const gutter = document.createElement('div');
     gutter.className = 'blocks-code-gutter';
     gutter.setAttribute('aria-hidden', 'true');
+    const surface = document.createElement('div');
+    surface.className = 'blocks-code-surface';
+    const highlight = document.createElement('code');
+    highlight.className = 'blocks-code-highlight language-plain';
+    highlight.setAttribute('aria-hidden', 'true');
     const code = document.createElement('code');
+    code.className = 'blocks-code-editable';
     code.contentEditable = 'true';
     code.spellcheck = false;
     code.textContent = block.data.text || '';
+    const languageLabel = createCodeLanguageLabel(() => codeEditableText(code));
     renderCodeGutter(gutter, block.data.text || '');
+    renderCodeHighlight(highlight, languageLabel, block.data.text || '', block.data.lang || '');
     const sync = () => {
       const text = codeEditableText(code);
       updateFromControl(block, { text });
       renderCodeGutter(gutter, text);
+      renderCodeHighlight(highlight, languageLabel, text, block.data.lang || '');
     };
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
@@ -3792,6 +3896,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       const text = insertCodeEditableTextAtSelection(code, '\n');
       updateFromControl(block, { text });
       renderCodeGutter(gutter, text);
+      renderCodeHighlight(highlight, languageLabel, text, block.data.lang || '');
     });
     code.addEventListener('focus', () => setActive(index, code, sync));
     code.addEventListener('pointerdown', (event) => {
@@ -3799,8 +3904,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         activateEditableFromPointer(index, code, sync);
       }
     });
-    scroll.append(gutter, code);
+    surface.append(highlight, code);
+    scroll.append(gutter, surface);
     pre.appendChild(scroll);
+    pre.appendChild(languageLabel);
     body.appendChild(pre);
   };
 

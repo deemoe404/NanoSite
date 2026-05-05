@@ -667,6 +667,10 @@ export function initSyntaxHighlighting(root = document) {
 // 导出函数
 export { simpleHighlight, detectLanguage };
 
+export function createSafeHighlightFragment(code, language) {
+  return toSafeFragment(simpleHighlight(code || '', language || 'plain'));
+}
+
 // 兼容性导出
 export function highlightCode(code, language) {
   return simpleHighlight(code, language);
