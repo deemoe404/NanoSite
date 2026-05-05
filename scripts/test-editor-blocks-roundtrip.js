@@ -6,6 +6,7 @@ import {
   autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
   isBlockEmptyForBackspace,
+  joinMergedEditableText,
   listVisualMarkerLabels,
   mergeFirstListItemIntoPreviousBlock,
   mergeListItemIntoPreviousItem,
@@ -287,8 +288,9 @@ run('backspace at text block start merges paragraph into previous paragraph', ()
   const merged = mergeTextBlockIntoPrevious(blocks[0], blocks[1]);
   assert.equal(merged.type, 'paragraph');
   assert.equal(merged.dirty, true);
-  assert.equal(merged.data.text, 'abcdef');
-  assert.equal(serializeMarkdownBlocks([merged]), 'abcdef\n\n');
+  assert.equal(merged.data.text, 'abc def');
+  assert.equal(merged.focusCaretOffset, 4);
+  assert.equal(serializeMarkdownBlocks([merged]), 'abc def\n\n');
 });
 
 run('backspace merge preserves previous heading metadata', () => {
@@ -296,24 +298,32 @@ run('backspace merge preserves previous heading metadata', () => {
   const merged = mergeTextBlockIntoPrevious(blocks[0], blocks[1]);
   assert.equal(merged.type, 'heading');
   assert.equal(merged.data.level, 3);
-  assert.equal(merged.data.text, 'abcdef');
-  assert.equal(serializeMarkdownBlocks([merged]), '### abcdef\n\n');
+  assert.equal(merged.data.text, 'abc def');
+  assert.equal(serializeMarkdownBlocks([merged]), '### abc def\n\n');
 });
 
 run('backspace merge preserves previous quote type', () => {
   const blocks = parseMarkdownBlocks('> abc\n\ndef\n\n');
   const merged = mergeTextBlockIntoPrevious(blocks[0], blocks[1]);
   assert.equal(merged.type, 'quote');
-  assert.equal(merged.data.text, 'abcdef');
-  assert.equal(serializeMarkdownBlocks([merged]), '> abcdef\n\n');
+  assert.equal(merged.data.text, 'abc def');
+  assert.equal(serializeMarkdownBlocks([merged]), '> abc def\n\n');
 });
 
 run('backspace merge only uses current block text', () => {
   const [paragraph] = parseMarkdownBlocks('abc\n\n');
   const [heading] = parseMarkdownBlocks('### def\n\n');
   const [quote] = parseMarkdownBlocks('> ghi\n\n');
-  assert.equal(mergeTextBlockIntoPrevious(paragraph, heading).data.text, 'abcdef');
-  assert.equal(mergeTextBlockIntoPrevious(paragraph, quote).data.text, 'abcghi');
+  assert.equal(mergeTextBlockIntoPrevious(paragraph, heading).data.text, 'abc def');
+  assert.equal(mergeTextBlockIntoPrevious(paragraph, quote).data.text, 'abc ghi');
+});
+
+run('backspace merge inserts a single safe space only when needed', () => {
+  assert.deepEqual(joinMergedEditableText('abc', 'def'), { text: 'abc def', separator: ' ' });
+  assert.deepEqual(joinMergedEditableText('abc ', 'def'), { text: 'abc def', separator: '' });
+  assert.deepEqual(joinMergedEditableText('abc', ' def'), { text: 'abc def', separator: '' });
+  assert.deepEqual(joinMergedEditableText('', 'def'), { text: 'def', separator: '' });
+  assert.deepEqual(joinMergedEditableText('abc', ''), { text: 'abc', separator: '' });
 });
 
 run('backspace merge requires two text blocks', () => {
@@ -330,9 +340,10 @@ run('backspace at text block start merges text into previous list tail item', ()
   const merged = mergeTextBlockIntoPreviousList(listBlock, paragraph);
   assert.equal(merged.type, 'list');
   assert.equal(merged.dirty, true);
-  assert.equal(merged.data.items[1].text, 'childdef');
+  assert.equal(merged.data.items[1].text, 'child def');
   assert.equal(merged.data.items[1].indent, 1);
-  assert.equal(serializeMarkdownBlocks([merged]), '- abc\n  - childdef\n\n');
+  assert.equal(merged.focusCaretOffset, 6);
+  assert.equal(serializeMarkdownBlocks([merged]), '- abc\n  - child def\n\n');
 });
 
 run('backspace text-to-list merge only contributes current text and preserves list metadata', () => {
@@ -359,9 +370,9 @@ run('list item Backspace merge only joins adjacent same-level items', () => {
     { text: 'def', indent: 1, checked: false, listType: 'ul' }
   ];
   const merged = mergeListItemIntoPreviousItem(initial, 1);
-  assert.equal(merged.caretOffset, 3);
+  assert.equal(merged.caretOffset, 4);
   assert.equal(merged.focusItemIndex, 0);
-  assert.deepEqual(merged.items, [{ text: 'abcdef', indent: 1, checked: true, listType: 'task' }]);
+  assert.deepEqual(merged.items, [{ text: 'abc def', indent: 1, checked: true, listType: 'task' }]);
   assert.equal(mergeListItemIntoPreviousItem([{ text: 'parent', indent: 0 }, { text: 'child', indent: 1 }], 1), null);
   assert.equal(mergeListItemIntoPreviousItem([{ text: 'child', indent: 1 }, { text: 'parent', indent: 0 }], 1), null);
   assert.equal(mergeListItemIntoPreviousItem([{ text: 'prev', indent: 0 }, { text: 'parent', indent: 0 }, { text: 'child', indent: 1 }], 1), null);
@@ -371,16 +382,16 @@ run('first list item Backspace can merge into previous text or list block when s
   const previousText = { type: 'paragraph', data: { text: 'abc' } };
   const currentList = { type: 'list', data: { listType: 'ul', items: [{ text: 'def', indent: 0 }, { text: 'next', indent: 0 }] } };
   const textMerge = mergeFirstListItemIntoPreviousBlock(previousText, currentList, 0);
-  assert.equal(textMerge.previousBlock.data.text, 'abcdef');
+  assert.equal(textMerge.previousBlock.data.text, 'abc def');
   assert.deepEqual(textMerge.currentBlock.data.items, [{ text: 'next', indent: 0 }]);
-  assert.deepEqual(textMerge.focus, { type: 'text', caretOffset: 3 });
+  assert.deepEqual(textMerge.focus, { type: 'text', caretOffset: 4 });
 
   const previousList = { type: 'list', data: { listType: 'ul', items: [{ text: 'tail', indent: 1, marker: '*' }] } };
   const listMerge = mergeFirstListItemIntoPreviousBlock(previousList, { type: 'list', data: { items: [{ text: 'def', indent: 0 }] } }, 0);
-  assert.equal(listMerge.previousBlock.data.items[0].text, 'taildef');
+  assert.equal(listMerge.previousBlock.data.items[0].text, 'tail def');
   assert.equal(listMerge.previousBlock.data.items[0].indent, 1);
   assert.equal(listMerge.currentBlock, null);
-  assert.deepEqual(listMerge.focus, { type: 'list', itemIndex: 0, caretOffset: 4 });
+  assert.deepEqual(listMerge.focus, { type: 'list', itemIndex: 0, caretOffset: 5 });
 });
 
 run('first list item Backspace refuses nested or child-owning items', () => {
@@ -423,13 +434,13 @@ run('backspace merge ignores modified Backspace key chords', () => {
 run('backspace merge focuses previous block at its original text length', () => {
   assert.match(
     editorBlocksSource,
-    /previousTextLength = textBlockDataText\(previous\)\.length[\s\S]*focusBlockPrimaryEditable\(merged, previousTextLength\)/,
-    'caret should land at the old end of the previous block after merge'
+    /focusBlockPrimaryEditable\(merged, merged\.focusCaretOffset\)/,
+    'caret should land after any inserted separator after text block merge'
   );
   assert.match(
     editorBlocksSource,
-    /previousListTextLength = previousListItemIndex >= 0 \? listItemText\(previousItems\[previousListItemIndex\]\)\.length : 0[\s\S]*state\.pendingListFocus = \{ blockId: merged\.id, itemIndex: previousListItemIndex, caretOffset: previousListTextLength \}/,
-    'caret should land at the old end of the previous list item after text-to-list merge'
+    /state\.pendingListFocus = \{[\s\S]*caretOffset: merged\.focusCaretOffset[\s\S]*\}/,
+    'caret should land after any inserted separator after text-to-list merge'
   );
 });
 
