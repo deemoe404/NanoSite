@@ -631,8 +631,26 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const createCodeLanguageInput = \(block\) => \{[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
+  /const createCodeLanguageInput = \(block\) => \{[\s\S]*const lang = document\.createElement\('select'\);[\s\S]*lang\.className = 'blocks-code-language'[\s\S]*CODE_LANGUAGE_OPTIONS\.forEach\(\(value\) => appendOption\(value, labels\.get\(value\) \|\| value\)\);[\s\S]*lang\.addEventListener\('change', \(\) => updateFromControl\(block, \{ lang: lang\.value \}\)\);[\s\S]*if \(block\.type === 'code'\) \{[\s\S]*head\.appendChild\(createCodeLanguageInput\(block\)\);/,
   'code block language control should live in the floating block toolbar'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const CODE_LANGUAGE_OPTIONS = \['', 'plain', 'javascript', 'json', 'python', 'html', 'xml', 'css', 'markdown', 'bash', 'shell', 'yaml', 'yml', 'robots'\];/,
+  'code block language selector should expose only supported highlighter language options plus blank/plain'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const currentLang = String\(block\.data\.lang \|\| ''\)\.trim\(\);[\s\S]*const normalizedLang = currentLang\.toLowerCase\(\);[\s\S]*if \(currentLang && !CODE_LANGUAGE_OPTIONS\.includes\(normalizedLang\)\) \{[\s\S]*appendOption\(currentLang, `Unsupported: \$\{currentLang\}`, true\);[\s\S]*\}[\s\S]*lang\.value = CODE_LANGUAGE_OPTIONS\.includes\(normalizedLang\) \? normalizedLang : currentLang;/,
+  'code block language selector should normalize supported values and preserve unsupported legacy language values'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /lang\.type = 'text'|updateFromControl\(block, \{ lang: inputValue\(lang\) \}\)/,
+  'code block language selector should not keep the old free-text input path'
 );
 
 assert.doesNotMatch(
@@ -895,8 +913,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; \}/,
-  'code block language input should use compact floating-toolbar styling'
+  /\.blocks-block-head \.blocks-heading-level, \.blocks-block-head \.blocks-list-type-select, \.blocks-block-head \.blocks-code-language[\s\S]*\.blocks-block-head \.blocks-code-language \{ width:8\.5rem; max-width:26vw; cursor:pointer; \}/,
+  'code block language selector should use compact floating-toolbar styling'
 );
 
 assert.match(

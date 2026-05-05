@@ -1,6 +1,6 @@
 /**
  * 轻量级语法高亮器 - 简化版本
- * 支持常见编程语言：JavaScript, JSON, HTML, CSS, Python, Java, C/C++, Bash/Shell
+ * 支持常见编程语言：JavaScript, JSON, HTML/XML, CSS, Python, Markdown, Bash/Shell, YAML, robots.txt
  */
 
 // 简化的语言规则定义

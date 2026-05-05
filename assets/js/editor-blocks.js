@@ -1,4 +1,5 @@
 const BLOCK_TYPES = new Set(['paragraph', 'heading', 'image', 'list', 'quote', 'code', 'card', 'source']);
+const CODE_LANGUAGE_OPTIONS = ['', 'plain', 'javascript', 'json', 'python', 'html', 'xml', 'css', 'markdown', 'bash', 'shell', 'yaml', 'yml', 'robots'];
 
 function normalizeText(value) {
   return String(value == null ? '' : value).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -3570,14 +3571,32 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const createCodeLanguageInput = (block) => {
-    const lang = document.createElement('input');
+    const lang = document.createElement('select');
     lang.className = 'blocks-code-language';
-    lang.type = 'text';
-    lang.value = block.data.lang || '';
-    lang.placeholder = text('codeLanguage', 'Language');
     lang.title = text('codeLanguage', 'Language');
     lang.setAttribute('aria-label', text('codeLanguage', 'Language'));
-    lang.addEventListener('input', () => updateFromControl(block, { lang: inputValue(lang) }));
+    const currentLang = String(block.data.lang || '').trim();
+    const normalizedLang = currentLang.toLowerCase();
+    const labels = new Map([
+      ['', 'Auto / blank'],
+      ['plain', 'plain']
+    ]);
+    const appendOption = (value, label, unsupported = false) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label || value || 'Auto / blank';
+      if (unsupported) {
+        option.disabled = true;
+        option.dataset.unsupported = 'true';
+      }
+      lang.appendChild(option);
+    };
+    CODE_LANGUAGE_OPTIONS.forEach((value) => appendOption(value, labels.get(value) || value));
+    if (currentLang && !CODE_LANGUAGE_OPTIONS.includes(normalizedLang)) {
+      appendOption(currentLang, `Unsupported: ${currentLang}`, true);
+    }
+    lang.value = CODE_LANGUAGE_OPTIONS.includes(normalizedLang) ? normalizedLang : currentLang;
+    lang.addEventListener('change', () => updateFromControl(block, { lang: lang.value }));
     return lang;
   };
 
