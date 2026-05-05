@@ -1,5 +1,5 @@
 import { configureFetchCachePolicy } from './cache-control.js';
-import { createMarkdownBlocksEditor } from './editor-blocks.js?v=editor-saved-label-20260504';
+import { createMarkdownBlocksEditor } from './editor-blocks.js?v=blocks-code-gutter-enter-20260505';
 import { createHiEditor } from './hieditor.js';
 import { mdParse } from './markdown.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from './editor-markdown-ops.js';
@@ -13,7 +13,7 @@ import {
   valueIsPresent
 } from './frontmatter-document.js';
 import { getContentRoot, resolveImageSrc, setSafeHtml } from './utils.js?v=editor-preview-images-20260504';
-import { initSyntaxHighlighting } from './syntax-highlight.js';
+import { initSyntaxHighlighting } from './syntax-highlight.js?v=blocks-code-gutter-20260505';
 import { applyLazyLoadingIn, hydratePostImages, hydratePostVideos } from './post-render.js';
 import { hydrateInternalLinkCards } from './link-cards.js';
 import { applyLangHints } from './typography.js';
@@ -754,7 +754,7 @@ function renderPreview(mdText) {
       fetchMarkdown: fetchMarkdownForLinkCard
     }); } catch (_) {}
     try { hydratePostVideos(target); } catch (_) {}
-    try { initSyntaxHighlighting(); } catch (_) {}
+    try { initSyntaxHighlighting(target); } catch (_) {}
     try { applyPreviewAssetOverrides(target, previewAssetCurrentPath); } catch (_) {}
   } catch (_) {}
 }

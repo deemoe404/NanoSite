@@ -1,6 +1,6 @@
 /**
  * 轻量级语法高亮器 - 简化版本
- * 支持常见编程语言：JavaScript, JSON, HTML, CSS, Python, Java, C/C++, Bash/Shell
+ * 支持常见编程语言：JavaScript, JSON, HTML/XML, CSS, Python, Markdown, Bash/Shell, YAML, robots.txt
  */
 
 // 简化的语言规则定义
@@ -467,14 +467,18 @@ function detectLanguage(code) {
 }
 
 // 初始化语法高亮
-export function initSyntaxHighlighting() {
-  const codeBlocks = document.querySelectorAll('pre code');
+export function initSyntaxHighlighting(root = document) {
+  const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+  const codeBlocks = scope.querySelectorAll('pre code');
   
   codeBlocks.forEach(codeElement => {
     const preElement = codeElement.closest('pre');
     if (!preElement) return;
-    // Skip editor-internal pre blocks (handled by hieditor)
+    // Skip editor-internal code surfaces. Mutating contenteditable code resets the browser selection.
     if (preElement.classList && preElement.classList.contains('hi-pre')) return;
+    if (preElement.classList && preElement.classList.contains('blocks-code-preview')) return;
+    if (preElement.closest && preElement.closest('.markdown-blocks-shell')) return;
+    if (codeElement.isContentEditable || codeElement.getAttribute('contenteditable') === 'true') return;
     
     // 获取语言信息
     let language = null;
@@ -662,6 +666,10 @@ export function initSyntaxHighlighting() {
 
 // 导出函数
 export { simpleHighlight, detectLanguage };
+
+export function createSafeHighlightFragment(code, language) {
+  return toSafeFragment(simpleHighlight(code || '', language || 'plain'));
+}
 
 // 兼容性导出
 export function highlightCode(code, language) {

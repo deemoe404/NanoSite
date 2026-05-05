@@ -1,4 +1,9 @@
+import { createSafeHighlightFragment, detectLanguage } from './syntax-highlight.js';
+
 const BLOCK_TYPES = new Set(['paragraph', 'heading', 'image', 'list', 'quote', 'code', 'card', 'source']);
+const CODE_LANGUAGE_OPTIONS = ['', 'plain', 'javascript', 'json', 'python', 'html', 'xml', 'css', 'markdown', 'bash', 'shell', 'yaml', 'yml', 'robots'];
+const CODE_HIGHLIGHT_LANGUAGES = new Set(CODE_LANGUAGE_OPTIONS.filter(value => value && value !== 'plain'));
+const CODE_PLAIN_LANGUAGES = new Set(['plain', 'text', 'none', 'raw', 'nohighlight']);
 
 function normalizeText(value) {
   return String(value == null ? '' : value).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -1150,6 +1155,27 @@ function inputValue(input) {
   return input ? String(input.value || '') : '';
 }
 
+function resolveCodeHighlightLanguage(language, codeText) {
+  const raw = String(language || '').trim();
+  const normalized = raw.toLowerCase();
+  if (CODE_PLAIN_LANGUAGES.has(normalized)) {
+    return { language: 'plain', label: 'PLAIN', highlight: false };
+  }
+  if (CODE_HIGHLIGHT_LANGUAGES.has(normalized)) {
+    return { language: normalized, label: normalized.toUpperCase(), highlight: true };
+  }
+  if (normalized === 'htm') {
+    return { language: 'html', label: 'HTML', highlight: true };
+  }
+  if (!normalized) {
+    const detected = String(detectLanguage(String(codeText || '')) || '').toLowerCase();
+    if (CODE_HIGHLIGHT_LANGUAGES.has(detected)) {
+      return { language: detected, label: detected.toUpperCase(), highlight: true };
+    }
+  }
+  return { language: 'plain', label: 'PLAIN', highlight: false };
+}
+
 function normalizeEditableMarkdownText(value) {
   return String(value == null ? '' : value).replace(/\n{3,}/g, '\n\n');
 }
@@ -1470,9 +1496,56 @@ function placeCaretAtVisualLine(el, x, edge, fallbackOffset = 0) {
   }
 }
 
+function normalizeCodeEditablePlainText(value) {
+  return String(value == null ? '' : value)
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+}
+
 function codeEditableText(el) {
   if (!el) return '';
-  return String(el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
+  return normalizeCodeEditablePlainText(el.innerText || el.textContent || '').replace(/\n$/, '');
+}
+
+function codeEditableSelectionOffsets(el) {
+  const fallback = codeEditableText(el).length;
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!el || !sel || !sel.rangeCount) return { start: fallback, end: fallback };
+    const range = sel.getRangeAt(0);
+    if (!nodeContains(el, range.startContainer) || !nodeContains(el, range.endContainer)) {
+      return { start: fallback, end: fallback };
+    }
+    const startRange = document.createRange();
+    startRange.selectNodeContents(el);
+    startRange.setEnd(range.startContainer, range.startOffset);
+    const endRange = document.createRange();
+    endRange.selectNodeContents(el);
+    endRange.setEnd(range.endContainer, range.endOffset);
+    const start = normalizeCodeEditablePlainText(startRange.toString()).length;
+    const end = normalizeCodeEditablePlainText(endRange.toString()).length;
+    return {
+      start: Math.max(0, Math.min(start, end)),
+      end: Math.max(0, Math.max(start, end))
+    };
+  } catch (_) {
+    return { start: fallback, end: fallback };
+  }
+}
+
+function insertCodeEditableTextAtSelection(el, value) {
+  const current = codeEditableText(el);
+  const offsets = codeEditableSelectionOffsets(el);
+  const start = Math.max(0, Math.min(offsets.start, current.length));
+  const end = Math.max(start, Math.min(offsets.end, current.length));
+  const insert = String(value == null ? '' : value);
+  const next = `${current.slice(0, start)}${insert}${current.slice(end)}`;
+  if (el) {
+    el.textContent = next;
+    placeCaretAtTextOffset(el, start + insert.length);
+  }
+  return next;
 }
 
 function nodeContains(root, node) {
@@ -3523,14 +3596,32 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const createCodeLanguageInput = (block) => {
-    const lang = document.createElement('input');
+    const lang = document.createElement('select');
     lang.className = 'blocks-code-language';
-    lang.type = 'text';
-    lang.value = block.data.lang || '';
-    lang.placeholder = text('codeLanguage', 'Language');
     lang.title = text('codeLanguage', 'Language');
     lang.setAttribute('aria-label', text('codeLanguage', 'Language'));
-    lang.addEventListener('input', () => updateFromControl(block, { lang: inputValue(lang) }));
+    const currentLang = String(block.data.lang || '').trim();
+    const normalizedLang = currentLang.toLowerCase();
+    const labels = new Map([
+      ['', 'Auto / blank'],
+      ['plain', 'plain']
+    ]);
+    const appendOption = (value, label, unsupported = false) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label || value || 'Auto / blank';
+      if (unsupported) {
+        option.disabled = true;
+        option.dataset.unsupported = 'true';
+      }
+      lang.appendChild(option);
+    };
+    CODE_LANGUAGE_OPTIONS.forEach((value) => appendOption(value, labels.get(value) || value));
+    if (currentLang && !CODE_LANGUAGE_OPTIONS.includes(normalizedLang)) {
+      appendOption(currentLang, `Unsupported: ${currentLang}`, true);
+    }
+    lang.value = CODE_LANGUAGE_OPTIONS.includes(normalizedLang) ? normalizedLang : currentLang;
+    lang.addEventListener('change', () => updateFromControl(block, { lang: lang.value }, true));
     return lang;
   };
 
@@ -3538,6 +3629,95 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (!area) return;
     area.style.height = 'auto';
     area.style.height = `${area.scrollHeight}px`;
+  };
+
+  const renderCodeGutter = (gutter, value) => {
+    if (!gutter) return;
+    const lineCount = Math.max(1, String(value == null ? '' : value).split('\n').length);
+    if (gutter.childElementCount !== lineCount) {
+      const frag = document.createDocumentFragment();
+      for (let line = 1; line <= lineCount; line += 1) {
+        const span = document.createElement('span');
+        span.textContent = String(line);
+        frag.appendChild(span);
+      }
+      gutter.replaceChildren(frag);
+    } else {
+      Array.from(gutter.children).forEach((span, index) => {
+        const label = String(index + 1);
+        if (span.textContent !== label) span.textContent = label;
+      });
+    }
+  };
+
+  const codeLabelText = (key, fallback) => {
+    try {
+      return (window.__ns_t && typeof window.__ns_t === 'function') ? window.__ns_t(key) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  };
+
+  const createCodeLanguageLabel = (getCodeText) => {
+    const label = document.createElement('div');
+    label.className = 'syntax-language-label blocks-code-language-label';
+    label.dataset.lang = 'PLAIN';
+    label.textContent = 'PLAIN';
+    label.setAttribute('role', 'button');
+    label.setAttribute('tabindex', '0');
+    label.setAttribute('aria-label', codeLabelText('code.copyAria', 'Copy code'));
+
+    const restoreLabel = () => {
+      label.textContent = label.dataset.lang || 'PLAIN';
+    };
+    const copyCode = async () => {
+      const rawText = typeof getCodeText === 'function' ? String(getCodeText() || '') : '';
+      let ok = false;
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(rawText);
+          ok = true;
+        } catch (_) {
+          ok = false;
+        }
+      }
+      const old = label.dataset.lang || 'PLAIN';
+      label.classList.add('is-copied');
+      label.textContent = ok ? codeLabelText('code.copied', 'Copied').toUpperCase() : codeLabelText('code.failed', 'Failed').toUpperCase();
+      window.setTimeout(() => {
+        label.classList.remove('is-copied');
+        label.textContent = old;
+      }, 1200);
+    };
+
+    label.addEventListener('mouseenter', () => {
+      label.classList.add('is-hover');
+      label.textContent = codeLabelText('code.copy', 'Copy').toUpperCase();
+    });
+    label.addEventListener('mouseleave', () => {
+      label.classList.remove('is-hover');
+      restoreLabel();
+    });
+    label.addEventListener('click', copyCode);
+    label.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        copyCode();
+      }
+    });
+    return label;
+  };
+
+  const renderCodeHighlight = (highlight, label, value, language) => {
+    if (!highlight || !label) return;
+    const raw = String(value == null ? '' : value);
+    const meta = resolveCodeHighlightLanguage(language, raw);
+    highlight.className = `blocks-code-highlight language-${meta.language}`;
+    highlight.replaceChildren(createSafeHighlightFragment(raw, meta.highlight ? meta.language : 'plain'));
+    label.dataset.lang = meta.label || 'PLAIN';
+    if (!label.classList.contains('is-hover') && !label.classList.contains('is-copied')) {
+      label.textContent = label.dataset.lang;
+    }
   };
 
   const renderListBlock = (body, block, index) => {
@@ -3684,20 +3864,50 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const renderCodeBlock = (body, block, index) => {
     const pre = document.createElement('pre');
     pre.className = 'blocks-code-preview';
+    const scroll = document.createElement('div');
+    scroll.className = 'blocks-code-scroll';
+    const gutter = document.createElement('div');
+    gutter.className = 'blocks-code-gutter';
+    gutter.setAttribute('aria-hidden', 'true');
+    const surface = document.createElement('div');
+    surface.className = 'blocks-code-surface';
+    const highlight = document.createElement('code');
+    highlight.className = 'blocks-code-highlight language-plain';
+    highlight.setAttribute('aria-hidden', 'true');
     const code = document.createElement('code');
+    code.className = 'blocks-code-editable';
     code.contentEditable = 'true';
     code.spellcheck = false;
     code.textContent = block.data.text || '';
-    const sync = () => updateFromControl(block, { text: codeEditableText(code) });
+    const languageLabel = createCodeLanguageLabel(() => codeEditableText(code));
+    renderCodeGutter(gutter, block.data.text || '');
+    renderCodeHighlight(highlight, languageLabel, block.data.text || '', block.data.lang || '');
+    const sync = () => {
+      const text = codeEditableText(code);
+      updateFromControl(block, { text });
+      renderCodeGutter(gutter, text);
+      renderCodeHighlight(highlight, languageLabel, text, block.data.lang || '');
+    };
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
+    code.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+      event.preventDefault();
+      const text = insertCodeEditableTextAtSelection(code, '\n');
+      updateFromControl(block, { text });
+      renderCodeGutter(gutter, text);
+      renderCodeHighlight(highlight, languageLabel, text, block.data.lang || '');
+    });
     code.addEventListener('focus', () => setActive(index, code, sync));
     code.addEventListener('pointerdown', (event) => {
       if (event && event.button === 0 && event.isPrimary !== false) {
         activateEditableFromPointer(index, code, sync);
       }
     });
-    pre.appendChild(code);
+    surface.append(highlight, code);
+    scroll.append(gutter, surface);
+    pre.appendChild(scroll);
+    pre.appendChild(languageLabel);
     body.appendChild(pre);
   };
 
