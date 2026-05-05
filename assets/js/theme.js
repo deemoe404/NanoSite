@@ -273,7 +273,7 @@ function populateThemeControls(component) {
       .catch(() => {});
   } catch (_) {}
   try {
-    fetch('assets/themes/packs.json')
+    fetch('assets/themes/packs.json', { cache: 'no-store' })
       .then(r => r && r.ok ? r.json() : Promise.reject())
       .then(list => {
         component.setThemePacks(normalizePackList(list), getSavedThemePack());
@@ -282,11 +282,17 @@ function populateThemeControls(component) {
         component.setThemePacks(normalizePackList([
           { value: 'native', label: 'Native' },
           { value: 'arcus', label: 'Arcus' },
-          { value: 'solstice', label: 'Solstice' }
+          { value: 'solstice', label: 'Solstice' },
+          { value: 'cartograph', label: 'Cartograph' }
         ]), getSavedThemePack());
       });
   } catch (_) {
-    component.setThemePacks(normalizePackList([{ value: 'native', label: 'Native' }]), getSavedThemePack());
+    component.setThemePacks(normalizePackList([
+      { value: 'native', label: 'Native' },
+      { value: 'arcus', label: 'Arcus' },
+      { value: 'solstice', label: 'Solstice' },
+      { value: 'cartograph', label: 'Cartograph' }
+    ]), getSavedThemePack());
   }
 }
 

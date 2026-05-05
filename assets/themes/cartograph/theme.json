@@ -1,0 +1,209 @@
+{
+  "$schema": "../../schema/theme.json",
+  "name": "Cartograph",
+  "version": "3.4.0",
+  "contractVersion": 1,
+  "styles": [
+    "theme.css"
+  ],
+  "modules": [
+    "modules/layout.js",
+    "modules/views.js",
+    "modules/interactions.js"
+  ],
+  "views": {
+    "post": {
+      "hook": "renderPostView"
+    },
+    "posts": {
+      "hook": "renderIndexView"
+    },
+    "search": {
+      "hook": "renderSearchResults"
+    },
+    "tab": {
+      "hook": "renderStaticTabView"
+    },
+    "error": {
+      "hook": "renderErrorState"
+    },
+    "loading": {
+      "hooks": [
+        "renderPostLoadingState",
+        "renderStaticTabLoadingState"
+      ]
+    }
+  },
+  "regions": {
+    "main": {
+      "required": true,
+      "aliases": [
+        "mainview"
+      ]
+    },
+    "toc": {
+      "aliases": [
+        "tocview",
+        "legend"
+      ]
+    },
+    "search": {
+      "aliases": [
+        "searchInput",
+        "searchBox"
+      ]
+    },
+    "nav": {
+      "aliases": [
+        "tabsNav",
+        "navBox"
+      ]
+    },
+    "tags": {
+      "aliases": [
+        "tagview",
+        "tagBand"
+      ]
+    },
+    "footer": {
+      "required": true
+    },
+    "container": {
+      "required": true
+    },
+    "content": {},
+    "commandStrip": {},
+    "footerNav": {},
+    "header": {},
+    "legend": {},
+    "mainview": {},
+    "navBox": {},
+    "scrollContainer": {},
+    "searchBox": {},
+    "searchInput": {},
+    "sidebar": {},
+    "tagBand": {},
+    "tocview": {},
+    "toolsPanel": {},
+    "utilities": {
+      "aliases": [
+        "legend"
+      ]
+    }
+  },
+  "components": [
+    "nano-search",
+    "nano-theme-controls",
+    "nano-toc",
+    "nano-post-card"
+  ],
+  "scrollContainer": "region:scrollContainer",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true
+  },
+  "content": {
+    "shapes": [
+      "rawMarkdown",
+      "html",
+      "blocks",
+      "tocTree",
+      "headings",
+      "metadata",
+      "assets",
+      "links"
+    ]
+  },
+  "contract": {
+    "version": 1,
+    "regions": [
+      "container",
+      "content",
+      "commandStrip",
+      "footer",
+      "footerNav",
+      "header",
+      "legend",
+      "main",
+      "mainview",
+      "nav",
+      "navBox",
+      "scrollContainer",
+      "search",
+      "searchBox",
+      "searchInput",
+      "sidebar",
+      "tagBand",
+      "tags",
+      "toc",
+      "tocview",
+      "toolsPanel",
+      "utilities"
+    ],
+    "domIds": [
+      "mainview",
+      "searchInput",
+      "tabsNav",
+      "tagview",
+      "tocview"
+    ],
+    "hooks": [
+      "afterIndexRender",
+      "afterSearchRender",
+      "decoratePostView",
+      "enhanceIndexLayout",
+      "getScrollState",
+      "getViewContainer",
+      "handleDocumentClick",
+      "handleRouteScroll",
+      "handleViewChange",
+      "handleWindowResize",
+      "hideElement",
+      "reflectThemeConfig",
+      "renderErrorState",
+      "renderFooterNav",
+      "renderIndexView",
+      "renderPostLoadingState",
+      "renderPostTOC",
+      "renderPostView",
+      "renderSearchResults",
+      "renderSiteIdentity",
+      "renderSiteLinks",
+      "renderStaticTabLoadingState",
+      "renderStaticTabView",
+      "renderTagSidebar",
+      "renderTabs",
+      "resetThemeControls",
+      "resetTOC",
+      "resolveViewContainers",
+      "restoreScrollState",
+      "scrollToHash",
+      "setupFooter",
+      "setupResponsiveTabsObserver",
+      "setupThemeControls",
+      "showElement",
+      "updateSearchPlaceholder",
+      "updateLayoutLoadingState"
+    ],
+    "views": [
+      "post",
+      "posts",
+      "search",
+      "tab"
+    ],
+    "content": {
+      "markdown": "html",
+      "toc": "html",
+      "shapes": [
+        "rawMarkdown",
+        "html",
+        "blocks",
+        "tocTree",
+        "headings",
+        "metadata",
+        "assets",
+        "links"
+      ]
+    }
+  }
+}

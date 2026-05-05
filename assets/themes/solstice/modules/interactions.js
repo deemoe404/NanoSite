@@ -548,7 +548,9 @@ function populateThemePackOptions(documentRef = defaultDocument, windowRef = def
 
   const fallbackOptions = [
     { value: 'native', label: 'Native' },
-    { value: 'solstice', label: 'Solstice' }
+    { value: 'solstice', label: 'Solstice' },
+    { value: 'arcus', label: 'Arcus' },
+    { value: 'cartograph', label: 'Cartograph' }
   ];
 
   const seen = new Set();
@@ -605,7 +607,7 @@ function populateThemePackOptions(documentRef = defaultDocument, windowRef = def
   }
 
   try {
-    fetcher('assets/themes/packs.json')
+    fetcher('assets/themes/packs.json', { cache: 'no-store' })
       .then(response => {
         if (!response || !response.ok) throw new Error('packs.json fetch failed');
         return response.json();
