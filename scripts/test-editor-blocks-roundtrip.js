@@ -527,8 +527,8 @@ run('blank blocks use existing removable and cross-block navigation paths', () =
   );
   assert.match(
     editorBlocksSource,
-    /if \(block\.type === 'blank'\) \{[\s\S]*item\.appendChild\(renderBlockBody\(block, index\)\);[\s\S]*\} else \{[\s\S]*const head = document\.createElement\('div'\);/,
-    'blank blocks should render without the floating block toolbar'
+    /const head = document\.createElement\('div'\);[\s\S]*head\.className = 'blocks-block-head';[\s\S]*head\.appendChild\(actions\);[\s\S]*item\.append\(head, renderBlockBody\(block, index\)\);/,
+    'blank blocks should use the normal floating block toolbar'
   );
 });
 

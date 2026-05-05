@@ -2652,6 +2652,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
     makeItem(text('moveUp', 'Move up'), '', index === 0, () => moveBlock(index, -1));
     makeItem(text('moveDown', 'Move down'), '', index === state.blocks.length - 1, () => moveBlock(index, 1));
+    makeItem(text('addBefore', 'Add before'), '', false, () => insertBlankBlock(index));
+    makeItem(text('addAfter', 'Add after'), '', false, () => insertBlankBlock(index + 1));
     makeItem(text('delete', 'Delete'), 'blocks-action-menu-delete', false, () => deleteBlockAt(index));
 
     const openMenu = () => {
@@ -4756,44 +4758,40 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     item.dataset.type = block.type;
     item.dataset.blockId = block.id;
     item.tabIndex = -1;
-    if (block.type === 'blank') {
-      item.appendChild(renderBlockBody(block, index));
-    } else {
-      const head = document.createElement('div');
-      head.className = 'blocks-block-head';
-      const type = document.createElement('span');
-      type.className = 'blocks-block-type';
-      const typeLabel = text(block.type === 'card' ? 'articleCard' : block.type, block.type);
-      type.title = typeLabel;
-      type.setAttribute('role', 'img');
-      type.setAttribute('aria-label', typeLabel);
-      type.appendChild(createBlockTypeIcon(block.type));
-      const actions = createBlockActionMenu(index);
-      head.appendChild(type);
-      head.addEventListener('wheel', forwardBlockHeadWheel, { passive: false });
-      if (block.type === 'source') {
-        head.appendChild(createSourceReasonHelp(block, index));
-        if (canAutofixSourceBlock(block)) head.appendChild(createSourceAutofixButton(block, index));
-      }
-      if (block.type === 'heading') {
-        head.appendChild(createHeadingLevelSelect(block));
-      }
-      if (block.type === 'list') {
-        head.appendChild(createListTypeSelect(block, index));
-        head.appendChild(createListIndentControls(block, index));
-      }
-      if (block.type === 'code') {
-        head.appendChild(createCodeLanguageInput(block));
-      }
-      if (block.type === 'image') {
-        head.appendChild(createImageMetadataControls(block, index));
-      }
-      if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
-        head.appendChild(createInlineControls(index));
-      }
-      head.appendChild(actions);
-      item.append(head, renderBlockBody(block, index));
+    const head = document.createElement('div');
+    head.className = 'blocks-block-head';
+    const type = document.createElement('span');
+    type.className = 'blocks-block-type';
+    const typeLabel = text(block.type === 'card' ? 'articleCard' : block.type, block.type);
+    type.title = typeLabel;
+    type.setAttribute('role', 'img');
+    type.setAttribute('aria-label', typeLabel);
+    type.appendChild(createBlockTypeIcon(block.type));
+    const actions = createBlockActionMenu(index);
+    head.appendChild(type);
+    head.addEventListener('wheel', forwardBlockHeadWheel, { passive: false });
+    if (block.type === 'source') {
+      head.appendChild(createSourceReasonHelp(block, index));
+      if (canAutofixSourceBlock(block)) head.appendChild(createSourceAutofixButton(block, index));
     }
+    if (block.type === 'heading') {
+      head.appendChild(createHeadingLevelSelect(block));
+    }
+    if (block.type === 'list') {
+      head.appendChild(createListTypeSelect(block, index));
+      head.appendChild(createListIndentControls(block, index));
+    }
+    if (block.type === 'code') {
+      head.appendChild(createCodeLanguageInput(block));
+    }
+    if (block.type === 'image') {
+      head.appendChild(createImageMetadataControls(block, index));
+    }
+    if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
+      head.appendChild(createInlineControls(index));
+    }
+    head.appendChild(actions);
+    item.append(head, renderBlockBody(block, index));
     item.addEventListener('click', (event) => {
       if (shouldSuppressRoutedBlockContainerClick()) return;
       if (closestElement(event.target, '.blocks-block-head')) return;

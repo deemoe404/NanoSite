@@ -421,8 +421,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
-  'overflow menu items should preserve move/delete behavior and disabled edge states'
+  /makeItem\(text\('moveUp', 'Move up'\), '', index === 0, \(\) => moveBlock\(index, -1\)\);[\s\S]*makeItem\(text\('moveDown', 'Move down'\), '', index === state\.blocks\.length - 1, \(\) => moveBlock\(index, 1\)\);[\s\S]*makeItem\(text\('addBefore', 'Add before'\), '', false, \(\) => insertBlankBlock\(index\)\);[\s\S]*makeItem\(text\('addAfter', 'Add after'\), '', false, \(\) => insertBlankBlock\(index \+ 1\)\);[\s\S]*makeItem\(text\('delete', 'Delete'\), 'blocks-action-menu-delete', false, \(\) => deleteBlockAt\(index\)\);/,
+  'overflow menu items should preserve move/delete behavior and expose blank insertion before and after the block'
 );
 
 assert.match(
@@ -1051,8 +1051,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /if \(block\.type === 'blank'\) \{[\s\S]*item\.appendChild\(renderBlockBody\(block, index\)\);[\s\S]*\} else \{[\s\S]*type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
-  'block type badge should render an accessible SVG icon instead of visible uppercase type text'
+  /const head = document\.createElement\('div'\);[\s\S]*head\.className = 'blocks-block-head';[\s\S]*type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);[\s\S]*item\.append\(head, renderBlockBody\(block, index\)\);/,
+  'block type badge should render an accessible SVG icon for every block, including blank blocks'
 );
 
 assert.match(

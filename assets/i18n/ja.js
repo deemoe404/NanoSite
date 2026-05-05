@@ -348,6 +348,8 @@ const translations = {
         actions: 'その他の操作',
         moveUp: '上へ移動',
         moveDown: '下へ移動',
+        addBefore: '前に追加',
+        addAfter: '後に追加',
         delete: '削除',
         imageAlt: '代替テキスト',
         imagePath: '画像パス',
