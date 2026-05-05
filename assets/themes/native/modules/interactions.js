@@ -1,5 +1,4 @@
 import { installLightbox } from '../../../js/lightbox.js';
-import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
 import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
 import { attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
@@ -9,11 +8,64 @@ import { renderPostNav } from '../../../js/post-nav.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { applyLangHints } from '../../../js/typography.js';
-import { renderNanoPostCardHtml } from '../../../js/components.js';
+import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
 import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor } from '../../../js/theme.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
+
+let themeI18n = null;
+
+function setThemeI18n(context = {}) {
+  themeI18n = context && context.i18n && typeof context.i18n === 'object' ? context.i18n : null;
+}
+
+function getCurrentLang() {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.getCurrentLang === 'function') return i18n.getCurrentLang();
+    if (typeof i18n.lang === 'string' && i18n.lang.trim()) return i18n.lang.trim();
+  } catch (_) {}
+  try {
+    const lang = defaultDocument && defaultDocument.documentElement && defaultDocument.documentElement.getAttribute('lang');
+    if (lang) return lang;
+  } catch (_) {}
+  try {
+    const url = new URL((defaultWindow && defaultWindow.location && defaultWindow.location.href) || '');
+    const lang = url.searchParams.get('lang');
+    if (lang) return lang;
+  } catch (_) {}
+  return 'en';
+}
+
+function t(key, ...args) {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.t === 'function') return i18n.t(key, ...args);
+  } catch (_) {}
+  return args.length ? `${key} ${args.join(' ')}` : String(key || '');
+}
+
+function withLangParam(urlStr) {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.withLangParam === 'function') return i18n.withLangParam(urlStr);
+  } catch (_) {}
+  const raw = String(urlStr || '');
+  const lang = getCurrentLang();
+  try {
+    const win = defaultWindow;
+    const current = new URL((win && win.location && win.location.href) || 'https://example.test/');
+    const url = new URL(raw, current.href);
+    if (lang) url.searchParams.set('lang', lang);
+    if (url.origin === current.origin && url.pathname === current.pathname) return `${url.search}${url.hash}`;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    if (!lang) return raw;
+    const joiner = raw.includes('?') ? '&' : '?';
+    return `${raw}${joiner}lang=${encodeURIComponent(lang)}`;
+  }
+}
 
 let hasInitiallyRendered = false;
 let pendingHighlightRaf = 0;
@@ -21,6 +73,23 @@ let tabsResizeTimer = 0;
 let responsiveObserverBound = false;
 let lightboxInstalled = false;
 let masonryHandlersBound = false;
+
+const NATIVE_CARD_CLASSES = {
+  cardClass: 'nano-post-card',
+  withCoverClass: 'nano-post-card--with-cover',
+  linkClass: '',
+  bodyClass: '',
+  titleClass: 'card-title',
+  excerptClass: 'card-excerpt',
+  metaClass: 'card-meta',
+  dateClass: 'card-date',
+  versionsClass: 'card-versions',
+  draftClass: 'card-draft',
+  separatorClass: 'card-sep',
+  tagsClass: '',
+  metaPosition: 'after-excerpt',
+  wrapCard: 'false'
+};
 
 function getUtility(params = {}, key, fallback) {
   try {
@@ -531,7 +600,6 @@ function renderPostTOCNative(params = {}, documentRef = defaultDocument, windowR
   if (typeof toc.renderToc === 'function') {
     try { toc.setAttribute('toggle-label', translate('toc.toggleAria') || 'Toggle section'); } catch (_) {}
     toc.renderToc({
-      variant: 'native',
       articleTitle: title,
       tocHtml,
       topLabel: translate('ui.top'),
@@ -1225,7 +1293,6 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
     const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
     html += renderNanoPostCardHtml({
-      variant: 'native',
       title: String(key || ''),
       href,
       dataIdx: encodeURIComponent(key),
@@ -1233,7 +1300,8 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
       versionsLabel,
       draftLabel,
       coverHtml: cover,
-      tagsHtml: tag
+      tagsHtml: tag,
+      classes: NATIVE_CARD_CLASSES
     });
   }
   html += '</div>';
@@ -1358,7 +1426,6 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
     const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
     html += renderNanoPostCardHtml({
-      variant: 'native',
       title: String(key || ''),
       href,
       dataIdx: encodeURIComponent(key),
@@ -1366,7 +1433,8 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
       versionsLabel,
       draftLabel,
       coverHtml: cover,
-      tagsHtml: tag
+      tagsHtml: tag,
+      classes: NATIVE_CARD_CLASSES
     });
   }
   html += '</div>';
@@ -1836,6 +1904,7 @@ function setupResponsiveTabsObserverNative(params = {}) {
 }
 
 export function mount(context = {}) {
+  setThemeI18n(context);
   const windowRef = context.window || defaultWindow;
   const documentRef = context.document || defaultDocument;
 
@@ -1890,5 +1959,23 @@ export function mount(context = {}) {
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
-  return context;
+  return {
+    hooks,
+    views: {
+      post: hooks.renderPostView,
+      posts: hooks.renderIndexView,
+      search: hooks.renderSearchResults,
+      tab: hooks.renderStaticTabView
+    },
+    effects: hooks
+  };
 }
+
+export default {
+  mount,
+  unmount() {},
+  regions: {},
+  views: {},
+  components: {},
+  effects: {}
+};

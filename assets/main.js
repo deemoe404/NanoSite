@@ -1,11 +1,12 @@
 import { configureFetchCachePolicy } from './js/cache-control.js';
 import './js/components.js';
+import { createContentModel } from './js/content-model.js';
 import { mdParse } from './js/markdown.js';
 import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
-import { ensureThemeLayout } from './js/theme-layout.js';
+import { createThemeI18nContext, ensureThemeLayout, getThemeApiHandler, getThemeLayoutContext, getThemeRegion } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
-import { extractExcerpt, computeReadTime } from './js/content.js';
+import { extractExcerpt, computeReadTime, parseFrontMatter } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import {
   initI18n,
@@ -17,7 +18,7 @@ import {
   getCurrentLang,
   normalizeLangKey,
   POSTS_METADATA_READY_EVENT
-} from './js/i18n.js';
+} from './js/i18n.js?v=20260506theme';
 import { updateSEO, extractSEOFromMarkdown } from './js/seo.js';
 import { initErrorReporter, setReporterContext, showErrorOverlay } from './js/errors.js';
 import { initSyntaxHighlighting } from './js/syntax-highlight.js';
@@ -255,16 +256,40 @@ function bindSiteViewStatePersistence() {
 
 function getThemeHook(name) {
   try {
+    const apiHandler = getThemeApiHandler(name);
+    if (typeof apiHandler === 'function') return apiHandler;
     const hooks = (typeof window !== 'undefined') ? window.__ns_themeHooks : null;
     const fn = hooks && hooks[name];
     return typeof fn === 'function' ? fn : null;
   } catch (_) { return null; }
 }
 
+function isThemeDevMode() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('themeDev') === '1' || params.has('themeDev')) return true;
+  } catch (_) {}
+  try {
+    if (window.__ns_themeDevMode === true) return true;
+  } catch (_) {}
+  try {
+    return window.localStorage && window.localStorage.getItem('ns_theme_dev_mode') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 function callThemeHook(name, ...args) {
   const fn = getThemeHook(name);
   if (!fn) return undefined;
-  try { return fn(...args); } catch (_) { return undefined; }
+  try {
+    return fn(...args);
+  } catch (err) {
+    if (isThemeDevMode()) {
+      try { console.error(`[theme-dev] Hook "${name}" failed`, err); } catch (_) {}
+    }
+    return undefined;
+  }
 }
 
 function handlePostsMetadataReady(event) {
@@ -341,17 +366,30 @@ function bindPostsMetadataListener() {
 }
 
 function getViewContainer(view, role) {
+  let fromHook = null;
   try {
-    const fromHook = callThemeHook('getViewContainer', {
+    fromHook = callThemeHook('getViewContainer', {
       view,
       role,
       document,
       window
     });
-    return fromHook || null;
   } catch (_) {
-    return null;
+    fromHook = null;
   }
+  if (fromHook) return fromHook;
+  const namesByRole = {
+    main: ['main', 'mainview'],
+    toc: ['toc', 'tocBox', 'tocview'],
+    sidebar: ['sidebar', 'rightColumn', 'utilities'],
+    content: ['content', 'main'],
+    container: ['container'],
+    search: ['search', 'searchInput', 'searchBox'],
+    nav: ['nav', 'tabsNav', 'navBox'],
+    tags: ['tags', 'tagBox', 'tagview', 'tagBand'],
+    footer: ['footer']
+  };
+  return getThemeRegion(namesByRole[role] || role);
 }
 
 function getViewContainers(view) {
@@ -644,6 +682,8 @@ function renderTabs(activeSlug, searchQuery) {
     getHomeSlug: () => getHomeSlug(),
     getHomeLabel: () => getHomeLabel(),
     postsEnabled: () => postsEnabled(),
+    translate: t,
+    withLangParam,
     document,
     window
   });
@@ -662,6 +702,61 @@ function renderFooterNav() {
     document,
     window
   });
+}
+
+function createThemeRuntimeContext({
+  view = '',
+  containers = null,
+  content = null,
+  route = {}
+} = {}) {
+  const layout = getThemeLayoutContext();
+  return {
+    document,
+    window,
+    view,
+    route: {
+      key: getCurrentRouteKey(),
+      ...route
+    },
+    router: {
+      getRouteKey: getCurrentRouteKey,
+      withLangParam,
+      getQueryVariable,
+      navigate(href) {
+        try {
+          history.pushState({}, '', String(href || ''));
+          routeAndRender();
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+    },
+    i18n: createThemeI18nContext(),
+    content,
+    regions: layout && layout.regions,
+    containers,
+    utilities: {
+      getRegion: getThemeRegion,
+      renderPostNav,
+      hydratePostImages,
+      hydratePostVideos,
+      hydrateInternalLinkCards,
+      applyLazyLoadingIn,
+      applyLangHints,
+      renderPostTOC: (opts) => renderPostTOCBlock(opts),
+      renderTagSidebar,
+      setupAnchors,
+      setupTOC,
+      ensureAutoHeight,
+      getFile,
+      getContentRoot
+    },
+    themeConfig: siteConfig,
+    manifest: layout && layout.manifest,
+    theme: layout && layout.theme
+  };
 }
 
 function displayPost(postname) {
@@ -694,6 +789,17 @@ function displayPost(postname) {
     const baseDir = `${getContentRoot()}/${dir}`;
     const output = mdParse(markdown, baseDir);
     const fallbackTitle = postsByLocationTitle[postname] || postname;
+    const frontMatterMetadata = (() => {
+      try {
+        const frontMatter = parseFrontMatter(markdown).frontMatter || {};
+        const normalized = { ...frontMatter };
+        if (normalized.tags != null && normalized.tag == null) normalized.tag = normalized.tags;
+        if (normalized.version != null && normalized.versionLabel == null) normalized.versionLabel = normalized.version;
+        return normalized;
+      } catch (_) {
+        return {};
+      }
+    })();
 
     let postEntry = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname);
     let postMetadata = postEntry ? { ...postEntry[1] } : {};
@@ -716,12 +822,39 @@ function displayPost(postname) {
       const resolvedTitle = postsByLocationTitle[postname] || fallbackTitle;
       if (resolvedTitle) postMetadata.title = resolvedTitle;
     }
+    postMetadata = {
+      ...postMetadata,
+      ...frontMatterMetadata,
+      location: postname
+    };
+    const content = createContentModel({
+      rawMarkdown: markdown,
+      html: output.post,
+      tocHtml: output.toc,
+      metadata: {
+        ...postMetadata,
+        title: postMetadata.title || fallbackTitle,
+        location: postname
+      },
+      baseDir,
+      location: postname,
+      title: postMetadata.title || fallbackTitle
+    });
+    const runtimeContext = createThemeRuntimeContext({
+      view: 'post',
+      containers,
+      content,
+      route: { id: postname, title: postMetadata.title || fallbackTitle }
+    });
 
     const hookResult = callThemeHook('renderPostView', {
       view: 'post',
       containers,
+      ctx: runtimeContext,
+      content,
       markdownHtml: output.post,
       tocHtml: output.toc,
+      rawMarkdown: markdown,
       markdown,
       fallbackTitle,
       postMetadata,
@@ -956,9 +1089,15 @@ function displayIndex(parsed) {
   } catch (_) { /* ignore pagination hook issues */ }
 
   const mainview = containers.mainElement || getViewContainer('posts', 'main');
+  const runtimeContext = createThemeRuntimeContext({
+    view: 'posts',
+    containers,
+    route: { page }
+  });
   callThemeHook('renderIndexView', {
     view: 'posts',
     containers,
+    ctx: runtimeContext,
     container: mainview,
     entries,
     pageEntries,
@@ -1091,9 +1230,15 @@ function displaySearch(query) {
   } catch (_) { /* ignore pagination hook issues */ }
 
   const mainview = containers.mainElement || getViewContainer('search', 'main');
+  const runtimeContext = createThemeRuntimeContext({
+    view: 'search',
+    containers,
+    route: { query: q, tag: tagFilter, page }
+  });
   callThemeHook('renderSearchResults', {
     view: 'search',
     containers,
+    ctx: runtimeContext,
     container: mainview,
     entries: pageEntries,
     total,
@@ -1170,12 +1315,34 @@ function displayStaticTab(slug) {
       const dir = (tab.location.lastIndexOf('/') >= 0) ? tab.location.slice(0, tab.location.lastIndexOf('/') + 1) : '';
       const baseDir = `${getContentRoot()}/${dir}`;
       const output = mdParse(md, baseDir);
+      const content = createContentModel({
+        rawMarkdown: md,
+        html: output.post,
+        tocHtml: output.toc,
+        metadata: {
+          title: tab.title,
+          author: tab.author || 'NanoSite',
+          location: tab.location
+        },
+        baseDir,
+        location: tab.location,
+        title: tab.title
+      });
+      const runtimeContext = createThemeRuntimeContext({
+        view: 'tab',
+        containers,
+        content,
+        route: { tab: slug, title: tab.title }
+      });
 
       const hookResult = callThemeHook('renderStaticTabView', {
         view: 'tab',
         containers,
+        ctx: runtimeContext,
+        content,
         markdownHtml: output.post,
         tocHtml: output.toc,
+        rawMarkdown: md,
         markdown: md,
         tab,
         slug,

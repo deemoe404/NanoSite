@@ -1,8 +1,26 @@
-import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260505welcome';
-import './components.js';
+import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260506theme';
+import { getThemeRegion } from './theme-regions.js';
 
 const PACK_LINK_ID = 'theme-pack';
 const THEME_CONTROLS_BOUND = Symbol('nanoThemeControlsBound');
+const THEME_CONTROLS_I18N_BOUND = Symbol('nanoThemeControlsI18nBound');
+let componentsReady = null;
+
+function ensureNanoComponents() {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || typeof customElements === 'undefined') return null;
+  try {
+    if (customElements.get('nano-theme-controls')) return null;
+  } catch (_) {
+    return null;
+  }
+  if (!componentsReady) {
+    componentsReady = import('./components.js').catch((err) => {
+      console.warn('[theme] Failed to load nano components', err);
+      return null;
+    });
+  }
+  return componentsReady;
+}
 
 // Restrict theme pack names to safe slug format and default to 'native'.
 function sanitizePack(input) {
@@ -174,6 +192,12 @@ function getLanguageOptions() {
   }));
 }
 
+function refreshThemeControlsLanguages(component) {
+  if (!component || typeof component.setLanguages !== 'function') return;
+  try { component.setLabels(getThemeControlLabels()); } catch (_) {}
+  try { component.setLanguages(getLanguageOptions(), getCurrentLang()); } catch (_) {}
+}
+
 function openPostEditor() {
   const editorUrl = 'index_editor.html';
   let popup = null;
@@ -193,6 +217,15 @@ function openPostEditor() {
 function bindThemeControlsComponent(component) {
   if (!component || component[THEME_CONTROLS_BOUND]) return;
   component[THEME_CONTROLS_BOUND] = true;
+  if (!component[THEME_CONTROLS_I18N_BOUND] && typeof window !== 'undefined') {
+    component[THEME_CONTROLS_I18N_BOUND] = true;
+    window.addEventListener('ns:i18n-bundle-loaded', () => {
+      try {
+        if (!component.isConnected) return;
+        refreshThemeControlsLanguages(component);
+      } catch (_) {}
+    });
+  }
   component.addEventListener('nano:theme-toggle', () => {
     const dark = document.documentElement.getAttribute('data-theme') === 'dark';
     if (dark) document.documentElement.removeAttribute('data-theme');
@@ -233,10 +266,14 @@ function bindThemeControlsComponent(component) {
 
 function populateThemeControls(component) {
   if (!component) return;
-  try { component.setLabels(getThemeControlLabels()); } catch (_) {}
-  try { component.setLanguages(getLanguageOptions(), getCurrentLang()); } catch (_) {}
+  refreshThemeControlsLanguages(component);
   try {
-    fetch('assets/themes/packs.json')
+    ensureLanguageBundle(getCurrentLang())
+      .then(() => { refreshThemeControlsLanguages(component); })
+      .catch(() => {});
+  } catch (_) {}
+  try {
+    fetch('assets/themes/packs.json', { cache: 'no-store' })
       .then(r => r && r.ok ? r.json() : Promise.reject())
       .then(list => {
         component.setThemePacks(normalizePackList(list), getSavedThemePack());
@@ -245,11 +282,17 @@ function populateThemeControls(component) {
         component.setThemePacks(normalizePackList([
           { value: 'native', label: 'Native' },
           { value: 'arcus', label: 'Arcus' },
-          { value: 'solstice', label: 'Solstice' }
+          { value: 'solstice', label: 'Solstice' },
+          { value: 'cartograph', label: 'Cartograph' }
         ]), getSavedThemePack());
       });
   } catch (_) {
-    component.setThemePacks(normalizePackList([{ value: 'native', label: 'Native' }]), getSavedThemePack());
+    component.setThemePacks(normalizePackList([
+      { value: 'native', label: 'Native' },
+      { value: 'arcus', label: 'Arcus' },
+      { value: 'solstice', label: 'Solstice' },
+      { value: 'cartograph', label: 'Cartograph' }
+    ]), getSavedThemePack());
   }
 }
 
@@ -259,6 +302,7 @@ function populateThemeControls(component) {
 export function mountThemeControls(options = {}) {
   const opts = options && typeof options === 'object' ? options : {};
   const variant = String(opts.variant || document.body.dataset.themeLayout || 'native').toLowerCase();
+  const componentImport = ensureNanoComponents();
   let component = null;
   const host = opts.host || null;
 
@@ -284,16 +328,26 @@ export function mountThemeControls(options = {}) {
       const sidebar = document.querySelector('.sidebar');
       if (!sidebar) return null;
       component = document.createElement('nano-theme-controls');
-      const toc = document.getElementById('tocview');
+      const toc = getThemeRegion(['toc', 'tocBox', 'tocview'], '#tocview');
       if (toc && toc.parentElement === sidebar) sidebar.insertBefore(component, toc);
       else sidebar.appendChild(component);
     }
   }
 
-  component.setAttribute('variant', variant);
-  try { if (typeof component.render === 'function') component.render(); } catch (_) {}
-  bindThemeControlsComponent(component);
-  populateThemeControls(component);
+  const finish = () => {
+    component.setAttribute('variant', variant);
+    const upgraded = typeof component.render === 'function' && typeof component.setLabels === 'function';
+    if (!upgraded && componentImport) return;
+    try { if (typeof component.render === 'function') component.render(); } catch (_) {}
+    bindThemeControlsComponent(component);
+    if (upgraded) populateThemeControls(component);
+  };
+  finish();
+  if (componentImport && typeof componentImport.then === 'function') {
+    componentImport.then(() => {
+      try { finish(); } catch (_) {}
+    });
+  }
   return component;
 }
 
@@ -302,8 +356,7 @@ export function refreshLanguageSelector() {
   const component = getThemeControlsElement(document);
   if (component && typeof component.setLanguages === 'function') {
     try {
-      component.setLabels(getThemeControlLabels());
-      component.setLanguages(getLanguageOptions(), getCurrentLang());
+      refreshThemeControlsLanguages(component);
       component.setCurrentPack(getSavedThemePack());
       return;
     } catch (_) {}

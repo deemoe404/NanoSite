@@ -1,8 +1,9 @@
-import { t } from './i18n.js?v=20260505welcome';
+import { t } from './i18n.js?v=20260506theme';
+import { getThemeRegion } from './theme-regions.js';
 
 // Anchors and Table of Contents enhancements
 export function setupAnchors() {
-  const container = document.getElementById('mainview');
+  const container = getThemeRegion(['main', 'mainview'], '#mainview');
   if (!container) return;
   const headings = container.querySelectorAll('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]');
   headings.forEach(h => {
@@ -32,7 +33,7 @@ export function setupAnchors() {
 }
 
 export function setupTOC() {
-  const tocRoot = document.getElementById('tocview');
+  const tocRoot = getThemeRegion(['toc', 'tocBox', 'tocview'], '#tocview');
   if (!tocRoot) return;
   if (typeof tocRoot.enhance === 'function') {
     try { tocRoot.enhance(); } catch (_) {}
@@ -82,7 +83,8 @@ export function setupTOC() {
   });
 
   // Track H2 and H3 headings
-  const headings = Array.from(document.querySelectorAll('#mainview h2[id], #mainview h3[id]'));
+  const mainRoot = getThemeRegion(['main', 'mainview'], '#mainview') || document;
+  const headings = Array.from(mainRoot.querySelectorAll('h2[id], h3[id]'));
   const trackable = new Set(headings.map(h => h.id));
   const onActive = (id) => {
     tocRoot.querySelectorAll('a.active').forEach(x => x.classList.remove('active'));

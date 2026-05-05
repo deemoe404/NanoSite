@@ -57,6 +57,8 @@ bash scripts/test-frontmatter-roundtrip.sh
 bash scripts/test-system-release-package.sh
 bash scripts/test-system-release-workflow.sh
 node --experimental-default-type=module scripts/test-system-updates.js
+node --experimental-default-type=module scripts/test-theme-contracts.js
+node scripts/test-content-model.js
 ```
 
 ## System Releases

@@ -1,5 +1,6 @@
 // Tag utilities: aggregation, rendering (collapsible), and tooltips for truncated tags
-import { t, withLangParam } from './i18n.js?v=20260505welcome';
+import { t, withLangParam } from './i18n.js?v=20260506theme';
+import { getThemeRegion } from './theme-regions.js';
 import { getQueryVariable, escapeHtml } from './utils.js';
 
 // Build a sorted list of tags with counts from an index map
@@ -26,7 +27,7 @@ export function aggregateTags(indexMap) {
 
 // Render the tag sidebar with collapse/expand and ensure the active tag remains visible
 export function renderTagSidebar(indexMap) {
-  const root = document.getElementById('tagview');
+  const root = getThemeRegion(['tags', 'tagview', 'tagBox', 'tagBand'], '#tagview');
   if (!root) return;
   const items = aggregateTags(indexMap);
   const currentTag = (getQueryVariable('tag') || '').trim().toLowerCase();
@@ -37,9 +38,9 @@ export function renderTagSidebar(indexMap) {
   const lis = items.map(({ label, count }) => {
     const isActive = label.trim().toLowerCase() === currentTag;
     const href = withLangParam(`?tab=search&tag=${encodeURIComponent(label)}`);
-    return `<li><a class="tag-link${isActive ? ' active' : ''}" href="${href}"><span class="tag-name">${escapeHtml(label)}</span><span class="tag-count">${count}</span></a></li>`;
+    return `<li><a class="tag-link${isActive ? ' active' : ''}" href="${href}" data-tag="${escapeHtml(label)}"><span class="tag-name">${escapeHtml(label)}</span><span class="tag-count">${count}</span></a></li>`;
   }).join('');
-  const allItem = `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}"><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>`;
+  const allItem = `<li><a class="tag-link all${currentTag ? '' : ' active'}" href="${allHref}" data-tag=""><span class="tag-name">${t('ui.allTags')}</span><span class="tag-count">${total}</span></a></li>`;
   root.innerHTML = header + `
     <div class="tagbox">
       <ul class="tag-list compact" data-collapsed="true">
@@ -71,6 +72,20 @@ export function renderTagSidebar(indexMap) {
       list.dataset.collapsed = collapsed ? 'true' : 'false';
       toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
       toggle.textContent = collapsed ? t('ui.more') : t('ui.less');
+    });
+    root.querySelectorAll('.tag-link[data-tag]').forEach((link) => {
+      link.addEventListener('click', () => {
+        try {
+          root.dispatchEvent(new CustomEvent('nano:tag-select', {
+            detail: {
+              tag: link.getAttribute('data-tag') || '',
+              href: link.getAttribute('href') || ''
+            },
+            bubbles: true,
+            composed: true
+          }));
+        } catch (_) {}
+      });
     });
     requestAnimationFrame(() => ensureVisible());
 

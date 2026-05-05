@@ -12,6 +12,11 @@
   --code-text: #e5e7eb;
   --hr: #e5e7eb;
   --shadow: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.06), 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.04);
+  --ns-color-text: var(--text);
+  --ns-color-surface: var(--card);
+  --ns-font-body: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --ns-radius-card: 0.75rem;
+  --ns-space-page: 1.5rem;
   /* Serif stack for article-like body text (theme packs may override) */
   --article-serif-stack: Georgia, "Times New Roman", Times, "Noto Serif CJK SC", "Source Han Serif SC", "Noto Serif", "STSong", serif;
   /* Callout palette */
@@ -38,6 +43,8 @@
   --code-text: #e5e7eb;
   --hr: #1f2937;
   --shadow: 0 0.0625rem 0.125rem rgba(0,0,0,.3);
+  --ns-color-text: var(--text);
+  --ns-color-surface: var(--card);
   /* Dark theme callout tones (slightly brighter) */
   --callout-note: #60a5fa;
   --callout-info: #38bdf8;

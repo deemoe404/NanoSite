@@ -1,9 +1,12 @@
-// Simple, dependency-free image lightbox for #mainview
+import { getThemeRegion } from './theme-regions.js';
+
+// Simple, dependency-free image lightbox for the article region
 // Usage: import { installLightbox } from './js/lightbox.js'; installLightbox({ root: '#mainview' });
 
 export function installLightbox(opts = {}) {
   const rootSelector = opts.root || '#mainview';
-  const root = () => document.querySelector(rootSelector) || document;
+  const regionNames = opts.rootRegion || (rootSelector === '#mainview' ? ['main', 'mainview'] : []);
+  const root = () => getThemeRegion(regionNames, rootSelector) || document;
 
   // Create overlay once
   let overlay = document.getElementById('ns-lightbox');

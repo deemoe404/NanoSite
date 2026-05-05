@@ -1,4 +1,3 @@
-import { t, withLangParam, getCurrentLang, switchLanguage } from '../../../js/i18n.js';
 import {
   renderTags,
   escapeHtml,
@@ -23,14 +22,81 @@ import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCo
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
-import { renderNanoPostCardHtml } from '../../../js/components.js';
+import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
 
 const CLASS_HIDDEN = 'is-hidden';
 
+let themeI18n = null;
 let currentSiteConfig = null;
+
+function setThemeI18n(context = {}) {
+  themeI18n = context && context.i18n && typeof context.i18n === 'object' ? context.i18n : null;
+}
+
+function getCurrentLang() {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.getCurrentLang === 'function') return i18n.getCurrentLang();
+    if (typeof i18n.lang === 'string' && i18n.lang.trim()) return i18n.lang.trim();
+  } catch (_) {}
+  try {
+    const lang = defaultDocument && defaultDocument.documentElement && defaultDocument.documentElement.getAttribute('lang');
+    if (lang) return lang;
+  } catch (_) {}
+  try {
+    const url = new URL((defaultWindow && defaultWindow.location && defaultWindow.location.href) || '');
+    const lang = url.searchParams.get('lang');
+    if (lang) return lang;
+  } catch (_) {}
+  return 'en';
+}
+
+function t(key, ...args) {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.t === 'function') return i18n.t(key, ...args);
+  } catch (_) {}
+  return args.length ? `${key} ${args.join(' ')}` : String(key || '');
+}
+
+function withLangParam(urlStr) {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.withLangParam === 'function') return i18n.withLangParam(urlStr);
+  } catch (_) {}
+  const raw = String(urlStr || '');
+  const lang = getCurrentLang();
+  try {
+    const win = defaultWindow;
+    const current = new URL((win && win.location && win.location.href) || 'https://example.test/');
+    const url = new URL(raw, current.href);
+    if (lang) url.searchParams.set('lang', lang);
+    if (url.origin === current.origin && url.pathname === current.pathname) return `${url.search}${url.hash}`;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    if (!lang) return raw;
+    const joiner = raw.includes('?') ? '&' : '?';
+    return `${raw}${joiner}lang=${encodeURIComponent(lang)}`;
+  }
+}
+
+const ARCUS_CARD_CLASSES = {
+  cardClass: 'arcus-card',
+  withCoverClass: 'arcus-card--with-cover',
+  linkClass: 'arcus-card__link',
+  bodyClass: 'arcus-card__body',
+  titleClass: 'arcus-card__title',
+  excerptClass: 'arcus-card__excerpt',
+  excerptInnerClass: 'arcus-card__excerpt-tilt',
+  metaClass: 'arcus-card__meta-line',
+  dateClass: 'arcus-card__meta-date',
+  separatorClass: 'arcus-card__meta-separator',
+  tagsClass: 'arcus-card__tags',
+  metaPosition: 'before-title'
+};
 
 function getScrollContainer(documentRef = defaultDocument) {
   if (!documentRef || typeof documentRef.querySelector !== 'function') return null;
@@ -425,13 +491,13 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
   return renderNanoPostCardHtml({
-    variant: 'arcus',
     title: String(title || 'Untitled'),
     href: link,
     date,
     excerpt,
     coverHtml,
-    tagsHtml: tags
+    tagsHtml: tags,
+    classes: ARCUS_CARD_CLASSES
   });
 }
 
@@ -741,7 +807,8 @@ function populateThemePackOptions(documentRef = defaultDocument, windowRef = def
   const fallbackOptions = [
     { value: 'native', label: 'Native' },
     { value: 'solstice', label: 'Solstice' },
-    { value: 'arcus', label: 'Arcus' }
+    { value: 'arcus', label: 'Arcus' },
+    { value: 'cartograph', label: 'Cartograph' }
   ];
 
   const seen = new Set();
@@ -798,7 +865,7 @@ function populateThemePackOptions(documentRef = defaultDocument, windowRef = def
   }
 
   try {
-    fetcher('assets/themes/packs.json')
+    fetcher('assets/themes/packs.json', { cache: 'no-store' })
       .then(response => {
         if (!response || !response.ok) throw new Error('packs.json fetch failed');
         return response.json();
@@ -1212,7 +1279,6 @@ function showToc(tocEl, tocHtml, articleTitle) {
   }
   if (typeof tocEl.renderToc === 'function') {
     tocEl.renderToc({
-      variant: 'arcus',
       articleTitle: articleTitle || t('ui.tableOfContents'),
       tocHtml,
       contentSelector: '#mainview'
@@ -1639,12 +1705,31 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
 }
 
 export function mount(context = {}) {
+  setThemeI18n(context);
   const doc = context.document || defaultDocument;
   const win = (context.document && context.document.defaultView) || defaultWindow;
-  mountHooks(doc, win);
+  const hooks = mountHooks(doc, win);
   updateSearchPlaceholder(doc);
   setupToolsPanel(doc, win);
   setupDynamicBackground(doc, win);
   setupBackToTop(doc, win);
-  return context;
+  return {
+    hooks,
+    views: {
+      post: hooks.renderPostView,
+      posts: hooks.renderIndexView,
+      search: hooks.renderSearchResults,
+      tab: hooks.renderStaticTabView
+    },
+    effects: hooks
+  };
 }
+
+export default {
+  mount,
+  unmount() {},
+  regions: {},
+  views: {},
+  components: {},
+  effects: {}
+};

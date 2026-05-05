@@ -1,4 +1,5 @@
 // DOM-related pure helpers (no side effects)
+import { getThemeRegion } from './theme-regions.js';
 
 // Read-only media preference: prefers-reduced-motion
 export function prefersReducedMotion() {
@@ -13,9 +14,10 @@ export function prefersReducedMotion() {
   }
 }
 
-// Extract the first heading text within #mainview (H1/H2/H3)
+// Extract the first heading text within the article region (H1/H2/H3)
 export function getArticleTitleFromMain() {
-  const h = document.querySelector('#mainview h1, #mainview h2, #mainview h3');
+  const root = getThemeRegion(['main', 'mainview'], '#mainview') || document;
+  const h = root.querySelector('h1, h2, h3');
   if (!h) return null;
   const clone = h.cloneNode(true);
   const anchors = clone.querySelectorAll('a.anchor');
@@ -23,4 +25,3 @@ export function getArticleTitleFromMain() {
   const text = (clone.textContent || '').replace(/\s+/g, ' ').trim();
   return text.replace(/^#+\s*/, '').trim();
 }
-

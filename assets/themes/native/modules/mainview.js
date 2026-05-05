@@ -14,7 +14,7 @@ export function mount(context = {}) {
     mainview.classList.add('box');
   }
 
-  const updatedRegions = { ...regions, mainview };
+  const updatedRegions = { ...regions, main: mainview, mainview };
   context.regions = updatedRegions;
   return { regions: updatedRegions };
 }

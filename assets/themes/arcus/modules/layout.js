@@ -161,13 +161,15 @@ export function mount(context = {}) {
     const el = doc.createElement('nano-toc');
     el.id = TOCVIEW_ID;
     el.className = 'arcus-toc';
-    el.setAttribute('variant', 'arcus');
     el.setAttribute('aria-label', 'Table of contents');
     el.hidden = true;
     return el;
   });
   if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
-    tocview.setAttribute('variant', 'arcus');
+    tocview.setAttribute('inner-class', 'arcus-toc__inner');
+    tocview.setAttribute('title-class', 'arcus-toc__title');
+    tocview.setAttribute('show-top', 'false');
+    tocview.removeAttribute('variant');
   }
 
   let tagBand = rightColumn.querySelector(`#${TAGVIEW_ID}`);
@@ -218,12 +220,14 @@ export function mount(context = {}) {
     const el = doc.createElement('nano-search');
     el.className = 'arcus-utility__search';
     el.setAttribute('aria-label', 'Search');
-    el.setAttribute('variant', 'arcus');
     return el;
   });
 
   if (searchSection.tagName && searchSection.tagName.toLowerCase() === 'nano-search') {
-    searchSection.setAttribute('variant', 'arcus');
+    searchSection.setAttribute('field-class', 'arcus-search');
+    searchSection.setAttribute('icon-class', 'arcus-search__icon');
+    searchSection.setAttribute('icon', '\uD83D\uDD0D');
+    searchSection.removeAttribute('variant');
   }
 
   if (searchSection.parentElement !== rightColumn) {
@@ -291,10 +295,14 @@ export function mount(context = {}) {
     main,
     content: main,
     mainview,
+    nav: header.querySelector(`#${NAV_ID}`),
+    search: searchSection,
+    searchInput: searchSection.input || searchSection.querySelector('input[type="search"]'),
     toc: tocview,
     footer,
     utilities,
     footerNav: footer.querySelector(`#${FOOTER_NAV_ID}`),
+    tags: tagBand,
     tagBand,
     toolsPanel: utilities.querySelector('#toolsPanel'),
     scrollContainer: rightColumn

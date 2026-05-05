@@ -1,3 +1,5 @@
+import { getThemeRegion } from './theme-regions.js';
+
 const LEGACY_SEARCH_BOUND = Symbol('nanoLegacySearchBound');
 let componentSearchBound = false;
 
@@ -34,7 +36,7 @@ export function bindSearchEvents(root = document) {
 export function setupSearch() {
   bindSearchEvents(document);
 
-  const input = document.getElementById('searchInput');
+  const input = getThemeRegion(['search', 'searchInput'], '#searchInput');
   if (!input || input.closest('nano-search') || input[LEGACY_SEARCH_BOUND]) return;
   input[LEGACY_SEARCH_BOUND] = true;
   input.addEventListener('keydown', (event) => {

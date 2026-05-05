@@ -14,7 +14,7 @@ export function mount(context = {}) {
     tagBox.classList.add('box');
   }
 
-  const updatedRegions = { ...regions, tagBox };
+  const updatedRegions = { ...regions, tags: tagBox, tagBox };
   context.regions = updatedRegions;
   return { regions: updatedRegions };
 }
