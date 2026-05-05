@@ -179,6 +179,9 @@ if (!/i18n:\s*createThemeI18nContext\(\)/.test(mainSource)) {
 if (!/renderPostView[\s\S]*content,[\s\S]*rawMarkdown/.test(mainSource)) {
   fail('assets/main.js must pass the structured content model into post view rendering');
 }
+if (!/parseFrontMatter/.test(mainSource) || !/frontMatterMetadata[\s\S]*postMetadata\s*=\s*\{[\s\S]*\.\.\.frontMatterMetadata[\s\S]*location:\s*postname/.test(mainSource)) {
+  fail('assets/main.js must merge the current post front matter into legacy post metadata before theme rendering');
+}
 if (!/renderStaticTabView[\s\S]*content,[\s\S]*rawMarkdown/.test(mainSource)) {
   fail('assets/main.js must pass the structured content model into tab view rendering');
 }

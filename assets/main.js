@@ -6,7 +6,7 @@ import { setupAnchors, setupTOC } from './js/toc.js';
 import { applySavedTheme, bindThemeToggle, bindThemePackPicker, mountThemeControls, refreshLanguageSelector, applyThemeConfig, bindPostEditor } from './js/theme.js';
 import { createThemeI18nContext, ensureThemeLayout, getThemeApiHandler, getThemeLayoutContext, getThemeRegion } from './js/theme-layout.js';
 import { setupSearch } from './js/search.js';
-import { extractExcerpt, computeReadTime } from './js/content.js';
+import { extractExcerpt, computeReadTime, parseFrontMatter } from './js/content.js';
 import { getQueryVariable, setDocTitle, setBaseSiteTitle, cardImageSrc, fallbackCover, renderTags, slugifyTab, formatDisplayDate, isModifiedClick, getContentRoot, sanitizeImageUrl, sanitizeUrl } from './js/utils.js';
 import {
   initI18n,
@@ -789,6 +789,17 @@ function displayPost(postname) {
     const baseDir = `${getContentRoot()}/${dir}`;
     const output = mdParse(markdown, baseDir);
     const fallbackTitle = postsByLocationTitle[postname] || postname;
+    const frontMatterMetadata = (() => {
+      try {
+        const frontMatter = parseFrontMatter(markdown).frontMatter || {};
+        const normalized = { ...frontMatter };
+        if (normalized.tags != null && normalized.tag == null) normalized.tag = normalized.tags;
+        if (normalized.version != null && normalized.versionLabel == null) normalized.versionLabel = normalized.version;
+        return normalized;
+      } catch (_) {
+        return {};
+      }
+    })();
 
     let postEntry = (Object.entries(postsIndexCache || {}) || []).find(([, v]) => v && v.location === postname);
     let postMetadata = postEntry ? { ...postEntry[1] } : {};
@@ -811,6 +822,11 @@ function displayPost(postname) {
       const resolvedTitle = postsByLocationTitle[postname] || fallbackTitle;
       if (resolvedTitle) postMetadata.title = resolvedTitle;
     }
+    postMetadata = {
+      ...postMetadata,
+      ...frontMatterMetadata,
+      location: postname
+    };
     const content = createContentModel({
       rawMarkdown: markdown,
       html: output.post,
