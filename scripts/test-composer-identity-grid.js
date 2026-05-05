@@ -160,8 +160,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const focusPreviousBlockEnd = \(index\) => \{[\s\S]*const targetIndex = Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) - 1, state\.blocks\.length - 1\)\);[\s\S]*focusBlockPrimaryEditable\(target\);[\s\S]*const removeEmptyBlockWithBackspace = \(event, block, index, editable = null, sync = null\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*index <= 0[\s\S]*isEditableBackspaceAtEmptyStart\(editable\)[\s\S]*isBlockEmptyForBackspace\(block\)[\s\S]*state\.blocks\.splice\(index, 1\);[\s\S]*render\(\);[\s\S]*focusPreviousBlockEnd\(index\);[\s\S]*emit\(\);/,
-  'Backspace should remove empty non-first real blocks and move focus to the previous block end'
+  /const focusListItemEditable = \(block, itemIndex, options = \{\}\) => \{[\s\S]*const items = blockEl\.querySelectorAll\('\.blocks-list-item \.blocks-list-text'\);[\s\S]*else if \(options\.atEnd\) placeCaretAtEnd\(editable\);[\s\S]*const focusPreviousBlockEnd = \(index\) => \{[\s\S]*if \(target\.type === 'list'\) \{[\s\S]*const itemIndex = editableListItems\(target\.data && target\.data\.items\)\.length - 1;[\s\S]*focusListItemEditable\(target, itemIndex, \{ atEnd: true \}\);[\s\S]*return;[\s\S]*focusBlockPrimaryEditable\(target\);[\s\S]*const removeEmptyBlockWithBackspace = \(event, block, index, editable = null, sync = null\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*index <= 0[\s\S]*isEditableBackspaceAtEmptyStart\(editable\)[\s\S]*isBlockEmptyForBackspace\(block\)[\s\S]*state\.blocks\.splice\(index, 1\);[\s\S]*render\(\);[\s\S]*focusPreviousBlockEnd\(index\);[\s\S]*emit\(\);/,
+  'Backspace should remove empty non-first real blocks and move focus to the previous block end, including the last list item'
 );
 
 assert.doesNotMatch(

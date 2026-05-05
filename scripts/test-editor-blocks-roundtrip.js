@@ -640,6 +640,11 @@ run('blank blocks use existing removable and cross-block navigation paths', () =
     /const head = document\.createElement\('div'\);[\s\S]*head\.className = 'blocks-block-head';[\s\S]*head\.appendChild\(actions\);[\s\S]*item\.append\(head, renderBlockBody\(block, index\)\);/,
     'blank blocks should use the normal floating block toolbar'
   );
+  assert.match(
+    editorBlocksSource,
+    /const focusPreviousBlockEnd = \(index\) => \{[\s\S]*if \(target\.type === 'list'\) \{[\s\S]*editableListItems\(target\.data && target\.data\.items\)\.length - 1[\s\S]*focusListItemEditable\(target, itemIndex, \{ atEnd: true \}\);[\s\S]*return;[\s\S]*focusBlockPrimaryEditable\(target\);/,
+    'empty-block Backspace should focus the previous list block at its last item end'
+  );
 });
 
 run('dirty list serialization preserves item edge whitespace', () => {

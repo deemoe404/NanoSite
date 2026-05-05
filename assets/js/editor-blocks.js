@@ -2548,10 +2548,41 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
   };
 
+  const focusListItemEditable = (block, itemIndex, options = {}) => {
+    const blockId = block && typeof block === 'object' ? block.id : String(block || '');
+    if (!blockId) return;
+    queueMicrotask(() => {
+      const nodes = blockElements();
+      const blockEl = nodes.find(el => el && el.dataset && el.dataset.blockId === blockId);
+      if (!blockEl) return;
+      const index = nodes.indexOf(blockEl);
+      const items = blockEl.querySelectorAll('.blocks-list-item .blocks-list-text');
+      if (!items.length) {
+        focusBlockPrimaryEditable(block, options.caretOffset);
+        return;
+      }
+      const safeIndex = Math.max(0, Math.min(Number(itemIndex) || 0, items.length - 1));
+      const editable = items[safeIndex];
+      try { editable.focus({ preventScroll: true }); }
+      catch (_) {
+        try { editable.focus(); } catch (__) {}
+      }
+      if (options.caretOffset != null) placeCaretAtTextOffset(editable, options.caretOffset);
+      else if (options.atEnd) placeCaretAtEnd(editable);
+      else placeCaretAtStart(editable);
+      setActive(index, editable, editableSyncMap.get(editable) || null);
+    });
+  };
+
   const focusPreviousBlockEnd = (index) => {
     const targetIndex = Math.max(0, Math.min((Number(index) || 0) - 1, state.blocks.length - 1));
     const target = state.blocks[targetIndex] || null;
     if (!target) return;
+    if (target.type === 'list') {
+      const itemIndex = editableListItems(target.data && target.data.items).length - 1;
+      focusListItemEditable(target, itemIndex, { atEnd: true });
+      return;
+    }
     focusBlockPrimaryEditable(target);
   };
 
