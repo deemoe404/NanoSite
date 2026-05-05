@@ -1278,6 +1278,33 @@ function inputValue(input) {
   return input ? String(input.value || '') : '';
 }
 
+function plainEditableValue(editable) {
+  return String(editable && editable.textContent != null ? editable.textContent : '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\r\n]+/g, ' ');
+}
+
+function insertPlainTextIntoEditable(editable, text) {
+  if (!editable) return false;
+  const value = String(text == null ? '' : text);
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || !sel.rangeCount) return false;
+    const range = sel.getRangeAt(0);
+    if (!nodeContains(editable, range.startContainer) || !nodeContains(editable, range.endContainer)) return false;
+    range.deleteContents();
+    const node = document.createTextNode(value);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function resolveCodeHighlightLanguage(language, codeText) {
   const raw = String(language || '').trim();
   const normalized = raw.toLowerCase();
@@ -2543,7 +2570,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       if (!blockEl) return;
       const index = nodes.indexOf(blockEl);
       const body = blockEl.querySelector('.blocks-block-body');
-      const editable = body ? body.querySelector('.blocks-rich-editable, .blocks-code-preview code[contenteditable="true"], .blocks-source-textarea') : null;
+      const editable = body ? body.querySelector('.blocks-rich-editable, .blocks-code-preview code[contenteditable="true"], .blocks-image-caption, .blocks-source-textarea') : null;
       if (!editable) {
         try { blockEl.focus({ preventScroll: true }); }
         catch (_) {
@@ -3347,6 +3374,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       'textarea',
       'label',
       'a[href]',
+      '.blocks-image-caption',
       '[contenteditable="true"]'
     ].join(','));
   };
@@ -3387,7 +3415,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           sync: editableSyncMap.get(editable) || null
         });
       });
-      const editables = blockEl.querySelectorAll('.blocks-rich-editable:not(.blocks-list-text), .blocks-code-preview code[contenteditable="true"], .blocks-source-textarea');
+      const editables = blockEl.querySelectorAll('.blocks-rich-editable:not(.blocks-list-text), .blocks-code-preview code[contenteditable="true"], .blocks-image-caption, .blocks-source-textarea');
       editables.forEach(editable => {
         candidates.push({
           editable,
@@ -3421,7 +3449,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const listTexts = Array.from(blockEl.querySelectorAll('.blocks-list-item .blocks-list-text'));
     const listTarget = listTexts.length ? (edge === 'last' ? listTexts[listTexts.length - 1] : listTexts[0]) : null;
     const editable = listTarget
-      || blockEl.querySelector('.blocks-rich-editable:not(.blocks-list-text), .blocks-code-preview code[contenteditable="true"], .blocks-source-textarea');
+      || blockEl.querySelector('.blocks-rich-editable:not(.blocks-list-text), .blocks-code-preview code[contenteditable="true"], .blocks-image-caption, .blocks-source-textarea');
     if (editable) {
       return {
         blockEl,
@@ -4399,9 +4427,18 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }
     if (caption) {
       caption.textContent = block.data.alt || '';
-      caption.hidden = !block.data.alt;
+      caption.classList.toggle('is-empty', !block.data.alt);
     }
     hydrateImages(blockEl);
+  };
+
+  const syncImageAltFromCaption = (block, caption) => {
+    const blockEl = blockElements().find(el => el && el.dataset && el.dataset.blockId === block.id);
+    const img = blockEl && blockEl.querySelector('.blocks-image-preview');
+    const alt = plainEditableValue(caption);
+    if (img) img.alt = alt;
+    if (caption) caption.classList.toggle('is-empty', !alt);
+    updateFromControl(block, { alt });
   };
 
   const setImagePlaceholderVisible = (figure, visible) => {
@@ -4434,12 +4471,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const createImageMetadataControls = (block, index) => {
     const controls = document.createElement('div');
     controls.className = 'blocks-image-meta-controls';
-    const alt = document.createElement('input');
-    alt.type = 'text';
-    alt.className = 'blocks-image-alt';
-    alt.value = block.data.alt || '';
-    alt.placeholder = text('imageAlt', 'Alt text');
-    alt.setAttribute('aria-label', text('imageAlt', 'Alt text'));
     const replace = button(text('replaceImage', 'Replace image'), 'blocks-btn blocks-image-replace');
     replace.title = text('replaceImage', 'Replace image');
     replace.setAttribute('aria-label', text('replaceImage', 'Replace image'));
@@ -4450,10 +4481,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     title.placeholder = text('imageTitle', 'Image title');
     title.setAttribute('aria-label', text('imageTitle', 'Image title'));
     const update = () => {
-      updateFromControl(block, { alt: inputValue(alt), title: inputValue(title) });
-      syncRenderedImageBlock(block);
+      updateFromControl(block, { title: inputValue(title) });
     };
-    alt.addEventListener('input', update);
     title.addEventListener('input', update);
     replace.addEventListener('mousedown', (event) => event.preventDefault());
     replace.addEventListener('click', () => {
@@ -4462,7 +4491,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         options.requestImageUpload({ replaceIndex: index, replaceBlockId: block.id });
       }
     });
-    controls.append(alt, title, replace);
+    controls.append(title, replace);
     return controls;
   };
 
@@ -4490,8 +4519,34 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const resolved = resolveAssetSrc(block.data.src || '');
     configureImagePreview(figure, img, resolved);
     const caption = document.createElement('figcaption');
+    caption.className = 'blocks-image-caption';
+    caption.contentEditable = 'true';
+    caption.spellcheck = true;
+    caption.dataset.placeholder = text('imageAlt', 'Alt text');
+    caption.setAttribute('aria-label', text('imageAlt', 'Alt text'));
     caption.textContent = block.data.alt || '';
-    caption.hidden = !block.data.alt;
+    caption.classList.toggle('is-empty', !block.data.alt);
+    const syncCaption = () => syncImageAltFromCaption(block, caption);
+    editableSyncMap.set(caption, syncCaption);
+    caption.addEventListener('input', syncCaption);
+    caption.addEventListener('paste', (event) => {
+      const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
+      if (pasted == null) return;
+      event.preventDefault();
+      if (insertPlainTextIntoEditable(caption, pasted.replace(/[\r\n]+/g, ' '))) syncCaption();
+    });
+    caption.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.isComposing) {
+        event.preventDefault();
+        return;
+      }
+      if (removeEmptyBlockWithBackspace(event, block, index, caption, syncCaption)) return;
+      handleCrossBlockArrowNavigation(event, index, caption);
+    });
+    caption.addEventListener('focus', () => {
+      setActive(index, caption, syncCaption);
+      updateInlineToolbarState();
+    });
     figure.append(img, placeholder, caption);
 
     body.append(figure);
@@ -5257,7 +5312,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       if (state.cardPickerOpen) renderCardPicker();
     },
     focus() {
-      const active = list.querySelector('.blocks-block.is-active [contenteditable="true"], .blocks-block.is-active input, .blocks-block.is-active textarea');
+      const active = list.querySelector('.blocks-block.is-active [contenteditable="true"], .blocks-block.is-active .blocks-image-caption, .blocks-block.is-active input, .blocks-block.is-active textarea');
       try { if (active) active.focus(); } catch (_) {}
     },
     requestLayout() {
