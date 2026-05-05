@@ -1962,6 +1962,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     suppressSelectionActiveRecoveryUntil: 0,
     cardEntries: [],
     cardPickerOpen: false,
+    cardPickerInsertIndex: null,
+    commandMenuOpen: false,
     reorderAnimating: false,
     openActionMenu: null,
     openInlineMenu: null
@@ -1969,11 +1971,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   root.classList.add('markdown-blocks-shell');
   root.innerHTML = '';
-
-  const toolbar = document.createElement('div');
-  toolbar.className = 'blocks-toolbar';
-  toolbar.setAttribute('role', 'toolbar');
-  toolbar.setAttribute('aria-label', text('toolbarAria', 'Block tools'));
 
   const list = document.createElement('div');
   list.className = 'blocks-list';
@@ -1984,7 +1981,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   picker.hidden = true;
   picker.setAttribute('aria-hidden', 'true');
 
-  root.append(toolbar, picker, list);
+  root.append(list, picker);
   const editableSyncMap = new WeakMap();
 
   const markDirty = (block) => {
@@ -2008,6 +2005,54 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   };
 
   const blockElements = () => Array.from(list.children).filter(el => el && el.classList && el.classList.contains('blocks-block'));
+
+  const focusVirtualEditable = () => {
+    queueMicrotask(() => {
+      const editable = list.querySelector('.blocks-virtual-editable');
+      if (!editable) return;
+      try { editable.focus({ preventScroll: true }); }
+      catch (_) {
+        try { editable.focus(); } catch (__) {}
+      }
+      placeCaretAtEnd(editable);
+    });
+  };
+
+  const focusBlockPrimaryEditable = (block, caretOffset = null) => {
+    const blockId = block && typeof block === 'object' ? block.id : String(block || '');
+    if (!blockId) return;
+    queueMicrotask(() => {
+      const nodes = blockElements();
+      const blockEl = nodes.find(el => el && el.dataset && el.dataset.blockId === blockId);
+      if (!blockEl) return;
+      const index = nodes.indexOf(blockEl);
+      const body = blockEl.querySelector('.blocks-block-body');
+      const editable = body ? body.querySelector('.blocks-rich-editable, .blocks-code-preview code[contenteditable="true"], .blocks-source-textarea') : null;
+      if (!editable) {
+        try { blockEl.focus({ preventScroll: true }); }
+        catch (_) {
+          try { blockEl.focus(); } catch (__) {}
+        }
+        setActive(index);
+        return;
+      }
+      try { editable.focus({ preventScroll: true }); }
+      catch (_) {
+        try { editable.focus(); } catch (__) {}
+      }
+      if (caretOffset != null) {
+        if (editable.matches && editable.matches('textarea')) {
+          const offset = Math.max(0, Math.min(String(editable.value || '').length, Number(caretOffset) || 0));
+          try { editable.setSelectionRange(offset, offset); } catch (_) {}
+        } else {
+          placeCaretAtTextOffset(editable, caretOffset);
+        }
+      } else {
+        placeCaretAtEnd(editable);
+      }
+      setActive(index, editable, editableSyncMap.get(editable) || null);
+    });
+  };
 
   const clearNativeSelection = () => {
     try {
@@ -2594,7 +2639,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const isBlocksCaretInteractiveTarget = (target) => {
     return !!closestElement(target, [
       '.blocks-block-head',
-      '.blocks-toolbar',
+      '.blocks-command-menu',
       '.blocks-link-editor',
       '.blocks-card-picker',
       '.blocks-inspector',
@@ -2827,6 +2872,41 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     setActive(safeIndex);
     emit();
     return block;
+  };
+
+  const closeBlockCommandMenu = (restoreFocus = false) => {
+    if (!state.commandMenuOpen) return;
+    state.commandMenuOpen = false;
+    render();
+    if (restoreFocus) focusVirtualEditable();
+  };
+
+  const openBlockCommandMenu = () => {
+    closeBlockActionMenu(false);
+    closeInlineMoreMenu(false);
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.commandMenuOpen = true;
+    render();
+    queueMicrotask(() => {
+      const first = list.querySelector('.blocks-command-menu-item');
+      try { first?.focus(); } catch (_) {}
+    });
+  };
+
+  const insertCommandBlock = (type, data = {}, options = {}) => {
+    state.commandMenuOpen = false;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    const block = insertBlock(type, data, state.blocks.length);
+    if (options.focus) focusBlockPrimaryEditable(block, options.caretOffset);
+    return block;
+  };
+
+  const createParagraphFromVirtualInput = (value) => {
+    const textValue = normalizeEditableMarkdownText(value);
+    if (!textValue) return;
+    insertCommandBlock('paragraph', { text: textValue }, { focus: true, caretOffset: textValue.length });
   };
 
   const inlineCommandMark = (kind) => (kind === 'strikeThrough' ? 'strike' : kind);
@@ -3371,14 +3451,15 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       entries.slice(0, 30).forEach(entry => {
         const item = button(entry.title || entry.key || entry.location || text('articleCard', 'Article Card'), 'blocks-card-result');
         item.addEventListener('click', () => {
+          const insertIndex = Number.isInteger(state.cardPickerInsertIndex) ? state.cardPickerInsertIndex : state.blocks.length;
+          state.cardPickerOpen = false;
+          state.cardPickerInsertIndex = null;
           insertBlock('card', {
             label: entry.title || entry.key || entry.location || 'Article',
             location: entry.location || '',
             title: 'card',
             forceCard: true
-          });
-          state.cardPickerOpen = false;
-          renderCardPicker();
+          }, insertIndex);
         });
         const meta = document.createElement('span');
         meta.textContent = entry.location || '';
@@ -3394,7 +3475,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     }, 0);
   };
 
-  const addButtons = [
+  const commandBlocks = [
     ['paragraph', 'paragraph', 'Paragraph', { text: 'New paragraph' }],
     ['heading', 'heading', 'Heading', { level: 2, text: 'Heading' }],
     ['image', 'image', 'Image', { alt: '', src: 'assets/image.png' }],
@@ -3404,32 +3485,108 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     ['source', 'source', 'Markdown', { text: '' }]
   ];
 
-  addButtons.forEach(([key, type, fallback, data]) => {
-    const btn = button(text(key, fallback));
-    btn.addEventListener('click', () => insertBlock(type, data));
-    toolbar.appendChild(btn);
-  });
-
-  const cardBtn = button(text('articleCard', 'Article Card'));
-  cardBtn.addEventListener('click', () => {
+  const openArticleCardCommand = () => {
+    state.commandMenuOpen = false;
+    state.cardPickerInsertIndex = state.blocks.length;
     if (!state.cardEntries.length) {
-      insertBlock('card', { label: 'Article', location: '', title: 'card', forceCard: true });
+      insertCommandBlock('card', { label: 'Article', location: '', title: 'card', forceCard: true });
       return;
     }
-    state.cardPickerOpen = !state.cardPickerOpen;
-    renderCardPicker();
-  });
-  toolbar.appendChild(cardBtn);
+    state.cardPickerOpen = true;
+    render();
+  };
 
-  const uploadBtn = button(text('uploadImage', 'Upload Image'));
-  uploadBtn.addEventListener('click', () => {
-    if (typeof options.requestImageUpload === 'function') {
-      options.requestImageUpload({ index: state.activeIndex + 1 });
-    } else {
-      insertBlock('image', { alt: '', src: 'assets/image.png' });
-    }
-  });
-  toolbar.appendChild(uploadBtn);
+  const runBlockCommand = (type, data = {}) => {
+    const focusTypes = new Set(['paragraph', 'heading', 'list', 'quote', 'code', 'source']);
+    insertCommandBlock(type, data, { focus: focusTypes.has(type) });
+  };
+
+  const renderVirtualBlock = () => {
+    const item = document.createElement('section');
+    item.className = `blocks-virtual-block${state.commandMenuOpen ? ' is-command-open' : ''}`;
+    item.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
+
+    const body = document.createElement('div');
+    body.className = 'blocks-virtual-body';
+    const editable = document.createElement('p');
+    editable.className = 'blocks-rich-editable blocks-paragraph-text blocks-virtual-editable';
+    editable.contentEditable = 'true';
+    editable.spellcheck = true;
+    editable.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
+    editable.addEventListener('beforeinput', (event) => {
+      if (event.isComposing) return;
+      if (event.inputType !== 'insertText' || event.data == null) return;
+      event.preventDefault();
+      if (event.data === '/') {
+        openBlockCommandMenu();
+        return;
+      }
+      createParagraphFromVirtualInput(event.data);
+    });
+    editable.addEventListener('input', () => {
+      const value = editableText(editable);
+      if (!value) return;
+      if (value === '/') {
+        editable.textContent = '';
+        openBlockCommandMenu();
+        return;
+      }
+      createParagraphFromVirtualInput(value);
+    });
+    editable.addEventListener('paste', (event) => {
+      const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
+      if (!pasted) return;
+      event.preventDefault();
+      createParagraphFromVirtualInput(pasted);
+    });
+    editable.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && state.commandMenuOpen) {
+        event.preventDefault();
+        closeBlockCommandMenu(true);
+      }
+    });
+    editable.addEventListener('focus', () => {
+      setActive(-1);
+      updateInlineToolbarState();
+    });
+    body.appendChild(editable);
+
+    const menu = document.createElement('div');
+    menu.className = 'blocks-command-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', text('commandMenuAria', 'Block selector'));
+    menu.hidden = !state.commandMenuOpen;
+    menu.setAttribute('aria-hidden', state.commandMenuOpen ? 'false' : 'true');
+    commandBlocks.forEach(([key, type, fallback, data]) => {
+      const itemBtn = button('', 'blocks-command-menu-item');
+      itemBtn.dataset.blockCommand = type;
+      itemBtn.setAttribute('role', 'menuitem');
+      itemBtn.appendChild(createBlockTypeIcon(type));
+      const label = document.createElement('span');
+      label.textContent = text(key, fallback);
+      itemBtn.appendChild(label);
+      itemBtn.addEventListener('click', () => runBlockCommand(type, data));
+      menu.appendChild(itemBtn);
+    });
+    const cardBtn = button('', 'blocks-command-menu-item');
+    cardBtn.dataset.blockCommand = 'card';
+    cardBtn.setAttribute('role', 'menuitem');
+    cardBtn.appendChild(createBlockTypeIcon('card'));
+    const cardLabel = document.createElement('span');
+    cardLabel.textContent = text('articleCard', 'Article Card');
+    cardBtn.appendChild(cardLabel);
+    cardBtn.addEventListener('click', openArticleCardCommand);
+    menu.appendChild(cardBtn);
+    menu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeBlockCommandMenu(true);
+      }
+    });
+
+    item.append(body, menu);
+    return item;
+  };
 
   const createRichEditable = (tagName, block, key, className, index) => {
     const editable = document.createElement(tagName);
@@ -4102,16 +4259,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     closeBlockActionMenu(false);
     closeInlineMoreMenu(false);
     list.innerHTML = '';
-    if (!state.blocks.length) {
-      const empty = document.createElement('div');
-      empty.className = 'blocks-empty';
-      empty.textContent = text('empty', 'No blocks yet.');
-      list.appendChild(empty);
-      return;
-    }
     state.blocks.forEach((block, index) => {
       list.appendChild(renderBlockElement(block, index));
     });
+    list.appendChild(renderVirtualBlock());
+    renderCardPicker();
     setActive(state.activeIndex);
     requestStickyBlockHeadUpdate();
   }
@@ -4127,6 +4279,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.linkSelection = null;
       state.pendingInline = {};
       state.lastInlineMarkedRange = null;
+      state.cardPickerOpen = false;
+      state.cardPickerInsertIndex = null;
+      state.commandMenuOpen = false;
       render();
     },
     getMarkdown() {

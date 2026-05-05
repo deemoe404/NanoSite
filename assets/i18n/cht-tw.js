@@ -330,6 +330,8 @@ const translations = {
       blocks: {
         toolbarAria: '區塊工具',
         listAria: 'Markdown 區塊',
+        virtualBlockAria: '新增區塊',
+        commandMenuAria: '區塊選擇器',
         paragraph: '段落',
         heading: '標題',
         image: '圖片',

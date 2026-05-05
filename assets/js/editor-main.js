@@ -1547,6 +1547,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const blockLabelFallbacks = {
     toolbarAria: 'Block tools',
     listAria: 'Markdown blocks',
+    virtualBlockAria: 'New block',
+    commandMenuAria: 'Block selector',
     paragraph: 'Paragraph',
     heading: 'Heading',
     image: 'Image',

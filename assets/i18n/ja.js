@@ -330,6 +330,8 @@ const translations = {
       blocks: {
         toolbarAria: 'ブロックツール',
         listAria: 'Markdown ブロック',
+        virtualBlockAria: '新しいブロック',
+        commandMenuAria: 'ブロック選択',
         paragraph: '段落',
         heading: '見出し',
         image: '画像',

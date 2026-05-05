@@ -104,6 +104,24 @@ assert.match(
   'blocks mode should provide parser, serializer, and DOM controller entrypoints'
 );
 
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-toolbar|text\('uploadImage', 'Upload Image'\)|requestImageUpload\(\{ index: state\.activeIndex \+ 1 \}\)/,
+  'blocks mode should not render the old top block toolbar or visible upload-image insertion button'
+);
+
+assert.match(
+  editorBlocksSource,
+  /state\.commandMenuOpen = true;[\s\S]*const first = list\.querySelector\('\.blocks-command-menu-item'\);[\s\S]*const renderVirtualBlock = \(\) => \{[\s\S]*className = `blocks-virtual-block\$\{state\.commandMenuOpen \? ' is-command-open' : ''\}`[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(\);[\s\S]*createParagraphFromVirtualInput\(event\.data\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach[\s\S]*itemBtn\.dataset\.blockCommand = type;/,
+  'blocks mode should expose a bottom virtual paragraph that opens a slash command selector and creates real paragraphs only after typing'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const openArticleCardCommand = \(\) => \{[\s\S]*state\.cardPickerInsertIndex = state\.blocks\.length;[\s\S]*state\.cardPickerOpen = true;[\s\S]*const runBlockCommand = \(type, data = \{\}\) => \{[\s\S]*insertCommandBlock\(type, data, \{ focus: focusTypes\.has\(type\) \}\);/,
+  'virtual block commands should insert at the bottom and reuse the article-card picker at the virtual block position'
+);
+
 assert.match(
   editorMainSource,
   /const blockLabels = new Proxy\(\{\}, \{[\s\S]*const translationKey = `editor\.blocks\.\$\{name\}`;[\s\S]*const translated = t\(translationKey\);[\s\S]*translated !== translationKey \? translated : \(blockLabelFallbacks\[name\] \|\| name\);/,
@@ -367,8 +385,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-toolbar'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
-  'blocks caret routing should exclude toolbars, link editors, controls, links, and native editable targets'
+  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-command-menu'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
+  'blocks caret routing should exclude command menus, link editors, controls, links, and native editable targets'
 );
 
 assert.match(
@@ -763,25 +781,25 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.markdown-blocks-shell, \.blocks-list, \.blocks-block, \.blocks-block-body \{ cursor:text; \}/,
+  /\.markdown-blocks-shell, \.blocks-list, \.blocks-block, \.blocks-block-body, \.blocks-virtual-block \{ cursor:text; \}/,
   'blocks editing canvas should use the text cursor across blank layout areas'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-toolbar, \.blocks-block-head, \.blocks-link-editor, \.blocks-image-meta-controls, \.blocks-inspector, \.blocks-card-picker, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
+  /\.blocks-block-head, \.blocks-link-editor, \.blocks-image-meta-controls, \.blocks-inspector, \.blocks-card-picker, \.blocks-command-menu, \.blocks-action-menu, \.blocks-inline-more-menu \{ cursor:default; \}/,
   'blocks controls and floating panels should not inherit the canvas text cursor'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*cursor:pointer;/,
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-command-menu-item, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*cursor:pointer;/,
   'toolbar buttons, card picker results, block action menu items, and inline menu items should keep pointer cursors'
 );
 
 assert.match(
   editorSource,
-  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*border:1px solid var\(--border\); background:var\(--card\);/,
+  /\.blocks-btn, \.blocks-icon-btn, \.blocks-inline-btn, \.blocks-card-result, \.blocks-command-menu-item, \.blocks-action-menu-item, \.blocks-inline-menu-item \{[^}]*border:1px solid var\(--border\); background:var\(--card\);/,
   'floating toolbar buttons should use opaque card backgrounds instead of transparent mixes'
 );
 
@@ -819,6 +837,12 @@ assert.match(
   editorSource,
   /\.blocks-list \{ display:block; padding-top:0; \}/,
   'blocks list should use normal article flow instead of flex gap spacing'
+);
+
+assert.match(
+  editorSource,
+  /\.blocks-virtual-block \{ position:relative; margin:\.85rem 0 1\.2rem; min-height:2\.2rem; \}[\s\S]*\.blocks-command-menu \{ position:absolute; left:0; top:calc\(100% \+ \.35rem\);[\s\S]*\.blocks-command-menu-item \{ display:flex; align-items:center; gap:\.45rem;/,
+  'blocks mode should style the bottom virtual block and slash command menu as editor-native controls'
 );
 
 assert.doesNotMatch(
