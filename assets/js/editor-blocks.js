@@ -1247,6 +1247,28 @@ export function splitTextBlockIntoParagraph(block, before, after) {
   return [current, next];
 }
 
+function isMergeableTextBlock(block) {
+  return !!(block && ['paragraph', 'heading', 'quote'].includes(block.type));
+}
+
+function textBlockDataText(block) {
+  return normalizeEditableMarkdownText(block && block.data ? block.data.text : '');
+}
+
+export function mergeTextBlockIntoPrevious(previousBlock, currentBlock) {
+  if (!isMergeableTextBlock(previousBlock) || !isMergeableTextBlock(currentBlock)) return null;
+  const previousText = textBlockDataText(previousBlock);
+  const currentText = textBlockDataText(currentBlock);
+  return {
+    ...previousBlock,
+    dirty: true,
+    data: {
+      ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
+      text: `${previousText}${currentText}`
+    }
+  };
+}
+
 function isEditableSelectionAtStart(el) {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -2221,6 +2243,30 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.activeSync = null;
     render();
     focusBlockPrimaryEditable(nextBlocks[1], 0);
+    emit();
+    return true;
+  };
+
+  const mergeTextBlockWithPreviousOnBackspace = (event, block, index, editable = null) => {
+    if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!Number.isInteger(index) || index <= 0) return false;
+    if (!editable || !isEditableSelectionAtStart(editable)) return false;
+    if (isBlockEmptyForBackspace(block)) return false;
+    const previous = state.blocks[index - 1] || null;
+    const previousTextLength = textBlockDataText(previous).length;
+    const merged = mergeTextBlockIntoPrevious(previous, block);
+    if (!merged) return false;
+    event.preventDefault();
+    state.blocks.splice(index - 1, 2, merged);
+    state.inlineVirtualIndex = null;
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    focusBlockPrimaryEditable(merged, previousTextLength);
     emit();
     return true;
   };
@@ -3884,6 +3930,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     });
     editable.addEventListener('keydown', (event) => {
       if (removeEmptyBlockWithBackspace(event, block, index, editable, sync)) return;
+      if (mergeTextBlockWithPreviousOnBackspace(event, block, index, editable)) return;
       if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       if (!['paragraph', 'quote', 'heading'].includes(block.type)) return;
       if (splitTextBlockAfterCaret(event, block, index, editable)) return;

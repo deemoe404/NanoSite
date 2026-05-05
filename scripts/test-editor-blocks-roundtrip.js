@@ -7,6 +7,7 @@ import {
   insertInlineRunsAtRange,
   isBlockEmptyForBackspace,
   listVisualMarkerLabels,
+  mergeTextBlockIntoPrevious,
   patchListItem,
   parseInlineRuns,
   parseMarkdownBlocks,
@@ -216,6 +217,77 @@ run('mid-enter split ignores modified Enter key chords', () => {
     editorBlocksSource,
     /event\.key !== 'Enter' \|\| event\.shiftKey \|\| event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.isComposing/,
     'split path should only handle plain Enter'
+  );
+});
+
+run('backspace at text block start merges paragraph into previous paragraph', () => {
+  const blocks = parseMarkdownBlocks('abc\n\ndef\n\n');
+  const merged = mergeTextBlockIntoPrevious(blocks[0], blocks[1]);
+  assert.equal(merged.type, 'paragraph');
+  assert.equal(merged.dirty, true);
+  assert.equal(merged.data.text, 'abcdef');
+  assert.equal(serializeMarkdownBlocks([merged]), 'abcdef\n\n');
+});
+
+run('backspace merge preserves previous heading metadata', () => {
+  const blocks = parseMarkdownBlocks('### abc\n\ndef\n\n');
+  const merged = mergeTextBlockIntoPrevious(blocks[0], blocks[1]);
+  assert.equal(merged.type, 'heading');
+  assert.equal(merged.data.level, 3);
+  assert.equal(merged.data.text, 'abcdef');
+  assert.equal(serializeMarkdownBlocks([merged]), '### abcdef\n\n');
+});
+
+run('backspace merge preserves previous quote type', () => {
+  const blocks = parseMarkdownBlocks('> abc\n\ndef\n\n');
+  const merged = mergeTextBlockIntoPrevious(blocks[0], blocks[1]);
+  assert.equal(merged.type, 'quote');
+  assert.equal(merged.data.text, 'abcdef');
+  assert.equal(serializeMarkdownBlocks([merged]), '> abcdef\n\n');
+});
+
+run('backspace merge only uses current block text', () => {
+  const [paragraph] = parseMarkdownBlocks('abc\n\n');
+  const [heading] = parseMarkdownBlocks('### def\n\n');
+  const [quote] = parseMarkdownBlocks('> ghi\n\n');
+  assert.equal(mergeTextBlockIntoPrevious(paragraph, heading).data.text, 'abcdef');
+  assert.equal(mergeTextBlockIntoPrevious(paragraph, quote).data.text, 'abcghi');
+});
+
+run('backspace merge requires two text blocks', () => {
+  const [paragraph] = parseMarkdownBlocks('abc\n\n');
+  const [listBlock] = parseMarkdownBlocks('- def\n\n');
+  assert.equal(mergeTextBlockIntoPrevious(null, paragraph), null);
+  assert.equal(mergeTextBlockIntoPrevious(listBlock, paragraph), null);
+  assert.equal(mergeTextBlockIntoPrevious(paragraph, listBlock), null);
+});
+
+run('backspace merge path runs after empty-block removal and before Enter handling', () => {
+  assert.match(
+    editorBlocksSource,
+    /removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*mergeTextBlockWithPreviousOnBackspace\(event, block, index, editable\)[\s\S]*event\.key !== 'Enter'/,
+    'text block Backspace merge should run after empty-block removal and before Enter handling'
+  );
+  assert.match(
+    editorBlocksSource,
+    /if \(!Number\.isInteger\(index\) \|\| index <= 0\) return false;[\s\S]*mergeTextBlockIntoPrevious\(previous, block\)/,
+    'text block Backspace merge should never apply to the first block'
+  );
+});
+
+run('backspace merge ignores modified Backspace key chords', () => {
+  assert.match(
+    editorBlocksSource,
+    /event\.key !== 'Backspace' \|\| event\.shiftKey \|\| event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.isComposing/,
+    'merge path should only handle plain Backspace'
+  );
+});
+
+run('backspace merge focuses previous block at its original text length', () => {
+  assert.match(
+    editorBlocksSource,
+    /previousTextLength = textBlockDataText\(previous\)\.length[\s\S]*focusBlockPrimaryEditable\(merged, previousTextLength\)/,
+    'caret should land at the old end of the previous block after merge'
   );
 });
 
