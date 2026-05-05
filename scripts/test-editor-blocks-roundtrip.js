@@ -8,6 +8,7 @@ import {
   inlineRenderedTextLength,
   isBlockEmptyForBackspace,
   joinMergedEditableText,
+  convertListTailItemAfterEmptyToParagraph,
   listVisualMarkerLabels,
   mergeFirstListItemIntoPreviousBlock,
   mergeListItemIntoPreviousItem,
@@ -573,7 +574,7 @@ run('cross-block arrows wire rich text, code, and source editables', () => {
 run('empty list item Enter exits or splits the list before normal item splitting', () => {
   assert.match(
     editorBlocksSource,
-    /if \(event\.key === 'Enter'\) \{[\s\S]*const currentText = editableText\(span\);[\s\S]*const outdentedItems = outdentEmptyListItemForEnter\(currentItems, itemIndex\);[\s\S]*if \(outdentedItems\) \{[\s\S]*updateFromControl\(block, \{ items: outdentedItems \}, true\);[\s\S]*return;[\s\S]*const emptySplit = splitListItemsAtEmptyItem\(currentItems, itemIndex\);[\s\S]*const splitAfter = normalizeSplitListStartItems\(emptySplit\.after\);[\s\S]*state\.blocks\.splice\(index \+ 1, 0, nextBlock\)[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\)[\s\S]*state\.blocks\.splice\(index, 1, blank\)[\s\S]*return;[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: itemIndex \+ 1, caretOffset: 0 \};/,
+    /if \(event\.key === 'Enter'\) \{[\s\S]*const currentText = editableText\(span\);[\s\S]*const outdentedItems = outdentEmptyListItemForEnter\(currentItems, itemIndex\);[\s\S]*if \(outdentedItems\) \{[\s\S]*updateFromControl\(block, \{ items: outdentedItems \}, true\);[\s\S]*return;[\s\S]*const trailingParagraph = isEditableSelectionAtStart\(span\)[\s\S]*convertListTailItemAfterEmptyToParagraph\(currentItems, itemIndex\)[\s\S]*focusBlockPrimaryEditable\(paragraph, 0\);[\s\S]*const emptySplit = splitListItemsAtEmptyItem\(currentItems, itemIndex\);[\s\S]*const splitAfter = normalizeSplitListStartItems\(emptySplit\.after\);[\s\S]*state\.blocks\.splice\(index \+ 1, 0, nextBlock\)[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\)[\s\S]*state\.blocks\.splice\(index, 1, blank\)[\s\S]*return;[\s\S]*const split = splitEditableTextAtSelection\(span\);[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: itemIndex \+ 1, caretOffset: 0 \};/,
     'empty list item Enter should delete the empty item and choose list split, blank exit, or blank replacement before normal item splitting'
   );
   assert.match(
@@ -1144,6 +1145,45 @@ run('empty list item Enter split helper distinguishes trailing exit, unique blan
   assert.equal(splitListItemsAtEmptyItem([{ text: '', indent: 1 }], 0), null);
   assert.equal(splitListItemsAtEmptyItem([{ text: 'Not empty' }], 0), null);
   assert.equal(splitListItemsAtEmptyItem([{ text: '' }], 1), null);
+});
+
+run('double Enter at list tail converts the current item into a paragraph', () => {
+  assert.deepEqual(convertListTailItemAfterEmptyToParagraph([
+    { text: 'Before', indent: 0 },
+    { text: '', indent: 0 },
+    { text: 'Tail **item**', indent: 0, listType: 'task', checked: true }
+  ], 2), {
+    before: [{ text: 'Before', indent: 0 }],
+    text: 'Tail **item**'
+  });
+  assert.deepEqual(convertListTailItemAfterEmptyToParagraph([
+    { text: '', indent: 0 },
+    { text: 'Only tail', indent: 0 }
+  ], 1), {
+    before: [],
+    text: 'Only tail'
+  });
+  assert.equal(convertListTailItemAfterEmptyToParagraph([
+    { text: '', indent: 0 },
+    { text: 'First after', indent: 0 },
+    { text: 'Second after', indent: 0 }
+  ], 1), null);
+  assert.equal(convertListTailItemAfterEmptyToParagraph([
+    { text: '', indent: 0 },
+    { text: 'Nested tail', indent: 1 }
+  ], 1), null);
+  assert.equal(convertListTailItemAfterEmptyToParagraph([
+    { text: '', indent: 1 },
+    { text: 'Tail', indent: 0 }
+  ], 1), null);
+  assert.equal(convertListTailItemAfterEmptyToParagraph([
+    { text: 'Not empty', indent: 0 },
+    { text: 'Tail', indent: 0 }
+  ], 1), null);
+  assert.equal(convertListTailItemAfterEmptyToParagraph([
+    { text: '', indent: 0 },
+    { text: '', indent: 0 }
+  ], 1), null);
 });
 
 run('empty list item Enter promotes split list starts to root level', () => {

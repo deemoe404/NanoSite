@@ -725,6 +725,22 @@ export function splitListItemsAtEmptyItem(items, itemIndex) {
   };
 }
 
+export function convertListTailItemAfterEmptyToParagraph(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex <= 0 || safeIndex !== source.length - 1) return null;
+  const previous = source[safeIndex - 1] || {};
+  const current = source[safeIndex] || {};
+  if (itemIndentLevel(previous) !== 0 || itemIndentLevel(current) !== 0) return null;
+  if (String(previous.text == null ? '' : previous.text).trim() !== '') return null;
+  const text = normalizeEditableMarkdownText(current.text);
+  if (!String(text).trim()) return null;
+  return {
+    before: source.slice(0, safeIndex - 1),
+    text
+  };
+}
+
 export function outdentEmptyListItemForEnter(items, itemIndex) {
   const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
   const safeIndex = Number(itemIndex);
@@ -4712,6 +4728,28 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           if (outdentedItems) {
             state.pendingListFocus = { blockId: block.id, itemIndex, atEnd: false };
             updateFromControl(block, { items: outdentedItems }, true);
+            return;
+          }
+          const trailingParagraph = isEditableSelectionAtStart(span)
+            ? convertListTailItemAfterEmptyToParagraph(currentItems, itemIndex)
+            : null;
+          if (trailingParagraph) {
+            const blockAfter = block.data && block.data.after != null ? block.data.after : '\n\n';
+            const paragraph = makeBlock('paragraph', '', { text: trailingParagraph.text, after: blockAfter, dirty: true });
+            resetTransientBlockMenus();
+            if (trailingParagraph.before.length) {
+              block.data.items = trailingParagraph.before;
+              block.data.after = '\n\n';
+              markDirty(block);
+              state.blocks.splice(index + 1, 0, paragraph);
+              render();
+              focusBlockPrimaryEditable(paragraph, 0);
+            } else {
+              state.blocks.splice(index, 1, paragraph);
+              render();
+              focusBlockPrimaryEditable(paragraph, 0);
+            }
+            emit();
             return;
           }
           const emptySplit = splitListItemsAtEmptyItem(currentItems, itemIndex);
