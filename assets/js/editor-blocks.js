@@ -712,6 +712,53 @@ export function patchListItem(items, itemIndex, patch = {}) {
   return next;
 }
 
+export function splitListItemsAtEmptyItem(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= source.length) return null;
+  const current = source[safeIndex] || {};
+  if (String(current.text == null ? '' : current.text).trim() !== '') return null;
+  if (itemIndentLevel(current) > 0) return null;
+  return {
+    before: source.slice(0, safeIndex),
+    after: source.slice(safeIndex + 1)
+  };
+}
+
+export function outdentEmptyListItemForEnter(items, itemIndex) {
+  const source = Array.isArray(items) && items.length ? items.slice() : editableListItems(items).slice();
+  const safeIndex = Number(itemIndex);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= source.length) return null;
+  const current = source[safeIndex] || {};
+  if (String(current.text == null ? '' : current.text).trim() !== '') return null;
+  const currentIndent = itemIndentLevel(current);
+  if (currentIndent <= 0) return null;
+  const nextIndent = currentIndent - 1;
+  const next = source.slice();
+  next[safeIndex] = {
+    ...current,
+    text: '',
+    indent: nextIndent,
+    indentText: '  '.repeat(nextIndent)
+  };
+  return next;
+}
+
+export function normalizeSplitListStartItems(items) {
+  const source = Array.isArray(items) ? items.slice() : [];
+  if (!source.length) return source;
+  const baseIndent = itemIndentLevel(source[0]);
+  if (baseIndent <= 0) return source;
+  return source.map(item => {
+    const nextIndent = Math.max(0, itemIndentLevel(item) - baseIndent);
+    return {
+      ...(item || {}),
+      indent: nextIndent,
+      indentText: '  '.repeat(nextIndent)
+    };
+  });
+}
+
 export function listVisualMarkerLabels(items, blockListType = 'ul') {
   const listType = blockListType === 'ol' || blockListType === 'task' || blockListType === 'mixed' ? blockListType : 'ul';
   const counters = {};
@@ -2579,6 +2626,25 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     emit();
   };
 
+  const makeSplitListBlock = (block, items, after = '\n\n') => {
+    const data = block && block.data ? block.data : {};
+    return makeBlock('list', '', {
+      dirty: true,
+      listType: data.listType === 'ol' || data.listType === 'task' || data.listType === 'mixed' ? data.listType : 'ul',
+      items: Array.isArray(items) ? items.slice() : editableListItems(items).slice(),
+      after: after || '\n\n'
+    });
+  };
+
+  const resetTransientBlockMenus = () => {
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+  };
+
   const removeEmptyBlockWithBackspace = (event, block, index, editable = null, sync = null) => {
     if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
     if (!Number.isInteger(index) || index <= 0) return false;
@@ -4440,8 +4506,51 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
         if (event.key === 'Enter') {
           event.preventDefault();
+          const currentText = editableText(span);
+          const currentItems = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          currentItems[itemIndex] = { ...(currentItems[itemIndex] || {}), text: currentText };
+          const outdentedItems = outdentEmptyListItemForEnter(currentItems, itemIndex);
+          if (outdentedItems) {
+            state.pendingListFocus = { blockId: block.id, itemIndex, atEnd: false };
+            updateFromControl(block, { items: outdentedItems }, true);
+            return;
+          }
+          const emptySplit = splitListItemsAtEmptyItem(currentItems, itemIndex);
+          if (emptySplit) {
+            const splitAfter = normalizeSplitListStartItems(emptySplit.after);
+            const blockAfter = block.data && block.data.after != null ? block.data.after : '\n\n';
+            resetTransientBlockMenus();
+            if (splitAfter.length) {
+              if (emptySplit.before.length) {
+                block.data.items = emptySplit.before;
+                block.data.after = '\n\n';
+                markDirty(block);
+                const nextBlock = makeSplitListBlock(block, splitAfter, blockAfter);
+                state.blocks.splice(index + 1, 0, nextBlock);
+                state.pendingListFocus = { blockId: nextBlock.id, itemIndex: 0, atEnd: false };
+              } else {
+                block.data.items = splitAfter;
+                block.data.after = blockAfter;
+                markDirty(block);
+                state.pendingListFocus = { blockId: block.id, itemIndex: 0, atEnd: false };
+              }
+              render();
+              emit();
+            } else if (emptySplit.before.length) {
+              block.data.items = emptySplit.before;
+              markDirty(block);
+              insertBlankBlock(index + 1, { focus: true });
+            } else {
+              const blank = makeBlankBlock('\n', { dirty: true });
+              state.blocks.splice(index, 1, blank);
+              render();
+              focusBlockPrimaryEditable(blank, 0);
+              emit();
+            }
+            return;
+          }
           const split = splitEditableTextAtSelection(span);
-          const next = Array.isArray(block.data.items) ? block.data.items.slice() : items.slice();
+          const next = currentItems;
           next[itemIndex] = { ...next[itemIndex], text: split.before };
           const current = next[itemIndex] || {};
           const currentIndent = itemIndentLevel(current);

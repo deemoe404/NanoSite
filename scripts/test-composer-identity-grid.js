@@ -853,6 +853,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /outdentEmptyListItemForEnter\(currentItems, itemIndex\)[\s\S]*updateFromControl\(block, \{ items: outdentedItems \}, true\)[\s\S]*splitListItemsAtEmptyItem\(currentItems, itemIndex\)[\s\S]*normalizeSplitListStartItems\(emptySplit\.after\)[\s\S]*state\.blocks\.splice\(index \+ 1, 0, nextBlock\)[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\)[\s\S]*state\.blocks\.splice\(index, 1, blank\)[\s\S]*const split = splitEditableTextAtSelection\(span\);/,
+  'pressing Enter in an empty visual list item should outdent nested empties before deleting a top-level empty item to split or exit'
+);
+
+assert.match(
+  editorBlocksSource,
   /function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*next\[itemIndex - 1\] = \{ \.\.\.previous, text: `\$\{previous\.text \|\| ''\}\$\{currentText\}` \};[\s\S]*next\.splice\(itemIndex, 1\);/,
   'Backspace or Delete at the start of a non-first visual list item should remove or merge it into the previous item'
 );

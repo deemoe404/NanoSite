@@ -8,6 +8,8 @@ import {
   isBlockEmptyForBackspace,
   listVisualMarkerLabels,
   mergeTextBlockIntoPrevious,
+  normalizeSplitListStartItems,
+  outdentEmptyListItemForEnter,
   patchListItem,
   parseInlineRuns,
   parseMarkdownBlocks,
@@ -15,6 +17,7 @@ import {
   patchListItemType,
   serializeInlineRuns,
   serializeMarkdownBlocks,
+  splitListItemsAtEmptyItem,
   splitTextBlockIntoParagraph,
   toggleInlineMarkOnRuns
 } from '../assets/js/editor-blocks.js';
@@ -441,6 +444,19 @@ run('cross-block arrows wire rich text, code, and source editables', () => {
     editorBlocksSource,
     /removeEmptyBlockWithBackspace\(event, block, index, area, sync\)[\s\S]*handleCrossBlockArrowNavigation\(event, index, area\)/,
     'source textareas should run cross-block arrows after empty-block deletion'
+  );
+});
+
+run('empty list item Enter exits or splits the list before normal item splitting', () => {
+  assert.match(
+    editorBlocksSource,
+    /if \(event\.key === 'Enter'\) \{[\s\S]*const currentText = editableText\(span\);[\s\S]*const outdentedItems = outdentEmptyListItemForEnter\(currentItems, itemIndex\);[\s\S]*if \(outdentedItems\) \{[\s\S]*updateFromControl\(block, \{ items: outdentedItems \}, true\);[\s\S]*return;[\s\S]*const emptySplit = splitListItemsAtEmptyItem\(currentItems, itemIndex\);[\s\S]*const splitAfter = normalizeSplitListStartItems\(emptySplit\.after\);[\s\S]*state\.blocks\.splice\(index \+ 1, 0, nextBlock\)[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\)[\s\S]*state\.blocks\.splice\(index, 1, blank\)[\s\S]*return;[\s\S]*const split = splitEditableTextAtSelection\(span\);/,
+    'empty list item Enter should delete the empty item and choose list split, blank exit, or blank replacement before normal item splitting'
+  );
+  assert.match(
+    editorBlocksSource,
+    /if \(event\.shiftKey \|\| event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.isComposing\) return;[\s\S]*if \(event\.key === 'Enter'\)/,
+    'empty list item Enter should share the existing plain-Enter-only guard'
   );
 });
 
@@ -951,6 +967,62 @@ run('list item patches preserve latest item state', () => {
   const afterTextEdit = patchListItem(initial, 0, { text: 'AA' });
   const afterCheckboxEdit = patchListItem(afterTextEdit, 1, { checked: true });
   assert.deepEqual(afterCheckboxEdit, [{ text: 'AA', checked: false }, { text: 'B', checked: true }]);
+});
+
+run('empty list item Enter split helper removes the empty item and preserves surrounding metadata', () => {
+  const initial = [
+    { text: 'Before', checked: false, indent: 0, listType: 'ol', delimiter: ')' },
+    { text: '   ', checked: true, indent: 0, listType: 'task', indentText: '' },
+    { text: 'After', checked: true, indent: 1, listType: 'task', indentText: '  ' }
+  ];
+  const split = splitListItemsAtEmptyItem(initial, 1);
+  assert.deepEqual(split.before, [initial[0]]);
+  assert.deepEqual(split.after, [initial[2]]);
+});
+
+run('empty list item Enter helper outdents nested empty items before split or exit', () => {
+  const initial = [
+    { text: 'Parent', checked: false, indent: 0, listType: 'ul' },
+    { text: '   ', checked: true, indent: 2, listType: 'task', indentText: '    ', marker: '-', delimiter: ')' },
+    { text: 'Child', checked: false, indent: 2, listType: 'ol', indentText: '    ' }
+  ];
+  const next = outdentEmptyListItemForEnter(initial, 1);
+  assert.deepEqual(next[1], {
+    text: '',
+    checked: true,
+    indent: 1,
+    listType: 'task',
+    indentText: '  ',
+    marker: '-',
+    delimiter: ')'
+  });
+  assert.equal(splitListItemsAtEmptyItem(next, 1), null);
+});
+
+run('empty list item Enter split helper distinguishes trailing exit, unique blank, nested blank, and non-empty items', () => {
+  assert.deepEqual(splitListItemsAtEmptyItem([{ text: 'Before' }, { text: '' }], 1), {
+    before: [{ text: 'Before' }],
+    after: []
+  });
+  assert.deepEqual(splitListItemsAtEmptyItem([{ text: '' }], 0), {
+    before: [],
+    after: []
+  });
+  assert.equal(splitListItemsAtEmptyItem([{ text: '', indent: 1 }], 0), null);
+  assert.equal(splitListItemsAtEmptyItem([{ text: 'Not empty' }], 0), null);
+  assert.equal(splitListItemsAtEmptyItem([{ text: '' }], 1), null);
+});
+
+run('empty list item Enter promotes split list starts to root level', () => {
+  const promoted = normalizeSplitListStartItems([
+    { text: 'Nested start', indent: 2, indentText: '    ', listType: 'ol' },
+    { text: 'Nested child', indent: 3, indentText: '      ', listType: 'task', checked: true }
+  ]);
+  assert.deepEqual(promoted, [
+    { text: 'Nested start', indent: 0, indentText: '', listType: 'ol' },
+    { text: 'Nested child', indent: 1, indentText: '  ', listType: 'task', checked: true }
+  ]);
+  assert.deepEqual(normalizeSplitListStartItems([{ text: 'Root', indent: 0 }]), [{ text: 'Root', indent: 0 }]);
 });
 
 run('malformed card ids stay editable instead of throwing', () => {
