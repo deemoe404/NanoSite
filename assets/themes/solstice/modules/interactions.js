@@ -23,7 +23,7 @@ import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCo
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
-import { renderNanoPostCardHtml } from '../../../js/components.js';
+import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -31,6 +31,19 @@ const defaultDocument = typeof document !== 'undefined' ? document : undefined;
 const CLASS_HIDDEN = 'is-hidden';
 
 let currentSiteConfig = null;
+
+const SOLSTICE_CARD_CLASSES = {
+  cardClass: 'solstice-card',
+  withCoverClass: 'solstice-card--with-cover',
+  linkClass: 'solstice-card__link',
+  bodyClass: 'solstice-card__body',
+  titleClass: 'solstice-card__title',
+  excerptClass: 'solstice-card__excerpt',
+  metaClass: 'solstice-card__meta',
+  dateClass: 'solstice-card__meta-date',
+  tagsClass: 'solstice-card__tags',
+  metaPosition: 'after-title'
+};
 
 function scrollViewportToTop(documentRef = defaultDocument, windowRef = defaultWindow) {
   const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
@@ -299,13 +312,13 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
   return renderNanoPostCardHtml({
-    variant: 'solstice',
     title: String(title || 'Untitled'),
     href: link,
     date,
     excerpt,
     coverHtml,
-    tagsHtml: tags
+    tagsHtml: tags,
+    classes: SOLSTICE_CARD_CLASSES
   });
 }
 
@@ -648,7 +661,6 @@ function showToc(tocEl, tocHtml, articleTitle) {
   }
   if (typeof tocEl.renderToc === 'function') {
     tocEl.renderToc({
-      variant: 'solstice',
       articleTitle: articleTitle || t('ui.tableOfContents'),
       tocHtml,
       contentSelector: '#mainview'
@@ -1037,9 +1049,27 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
 export function mount(context = {}) {
   const doc = context.document || defaultDocument;
   const win = (context.document && context.document.defaultView) || defaultWindow;
-  mountHooks(doc, win);
+  const hooks = mountHooks(doc, win);
   updateSearchPlaceholder(doc);
   setupToolsPanel(doc, win);
   setupDynamicBackground(doc, win);
-  return context;
+  return {
+    hooks,
+    views: {
+      post: hooks.renderPostView,
+      posts: hooks.renderIndexView,
+      search: hooks.renderSearchResults,
+      tab: hooks.renderStaticTabView
+    },
+    effects: hooks
+  };
 }
+
+export default {
+  mount,
+  unmount() {},
+  regions: {},
+  views: {},
+  components: {},
+  effects: {}
+};

@@ -1,5 +1,11 @@
 {
+  "$schema": "../../schema/theme.json",
   "name": "Native",
+  "version": "3.4.0",
+  "contractVersion": 1,
+  "styles": [
+    "theme.css"
+  ],
   "modules": [
     "modules/layout.js",
     "modules/nav-tabs.js",
@@ -10,5 +16,176 @@
     "modules/tag-filter.js",
     "modules/toc.js",
     "modules/footer.js"
-  ]
+  ],
+  "views": {
+    "post": {
+      "hook": "renderPostView"
+    },
+    "posts": {
+      "hook": "renderIndexView"
+    },
+    "search": {
+      "hook": "renderSearchResults"
+    },
+    "tab": {
+      "hook": "renderStaticTabView"
+    },
+    "error": {
+      "hook": "renderErrorState"
+    },
+    "loading": {
+      "hooks": [
+        "renderPostLoadingState",
+        "renderStaticTabLoadingState"
+      ]
+    }
+  },
+  "regions": {
+    "main": {
+      "required": true,
+      "aliases": [
+        "mainview"
+      ]
+    },
+    "toc": {
+      "aliases": [
+        "tocBox",
+        "tocview"
+      ]
+    },
+    "search": {
+      "aliases": [
+        "searchBox",
+        "searchInput"
+      ]
+    },
+    "nav": {
+      "aliases": [
+        "navBox",
+        "tabsNav"
+      ]
+    },
+    "tags": {
+      "aliases": [
+        "tagBox",
+        "tagview"
+      ]
+    },
+    "footer": {
+      "required": true
+    }
+  },
+  "components": [
+    "nano-search",
+    "nano-theme-controls",
+    "nano-toc",
+    "nano-post-card"
+  ],
+  "scrollContainer": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true
+  },
+  "content": {
+    "shapes": [
+      "rawMarkdown",
+      "html",
+      "blocks",
+      "tocTree",
+      "headings",
+      "metadata",
+      "assets",
+      "links"
+    ]
+  },
+  "contract": {
+    "version": 1,
+    "regions": [
+      "main",
+      "container",
+      "content",
+      "toc",
+      "search",
+      "nav",
+      "tags",
+      "footer",
+      "footerNav",
+      "mainview",
+      "navBox",
+      "searchBox",
+      "searchInput",
+      "sidebar",
+      "siteCard",
+      "tabsNav",
+      "tagBox",
+      "tocBox"
+    ],
+    "domIds": [
+      "mainview",
+      "searchInput",
+      "tabsNav",
+      "tagview",
+      "tocview"
+    ],
+    "hooks": [
+      "afterIndexRender",
+      "afterSearchRender",
+      "decoratePostView",
+      "ensureTabOverlay",
+      "enhanceIndexLayout",
+      "getScrollState",
+      "getViewContainer",
+      "handleDocumentClick",
+      "handleViewChange",
+      "handleWindowResize",
+      "hideElement",
+      "initializeSyntaxHighlighting",
+      "onTabClick",
+      "reflectThemeConfig",
+      "renderErrorState",
+      "renderFooterNav",
+      "renderIndexView",
+      "renderPostLoadingState",
+      "renderPostTOC",
+      "renderPostView",
+      "renderSearchResults",
+      "renderSiteIdentity",
+      "renderSiteLinks",
+      "renderStaticTabLoadingState",
+      "renderStaticTabView",
+      "renderTagSidebar",
+      "renderTabs",
+      "resetThemeControls",
+      "resetTOC",
+      "resolveViewContainers",
+      "restoreScrollState",
+      "setupFooter",
+      "setupResponsiveTabsObserver",
+      "setupThemeControls",
+      "showElement",
+      "updateSearchPlaceholder",
+      "updateTabHighlight",
+      "updateLayoutLoadingState"
+    ],
+    "views": [
+      "post",
+      "posts",
+      "search",
+      "tab"
+    ],
+    "content": {
+      "markdown": "html",
+      "toc": "html",
+      "shapes": [
+        "rawMarkdown",
+        "html",
+        "blocks",
+        "tocTree",
+        "headings",
+        "metadata",
+        "assets",
+        "links"
+      ]
+    }
+  }
 }

@@ -23,7 +23,7 @@ import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCo
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
-import { renderNanoPostCardHtml } from '../../../js/components.js';
+import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -31,6 +31,21 @@ const defaultDocument = typeof document !== 'undefined' ? document : undefined;
 const CLASS_HIDDEN = 'is-hidden';
 
 let currentSiteConfig = null;
+
+const ARCUS_CARD_CLASSES = {
+  cardClass: 'arcus-card',
+  withCoverClass: 'arcus-card--with-cover',
+  linkClass: 'arcus-card__link',
+  bodyClass: 'arcus-card__body',
+  titleClass: 'arcus-card__title',
+  excerptClass: 'arcus-card__excerpt',
+  excerptInnerClass: 'arcus-card__excerpt-tilt',
+  metaClass: 'arcus-card__meta-line',
+  dateClass: 'arcus-card__meta-date',
+  separatorClass: 'arcus-card__meta-separator',
+  tagsClass: 'arcus-card__tags',
+  metaPosition: 'before-title'
+};
 
 function getScrollContainer(documentRef = defaultDocument) {
   if (!documentRef || typeof documentRef.querySelector !== 'function') return null;
@@ -425,13 +440,13 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
   return renderNanoPostCardHtml({
-    variant: 'arcus',
     title: String(title || 'Untitled'),
     href: link,
     date,
     excerpt,
     coverHtml,
-    tagsHtml: tags
+    tagsHtml: tags,
+    classes: ARCUS_CARD_CLASSES
   });
 }
 
@@ -1212,7 +1227,6 @@ function showToc(tocEl, tocHtml, articleTitle) {
   }
   if (typeof tocEl.renderToc === 'function') {
     tocEl.renderToc({
-      variant: 'arcus',
       articleTitle: articleTitle || t('ui.tableOfContents'),
       tocHtml,
       contentSelector: '#mainview'
@@ -1641,10 +1655,28 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
 export function mount(context = {}) {
   const doc = context.document || defaultDocument;
   const win = (context.document && context.document.defaultView) || defaultWindow;
-  mountHooks(doc, win);
+  const hooks = mountHooks(doc, win);
   updateSearchPlaceholder(doc);
   setupToolsPanel(doc, win);
   setupDynamicBackground(doc, win);
   setupBackToTop(doc, win);
-  return context;
+  return {
+    hooks,
+    views: {
+      post: hooks.renderPostView,
+      posts: hooks.renderIndexView,
+      search: hooks.renderSearchResults,
+      tab: hooks.renderStaticTabView
+    },
+    effects: hooks
+  };
 }
+
+export default {
+  mount,
+  unmount() {},
+  regions: {},
+  views: {},
+  components: {},
+  effects: {}
+};

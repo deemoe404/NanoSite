@@ -12,6 +12,7 @@
 import { parseFrontMatter } from './content.js';
 import { getContentRoot } from './utils.js';
 import { fetchConfigWithYamlFallback } from './yaml.js';
+import { getThemeRegion } from './theme-regions.js';
 import enTranslations, { languageMeta as enLanguageMeta } from '../i18n/en.js?v=20260505welcome';
 
 // Content fetch cache modes are normalized by cache-control.js.
@@ -783,7 +784,7 @@ function applyStaticTranslations() {
     search.setPlaceholder(t('sidebar.searchPlaceholder'));
     return;
   }
-  const input = document.getElementById('searchInput');
+  const input = getThemeRegion(['search', 'searchInput'], '#searchInput');
   if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
 }
 

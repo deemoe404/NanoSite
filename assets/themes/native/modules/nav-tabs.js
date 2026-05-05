@@ -21,7 +21,7 @@ export function mount(context = {}) {
     navBox.appendChild(nav);
   }
 
-  const updatedRegions = { ...regions, navBox, tabsNav: nav };
+  const updatedRegions = { ...regions, nav: nav, navBox, tabsNav: nav };
   context.regions = updatedRegions;
   return { regions: updatedRegions };
 }

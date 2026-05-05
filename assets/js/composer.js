@@ -8,7 +8,7 @@ import {
   resolveSiteRepoConfig,
   parseYAML
 } from './yaml.js';
-import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260505welcome';
+import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260506theme';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js?v=20260505welcome';
@@ -4339,7 +4339,7 @@ function buildDefaultIndexHtml(metaBlock, lang) {
   html += '  <link rel="stylesheet" id="theme-pack">\n';
   html += '</head>\n\n';
   html += '<body>\n';
-  html += '  <script type="module" src="assets/main.js?v=20260430state"></script>\n';
+  html += '  <script type="module" src="assets/main.js?v=20260506theme"></script>\n';
   html += '</body>\n\n';
   html += '</html>\n';
   return html;

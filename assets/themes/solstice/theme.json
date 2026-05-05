@@ -1,7 +1,173 @@
 {
+  "$schema": "../../schema/theme.json",
   "name": "Solstice",
+  "version": "3.4.0",
+  "contractVersion": 1,
+  "styles": [
+    "theme.css"
+  ],
   "modules": [
     "modules/layout.js",
     "modules/interactions.js"
-  ]
+  ],
+  "views": {
+    "post": {
+      "hook": "renderPostView"
+    },
+    "posts": {
+      "hook": "renderIndexView"
+    },
+    "search": {
+      "hook": "renderSearchResults"
+    },
+    "tab": {
+      "hook": "renderStaticTabView"
+    },
+    "error": {
+      "hook": "renderErrorState"
+    },
+    "loading": {
+      "hooks": [
+        "renderPostLoadingState",
+        "renderStaticTabLoadingState"
+      ]
+    }
+  },
+  "regions": {
+    "main": {
+      "required": true,
+      "aliases": [
+        "mainview"
+      ]
+    },
+    "toc": {
+      "aliases": [
+        "tocview"
+      ]
+    },
+    "search": {
+      "aliases": [
+        "searchInput"
+      ]
+    },
+    "nav": {
+      "aliases": [
+        "tabsNav"
+      ]
+    },
+    "tags": {
+      "aliases": [
+        "tagBand",
+        "tagview"
+      ]
+    },
+    "footer": {
+      "required": true
+    }
+  },
+  "components": [
+    "nano-search",
+    "nano-theme-controls",
+    "nano-toc",
+    "nano-post-card"
+  ],
+  "scrollContainer": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true
+  },
+  "content": {
+    "shapes": [
+      "rawMarkdown",
+      "html",
+      "blocks",
+      "tocTree",
+      "headings",
+      "metadata",
+      "assets",
+      "links"
+    ]
+  },
+  "contract": {
+    "version": 1,
+    "regions": [
+      "container",
+      "content",
+      "footer",
+      "footerNav",
+      "header",
+      "nav",
+      "search",
+      "tags",
+      "main",
+      "mainview",
+      "tagBand",
+      "toc",
+      "toolsPanel"
+    ],
+    "domIds": [
+      "mainview",
+      "searchInput",
+      "tabsNav",
+      "tagview",
+      "tocview"
+    ],
+    "hooks": [
+      "afterIndexRender",
+      "afterSearchRender",
+      "decoratePostView",
+      "enhanceIndexLayout",
+      "getScrollState",
+      "getViewContainer",
+      "handleDocumentClick",
+      "handleRouteScroll",
+      "handleViewChange",
+      "handleWindowResize",
+      "hideElement",
+      "reflectThemeConfig",
+      "renderErrorState",
+      "renderFooterNav",
+      "renderIndexView",
+      "renderPostLoadingState",
+      "renderPostTOC",
+      "renderPostView",
+      "renderSearchResults",
+      "renderSiteIdentity",
+      "renderSiteLinks",
+      "renderStaticTabLoadingState",
+      "renderStaticTabView",
+      "renderTagSidebar",
+      "renderTabs",
+      "resetThemeControls",
+      "resolveViewContainers",
+      "restoreScrollState",
+      "scrollToHash",
+      "setupFooter",
+      "setupResponsiveTabsObserver",
+      "setupThemeControls",
+      "showElement",
+      "updateSearchPlaceholder",
+      "updateLayoutLoadingState"
+    ],
+    "views": [
+      "post",
+      "posts",
+      "search",
+      "tab"
+    ],
+    "content": {
+      "markdown": "html",
+      "toc": "html",
+      "shapes": [
+        "rawMarkdown",
+        "html",
+        "blocks",
+        "tocTree",
+        "headings",
+        "metadata",
+        "assets",
+        "links"
+      ]
+    }
+  }
 }

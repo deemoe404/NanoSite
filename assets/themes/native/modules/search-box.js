@@ -9,16 +9,12 @@ export function mount(context = {}) {
     searchBox = doc.createElement('nano-search');
     searchBox.className = 'box';
     searchBox.id = 'searchbox';
-    searchBox.setAttribute('variant', 'native');
     sidebar.appendChild(searchBox);
   } else if (!searchBox.classList.contains('box')) {
     searchBox.classList.add('box');
   }
-  if (searchBox.tagName && searchBox.tagName.toLowerCase() === 'nano-search') {
-    searchBox.setAttribute('variant', 'native');
-  }
 
-  const updatedRegions = { ...regions, searchBox, searchInput: searchBox.input || searchBox.querySelector('input[type="search"]') };
+  const updatedRegions = { ...regions, search: searchBox, searchBox, searchInput: searchBox.input || searchBox.querySelector('input[type="search"]') };
   context.regions = updatedRegions;
   return { regions: updatedRegions };
 }

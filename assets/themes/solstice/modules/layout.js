@@ -58,13 +58,14 @@ export function mount(context = {}) {
     const el = doc.createElement('nano-toc');
     el.id = TOCVIEW_ID;
     el.className = 'solstice-toc';
-    el.setAttribute('variant', 'solstice');
     el.setAttribute('aria-label', 'Table of contents');
     el.hidden = true;
     return el;
   });
   if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
-    tocview.setAttribute('variant', 'solstice');
+    tocview.setAttribute('inner-class', 'solstice-toc__inner');
+    tocview.setAttribute('title-class', 'solstice-toc__title');
+    tocview.setAttribute('show-top', 'false');
   }
 
   const footer = ensureElement(container, '.solstice-footer', () => {
@@ -90,11 +91,18 @@ export function mount(context = {}) {
         </div>
         <section class="solstice-footer__meta" aria-label="Site meta">
           <div class="solstice-footer__credit">NanoSite</div>
-          <nano-search class="solstice-footer__search" variant="solstice" aria-label="Search"></nano-search>
+          <nano-search class="solstice-footer__search" field-class="solstice-search" icon-class="solstice-search__icon" icon="&#128269;" aria-label="Search"></nano-search>
         </section>
       </div>`;
     return el;
   });
+  const footerSearch = footer.querySelector('nano-search');
+  if (footerSearch) {
+    footerSearch.setAttribute('field-class', 'solstice-search');
+    footerSearch.setAttribute('icon-class', 'solstice-search__icon');
+    footerSearch.setAttribute('icon', '\uD83D\uDD0D');
+    footerSearch.removeAttribute('variant');
+  }
 
   let tagBand = doc.getElementById(TAGVIEW_ID);
   if (!tagBand) {
@@ -116,9 +124,13 @@ export function mount(context = {}) {
     main,
     content: main,
     mainview,
+    nav: header.querySelector(`#${NAV_ID}`),
+    search: footerSearch,
+    searchInput: footerSearch?.input || footer.querySelector('input[type="search"]'),
     toc: tocview,
     footer,
     footerNav: footer.querySelector(`#${FOOTER_NAV_ID}`),
+    tags: tagBand,
     tagBand,
     toolsPanel: footer.querySelector('#toolsPanel')
   };

@@ -9,7 +9,7 @@ import { renderPostNav } from '../../../js/post-nav.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { applyLangHints } from '../../../js/typography.js';
-import { renderNanoPostCardHtml } from '../../../js/components.js';
+import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
 import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor } from '../../../js/theme.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
@@ -21,6 +21,23 @@ let tabsResizeTimer = 0;
 let responsiveObserverBound = false;
 let lightboxInstalled = false;
 let masonryHandlersBound = false;
+
+const NATIVE_CARD_CLASSES = {
+  cardClass: 'nano-post-card',
+  withCoverClass: 'nano-post-card--with-cover',
+  linkClass: '',
+  bodyClass: '',
+  titleClass: 'card-title',
+  excerptClass: 'card-excerpt',
+  metaClass: 'card-meta',
+  dateClass: 'card-date',
+  versionsClass: 'card-versions',
+  draftClass: 'card-draft',
+  separatorClass: 'card-sep',
+  tagsClass: '',
+  metaPosition: 'after-excerpt',
+  wrapCard: 'false'
+};
 
 function getUtility(params = {}, key, fallback) {
   try {
@@ -531,7 +548,6 @@ function renderPostTOCNative(params = {}, documentRef = defaultDocument, windowR
   if (typeof toc.renderToc === 'function') {
     try { toc.setAttribute('toggle-label', translate('toc.toggleAria') || 'Toggle section'); } catch (_) {}
     toc.renderToc({
-      variant: 'native',
       articleTitle: title,
       tocHtml,
       topLabel: translate('ui.top'),
@@ -1225,7 +1241,6 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
     const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
     html += renderNanoPostCardHtml({
-      variant: 'native',
       title: String(key || ''),
       href,
       dataIdx: encodeURIComponent(key),
@@ -1233,7 +1248,8 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
       versionsLabel,
       draftLabel,
       coverHtml: cover,
-      tagsHtml: tag
+      tagsHtml: tag,
+      classes: NATIVE_CARD_CLASSES
     });
   }
   html += '</div>';
@@ -1358,7 +1374,6 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
     const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
     html += renderNanoPostCardHtml({
-      variant: 'native',
       title: String(key || ''),
       href,
       dataIdx: encodeURIComponent(key),
@@ -1366,7 +1381,8 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
       versionsLabel,
       draftLabel,
       coverHtml: cover,
-      tagsHtml: tag
+      tagsHtml: tag,
+      classes: NATIVE_CARD_CLASSES
     });
   }
   html += '</div>';
@@ -1890,5 +1906,23 @@ export function mount(context = {}) {
   hooks.setupFooter = (params = {}) => setupFooterNative(params, documentRef, windowRef);
   if (windowRef) windowRef.__ns_themeHooks = hooks;
 
-  return context;
+  return {
+    hooks,
+    views: {
+      post: hooks.renderPostView,
+      posts: hooks.renderIndexView,
+      search: hooks.renderSearchResults,
+      tab: hooks.renderStaticTabView
+    },
+    effects: hooks
+  };
 }
+
+export default {
+  mount,
+  unmount() {},
+  regions: {},
+  views: {},
+  components: {},
+  effects: {}
+};

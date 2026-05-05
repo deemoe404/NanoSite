@@ -53,6 +53,11 @@
   --arcus-syntax-label-copied-bg: rgba(47, 182, 126, 0.16);
   --arcus-syntax-label-copied-text: #114936;
   --arcus-syntax-label-ring: rgba(123, 139, 255, 0.32);
+  --ns-color-text: var(--arcus-text);
+  --ns-color-surface: var(--arcus-surface);
+  --ns-font-body: var(--arcus-font-sans);
+  --ns-radius-card: var(--arcus-radius-md);
+  --ns-space-page: clamp(1rem, 4vw, 3rem);
 
   /* Bridge variables consumed by shared tooling (composer, editor, etc.) */
   --bg: var(--arcus-bg);
