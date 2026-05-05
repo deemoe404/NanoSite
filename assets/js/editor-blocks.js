@@ -1470,9 +1470,56 @@ function placeCaretAtVisualLine(el, x, edge, fallbackOffset = 0) {
   }
 }
 
+function normalizeCodeEditablePlainText(value) {
+  return String(value == null ? '' : value)
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+}
+
 function codeEditableText(el) {
   if (!el) return '';
-  return String(el.innerText || el.textContent || '').replace(/\u00a0/g, ' ').replace(/\n$/, '');
+  return normalizeCodeEditablePlainText(el.innerText || el.textContent || '').replace(/\n$/, '');
+}
+
+function codeEditableSelectionOffsets(el) {
+  const fallback = codeEditableText(el).length;
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (!el || !sel || !sel.rangeCount) return { start: fallback, end: fallback };
+    const range = sel.getRangeAt(0);
+    if (!nodeContains(el, range.startContainer) || !nodeContains(el, range.endContainer)) {
+      return { start: fallback, end: fallback };
+    }
+    const startRange = document.createRange();
+    startRange.selectNodeContents(el);
+    startRange.setEnd(range.startContainer, range.startOffset);
+    const endRange = document.createRange();
+    endRange.selectNodeContents(el);
+    endRange.setEnd(range.endContainer, range.endOffset);
+    const start = normalizeCodeEditablePlainText(startRange.toString()).length;
+    const end = normalizeCodeEditablePlainText(endRange.toString()).length;
+    return {
+      start: Math.max(0, Math.min(start, end)),
+      end: Math.max(0, Math.max(start, end))
+    };
+  } catch (_) {
+    return { start: fallback, end: fallback };
+  }
+}
+
+function insertCodeEditableTextAtSelection(el, value) {
+  const current = codeEditableText(el);
+  const offsets = codeEditableSelectionOffsets(el);
+  const start = Math.max(0, Math.min(offsets.start, current.length));
+  const end = Math.max(start, Math.min(offsets.end, current.length));
+  const insert = String(value == null ? '' : value);
+  const next = `${current.slice(0, start)}${insert}${current.slice(end)}`;
+  if (el) {
+    el.textContent = next;
+    placeCaretAtTextOffset(el, start + insert.length);
+  }
+  return next;
 }
 
 function nodeContains(root, node) {
@@ -3540,6 +3587,25 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     area.style.height = `${area.scrollHeight}px`;
   };
 
+  const renderCodeGutter = (gutter, value) => {
+    if (!gutter) return;
+    const lineCount = Math.max(1, String(value == null ? '' : value).split('\n').length);
+    if (gutter.childElementCount !== lineCount) {
+      const frag = document.createDocumentFragment();
+      for (let line = 1; line <= lineCount; line += 1) {
+        const span = document.createElement('span');
+        span.textContent = String(line);
+        frag.appendChild(span);
+      }
+      gutter.replaceChildren(frag);
+    } else {
+      Array.from(gutter.children).forEach((span, index) => {
+        const label = String(index + 1);
+        if (span.textContent !== label) span.textContent = label;
+      });
+    }
+  };
+
   const renderListBlock = (body, block, index) => {
     const items = editableListItems(block.data.items);
     const listType = block.data.listType === 'ol' || block.data.listType === 'task' || block.data.listType === 'mixed' ? block.data.listType : 'ul';
@@ -3684,20 +3750,35 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const renderCodeBlock = (body, block, index) => {
     const pre = document.createElement('pre');
     pre.className = 'blocks-code-preview';
+    const gutter = document.createElement('div');
+    gutter.className = 'blocks-code-gutter';
+    gutter.setAttribute('aria-hidden', 'true');
     const code = document.createElement('code');
     code.contentEditable = 'true';
     code.spellcheck = false;
     code.textContent = block.data.text || '';
-    const sync = () => updateFromControl(block, { text: codeEditableText(code) });
+    renderCodeGutter(gutter, block.data.text || '');
+    const sync = () => {
+      const text = codeEditableText(code);
+      updateFromControl(block, { text });
+      renderCodeGutter(gutter, text);
+    };
     editableSyncMap.set(code, sync);
     code.addEventListener('input', sync);
+    code.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+      event.preventDefault();
+      const text = insertCodeEditableTextAtSelection(code, '\n');
+      updateFromControl(block, { text });
+      renderCodeGutter(gutter, text);
+    });
     code.addEventListener('focus', () => setActive(index, code, sync));
     code.addEventListener('pointerdown', (event) => {
       if (event && event.button === 0 && event.isPrimary !== false) {
         activateEditableFromPointer(index, code, sync);
       }
     });
-    pre.appendChild(code);
+    pre.append(gutter, code);
     body.appendChild(pre);
   };
 

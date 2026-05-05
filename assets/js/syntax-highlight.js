@@ -467,14 +467,18 @@ function detectLanguage(code) {
 }
 
 // 初始化语法高亮
-export function initSyntaxHighlighting() {
-  const codeBlocks = document.querySelectorAll('pre code');
+export function initSyntaxHighlighting(root = document) {
+  const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+  const codeBlocks = scope.querySelectorAll('pre code');
   
   codeBlocks.forEach(codeElement => {
     const preElement = codeElement.closest('pre');
     if (!preElement) return;
-    // Skip editor-internal pre blocks (handled by hieditor)
+    // Skip editor-internal code surfaces. Mutating contenteditable code resets the browser selection.
     if (preElement.classList && preElement.classList.contains('hi-pre')) return;
+    if (preElement.classList && preElement.classList.contains('blocks-code-preview')) return;
+    if (preElement.closest && preElement.closest('.markdown-blocks-shell')) return;
+    if (codeElement.isContentEditable || codeElement.getAttribute('contenteditable') === 'true') return;
     
     // 获取语言信息
     let language = null;
