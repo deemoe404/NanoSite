@@ -31,6 +31,13 @@ const run = (name, fn) => {
 
 const editorBlocksSource = readFileSync(new URL('../assets/js/editor-blocks.js', import.meta.url), 'utf8');
 
+const functionSource = (name) => {
+  const start = editorBlocksSource.indexOf(`function ${name}`);
+  if (start < 0) return '';
+  const next = editorBlocksSource.indexOf('\nfunction ', start + 1);
+  return editorBlocksSource.slice(start, next < 0 ? editorBlocksSource.length : next);
+};
+
 run('supported blocks round-trip when untouched', () => {
   const source = [
     '# Title',
@@ -288,6 +295,103 @@ run('backspace merge focuses previous block at its original text length', () => 
     editorBlocksSource,
     /previousTextLength = textBlockDataText\(previous\)\.length[\s\S]*focusBlockPrimaryEditable\(merged, previousTextLength\)/,
     'caret should land at the old end of the previous block after merge'
+  );
+});
+
+run('cross-block arrows only handle plain vertical arrow keys', () => {
+  assert.match(
+    editorBlocksSource,
+    /event\.key !== 'ArrowUp' && event\.key !== 'ArrowDown'/,
+    'cross-block navigation should only consider vertical arrow keys'
+  );
+  assert.match(
+    editorBlocksSource,
+    /event\.shiftKey \|\| event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.isComposing/,
+    'cross-block navigation should ignore modified arrow key chords and IME composition'
+  );
+});
+
+run('cross-block arrows only leave text editables from edge lines', () => {
+  assert.match(
+    editorBlocksSource,
+    /isEditableCaretOnEdgeLine\(editable, direction\)[\s\S]*if \(!onEdge\) return false;/,
+    'contenteditable arrow navigation should only cross blocks on the first or last visual line'
+  );
+  assert.match(
+    editorBlocksSource,
+    /isTextareaCaretOnEdgeLine\(editable, direction\)[\s\S]*if \(!onEdge\) return false;/,
+    'textarea arrow navigation should only cross blocks at the first or last text line'
+  );
+});
+
+run('cross-block arrows detect wrapped contenteditable visual lines from text ranges', () => {
+  const edgeLineSource = functionSource('isEditableCaretOnEdgeLine');
+  assert.match(
+    editorBlocksSource,
+    /function editableVisualLineRects\(el\)[\s\S]*createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*range\.setStart\(node, i\)[\s\S]*range\.getClientRects/,
+    'visual line detection should be based on per-character text range rectangles'
+  );
+  assert.match(
+    edgeLineSource,
+    /const lineRects = editableVisualLineRects\(el\);/,
+    'edge-line detection should use grouped visual text lines'
+  );
+  assert.doesNotMatch(
+    edgeLineSource,
+    /el\.getClientRects/,
+    'edge-line detection should not use the editable element rect as a proxy for wrapped text lines'
+  );
+});
+
+run('cross-block arrows place target caret using grouped visual text lines', () => {
+  assert.match(
+    functionSource('placeCaretAtVisualLine'),
+    /const lineRects = editableVisualLineRects\(el\);/,
+    'target caret placement should use the same visual line grouping as edge detection'
+  );
+});
+
+run('cross-block arrows focus non-text block containers and continue from them', () => {
+  assert.match(
+    editorBlocksSource,
+    /if \(!editable\) \{[\s\S]*activateNonTextBlockFromPointer\(target\.index, target\.blockEl\);[\s\S]*return true;[\s\S]*\}/,
+    'non-text navigation targets should focus the block container'
+  );
+  assert.match(
+    editorBlocksSource,
+    /if \(event\.target !== item\) return;[\s\S]*handleCrossBlockArrowNavigation\(event, index\);/,
+    'focused non-text block containers should continue cross-block arrow navigation'
+  );
+});
+
+run('cross-block arrows keep list item navigation before block-level fallback', () => {
+  assert.match(
+    editorBlocksSource,
+    /nextIndex < 0 \|\| nextIndex >= items\.length[\s\S]*handleCrossBlockArrowNavigation\(event, index, span\)/,
+    'list items should cross blocks only when arrowing beyond the first or last item'
+  );
+  assert.match(
+    editorBlocksSource,
+    /placeCaretAtVisualLine\(target, caretRect \? caretRect\.left : 0, event\.key === 'ArrowUp' \? 'last' : 'first', caretOffset\)/,
+    'existing list item visual-line navigation should be preserved'
+  );
+});
+
+run('cross-block arrows wire rich text, code, and source editables', () => {
+  assert.match(
+    editorBlocksSource,
+    /mergeTextBlockWithPreviousOnBackspace\(event, block, index, editable\)[\s\S]*handleCrossBlockArrowNavigation\(event, index, editable\)[\s\S]*event\.key !== 'Enter'/,
+    'rich text editables should run cross-block arrows before Enter handling'
+  );
+  assert.match(
+    editorBlocksSource,
+    /removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*handleCrossBlockArrowNavigation\(event, index, code\)[\s\S]*event\.key !== 'Enter'/,
+    'code editables should run cross-block arrows before code Enter handling'
+  );
+  assert.match(
+    editorBlocksSource,
+    /removeEmptyBlockWithBackspace\(event, block, index, area, sync\)[\s\S]*handleCrossBlockArrowNavigation\(event, index, area\)/,
+    'source textareas should run cross-block arrows after empty-block deletion'
   );
 });
 
