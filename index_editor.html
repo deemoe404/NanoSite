@@ -1455,8 +1455,9 @@
     .blocks-image-placeholder::after { content:""; position:absolute; inset:0; background:linear-gradient(to top right, transparent calc(50% - .75px), color-mix(in srgb, var(--muted) 45%, transparent) 50%, transparent calc(50% + .75px)); }
     .blocks-image-figure.is-image-placeholder .blocks-image-placeholder { display:flex; }
     .blocks-image-placeholder-label { position:relative; z-index:1; max-width:min(22rem, 80%); font-family:var(--sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size:.88rem; line-height:1.25; }
-    .blocks-image-figure figcaption { margin-top:.5em; color:var(--muted); font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:.9em; text-align:center; word-break:break-word; }
-    .blocks-image-figure figcaption[hidden] { display:none !important; }
+    .blocks-image-figure figcaption { margin-top:.5em; min-height:1.45em; color:var(--muted); font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:.9em; text-align:center; word-break:break-word; outline:none; border-radius:6px; cursor:text; }
+    .blocks-image-figure figcaption:focus { outline:none; box-shadow:none; }
+    .blocks-image-figure figcaption.is-empty::before { content:attr(data-placeholder); color:color-mix(in srgb, var(--muted) 58%, transparent); pointer-events:none; }
     .blocks-visual-list { margin:0 0 0 1.25rem; padding-left:0; font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:1.04rem; line-height:1.75; letter-spacing:.005em; }
     .blocks-visual-list-standard { margin-left:0; padding-left:0; }
     .blocks-visual-list-task { list-style:none; margin-left:0; padding-left:0; }

@@ -667,8 +667,8 @@ run('blank blocks use existing removable and cross-block navigation paths', () =
   );
   assert.match(
     editorBlocksSource,
-    /blockEl\.querySelector\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)/,
-    'cross-block target discovery should include blank rich editables'
+    /blockEl\.querySelector\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-image-caption, \.blocks-source-textarea'\)/,
+    'cross-block target discovery should include blank rich editables and image captions'
   );
   assert.match(
     editorBlocksSource,

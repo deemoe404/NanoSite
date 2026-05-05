@@ -457,8 +457,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-command-menu'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-card-preview'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
-  'blocks caret routing should exclude command menus, link editors, article cards, controls, links, and native editable targets'
+  /const isBlocksCaretInteractiveTarget = \(target\) => \{[\s\S]*closestElement\(target, \[[\s\S]*'\.blocks-block-head'[\s\S]*'\.blocks-command-menu'[\s\S]*'\.blocks-link-editor'[\s\S]*'\.blocks-card-preview'[\s\S]*'\.blocks-inspector'[\s\S]*'button'[\s\S]*'input'[\s\S]*'select'[\s\S]*'textarea'[\s\S]*'a\[href\]'[\s\S]*'\.blocks-image-caption'[\s\S]*'\[contenteditable="true"\]'[\s\S]*\]\.join/,
+  'blocks caret routing should exclude command menus, link editors, article cards, controls, links, image captions, and native editable targets'
 );
 
 assert.match(
@@ -475,8 +475,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const editableCaretCandidates = \(\) => \{[\s\S]*querySelectorAll\('\.blocks-list-item \.blocks-list-text'\)[\s\S]*hitTarget: closestElement\(editable, '\.blocks-list-item'\) \|\| editable[\s\S]*querySelectorAll\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)[\s\S]*sync: editableSyncMap\.get\(editable\) \|\| null/,
-  'routed caret candidates should include whole-row list item hit targets, rich text, code editors, and source markdown textareas with sync callbacks'
+  /const editableCaretCandidates = \(\) => \{[\s\S]*querySelectorAll\('\.blocks-list-item \.blocks-list-text'\)[\s\S]*hitTarget: closestElement\(editable, '\.blocks-list-item'\) \|\| editable[\s\S]*querySelectorAll\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-image-caption, \.blocks-source-textarea'\)[\s\S]*sync: editableSyncMap\.get\(editable\) \|\| null/,
+  'routed caret candidates should include whole-row list item hit targets, rich text, code editors, image captions, and source markdown textareas with sync callbacks'
 );
 
 assert.match(
@@ -601,8 +601,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*const placeholder = document\.createElement\('div'\);[\s\S]*placeholder\.className = 'blocks-image-placeholder'[\s\S]*figure\.append\(img, placeholder, caption\);/,
-  'image blocks should render a real image element with an editor-only empty-image placeholder'
+  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*const placeholder = document\.createElement\('div'\);[\s\S]*placeholder\.className = 'blocks-image-placeholder'[\s\S]*const caption = document\.createElement\('figcaption'\);[\s\S]*caption\.className = 'blocks-image-caption';[\s\S]*caption\.contentEditable = 'true';[\s\S]*caption\.dataset\.placeholder = text\('imageAlt', 'Alt text'\);[\s\S]*figure\.append\(img, placeholder, caption\);/,
+  'image blocks should render a real image element with an editor-only empty-image placeholder and directly editable caption'
 );
 
 assert.match(
@@ -625,8 +625,20 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /const createImageMetadataControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*alt\.className = 'blocks-image-alt';[\s\S]*const replace = button\(text\('replaceImage', 'Replace image'\), 'blocks-btn blocks-image-replace'\);[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ alt: inputValue\(alt\), title: inputValue\(title\) \}\);[\s\S]*options\.requestImageUpload\(\{ replaceIndex: index, replaceBlockId: block\.id \}\);[\s\S]*controls\.append\(alt, title, replace\);/,
-  'image metadata controls should place replace-image after text fields'
+  /const createImageMetadataControls = \(block, index\) => \{[\s\S]*controls\.className = 'blocks-image-meta-controls';[\s\S]*const replace = button\(text\('replaceImage', 'Replace image'\), 'blocks-btn blocks-image-replace'\);[\s\S]*title\.className = 'blocks-image-title';[\s\S]*updateFromControl\(block, \{ title: inputValue\(title\) \}\);[\s\S]*options\.requestImageUpload\(\{ replaceIndex: index, replaceBlockId: block\.id \}\);[\s\S]*controls\.append\(title, replace\);/,
+  'image metadata controls should keep title and replace-image controls after moving alt editing into the caption'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /blocks-image-alt|controls\.append\(alt, title, replace\)|alt: inputValue\(alt\)/,
+  'image metadata controls should not keep the old toolbar alt-text input'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const syncImageAltFromCaption = \(block, caption\) => \{[\s\S]*const img = blockEl && blockEl\.querySelector\('\.blocks-image-preview'\);[\s\S]*const alt = plainEditableValue\(caption\);[\s\S]*if \(img\) img\.alt = alt;[\s\S]*caption\.classList\.toggle\('is-empty', !alt\);[\s\S]*updateFromControl\(block, \{ alt \}\);[\s\S]*caption\.addEventListener\('input', syncCaption\);/,
+  'editable image captions should update block alt text and keep the rendered img alt synchronized'
 );
 
 assert.match(
@@ -1135,8 +1147,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-image-figure \{ position:relative; margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*\.blocks-image-figure\.is-image-placeholder \{ aspect-ratio:5 \/ 1; min-height:5rem;[\s\S]*\.blocks-image-placeholder::after \{ content:""; position:absolute; inset:0; background:linear-gradient\(to top right,[\s\S]*\.blocks-image-figure\.is-image-placeholder \.blocks-image-placeholder \{ display:flex; \}[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
-  'image block visual styling should mirror native article images and reserve a diagonal empty-image placeholder'
+  /\.blocks-image-figure \{ position:relative; margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*\.blocks-image-figure\.is-image-placeholder \{ aspect-ratio:5 \/ 1; min-height:5rem;[\s\S]*\.blocks-image-placeholder::after \{ content:""; position:absolute; inset:0; background:linear-gradient\(to top right,[\s\S]*\.blocks-image-figure\.is-image-placeholder \.blocks-image-placeholder \{ display:flex; \}[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; min-height:1\.45em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\.is-empty::before \{ content:attr\(data-placeholder\);/,
+  'image block visual styling should mirror native article images and expose a subtle editable empty-caption placeholder'
 );
 
 assert.match(
