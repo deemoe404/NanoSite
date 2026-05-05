@@ -1412,10 +1412,11 @@
     .blocks-list-text:focus { outline:none; box-shadow:none; }
     .blocks-visual-list-standard .blocks-list-text { grid-column:2; display:block; }
     .blocks-visual-list-task .blocks-list-text { grid-column:2; display:block; }
-    .blocks-code-preview { margin:0; padding:1rem 1.1rem; border-radius:0.5rem; overflow:hidden; background-color:var(--code-bg); border:0.0625rem solid var(--border); box-shadow:var(--shadow); color:var(--code-text); display:flex; align-items:stretch; position:relative; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:.95rem; line-height:1.55; tab-size:2; }
+    .blocks-code-preview { margin:0; padding:1rem 1.1rem; border-radius:0.5rem; overflow:hidden; background-color:var(--code-bg); border:0.0625rem solid var(--border); box-shadow:var(--shadow); color:var(--code-text); position:relative; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:.95rem; line-height:1.55; tab-size:2; }
+    .blocks-code-scroll { display:flex; align-items:stretch; min-width:0; width:100%; overflow:auto; overflow-y:hidden; }
     .blocks-code-gutter { flex:0 0 auto; box-sizing:border-box; padding-right:.75rem; margin-right:.75rem; border-right:1px solid color-mix(in srgb, var(--code-text) 12%, transparent); background:var(--code-bg); color:color-mix(in srgb, var(--code-text) 60%, transparent); text-align:right; user-select:none; font:inherit; font-variant-numeric:tabular-nums; }
     .blocks-code-gutter span { display:block; line-height:inherit; }
-    .blocks-code-preview code { display:block; flex:1 1 auto; box-sizing:border-box; min-width:0; min-height:1.55em; padding:0; outline:none; overflow-x:auto; overflow-y:hidden; white-space:pre; font:inherit; background:transparent; color:inherit; }
+    .blocks-code-preview code { display:block; flex:1 0 auto; box-sizing:border-box; min-width:max-content; min-height:1.55em; padding:0; outline:none; overflow:visible; white-space:pre; font:inherit; background:transparent; color:inherit; }
     .blocks-code-preview code:focus { outline:none; box-shadow:none; border-color:inherit; }
     .blocks-card-preview .link-card-wrap { margin:.1rem 0; }
     .blocks-card-preview a { cursor:pointer; }

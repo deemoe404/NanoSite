@@ -595,8 +595,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const pre = document\.createElement\('pre'\);[\s\S]*const gutter = document\.createElement\('div'\);[\s\S]*gutter\.className = 'blocks-code-gutter';[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.contentEditable = 'true'/,
-  'code blocks should render a pre/code editing surface with an owned gutter'
+  /const pre = document\.createElement\('pre'\);[\s\S]*const scroll = document\.createElement\('div'\);[\s\S]*scroll\.className = 'blocks-code-scroll';[\s\S]*const gutter = document\.createElement\('div'\);[\s\S]*gutter\.className = 'blocks-code-gutter';[\s\S]*const code = document\.createElement\('code'\);[\s\S]*code\.contentEditable = 'true'/,
+  'code blocks should render a pre/code editing surface with an owned non-editable scroll wrapper and gutter'
 );
 
 assert.match(
@@ -625,7 +625,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /renderCodeGutter\(gutter, block\.data\.text \|\| ''\);[\s\S]*const sync = \(\) => \{[\s\S]*const text = codeEditableText\(code\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('input', sync\);[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*const text = insertCodeEditableTextAtSelection\(code, '\\n'\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);/,
+  /renderCodeGutter\(gutter, block\.data\.text \|\| ''\);[\s\S]*const sync = \(\) => \{[\s\S]*const text = codeEditableText\(code\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*editableSyncMap\.set\(code, sync\);[\s\S]*code\.addEventListener\('input', sync\);[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*const text = insertCodeEditableTextAtSelection\(code, '\\n'\);[\s\S]*updateFromControl\(block, \{ text \}\);[\s\S]*renderCodeGutter\(gutter, text\);[\s\S]*code\.addEventListener\('focus', \(\) => setActive\(index, code, sync\)\);[\s\S]*scroll\.append\(gutter, code\);[\s\S]*pre\.appendChild\(scroll\);/,
   'code block editing surfaces should sync text and gutter without rewriting the editable code node'
 );
 
@@ -919,8 +919,14 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:hidden; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); display:flex; align-items:stretch; position:relative;[\s\S]*font-size:\.95rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; box-sizing:border-box;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-gutter span \{ display:block; line-height:inherit; \}[\s\S]*\.blocks-code-preview code \{ display:block; flex:1 1 auto;[\s\S]*min-width:0; min-height:1\.55em; padding:0;[\s\S]*overflow-x:auto; overflow-y:hidden;[\s\S]*font:inherit; background:transparent; color:inherit; \}/,
+  /\.blocks-code-preview \{ margin:0; padding:1rem 1\.1rem; border-radius:0\.5rem; overflow:hidden; background-color:var\(--code-bg\); border:0\.0625rem solid var\(--border\); box-shadow:var\(--shadow\); color:var\(--code-text\); position:relative;[\s\S]*font-size:\.95rem; line-height:1\.55; tab-size:2; \}[\s\S]*\.blocks-code-scroll \{ display:flex; align-items:stretch; min-width:0; width:100%; overflow:auto; overflow-y:hidden; \}[\s\S]*\.blocks-code-gutter \{ flex:0 0 auto; box-sizing:border-box;[\s\S]*padding-right:\.75rem; margin-right:\.75rem; border-right:1px solid color-mix\(in srgb, var\(--code-text\) 12%, transparent\); background:var\(--code-bg\); color:color-mix\(in srgb, var\(--code-text\) 60%, transparent\);[\s\S]*font:inherit; font-variant-numeric:tabular-nums; \}[\s\S]*\.blocks-code-gutter span \{ display:block; line-height:inherit; \}[\s\S]*\.blocks-code-preview code \{ display:block; flex:1 0 auto;[\s\S]*min-width:max-content; min-height:1\.55em; padding:0;[\s\S]*overflow:visible;[\s\S]*font:inherit; background:transparent; color:inherit; \}/,
   'blocks code blocks should use native code styling while keeping one editable line as a pointer target'
+);
+
+assert.doesNotMatch(
+  editorSource,
+  /\.blocks-code-preview code \{[^}]*overflow-x:auto/,
+  'editable blocks code should not own horizontal scrolling because browser caret scrolling clips its left edge too early'
 );
 
 assert.doesNotMatch(

@@ -3750,6 +3750,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const renderCodeBlock = (body, block, index) => {
     const pre = document.createElement('pre');
     pre.className = 'blocks-code-preview';
+    const scroll = document.createElement('div');
+    scroll.className = 'blocks-code-scroll';
     const gutter = document.createElement('div');
     gutter.className = 'blocks-code-gutter';
     gutter.setAttribute('aria-hidden', 'true');
@@ -3778,7 +3780,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
         activateEditableFromPointer(index, code, sync);
       }
     });
-    pre.append(gutter, code);
+    scroll.append(gutter, code);
+    pre.appendChild(scroll);
     body.appendChild(pre);
   };
 
