@@ -10,6 +10,7 @@ const editorMainPath = resolve(here, '../assets/js/editor-main.js');
 const editorBlocksPath = resolve(here, '../assets/js/editor-blocks.js');
 const syntaxHighlightPath = resolve(here, '../assets/js/syntax-highlight.js');
 const editorPath = resolve(here, '../index_editor.html');
+const nativeBasePath = resolve(here, '../assets/themes/native/base.css');
 const nativeThemePath = resolve(here, '../assets/themes/native/theme.css');
 const enI18nPath = resolve(here, '../assets/i18n/en.js');
 const chsI18nPath = resolve(here, '../assets/i18n/chs.js');
@@ -24,6 +25,7 @@ const editorMainSource = readFileSync(editorMainPath, 'utf8');
 const editorBlocksSource = readFileSync(editorBlocksPath, 'utf8');
 const syntaxHighlightSource = readFileSync(syntaxHighlightPath, 'utf8');
 const editorSource = readFileSync(editorPath, 'utf8');
+const nativeBaseSource = readFileSync(nativeBasePath, 'utf8');
 const nativeThemeSource = readFileSync(nativeThemePath, 'utf8');
 const i18nSource = readFileSync(i18nPath, 'utf8');
 const enI18nSource = readFileSync(enI18nPath, 'utf8');
@@ -60,6 +62,30 @@ assert.doesNotMatch(
   editorSource,
   /\.view-toggle \.vt-btn\.has-draft::before/,
   'composer file switch dirty indicators should not render as inline orange dots'
+);
+
+assert.match(
+  source,
+  /function openGithubCommitFilePreview\(file, triggerEl\) \{[\s\S]*previewDialog\.appendChild\(head\);[\s\S]*pre\.className = 'github-preview-code';[\s\S]*previewDialog\.appendChild\(pre\);[\s\S]*previewModal\.appendChild\(previewDialog\);/,
+  'GitHub pending-file preview should append code directly to the dialog without extra content wrappers'
+);
+
+assert.doesNotMatch(
+  source,
+  /github-preview-body|github-preview-content|github-preview-path/,
+  'GitHub pending-file preview should not render the removed body, content, or repeated path wrappers'
+);
+
+assert.match(
+  nativeBaseSource,
+  /\.github-preview-code \{[\s\S]*margin: 0;[\s\S]*white-space: pre-wrap;[\s\S]*word-break: break-word;/,
+  'GitHub pending-file preview code block should render directly without owning a nested scroll area'
+);
+
+assert.doesNotMatch(
+  nativeBaseSource,
+  /\.github-preview-code \{[^}]*\b(?:max-height|overflow):/,
+  'GitHub pending-file preview should rely on the modal dialog scroll container'
 );
 
 assert.match(

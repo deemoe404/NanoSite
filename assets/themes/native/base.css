@@ -1618,26 +1618,6 @@ nano-toc.box {
 .gh-sync-file-entry:active { transform: translateY(1px); }
 
 .github-preview-dialog { max-width: min(90vw, 860px); }
-.github-preview-body {
-  padding: 0.25rem 0 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-.github-preview-path {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-}
-.github-preview-content {
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--surface, var(--card)) 90%, transparent);
-  padding: 0.75rem;
-  max-height: 60vh;
-  overflow: auto;
-}
 .github-preview-code {
   margin: 0;
   white-space: pre-wrap;

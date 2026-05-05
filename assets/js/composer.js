@@ -4679,15 +4679,6 @@ function openGithubCommitFilePreview(file, triggerEl) {
   previewDialog.appendChild(head);
   previewDialog.setAttribute('aria-labelledby', previewTitleId);
 
-  const body = document.createElement('div');
-  body.className = 'github-preview-body';
-  const pathLine = document.createElement('p');
-  pathLine.className = 'github-preview-path';
-  pathLine.textContent = file.path || file.label || '';
-  body.appendChild(pathLine);
-
-  const contentWrap = document.createElement('div');
-  contentWrap.className = 'github-preview-content';
   if (file.kind === 'asset') {
     if (file.base64) {
       const mime = file.mime || 'application/octet-stream';
@@ -4695,34 +4686,32 @@ function openGithubCommitFilePreview(file, triggerEl) {
       img.className = 'github-preview-image';
       img.alt = file.label || file.path || '';
       img.src = `data:${mime};base64,${file.base64}`;
-      contentWrap.appendChild(img);
+      previewDialog.appendChild(img);
       if (Number.isFinite(file.size)) {
         const meta = document.createElement('p');
         meta.className = 'github-preview-meta';
         const sizeKb = file.size > 0 ? (file.size / 1024).toFixed(1) : '0';
         meta.textContent = `${mime} · ${sizeKb} KB`;
-        body.appendChild(meta);
+        previewDialog.appendChild(meta);
       }
     } else {
       const notice = document.createElement('p');
       notice.className = 'github-preview-empty';
       notice.textContent = t('editor.composer.github.preview.unavailable');
-      contentWrap.appendChild(notice);
+      previewDialog.appendChild(notice);
     }
   } else if (typeof file.content === 'string') {
     const pre = document.createElement('pre');
     pre.className = 'github-preview-code';
     pre.textContent = file.content;
-    contentWrap.appendChild(pre);
+    previewDialog.appendChild(pre);
   } else {
     const notice = document.createElement('p');
     notice.className = 'github-preview-empty';
     notice.textContent = t('editor.composer.github.preview.unavailable');
-    contentWrap.appendChild(notice);
+    previewDialog.appendChild(notice);
   }
 
-  body.appendChild(contentWrap);
-  previewDialog.appendChild(body);
   previewModal.appendChild(previewDialog);
   document.body.appendChild(previewModal);
 
