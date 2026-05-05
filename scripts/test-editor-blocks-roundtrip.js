@@ -119,6 +119,15 @@ run('dirty supported blocks serialize edited markdown', () => {
   ].join('\n'));
 });
 
+run('empty image blocks round-trip without inventing a placeholder src', () => {
+  const source = '![]()\n';
+  const blocks = parseMarkdownBlocks(source);
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0].type, 'image');
+  assert.equal(blocks[0].data.src, '');
+  assert.equal(serializeMarkdownBlocks(blocks), source);
+});
+
 run('dirty paragraph serialization preserves edge whitespace', () => {
   const blocks = parseMarkdownBlocks('  Leading and trailing  \n\n');
   assert.equal(blocks.length, 1);

@@ -177,7 +177,7 @@ function extractChunks(markdown) {
 }
 
 function parseImageBlock(raw) {
-  const match = raw.match(/^!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"([^"\n]*)")?\)$/);
+  const match = raw.match(/^!\[([^\]\n]*)\]\(([^)\s]*)(?:\s+"([^"\n]*)")?\)$/);
   if (!match) return null;
   return { alt: match[1] || '', src: match[2] || '', title: match[3] || '' };
 }
@@ -558,7 +558,7 @@ function shouldEscapePlainUnderscore(text, index) {
 
 function serializeImage(data = {}) {
   const alt = String(data.alt || '');
-  const src = String(data.src || '').trim() || 'assets/image.png';
+  const src = String(data.src || '').trim();
   const title = String(data.title || '').trim();
   return `![${alt}](${src}${title ? ` "${title}"` : ''})`;
 }
@@ -3514,7 +3514,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const commandBlocks = [
     ['paragraph', 'paragraph', 'Paragraph', { text: 'New paragraph' }],
     ['heading', 'heading', 'Heading', { level: 2, text: 'Heading' }],
-    ['image', 'image', 'Image', { alt: '', src: 'assets/image.png' }],
+    ['image', 'image', 'Image', { alt: '', src: '' }],
     ['list', 'list', 'List', { listType: 'ul', items: defaultListItems() }],
     ['quote', 'quote', 'Quote', { text: 'Quote' }],
     ['code', 'code', 'Code', { lang: '', text: '' }],
@@ -3677,19 +3677,46 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const syncRenderedImageBlock = (block) => {
     const blockEl = blockElements().find(el => el && el.dataset && el.dataset.blockId === block.id);
     if (!blockEl) return;
+    const figure = blockEl.querySelector('.blocks-image-figure');
     const img = blockEl.querySelector('.blocks-image-preview');
     const caption = blockEl.querySelector('.blocks-image-figure figcaption');
     if (img) {
       img.alt = block.data.alt || '';
       const nextSrc = resolveAssetSrc(block.data.src || '');
-      if (nextSrc) img.src = nextSrc;
-      else img.removeAttribute('src');
+      configureImagePreview(figure, img, nextSrc);
     }
     if (caption) {
       caption.textContent = block.data.alt || '';
       caption.hidden = !block.data.alt;
     }
     hydrateImages(blockEl);
+  };
+
+  const setImagePlaceholderVisible = (figure, visible) => {
+    if (!figure) return;
+    figure.classList.toggle('is-image-placeholder', !!visible);
+  };
+
+  const configureImagePreview = (figure, img, src) => {
+    if (!img) return;
+    const nextSrc = String(src || '').trim();
+    img.dataset.blocksResolvedSrc = nextSrc;
+    img.onload = () => {
+      if (img.dataset.blocksResolvedSrc !== nextSrc || !nextSrc) return;
+      setImagePlaceholderVisible(figure, false);
+    };
+    img.onerror = () => {
+      if (img.dataset.blocksResolvedSrc !== nextSrc) return;
+      setImagePlaceholderVisible(figure, true);
+    };
+    if (!nextSrc) {
+      img.removeAttribute('src');
+      setImagePlaceholderVisible(figure, true);
+      return;
+    }
+    setImagePlaceholderVisible(figure, false);
+    if (img.getAttribute('src') !== nextSrc) img.src = nextSrc;
+    if (img.complete && img.naturalWidth === 0) setImagePlaceholderVisible(figure, true);
   };
 
   const createImageMetadataControls = (block, index) => {
@@ -3739,14 +3766,21 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     const img = document.createElement('img');
     img.className = 'blocks-image-preview';
     img.alt = block.data.alt || '';
-    const resolved = resolveAssetSrc(block.data.src || '');
-    if (resolved) img.src = resolved;
     img.loading = 'lazy';
     img.decoding = 'async';
+    const placeholder = document.createElement('div');
+    placeholder.className = 'blocks-image-placeholder';
+    placeholder.setAttribute('aria-hidden', 'true');
+    const placeholderLabel = document.createElement('span');
+    placeholderLabel.className = 'blocks-image-placeholder-label';
+    placeholderLabel.textContent = text('image', 'Image');
+    placeholder.appendChild(placeholderLabel);
+    const resolved = resolveAssetSrc(block.data.src || '');
+    configureImagePreview(figure, img, resolved);
     const caption = document.createElement('figcaption');
     caption.textContent = block.data.alt || '';
     caption.hidden = !block.data.alt;
-    figure.append(img, caption);
+    figure.append(img, placeholder, caption);
 
     body.append(figure);
     hydrateImages(figure);

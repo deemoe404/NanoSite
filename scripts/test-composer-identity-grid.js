@@ -541,8 +541,20 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*img\.src = resolved/,
-  'image blocks should render a real image element instead of a path-only placeholder'
+  /const img = document\.createElement\('img'\);[\s\S]*img\.className = 'blocks-image-preview'[\s\S]*const placeholder = document\.createElement\('div'\);[\s\S]*placeholder\.className = 'blocks-image-placeholder'[\s\S]*figure\.append\(img, placeholder, caption\);/,
+  'image blocks should render a real image element with an editor-only empty-image placeholder'
+);
+
+assert.match(
+  editorBlocksSource,
+  /const configureImagePreview = \(figure, img, src\) => \{[\s\S]*img\.onload = \(\) => \{[\s\S]*setImagePlaceholderVisible\(figure, false\);[\s\S]*img\.onerror = \(\) => \{[\s\S]*setImagePlaceholderVisible\(figure, true\);[\s\S]*if \(!nextSrc\) \{[\s\S]*img\.removeAttribute\('src'\);[\s\S]*setImagePlaceholderVisible\(figure, true\);[\s\S]*if \(img\.getAttribute\('src'\) !== nextSrc\) img\.src = nextSrc;/,
+  'image preview loading should toggle the placeholder for empty, failed, and loaded sources'
+);
+
+assert.match(
+  editorBlocksSource,
+  /\['image', 'image', 'Image', \{ alt: '', src: '' \}\]/,
+  'inserted image blocks should start with an intentionally empty src so the placeholder is visible'
 );
 
 assert.doesNotMatch(
@@ -1027,8 +1039,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-image-figure \{ margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*box-shadow:var\(--shadow,[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
-  'image block visual styling should mirror native article image and centered figcaption styling'
+  /\.blocks-image-figure \{ position:relative; margin:0; display:block; width:100%; \}[\s\S]*\.blocks-image-preview \{ display:block; width:100%; height:auto; border-radius:\.5rem;[\s\S]*\.blocks-image-figure\.is-image-placeholder \{ aspect-ratio:5 \/ 1; min-height:5rem;[\s\S]*\.blocks-image-placeholder::after \{ content:""; position:absolute; inset:0; background:linear-gradient\(to top right,[\s\S]*\.blocks-image-figure\.is-image-placeholder \.blocks-image-placeholder \{ display:flex; \}[\s\S]*\.blocks-image-figure figcaption \{ margin-top:\.5em; color:var\(--muted\); font-family:var\(--serif,[\s\S]*font-size:\.9em; text-align:center;[\s\S]*\.blocks-image-figure figcaption\[hidden\] \{ display:none !important; \}/,
+  'image block visual styling should mirror native article images and reserve a diagonal empty-image placeholder'
 );
 
 assert.match(

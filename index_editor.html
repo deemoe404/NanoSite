@@ -1413,8 +1413,14 @@
     .blocks-textarea { resize:vertical; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Ubuntu Mono", monospace; font-size:.9rem; }
     .blocks-source-textarea { min-height:0; width:100%; resize:none; overflow:hidden; padding-block:0; }
     .blocks-source-textarea:focus { outline:none; box-shadow:none; border-color:color-mix(in srgb, var(--border) 82%, transparent); }
-    .blocks-image-figure { margin:0; display:block; width:100%; }
+    .blocks-image-figure { position:relative; margin:0; display:block; width:100%; }
     .blocks-image-preview { display:block; width:100%; height:auto; border-radius:.5rem; background:color-mix(in srgb, var(--text) 3%, transparent); box-shadow:var(--shadow, 0 1px 2px rgba(15,23,42,.08)); object-fit:contain; }
+    .blocks-image-figure.is-image-placeholder { aspect-ratio:5 / 1; min-height:5rem; border-radius:.5rem; overflow:hidden; background:color-mix(in srgb, var(--text) 8%, var(--card)); box-shadow:var(--shadow, 0 1px 2px rgba(15,23,42,.08)); }
+    .blocks-image-figure.is-image-placeholder .blocks-image-preview { width:100%; height:100%; opacity:0; }
+    .blocks-image-placeholder { position:absolute; inset:0; display:none; align-items:flex-start; justify-content:flex-start; padding:.75rem .9rem; color:color-mix(in srgb, var(--muted) 88%, var(--text)); pointer-events:none; }
+    .blocks-image-placeholder::after { content:""; position:absolute; inset:0; background:linear-gradient(to top right, transparent calc(50% - .75px), color-mix(in srgb, var(--muted) 45%, transparent) 50%, transparent calc(50% + .75px)); }
+    .blocks-image-figure.is-image-placeholder .blocks-image-placeholder { display:flex; }
+    .blocks-image-placeholder-label { position:relative; z-index:1; max-width:min(22rem, 80%); font-family:var(--sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size:.88rem; line-height:1.25; }
     .blocks-image-figure figcaption { margin-top:.5em; color:var(--muted); font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:.9em; text-align:center; word-break:break-word; }
     .blocks-image-figure figcaption[hidden] { display:none !important; }
     .blocks-visual-list { margin:0 0 0 1.25rem; padding-left:0; font-family:var(--serif, var(--article-serif-stack, Georgia, "Times New Roman", Times, serif)); font-size:1.04rem; line-height:1.75; letter-spacing:.005em; }
