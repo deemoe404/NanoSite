@@ -55,13 +55,17 @@ export function mount(context = {}) {
   });
 
   const tocview = ensureElement(main, `#${TOCVIEW_ID}`, () => {
-    const el = doc.createElement('aside');
+    const el = doc.createElement('nano-toc');
     el.id = TOCVIEW_ID;
     el.className = 'solstice-toc';
+    el.setAttribute('variant', 'solstice');
     el.setAttribute('aria-label', 'Table of contents');
     el.hidden = true;
     return el;
   });
+  if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
+    tocview.setAttribute('variant', 'solstice');
+  }
 
   const footer = ensureElement(container, '.solstice-footer', () => {
     const el = doc.createElement('footer');
@@ -86,12 +90,7 @@ export function mount(context = {}) {
         </div>
         <section class="solstice-footer__meta" aria-label="Site meta">
           <div class="solstice-footer__credit">NanoSite</div>
-          <section class="solstice-footer__search" aria-label="Search">
-            <label class="solstice-search" for="searchInput">
-              <span class="solstice-search__icon" aria-hidden="true">🔍</span>
-              <input id="searchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search" />
-            </label>
-          </section>
+          <nano-search class="solstice-footer__search" variant="solstice" aria-label="Search"></nano-search>
         </section>
       </div>`;
     return el;

@@ -2691,6 +2691,7 @@ body {
 }
 
 .arcus-toc {
+  display: block;
   position: relative;
   width: 0;
   height: 0;

@@ -6,12 +6,16 @@ export function mount(context = {}) {
 
   let toc = doc.getElementById('tocview');
   if (!toc) {
-    toc = doc.createElement('div');
+    toc = doc.createElement('nano-toc');
     toc.className = 'box';
     toc.id = 'tocview';
+    toc.setAttribute('variant', 'native');
     sidebar.appendChild(toc);
   } else if (!toc.classList.contains('box')) {
     toc.classList.add('box');
+  }
+  if (toc.tagName && toc.tagName.toLowerCase() === 'nano-toc') {
+    toc.setAttribute('variant', 'native');
   }
 
   const updatedRegions = { ...regions, tocBox: toc };

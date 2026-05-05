@@ -778,6 +778,11 @@ export async function loadLangJson(basePath, baseName) {
 // Update static DOM bits outside main render cycle (sidebar card, search placeholder)
 function applyStaticTranslations() {
   // Search placeholder
+  const search = document.querySelector('nano-search');
+  if (search && typeof search.setPlaceholder === 'function') {
+    search.setPlaceholder(t('sidebar.searchPlaceholder'));
+    return;
+  }
   const input = document.getElementById('searchInput');
   if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
 }

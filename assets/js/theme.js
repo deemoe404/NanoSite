@@ -1,6 +1,8 @@
 import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage, ensureLanguageBundle } from './i18n.js?v=20260504saved';
+import './components.js';
 
 const PACK_LINK_ID = 'theme-pack';
+const THEME_CONTROLS_BOUND = Symbol('nanoThemeControlsBound');
 
 // Restrict theme pack names to safe slug format and default to 'native'.
 function sanitizePack(input) {
@@ -86,6 +88,7 @@ export function applyThemeConfig(siteConfig) {
 }
 
 export function bindThemeToggle() {
+  if (document.querySelector('nano-theme-controls')) return;
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
   const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
@@ -98,6 +101,7 @@ export function bindThemeToggle() {
 }
 
 export function bindPostEditor() {
+  if (document.querySelector('nano-theme-controls')) return;
   const btn = document.getElementById('postEditor');
   if (!btn) return;
   btn.addEventListener('click', () => {
@@ -118,6 +122,7 @@ export function bindPostEditor() {
 }
 
 export function bindThemePackPicker() {
+  if (document.querySelector('nano-theme-controls')) return;
   const sel = document.getElementById('themePack');
   if (!sel) return;
   // Initialize selection
@@ -132,116 +137,177 @@ export function bindThemePackPicker() {
   });
 }
 
-// Render theme tools UI (button + select) into the sidebar, before TOC.
-// Options are sourced from assets/themes/packs.json; falls back to defaults.
-export function mountThemeControls() {
-  // If already present, do nothing
-  if (document.getElementById('tools')) return;
-  const sidebar = document.querySelector('.sidebar');
-  if (!sidebar) return;
+function getThemeControlsElement(root = document) {
+  return root && root.querySelector ? root.querySelector('nano-theme-controls') : null;
+}
 
-  const wrapper = document.createElement('div');
-  wrapper.className = 'box';
-  wrapper.id = 'tools';
-  wrapper.innerHTML = `
-    <div class="section-title">${t('tools.sectionTitle')}</div>
-    <div class="tools tools-panel">
-      <div class="tool-item">
-        <button id="themeToggle" class="btn icon-btn" aria-label="Toggle light/dark" title="${t('tools.toggleTheme')}"><span class="icon">🌓</span><span class="btn-text">${t('tools.toggleTheme')}</span></button>
-      </div>
-      <div class="tool-item">
-        <button id="postEditor" class="btn icon-btn" aria-label="Open Markdown Editor" title="${t('tools.postEditor')}"><span class="icon">📝</span><span class="btn-text">${t('tools.postEditor')}</span></button>
-      </div>
-      <div class="tool-item">
-        <label for="themePack" class="tool-label">${t('tools.themePack')}</label>
-        <select id="themePack" aria-label="${t('tools.themePack')}" title="${t('tools.themePack')}"></select>
-      </div>
-      <div class="tool-item">
-        <label for="langSelect" class="tool-label">${t('tools.language')}</label>
-        <select id="langSelect" aria-label="${t('tools.language')}" title="${t('tools.language')}"></select>
-      </div>
-      <div class="tool-item">
-        <button id="langReset" class="btn icon-btn" aria-label="${t('tools.resetLanguage')}" title="${t('tools.resetLanguage')}"><span class="icon">♻️</span><span class="btn-text">${t('tools.resetLanguage')}</span></button>
-      </div>
-    </div>`;
+function getThemeControlLabels() {
+  return {
+    sectionTitle: t('tools.sectionTitle'),
+    toggleTheme: t('tools.toggleTheme'),
+    postEditor: t('tools.postEditor'),
+    themePack: t('tools.themePack'),
+    language: t('tools.language'),
+    resetLanguage: t('tools.resetLanguage')
+  };
+}
 
-  const toc = document.getElementById('tocview');
-  if (toc && toc.parentElement === sidebar) sidebar.insertBefore(wrapper, toc);
-  else sidebar.appendChild(wrapper);
-
-  // Populate theme packs
-  const sel = wrapper.querySelector('#themePack');
-  const saved = getSavedThemePack();
-  const fallback = [
-    { value: 'native', label: 'Native' }
-  ];
-
-  // Try to load from JSON; if it fails, use fallback
-  fetch('assets/themes/packs.json').then(r => r.ok ? r.json() : Promise.reject()).then(list => {
-    try {
-      sel.innerHTML = '';
-      (Array.isArray(list) ? list : []).forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = sanitizePack(p.value);
-        opt.textContent = String(p.label || p.value || 'Theme');
-        sel.appendChild(opt);
-      });
-      if (!sel.options.length) throw new Error('empty options');
-    } catch (_) {
-      throw _;
-    }
-  }).catch(() => {
-    sel.innerHTML = '';
-    fallback.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.value;
-      opt.textContent = p.label;
-      sel.appendChild(opt);
-    });
-  }).finally(() => {
-    sel.value = saved;
+function normalizePackList(list) {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(list) ? list : []).forEach((item) => {
+    if (!item) return;
+    const value = sanitizePack(item.value || item.slug || item.name);
+    if (!value || seen.has(value)) return;
+    out.push({ value, label: String(item.label || item.name || value) });
+    seen.add(value);
   });
+  if (!out.length) out.push({ value: 'native', label: 'Native' });
+  return out;
+}
 
-  // Populate language selector
-  const langSel = wrapper.querySelector('#langSelect');
-  if (langSel) {
-    try { ensureLanguageBundle(getCurrentLang()).catch(() => {}); } catch (_) {}
-    const langs = getAvailableLangs();
-    langSel.innerHTML = '';
-    langs.forEach(code => {
-      const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = getLanguageLabel(code);
-      langSel.appendChild(opt);
-    });
-    langSel.value = getCurrentLang();
-    langSel.addEventListener('change', async () => {
-      const val = langSel.value || 'en';
-      try {
-        await ensureLanguageBundle(val);
-      } catch (_) {}
-      switchLanguage(val);
-    });
+function getLanguageOptions() {
+  try { ensureLanguageBundle(getCurrentLang()).catch(() => {}); } catch (_) {}
+  return getAvailableLangs().map(code => ({
+    value: code,
+    label: getLanguageLabel(code)
+  }));
+}
+
+function openPostEditor() {
+  const editorUrl = 'index_editor.html';
+  let popup = null;
+  try {
+    popup = window.open(editorUrl, '_blank');
+  } catch (_) {
+    popup = null;
   }
+  if (!popup) {
+    window.location.href = editorUrl;
+    return;
+  }
+  try { popup.opener = null; } catch (_) {}
+  try { popup.focus(); } catch (_) {}
+}
 
-  // Bind language reset button
-  const resetBtn = wrapper.querySelector('#langReset');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      // Clear saved language and drop URL param, then soft-reset without full reload
-      try { localStorage.removeItem('lang'); } catch (_) {}
-      try { const url = new URL(window.location.href); url.searchParams.delete('lang'); history.replaceState(history.state, document.title, url.toString()); } catch (_) {}
-      try { (window.__ns_softResetLang && window.__ns_softResetLang()); } catch (_) { /* fall through */ }
-      // If soft reset isn't available for some reason, fall back to reload
-      if (!window.__ns_softResetLang) {
-        try { window.location.reload(); } catch (_) {}
+function bindThemeControlsComponent(component) {
+  if (!component || component[THEME_CONTROLS_BOUND]) return;
+  component[THEME_CONTROLS_BOUND] = true;
+  component.addEventListener('nano:theme-toggle', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', 'dark');
+    try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (_) {}
+  });
+  component.addEventListener('nano:open-editor', () => openPostEditor());
+  component.addEventListener('nano:theme-pack-change', (event) => {
+    const detail = event && event.detail ? event.detail : {};
+    const val = sanitizePack(detail.value) || 'native';
+    const current = getSavedThemePack();
+    if (val === current) return;
+    loadThemePack(val);
+    try { window.location.reload(); } catch (_) {}
+  });
+  component.addEventListener('nano:language-change', async (event) => {
+    const detail = event && event.detail ? event.detail : {};
+    const val = detail.value || 'en';
+    try { await ensureLanguageBundle(val); } catch (_) {}
+    switchLanguage(val);
+  });
+  component.addEventListener('nano:language-reset', () => {
+    try { localStorage.removeItem('lang'); } catch (_) {}
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('lang');
+      history.replaceState(history.state, document.title, url.toString());
+    } catch (_) {}
+    try {
+      if (window.__ns_softResetLang) {
+        window.__ns_softResetLang();
+        return;
       }
-    });
+    } catch (_) {}
+    try { window.location.reload(); } catch (_) {}
+  });
+}
+
+function populateThemeControls(component) {
+  if (!component) return;
+  try { component.setLabels(getThemeControlLabels()); } catch (_) {}
+  try { component.setLanguages(getLanguageOptions(), getCurrentLang()); } catch (_) {}
+  try {
+    fetch('assets/themes/packs.json')
+      .then(r => r && r.ok ? r.json() : Promise.reject())
+      .then(list => {
+        component.setThemePacks(normalizePackList(list), getSavedThemePack());
+      })
+      .catch(() => {
+        component.setThemePacks(normalizePackList([
+          { value: 'native', label: 'Native' },
+          { value: 'arcus', label: 'Arcus' },
+          { value: 'solstice', label: 'Solstice' }
+        ]), getSavedThemePack());
+      });
+  } catch (_) {
+    component.setThemePacks(normalizePackList([{ value: 'native', label: 'Native' }]), getSavedThemePack());
   }
+}
+
+// Render theme tools UI through <nano-theme-controls>. Options are sourced from
+// assets/themes/packs.json; legacy button/select binders remain below for older
+// custom themes that have not migrated yet.
+export function mountThemeControls(options = {}) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const variant = String(opts.variant || document.body.dataset.themeLayout || 'native').toLowerCase();
+  let component = null;
+  const host = opts.host || null;
+
+  if (host && host.matches && host.matches('nano-theme-controls')) {
+    component = host;
+  } else if (host && host.querySelector) {
+    component = host.querySelector('nano-theme-controls');
+    if (!component) {
+      host.textContent = '';
+      component = document.createElement('nano-theme-controls');
+      host.appendChild(component);
+    }
+  } else {
+    component = getThemeControlsElement(document);
+    if (!component) {
+      const legacyTools = document.getElementById('tools');
+      if (legacyTools && legacyTools.parentElement) {
+        component = document.createElement('nano-theme-controls');
+        legacyTools.parentElement.replaceChild(component, legacyTools);
+      }
+    }
+    if (!component) {
+      const sidebar = document.querySelector('.sidebar');
+      if (!sidebar) return null;
+      component = document.createElement('nano-theme-controls');
+      const toc = document.getElementById('tocview');
+      if (toc && toc.parentElement === sidebar) sidebar.insertBefore(component, toc);
+      else sidebar.appendChild(component);
+    }
+  }
+
+  component.setAttribute('variant', variant);
+  try { if (typeof component.render === 'function') component.render(); } catch (_) {}
+  bindThemeControlsComponent(component);
+  populateThemeControls(component);
+  return component;
 }
 
 // Rebuild language selector options based on supported UI languages
 export function refreshLanguageSelector() {
+  const component = getThemeControlsElement(document);
+  if (component && typeof component.setLanguages === 'function') {
+    try {
+      component.setLabels(getThemeControlLabels());
+      component.setLanguages(getLanguageOptions(), getCurrentLang());
+      component.setCurrentPack(getSavedThemePack());
+      return;
+    } catch (_) {}
+  }
   const sel = document.getElementById('langSelect');
   if (!sel) return;
   const current = getCurrentLang();
