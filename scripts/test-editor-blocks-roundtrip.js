@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   applyInlineLinkToRuns,
@@ -13,6 +14,7 @@ import {
   patchListItemType,
   serializeInlineRuns,
   serializeMarkdownBlocks,
+  splitTextBlockIntoParagraph,
   toggleInlineMarkOnRuns
 } from '../assets/js/editor-blocks.js';
 
@@ -25,6 +27,8 @@ const run = (name, fn) => {
     throw error;
   }
 };
+
+const editorBlocksSource = readFileSync(new URL('../assets/js/editor-blocks.js', import.meta.url), 'utf8');
 
 run('supported blocks round-trip when untouched', () => {
   const source = [
@@ -149,6 +153,70 @@ run('dirty paragraph serialization preserves edge whitespace', () => {
   assert.equal(blocks[0].type, 'paragraph');
   blocks[0].dirty = true;
   assert.equal(serializeMarkdownBlocks(blocks), '  Leading and trailing  \n\n');
+});
+
+run('mid-enter splits a paragraph into a following paragraph block', () => {
+  const [block] = parseMarkdownBlocks('abcdef\n\n');
+  const split = splitTextBlockIntoParagraph(block, 'abc', 'def');
+  assert.deepEqual(split.map(item => item.type), ['paragraph', 'paragraph']);
+  assert.equal(split[0].dirty, true);
+  assert.equal(split[1].dirty, true);
+  assert.equal(split[0].data.text, 'abc');
+  assert.equal(split[1].data.text, 'def');
+  assert.equal(serializeMarkdownBlocks(split), 'abc\n\ndef\n\n');
+});
+
+run('mid-enter keeps heading metadata and moves trailing text to a paragraph', () => {
+  const [block] = parseMarkdownBlocks('### abcdef\n\n');
+  const split = splitTextBlockIntoParagraph(block, 'abc', 'def');
+  assert.deepEqual(split.map(item => item.type), ['heading', 'paragraph']);
+  assert.equal(split[0].data.level, 3);
+  assert.equal(split[0].data.text, 'abc');
+  assert.equal(split[1].data.text, 'def');
+  assert.equal(serializeMarkdownBlocks(split), '### abc\n\ndef\n\n');
+});
+
+run('mid-enter keeps quote before caret and moves trailing text to a paragraph', () => {
+  const [block] = parseMarkdownBlocks('> abcdef\n\n');
+  const split = splitTextBlockIntoParagraph(block, 'abc', 'def');
+  assert.deepEqual(split.map(item => item.type), ['quote', 'paragraph']);
+  assert.equal(split[0].data.text, 'abc');
+  assert.equal(split[1].data.text, 'def');
+  assert.equal(serializeMarkdownBlocks(split), '> abc\n\ndef\n\n');
+});
+
+run('mid-enter split preserves inline markdown text around the split', () => {
+  const [block] = parseMarkdownBlocks('hello **bold** world\n\n');
+  const split = splitTextBlockIntoParagraph(block, 'hello **bo**', '**ld** world');
+  assert.equal(split[0].data.text, 'hello **bo**');
+  assert.equal(split[1].data.text, '**ld** world');
+  assert.equal(serializeMarkdownBlocks(split), 'hello **bo**\n\n**ld** world\n\n');
+});
+
+run('text block split helper only supports editable text block types', () => {
+  const [listBlock] = parseMarkdownBlocks('- one\n- two\n\n');
+  assert.equal(splitTextBlockIntoParagraph(listBlock, 'one', 'two'), null);
+});
+
+run('mid-enter split leaves end-of-block Enter on the virtual block path', () => {
+  assert.match(
+    editorBlocksSource,
+    /offsets\.start >= currentText\.length[\s\S]*return false;[\s\S]*splitEditableTextAtSelection\(editable\)/,
+    'split path should bail out before splitting when the caret is at the end'
+  );
+  assert.match(
+    editorBlocksSource,
+    /splitTextBlockAfterCaret\(event, block, index, editable\)[\s\S]*shouldOpenInlineVirtualBlockOnEnter\(editable\)/,
+    'plain Enter should try mid-split before falling back to the virtual block behavior'
+  );
+});
+
+run('mid-enter split ignores modified Enter key chords', () => {
+  assert.match(
+    editorBlocksSource,
+    /event\.key !== 'Enter' \|\| event\.shiftKey \|\| event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.isComposing/,
+    'split path should only handle plain Enter'
+  );
 });
 
 run('dirty list serialization preserves item edge whitespace', () => {

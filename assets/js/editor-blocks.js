@@ -1199,6 +1199,10 @@ function editableText(el) {
   return normalizeEditableMarkdownText(serializeInlineDom(el));
 }
 
+function editableVisibleText(el) {
+  return String(el && el.textContent != null ? el.textContent : '').replace(/\u00a0/g, ' ');
+}
+
 function splitEditableTextAtSelection(el) {
   const fallback = editableText(el);
   try {
@@ -1223,6 +1227,26 @@ function splitEditableTextAtSelection(el) {
   }
 }
 
+export function splitTextBlockIntoParagraph(block, before, after) {
+  if (!block || !['paragraph', 'heading', 'quote'].includes(block.type)) return null;
+  const data = block.data && typeof block.data === 'object' ? block.data : {};
+  const current = {
+    ...block,
+    dirty: true,
+    data: {
+      ...data,
+      text: normalizeEditableMarkdownText(before)
+    }
+  };
+  const next = makeBlock('paragraph', '', {
+    text: normalizeEditableMarkdownText(after),
+    after: '\n\n',
+    dirty: true
+  });
+  next.dirty = true;
+  return [current, next];
+}
+
 function isEditableSelectionAtStart(el) {
   try {
     const sel = window.getSelection && window.getSelection();
@@ -1242,7 +1266,7 @@ function isEditableSelectionOnBlankLine(el) {
   try {
     const offsets = getEditableSelectionOffsets(el);
     if (!offsets || !offsets.collapsed) return false;
-    const text = editableText(el).replace(/\u00a0/g, ' ');
+    const text = editableVisibleText(el);
     const lineStart = text.lastIndexOf('\n', Math.max(0, offsets.start - 1)) + 1;
     const nextBreak = text.indexOf('\n', offsets.start);
     const lineEnd = nextBreak >= 0 ? nextBreak : text.length;
@@ -1282,7 +1306,7 @@ function shouldOpenInlineVirtualBlockOnEnter(el) {
   try {
     const offsets = getEditableSelectionOffsets(el);
     if (!offsets || !offsets.collapsed) return false;
-    const text = editableText(el).replace(/\u00a0/g, ' ');
+    const text = editableVisibleText(el);
     if (offsets.start >= text.length) return true;
     return isEditableSelectionOnBlankLine(el);
   } catch (_) {
@@ -2173,6 +2197,32 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.activeSync = null;
     render();
     focusVirtualEditable(state.inlineVirtualIndex);
+  };
+
+  const splitTextBlockAfterCaret = (event, block, index, editable = null) => {
+    if (!event || event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+    if (!block || !['paragraph', 'quote', 'heading'].includes(block.type)) return false;
+    const offsets = getEditableSelectionOffsets(editable);
+    if (!offsets || !offsets.collapsed) return false;
+    const currentText = editableVisibleText(editable);
+    if (offsets.start >= currentText.length || isEditableSelectionOnBlankLine(editable)) return false;
+    const split = splitEditableTextAtSelection(editable);
+    if (!split.after) return false;
+    const nextBlocks = splitTextBlockIntoParagraph(block, split.before, split.after);
+    if (!nextBlocks) return false;
+    event.preventDefault();
+    state.blocks.splice(index, 1, ...nextBlocks);
+    state.inlineVirtualIndex = null;
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    focusBlockPrimaryEditable(nextBlocks[1], 0);
+    emit();
+    return true;
   };
 
   const clearNativeSelection = () => {
@@ -3836,6 +3886,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       if (removeEmptyBlockWithBackspace(event, block, index, editable, sync)) return;
       if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
       if (!['paragraph', 'quote', 'heading'].includes(block.type)) return;
+      if (splitTextBlockAfterCaret(event, block, index, editable)) return;
       if (!shouldOpenInlineVirtualBlockOnEnter(editable)) return;
       event.preventDefault();
       openInlineVirtualBlockAfter(index, editable, sync);
