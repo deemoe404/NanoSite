@@ -112,8 +112,8 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /state\.commandMenuOpen = true;[\s\S]*state\.commandMenuInsertIndex = Math\.max\(0, Math\.min\(Number\(insertIndex\) \|\| 0, state\.blocks\.length\)\);[\s\S]*const first = list\.querySelector\(`\.blocks-virtual-block\[data-insert-index="\$\{state\.commandMenuInsertIndex\}"\] \.blocks-command-menu-item`\)[\s\S]*const renderVirtualBlock = \(insertIndex = state\.blocks\.length\) => \{[\s\S]*item\.dataset\.insertIndex = String\(safeInsertIndex\);[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*insertBlankBlock\(safeInsertIndex, \{ command: true \}\);[\s\S]*createParagraphFromBlankInput\(event\.data, index >= 0 \? index : safeInsertIndex\);[\s\S]*createCommandMenuElement\(isCommandOpen\)/,
-  'blocks mode should keep a terminal affordance that materializes real blank blocks only after focus, slash, or typing'
+  /const ensureEditableBlankForEmptyDocument = \(\) => \{[\s\S]*if \(state\.blocks\.length\) return null;[\s\S]*Empty documents still need one real blank block[\s\S]*non-empty documents rely on Enter at the end instead[\s\S]*state\.blocks\.push\(block\);[\s\S]*setMarkdown\(markdown\) \{[\s\S]*state\.blocks = parseMarkdownBlocks\(markdown\);[\s\S]*ensureEditableBlankForEmptyDocument\(\);/,
+  'blocks mode should materialize a real blank block only for empty documents'
 );
 
 assert.match(
@@ -148,8 +148,8 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*\}\);[\s\S]*list\.appendChild\(renderVirtualBlock\(state\.blocks\.length\)\);/,
-  'rendering should use real blank blocks for persistent insertion points while preserving the bottom affordance'
+  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*\}\);[\s\S]*renderCardPicker\(\);/,
+  'rendering should use real blank blocks for persistent insertion points without appending a terminal virtual block'
 );
 
 assert.match(
@@ -164,16 +164,16 @@ assert.match(
   'Backspace should remove empty non-first real blocks and move focus to the previous block end'
 );
 
-assert.match(
+assert.doesNotMatch(
   editorBlocksSource,
-  /const handleTerminalVirtualBackspace = \(event, insertIndex\) => \{[\s\S]*event\.key !== 'Backspace'[\s\S]*isEditableBackspaceAtEmptyStart\(event\.currentTarget\)[\s\S]*const previousIndex = safeInsertIndex - 1;[\s\S]*if \(previousIndex < 0\) return false;[\s\S]*event\.preventDefault\(\);[\s\S]*focusBlockPrimaryEditable\(state\.blocks\[previousIndex\]\);/,
-  'terminal affordance Backspace should focus the previous real block'
+  /renderVirtualBlock|handleTerminalVirtualBackspace|focusTerminalVirtualEditable|ensureTrailingBlankBlock/,
+  'terminal virtual block and forced trailing blank runtime should be removed'
 );
 
 assert.match(
   editorBlocksSource,
-  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*handleTerminalVirtualBackspace\(event, safeInsertIndex\)[\s\S]*if \(event\.key === 'Escape' && isCommandOpen\)[\s\S]*createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\)\) return;/,
-  'empty Backspace handling should run before terminal Escape, rich Enter, list row, code Enter, and source textarea handling'
+  /createRichEditable[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, editable, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*span\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, span, sync\)[\s\S]*event\.key === 'Tab'[\s\S]*code\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, code, sync\)[\s\S]*event\.key !== 'Enter'[\s\S]*area\.addEventListener\('keydown', \(event\) => \{[\s\S]*removeEmptyBlockWithBackspace\(event, block, index, area, sync\)\) return;/,
+  'empty Backspace handling should run before rich Enter, list row, code Enter, and source textarea handling'
 );
 
 assert.match(
@@ -1033,7 +1033,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:[\s\S]*blank:/,
+  /const BLOCK_TYPE_ICON_PATHS = \{[\s\S]*paragraph:[\s\S]*heading:[\s\S]*image:[\s\S]*list:[\s\S]*quote:[\s\S]*code:[\s\S]*source:[\s\S]*card:/,
   'block type icon map should cover every block type shown in the floating toolbar'
 );
 
@@ -1045,7 +1045,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /type\.className = 'blocks-block-type';[\s\S]*const typeLabel = block\.type === 'blank'[\s\S]*text\('virtualBlockAria', 'New block'\)[\s\S]*text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
+  /if \(block\.type === 'blank'\) \{[\s\S]*item\.appendChild\(renderBlockBody\(block, index\)\);[\s\S]*\} else \{[\s\S]*type\.className = 'blocks-block-type';[\s\S]*const typeLabel = text\(block\.type === 'card' \? 'articleCard' : block\.type, block\.type\);[\s\S]*type\.title = typeLabel;[\s\S]*type\.setAttribute\('role', 'img'\);[\s\S]*type\.setAttribute\('aria-label', typeLabel\);[\s\S]*type\.appendChild\(createBlockTypeIcon\(block\.type\)\);/,
   'block type badge should render an accessible SVG icon instead of visible uppercase type text'
 );
 

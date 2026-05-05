@@ -462,21 +462,32 @@ run('blank blocks replace the inline virtual insertion state', () => {
   );
 });
 
-run('end affordance materializes a dirty blank block only on explicit focus or input', () => {
+run('visual editor has no terminal virtual UI and only materializes blank blocks for empty documents', () => {
   assert.match(
     editorBlocksSource,
-    /list\.appendChild\(renderVirtualBlock\(state\.blocks\.length\)\)/,
-    'render should keep a lightweight terminal affordance instead of appending a dirty block on load'
+    /const ensureEditableBlankForEmptyDocument = \(\) => \{[\s\S]*if \(state\.blocks\.length\) return null;[\s\S]*Empty documents still need one real blank block[\s\S]*non-empty documents rely on Enter at the end instead[\s\S]*makeBlankBlock\('\\n', \{ dirty: true \}\)[\s\S]*state\.blocks\.push\(block\)/,
+    'visual editor state should create a dirty real blank only for empty documents'
   );
   assert.match(
     editorBlocksSource,
-    /editable\.addEventListener\('focus', \(\) => \{[\s\S]*insertBlankBlock\(safeInsertIndex, \{ focus: true \}\);[\s\S]*\}\)/,
-    'terminal affordance focus should materialize a real blank block'
+    /setMarkdown\(markdown\) \{[\s\S]*state\.blocks = parseMarkdownBlocks\(markdown\);[\s\S]*ensureEditableBlankForEmptyDocument\(\);[\s\S]*state\.activeIndex = -1;/,
+    'setMarkdown should add a real blank only when the parsed document has no blocks'
   );
+  const setMarkdownSource = editorBlocksSource.match(/setMarkdown\(markdown\) \{[\s\S]*?\n    \},/)?.[0] || '';
   assert.match(
+    setMarkdownSource,
+    /ensureEditableBlankForEmptyDocument\(\);[\s\S]*render\(\);/,
+    'setMarkdown should render the empty-document blank'
+  );
+  assert.doesNotMatch(
+    setMarkdownSource,
+    /emit\(|options\.onChange/,
+    'setMarkdown should not actively emit a save when it materializes the empty-document blank'
+  );
+  assert.doesNotMatch(
     editorBlocksSource,
-    /const block = makeBlankBlock\('\\n', \{ dirty: true \}\);[\s\S]*state\.blocks\.splice\(safeIndex, 0, block\)/,
-    'materialized blank blocks should be dirty real blocks'
+    /renderVirtualBlock|handleTerminalVirtualBackspace|focusTerminalVirtualEditable|ensureTrailingBlankBlock|list\.appendChild\(renderVirtualBlock\(state\.blocks\.length\)\)/,
+    'terminal virtual block runtime should be removed'
   );
 });
 
@@ -488,8 +499,8 @@ run('typing or slash command on blank blocks replaces the blank block', () => {
   );
   assert.match(
     editorBlocksSource,
-    /if \(state\.blocks\[safeIndex\] && state\.blocks\[safeIndex\]\.type === 'blank'\) \{[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\)/,
-    'command-selected blocks should replace an existing blank block'
+    /if \(state\.blocks\[safeIndex\] && state\.blocks\[safeIndex\]\.type === 'blank'\) \{[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\);[\s\S]*render\(\);/,
+    'command-selected blocks should replace an existing blank block without forcing a new trailing blank'
   );
 });
 
@@ -513,6 +524,11 @@ run('blank blocks use existing removable and cross-block navigation paths', () =
     editorBlocksSource,
     /blockEl\.querySelector\('\.blocks-rich-editable:not\(\.blocks-list-text\), \.blocks-code-preview code\[contenteditable="true"\], \.blocks-source-textarea'\)/,
     'cross-block target discovery should include blank rich editables'
+  );
+  assert.match(
+    editorBlocksSource,
+    /if \(block\.type === 'blank'\) \{[\s\S]*item\.appendChild\(renderBlockBody\(block, index\)\);[\s\S]*\} else \{[\s\S]*const head = document\.createElement\('div'\);/,
+    'blank blocks should render without the floating block toolbar'
   );
 });
 

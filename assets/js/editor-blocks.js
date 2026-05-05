@@ -1198,8 +1198,7 @@ const BLOCK_TYPE_ICON_PATHS = {
   quote: '<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" /><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z" />',
   code: '<path d="m18 16 4-4-4-4" /><path d="m6 8-4 4 4 4" /><path d="m14.5 4-5 16" />',
   source: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 12.5 8 15l2 2.5" /><path d="m14 12.5 2 2.5-2 2.5" />',
-  card: '<path d="M15 18h-5" /><path d="M18 14h-8" /><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2" /><rect width="8" height="4" x="10" y="6" rx="1" />',
-  blank: '<path d="M5 12h14" /><path d="M12 5v14" />'
+  card: '<path d="M15 18h-5" /><path d="M18 14h-8" /><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2" /><rect width="8" height="4" x="10" y="6" rx="1" />'
 };
 
 function createBlockTypeIcon(blockType) {
@@ -2267,18 +2266,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const blockElements = () => Array.from(list.children).filter(el => el && el.classList && el.classList.contains('blocks-block'));
 
-  const focusTerminalVirtualEditable = () => {
-    queueMicrotask(() => {
-      const editable = list.querySelector('.blocks-virtual-block .blocks-virtual-editable');
-      if (!editable) return;
-      try { editable.focus({ preventScroll: true }); }
-      catch (_) {
-        try { editable.focus(); } catch (__) {}
-      }
-      placeCaretAtEnd(editable);
-    });
-  };
-
   const ensureSeparatorBeforeBlank = (index) => {
     const previous = Number.isInteger(index) ? state.blocks[index - 1] : null;
     if (!previous || previous.type === 'blank') return;
@@ -2287,6 +2274,16 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     if (splitBlankLineUnits(after).length >= 2) return;
     previous.data.after = '\n\n';
     previous.dirty = true;
+  };
+
+  const ensureEditableBlankForEmptyDocument = () => {
+    if (state.blocks.length) return null;
+
+    // Empty documents still need one real blank block so visual editing has a
+    // focusable surface; non-empty documents rely on Enter at the end instead.
+    const block = makeBlankBlock('\n', { dirty: true });
+    state.blocks.push(block);
+    return block;
   };
 
   const insertBlankBlock = (index = state.blocks.length, options = {}) => {
@@ -2599,17 +2596,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     render();
     focusPreviousBlockEnd(index);
     emit();
-    return true;
-  };
-
-  const handleTerminalVirtualBackspace = (event, insertIndex) => {
-    if (!event || event.key !== 'Backspace' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
-    if (!isEditableBackspaceAtEmptyStart(event.currentTarget)) return false;
-    const safeInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
-    const previousIndex = safeInsertIndex - 1;
-    if (previousIndex < 0) return false;
-    event.preventDefault();
-    focusBlockPrimaryEditable(state.blocks[previousIndex]);
     return true;
   };
 
@@ -3386,7 +3372,10 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     render();
     if (restoreFocus) {
       if (Number.isInteger(restoreIndex) && state.blocks[restoreIndex]) focusBlockPrimaryEditable(state.blocks[restoreIndex], 0);
-      else focusTerminalVirtualEditable();
+      else {
+        const trailingBlank = state.blocks.slice().reverse().find(block => block && block.type === 'blank');
+        if (trailingBlank) focusBlockPrimaryEditable(trailingBlank, 0);
+      }
     }
   };
 
@@ -3399,8 +3388,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.commandMenuInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
     render();
     queueMicrotask(() => {
-      const first = list.querySelector(`.blocks-virtual-block[data-insert-index="${state.commandMenuInsertIndex}"] .blocks-command-menu-item`)
-        || list.querySelector(`.blocks-block[data-block-id="${state.blocks[state.commandMenuInsertIndex]?.id || ''}"] .blocks-command-menu-item`)
+      const first = list.querySelector(`.blocks-block[data-block-id="${state.blocks[state.commandMenuInsertIndex]?.id || ''}"] .blocks-command-menu-item`)
         || list.querySelector('.blocks-command-menu-item');
       try { first?.focus(); } catch (_) {}
     });
@@ -4053,70 +4041,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
     });
     return menu;
-  };
-
-  const renderVirtualBlock = (insertIndex = state.blocks.length) => {
-    const safeInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
-    const isCommandOpen = state.commandMenuOpen && state.commandMenuInsertIndex === safeInsertIndex;
-    const item = document.createElement('section');
-    item.className = `blocks-virtual-block${isCommandOpen ? ' is-command-open' : ''}`;
-    item.dataset.insertIndex = String(safeInsertIndex);
-    item.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
-
-    const body = document.createElement('div');
-    body.className = 'blocks-virtual-body';
-    const editable = document.createElement('p');
-    editable.className = 'blocks-rich-editable blocks-paragraph-text blocks-virtual-editable';
-    editable.contentEditable = 'true';
-    editable.spellcheck = true;
-    editable.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
-    editable.dataset.placeholder = text('virtualBlockPlaceholder', 'Type / to chose a block');
-    editable.addEventListener('beforeinput', (event) => {
-      if (event.isComposing) return;
-      if (event.inputType !== 'insertText' || event.data == null) return;
-      event.preventDefault();
-      if (event.data === '/') {
-        insertBlankBlock(safeInsertIndex, { command: true });
-        return;
-      }
-      const blank = insertBlankBlock(safeInsertIndex, { focus: false });
-      const index = state.blocks.indexOf(blank);
-      createParagraphFromBlankInput(event.data, index >= 0 ? index : safeInsertIndex);
-    });
-    editable.addEventListener('input', () => {
-      const value = editableText(editable);
-      if (!value) return;
-      if (value === '/') {
-        editable.textContent = '';
-        insertBlankBlock(safeInsertIndex, { command: true });
-        return;
-      }
-      const blank = insertBlankBlock(safeInsertIndex, { focus: false });
-      const index = state.blocks.indexOf(blank);
-      createParagraphFromBlankInput(value, index >= 0 ? index : safeInsertIndex);
-    });
-    editable.addEventListener('paste', (event) => {
-      const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
-      if (!pasted) return;
-      event.preventDefault();
-      const blank = insertBlankBlock(safeInsertIndex, { focus: false });
-      const index = state.blocks.indexOf(blank);
-      createParagraphFromBlankInput(pasted, index >= 0 ? index : safeInsertIndex);
-    });
-    editable.addEventListener('keydown', (event) => {
-      if (handleTerminalVirtualBackspace(event, safeInsertIndex)) return;
-      if (event.key === 'Escape' && isCommandOpen) {
-        event.preventDefault();
-        closeBlockCommandMenu(true);
-      }
-    });
-    editable.addEventListener('focus', () => {
-      insertBlankBlock(safeInsertIndex, { focus: true });
-    });
-    body.appendChild(editable);
-
-    item.append(body, createCommandMenuElement(isCommandOpen));
-    return item;
   };
 
   const createRichEditable = (tagName, block, key, className, index) => {
@@ -4832,42 +4756,44 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     item.dataset.type = block.type;
     item.dataset.blockId = block.id;
     item.tabIndex = -1;
-    const head = document.createElement('div');
-    head.className = 'blocks-block-head';
-    const type = document.createElement('span');
-    type.className = 'blocks-block-type';
-    const typeLabel = block.type === 'blank'
-      ? text('virtualBlockAria', 'New block')
-      : text(block.type === 'card' ? 'articleCard' : block.type, block.type);
-    type.title = typeLabel;
-    type.setAttribute('role', 'img');
-    type.setAttribute('aria-label', typeLabel);
-    type.appendChild(createBlockTypeIcon(block.type));
-    const actions = createBlockActionMenu(index);
-    head.appendChild(type);
-    head.addEventListener('wheel', forwardBlockHeadWheel, { passive: false });
-    if (block.type === 'source') {
-      head.appendChild(createSourceReasonHelp(block, index));
-      if (canAutofixSourceBlock(block)) head.appendChild(createSourceAutofixButton(block, index));
+    if (block.type === 'blank') {
+      item.appendChild(renderBlockBody(block, index));
+    } else {
+      const head = document.createElement('div');
+      head.className = 'blocks-block-head';
+      const type = document.createElement('span');
+      type.className = 'blocks-block-type';
+      const typeLabel = text(block.type === 'card' ? 'articleCard' : block.type, block.type);
+      type.title = typeLabel;
+      type.setAttribute('role', 'img');
+      type.setAttribute('aria-label', typeLabel);
+      type.appendChild(createBlockTypeIcon(block.type));
+      const actions = createBlockActionMenu(index);
+      head.appendChild(type);
+      head.addEventListener('wheel', forwardBlockHeadWheel, { passive: false });
+      if (block.type === 'source') {
+        head.appendChild(createSourceReasonHelp(block, index));
+        if (canAutofixSourceBlock(block)) head.appendChild(createSourceAutofixButton(block, index));
+      }
+      if (block.type === 'heading') {
+        head.appendChild(createHeadingLevelSelect(block));
+      }
+      if (block.type === 'list') {
+        head.appendChild(createListTypeSelect(block, index));
+        head.appendChild(createListIndentControls(block, index));
+      }
+      if (block.type === 'code') {
+        head.appendChild(createCodeLanguageInput(block));
+      }
+      if (block.type === 'image') {
+        head.appendChild(createImageMetadataControls(block, index));
+      }
+      if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
+        head.appendChild(createInlineControls(index));
+      }
+      head.appendChild(actions);
+      item.append(head, renderBlockBody(block, index));
     }
-    if (block.type === 'heading') {
-      head.appendChild(createHeadingLevelSelect(block));
-    }
-    if (block.type === 'list') {
-      head.appendChild(createListTypeSelect(block, index));
-      head.appendChild(createListIndentControls(block, index));
-    }
-    if (block.type === 'code') {
-      head.appendChild(createCodeLanguageInput(block));
-    }
-    if (block.type === 'image') {
-      head.appendChild(createImageMetadataControls(block, index));
-    }
-    if (block.type === 'paragraph' || block.type === 'quote' || block.type === 'list') {
-      head.appendChild(createInlineControls(index));
-    }
-    head.appendChild(actions);
-    item.append(head, renderBlockBody(block, index));
     item.addEventListener('click', (event) => {
       if (shouldSuppressRoutedBlockContainerClick()) return;
       if (closestElement(event.target, '.blocks-block-head')) return;
@@ -4906,7 +4832,6 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     state.blocks.forEach((block, index) => {
       list.appendChild(renderBlockElement(block, index));
     });
-    list.appendChild(renderVirtualBlock(state.blocks.length));
     renderCardPicker();
     setActive(state.activeIndex);
     requestStickyBlockHeadUpdate();
@@ -4915,6 +4840,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const api = {
     setMarkdown(markdown) {
       state.blocks = parseMarkdownBlocks(markdown);
+      ensureEditableBlankForEmptyDocument();
       state.activeIndex = -1;
       state.activeEditable = null;
       state.activeSync = null;
