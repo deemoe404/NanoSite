@@ -151,10 +151,25 @@ const tree = buildEditorContentTree(sample, {
 });
 const flat = flattenEditorContentTree(tree);
 
-assert.equal(tree.length, 3, 'tree should have System, Articles, and Pages roots');
-assert.deepEqual(tree.map(node => node.id), ['system', 'articles', 'pages'], 'root ids should be stable');
+assert.equal(tree.length, 4, 'tree should have welcome, System, Articles, and Pages roots');
+assert.deepEqual(tree.map(node => node.id), ['welcome', 'system', 'articles', 'pages'], 'root ids should be stable');
 
-const system = tree[0];
+const welcome = tree[0];
+assert.equal(welcome.id, 'welcome');
+assert.equal(welcome.source, 'welcome');
+assert.equal(welcome.kind, 'root');
+assert.equal(welcome.label, 'welcome');
+assert.deepEqual(welcome.children, [], 'welcome should be a virtual leaf root');
+assert.deepEqual(welcome.changeCounts, { added: 0, modified: 0, deleted: 0, total: 0 }, 'welcome should not participate in content changes');
+assert.equal(welcome.checkingCount, 0, 'welcome should not aggregate file checks');
+assert.equal(welcome.changeState, '', 'welcome should not render a change badge');
+assert.equal(welcome.orderChanged, false, 'welcome should not render an order badge');
+
+const localizedWelcomeTree = buildEditorContentTree(sample, { welcomeLabel: 'Welcome' });
+assert.equal(localizedWelcomeTree[0].id, 'welcome', 'localized welcome label should not change node id');
+assert.equal(localizedWelcomeTree[0].label, 'Welcome', 'welcome root label should accept localized UI text');
+
+const system = tree[1];
 assert.equal(system.source, 'system');
 assert.equal(system.kind, 'root');
 assert.deepEqual(
@@ -167,7 +182,7 @@ assert.deepEqual(
   'system root should expose stable Site Settings, NanoSite Updates, and Publish leaves'
 );
 
-const articles = tree[1];
+const articles = tree[2];
 assert.equal(articles.source, 'index');
 assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide', 'index:v2', 'index:v3', 'index:oldArticle'], 'article entry order should follow __order and append deleted baseline entries');
 
@@ -253,7 +268,7 @@ assert.deepEqual(
   'legacy root-style article paths should not treat a version-like article key as an explicit version folder'
 );
 
-const pages = tree[2];
+const pages = tree[3];
 assert.equal(pages.source, 'tabs');
 assert.deepEqual(pages.children.map(node => node.id), ['tabs:History', 'tabs:About', 'tabs:Archive'], 'page entry order should follow __order and append deleted baseline entries');
 assert.deepEqual(

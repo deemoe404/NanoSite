@@ -1380,19 +1380,19 @@ assert.match(
 
 assert.match(
   chtHkI18nSource,
-  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260504saved';/,
+  /import chtTwTranslations from '\.\/cht-tw\.js\?v=20260505welcome';/,
   'Hong Kong Traditional Chinese should inherit the cache-busted Traditional Chinese article action'
 );
 
 assert.match(
   languagesManifestSource,
-  /"\.\/en\.js\?v=20260504saved"[\s\S]*"\.\/chs\.js\?v=20260504saved"[\s\S]*"\.\/cht-tw\.js\?v=20260504saved"[\s\S]*"\.\/cht-hk\.js\?v=20260504saved"[\s\S]*"\.\/ja\.js\?v=20260504saved"/,
+  /"\.\/en\.js\?v=20260505welcome"[\s\S]*"\.\/chs\.js\?v=20260505welcome"[\s\S]*"\.\/cht-tw\.js\?v=20260505welcome"[\s\S]*"\.\/cht-hk\.js\?v=20260505welcome"[\s\S]*"\.\/ja\.js\?v=20260505welcome"/,
   'language manifest should cache-bust language bundles changed by editor action labels'
 );
 
 assert.match(
   i18nSource,
-  /from '\.\.\/i18n\/en\.js\?v=20260504saved'/,
+  /from '\.\.\/i18n\/en\.js\?v=20260505welcome'/,
   'default English bundle import should be cache-busted when editor action labels change'
 );
 
@@ -1964,7 +1964,7 @@ assert.match(
 
 assert.match(
   source,
-  /import \{ buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree \} from '\.\/editor-content-tree\.js';/,
+  /import \{ buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree \} from '\.\/editor-content-tree\.js\?v=20260505welcome';/,
   'composer should use the shared editor content tree model'
 );
 
@@ -2134,8 +2134,8 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function refreshFileDirtyBadges\(\) \{[\s\S]*updateFileDirtyBadge\('index'\);[\s\S]*updateFileDirtyBadge\('tabs'\);[\s\S]*updateFileDirtyBadge\('site'\);[\s\S]*document\.addEventListener\('ns-editor-language-applied', refreshFileDirtyBadges\)/,
-  'composer file switch dirty labels should be recomputed after editor language changes'
+  /function refreshEditorLanguageUi\(\) \{[\s\S]*refreshFileDirtyBadges\(\);[\s\S]*refreshEditorContentTree\([\s\S]*document\.addEventListener\('ns-editor-language-applied', refreshEditorLanguageUi\)/,
+  'composer file switch dirty labels and tree panels should be recomputed after editor language changes'
 );
 
 assert.match(

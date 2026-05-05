@@ -273,6 +273,30 @@
     .editor-structure-item-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--text); }
     .editor-structure-item-meta { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted); font-size:.82rem; }
     .editor-structure-item-actions { display:flex; gap:.35rem; flex-wrap:wrap; justify-content:flex-end; }
+    .editor-welcome-body { gap:1rem; }
+    .editor-welcome-section { display:flex; flex-direction:column; gap:.7rem; min-width:0; }
+    .editor-welcome-heading { margin:0; font-size:1.02rem; line-height:1.3; color:color-mix(in srgb, var(--text) 88%, transparent); }
+    .editor-welcome-step-list { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.75rem; align-items:stretch; }
+    .editor-welcome-step { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:.7rem; min-width:0; min-height:100%; padding:.9rem; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:color-mix(in srgb, var(--card) 96%, transparent); }
+    .editor-welcome-step.is-featured { border-color:color-mix(in srgb, var(--primary) 36%, var(--border)); background:color-mix(in srgb, var(--primary) 5%, var(--card)); }
+    .editor-welcome-step-number { display:inline-flex; align-items:center; justify-content:center; align-self:start; min-width:3.4rem; min-height:1.75rem; padding:.25rem .45rem; border-radius:999px; background:color-mix(in srgb, var(--primary) 14%, var(--card)); color:color-mix(in srgb, var(--primary) 88%, var(--text)); font-size:.76rem; font-weight:800; line-height:1.05; text-align:center; white-space:normal; }
+    .editor-welcome-step-content { min-width:0; display:flex; flex-direction:column; gap:.45rem; }
+    .editor-welcome-step-title { margin:.08rem 0 0; font-size:1.02rem; line-height:1.25; color:var(--text); }
+    .editor-welcome-step-detail { margin:0; color:var(--muted); font-size:.9rem; line-height:1.48; }
+    .editor-welcome-step-actions { display:flex; flex-wrap:wrap; gap:.45rem; align-items:center; margin-top:auto; padding-top:.15rem; }
+    .editor-welcome-button { min-height:2.2rem; height:auto; white-space:normal; line-height:1.15; text-align:center; }
+    .editor-welcome-button.btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; padding:.48rem .82rem; border-radius:8px; font-size:.93rem; font-weight:700; cursor:pointer; }
+    .editor-welcome-secondary { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:.8rem; align-items:center; padding:.75rem .85rem; border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:color-mix(in srgb, var(--text) 2%, transparent); }
+    .editor-welcome-secondary-text { min-width:0; display:flex; flex-direction:column; gap:.18rem; }
+    .editor-welcome-secondary-title { margin:0; color:var(--text); font-size:.95rem; line-height:1.3; }
+    .editor-welcome-secondary-detail { margin:0; color:var(--muted); font-size:.86rem; line-height:1.45; }
+    .editor-welcome-faq-intro { margin:-.35rem 0 0; max-width:42rem; color:var(--muted); font-size:.9rem; line-height:1.5; }
+    .editor-welcome-faq-list { display:flex; flex-direction:column; gap:.45rem; }
+    .editor-welcome-faq-item { border:1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius:8px; background:color-mix(in srgb, var(--card) 97%, transparent); overflow:hidden; }
+    .editor-welcome-faq-item[open] { border-color:color-mix(in srgb, var(--primary) 28%, var(--border)); background:color-mix(in srgb, var(--primary) 4%, var(--card)); }
+    .editor-welcome-faq-question { cursor:pointer; padding:.75rem .9rem; color:var(--text); font-size:.96rem; font-weight:750; line-height:1.35; }
+    .editor-welcome-faq-question::marker { color:color-mix(in srgb, var(--primary) 78%, var(--muted)); }
+    .editor-welcome-faq-answer { margin:0; padding:0 .9rem .85rem 1.4rem; color:var(--muted); font-size:.9rem; line-height:1.55; }
     .editor-structure-drag-handle { width:1.95rem; min-height:2.2rem; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:.16rem; padding:.25rem .45rem; border:0; background:transparent; border-radius:8px; cursor:grab; touch-action:none; color:color-mix(in srgb, var(--muted) 86%, transparent); box-sizing:border-box; user-select:none; }
     .editor-structure-drag-handle:hover { background:color-mix(in srgb, var(--text) 4%, transparent); }
     .editor-structure-drag-handle:focus-visible { outline:2px solid color-mix(in srgb, var(--primary) 36%, transparent); outline-offset:2px; background:color-mix(in srgb, var(--primary) 8%, transparent); }
@@ -284,6 +308,9 @@
     @media (max-width: 980px) {
       .editor-structure-row { grid-template-columns:1fr; }
       .editor-structure-actions, .editor-structure-item-actions { justify-content:flex-start; }
+      .editor-welcome-step-list { grid-template-columns:1fr; }
+      .editor-welcome-secondary { grid-template-columns:1fr; align-items:start; }
+      .editor-welcome-secondary .editor-welcome-button { justify-self:start; }
       .editor-structure-item--draggable { grid-template-columns:1.95rem minmax(0, 1fr); }
       .editor-structure-item--draggable .editor-structure-item-actions { grid-column:1 / -1; padding-left:calc(1.95rem + .5rem); }
     }
@@ -2321,9 +2348,9 @@
       updateOffset();
     })();
   </script>
-  <script type="module" src="assets/js/editor-boot.js?v=editor-saved-label-20260504"></script>
-  <script type="module" src="assets/js/editor-main.js?v=action-menu-flip-20260505"></script>
-  <script type="module" src="assets/js/composer.js?v=editor-system-icons-20260504"></script>
+  <script type="module" src="assets/js/editor-boot.js?v=welcome-i18n-20260505"></script>
+  <script type="module" src="assets/js/editor-main.js?v=welcome-i18n-20260505"></script>
+  <script type="module" src="assets/js/composer.js?v=welcome-i18n-20260505"></script>
   <!-- Back to top button -->
   <button id="backToTop" class="back-to-top" aria-label="返回顶部" title="返回顶部" type="button" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
