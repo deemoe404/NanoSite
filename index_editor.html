@@ -900,6 +900,13 @@
         grid-column:1;
         width:min(100%, var(--editor-article-main-width));
       }
+      .editor-workspace:has(#blocks-wrap:not([hidden])) .editor-canvas::after {
+        content:"";
+        display:block;
+        flex:0 0 auto;
+        height:50vh;
+        pointer-events:none;
+      }
       .editor-workspace-meta {
         grid-column:2;
         align-self:start;
