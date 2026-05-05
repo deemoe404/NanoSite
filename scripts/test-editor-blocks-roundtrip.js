@@ -609,6 +609,11 @@ run('typing or slash command on blank blocks replaces the blank block', () => {
   );
   assert.match(
     editorBlocksSource,
+    /renderBlankBlock[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key === 'Enter' && !event\.shiftKey && !event\.altKey && !event\.ctrlKey && !event\.metaKey && !event\.isComposing[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\);[\s\S]*return;[\s\S]*removeEmptyBlockWithBackspace/,
+    'plain Enter in a blank block should insert a following blank instead of converting the current blank to a paragraph'
+  );
+  assert.match(
+    editorBlocksSource,
     /if \(state\.blocks\[safeIndex\] && state\.blocks\[safeIndex\]\.type === 'blank'\) \{[\s\S]*state\.blocks\.splice\(safeIndex, 1, block\);[\s\S]*render\(\);/,
     'command-selected blocks should replace an existing blank block without forcing a new trailing blank'
   );

@@ -4962,6 +4962,11 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       createParagraphFromBlankInput(pasted, index);
     });
     editable.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.isComposing) {
+        event.preventDefault();
+        insertBlankBlock(index + 1, { focus: true });
+        return;
+      }
       if (removeEmptyBlockWithBackspace(event, block, index, editable, null)) return;
       if (handleCrossBlockArrowNavigation(event, index, editable)) return;
       if (event.key === 'Escape' && isCommandOpen) {

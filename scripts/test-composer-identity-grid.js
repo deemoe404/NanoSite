@@ -124,6 +124,12 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
+  /const renderBlankBlock = \(body, block, index\) => \{[\s\S]*editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key === 'Enter' && !event\.shiftKey && !event\.altKey && !event\.ctrlKey && !event\.metaKey && !event\.isComposing[\s\S]*event\.preventDefault\(\);[\s\S]*insertBlankBlock\(index \+ 1, \{ focus: true \}\);[\s\S]*removeEmptyBlockWithBackspace/,
+  'blank block Enter should create another real blank before browser input can turn the blank into a paragraph'
+);
+
+assert.match(
+  editorBlocksSource,
   /function isEditableSelectionOnBlankLine\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*if \(text\.slice\(lineStart, lineEnd\)\.trim\(\) === ''\) return true;[\s\S]*const caretRect = caretRectForEditable\(el\);[\s\S]*createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*range\.selectNodeContents\(node\);[\s\S]*const hasTextOnCaretLine = rects\.some[\s\S]*if \(hasTextOnCaretLine\)[\s\S]*return true;/,
   'rich text blocks should detect empty visual lines even when DOM line breaks are not counted by Range.toString offsets'
 );
