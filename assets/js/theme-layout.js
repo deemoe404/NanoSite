@@ -1,5 +1,14 @@
 import { getSavedThemePack, loadThemePack } from './theme.js';
 import {
+  t,
+  withLangParam,
+  getCurrentLang,
+  switchLanguage,
+  ensureLanguageBundle,
+  getAvailableLangs,
+  getLanguageLabel
+} from './i18n.js?v=20260506theme';
+import {
   createThemeRegionRegistry,
   ensureThemeRegionRegistry,
   getThemeLayoutContext as readThemeLayoutContext,
@@ -71,6 +80,19 @@ function firstDefined(...values) {
     if (value !== undefined && value !== null) return value;
   }
   return undefined;
+}
+
+export function createThemeI18nContext() {
+  return {
+    t,
+    withLangParam,
+    getCurrentLang,
+    switchLanguage,
+    ensureLanguageBundle,
+    getAvailableLangs,
+    getLanguageLabel,
+    lang: typeof getCurrentLang === 'function' ? getCurrentLang() : ''
+  };
 }
 
 function validateManifestContract(pack, manifest) {
@@ -394,6 +416,7 @@ async function mountPack(pack, allowFallback = true) {
 
   const context = {
     document: document,
+    i18n: createThemeI18nContext(),
     regions: createThemeRegionRegistry(),
     pack,
     manifest,

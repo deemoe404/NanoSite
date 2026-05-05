@@ -100,13 +100,20 @@ View render calls receive `ctx` alongside the legacy payload:
 
 - `ctx.document` and `ctx.window`
 - `ctx.router` with route key, query, language-aware links, and navigation
-- `ctx.i18n` with `t`, current `lang`, and `withLangParam`
+- `ctx.i18n` with `t`, `withLangParam`, `getCurrentLang`,
+  `switchLanguage`, `ensureLanguageBundle`, `getAvailableLangs`,
+  `getLanguageLabel`, and current `lang`
 - `ctx.content` for post and tab views
 - `ctx.regions`, a registry with `get`, `has`, `register`, `registerMany`,
   `list`, and `snapshot`
 - `ctx.utilities` for shared helpers such as TOC, images, post nav, lazy
   loading, and safe link helpers
 - `ctx.themeConfig`, `ctx.manifest`, and `ctx.theme`
+
+Theme modules must read translation state from `ctx.i18n`. Do not import
+`assets/js/i18n.js` directly from a theme module, with or without a cache
+version query; doing so creates a separate ES module instance and splits the
+runtime language state.
 
 ## Region Registry
 

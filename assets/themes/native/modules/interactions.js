@@ -1,5 +1,4 @@
 import { installLightbox } from '../../../js/lightbox.js';
-import { t, withLangParam, getCurrentLang } from '../../../js/i18n.js';
 import { slugifyTab, escapeHtml, getQueryVariable, renderTags, cardImageSrc, fallbackCover, formatDisplayDate, formatBytes, sanitizeImageUrl, renderSkeletonArticle } from '../../../js/utils.js';
 import { attachHoverTooltip } from '../../../js/tags.js';
 import { prefersReducedMotion, getArticleTitleFromMain } from '../../../js/dom-utils.js';
@@ -14,6 +13,59 @@ import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPick
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
+
+let themeI18n = null;
+
+function setThemeI18n(context = {}) {
+  themeI18n = context && context.i18n && typeof context.i18n === 'object' ? context.i18n : null;
+}
+
+function getCurrentLang() {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.getCurrentLang === 'function') return i18n.getCurrentLang();
+    if (typeof i18n.lang === 'string' && i18n.lang.trim()) return i18n.lang.trim();
+  } catch (_) {}
+  try {
+    const lang = defaultDocument && defaultDocument.documentElement && defaultDocument.documentElement.getAttribute('lang');
+    if (lang) return lang;
+  } catch (_) {}
+  try {
+    const url = new URL((defaultWindow && defaultWindow.location && defaultWindow.location.href) || '');
+    const lang = url.searchParams.get('lang');
+    if (lang) return lang;
+  } catch (_) {}
+  return 'en';
+}
+
+function t(key, ...args) {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.t === 'function') return i18n.t(key, ...args);
+  } catch (_) {}
+  return args.length ? `${key} ${args.join(' ')}` : String(key || '');
+}
+
+function withLangParam(urlStr) {
+  const i18n = themeI18n || {};
+  try {
+    if (typeof i18n.withLangParam === 'function') return i18n.withLangParam(urlStr);
+  } catch (_) {}
+  const raw = String(urlStr || '');
+  const lang = getCurrentLang();
+  try {
+    const win = defaultWindow;
+    const current = new URL((win && win.location && win.location.href) || 'https://example.test/');
+    const url = new URL(raw, current.href);
+    if (lang) url.searchParams.set('lang', lang);
+    if (url.origin === current.origin && url.pathname === current.pathname) return `${url.search}${url.hash}`;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    if (!lang) return raw;
+    const joiner = raw.includes('?') ? '&' : '?';
+    return `${raw}${joiner}lang=${encodeURIComponent(lang)}`;
+  }
+}
 
 let hasInitiallyRendered = false;
 let pendingHighlightRaf = 0;
@@ -1852,6 +1904,7 @@ function setupResponsiveTabsObserverNative(params = {}) {
 }
 
 export function mount(context = {}) {
+  setThemeI18n(context);
   const windowRef = context.window || defaultWindow;
   const documentRef = context.document || defaultDocument;
 

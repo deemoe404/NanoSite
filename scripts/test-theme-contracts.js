@@ -152,8 +152,16 @@ REQUIRED_COMPONENTS.forEach((component) => {
     fail(`assets/js/theme-layout.js must expose theme API adapter support for ${needle}`);
   }
 });
+['createThemeI18nContext', 'switchLanguage', 'ensureLanguageBundle', 'getAvailableLangs', 'getLanguageLabel'].forEach((needle) => {
+  if (!themeLayoutSource.includes(needle)) {
+    fail(`assets/js/theme-layout.js must expose theme i18n context support for ${needle}`);
+  }
+});
 if (!/const direct = \([\s\S]*asObject\(mod\.effects\)[\s\S]*\) \? mod : null;/.test(themeLayoutSource)) {
   fail('assets/js/theme-layout.js must merge pure API objects returned from mount(ctx)');
+}
+if (!/i18n:\s*createThemeI18nContext\(\)/.test(themeLayoutSource)) {
+  fail('assets/js/theme-layout.js must inject ctx.i18n into theme mount context');
 }
 
 ['createContentModel', 'blocks', 'tocTree', 'headings', 'assets', 'links'].forEach((needle) => {
@@ -164,6 +172,9 @@ if (!/const direct = \([\s\S]*asObject\(mod\.effects\)[\s\S]*\) \? mod : null;/.
 
 if (!mainSource.includes('getThemeApiHandler')) {
   fail('assets/main.js must route theme calls through getThemeApiHandler before legacy hooks');
+}
+if (!/i18n:\s*createThemeI18nContext\(\)/.test(mainSource)) {
+  fail('assets/main.js must pass the standard ctx.i18n shape to theme view handlers');
 }
 if (!/renderPostView[\s\S]*content,[\s\S]*rawMarkdown/.test(mainSource)) {
   fail('assets/main.js must pass the structured content model into post view rendering');
@@ -248,12 +259,15 @@ themeNames.forEach((themeName) => {
       return fs.existsSync(modulePath) ? read(modulePath) : '';
     })
     .join('\n');
+  if (
+    /from\s+['"][^'"]*js\/i18n\.js(?:\?[^'"]*)?['"]/.test(moduleSource)
+    || /import\s*\([^)]*js\/i18n\.js/.test(moduleSource)
+  ) {
+    fail(`${relManifest} theme modules must read i18n from ctx.i18n instead of importing js/i18n.js directly`);
+  }
   if (isPureTheme) {
     if (/__ns_themeHooks/.test(moduleSource)) {
       fail(`${relManifest} pure theme modules must not write window.__ns_themeHooks`);
-    }
-    if (/from\s+['"]\.\.\/\.\.\/\.\.\/js\/i18n\.js['"]/.test(moduleSource)) {
-      fail(`${relManifest} pure theme modules must read i18n from ctx instead of importing js/i18n.js directly`);
     }
     LEGACY_IDS.forEach((id) => {
       const directId = new RegExp(`getElementById\\(\\s*['"]${escapeRe(id)}['"]\\s*\\)`);
