@@ -331,6 +331,7 @@ const translations = {
         toolbarAria: '块工具',
         listAria: 'Markdown 块',
         virtualBlockAria: '新建块',
+        virtualBlockPlaceholder: '输入 / 选择一个块',
         commandMenuAria: '块选择器',
         paragraph: '段落',
         heading: '标题',

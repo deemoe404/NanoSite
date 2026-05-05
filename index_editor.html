@@ -1326,7 +1326,7 @@
     .blocks-virtual-block { position:relative; margin:.85rem 0 1.2rem; min-height:2.2rem; }
     .blocks-virtual-body { min-height:2.2rem; display:flex; align-items:flex-start; }
     .blocks-virtual-editable { width:100%; margin:0; color:var(--text); }
-    .blocks-virtual-editable:empty::before { content:""; display:inline-block; width:.15rem; }
+    .blocks-virtual-editable:empty::before { content:attr(data-placeholder); display:inline-block; color:color-mix(in srgb, var(--muted) 74%, transparent); pointer-events:none; }
     .blocks-command-menu { position:absolute; left:0; top:calc(100% + .35rem); z-index:160; display:grid; grid-template-columns:repeat(auto-fit, minmax(9rem, 1fr)); gap:.25rem; width:min(36rem, 100%); padding:.35rem; border:1px solid var(--border); border-radius:8px; background:var(--card); box-shadow:0 10px 22px rgba(15,23,42,.16); }
     .blocks-command-menu[hidden] { display:none !important; }
     .blocks-command-menu-item { display:flex; align-items:center; gap:.45rem; justify-content:flex-start; text-align:left; min-height:2.1rem; }

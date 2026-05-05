@@ -331,6 +331,7 @@ const translations = {
         toolbarAria: '區塊工具',
         listAria: 'Markdown 區塊',
         virtualBlockAria: '新增區塊',
+        virtualBlockPlaceholder: '輸入 / 選擇一個區塊',
         commandMenuAria: '區塊選擇器',
         paragraph: '段落',
         heading: '標題',

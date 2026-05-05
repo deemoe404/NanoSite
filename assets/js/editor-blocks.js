@@ -3513,6 +3513,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editable.contentEditable = 'true';
     editable.spellcheck = true;
     editable.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
+    editable.dataset.placeholder = text('virtualBlockPlaceholder', 'Type / to chose a block');
     editable.addEventListener('beforeinput', (event) => {
       if (event.isComposing) return;
       if (event.inputType !== 'insertText' || event.data == null) return;

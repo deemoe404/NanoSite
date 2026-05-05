@@ -331,6 +331,7 @@ const translations = {
         toolbarAria: 'Block tools',
         listAria: 'Markdown blocks',
         virtualBlockAria: 'New block',
+        virtualBlockPlaceholder: 'Type / to chose a block',
         commandMenuAria: 'Block selector',
         paragraph: 'Paragraph',
         heading: 'Heading',

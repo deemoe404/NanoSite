@@ -112,7 +112,7 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /state\.commandMenuOpen = true;[\s\S]*const first = list\.querySelector\('\.blocks-command-menu-item'\);[\s\S]*const renderVirtualBlock = \(\) => \{[\s\S]*className = `blocks-virtual-block\$\{state\.commandMenuOpen \? ' is-command-open' : ''\}`[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(\);[\s\S]*createParagraphFromVirtualInput\(event\.data\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach[\s\S]*itemBtn\.dataset\.blockCommand = type;/,
+  /state\.commandMenuOpen = true;[\s\S]*const first = list\.querySelector\('\.blocks-command-menu-item'\);[\s\S]*const renderVirtualBlock = \(\) => \{[\s\S]*className = `blocks-virtual-block\$\{state\.commandMenuOpen \? ' is-command-open' : ''\}`[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(\);[\s\S]*createParagraphFromVirtualInput\(event\.data\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach[\s\S]*itemBtn\.dataset\.blockCommand = type;/,
   'blocks mode should expose a bottom virtual paragraph that opens a slash command selector and creates real paragraphs only after typing'
 );
 
@@ -841,7 +841,7 @@ assert.match(
 
 assert.match(
   editorSource,
-  /\.blocks-virtual-block \{ position:relative; margin:\.85rem 0 1\.2rem; min-height:2\.2rem; \}[\s\S]*\.blocks-command-menu \{ position:absolute; left:0; top:calc\(100% \+ \.35rem\);[\s\S]*\.blocks-command-menu-item \{ display:flex; align-items:center; gap:\.45rem;/,
+  /\.blocks-virtual-block \{ position:relative; margin:\.85rem 0 1\.2rem; min-height:2\.2rem; \}[\s\S]*\.blocks-virtual-editable:empty::before \{ content:attr\(data-placeholder\);[\s\S]*\.blocks-command-menu \{ position:absolute; left:0; top:calc\(100% \+ \.35rem\);[\s\S]*\.blocks-command-menu-item \{ display:flex; align-items:center; gap:\.45rem;/,
   'blocks mode should style the bottom virtual block and slash command menu as editor-native controls'
 );
 

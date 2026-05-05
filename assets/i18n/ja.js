@@ -331,6 +331,7 @@ const translations = {
         toolbarAria: 'ブロックツール',
         listAria: 'Markdown ブロック',
         virtualBlockAria: '新しいブロック',
+        virtualBlockPlaceholder: '/ を入力してブロックを選択',
         commandMenuAria: 'ブロック選択',
         paragraph: '段落',
         heading: '見出し',
