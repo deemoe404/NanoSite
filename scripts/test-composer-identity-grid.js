@@ -865,7 +865,7 @@ assert.match(
 
 assert.match(
   editorBlocksSource,
-  /export function joinMergedEditableText\(before, after\) \{[\s\S]*const separator = \/\\s\$\/\.test\(left\) \|\| \/\^\\s\/\.test\(right\) \? '' : ' ';[\s\S]*export function mergeListItemIntoPreviousItem\(items, itemIndex\) \{[\s\S]*itemIndentLevel\(previous\) !== itemIndentLevel\(current\)[\s\S]*listItemHasNestedChildren\(source, safeIndex\)[\s\S]*joinMergedEditableText\(previousText, listItemText\(current\)\)[\s\S]*function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*mergeListItemIntoPreviousItem\(next, itemIndex\)[\s\S]*if \(!mergedItem\) return;[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: mergedItem\.focusItemIndex, caretOffset: mergedItem\.caretOffset \}/,
+  /export function inlineRenderedTextLength\(markdownText\) \{[\s\S]*parseInlineRuns\(normalizeEditableMarkdownText\(markdownText\)\)[\s\S]*export function mergeListItemIntoPreviousItem\(items, itemIndex\) \{[\s\S]*itemIndentLevel\(previous\) !== itemIndentLevel\(current\)[\s\S]*listItemHasNestedChildren\(source, safeIndex\)[\s\S]*joinMergedEditableText\(previousText, listItemText\(current\)\)[\s\S]*inlineRenderedTextLength\(previousText\) \+ mergedText\.separator\.length[\s\S]*function isEditableSelectionAtStart\(el\) \{[\s\S]*beforeRange\.cloneContents\(\)[\s\S]*event\.key === 'Backspace' \|\| event\.key === 'Delete'[\s\S]*itemIndex > 0[\s\S]*isEditableSelectionAtStart\(span\)[\s\S]*mergeListItemIntoPreviousItem\(next, itemIndex\)[\s\S]*if \(!mergedItem\) return;[\s\S]*state\.pendingListFocus = \{ blockId: block\.id, itemIndex: mergedItem\.focusItemIndex, caretOffset: mergedItem\.caretOffset \}/,
   'Backspace or Delete at the start of a non-first visual list item should merge only structurally safe same-level items'
 );
 
@@ -885,6 +885,12 @@ assert.doesNotMatch(
   editorBlocksSource,
   /text: `\$\{(?:previousText|listItemText\(previous\))\}\$\{(?:currentText|listItemText\(current\))\}`/,
   'Backspace merge helpers should not directly concatenate merged text without the safe join helper'
+);
+
+assert.doesNotMatch(
+  editorBlocksSource,
+  /previousText\.length \+ mergedText\.separator\.length/,
+  'Backspace merge caret offsets should use rendered inline text length instead of markdown source length'
 );
 
 assert.match(

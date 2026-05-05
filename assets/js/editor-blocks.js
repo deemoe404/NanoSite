@@ -1360,6 +1360,11 @@ export function joinMergedEditableText(before, after) {
   };
 }
 
+export function inlineRenderedTextLength(markdownText) {
+  return parseInlineRuns(normalizeEditableMarkdownText(markdownText))
+    .reduce((total, run) => total + String(run && run.text != null ? run.text : '').length, 0);
+}
+
 export function mergeTextBlockIntoPrevious(previousBlock, currentBlock) {
   if (!isMergeableTextBlock(previousBlock) || !isMergeableTextBlock(currentBlock)) return null;
   const previousText = textBlockDataText(previousBlock);
@@ -1368,7 +1373,7 @@ export function mergeTextBlockIntoPrevious(previousBlock, currentBlock) {
   return {
     ...previousBlock,
     dirty: true,
-    focusCaretOffset: previousText.length + mergedText.separator.length,
+    focusCaretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length,
     data: {
       ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
       text: mergedText.text
@@ -1417,7 +1422,7 @@ export function mergeTextBlockIntoPreviousList(previousBlock, currentBlock) {
     ...previousBlock,
     dirty: true,
     focusItemIndex: lastIndex,
-    focusCaretOffset: previousText.length + mergedText.separator.length,
+    focusCaretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length,
     data: {
       ...(previousBlock.data && typeof previousBlock.data === 'object' ? previousBlock.data : {}),
       items
@@ -1436,7 +1441,7 @@ export function mergeListItemIntoPreviousItem(items, itemIndex) {
   const next = source.slice();
   const previousText = listItemText(previous);
   const mergedText = joinMergedEditableText(previousText, listItemText(current));
-  const caretOffset = previousText.length + mergedText.separator.length;
+  const caretOffset = inlineRenderedTextLength(previousText) + mergedText.separator.length;
   next[safeIndex - 1] = {
     ...previous,
     text: mergedText.text
@@ -1481,7 +1486,7 @@ export function mergeFirstListItemIntoPreviousBlock(previousBlock, currentBlock,
             }
           }
         : null,
-      focus: { type: 'text', caretOffset: previousText.length + mergedText.separator.length }
+      focus: { type: 'text', caretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length }
     };
   }
   const previousItems = listBlockItems(previousBlock);
@@ -1512,7 +1517,7 @@ export function mergeFirstListItemIntoPreviousBlock(previousBlock, currentBlock,
           }
         }
       : null,
-    focus: { type: 'list', itemIndex: lastIndex, caretOffset: previousText.length + mergedText.separator.length }
+    focus: { type: 'list', itemIndex: lastIndex, caretOffset: inlineRenderedTextLength(previousText) + mergedText.separator.length }
   };
 }
 

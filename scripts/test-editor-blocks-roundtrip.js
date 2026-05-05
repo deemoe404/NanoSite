@@ -5,6 +5,7 @@ import {
   applyInlineLinkToRuns,
   autofixMarkdownSourceBlock,
   insertInlineRunsAtRange,
+  inlineRenderedTextLength,
   isBlockEmptyForBackspace,
   joinMergedEditableText,
   listVisualMarkerLabels,
@@ -326,6 +327,34 @@ run('backspace merge inserts a single safe space only when needed', () => {
   assert.deepEqual(joinMergedEditableText('abc', ''), { text: 'abc', separator: '' });
 });
 
+run('backspace merge caret offsets use rendered inline text length', () => {
+  assert.equal(inlineRenderedTextLength('Click **Save.**'), 'Click Save.'.length);
+  assert.equal(inlineRenderedTextLength('_Italic_ [docs](?id=post/doc.md "Docs") `a*b` \\*literal\\*'), 'Italic docs a*b *literal*'.length);
+
+  const previousText = { type: 'paragraph', data: { text: 'Click **Save.**' } };
+  const currentText = { type: 'paragraph', data: { text: 'Follow' } };
+  const textMerge = mergeTextBlockIntoPrevious(previousText, currentText);
+  assert.equal(textMerge.data.text, 'Click **Save.** Follow');
+  assert.equal(textMerge.focusCaretOffset, 'Click Save. '.length);
+
+  const previousList = { type: 'list', data: { items: [{ text: 'Click **Save.**', indent: 0 }] } };
+  const textToListMerge = mergeTextBlockIntoPreviousList(previousList, currentText);
+  assert.equal(textToListMerge.data.items[0].text, 'Click **Save.** Follow');
+  assert.equal(textToListMerge.focusCaretOffset, 'Click Save. '.length);
+
+  const itemMerge = mergeListItemIntoPreviousItem([{ text: 'Click **Save.**', indent: 0 }, { text: 'Follow', indent: 0 }], 1);
+  assert.deepEqual(itemMerge.items, [{ text: 'Click **Save.** Follow', indent: 0 }]);
+  assert.equal(itemMerge.caretOffset, 'Click Save. '.length);
+
+  const firstItemToText = mergeFirstListItemIntoPreviousBlock(previousText, { type: 'list', data: { items: [{ text: 'Follow', indent: 0 }] } }, 0);
+  assert.equal(firstItemToText.previousBlock.data.text, 'Click **Save.** Follow');
+  assert.deepEqual(firstItemToText.focus, { type: 'text', caretOffset: 'Click Save. '.length });
+
+  const firstItemToList = mergeFirstListItemIntoPreviousBlock(previousList, { type: 'list', data: { items: [{ text: 'Follow', indent: 0 }] } }, 0);
+  assert.equal(firstItemToList.previousBlock.data.items[0].text, 'Click **Save.** Follow');
+  assert.deepEqual(firstItemToList.focus, { type: 'list', itemIndex: 0, caretOffset: 'Click Save. '.length });
+});
+
 run('backspace merge requires two text blocks', () => {
   const [paragraph] = parseMarkdownBlocks('abc\n\n');
   const [listBlock] = parseMarkdownBlocks('- def\n\n');
@@ -431,7 +460,7 @@ run('backspace merge ignores modified Backspace key chords', () => {
   );
 });
 
-run('backspace merge focuses previous block at its original text length', () => {
+run('backspace merge focuses previous block at its rendered text length', () => {
   assert.match(
     editorBlocksSource,
     /focusBlockPrimaryEditable\(merged, merged\.focusCaretOffset\)/,
