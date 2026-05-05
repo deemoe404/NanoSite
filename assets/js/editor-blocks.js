@@ -1224,6 +1224,58 @@ function isEditableSelectionAtStart(el) {
   }
 }
 
+function isEditableSelectionOnBlankLine(el) {
+  try {
+    const offsets = getEditableSelectionOffsets(el);
+    if (!offsets || !offsets.collapsed) return false;
+    const text = editableText(el).replace(/\u00a0/g, ' ');
+    const lineStart = text.lastIndexOf('\n', Math.max(0, offsets.start - 1)) + 1;
+    const nextBreak = text.indexOf('\n', offsets.start);
+    const lineEnd = nextBreak >= 0 ? nextBreak : text.length;
+    if (text.slice(lineStart, lineEnd).trim() === '') return true;
+
+    const caretRect = caretRectForEditable(el);
+    if (!caretRect) return false;
+    const tolerance = Math.max(2, caretRect.height * 0.35);
+    const caretMid = caretRect.top + (caretRect.height / 2);
+    const doc = el.ownerDocument || document;
+    const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = doc.createRange();
+    let node = walker.nextNode();
+    while (node) {
+      if (/\S/.test(String(node.nodeValue || ''))) {
+        range.selectNodeContents(node);
+        const rects = Array.from(range.getClientRects ? range.getClientRects() : []);
+        const hasTextOnCaretLine = rects.some(rect => rect
+          && rect.height > 0
+          && caretMid >= rect.top - tolerance
+          && caretMid <= rect.bottom + tolerance);
+        if (hasTextOnCaretLine) {
+          range.detach && range.detach();
+          return false;
+        }
+      }
+      node = walker.nextNode();
+    }
+    range.detach && range.detach();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function shouldOpenInlineVirtualBlockOnEnter(el) {
+  try {
+    const offsets = getEditableSelectionOffsets(el);
+    if (!offsets || !offsets.collapsed) return false;
+    const text = editableText(el).replace(/\u00a0/g, ' ');
+    if (offsets.start >= text.length) return true;
+    return isEditableSelectionOnBlankLine(el);
+  } catch (_) {
+    return false;
+  }
+}
+
 function placeCaretAtEnd(el) {
   try {
     if (!el) return;
@@ -1963,7 +2015,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     cardEntries: [],
     cardPickerOpen: false,
     cardPickerInsertIndex: null,
+    inlineVirtualIndex: null,
     commandMenuOpen: false,
+    commandMenuInsertIndex: null,
     reorderAnimating: false,
     openActionMenu: null,
     openInlineMenu: null
@@ -2006,9 +2060,24 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const blockElements = () => Array.from(list.children).filter(el => el && el.classList && el.classList.contains('blocks-block'));
 
-  const focusVirtualEditable = () => {
+  const virtualInsertionIndex = () => {
+    const index = Number.isInteger(state.inlineVirtualIndex) ? state.inlineVirtualIndex : state.blocks.length;
+    return Math.max(0, Math.min(index, state.blocks.length));
+  };
+
+  const clearInlineVirtualBlock = () => {
+    state.inlineVirtualIndex = null;
+    if (state.commandMenuOpen && Number.isInteger(state.commandMenuInsertIndex)) {
+      state.commandMenuOpen = false;
+      state.commandMenuInsertIndex = null;
+    }
+  };
+
+  const focusVirtualEditable = (insertIndex = virtualInsertionIndex()) => {
     queueMicrotask(() => {
-      const editable = list.querySelector('.blocks-virtual-editable');
+      const safeIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
+      const editable = list.querySelector(`.blocks-virtual-block[data-insert-index="${safeIndex}"] .blocks-virtual-editable`)
+        || list.querySelector('.blocks-virtual-editable');
       if (!editable) return;
       try { editable.focus({ preventScroll: true }); }
       catch (_) {
@@ -2052,6 +2121,19 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       }
       setActive(index, editable, editableSyncMap.get(editable) || null);
     });
+  };
+
+  const openInlineVirtualBlockAfter = (index, editable = null, sync = null) => {
+    if (typeof sync === 'function') sync();
+    state.inlineVirtualIndex = Math.max(0, Math.min((Number(index) || 0) + 1, state.blocks.length));
+    state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerOpen = false;
+    state.cardPickerInsertIndex = null;
+    state.activeEditable = null;
+    state.activeSync = null;
+    render();
+    focusVirtualEditable(state.inlineVirtualIndex);
   };
 
   const clearNativeSelection = () => {
@@ -2913,36 +2995,46 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   const closeBlockCommandMenu = (restoreFocus = false) => {
     if (!state.commandMenuOpen) return;
     state.commandMenuOpen = false;
+    const restoreIndex = state.commandMenuInsertIndex;
+    state.commandMenuInsertIndex = null;
     render();
-    if (restoreFocus) focusVirtualEditable();
+    if (restoreFocus) focusVirtualEditable(Number.isInteger(restoreIndex) ? restoreIndex : virtualInsertionIndex());
   };
 
-  const openBlockCommandMenu = () => {
+  const openBlockCommandMenu = (insertIndex = virtualInsertionIndex()) => {
     closeBlockActionMenu(false);
     closeInlineMoreMenu(false);
     state.cardPickerOpen = false;
     state.cardPickerInsertIndex = null;
+    state.inlineVirtualIndex = Number.isInteger(insertIndex) && insertIndex < state.blocks.length ? insertIndex : state.inlineVirtualIndex;
     state.commandMenuOpen = true;
+    state.commandMenuInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
     render();
     queueMicrotask(() => {
-      const first = list.querySelector('.blocks-command-menu-item');
+      const first = list.querySelector(`.blocks-virtual-block[data-insert-index="${state.commandMenuInsertIndex}"] .blocks-command-menu-item`)
+        || list.querySelector('.blocks-command-menu-item');
       try { first?.focus(); } catch (_) {}
     });
   };
 
   const insertCommandBlock = (type, data = {}, options = {}) => {
+    const insertIndex = Number.isInteger(options.index)
+      ? options.index
+      : (Number.isInteger(state.commandMenuInsertIndex) ? state.commandMenuInsertIndex : virtualInsertionIndex());
     state.commandMenuOpen = false;
+    state.commandMenuInsertIndex = null;
     state.cardPickerOpen = false;
     state.cardPickerInsertIndex = null;
-    const block = insertBlock(type, data, state.blocks.length);
+    state.inlineVirtualIndex = null;
+    const block = insertBlock(type, data, insertIndex);
     if (options.focus) focusBlockPrimaryEditable(block, options.caretOffset);
     return block;
   };
 
-  const createParagraphFromVirtualInput = (value) => {
+  const createParagraphFromVirtualInput = (value, insertIndex = virtualInsertionIndex()) => {
     const textValue = normalizeEditableMarkdownText(value);
     if (!textValue) return;
-    insertCommandBlock('paragraph', { text: textValue }, { focus: true, caretOffset: textValue.length });
+    insertCommandBlock('paragraph', { text: textValue }, { focus: true, caretOffset: textValue.length, index: insertIndex });
   };
 
   const inlineCommandMark = (kind) => (kind === 'strikeThrough' ? 'strike' : kind);
@@ -3490,6 +3582,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
           const insertIndex = Number.isInteger(state.cardPickerInsertIndex) ? state.cardPickerInsertIndex : state.blocks.length;
           state.cardPickerOpen = false;
           state.cardPickerInsertIndex = null;
+          state.inlineVirtualIndex = null;
           insertBlock('card', {
             label: entry.title || entry.key || entry.location || 'Article',
             location: entry.location || '',
@@ -3522,10 +3615,12 @@ export function createMarkdownBlocksEditor(root, options = {}) {
   ];
 
   const openArticleCardCommand = () => {
+    const insertIndex = Number.isInteger(state.commandMenuInsertIndex) ? state.commandMenuInsertIndex : virtualInsertionIndex();
     state.commandMenuOpen = false;
-    state.cardPickerInsertIndex = state.blocks.length;
+    state.commandMenuInsertIndex = null;
+    state.cardPickerInsertIndex = insertIndex;
     if (!state.cardEntries.length) {
-      insertCommandBlock('card', { label: 'Article', location: '', title: 'card', forceCard: true });
+      insertCommandBlock('card', { label: 'Article', location: '', title: 'card', forceCard: true }, { index: insertIndex });
       return;
     }
     state.cardPickerOpen = true;
@@ -3537,9 +3632,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     insertCommandBlock(type, data, { focus: focusTypes.has(type) });
   };
 
-  const renderVirtualBlock = () => {
+  const renderVirtualBlock = (insertIndex = state.blocks.length, isInline = false) => {
+    const safeInsertIndex = Math.max(0, Math.min(Number(insertIndex) || 0, state.blocks.length));
+    const isCommandOpen = state.commandMenuOpen && state.commandMenuInsertIndex === safeInsertIndex;
     const item = document.createElement('section');
-    item.className = `blocks-virtual-block${state.commandMenuOpen ? ' is-command-open' : ''}`;
+    item.className = `blocks-virtual-block${isCommandOpen ? ' is-command-open' : ''}`;
+    item.dataset.insertIndex = String(safeInsertIndex);
+    if (isInline) item.dataset.inlineVirtual = 'true';
     item.setAttribute('aria-label', text('virtualBlockAria', 'New block'));
 
     const body = document.createElement('div');
@@ -3555,34 +3654,50 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       if (event.inputType !== 'insertText' || event.data == null) return;
       event.preventDefault();
       if (event.data === '/') {
-        openBlockCommandMenu();
+        openBlockCommandMenu(safeInsertIndex);
         return;
       }
-      createParagraphFromVirtualInput(event.data);
+      createParagraphFromVirtualInput(event.data, safeInsertIndex);
     });
     editable.addEventListener('input', () => {
       const value = editableText(editable);
       if (!value) return;
       if (value === '/') {
         editable.textContent = '';
-        openBlockCommandMenu();
+        openBlockCommandMenu(safeInsertIndex);
         return;
       }
-      createParagraphFromVirtualInput(value);
+      createParagraphFromVirtualInput(value, safeInsertIndex);
     });
     editable.addEventListener('paste', (event) => {
       const pasted = event.clipboardData && event.clipboardData.getData('text/plain');
       if (!pasted) return;
       event.preventDefault();
-      createParagraphFromVirtualInput(pasted);
+      createParagraphFromVirtualInput(pasted, safeInsertIndex);
     });
     editable.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && state.commandMenuOpen) {
+      if (event.key === 'Escape' && isInline) {
+        event.preventDefault();
+        state.inlineVirtualIndex = null;
+        if (state.commandMenuInsertIndex === safeInsertIndex) {
+          state.commandMenuOpen = false;
+          state.commandMenuInsertIndex = null;
+        }
+        render();
+        return;
+      }
+      if (event.key === 'Escape' && isCommandOpen) {
         event.preventDefault();
         closeBlockCommandMenu(true);
       }
     });
     editable.addEventListener('focus', () => {
+      if (!isInline && state.inlineVirtualIndex != null) {
+        clearInlineVirtualBlock();
+        render();
+        focusVirtualEditable(safeInsertIndex);
+        return;
+      }
       setActive(-1);
       updateInlineToolbarState();
     });
@@ -3592,8 +3707,8 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     menu.className = 'blocks-command-menu';
     menu.setAttribute('role', 'menu');
     menu.setAttribute('aria-label', text('commandMenuAria', 'Block selector'));
-    menu.hidden = !state.commandMenuOpen;
-    menu.setAttribute('aria-hidden', state.commandMenuOpen ? 'false' : 'true');
+    menu.hidden = !isCommandOpen;
+    menu.setAttribute('aria-hidden', isCommandOpen ? 'false' : 'true');
     commandBlocks.forEach(([key, type, fallback, data]) => {
       const itemBtn = button('', 'blocks-command-menu-item');
       itemBtn.dataset.blockCommand = type;
@@ -3636,6 +3751,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     editable.addEventListener('input', () => {
       sync();
       updateInlineToolbarState();
+    });
+    editable.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+      if (!['paragraph', 'quote', 'heading'].includes(block.type)) return;
+      if (!shouldOpenInlineVirtualBlockOnEnter(editable)) return;
+      event.preventDefault();
+      openInlineVirtualBlockAfter(index, editable, sync);
     });
     editable.addEventListener('focus', () => setActive(index, editable, sync));
     editable.addEventListener('pointerdown', (event) => {
@@ -4326,8 +4448,13 @@ export function createMarkdownBlocksEditor(root, options = {}) {
     list.innerHTML = '';
     state.blocks.forEach((block, index) => {
       list.appendChild(renderBlockElement(block, index));
+      if (state.inlineVirtualIndex === index + 1) {
+        list.appendChild(renderVirtualBlock(index + 1, true));
+      }
     });
-    list.appendChild(renderVirtualBlock());
+    if (state.inlineVirtualIndex !== state.blocks.length) {
+      list.appendChild(renderVirtualBlock(state.blocks.length, false));
+    }
     renderCardPicker();
     setActive(state.activeIndex);
     requestStickyBlockHeadUpdate();
@@ -4346,7 +4473,9 @@ export function createMarkdownBlocksEditor(root, options = {}) {
       state.lastInlineMarkedRange = null;
       state.cardPickerOpen = false;
       state.cardPickerInsertIndex = null;
+      state.inlineVirtualIndex = null;
       state.commandMenuOpen = false;
+      state.commandMenuInsertIndex = null;
       render();
     },
     getMarkdown() {

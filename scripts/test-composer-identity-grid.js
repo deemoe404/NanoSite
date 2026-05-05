@@ -112,14 +112,44 @@ assert.doesNotMatch(
 
 assert.match(
   editorBlocksSource,
-  /state\.commandMenuOpen = true;[\s\S]*const first = list\.querySelector\('\.blocks-command-menu-item'\);[\s\S]*const renderVirtualBlock = \(\) => \{[\s\S]*className = `blocks-virtual-block\$\{state\.commandMenuOpen \? ' is-command-open' : ''\}`[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(\);[\s\S]*createParagraphFromVirtualInput\(event\.data\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach[\s\S]*itemBtn\.dataset\.blockCommand = type;/,
-  'blocks mode should expose a bottom virtual paragraph that opens a slash command selector and creates real paragraphs only after typing'
+  /state\.commandMenuOpen = true;[\s\S]*state\.commandMenuInsertIndex = Math\.max\(0, Math\.min\(Number\(insertIndex\) \|\| 0, state\.blocks\.length\)\);[\s\S]*const first = list\.querySelector\(`\.blocks-virtual-block\[data-insert-index="\$\{state\.commandMenuInsertIndex\}"\] \.blocks-command-menu-item`\)[\s\S]*const renderVirtualBlock = \(insertIndex = state\.blocks\.length, isInline = false\) => \{[\s\S]*item\.dataset\.insertIndex = String\(safeInsertIndex\);[\s\S]*editable\.dataset\.placeholder = text\('virtualBlockPlaceholder', 'Type \/ to chose a block'\);[\s\S]*editable\.addEventListener\('beforeinput'[\s\S]*event\.data === '\/'[\s\S]*openBlockCommandMenu\(safeInsertIndex\);[\s\S]*createParagraphFromVirtualInput\(event\.data, safeInsertIndex\);[\s\S]*menu\.className = 'blocks-command-menu'[\s\S]*commandBlocks\.forEach/,
+  'blocks mode should expose indexed virtual paragraphs that open a slash command selector and create real paragraphs only after typing'
 );
 
 assert.match(
   editorBlocksSource,
-  /const openArticleCardCommand = \(\) => \{[\s\S]*state\.cardPickerInsertIndex = state\.blocks\.length;[\s\S]*state\.cardPickerOpen = true;[\s\S]*const runBlockCommand = \(type, data = \{\}\) => \{[\s\S]*insertCommandBlock\(type, data, \{ focus: focusTypes\.has\(type\) \}\);/,
-  'virtual block commands should insert at the bottom and reuse the article-card picker at the virtual block position'
+  /const openArticleCardCommand = \(\) => \{[\s\S]*const insertIndex = Number\.isInteger\(state\.commandMenuInsertIndex\) \? state\.commandMenuInsertIndex : virtualInsertionIndex\(\);[\s\S]*state\.cardPickerInsertIndex = insertIndex;[\s\S]*const runBlockCommand = \(type, data = \{\}\) => \{[\s\S]*insertCommandBlock\(type, data, \{ focus: focusTypes\.has\(type\) \}\);/,
+  'virtual block commands should insert at the active virtual insertion point and reuse the article-card picker at that position'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function isEditableSelectionOnBlankLine\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*if \(text\.slice\(lineStart, lineEnd\)\.trim\(\) === ''\) return true;[\s\S]*const caretRect = caretRectForEditable\(el\);[\s\S]*createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)[\s\S]*range\.selectNodeContents\(node\);[\s\S]*const hasTextOnCaretLine = rects\.some[\s\S]*if \(hasTextOnCaretLine\)[\s\S]*return true;/,
+  'rich text blocks should detect empty visual lines even when DOM line breaks are not counted by Range.toString offsets'
+);
+
+assert.match(
+  editorBlocksSource,
+  /function shouldOpenInlineVirtualBlockOnEnter\(el\) \{[\s\S]*const offsets = getEditableSelectionOffsets\(el\);[\s\S]*!offsets\.collapsed[\s\S]*const text = editableText\(el\)\.replace\([\s\S]*if \(offsets\.start >= text\.length\) return true;[\s\S]*return isEditableSelectionOnBlankLine\(el\);/,
+  'plain Enter at the end of a rich text block should open an inline virtual block without first creating an empty line'
+);
+
+assert.match(
+  editorBlocksSource,
+  /inlineVirtualIndex: null,[\s\S]*commandMenuInsertIndex: null,[\s\S]*const virtualInsertionIndex = \(\) => \{[\s\S]*state\.inlineVirtualIndex[\s\S]*const openInlineVirtualBlockAfter = \(index, editable = null, sync = null\) => \{[\s\S]*state\.inlineVirtualIndex = Math\.max\(0, Math\.min\(\(Number\(index\) \|\| 0\) \+ 1, state\.blocks\.length\)\);[\s\S]*render\(\);[\s\S]*focusVirtualEditable\(state\.inlineVirtualIndex\);/,
+  'Enter should create a focused inline virtual block after the current block'
+);
+
+assert.match(
+  editorBlocksSource,
+  /editable\.addEventListener\('keydown', \(event\) => \{[\s\S]*event\.key !== 'Enter'[\s\S]*!\['paragraph', 'quote', 'heading'\]\.includes\(block\.type\)[\s\S]*!shouldOpenInlineVirtualBlockOnEnter\(editable\)[\s\S]*event\.preventDefault\(\);[\s\S]*openInlineVirtualBlockAfter\(index, editable, sync\);/,
+  'paragraph, quote, and heading Enter handling should exit the block when Enter would create a new empty line'
+);
+
+assert.match(
+  editorBlocksSource,
+  /state\.blocks\.forEach\(\(block, index\) => \{[\s\S]*list\.appendChild\(renderBlockElement\(block, index\)\);[\s\S]*if \(state\.inlineVirtualIndex === index \+ 1\) \{[\s\S]*list\.appendChild\(renderVirtualBlock\(index \+ 1, true\)\);[\s\S]*if \(state\.inlineVirtualIndex !== state\.blocks\.length\) \{[\s\S]*list\.appendChild\(renderVirtualBlock\(state\.blocks\.length, false\)\);/,
+  'rendering should place inline virtual blocks after their owning block while preserving the bottom virtual block'
 );
 
 assert.match(
