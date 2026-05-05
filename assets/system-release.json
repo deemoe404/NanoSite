@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "name": "v3.3.32",
-  "tag": "v3.3.32",
-  "publishedAt": "2026-05-05T07:13:35Z",
-  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.32.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.32.zip`\n- SHA-256: `4c2751d6e4ad54bfc6603b4c51994af090f90fba0f19e85096c656c6760103b3`\n\n## Changed System Files\n\n- assets/js/components.js\n- assets/js/i18n.js\n- assets/js/search.js\n- assets/js/theme.js\n- assets/js/toc.js\n- assets/main.js\n- assets/themes/arcus/modules/interactions.js\n- assets/themes/arcus/modules/layout.js\n- assets/themes/arcus/theme.css\n- assets/themes/native/base.css\n- assets/themes/native/modules/interactions.js\n- assets/themes/native/modules/search-box.js\n- assets/themes/native/modules/toc.js\n- assets/themes/solstice/modules/interactions.js\n- assets/themes/solstice/modules/layout.js\n- assets/themes/solstice/theme.css\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.31...v3.3.32\n",
-  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.32",
+  "name": "v3.3.33",
+  "tag": "v3.3.33",
+  "publishedAt": "2026-05-05T15:14:47Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `nanosite-system-v3.3.33.zip`.\n\n## System Package\n\n- Asset: `nanosite-system-v3.3.33.zip`\n- SHA-256: `d47ee415d85681d73fcf5730ad162ac7c70473ffb6e5e1731975d4524ea2fb3a`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-hk.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/i18n/languages.json\n- assets/js/composer.js\n- assets/js/editor-blocks.js\n- assets/js/editor-boot.js\n- assets/js/editor-content-tree.js\n- assets/js/editor-main.js\n- assets/js/errors.js\n- assets/js/frontmatter-document.js\n- assets/js/i18n.js\n- assets/js/post-nav.js\n- assets/js/seo.js\n- assets/js/syntax-highlight.js\n- assets/js/system-updates.js\n- assets/js/tags.js\n- assets/js/templates.js\n- assets/js/theme.js\n- assets/js/toc.js\n- index_editor.html\n\n**Full Changelog**: https://github.com/deemoe404/NanoSite/compare/v3.3.32...v3.3.33\n",
+  "htmlUrl": "https://github.com/deemoe404/NanoSite/releases/tag/v3.3.33",
   "asset": {
-    "name": "nanosite-system-v3.3.32.zip",
-    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.32/nanosite-system-v3.3.32.zip",
-    "size": 520075,
-    "digest": "sha256:4c2751d6e4ad54bfc6603b4c51994af090f90fba0f19e85096c656c6760103b3"
+    "name": "nanosite-system-v3.3.33.zip",
+    "url": "https://github.com/deemoe404/NanoSite/releases/download/v3.3.33/nanosite-system-v3.3.33.zip",
+    "size": 538736,
+    "digest": "sha256:d47ee415d85681d73fcf5730ad162ac7c70473ffb6e5e1731975d4524ea2fb3a"
   }
 }
