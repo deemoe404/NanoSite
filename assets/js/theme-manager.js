@@ -552,6 +552,15 @@ async function fetchText(path) {
   }
 }
 
+async function fetchExists(path) {
+  try {
+    const response = await fetch(`${path}?ts=${Date.now()}`, { cache: 'no-store' });
+    return !!(response && response.ok);
+  } catch (_) {
+    return false;
+  }
+}
+
 function themeFilesFromManifest(manifest) {
   const files = [];
   const add = (value) => {
@@ -582,12 +591,25 @@ function themeFilesFromManifest(manifest) {
   return normalizeFileList(files);
 }
 
+async function filterExistingThemeFiles(slug, files) {
+  const normalized = normalizeFileList(files);
+  const existing = [];
+  for (const relPath of normalized) {
+    if (relPath === 'theme.json') {
+      existing.push(relPath);
+      continue;
+    }
+    if (await fetchExists(themeCommitPath(slug, relPath))) existing.push(relPath);
+  }
+  return existing;
+}
+
 async function inferLocalThemeFiles(slug) {
   try {
     const manifestPath = themeCommitPath(slug, 'theme.json');
     const existing = await fetchText(manifestPath);
     if (!existing.exists || !existing.content) return [];
-    return themeFilesFromManifest(JSON.parse(existing.content));
+    return await filterExistingThemeFiles(slug, themeFilesFromManifest(JSON.parse(existing.content)));
   } catch (_) {
     return [];
   }

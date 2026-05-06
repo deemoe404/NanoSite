@@ -354,7 +354,8 @@ await run('infers old registry file inventory during theme update', async () => 
         version: '0.9.0',
         contractVersion: 1,
         modules: ['modules/old.js']
-      })
+      }),
+      'assets/themes/legacy/modules/old.js': 'export {};'
     }
   });
   await analyzeThemeArchive(makeZip({
@@ -368,7 +369,7 @@ await run('infers old registry file inventory during theme update', async () => 
     'press-theme-legacy/modules/new.js': 'export {};'
   }), 'press-theme-legacy-v1.0.0.zip');
   const files = getThemeManagerCommitFiles();
-  assert(files.some((file) => file.path === 'assets/themes/legacy/theme.css' && file.deleted));
+  assert(!files.some((file) => file.path === 'assets/themes/legacy/theme.css' && file.deleted));
   assert(files.some((file) => file.path === 'assets/themes/legacy/modules/old.js' && file.deleted));
 });
 
@@ -404,7 +405,9 @@ await run('infers old registry file inventory during uninstall', async () => {
         version: '0.9.0',
         contractVersion: 1,
         modules: ['modules/layout.js']
-      })
+      }),
+      'assets/themes/legacy/theme.css': 'body{}',
+      'assets/themes/legacy/modules/layout.js': 'export {};'
     }
   });
   await stageThemeUninstall('legacy');
