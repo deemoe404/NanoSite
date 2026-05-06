@@ -1,19 +1,19 @@
 ---
-title: 初识微站
+title: 初识Press
 date: 2025-08-17
 version: v1.0.0
 tags:
-  - 微站
+  - Press
   - 技术
 image: hero.jpeg
 excerpt: 用纯文本文件（Markdown）构建一个简单的个人网站。无需构建工具，无需数据库——只需编辑文件并发布。非常适合博客、笔记、维基、日记或书籍章节。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ![hero](hero.jpeg)
 
-源代码: [GitHub 上的 NanoSite](https://github.com/deemoe404/NanoSite)
+源代码: [GitHub 上的 Press](https://github.com/EkilyHQ/Press)
 
 ## 亮点
 
@@ -27,7 +27,7 @@ ai: true
 
 ## 快速上手
 
-1) 在 [GitHub](https://github.com/deemoe404/NanoSite/) 获取项目：Fork 或直接下载 ZIP 并解压。
+1) 在 [GitHub](https://github.com/EkilyHQ/Press/) 获取项目：Fork 或直接下载 ZIP 并解压。
 2) 本地预览（推荐）
   - 在项目目录启动一个简单的服务器：
     - macOS/Linux: `python3 -m http.server 8000`
@@ -63,4 +63,4 @@ ai: true
   }
   ```
 
-🎉 恭喜！你已经完成微站的设置。刷新页面，你应该能在首页看到你的文章卡片，点击即可阅读。更多自定义选项请查看[文档](?id=post/meet-nanosite/doc_chs.md)。
+🎉 恭喜！你已经完成Press的设置。刷新页面，你应该能在首页看到你的文章卡片，点击即可阅读。更多自定义选项请查看[文档](?id=post/meet-press/doc_chs.md)。

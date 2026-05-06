@@ -1,4 +1,4 @@
-// Minimal YAML parser for NanoSite config (subset of YAML)
+// Minimal YAML parser for Press config (subset of YAML)
 // Supports:
 // - Mappings: key: value and key: (nested block)
 // - Sequences: - item (scalars or nested mappings)

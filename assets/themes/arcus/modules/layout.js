@@ -160,7 +160,7 @@ export function mount(context = {}) {
   mainview.setAttribute('data-theme-region', 'main');
 
   const tocview = ensureElement(main, '[data-theme-region="toc"], .arcus-toc', () => {
-    const el = doc.createElement('nano-toc');
+    const el = doc.createElement('press-toc');
     el.id = TOCVIEW_ID;
     el.className = 'arcus-toc';
     el.setAttribute('data-theme-region', 'toc');
@@ -169,7 +169,7 @@ export function mount(context = {}) {
     return el;
   });
   tocview.setAttribute('data-theme-region', 'toc');
-  if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
+  if (tocview.tagName && tocview.tagName.toLowerCase() === 'press-toc') {
     tocview.setAttribute('inner-class', 'arcus-toc__inner');
     tocview.setAttribute('title-class', 'arcus-toc__title');
     tocview.setAttribute('show-top', 'false');
@@ -222,13 +222,13 @@ export function mount(context = {}) {
   });
 
   const searchSection = ensureElement(rightColumn, '.arcus-utility__search', () => {
-    const el = doc.createElement('nano-search');
+    const el = doc.createElement('press-search');
     el.className = 'arcus-utility__search';
     el.setAttribute('aria-label', 'Search');
     return el;
   });
 
-  if (searchSection.tagName && searchSection.tagName.toLowerCase() === 'nano-search') {
+  if (searchSection.tagName && searchSection.tagName.toLowerCase() === 'press-search') {
     searchSection.setAttribute('field-class', 'arcus-search');
     searchSection.setAttribute('icon-class', 'arcus-search__icon');
     searchSection.setAttribute('icon', '\uD83D\uDD0D');

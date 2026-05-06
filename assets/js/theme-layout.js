@@ -53,10 +53,10 @@ function isThemeDevMode() {
     if (params.get('themeDev') === '1' || params.has('themeDev')) return true;
   } catch (_) {}
   try {
-    if (window.__ns_themeDevMode === true) return true;
+    if (window.__press_themeDevMode === true) return true;
   } catch (_) {}
   try {
-    return window.localStorage && window.localStorage.getItem('ns_theme_dev_mode') === '1';
+    return window.localStorage && window.localStorage.getItem('press_theme_dev_mode') === '1';
   } catch (_) {
     return false;
   }
@@ -223,7 +223,7 @@ function warnMissingHooks(pack, manifest, context) {
   if (!isThemeDevMode()) return;
   let hooks = null;
   try {
-    hooks = window.__ns_themeHooks || null;
+    hooks = window.__press_themeHooks || null;
   } catch (_) {
     hooks = null;
   }
@@ -317,7 +317,7 @@ function bindLegacyHookAdapters(context) {
   if (!api) return;
   let hooks = null;
   try {
-    hooks = window.__ns_themeHooks || null;
+    hooks = window.__press_themeHooks || null;
   } catch (_) {
     hooks = null;
   }
@@ -490,7 +490,7 @@ export function getThemeApiHandler(name) {
     }
   }
   try {
-    const hooks = (typeof window !== 'undefined') ? window.__ns_themeHooks : null;
+    const hooks = (typeof window !== 'undefined') ? window.__press_themeHooks : null;
     const fn = hooks && hooks[hookName];
     return typeof fn === 'function' ? fn : null;
   } catch (_) {

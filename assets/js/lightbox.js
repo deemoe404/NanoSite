@@ -9,48 +9,48 @@ export function installLightbox(opts = {}) {
   const root = () => getThemeRegion(regionNames, rootSelector) || document;
 
   // Create overlay once
-  let overlay = document.getElementById('ns-lightbox');
+  let overlay = document.getElementById('press-lightbox');
   if (!overlay) {
     overlay = document.createElement('div');
-    overlay.id = 'ns-lightbox';
+    overlay.id = 'press-lightbox';
     overlay.setAttribute('aria-hidden', 'true');
     overlay.setAttribute('role', 'dialog');
 
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'ns-lb-close';
+    closeBtn.className = 'press-lb-close';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.textContent = '×';
 
     const resetBtn = document.createElement('button');
-    resetBtn.className = 'ns-lb-reset';
+    resetBtn.className = 'press-lb-reset';
     resetBtn.setAttribute('aria-label', 'Reset zoom');
     resetBtn.textContent = '⤾';
 
     const stageDiv = document.createElement('div');
-    stageDiv.className = 'ns-lb-stage';
+    stageDiv.className = 'press-lb-stage';
 
     const imgNode = document.createElement('img');
-    imgNode.className = 'ns-lb-img';
+    imgNode.className = 'press-lb-img';
     imgNode.alt = '';
 
     const captionDiv = document.createElement('div');
-    captionDiv.className = 'ns-lb-caption';
+    captionDiv.className = 'press-lb-caption';
     captionDiv.setAttribute('aria-live', 'polite');
 
     stageDiv.appendChild(imgNode);
     stageDiv.appendChild(captionDiv);
 
     const zoomDiv = document.createElement('div');
-    zoomDiv.className = 'ns-lb-zoom';
+    zoomDiv.className = 'press-lb-zoom';
     zoomDiv.setAttribute('aria-hidden', 'true');
 
     const prevBtn = document.createElement('button');
-    prevBtn.className = 'ns-lb-prev';
+    prevBtn.className = 'press-lb-prev';
     prevBtn.setAttribute('aria-label', 'Previous');
     prevBtn.textContent = '‹';
 
     const nextBtn = document.createElement('button');
-    nextBtn.className = 'ns-lb-next';
+    nextBtn.className = 'press-lb-next';
     nextBtn.setAttribute('aria-label', 'Next');
     nextBtn.textContent = '›';
 
@@ -58,14 +58,14 @@ export function installLightbox(opts = {}) {
     document.body.appendChild(overlay);
   }
 
-  const imgEl = overlay.querySelector('.ns-lb-img');
-  const captionEl = overlay.querySelector('.ns-lb-caption');
-  const prevBtn = overlay.querySelector('.ns-lb-prev');
-  const nextBtn = overlay.querySelector('.ns-lb-next');
-  const closeBtn = overlay.querySelector('.ns-lb-close');
-  const resetBtn = overlay.querySelector('.ns-lb-reset');
-  const stageEl = overlay.querySelector('.ns-lb-stage');
-  const zoomEl = overlay.querySelector('.ns-lb-zoom');
+  const imgEl = overlay.querySelector('.press-lb-img');
+  const captionEl = overlay.querySelector('.press-lb-caption');
+  const prevBtn = overlay.querySelector('.press-lb-prev');
+  const nextBtn = overlay.querySelector('.press-lb-next');
+  const closeBtn = overlay.querySelector('.press-lb-close');
+  const resetBtn = overlay.querySelector('.press-lb-reset');
+  const stageEl = overlay.querySelector('.press-lb-stage');
+  const zoomEl = overlay.querySelector('.press-lb-zoom');
 
   let currentList = [];
   let currentIndex = -1;
@@ -118,8 +118,8 @@ export function installLightbox(opts = {}) {
   function applyTransform() {
     clampPan();
     imgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
-    if (scale > 1 && !imgEl.classList.contains('ns-lb-grab')) imgEl.classList.add('ns-lb-grab');
-    if (scale === 1) { imgEl.classList.remove('ns-lb-grab'); imgEl.classList.remove('ns-lb-grabbing'); }
+    if (scale > 1 && !imgEl.classList.contains('press-lb-grab')) imgEl.classList.add('press-lb-grab');
+    if (scale === 1) { imgEl.classList.remove('press-lb-grab'); imgEl.classList.remove('press-lb-grabbing'); }
     if (zoomEl) zoomEl.textContent = `${Math.round(scale * 100)}%`;
   }
 
@@ -242,7 +242,7 @@ export function installLightbox(opts = {}) {
     captionEl.textContent = alt;
     overlay.classList.add('open');
     overlay.setAttribute('aria-hidden', 'false');
-    document.documentElement.classList.add('ns-lb-lock');
+    document.documentElement.classList.add('press-lb-lock');
     resetTransform();
     try { lastActive = document.activeElement; } catch (_) {}
     closeBtn.focus({ preventScroll: true });
@@ -252,7 +252,7 @@ export function installLightbox(opts = {}) {
   function close() {
     overlay.classList.remove('open');
     overlay.setAttribute('aria-hidden', 'true');
-    document.documentElement.classList.remove('ns-lb-lock');
+    document.documentElement.classList.remove('press-lb-lock');
     imgEl.removeAttribute('src');
     captionEl.textContent = '';
     try { if (lastActive && lastActive.focus) lastActive.focus({ preventScroll: true }); } catch (_) {}
@@ -355,7 +355,7 @@ export function installLightbox(opts = {}) {
   imgEl.addEventListener('mousedown', (e) => {
     if (!overlay.classList.contains('open') || scale === 1) return;
     dragging = true; dragX = e.clientX; dragY = e.clientY; startTx = tx; startTy = ty;
-    imgEl.classList.add('ns-lb-grabbing');
+    imgEl.classList.add('press-lb-grabbing');
     e.preventDefault();
   });
   window.addEventListener('mousemove', (e) => {
@@ -364,7 +364,7 @@ export function installLightbox(opts = {}) {
     ty = startTy + (e.clientY - dragY);
     applyTransform();
   });
-  window.addEventListener('mouseup', () => { if (dragging) { dragging = false; imgEl.classList.remove('ns-lb-grabbing'); } });
+  window.addEventListener('mouseup', () => { if (dragging) { dragging = false; imgEl.classList.remove('press-lb-grabbing'); } });
 
   // Touch: pinch to zoom and drag to pan
   imgEl.addEventListener('touchstart', (e) => {
@@ -397,7 +397,7 @@ export function installLightbox(opts = {}) {
       e.preventDefault();
     }
   }, { passive: false });
-  imgEl.addEventListener('touchend', () => { dragging = false; imgEl.classList.remove('ns-lb-grabbing'); }, { passive: true });
+  imgEl.addEventListener('touchend', () => { dragging = false; imgEl.classList.remove('press-lb-grabbing'); }, { passive: true });
 
   // Recompute bounds on resize
   window.addEventListener('resize', () => { if (overlay.classList.contains('open')) { computeBaseFit(); applyTransform(); } });

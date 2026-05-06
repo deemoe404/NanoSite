@@ -6,7 +6,7 @@ export function mount(context = {}) {
 
   let searchBox = sidebar.querySelector('[data-theme-region="search"]') || sidebar.querySelector('.native-searchbox');
   if (!searchBox) {
-    searchBox = doc.createElement('nano-search');
+    searchBox = doc.createElement('press-search');
     searchBox.className = 'box native-searchbox';
     searchBox.id = 'searchbox';
     searchBox.setAttribute('data-theme-region', 'search');

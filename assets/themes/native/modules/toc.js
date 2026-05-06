@@ -6,7 +6,7 @@ export function mount(context = {}) {
 
   let toc = sidebar.querySelector('[data-theme-region="toc"]') || sidebar.querySelector('.native-toc');
   if (!toc) {
-    toc = doc.createElement('nano-toc');
+    toc = doc.createElement('press-toc');
     toc.className = 'box native-toc';
     toc.id = 'tocview';
     toc.setAttribute('data-theme-region', 'toc');

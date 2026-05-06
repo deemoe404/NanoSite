@@ -1,19 +1,19 @@
 ---
-title: NanoSite のご紹介
+title: Press のご紹介
 date: 2025-08-22
 version: v2.0.0
 tags:
-  - NanoSite
+  - Press
   - 技術
 image: hero.jpeg
 excerpt: プレーンテキスト（Markdown）からシンプルな個人サイトを作成。ビルドツールもデータベースも不要—ファイルを編集して公開するだけ。ブログ、メモ、Wiki、日記、書籍の各章に最適です。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ![hero](hero.jpeg)
 
-ソースコード: [GitHub の NanoSite](https://github.com/deemoe404/NanoSite)
+ソースコード: [GitHub の Press](https://github.com/EkilyHQ/Press)
 
 ## 主な特長
 
@@ -27,7 +27,7 @@ ai: true
 
 ## 5分でクイックスタート
 
-1) クリーンなスターターリポジトリが公開されたら、[NanoSite-Starter](https://github.com/deemoe404/NanoSite-Starter) から自分のサイト用リポジトリを作成します。
+1) クリーンなスターターリポジトリが公開されたら、[Press-Starter](https://github.com/EkilyHQ/Press-Starter) から自分のサイト用リポジトリを作成します。
 2) 新しいリポジトリに好きな名前を付けます。
 3) 新しいリポジトリをローカルに取得します
   - オプション1: Gitを使ってリポジトリをクローンする  
@@ -77,7 +77,7 @@ ai: true
      ja: xxxx.md
    ```
 
-🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。
+🎉 おめでとうございます！Press のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。
 
 ## 次のステップ
 

@@ -22,7 +22,7 @@ import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn, hydrateCardCo
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
 import { attachHoverTooltip, renderTagSidebar as renderDefaultTags } from '../../../js/tags.js';
 import { prefersReducedMotion } from '../../../js/dom-utils.js';
-import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
+import { renderPressPostCardHtml } from '../../../js/post-card-html.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
 const defaultDocument = typeof document !== 'undefined' ? document : undefined;
@@ -85,7 +85,7 @@ function getTagsRegion(documentRef = defaultDocument) {
 }
 
 function getSearchRegion(documentRef = defaultDocument) {
-  return getRegion('search', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('nano-search.solstice-footer__search, nano-search')) || null;
+  return getRegion('search', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('press-search.solstice-footer__search, press-search')) || null;
 }
 
 function getSearchInput(documentRef = defaultDocument) {
@@ -419,7 +419,7 @@ function buildCard({ title, meta, translate, link, siteConfig }) {
   const date = meta && meta.date ? formatDisplayDate(meta.date) : '';
   const tags = meta ? renderTags(meta.tag) : '';
   const coverHtml = renderCardCover(meta, title, siteConfig);
-  return renderNanoPostCardHtml({
+  return renderPressPostCardHtml({
     title: String(title || 'Untitled'),
     href: link,
     date,
@@ -630,7 +630,7 @@ function renderLinksList(root, cfg) {
 }
 
 function updateSearchPlaceholder(documentRef = defaultDocument) {
-  const search = documentRef ? documentRef.querySelector('nano-search') : null;
+  const search = documentRef ? documentRef.querySelector('press-search') : null;
   if (search && typeof search.setPlaceholder === 'function') {
     search.setPlaceholder(t('sidebar.searchPlaceholder'));
     return;
@@ -828,7 +828,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     const subtitle = localized(config, 'siteSubtitle');
     const titleEl = documentRef.querySelector('[data-site-title]');
     const subtitleEl = documentRef.querySelector('[data-site-subtitle]');
-    if (titleEl) titleEl.textContent = title || 'NanoSite';
+    if (titleEl) titleEl.textContent = title || 'Press';
     if (subtitleEl) subtitleEl.textContent = subtitle || '';
   };
 
@@ -873,7 +873,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
       clearSolsticeToc(toc);
       toc.hidden = true;
     }
-    const search = documentRef.querySelector('nano-search');
+    const search = documentRef.querySelector('press-search');
     const value = view === 'search' ? (getQueryVariable('q') || '') : '';
     if (search) search.value = value;
     const input = search && search.input ? search.input : getSearchInput(documentRef);
@@ -1144,7 +1144,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     const meta = documentRef.querySelector('.solstice-footer__credit');
     if (meta) {
       const year = new Date().getFullYear();
-      const siteTitle = localized(currentSiteConfig || {}, 'siteTitle') || 'NanoSite';
+      const siteTitle = localized(currentSiteConfig || {}, 'siteTitle') || 'Press';
       meta.textContent = `© ${year} ${siteTitle}`;
     }
     return true;

@@ -11,7 +11,7 @@ import { parseFrontMatter } from '../assets/js/content.js';
 import { insertImageMarkdownAtSelection, normalizeDateInputValue } from '../assets/js/editor-markdown-ops.js';
 import { mergeYamlConfig, resolveSiteRepoConfig } from '../assets/js/yaml.js';
 
-globalThis.document = globalThis.document || { title: 'NanoSite' };
+globalThis.document = globalThis.document || { title: 'Press' };
 
 const { mdParse } = await import('../assets/js/markdown.js');
 
@@ -138,13 +138,13 @@ run('new known fields are inserted with canonical ordering', () => {
   ].join('\n');
   const state = createState(source);
   state.data.title = 'A title';
-  state.data.author = 'NanoSite';
+  state.data.author = 'Ekily';
   ensureKeyOrder(state.order, 'title');
   ensureKeyOrder(state.order, 'author');
   const output = build(state, 'Body paragraph.\n');
   const titleIndex = output.indexOf('title: A title');
   const excerptIndex = output.indexOf('excerpt: Existing summary');
-  const authorIndex = output.indexOf('author: NanoSite');
+  const authorIndex = output.indexOf('author: Ekily');
   const tagsIndex = output.indexOf('tags:');
   assert.ok(titleIndex >= 0 && excerptIndex >= 0 && titleIndex < excerptIndex);
   assert.ok(authorIndex >= 0 && tagsIndex >= 0 && authorIndex < tagsIndex);
@@ -484,46 +484,46 @@ run('local site overrides merge into tracked site config without dropping fields
     {
       contentRoot: 'wwwroot',
       themePack: 'paper',
-      repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' }
+      repo: { owner: 'EkilyHQ', name: 'Press', branch: 'main' }
     },
     { contentRoot: 'wwwroot.local' }
   );
   assert.deepEqual(merged, {
     contentRoot: 'wwwroot.local',
     themePack: 'paper',
-    repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' }
+    repo: { owner: 'EkilyHQ', name: 'Press', branch: 'main' }
   });
 });
 
 run('local site overrides merge nested config objects recursively', () => {
   const merged = mergeYamlConfig(
     {
-      repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' },
-      seo: { title: 'NanoSite', keywords: ['nano', 'site'] }
+      repo: { owner: 'EkilyHQ', name: 'Press', branch: 'main' },
+      seo: { title: 'Press', keywords: ['press', 'site'] }
     },
     {
       repo: { branch: 'dev' },
-      seo: { title: 'NanoSite Local' }
+      seo: { title: 'Press Local' }
     }
   );
   assert.deepEqual(merged, {
-    repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'dev' },
-    seo: { title: 'NanoSite Local', keywords: ['nano', 'site'] }
+    repo: { owner: 'EkilyHQ', name: 'Press', branch: 'dev' },
+    seo: { title: 'Press Local', keywords: ['press', 'site'] }
   });
 });
 
 run('site repo resolution merges local overrides over tracked composer state', () => {
   const resolved = resolveSiteRepoConfig(
     {
-      repo: { owner: 'deemoe404', name: 'NanoSite', branch: 'main' }
+      repo: { owner: 'EkilyHQ', name: 'Press', branch: 'main' }
     },
     {
       repo: { branch: 'dev' }
     }
   );
   assert.deepEqual(resolved, {
-    owner: 'deemoe404',
-    name: 'NanoSite',
+    owner: 'EkilyHQ',
+    name: 'Press',
     branch: 'dev'
   });
 });

@@ -89,10 +89,10 @@
     }
   },
   "components": [
-    "nano-search",
-    "nano-theme-controls",
-    "nano-toc",
-    "nano-post-card"
+    "press-search",
+    "press-theme-controls",
+    "press-toc",
+    "press-post-card"
   ],
   "scrollContainer": "region:scrollContainer",
   "configSchema": {

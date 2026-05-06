@@ -2,20 +2,20 @@ import { t, getAvailableLangs, getLanguageLabel, getCurrentLang, switchLanguage,
 import { getThemeRegion } from './theme-regions.js';
 
 const PACK_LINK_ID = 'theme-pack';
-const THEME_CONTROLS_BOUND = Symbol('nanoThemeControlsBound');
-const THEME_CONTROLS_I18N_BOUND = Symbol('nanoThemeControlsI18nBound');
+const THEME_CONTROLS_BOUND = Symbol('pressThemeControlsBound');
+const THEME_CONTROLS_I18N_BOUND = Symbol('pressThemeControlsI18nBound');
 let componentsReady = null;
 
-function ensureNanoComponents() {
+function ensurePressComponents() {
   if (typeof window === 'undefined' || typeof document === 'undefined' || typeof customElements === 'undefined') return null;
   try {
-    if (customElements.get('nano-theme-controls')) return null;
+    if (customElements.get('press-theme-controls')) return null;
   } catch (_) {
     return null;
   }
   if (!componentsReady) {
     componentsReady = import('./components.js').catch((err) => {
-      console.warn('[theme] Failed to load nano components', err);
+      console.warn('[theme] Failed to load press components', err);
       return null;
     });
   }
@@ -106,7 +106,7 @@ export function applyThemeConfig(siteConfig) {
 }
 
 export function bindThemeToggle() {
-  if (document.querySelector('nano-theme-controls')) return;
+  if (document.querySelector('press-theme-controls')) return;
   const btn = document.getElementById('themeToggle');
   if (!btn) return;
   const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
@@ -119,7 +119,7 @@ export function bindThemeToggle() {
 }
 
 export function bindPostEditor() {
-  if (document.querySelector('nano-theme-controls')) return;
+  if (document.querySelector('press-theme-controls')) return;
   const btn = document.getElementById('postEditor');
   if (!btn) return;
   btn.addEventListener('click', () => {
@@ -140,7 +140,7 @@ export function bindPostEditor() {
 }
 
 export function bindThemePackPicker() {
-  if (document.querySelector('nano-theme-controls')) return;
+  if (document.querySelector('press-theme-controls')) return;
   const sel = document.getElementById('themePack');
   if (!sel) return;
   // Initialize selection
@@ -156,7 +156,7 @@ export function bindThemePackPicker() {
 }
 
 function getThemeControlsElement(root = document) {
-  return root && root.querySelector ? root.querySelector('nano-theme-controls') : null;
+  return root && root.querySelector ? root.querySelector('press-theme-controls') : null;
 }
 
 function getThemeControlLabels() {
@@ -226,14 +226,14 @@ function bindThemeControlsComponent(component) {
       } catch (_) {}
     });
   }
-  component.addEventListener('nano:theme-toggle', () => {
+  component.addEventListener('press:theme-toggle', () => {
     const dark = document.documentElement.getAttribute('data-theme') === 'dark';
     if (dark) document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', 'dark');
     try { localStorage.setItem('theme', dark ? 'light' : 'dark'); } catch (_) {}
   });
-  component.addEventListener('nano:open-editor', () => openPostEditor());
-  component.addEventListener('nano:theme-pack-change', (event) => {
+  component.addEventListener('press:open-editor', () => openPostEditor());
+  component.addEventListener('press:theme-pack-change', (event) => {
     const detail = event && event.detail ? event.detail : {};
     const val = sanitizePack(detail.value) || 'native';
     const current = getSavedThemePack();
@@ -241,13 +241,13 @@ function bindThemeControlsComponent(component) {
     loadThemePack(val);
     try { window.location.reload(); } catch (_) {}
   });
-  component.addEventListener('nano:language-change', async (event) => {
+  component.addEventListener('press:language-change', async (event) => {
     const detail = event && event.detail ? event.detail : {};
     const val = detail.value || 'en';
     try { await ensureLanguageBundle(val); } catch (_) {}
     switchLanguage(val);
   });
-  component.addEventListener('nano:language-reset', () => {
+  component.addEventListener('press:language-reset', () => {
     try { localStorage.removeItem('lang'); } catch (_) {}
     try {
       const url = new URL(window.location.href);
@@ -255,8 +255,8 @@ function bindThemeControlsComponent(component) {
       history.replaceState(history.state, document.title, url.toString());
     } catch (_) {}
     try {
-      if (window.__ns_softResetLang) {
-        window.__ns_softResetLang();
+      if (window.__press_softResetLang) {
+        window.__press_softResetLang();
         return;
       }
     } catch (_) {}
@@ -296,23 +296,23 @@ function populateThemeControls(component) {
   }
 }
 
-// Render theme tools UI through <nano-theme-controls>. Options are sourced from
+// Render theme tools UI through <press-theme-controls>. Options are sourced from
 // assets/themes/packs.json; legacy button/select binders remain below for older
 // custom themes that have not migrated yet.
 export function mountThemeControls(options = {}) {
   const opts = options && typeof options === 'object' ? options : {};
   const variant = String(opts.variant || document.body.dataset.themeLayout || 'native').toLowerCase();
-  const componentImport = ensureNanoComponents();
+  const componentImport = ensurePressComponents();
   let component = null;
   const host = opts.host || null;
 
-  if (host && host.matches && host.matches('nano-theme-controls')) {
+  if (host && host.matches && host.matches('press-theme-controls')) {
     component = host;
   } else if (host && host.querySelector) {
-    component = host.querySelector('nano-theme-controls');
+    component = host.querySelector('press-theme-controls');
     if (!component) {
       host.textContent = '';
-      component = document.createElement('nano-theme-controls');
+      component = document.createElement('press-theme-controls');
       host.appendChild(component);
     }
   } else {
@@ -320,14 +320,14 @@ export function mountThemeControls(options = {}) {
     if (!component) {
       const legacyTools = document.getElementById('tools');
       if (legacyTools && legacyTools.parentElement) {
-        component = document.createElement('nano-theme-controls');
+        component = document.createElement('press-theme-controls');
         legacyTools.parentElement.replaceChild(component, legacyTools);
       }
     }
     if (!component) {
       const sidebar = document.querySelector('.sidebar');
       if (!sidebar) return null;
-      component = document.createElement('nano-theme-controls');
+      component = document.createElement('press-theme-controls');
       const toc = getThemeRegion(['toc', 'tocBox', 'tocview'], '#tocview');
       if (toc && toc.parentElement === sidebar) sidebar.insertBefore(component, toc);
       else sidebar.appendChild(component);

@@ -78,20 +78,20 @@ function populateLanguageSelect() {
 }
 
 try {
-  window.__nsPopulateEditorLanguageSelect = populateLanguageSelect;
-  document.addEventListener('ns-editor-language-control-mounted', populateLanguageSelect);
+  window.__pressPopulateEditorLanguageSelect = populateLanguageSelect;
+  document.addEventListener('press-editor-language-control-mounted', populateLanguageSelect);
 } catch (_) {}
 
 function applyEditorLanguage() {
   applyElementTranslations();
   populateLanguageSelect();
-  document.dispatchEvent(new CustomEvent('ns-editor-language-applied'));
+  document.dispatchEvent(new CustomEvent('press-editor-language-applied'));
 }
 
 async function bootstrap() {
   await initI18n();
   applyEditorLanguage();
-  window.__ns_softResetLang = async () => {
+  window.__press_softResetLang = async () => {
     await initI18n({ persist: false });
     applyEditorLanguage();
   };

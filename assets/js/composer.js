@@ -19,7 +19,7 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
 const PREFERRED_LANG_ORDER = ['en', 'chs', 'cht-tw', 'cht-hk', 'ja'];
 const LANG_CODE_PATTERN = /^[a-z]{2,3}(?:-[a-z0-9]+)*$/i;
-const LANGUAGE_POOL_CHANGED_EVENT = 'ns-composer-language-pool-changed';
+const LANGUAGE_POOL_CHANGED_EVENT = 'press-composer-language-pool-changed';
 
 function broadcastLanguagePoolChange() {
   if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') return;
@@ -65,9 +65,9 @@ const getMarkdownSaveTooltip = (kind) => {
 
 // --- Persisted UI state keys ---
 const LS_KEYS = {
-  cfile: 'ns_composer_file',           // 'index' | 'tabs' | 'site'
-  editorState: 'ns_composer_editor_state', // persisted dynamic editor info
-  systemTreeExpanded: 'ns_editor_system_tree_expanded'
+  cfile: 'press_composer_file',           // 'index' | 'tabs' | 'site'
+  editorState: 'press_composer_editor_state', // persisted dynamic editor info
+  systemTreeExpanded: 'press_editor_system_tree_expanded'
 };
 const EDITOR_STATE_VERSION = 3;
 const EDITOR_SCROLL_SAVE_DELAY = 120;
@@ -106,7 +106,7 @@ let editorMobileRailBound = false;
 let editorStatePersistTimer = 0;
 let editorStateScrollBound = false;
 let editorContentScrollByKey = {};
-const EDITOR_RAIL_WIDTH_KEY = 'ns_editor_rail_width';
+const EDITOR_RAIL_WIDTH_KEY = 'press_editor_rail_width';
 const EDITOR_RAIL_DEFAULT_WIDTH = 340;
 const EDITOR_RAIL_MIN_WIDTH = 280;
 const EDITOR_RAIL_MAX_WIDTH = 520;
@@ -128,8 +128,8 @@ function updateDynamicTabsGroupState() {
   else container.setAttribute('aria-hidden', 'true');
 }
 
-const DRAFT_STORAGE_KEY = 'ns_composer_drafts_v1';
-const MARKDOWN_DRAFT_STORAGE_KEY = 'ns_markdown_editor_drafts_v1';
+const DRAFT_STORAGE_KEY = 'press_composer_drafts_v1';
+const MARKDOWN_DRAFT_STORAGE_KEY = 'press_markdown_editor_drafts_v1';
 
 // Track pending binary assets associated with markdown drafts
 const markdownAssetStore = new Map();
@@ -168,7 +168,7 @@ const MARKDOWN_SAVE_TOOLTIP_KEYS = {
   empty: 'editor.composer.markdown.save.tooltips.empty',
   clean: 'editor.composer.markdown.save.tooltips.clean'
 };
-const GITHUB_PAT_STORAGE_KEY = 'ns_fg_pat_cache';
+const GITHUB_PAT_STORAGE_KEY = 'press_fg_pat_cache';
 
 let markdownPushButton = null;
 let markdownDiscardButton = null;
@@ -204,9 +204,9 @@ let composerSiteScrollCleanup = null;
 function syncSiteEditorSingleLabelWidth(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return;
   try {
-    if (typeof root.__nsSiteSingleLabelWidthCleanup === 'function') root.__nsSiteSingleLabelWidthCleanup();
+    if (typeof root.__pressSiteSingleLabelWidthCleanup === 'function') root.__pressSiteSingleLabelWidthCleanup();
   } catch (_) {}
-  try { root.__nsSiteSingleLabelWidthCleanup = null; } catch (_) {}
+  try { root.__pressSiteSingleLabelWidthCleanup = null; } catch (_) {}
 
   const labels = Array.from(root.querySelectorAll('.cs-single-grid-title'));
   if (!labels.length) {
@@ -281,7 +281,7 @@ function syncSiteEditorSingleLabelWidth(root) {
   } catch (_) {}
   schedule();
 
-  root.__nsSiteSingleLabelWidthCleanup = () => {
+  root.__pressSiteSingleLabelWidthCleanup = () => {
     cancelFrame(frame);
     frame = 0;
     try { if (observer) observer.disconnect(); } catch (_) {}
@@ -294,18 +294,18 @@ function applyComposerEffectiveSiteConfig(siteConfig) {
   const effective = mergeYamlConfig(tracked, composerSiteLocalOverride);
   const root = (effective && effective.contentRoot) ? String(effective.contentRoot) : 'wwwroot';
   try {
-    window.__ns_content_root = root;
+    window.__press_content_root = root;
   } catch (_) {}
   try {
     const repo = (effective && effective.repo) || {};
-    window.__ns_site_repo = {
+    window.__press_site_repo = {
       owner: String(repo.owner || ''),
       name: String(repo.name || ''),
       branch: String(repo.branch || 'main')
     };
   } catch (_) {
     try {
-      window.__ns_site_repo = { owner: '', name: '', branch: 'main' };
+      window.__press_site_repo = { owner: '', name: '', branch: 'main' };
     } catch (_) {}
   }
   return effective;
@@ -1312,7 +1312,7 @@ function showSyncOverlay(options = {}) {
   }
   setSyncOverlayCancelHandler(null, cancelable);
 
-  try { document.body.classList.add('ns-sync-overlay-open'); }
+  try { document.body.classList.add('press-sync-overlay-open'); }
   catch (_) {}
 
   requestAnimationFrame(() => {
@@ -1335,7 +1335,7 @@ function hideSyncOverlay() {
     els.overlay.hidden = true;
   } catch (_) {}
   setSyncOverlayCancelHandler(null, true);
-  try { document.body.classList.remove('ns-sync-overlay-open'); }
+  try { document.body.classList.remove('press-sync-overlay-open'); }
   catch (_) {}
 }
 
@@ -2410,7 +2410,7 @@ function applySiteDiffMarkers(diff) {
     else el.removeAttribute('data-diff');
   });
   try {
-    if (typeof root.__nsSiteNavRefresh === 'function') root.__nsSiteNavRefresh();
+    if (typeof root.__pressSiteNavRefresh === 'function') root.__pressSiteNavRefresh();
   } catch (_) {}
 }
 
@@ -2832,7 +2832,7 @@ function broadcastMarkdownAssetPreview(path) {
     }))
     : [];
   try {
-    window.dispatchEvent(new CustomEvent('ns-editor-asset-preview', {
+    window.dispatchEvent(new CustomEvent('press-editor-asset-preview', {
       detail: { markdownPath: norm, assets }
     }));
   } catch (_) {
@@ -3005,8 +3005,8 @@ function handleEditorAssetAdded(event) {
 
 try {
   if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('ns-editor-toast', handleEditorToastEvent);
-    window.addEventListener('ns-editor-asset-added', handleEditorAssetAdded);
+    window.addEventListener('press-editor-toast', handleEditorToastEvent);
+    window.addEventListener('press-editor-asset-added', handleEditorAssetAdded);
   }
 } catch (_) {}
 
@@ -3683,7 +3683,7 @@ function refreshEditorLanguageUi() {
 }
 
 if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-  document.addEventListener('ns-editor-language-applied', refreshEditorLanguageUi);
+  document.addEventListener('press-editor-language-applied', refreshEditorLanguageUi);
 }
 
 function collectUnsyncedMarkdownEntries() {
@@ -4228,7 +4228,7 @@ function generateSeoRobotsTxt(siteConfig) {
   robots += `Allow: ${withBasePath('sitemap-generator.html')}\n\n`;
   robots += '# Crawl delay (be nice to servers)\n';
   robots += 'Crawl-delay: 1\n\n';
-  robots += '# Generated by NanoSite\n';
+  robots += '# Generated by Press\n';
   robots += `# ${new Date().toISOString()}\n`;
   return robots;
 }
@@ -4243,8 +4243,8 @@ function generateSeoMetaTags(siteConfig) {
     if (langs.length) return val[langs[0]];
     return fallback;
   };
-  const siteTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
-  const siteDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end blog template');
+  const siteTitle = getLocalizedValue(siteConfig.siteTitle, 'Press');
+  const siteDescription = getLocalizedValue(siteConfig.siteDescription, 'Where knowledge becomes pages.');
   const siteKeywords = getLocalizedValue(siteConfig.siteKeywords, 'blog, static site, markdown');
   const avatar = siteConfig.avatar || 'assets/avatar.png';
   const fullAvatarUrl = avatar.startsWith('http') ? avatar : baseUrl + avatar.replace(/^\/+/, '');
@@ -4647,11 +4647,11 @@ function openGithubCommitFilePreview(file, triggerEl) {
   if (!file) return;
 
   const previewModal = document.createElement('div');
-  previewModal.className = 'ns-modal github-preview-modal';
+  previewModal.className = 'press-modal github-preview-modal';
   previewModal.setAttribute('aria-hidden', 'true');
 
   const previewDialog = document.createElement('div');
-  previewDialog.className = 'ns-modal-dialog github-preview-dialog';
+  previewDialog.className = 'press-modal-dialog github-preview-dialog';
   previewDialog.setAttribute('role', 'dialog');
   previewDialog.setAttribute('aria-modal', 'true');
 
@@ -4670,7 +4670,7 @@ function openGithubCommitFilePreview(file, triggerEl) {
   headLeft.appendChild(subtitle);
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
-  closeBtn.className = 'ns-modal-close btn-secondary';
+  closeBtn.className = 'press-modal-close btn-secondary';
   const closeLabel = t('editor.composer.dialogs.close');
   closeBtn.textContent = closeLabel;
   closeBtn.setAttribute('aria-label', closeLabel);
@@ -4720,7 +4720,7 @@ function openGithubCommitFilePreview(file, triggerEl) {
     try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
     catch (_) { return false; }
   })();
-  const hadModalOpen = document.body.classList.contains('ns-modal-open');
+  const hadModalOpen = document.body.classList.contains('press-modal-open');
   const restoreFocus = () => {
     if (!triggerEl || typeof triggerEl.focus !== 'function') return;
     try { triggerEl.focus({ preventScroll: true }); }
@@ -4731,17 +4731,17 @@ function openGithubCommitFilePreview(file, triggerEl) {
     closing = true;
     const finish = () => {
       try { previewModal.remove(); } catch (_) {}
-      if (!hadModalOpen) document.body.classList.remove('ns-modal-open');
+      if (!hadModalOpen) document.body.classList.remove('press-modal-open');
       restoreFocus();
     };
     if (reduceMotion) { finish(); return; }
     try {
-      previewModal.classList.remove('ns-anim-in');
-      previewModal.classList.add('ns-anim-out');
+      previewModal.classList.remove('press-anim-in');
+      previewModal.classList.add('press-anim-out');
     } catch (_) {}
     const onEnd = () => {
       previewDialog.removeEventListener('animationend', onEnd);
-      try { previewModal.classList.remove('ns-anim-out'); } catch (_) {}
+      try { previewModal.classList.remove('press-anim-out'); } catch (_) {}
       finish();
     };
     try {
@@ -4750,15 +4750,15 @@ function openGithubCommitFilePreview(file, triggerEl) {
     } catch (_) { onEnd(); }
   };
 
-  document.body.classList.add('ns-modal-open');
+  document.body.classList.add('press-modal-open');
   previewModal.classList.add('is-open');
   previewModal.setAttribute('aria-hidden', 'false');
   if (!reduceMotion) {
     try {
-      previewModal.classList.add('ns-anim-in');
+      previewModal.classList.add('press-anim-in');
       const onEnd = () => {
         previewDialog.removeEventListener('animationend', onEnd);
-        try { previewModal.classList.remove('ns-anim-in'); } catch (_) {}
+        try { previewModal.classList.remove('press-anim-in'); } catch (_) {}
       };
       previewDialog.addEventListener('animationend', onEnd, { once: true });
     } catch (_) {}
@@ -4975,7 +4975,7 @@ async function waitForRemotePropagation(files = []) {
 
   const normalizedRoot = (() => {
     try {
-      const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g, '/').replace(/^\/+|\/+$/g, '');
+      const root = (window.__press_content_root || 'wwwroot').replace(/\\+/g, '/').replace(/^\/+|\/+$/g, '');
       return root;
     } catch (_) {
       return 'wwwroot';
@@ -5125,8 +5125,8 @@ async function waitForRemotePropagation(files = []) {
 
 function getActiveSiteRepoConfig() {
   const site = getStateSlice('site');
-  const fallback = window.__ns_site_repo && typeof window.__ns_site_repo === 'object'
-    ? window.__ns_site_repo
+  const fallback = window.__press_site_repo && typeof window.__press_site_repo === 'object'
+    ? window.__press_site_repo
     : {};
   return resolveSiteRepoConfig(site, composerSiteLocalOverride, fallback);
 }
@@ -5207,7 +5207,7 @@ function applyLocalPostCommitState(files = []) {
           setDynamicTabStatus(tab, {
             state: 'existing',
             checkedAt,
-            message: 'Synchronized via NanoSite'
+            message: 'Synchronized via Press'
           });
         }
       } else {
@@ -5296,7 +5296,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
         }
       }
     `;
-    const headline = `chore: sync ${files.length === 1 ? 'draft' : 'drafts'} via NanoSite`;
+    const headline = `chore: sync ${files.length === 1 ? 'draft' : 'drafts'} via Press`;
     const mutationInput = {
       branch: { repositoryNameWithOwner: `${owner}/${name}`, branchName: branch },
       message: { headline },
@@ -5330,7 +5330,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       clearCachedFineGrainedToken();
       message = t('editor.toasts.githubTokenRejected');
     }
-    console.error('NanoSite GitHub commit failed', err);
+    console.error('Press GitHub commit failed', err);
     showToast('error', message, { duration: 5200 });
   } finally {
     gitHubCommitInFlight = false;
@@ -5577,7 +5577,7 @@ function renderComposerSiteInlineSummary(target, diff) {
 function updateComposerSiteInlineMeta(meta, options = {}) {
   if (!meta) return;
 
-  meta.__nsSiteMetaActive = true;
+  meta.__pressSiteMetaActive = true;
   try { meta.setAttribute('data-site-active', 'true'); } catch (_) {}
   if (meta.dataset) meta.dataset.kind = 'site';
 
@@ -5588,8 +5588,8 @@ function updateComposerSiteInlineMeta(meta, options = {}) {
 
   const openBtn = meta.querySelector('.composer-order-inline-open');
   if (openBtn) {
-    if (!meta.__nsSiteMetaButtonState) {
-      meta.__nsSiteMetaButtonState = {
+    if (!meta.__pressSiteMetaButtonState) {
+      meta.__pressSiteMetaButtonState = {
         hidden: openBtn.hidden,
         ariaHidden: openBtn.getAttribute('aria-hidden'),
         display: openBtn.style.display,
@@ -5622,8 +5622,8 @@ function refreshComposerInlineMeta(options = {}) {
     return;
   }
 
-  if (meta.__nsSiteMetaActive) {
-    const stored = meta.__nsSiteMetaButtonState || null;
+  if (meta.__pressSiteMetaActive) {
+    const stored = meta.__pressSiteMetaButtonState || null;
     const openBtn = meta.querySelector('.composer-order-inline-open');
     if (openBtn) {
       openBtn.disabled = stored ? !!stored.disabled : false;
@@ -5633,8 +5633,8 @@ function refreshComposerInlineMeta(options = {}) {
       if (stored && stored.ariaHidden != null) openBtn.setAttribute('aria-hidden', stored.ariaHidden);
       else openBtn.removeAttribute('aria-hidden');
     }
-    delete meta.__nsSiteMetaButtonState;
-    delete meta.__nsSiteMetaActive;
+    delete meta.__pressSiteMetaButtonState;
+    delete meta.__pressSiteMetaActive;
     try { meta.removeAttribute('data-site-active'); } catch (_) {}
   }
 }
@@ -5659,7 +5659,7 @@ function getComposerOrderHoverContainer(element) {
 
 function applyComposerOrderHover(container, key) {
   if (!container) return;
-  const state = container.__nsOrderHoverState || (container.__nsOrderHoverState = {});
+  const state = container.__pressOrderHoverState || (container.__pressOrderHoverState = {});
   const normalizedKey = typeof key === 'string' ? key : '';
   let svg = state.svg;
   if (!svg || !svg.isConnected) {
@@ -5707,7 +5707,7 @@ function applyComposerOrderHover(container, key) {
 function bindComposerOrderHover(element, key) {
   if (!element) return;
   const hoverKey = typeof key === 'string' ? key : (element.getAttribute && element.getAttribute('data-key')) || '';
-  const existing = element.__nsOrderHoverBound;
+  const existing = element.__pressOrderHoverBound;
   if (existing && existing.key === hoverKey) return;
   if (existing) {
     element.removeEventListener('mouseenter', existing.enter);
@@ -5729,7 +5729,7 @@ function bindComposerOrderHover(element, key) {
   element.addEventListener('mouseleave', handleLeave);
   element.addEventListener('focusin', handleEnter);
   element.addEventListener('focusout', handleLeave);
-  element.__nsOrderHoverBound = { key: hoverKey, enter: handleEnter, leave: handleLeave };
+  element.__pressOrderHoverBound = { key: hoverKey, enter: handleEnter, leave: handleLeave };
 }
 
 function buildOrderDiffItem(entry, side) {
@@ -5781,10 +5781,10 @@ function ensureComposerDiffModal() {
 
   const modal = document.createElement('div');
   modal.id = 'composerOrderModal';
-  modal.className = 'ns-modal composer-order-modal composer-diff-modal';
+  modal.className = 'press-modal composer-order-modal composer-diff-modal';
 
   const dialog = document.createElement('div');
-  dialog.className = 'ns-modal-dialog composer-order-dialog composer-diff-dialog';
+  dialog.className = 'press-modal-dialog composer-order-dialog composer-diff-dialog';
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
 
@@ -5797,7 +5797,7 @@ function ensureComposerDiffModal() {
   subtitle.className = 'composer-order-subtitle';
   subtitle.textContent = tComposerDiff('subtitle.default');
   const closeBtn = document.createElement('button');
-  closeBtn.className = 'ns-modal-close btn-secondary composer-order-close';
+  closeBtn.className = 'press-modal-close btn-secondary composer-order-close';
   closeBtn.type = 'button';
   closeBtn.setAttribute('aria-label', tComposerDiff('close'));
   closeBtn.textContent = tComposerDiff('close');
@@ -5972,17 +5972,17 @@ function ensureComposerDiffModal() {
     if (reduce) {
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('ns-modal-open');
+      document.body.classList.remove('press-modal-open');
       try { lastActive && lastActive.focus(); } catch (_) {}
       return;
     }
-    try { modal.classList.remove('ns-anim-in'); } catch (_) {}
-    try { modal.classList.add('ns-anim-out'); } catch (_) {}
+    try { modal.classList.remove('press-anim-in'); } catch (_) {}
+    try { modal.classList.add('press-anim-out'); } catch (_) {}
     const finish = () => {
-      try { modal.classList.remove('ns-anim-out'); } catch (_) {}
+      try { modal.classList.remove('press-anim-out'); } catch (_) {}
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('ns-modal-open');
+      document.body.classList.remove('press-modal-open');
       try { lastActive && lastActive.focus(); } catch (_) {}
     };
     try {
@@ -6313,7 +6313,7 @@ function ensureComposerDiffModal() {
       afterList.appendChild(item);
     });
 
-    const hoverState = viz.__nsOrderHoverState || {};
+    const hoverState = viz.__pressOrderHoverState || {};
     if (hoverState.activeLeft && !hoverState.activeLeft.isConnected) {
       try { hoverState.activeLeft.classList.remove('is-hovered'); } catch (_) {}
       hoverState.activeLeft = null;
@@ -6322,7 +6322,7 @@ function ensureComposerDiffModal() {
     hoverState.rightMap = rightMap;
     hoverState.svg = svg;
     hoverState.pathMap = null;
-    viz.__nsOrderHoverState = hoverState;
+    viz.__pressOrderHoverState = hoverState;
 
     const hasItems = beforeEntries.length || afterEntries.length;
     if (hasItems) {
@@ -6354,14 +6354,14 @@ function ensureComposerDiffModal() {
   function openModal(kind, initialTab = 'overview') {
     lastActive = document.activeElement;
     const reduce = prefersReducedMotion();
-    try { modal.classList.remove('ns-anim-out'); } catch (_) {}
+    try { modal.classList.remove('press-anim-out'); } catch (_) {}
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('ns-modal-open');
+    document.body.classList.add('press-modal-open');
     if (!reduce) {
       try {
-        modal.classList.add('ns-anim-in');
-        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); try { modal.classList.remove('ns-anim-in'); } catch (_) {}; };
+        modal.classList.add('press-anim-in');
+        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); try { modal.classList.remove('press-anim-in'); } catch (_) {}; };
         dialog.addEventListener('animationend', onEnd, { once: true });
       } catch (_) {}
     }
@@ -6428,9 +6428,9 @@ function ensureComposerDiffModal() {
       btn.textContent = tComposerDiff(def.labelKey);
     });
   };
-  if (!modal.__nsLangBound) {
-    modal.__nsLangBound = true;
-    document.addEventListener('ns-editor-language-applied', refreshLocale);
+  if (!modal.__pressLangBound) {
+    modal.__pressLangBound = true;
+    document.addEventListener('press-editor-language-applied', refreshLocale);
   }
 
   return composerDiffModal;
@@ -6443,7 +6443,7 @@ function drawOrderDiffLines(state) {
   const { container, svg, connectors, leftMap, rightMap } = ctx;
   if (!container || !svg) return;
 
-  const hoverState = container.__nsOrderHoverState || (container.__nsOrderHoverState = {});
+  const hoverState = container.__pressOrderHoverState || (container.__pressOrderHoverState = {});
   hoverState.svg = svg;
   if (leftMap instanceof Map) hoverState.leftMap = leftMap;
   if (rightMap instanceof Map) hoverState.rightMap = rightMap;
@@ -6464,7 +6464,7 @@ function drawOrderDiffLines(state) {
   svg.setAttribute('width', width);
   svg.setAttribute('height', height);
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  const existingPathCache = (svg.__nsPathCache instanceof Map) ? svg.__nsPathCache : new Map();
+  const existingPathCache = (svg.__pressPathCache instanceof Map) ? svg.__pressPathCache : new Map();
   const nextPathCache = new Map();
 
   const offsetX = rect.left;
@@ -6640,7 +6640,7 @@ function drawOrderDiffLines(state) {
     }
   });
 
-  svg.__nsPathCache = nextPathCache;
+  svg.__pressPathCache = nextPathCache;
 
   hoverState.pathMap = pathMap;
   if (typeof hoverState.currentKey === 'string' && hoverState.currentKey) {
@@ -6725,22 +6725,22 @@ function ensureComposerOrderPreview(kind) {
   const title = meta ? meta.querySelector('.composer-order-inline-title') : null;
   const openBtn = meta ? meta.querySelector('.composer-order-inline-open') : null;
 
-  if (openBtn && !openBtn.__nsBound) {
-    openBtn.__nsBound = true;
+  if (openBtn && !openBtn.__pressBound) {
+    openBtn.__pressBound = true;
     openBtn.addEventListener('click', () => {
       const target = openBtn.dataset && openBtn.dataset.kind ? openBtn.dataset.kind : normalized;
       openComposerDiffModal(target, 'overview');
     });
   }
 
-  if (typeof ResizeObserver === 'function' && !host.__nsOrderResizeObserver) {
+  if (typeof ResizeObserver === 'function' && !host.__pressOrderResizeObserver) {
     try {
       const ro = new ResizeObserver(() => {
         const state = composerOrderPreviewState && composerOrderPreviewState[normalized];
         if (state) drawOrderDiffLines(state);
       });
       ro.observe(host);
-      host.__nsOrderResizeObserver = ro;
+      host.__pressOrderResizeObserver = ro;
     } catch (_) {}
   }
 
@@ -6861,7 +6861,7 @@ function updateComposerOrderPreview(kind, options = {}) {
   const hasDiffChanges = !!(diff && diff.hasChanges);
 
   if (host) {
-    const hoverState = host.__nsOrderHoverState || {};
+    const hoverState = host.__pressOrderHoverState || {};
     if (hoverState.activeLeft && !hoverState.activeLeft.isConnected) {
       try { hoverState.activeLeft.classList.remove('is-hovered'); } catch (_) {}
       hoverState.activeLeft = null;
@@ -6870,7 +6870,7 @@ function updateComposerOrderPreview(kind, options = {}) {
     hoverState.rightMap = rightMap;
     hoverState.svg = svg;
     if (!hasOrderChanges) hoverState.pathMap = null;
-    host.__nsOrderHoverState = hoverState;
+    host.__pressOrderHoverState = hoverState;
   }
 
   if (emptyNotice) {
@@ -6915,10 +6915,10 @@ function updateComposerOrderPreview(kind, options = {}) {
 
     if (svg) svg.style.display = 'none';
     if (host) {
-      const hoverState = host.__nsOrderHoverState || {};
+      const hoverState = host.__pressOrderHoverState || {};
       hoverState.pathMap = null;
       hoverState.currentKey = '';
-      host.__nsOrderHoverState = hoverState;
+      host.__pressOrderHoverState = hoverState;
       applyComposerOrderHover(host, '');
     }
     composerOrderPreviewState[normalized] = null;
@@ -6966,15 +6966,15 @@ function updateComposerOrderPreview(kind, options = {}) {
   composerOrderPreviewState[normalized] = state;
   if (svg) svg.style.display = state ? '' : 'none';
   if (!state && host) {
-    const hoverState = host.__nsOrderHoverState || {};
+    const hoverState = host.__pressOrderHoverState || {};
     hoverState.pathMap = null;
     hoverState.currentKey = '';
-    host.__nsOrderHoverState = hoverState;
+    host.__pressOrderHoverState = hoverState;
     applyComposerOrderHover(host, '');
   }
   if (state) {
-    if (host && host.__nsOrderHoverState && typeof host.__nsOrderHoverState.currentKey === 'string') {
-      applyComposerOrderHover(host, host.__nsOrderHoverState.currentKey);
+    if (host && host.__pressOrderHoverState && typeof host.__pressOrderHoverState.currentKey === 'string') {
+      applyComposerOrderHover(host, host.__pressOrderHoverState.currentKey);
     }
     drawOrderDiffLines(state);
     requestAnimationFrame(() => drawOrderDiffLines(state));
@@ -6985,7 +6985,7 @@ function updateComposerOrderPreview(kind, options = {}) {
 function observeComposerOrderRow(row, kind) {
   if (!row || typeof ResizeObserver !== 'function') return;
   const normalized = kind === 'tabs' ? 'tabs' : 'index';
-  const existing = row.__nsOrderResize;
+  const existing = row.__pressOrderResize;
   if (existing && existing.kind === normalized) return;
   try {
     if (existing && existing.observer) {
@@ -6997,7 +6997,7 @@ function observeComposerOrderRow(row, kind) {
       scheduleComposerOrderPreviewRelayout(normalized);
     });
     observer.observe(row);
-    row.__nsOrderResize = { observer, kind: normalized };
+    row.__pressOrderResize = { observer, kind: normalized };
   } catch (_) {}
 }
 
@@ -7942,7 +7942,7 @@ async function handleComposerDiscard(btn) {
 
 function getPrimaryEditorApi() {
   try {
-    const api = window.__ns_primary_editor;
+    const api = window.__press_primary_editor;
     return api && typeof api === 'object' ? api : null;
   } catch (_) {
     return null;
@@ -8103,7 +8103,7 @@ function extractVersionFromPath(relPath) {
 
 function getContentRootSafe() {
   try {
-    const root = window.__ns_content_root;
+    const root = window.__press_content_root;
     if (root && typeof root === 'string' && root.trim()) {
       return root.trim().replace(/[\\]/g, '/').replace(/\/?$/, '');
     }
@@ -8357,8 +8357,8 @@ function bindEditorStatePersistenceListeners() {
 
 function mountEditorSystemPanels() {
   const body = document.getElementById('editorSystemBody');
-  if (!body || body.__nsSystemPanelsMounted) return;
-  body.__nsSystemPanelsMounted = true;
+  if (!body || body.__pressSystemPanelsMounted) return;
+  body.__pressSystemPanelsMounted = true;
   const composerPanel = document.getElementById('mode-composer');
   const updatesPanel = document.getElementById('mode-updates');
   let syncPanel = document.getElementById('mode-sync');
@@ -8391,16 +8391,16 @@ function animateEditorSystemPanelContent() {
   const panel = document.getElementById('editorSystemPanel');
   if (!panel) return;
   try {
-    const previousTimer = panel.__nsSystemAnimationTimer;
+    const previousTimer = panel.__pressSystemAnimationTimer;
     if (previousTimer) window.clearTimeout(previousTimer);
   } catch (_) {}
   panel.classList.remove('is-content-entering');
   try { panel.getBoundingClientRect(); } catch (_) {}
   panel.classList.add('is-content-entering');
   try {
-    panel.__nsSystemAnimationTimer = window.setTimeout(() => {
+    panel.__pressSystemAnimationTimer = window.setTimeout(() => {
       panel.classList.remove('is-content-entering');
-      panel.__nsSystemAnimationTimer = null;
+      panel.__pressSystemAnimationTimer = null;
     }, 260);
   } catch (_) {}
 }
@@ -8427,14 +8427,14 @@ function showEditorSystemPanel(mode) {
     title.textContent = nextMode === 'sync'
       ? treeText('sync', 'Publish')
       : (nextMode === 'updates'
-        ? treeText('nanoSiteUpdates', 'NanoSite Updates')
+        ? treeText('pressUpdates', 'Press Updates')
         : treeText('siteSettings', 'Site Settings'));
   }
   if (meta) {
     meta.textContent = nextMode === 'sync'
       ? treeText('syncMeta', 'Publish local changes to GitHub.')
       : (nextMode === 'updates'
-        ? treeText('systemUpdatesMeta', 'Review and apply NanoSite updates.')
+        ? treeText('systemUpdatesMeta', 'Review and apply Press updates.')
         : treeText('siteSettingsMeta', 'Edit site.yaml settings.'));
   }
 
@@ -8500,7 +8500,7 @@ function syncEditorOverlayUi() {
   }
 
   try {
-    document.body.classList.toggle('ns-editor-modal-open', hasOverlay);
+    document.body.classList.toggle('press-editor-modal-open', hasOverlay);
   } catch (_) {}
 }
 
@@ -8531,11 +8531,11 @@ function resetSiteSettingsNavOnOpen() {
     if (modalBody) modalBody.scrollTop = 0;
   } catch (_) {}
   const firstSectionId = (() => {
-    try { return String(root.__nsSiteFirstSectionId || '').trim(); }
+    try { return String(root.__pressSiteFirstSectionId || '').trim(); }
     catch (_) { return ''; }
   })();
   const setActive = (() => {
-    try { return typeof root.__nsSiteNavSetActive === 'function' ? root.__nsSiteNavSetActive : null; }
+    try { return typeof root.__pressSiteNavSetActive === 'function' ? root.__pressSiteNavSetActive : null; }
     catch (_) { return null; }
   })();
   if (!firstSectionId || !setActive) return;
@@ -10482,7 +10482,7 @@ function makeDragList(container, onReorder) {
     li.style.willChange = 'transform, top, left';
     li.classList.add('dragging');
     container.classList.add('is-dragging-list');
-    document.body.classList.add('ns-noselect');
+    document.body.classList.add('press-noselect');
     document.body.appendChild(li);
 
     try { handle.setPointerCapture(e.pointerId); } catch (_) {}
@@ -10554,7 +10554,7 @@ function makeDragList(container, onReorder) {
     }
 
     container.classList.remove('is-dragging-list');
-    document.body.classList.remove('ns-noselect');
+    document.body.classList.remove('press-noselect');
     window.removeEventListener('pointermove', onPointerMove);
 
     const order = childItems().map(el => el.dataset.key);
@@ -10617,16 +10617,16 @@ function setEditorDetailPanelMode(mode) {
 function animateEditorStructurePanelContent(panel) {
   if (!panel) return;
   try {
-    const previousTimer = panel.__nsStructureAnimationTimer;
+    const previousTimer = panel.__pressStructureAnimationTimer;
     if (previousTimer) window.clearTimeout(previousTimer);
   } catch (_) {}
   panel.classList.remove('is-content-entering');
   try { panel.getBoundingClientRect(); } catch (_) {}
   panel.classList.add('is-content-entering');
   try {
-    panel.__nsStructureAnimationTimer = window.setTimeout(() => {
+    panel.__pressStructureAnimationTimer = window.setTimeout(() => {
       panel.classList.remove('is-content-entering');
-      panel.__nsStructureAnimationTimer = null;
+      panel.__pressStructureAnimationTimer = null;
     }, 260);
   } catch (_) {}
 }
@@ -10635,16 +10635,16 @@ function animateEditorMarkdownPanelContent() {
   const panel = document.getElementById('editorMarkdownPanel');
   if (!panel) return;
   try {
-    const previousTimer = panel.__nsMarkdownAnimationTimer;
+    const previousTimer = panel.__pressMarkdownAnimationTimer;
     if (previousTimer) window.clearTimeout(previousTimer);
   } catch (_) {}
   panel.classList.remove('is-content-entering');
   try { panel.getBoundingClientRect(); } catch (_) {}
   panel.classList.add('is-content-entering');
   try {
-    panel.__nsMarkdownAnimationTimer = window.setTimeout(() => {
+    panel.__pressMarkdownAnimationTimer = window.setTimeout(() => {
       panel.classList.remove('is-content-entering');
-      panel.__nsMarkdownAnimationTimer = null;
+      panel.__pressMarkdownAnimationTimer = null;
     }, 260);
   } catch (_) {}
 }
@@ -10722,7 +10722,7 @@ function buildCurrentEditorTree() {
     welcomeLabel: treeText('welcome', 'Welcome'),
     systemLabel: treeText('system', 'System'),
     siteSettingsLabel: treeText('siteSettings', 'Site Settings'),
-    updatesLabel: treeText('nanoSiteUpdates', 'NanoSite Updates'),
+    updatesLabel: treeText('pressUpdates', 'Press Updates'),
     syncLabel: treeText('sync', 'Publish'),
     articlesLabel: treeText('articles', 'Articles'),
     pagesLabel: treeText('pages', 'Pages'),
@@ -11227,7 +11227,7 @@ function handleEditorTreeSelection(nodeId) {
 }
 
 try {
-  document.addEventListener('ns-editor-current-file-breadcrumb-select', (event) => {
+  document.addEventListener('press-editor-current-file-breadcrumb-select', (event) => {
     const detail = event && event.detail && typeof event.detail === 'object' ? event.detail : {};
     const nodeId = String(detail.nodeId || '').trim();
     if (!nodeId) return;
@@ -11658,8 +11658,8 @@ function appendEditorLanguageControl(body) {
   body.appendChild(item);
 
   try {
-    if (typeof window.__nsPopulateEditorLanguageSelect === 'function') window.__nsPopulateEditorLanguageSelect();
-    document.dispatchEvent(new CustomEvent('ns-editor-language-control-mounted'));
+    if (typeof window.__pressPopulateEditorLanguageSelect === 'function') window.__pressPopulateEditorLanguageSelect();
+    document.dispatchEvent(new CustomEvent('press-editor-language-control-mounted'));
   } catch (_) {}
 }
 
@@ -11736,8 +11736,8 @@ function makeWelcomeButton(label, targetNodeId, className = 'btn-secondary edito
 function renderWelcomeHero(refs) {
   refs.body.classList.add('editor-welcome-body');
   refs.kicker.textContent = welcomeText('kicker', 'Getting started');
-  refs.title.textContent = welcomeText('title', 'Welcome to NanoSite');
-  refs.meta.textContent = welcomeText('meta', 'Write content, check the site basics, and publish when everything looks ready.');
+  refs.title.textContent = welcomeText('title', 'Welcome to Press');
+  refs.meta.textContent = welcomeText('meta', 'Where knowledge becomes pages.');
 }
 
 function renderWelcomeStep(options) {
@@ -11827,7 +11827,7 @@ function renderWelcomeSecondaryActions() {
 
   const title = document.createElement('h3');
   title.className = 'editor-welcome-secondary-title';
-  title.textContent = welcomeText('updatesTitle', 'NanoSite Updates');
+  title.textContent = welcomeText('updatesTitle', 'Press Updates');
 
   const detail = document.createElement('p');
   detail.className = 'editor-welcome-secondary-detail';
@@ -11873,12 +11873,12 @@ function renderWelcomeFaq() {
   const list = document.createElement('div');
   list.className = 'editor-welcome-faq-list';
   [
-    ['faqNanoSiteQuestion', 'What is NanoSite?', 'faqNanoSiteAnswer', 'NanoSite turns Markdown files into a static website that can be hosted on GitHub Pages.', true],
+    ['faqPressQuestion', 'What is Press?', 'faqPressAnswer', 'Where knowledge becomes pages.', true],
     ['faqMarkdownQuestion', 'What is Markdown?', 'faqMarkdownAnswer', 'Markdown is a simple way to write headings, links, lists, images, and paragraphs as plain text.', false],
     ['faqArticlesPagesQuestion', 'What is the difference between Articles and Pages?', 'faqArticlesPagesAnswer', 'Articles are listed posts for blogs, notes, and tutorials. Pages are fixed navigation pages such as About or History.', false],
     ['faqFrontMatterQuestion', 'What is front matter?', 'faqFrontMatterAnswer', 'Front matter is the small settings block for a page or article, such as title, date, tags, excerpt, and cover image.', false],
     ['faqPublishQuestion', 'How do local edits and Publish work?', 'faqPublishAnswer', 'Saving keeps drafts on this computer. Publish sends the changes you choose to GitHub.', false],
-    ['faqUpdatesQuestion', 'What do NanoSite Updates change?', 'faqUpdatesAnswer', 'System Updates refresh editor and runtime files. They do not overwrite your articles, pages, or site settings.', false]
+    ['faqUpdatesQuestion', 'What do Press Updates change?', 'faqUpdatesAnswer', 'System Updates refresh editor and runtime files. They do not overwrite your articles, pages, or site settings.', false]
   ].forEach(([questionKey, questionFallback, answerKey, answerFallback, open]) => {
     list.appendChild(renderWelcomeFaqItem(
       welcomeText(questionKey, questionFallback),
@@ -11945,7 +11945,7 @@ function renderEditorStructurePanel(node) {
         const detail = child.id === 'system:sync'
           ? treeText('syncMeta', 'Publish local changes to GitHub.')
           : (child.id === 'system:updates'
-            ? treeText('systemUpdatesMeta', 'Review and apply NanoSite updates.')
+            ? treeText('systemUpdatesMeta', 'Review and apply Press updates.')
             : treeText('siteSettingsMeta', 'Edit site.yaml settings.'));
         list.appendChild(renderStructureItem(child.label, detail, () => handleEditorTreeSelection(child.id)));
       });
@@ -12370,8 +12370,8 @@ function buildIndexUI(root, state) {
         addLangWrap.className = 'ci-add-lang has-menu';
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ci-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
-          <div class="ci-lang-menu ns-menu" role="listbox" hidden>
-            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${l}">${escapeHtml(displayLangName(l))}</button>`).join('')}
+          <div class="ci-lang-menu press-menu" role="listbox" hidden>
+            ${available.map(l => `<button type="button" role="option" class="press-menu-item" data-lang="${l}">${escapeHtml(displayLangName(l))}</button>`).join('')}
           </div>
         `;
         const btn = $('.ci-add-lang-btn', addLangWrap);
@@ -12407,14 +12407,14 @@ function buildIndexUI(root, state) {
           btn.classList.add('is-open');
           addLangWrap.classList.add('is-open');
           btn.setAttribute('aria-expanded','true');
-          try { menu.querySelector('.ns-menu-item')?.focus(); } catch(_){}
+          try { menu.querySelector('.press-menu-item')?.focus(); } catch(_){}
           document.addEventListener('mousedown', onDocDown, true);
           document.addEventListener('keydown', onKeyDown, true);
         }
         function onDocDown(e){ if (!addLangWrap.contains(e.target)) closeMenu(); }
         function onKeyDown(e){ if (e.key === 'Escape') { e.preventDefault(); closeMenu(); } }
         btn.addEventListener('click', () => { btn.classList.contains('is-open') ? closeMenu() : openMenu(); });
-        menu.querySelectorAll('.ns-menu-item').forEach(it => {
+        menu.querySelectorAll('.press-menu-item').forEach(it => {
           it.addEventListener('click', () => {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
@@ -12580,8 +12580,8 @@ function buildTabsUI(root, state) {
         addLangWrap.className = 'ct-add-lang has-menu';
         addLangWrap.innerHTML = `
           <button type="button" class="btn-secondary ct-add-lang-btn" aria-haspopup="listbox" aria-expanded="false">${escapeHtml(addLangLabel)}</button>
-          <div class="ct-lang-menu ns-menu" role="listbox" hidden>
-            ${available.map(l => `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(l)}">${escapeHtml(displayLangName(l))}</button>`).join('')}
+          <div class="ct-lang-menu press-menu" role="listbox" hidden>
+            ${available.map(l => `<button type="button" role="option" class="press-menu-item" data-lang="${escapeHtml(l)}">${escapeHtml(displayLangName(l))}</button>`).join('')}
           </div>
         `;
         const btn = $('.ct-add-lang-btn', addLangWrap);
@@ -12615,14 +12615,14 @@ function buildTabsUI(root, state) {
           btn.classList.add('is-open');
           addLangWrap.classList.add('is-open');
           btn.setAttribute('aria-expanded','true');
-          try { menu.querySelector('.ns-menu-item')?.focus(); } catch(_){}
+          try { menu.querySelector('.press-menu-item')?.focus(); } catch(_){}
           document.addEventListener('mousedown', onDocDown, true);
           document.addEventListener('keydown', onKeyDown, true);
         }
         function onDocDown(e){ if (!addLangWrap.contains(e.target)) closeMenu(); }
         function onKeyDown(e){ if (e.key === 'Escape') { e.preventDefault(); closeMenu(); } }
         btn.addEventListener('click', () => { btn.classList.contains('is-open') ? closeMenu() : openMenu(); });
-        menu.querySelectorAll('.ns-menu-item').forEach(it => {
+        menu.querySelectorAll('.press-menu-item').forEach(it => {
           it.addEventListener('click', () => {
             const code = String(it.getAttribute('data-lang')||'').trim();
             if (!code || entry[code]) return;
@@ -13091,7 +13091,7 @@ function bindComposerUI(state) {
     }
 
     async function computeMissingFiles(preferredKind){
-      const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+      const contentRoot = (window.__press_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const out = [];
       const normalizedPreferred = normalizeTarget(preferredKind);
       const fallback = getActiveComposerFile();
@@ -13149,14 +13149,14 @@ function bindComposerUI(state) {
     function openVerifyModal(missing, targetKind){
       // Build modal
       const modal = document.createElement('div');
-      modal.className = 'ns-modal'; modal.setAttribute('aria-hidden', 'true');
-      const dialog = document.createElement('div'); dialog.className = 'ns-modal-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true');
+      modal.className = 'press-modal'; modal.setAttribute('aria-hidden', 'true');
+      const dialog = document.createElement('div'); dialog.className = 'press-modal-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true');
       const head = document.createElement('div'); head.className = 'comp-guide-head';
       const left = document.createElement('div'); left.className='comp-head-left';
       const title = document.createElement('strong'); title.textContent = 'Verify Setup – Missing Files'; title.id='verifyTitle';
       const sub = document.createElement('span'); sub.className='muted'; sub.textContent = 'Create missing files on GitHub, then Verify again';
       left.appendChild(title); left.appendChild(sub);
-      const btnClose = document.createElement('button'); btnClose.className = 'ns-modal-close btn-secondary'; btnClose.type = 'button'; btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label','Cancel');
+      const btnClose = document.createElement('button'); btnClose.className = 'press-modal-close btn-secondary'; btnClose.type = 'button'; btnClose.textContent = 'Cancel'; btnClose.setAttribute('aria-label','Cancel');
       head.appendChild(left); head.appendChild(btnClose);
       dialog.appendChild(head);
 
@@ -13214,7 +13214,7 @@ function bindComposerUI(state) {
               const p = document.createElement('code'); p.textContent = it.path; p.style.flex='1 1 auto'; row.appendChild(p);
               const actions = document.createElement('div'); actions.className='ci-ver-actions'; actions.style.display='inline-flex'; actions.style.gap='.35rem';
               const { owner, name, branch } = getActiveSiteRepoConfig();
-              const root = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+              const root = (window.__press_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
               const aNew = document.createElement('a');
               const canGh = !!(owner && name);
               aNew.className = canGh ? 'btn-secondary btn-github' : 'btn-secondary'; aNew.target='_blank'; aNew.rel='noopener';
@@ -13268,25 +13268,25 @@ function bindComposerUI(state) {
 
       function open(){
         const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
-        try { modal.classList.remove('ns-anim-out'); } catch(_) {}
+        try { modal.classList.remove('press-anim-out'); } catch(_) {}
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden','false');
-        document.body.classList.add('ns-modal-open');
+        document.body.classList.add('press-modal-open');
         if (!reduce) {
           try {
-            modal.classList.add('ns-anim-in');
-            const onEnd = () => { try { modal.classList.remove('ns-anim-in'); } catch(_) {}; dialog.removeEventListener('animationend', onEnd); };
+            modal.classList.add('press-anim-in');
+            const onEnd = () => { try { modal.classList.remove('press-anim-in'); } catch(_) {}; dialog.removeEventListener('animationend', onEnd); };
             dialog.addEventListener('animationend', onEnd, { once: true });
           } catch(_) {}
         }
       }
       function close(){
         const reduce = (function(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(_) { return false; } })();
-        const done = () => { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('ns-modal-open'); try { modal.remove(); } catch(_) {} };
+        const done = () => { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('press-modal-open'); try { modal.remove(); } catch(_) {} };
         if (reduce) { done(); return; }
-        try { modal.classList.remove('ns-anim-in'); } catch(_) {}
-        try { modal.classList.add('ns-anim-out'); } catch(_) {}
-        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); try { modal.classList.remove('ns-anim-out'); } catch(_) {}; done(); };
+        try { modal.classList.remove('press-anim-in'); } catch(_) {}
+        try { modal.classList.add('press-anim-out'); } catch(_) {}
+        const onEnd = () => { dialog.removeEventListener('animationend', onEnd); try { modal.classList.remove('press-anim-out'); } catch(_) {}; done(); };
         try {
           dialog.addEventListener('animationend', onEnd, { once: true });
           setTimeout(onEnd, 200);
@@ -13318,7 +13318,7 @@ function bindComposerUI(state) {
 
     async function afterAllGood(targetKind){
       // Compare current in-memory YAML vs remote file; open GitHub edit if differs
-      const contentRoot = (window.__ns_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
+      const contentRoot = (window.__press_content_root || 'wwwroot').replace(/\\+/g,'/').replace(/\/?$/, '');
       const fallback = getActiveComposerFile();
       const target = normalizeTarget(targetKind) || (fallback === 'tabs' ? 'tabs' : 'index');
       const desired = target === 'tabs' ? toTabsYaml(state.tabs || {}) : toIndexYaml(state.index || {});
@@ -13494,8 +13494,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    if (!window.__ns_site_repo || typeof window.__ns_site_repo !== 'object') {
-      window.__ns_site_repo = { owner: '', name: '', branch: 'main' };
+    if (!window.__press_site_repo || typeof window.__press_site_repo !== 'object') {
+      window.__press_site_repo = { owner: '', name: '', branch: 'main' };
     }
   } catch (_) {}
 
@@ -13568,29 +13568,29 @@ function buildSiteUI(root, state) {
   if (!root) return;
   root.innerHTML = '';
   try {
-    if (typeof root.__nsSiteCompactNavCleanup === 'function') root.__nsSiteCompactNavCleanup();
+    if (typeof root.__pressSiteCompactNavCleanup === 'function') root.__pressSiteCompactNavCleanup();
   } catch (_) {}
-  try { root.__nsSiteCompactNavCleanup = null; } catch (_) {}
+  try { root.__pressSiteCompactNavCleanup = null; } catch (_) {}
   try {
-    if (typeof root.__nsSiteNavOrientationCleanup === 'function') root.__nsSiteNavOrientationCleanup();
+    if (typeof root.__pressSiteNavOrientationCleanup === 'function') root.__pressSiteNavOrientationCleanup();
   } catch (_) {}
-  try { root.__nsSiteNavOrientationCleanup = null; } catch (_) {}
+  try { root.__pressSiteNavOrientationCleanup = null; } catch (_) {}
   try {
-    if (typeof root.__nsSiteScrollSyncCleanup === 'function') root.__nsSiteScrollSyncCleanup();
+    if (typeof root.__pressSiteScrollSyncCleanup === 'function') root.__pressSiteScrollSyncCleanup();
   } catch (_) {}
-  try { root.__nsSiteScrollSyncCleanup = null; } catch (_) {}
+  try { root.__pressSiteScrollSyncCleanup = null; } catch (_) {}
   try {
-    if (typeof root.__nsSiteSingleLabelWidthCleanup === 'function') root.__nsSiteSingleLabelWidthCleanup();
+    if (typeof root.__pressSiteSingleLabelWidthCleanup === 'function') root.__pressSiteSingleLabelWidthCleanup();
   } catch (_) {}
-  try { root.__nsSiteSingleLabelWidthCleanup = null; } catch (_) {}
+  try { root.__pressSiteSingleLabelWidthCleanup = null; } catch (_) {}
   try {
-    if (typeof root.__nsSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__nsSiteNavFocusHandler);
+    if (typeof root.__pressSiteNavFocusHandler === 'function') root.removeEventListener('focusin', root.__pressSiteNavFocusHandler);
   } catch (_) {}
-  try { root.__nsSiteNavFocusHandler = null; } catch (_) {}
-  try { root.__nsSiteNavRefresh = null; } catch (_) {}
-  try { root.__nsSiteNavSetActive = null; } catch (_) {}
-  try { root.__nsSiteFirstSectionId = null; } catch (_) {}
-  try { root.__nsSiteRevealField = null; } catch (_) {}
+  try { root.__pressSiteNavFocusHandler = null; } catch (_) {}
+  try { root.__pressSiteNavRefresh = null; } catch (_) {}
+  try { root.__pressSiteNavSetActive = null; } catch (_) {}
+  try { root.__pressSiteFirstSectionId = null; } catch (_) {}
+  try { root.__pressSiteRevealField = null; } catch (_) {}
   if (!state || typeof state !== 'object') return;
   let site = state.site;
   if (!site || typeof site !== 'object') {
@@ -13612,7 +13612,7 @@ function buildSiteUI(root, state) {
   })();
   const preservedActiveLabel = (() => {
     if (!rootHadVisibleLayout) return '';
-    try { return String(root.__nsSiteActiveSection || '').trim(); }
+    try { return String(root.__pressSiteActiveSection || '').trim(); }
     catch (_) { return ''; }
   })();
 
@@ -13748,7 +13748,7 @@ function buildSiteUI(root, state) {
         try { meta.section.removeAttribute('hidden'); } catch (_) {}
         meta.section.classList.add('is-active');
         meta.section.setAttribute('aria-hidden', 'false');
-        try { root.__nsSiteActiveSection = meta.label || ''; } catch (_) {}
+        try { root.__pressSiteActiveSection = meta.label || ''; } catch (_) {}
         if (options.focusPanel) {
           const focusable = meta.section.querySelector('[data-autofocus], input:not([type="hidden"]), select, textarea, button:not([type="hidden"]), [tabindex]:not([tabindex="-1"])');
           if (focusable && typeof focusable.focus === 'function') focusTarget = focusable;
@@ -14035,8 +14035,8 @@ function buildSiteUI(root, state) {
   };
 
   try { root.addEventListener('focusin', focusHandler); } catch (_) {}
-  try { root.__nsSiteNavFocusHandler = focusHandler; } catch (_) {}
-  try { root.__nsSiteRevealField = revealField; } catch (_) {}
+  try { root.__pressSiteNavFocusHandler = focusHandler; } catch (_) {}
+  try { root.__pressSiteRevealField = revealField; } catch (_) {}
 
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
     const onScroll = () => scheduleScrollSync();
@@ -14073,13 +14073,13 @@ function buildSiteUI(root, state) {
       try { window.removeEventListener('resize', onResize); } catch (_) {}
       cancelScheduledScrollSync();
     };
-    try { root.__nsSiteScrollSyncCleanup = cleanup; }
+    try { root.__pressSiteScrollSyncCleanup = cleanup; }
     catch (_) { cleanup(); }
   }
 
-  try { root.__nsSiteNavRefresh = refreshNavDiffState; } catch (_) {}
-  try { root.__nsSiteNavSetActive = setActiveSection; } catch (_) {}
-  try { root.__nsSiteFirstSectionId = sectionsMeta[0] && sectionsMeta[0].id ? sectionsMeta[0].id : ''; } catch (_) {}
+  try { root.__pressSiteNavRefresh = refreshNavDiffState; } catch (_) {}
+  try { root.__pressSiteNavSetActive = setActiveSection; } catch (_) {}
+  try { root.__pressSiteFirstSectionId = sectionsMeta[0] && sectionsMeta[0].id ? sectionsMeta[0].id : ''; } catch (_) {}
 
   const markDirty = () => {
     setStateSlice('site', site);
@@ -14295,7 +14295,7 @@ function buildSiteUI(root, state) {
     addWrap.appendChild(addBtn);
 
     const menu = document.createElement('div');
-    menu.className = 'ns-menu';
+    menu.className = 'press-menu';
     menu.setAttribute('role', 'listbox');
     menu.hidden = true;
     addWrap.appendChild(menu);
@@ -14342,7 +14342,7 @@ function buildSiteUI(root, state) {
 
       menu.innerHTML = available
         .map((code) =>
-          `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
+          `<button type="button" role="option" class="press-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
         )
         .join('');
       if (!available.length) {
@@ -14396,10 +14396,10 @@ function buildSiteUI(root, state) {
       addBtn.classList.add('is-open');
       addWrap.classList.add('is-open');
       addBtn.setAttribute('aria-expanded', 'true');
-      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      try { menu.querySelector('.press-menu-item')?.focus(); } catch (_) {}
       document.addEventListener('mousedown', onDocDown, true);
       document.addEventListener('keydown', onKeyDown, true);
-      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+      menu.querySelectorAll('.press-menu-item').forEach((item) => {
         item.addEventListener('click', () => {
           const code = normalizeLangCode(item.getAttribute('data-lang'));
           if (!code) return;
@@ -14553,7 +14553,7 @@ function buildSiteUI(root, state) {
     addWrap.appendChild(addBtn);
 
     const menu = document.createElement('div');
-    menu.className = 'ns-menu';
+    menu.className = 'press-menu';
     menu.setAttribute('role', 'listbox');
     menu.hidden = true;
     addWrap.appendChild(menu);
@@ -14610,7 +14610,7 @@ function buildSiteUI(root, state) {
 
       menu.innerHTML = available
         .map((code) =>
-          `<button type="button" role="option" class="ns-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
+          `<button type="button" role="option" class="press-menu-item" data-lang="${escapeHtml(code)}">${escapeHtml(displayLangName(code))}</button>`
         )
         .join('');
       if (!available.length) {
@@ -14664,10 +14664,10 @@ function buildSiteUI(root, state) {
       addBtn.classList.add('is-open');
       addWrap.classList.add('is-open');
       addBtn.setAttribute('aria-expanded', 'true');
-      try { menu.querySelector('.ns-menu-item')?.focus(); } catch (_) {}
+      try { menu.querySelector('.press-menu-item')?.focus(); } catch (_) {}
       document.addEventListener('mousedown', onDocDown, true);
       document.addEventListener('keydown', onKeyDown, true);
-      menu.querySelectorAll('.ns-menu-item').forEach((item) => {
+      menu.querySelectorAll('.press-menu-item').forEach((item) => {
         item.addEventListener('click', () => {
           const code = normalizeLangCode(item.getAttribute('data-lang'));
           if (!code) return;
@@ -14894,7 +14894,7 @@ function buildSiteUI(root, state) {
         dataKey: 'avatar',
         label: t('editor.composer.site.fields.avatar'),
         description: t('editor.composer.site.fields.avatarHelp'),
-        placeholder: 'assets/avatar.jpeg',
+        placeholder: 'assets/avatar.png',
         get: () => site.avatar,
         set: (value) => { site.avatar = value; }
       },
@@ -16110,23 +16110,23 @@ function rebuildSiteUI() {
   /* Button when open looks attached to menu */
   .ci-add-lang .btn-secondary.is-open,.ct-add-lang .btn-secondary.is-open{border-bottom-left-radius:0;border-bottom-right-radius:0;background:color-mix(in srgb, var(--text) 5%, var(--card));border-color:color-mix(in srgb, var(--primary) 45%, var(--border));border-bottom:0 !important}
   /* Custom menu popup */
-  .ns-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:max-content;min-width:100%;max-width:min(320px,calc(100vw - 3rem));border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
-  .has-menu.is-open > .ns-menu{animation: ns-menu-in 160ms ease-out both}
-  @keyframes ns-menu-in{from{opacity:0; transform: translateY(-4px) scale(0.98);} to{opacity:1; transform: translateY(0) scale(1);} }
+  .press-menu{position:absolute;top:calc(100% - 1px);left:0;right:auto;z-index:101;border:1px solid var(--border);background:var(--card);box-shadow:var(--shadow);width:max-content;min-width:100%;max-width:min(320px,calc(100vw - 3rem));border-top:none;border-bottom-left-radius:8px;border-bottom-right-radius:8px;border-top-left-radius:0;border-top-right-radius:0;transform-origin: top left;}
+  .has-menu.is-open > .press-menu{animation: press-menu-in 160ms ease-out both}
+  @keyframes press-menu-in{from{opacity:0; transform: translateY(-4px) scale(0.98);} to{opacity:1; transform: translateY(0) scale(1);} }
   /* Closing animation */
-  .ns-menu.is-closing{animation: ns-menu-out 130ms ease-in both !important}
-  @keyframes ns-menu-out{from{opacity:1; transform: translateY(0) scale(1);} to{opacity:0; transform: translateY(-4px) scale(0.98);} }
-  .ns-menu .ns-menu-item{display:block;width:100%;text-align:left;background:transparent;color:var(--text);border:0 !important;border-bottom:0 !important;padding:.4rem .6rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .press-menu.is-closing{animation: press-menu-out 130ms ease-in both !important}
+  @keyframes press-menu-out{from{opacity:1; transform: translateY(0) scale(1);} to{opacity:0; transform: translateY(-4px) scale(0.98);} }
+  .press-menu .press-menu-item{display:block;width:100%;text-align:left;background:transparent;color:var(--text);border:0 !important;border-bottom:0 !important;padding:.4rem .6rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* Only draw a single divider: use top border on following items */
-  .ns-menu .ns-menu-item + .ns-menu-item{border-top:1px solid color-mix(in srgb, var(--text) 16%, var(--border))}
-  .ns-menu .ns-menu-item:hover{background:color-mix(in srgb, var(--text) 6%, var(--card))}
+  .press-menu .press-menu-item + .press-menu-item{border-top:1px solid color-mix(in srgb, var(--text) 16%, var(--border))}
+  .press-menu .press-menu-item:hover{background:color-mix(in srgb, var(--text) 6%, var(--card))}
   /* Make selects look like secondary buttons */
   .btn-like-select{appearance:none;-webkit-appearance:none;cursor:pointer;padding:.45rem .8rem;height:2.25rem;line-height:1}
   .btn-like-select:focus-visible{outline:2px solid color-mix(in srgb, var(--primary) 45%, transparent); outline-offset:2px}
   .dragging{opacity:.96}
   .drag-placeholder{border:1px dashed var(--border);border-radius:8px;background:transparent}
   .is-dragging-list{touch-action:none}
-  body.ns-noselect{user-select:none;cursor:grabbing}
+  body.press-noselect{user-select:none;cursor:grabbing}
   /* Simple badges for verify modal */
   .badge{display:inline-flex;align-items:center;gap:.25rem;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:.72rem;padding:.05rem .4rem;border-radius:999px}
   .badge-ver{ color: var(--primary); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); }
@@ -16170,7 +16170,7 @@ function rebuildSiteUI() {
   .comp-guide-head{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
   .comp-guide-head .muted{color:var(--muted);font-size:.88rem}
   /* Titlebar-like header inside modal */
-  .ns-modal-dialog .comp-guide-head{
+  .press-modal-dialog .comp-guide-head{
     display:flex;align-items:center;justify-content:space-between;gap:.6rem;
     background: color-mix(in srgb, var(--text) 6%, var(--card));
     border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, var(--border));
@@ -16181,9 +16181,9 @@ function rebuildSiteUI() {
     border-top-left-radius: 12px; border-top-right-radius: 12px;
     position: sticky; top: 0; z-index: 2;
   }
-  .ns-modal-dialog .comp-head-left{display:flex;align-items:baseline;gap:.6rem;min-width:0}
-  .ns-modal-dialog .comp-guide-head strong{font-weight:700}
-  .ns-modal-dialog .comp-guide-head .muted{opacity:.9}
+  .press-modal-dialog .comp-head-left{display:flex;align-items:baseline;gap:.6rem;min-width:0}
+  .press-modal-dialog .comp-guide-head strong{font-weight:700}
+  .press-modal-dialog .comp-guide-head .muted{opacity:.9}
   .comp-form{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;margin-bottom:.5rem}
   .comp-form label{display:flex;flex-direction:column;gap:.25rem;font-weight:600}
   .comp-form label{position:relative}
@@ -16233,51 +16233,51 @@ function rebuildSiteUI() {
   .comp-ok .comp-ok-text{font-size:.92rem; line-height:1.35}
   .btn-compact{height:1.9rem;padding:.2rem .55rem;font-size:.9rem}
   /* Unify button styles inside modal (anchors and buttons) */
-  .ns-modal-dialog .btn-secondary,
-  .ns-modal-dialog a.btn-secondary,
-  .ns-modal-dialog button.btn-secondary {
+  .press-modal-dialog .btn-secondary,
+  .press-modal-dialog a.btn-secondary,
+  .press-modal-dialog button.btn-secondary {
     display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
     height:2.25rem; padding:.45rem .8rem; border-radius:8px; font-size:.93rem; line-height:1;
     text-decoration:none; border:1px solid var(--border); background:var(--card); color:var(--text);
   }
-  .ns-modal-dialog a.btn-secondary:visited { color: var(--text); }
-  .ns-modal-dialog .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
+  .press-modal-dialog a.btn-secondary:visited { color: var(--text); }
+  .press-modal-dialog .btn-secondary:hover { background: color-mix(in srgb, var(--text) 5%, var(--card)); }
   /* GitHub green button variant (overrides theme packs) */
-  .ns-modal-dialog .btn-github,
-  .ns-modal-dialog a.btn-github,
-  .ns-modal-dialog button.btn-github {
+  .press-modal-dialog .btn-github,
+  .press-modal-dialog a.btn-github,
+  .press-modal-dialog button.btn-github {
     background:#428646 !important; color:#ffffff !important; border:1px solid #3d7741 !important; border-radius:8px !important;
   }
-  .ns-modal-dialog a.btn-github:visited { color:#ffffff !important; }
-  .ns-modal-dialog .btn-github:hover { background:#3d7741 !important; }
-  .ns-modal-dialog .btn-github:active { background:#298e46 !important; }
-  .ns-modal-dialog .btn-secondary[disabled],
-  .ns-modal-dialog button.btn-secondary[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
-  .ns-modal-dialog .btn-primary,
-  .ns-modal-dialog a.btn-primary,
-  .ns-modal-dialog button.btn-primary {
+  .press-modal-dialog a.btn-github:visited { color:#ffffff !important; }
+  .press-modal-dialog .btn-github:hover { background:#3d7741 !important; }
+  .press-modal-dialog .btn-github:active { background:#298e46 !important; }
+  .press-modal-dialog .btn-secondary[disabled],
+  .press-modal-dialog button.btn-secondary[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
+  .press-modal-dialog .btn-primary,
+  .press-modal-dialog a.btn-primary,
+  .press-modal-dialog button.btn-primary {
     display:inline-flex; align-items:center; justify-content:center; gap:.35rem;
     height:2.25rem; padding:.45rem .8rem; border-radius:8px; font-size:.93rem; line-height:1;
     text-decoration:none;
   }
-  .ns-modal-dialog .btn-primary[disabled],
-  .ns-modal-dialog button.btn-primary[disabled]{opacity:.6;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
-  .ns-modal-dialog a.btn-primary:visited { color: white; }
+  .press-modal-dialog .btn-primary[disabled],
+  .press-modal-dialog button.btn-primary[disabled]{opacity:.6;cursor:not-allowed;pointer-events:none;filter:grayscale(25%)}
+  .press-modal-dialog a.btn-primary:visited { color: white; }
 
   /* Simple modal for the Composer wizard */
-  .ns-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);z-index:9999;padding:1rem}
-  .ns-modal.is-open{display:flex}
+  .press-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.45);backdrop-filter:blur(3px);z-index:9999;padding:1rem}
+  .press-modal.is-open{display:flex}
   /* Nudge modal upward on short viewports */
   @media (max-height: 820px){
-    .ns-modal{align-items:flex-start;padding-top:calc(max(12px, env(safe-area-inset-top)) + 24px)}
+    .press-modal{align-items:flex-start;padding-top:calc(max(12px, env(safe-area-inset-top)) + 24px)}
   }
   /* Remove top padding so sticky header can sit flush */
-  .ns-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:0 .85rem .85rem}
-  .ns-modal-close{position:absolute;top:.5rem;right:.6rem;z-index:3}
+  .press-modal-dialog{position:relative;background:var(--card);color:var(--text);border:1px solid color-mix(in srgb, var(--primary) 28%, var(--border));border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,0.18),0 6px 18px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.06);width:min(92vw, 760px);max-height:min(90vh, 720px);overflow:auto;padding:0 .85rem .85rem}
+  .press-modal-close{position:absolute;top:.5rem;right:.6rem;z-index:3}
   /* When close button is inside the header, make it part of the flow */
-  .ns-modal-dialog .comp-guide-head .ns-modal-close{position:static;top:auto;right:auto;margin-left:auto}
-  body.ns-modal-open{overflow:hidden}
-  .ns-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
+  .press-modal-dialog .comp-guide-head .press-modal-close{position:static;top:auto;right:auto;margin-left:auto}
+  body.press-modal-open{overflow:hidden}
+  .press-modal-dialog .comp-guide{border:none;background:transparent;padding:0;margin:0}
 
   .composer-diff-tabs{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 -.85rem;padding:0 .85rem .6rem;border-bottom:1px solid color-mix(in srgb,var(--text) 14%, var(--border));background:transparent}
   .composer-diff-tab{position:relative;border:0;background:none;padding:.48rem .92rem;border-radius:999px;font-weight:600;font-size:.93rem;color:color-mix(in srgb,var(--text) 68%, transparent);cursor:pointer;transition:color 160ms ease, background-color 160ms ease, transform 160ms ease}
@@ -16542,15 +16542,15 @@ function rebuildSiteUI() {
   @keyframes nsModalFadeOut { from { opacity: 1 } to { opacity: 0 } }
   @keyframes nsModalSlideIn { from { transform: translateY(10px) scale(.98); opacity: 0 } to { transform: translateY(0) scale(1); opacity: 1 } }
   @keyframes nsModalSlideOut { from { transform: translateY(0) scale(1); opacity: 1 } to { transform: translateY(8px) scale(.98); opacity: 0 } }
-  .ns-modal.ns-anim-in { animation: nsModalFadeIn 160ms ease both; }
-  .ns-modal.ns-anim-out { animation: nsModalFadeOut 160ms ease both; }
-  .ns-modal.ns-anim-in .ns-modal-dialog { animation: nsModalSlideIn 200ms cubic-bezier(.2,.95,.4,1) both; }
-  .ns-modal.ns-anim-out .ns-modal-dialog { animation: nsModalSlideOut 160ms ease both; }
+  .press-modal.press-anim-in { animation: nsModalFadeIn 160ms ease both; }
+  .press-modal.press-anim-out { animation: nsModalFadeOut 160ms ease both; }
+  .press-modal.press-anim-in .press-modal-dialog { animation: nsModalSlideIn 200ms cubic-bezier(.2,.95,.4,1) both; }
+  .press-modal.press-anim-out .press-modal-dialog { animation: nsModalSlideOut 160ms ease both; }
   @media (prefers-reduced-motion: reduce){
-    .ns-modal.ns-anim-in,
-    .ns-modal.ns-anim-out,
-    .ns-modal.ns-anim-in .ns-modal-dialog,
-    .ns-modal.ns-anim-out .ns-modal-dialog { animation: none !important; }
+    .press-modal.press-anim-in,
+    .press-modal.press-anim-out,
+    .press-modal.press-anim-in .press-modal-dialog,
+    .press-modal.press-anim-out .press-modal-dialog { animation: none !important; }
   }
   `;
   const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);

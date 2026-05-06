@@ -11,7 +11,7 @@ function escapeHtml(text) {
     : null;
 }
 
-export function renderNanoPostCardHtml({
+export function renderPressPostCardHtml({
   title = '',
   href = '#',
   dataIdx = '',
@@ -46,5 +46,5 @@ export function renderNanoPostCardHtml({
       return ` ${attr}="${safe(String(classes[key]))}"`;
     })
     .join('');
-  return `<nano-post-card href="${safe(href)}" title="${safe(title)}" data-idx="${safe(dataIdx || encodeURIComponent(title || ''))}" date="${safe(date)}" excerpt="${safe(excerpt)}" versions-label="${safe(versionsLabel)}" draft-label="${safe(draftLabel)}"${classAttrs}><template data-slot="cover">${coverHtml || ''}</template><template data-slot="tags">${tagsHtml || ''}</template></nano-post-card>`;
+  return `<press-post-card href="${safe(href)}" title="${safe(title)}" data-idx="${safe(dataIdx || encodeURIComponent(title || ''))}" date="${safe(date)}" excerpt="${safe(excerpt)}" versions-label="${safe(versionsLabel)}" draft-label="${safe(draftLabel)}"${classAttrs}><template data-slot="cover">${coverHtml || ''}</template><template data-slot="tags">${tagsHtml || ''}</template></press-post-card>`;
 }

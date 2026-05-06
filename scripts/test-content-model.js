@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 
 globalThis.document = {
-  title: 'NanoSite',
+  title: 'Press',
   baseURI: 'http://example.test/'
 };
 globalThis.window = {
   location: {
+    href: 'http://example.test/index.html',
+    pathname: '/index.html',
     protocol: 'http:',
     search: '',
     origin: 'http://example.test'
@@ -15,6 +17,7 @@ globalThis.location = globalThis.window.location;
 
 const { createContentModel } = await import('../assets/js/content-model.js');
 const { mdParse } = await import('../assets/js/markdown.js');
+const { extractSEOFromMarkdown } = await import('../assets/js/seo.js');
 
 const markdown = `---
 title: Contract Test
@@ -69,5 +72,35 @@ assert.equal(model.metadata.location, 'post/example.md', 'runtime metadata shoul
 assert.equal(model.assets[0].url, 'wwwroot/post/example/cover.jpeg', 'assets should resolve relative to baseDir');
 assert.ok(model.links.some((link) => link.href === '?id=post/example.md' && link.internal), 'internal links should be identified');
 assert.ok(model.links.some((link) => link.href === 'https://example.com' && !link.internal), 'external links should be identified');
+
+const siteConfig = {
+  siteURL: 'https://ekilyhq.github.io/Press/',
+  contentRoot: 'wwwroot'
+};
+const rootRelativeSeo = extractSEOFromMarkdown(`---
+title: Root Image
+image: /assets/hero.jpeg
+---
+
+# Root Image
+`, { location: 'post/example.md' }, siteConfig);
+assert.equal(
+  rootRelativeSeo.image,
+  'https://ekilyhq.github.io/Press/assets/hero.jpeg',
+  'root-relative SEO images should resolve from the public site root, not the content root'
+);
+
+const contentRelativeSeo = extractSEOFromMarkdown(`---
+title: Content Image
+image: hero.jpeg
+---
+
+# Content Image
+`, { location: 'post/main/v1.0.0/main_en.md' }, siteConfig);
+assert.equal(
+  contentRelativeSeo.image,
+  'https://ekilyhq.github.io/Press/wwwroot/post/main/v1.0.0/hero.jpeg',
+  'content-relative SEO images should continue resolving from the markdown folder'
+);
 
 console.log('ok - content model');

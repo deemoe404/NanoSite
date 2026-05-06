@@ -1,309 +1,309 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://nano.dee.moe/</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/"/>
-    <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?lang=ja"/>
-    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?lang=chs"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/"/>
+    <loc>https://ekilyhq.github.io/Press/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?lang=ja"/>
+    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?lang=chs"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/"/>
     <lastmod>2025-10-01</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
     <url>
-      <loc>https://nano.dee.moe/?lang=ja</loc>
-      <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/"/>
-      <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?lang=ja"/>
-      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?lang=chs"/>
-      <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/"/>
+      <loc>https://ekilyhq.github.io/Press/?lang=ja</loc>
+      <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/"/>
+      <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?lang=ja"/>
+      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?lang=chs"/>
+      <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/"/>
       <lastmod>2025-10-01</lastmod>
       <changefreq>weekly</changefreq>
       <priority>1.0</priority>
     </url>
       <url>
-        <loc>https://nano.dee.moe/?lang=chs</loc>
-        <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/"/>
-        <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?lang=ja"/>
-        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?lang=chs"/>
-        <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/"/>
+        <loc>https://ekilyhq.github.io/Press/?lang=chs</loc>
+        <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?lang=ja"/>
+        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?lang=chs"/>
+        <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/"/>
         <lastmod>2025-10-01</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
       </url>
         <url>
-          <loc>https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en</loc>
-          <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en"/>
-          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs"/>
-          <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja"/>
-          <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md"/>
+          <loc>https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en</loc>
+          <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en"/>
+          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs"/>
+          <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja"/>
+          <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md"/>
           <lastmod>2025-10-01</lastmod>
           <changefreq>monthly</changefreq>
           <priority>0.8</priority>
         </url>
           <url>
-            <loc>https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs</loc>
-            <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en"/>
-            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs"/>
-            <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja"/>
-            <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md"/>
+            <loc>https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs</loc>
+            <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en"/>
+            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs"/>
+            <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja"/>
+            <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md"/>
             <lastmod>2025-10-01</lastmod>
             <changefreq>monthly</changefreq>
             <priority>0.8</priority>
           </url>
             <url>
-              <loc>https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja</loc>
-              <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en"/>
-              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs"/>
-              <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja"/>
-              <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md"/>
+              <loc>https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja</loc>
+              <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md&amp;lang=en"/>
+              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_chs.md&amp;lang=chs"/>
+              <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_ja.md&amp;lang=ja"/>
+              <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv1.0.0%2Fmain_en.md"/>
               <lastmod>2025-10-01</lastmod>
               <changefreq>monthly</changefreq>
               <priority>0.8</priority>
             </url>
               <url>
-                <loc>https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en</loc>
-                <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en"/>
-                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs"/>
-                <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja"/>
-                <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md"/>
+                <loc>https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en</loc>
+                <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en"/>
+                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs"/>
+                <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja"/>
+                <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md"/>
                 <lastmod>2025-10-01</lastmod>
                 <changefreq>monthly</changefreq>
                 <priority>0.8</priority>
               </url>
                 <url>
-                  <loc>https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs</loc>
-                  <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en"/>
-                  <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs"/>
-                  <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja"/>
-                  <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md"/>
+                  <loc>https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs</loc>
+                  <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en"/>
+                  <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs"/>
+                  <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja"/>
+                  <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md"/>
                   <lastmod>2025-10-01</lastmod>
                   <changefreq>monthly</changefreq>
                   <priority>0.8</priority>
                 </url>
                   <url>
-                    <loc>https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja</loc>
-                    <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en"/>
-                    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs"/>
-                    <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja"/>
-                    <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md"/>
+                    <loc>https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja</loc>
+                    <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md&amp;lang=en"/>
+                    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_chs.md&amp;lang=chs"/>
+                    <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_ja.md&amp;lang=ja"/>
+                    <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fmain%2Fv2.0.0%2Fmain_en.md"/>
                     <lastmod>2025-10-01</lastmod>
                     <changefreq>monthly</changefreq>
                     <priority>0.8</priority>
                   </url>
                     <url>
-                      <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en</loc>
-                      <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en"/>
-                      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs"/>
-                      <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja"/>
-                      <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md"/>
+                      <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en</loc>
+                      <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en"/>
+                      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs"/>
+                      <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja"/>
+                      <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md"/>
                       <lastmod>2025-10-01</lastmod>
                       <changefreq>monthly</changefreq>
                       <priority>0.8</priority>
                     </url>
                       <url>
-                        <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs</loc>
-                        <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en"/>
-                        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs"/>
-                        <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja"/>
-                        <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md"/>
+                        <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs</loc>
+                        <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en"/>
+                        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs"/>
+                        <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja"/>
+                        <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md"/>
                         <lastmod>2025-10-01</lastmod>
                         <changefreq>monthly</changefreq>
                         <priority>0.8</priority>
                       </url>
                         <url>
-                          <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja</loc>
-                          <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en"/>
-                          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs"/>
-                          <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja"/>
-                          <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md"/>
+                          <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja</loc>
+                          <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md&amp;lang=en"/>
+                          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_chs.md&amp;lang=chs"/>
+                          <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_ja.md&amp;lang=ja"/>
+                          <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv1.0.0%2Fdoc_en.md"/>
                           <lastmod>2025-10-01</lastmod>
                           <changefreq>monthly</changefreq>
                           <priority>0.8</priority>
                         </url>
                           <url>
-                            <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en</loc>
-                            <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en"/>
-                            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs"/>
-                            <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja"/>
-                            <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md"/>
+                            <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en</loc>
+                            <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en"/>
+                            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs"/>
+                            <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja"/>
+                            <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md"/>
                             <lastmod>2025-10-01</lastmod>
                             <changefreq>monthly</changefreq>
                             <priority>0.8</priority>
                           </url>
                             <url>
-                              <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs</loc>
-                              <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en"/>
-                              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs"/>
-                              <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja"/>
-                              <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md"/>
+                              <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs</loc>
+                              <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en"/>
+                              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs"/>
+                              <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja"/>
+                              <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md"/>
                               <lastmod>2025-10-01</lastmod>
                               <changefreq>monthly</changefreq>
                               <priority>0.8</priority>
                             </url>
                               <url>
-                                <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja</loc>
-                                <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en"/>
-                                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs"/>
-                                <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja"/>
-                                <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md"/>
+                                <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja</loc>
+                                <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md&amp;lang=en"/>
+                                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_chs.md&amp;lang=chs"/>
+                                <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_ja.md&amp;lang=ja"/>
+                                <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.0.0%2Fdoc_en.md"/>
                                 <lastmod>2025-10-01</lastmod>
                                 <changefreq>monthly</changefreq>
                                 <priority>0.8</priority>
                               </url>
                                 <url>
-                                  <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en</loc>
-                                  <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en"/>
-                                  <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs"/>
-                                  <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja"/>
-                                  <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md"/>
+                                  <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en</loc>
+                                  <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en"/>
+                                  <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs"/>
+                                  <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja"/>
+                                  <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md"/>
                                   <lastmod>2025-10-01</lastmod>
                                   <changefreq>monthly</changefreq>
                                   <priority>0.8</priority>
                                 </url>
                                   <url>
-                                    <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs</loc>
-                                    <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en"/>
-                                    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs"/>
-                                    <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja"/>
-                                    <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md"/>
+                                    <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs</loc>
+                                    <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en"/>
+                                    <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs"/>
+                                    <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja"/>
+                                    <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md"/>
                                     <lastmod>2025-10-01</lastmod>
                                     <changefreq>monthly</changefreq>
                                     <priority>0.8</priority>
                                   </url>
                                     <url>
-                                      <loc>https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja</loc>
-                                      <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en"/>
-                                      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs"/>
-                                      <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja"/>
-                                      <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md"/>
+                                      <loc>https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja</loc>
+                                      <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&amp;lang=en"/>
+                                      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_chs.md&amp;lang=chs"/>
+                                      <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_ja.md&amp;lang=ja"/>
+                                      <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md"/>
                                       <lastmod>2025-10-01</lastmod>
                                       <changefreq>monthly</changefreq>
                                       <priority>0.8</priority>
                                     </url>
                                       <url>
-                                        <loc>https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en</loc>
-                                        <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en"/>
-                                        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs"/>
-                                        <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja"/>
-                                        <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md"/>
+                                        <loc>https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en</loc>
+                                        <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en"/>
+                                        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs"/>
+                                        <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja"/>
+                                        <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md"/>
                                         <lastmod>2025-10-01</lastmod>
                                         <changefreq>monthly</changefreq>
                                         <priority>0.8</priority>
                                       </url>
                                         <url>
-                                          <loc>https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs</loc>
-                                          <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en"/>
-                                          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs"/>
-                                          <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja"/>
-                                          <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md"/>
+                                          <loc>https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs</loc>
+                                          <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en"/>
+                                          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs"/>
+                                          <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja"/>
+                                          <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md"/>
                                           <lastmod>2025-10-01</lastmod>
                                           <changefreq>monthly</changefreq>
                                           <priority>0.8</priority>
                                         </url>
                                           <url>
-                                            <loc>https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja</loc>
-                                            <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en"/>
-                                            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs"/>
-                                            <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja"/>
-                                            <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fpage%2Fgithubpages_en.md"/>
+                                            <loc>https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja</loc>
+                                            <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md&amp;lang=en"/>
+                                            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_chs.md&amp;lang=chs"/>
+                                            <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_ja.md&amp;lang=ja"/>
+                                            <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md"/>
                                             <lastmod>2025-10-01</lastmod>
                                             <changefreq>monthly</changefreq>
                                             <priority>0.8</priority>
                                           </url>
                                             <url>
-                                              <loc>https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md&amp;lang=en</loc>
-                                              <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md&amp;lang=en"/>
-                                              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs"/>
-                                              <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja"/>
-                                              <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md"/>
+                                              <loc>https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md&amp;lang=en</loc>
+                                              <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md&amp;lang=en"/>
+                                              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs"/>
+                                              <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja"/>
+                                              <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md"/>
                                               <lastmod>2025-10-01</lastmod>
                                               <changefreq>monthly</changefreq>
                                               <priority>0.8</priority>
                                             </url>
                                               <url>
-                                                <loc>https://nano.dee.moe/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs</loc>
-                                                <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md&amp;lang=en"/>
-                                                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs"/>
-                                                <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja"/>
-                                                <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md"/>
+                                                <loc>https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs</loc>
+                                                <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md&amp;lang=en"/>
+                                                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs"/>
+                                                <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja"/>
+                                                <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md"/>
                                                 <lastmod>2025-10-01</lastmod>
                                                 <changefreq>monthly</changefreq>
                                                 <priority>0.8</priority>
                                               </url>
                                                 <url>
-                                                  <loc>https://nano.dee.moe/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja</loc>
-                                                  <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md&amp;lang=en"/>
-                                                  <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs"/>
-                                                  <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja"/>
-                                                  <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Fseo%2Fseo_en.md"/>
+                                                  <loc>https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja</loc>
+                                                  <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md&amp;lang=en"/>
+                                                  <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_chs.md&amp;lang=chs"/>
+                                                  <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_ja.md&amp;lang=ja"/>
+                                                  <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Fseo%2Fseo_en.md"/>
                                                   <lastmod>2025-10-01</lastmod>
                                                   <changefreq>monthly</changefreq>
                                                   <priority>0.8</priority>
                                                 </url>
                                                   <url>
-                                                    <loc>https://nano.dee.moe/?id=post%2Ftestpost%2Fmain_en.md&amp;lang=en</loc>
-                                                    <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?id=post%2Ftestpost%2Fmain_en.md&amp;lang=en"/>
-                                                    <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?id=post%2Ftestpost%2Fmain_en.md"/>
+                                                    <loc>https://ekilyhq.github.io/Press/?id=post%2Ftestpost%2Fmain_en.md&amp;lang=en</loc>
+                                                    <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?id=post%2Ftestpost%2Fmain_en.md&amp;lang=en"/>
+                                                    <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?id=post%2Ftestpost%2Fmain_en.md"/>
                                                     <lastmod>2025-10-01</lastmod>
                                                     <changefreq>monthly</changefreq>
                                                     <priority>0.8</priority>
                                                   </url>
                                                     <url>
-                                                      <loc>https://nano.dee.moe/?tab=history&amp;lang=en</loc>
-                                                      <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?tab=history&amp;lang=en"/>
-                                                      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?tab=history&amp;lang=chs"/>
-                                                      <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?tab=history&amp;lang=ja"/>
-                                                      <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?tab=history"/>
+                                                      <loc>https://ekilyhq.github.io/Press/?tab=history&amp;lang=en</loc>
+                                                      <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=en"/>
+                                                      <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=chs"/>
+                                                      <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=ja"/>
+                                                      <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?tab=history"/>
                                                       <lastmod>2025-10-01</lastmod>
                                                       <changefreq>monthly</changefreq>
                                                       <priority>0.6</priority>
                                                     </url>
                                                       <url>
-                                                        <loc>https://nano.dee.moe/?tab=history&amp;lang=chs</loc>
-                                                        <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?tab=history&amp;lang=en"/>
-                                                        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?tab=history&amp;lang=chs"/>
-                                                        <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?tab=history&amp;lang=ja"/>
-                                                        <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?tab=history"/>
+                                                        <loc>https://ekilyhq.github.io/Press/?tab=history&amp;lang=chs</loc>
+                                                        <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=en"/>
+                                                        <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=chs"/>
+                                                        <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=ja"/>
+                                                        <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?tab=history"/>
                                                         <lastmod>2025-10-01</lastmod>
                                                         <changefreq>monthly</changefreq>
                                                         <priority>0.6</priority>
                                                       </url>
                                                         <url>
-                                                          <loc>https://nano.dee.moe/?tab=history&amp;lang=ja</loc>
-                                                          <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?tab=history&amp;lang=en"/>
-                                                          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?tab=history&amp;lang=chs"/>
-                                                          <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?tab=history&amp;lang=ja"/>
-                                                          <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?tab=history"/>
+                                                          <loc>https://ekilyhq.github.io/Press/?tab=history&amp;lang=ja</loc>
+                                                          <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=en"/>
+                                                          <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=chs"/>
+                                                          <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?tab=history&amp;lang=ja"/>
+                                                          <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?tab=history"/>
                                                           <lastmod>2025-10-01</lastmod>
                                                           <changefreq>monthly</changefreq>
                                                           <priority>0.6</priority>
                                                         </url>
                                                           <url>
-                                                            <loc>https://nano.dee.moe/?tab=about&amp;lang=en</loc>
-                                                            <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?tab=about&amp;lang=en"/>
-                                                            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?tab=about&amp;lang=chs"/>
-                                                            <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?tab=about&amp;lang=ja"/>
-                                                            <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?tab=about"/>
+                                                            <loc>https://ekilyhq.github.io/Press/?tab=about&amp;lang=en</loc>
+                                                            <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=en"/>
+                                                            <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=chs"/>
+                                                            <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=ja"/>
+                                                            <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?tab=about"/>
                                                             <lastmod>2025-10-01</lastmod>
                                                             <changefreq>monthly</changefreq>
                                                             <priority>0.6</priority>
                                                           </url>
                                                             <url>
-                                                              <loc>https://nano.dee.moe/?tab=about&amp;lang=chs</loc>
-                                                              <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?tab=about&amp;lang=en"/>
-                                                              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?tab=about&amp;lang=chs"/>
-                                                              <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?tab=about&amp;lang=ja"/>
-                                                              <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?tab=about"/>
+                                                              <loc>https://ekilyhq.github.io/Press/?tab=about&amp;lang=chs</loc>
+                                                              <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=en"/>
+                                                              <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=chs"/>
+                                                              <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=ja"/>
+                                                              <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?tab=about"/>
                                                               <lastmod>2025-10-01</lastmod>
                                                               <changefreq>monthly</changefreq>
                                                               <priority>0.6</priority>
                                                             </url>
                                                               <url>
-                                                                <loc>https://nano.dee.moe/?tab=about&amp;lang=ja</loc>
-                                                                <xhtml:link rel="alternate" hreflang="en" href="https://nano.dee.moe/?tab=about&amp;lang=en"/>
-                                                                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://nano.dee.moe/?tab=about&amp;lang=chs"/>
-                                                                <xhtml:link rel="alternate" hreflang="ja" href="https://nano.dee.moe/?tab=about&amp;lang=ja"/>
-                                                                <xhtml:link rel="alternate" hreflang="x-default" href="https://nano.dee.moe/?tab=about"/>
+                                                                <loc>https://ekilyhq.github.io/Press/?tab=about&amp;lang=ja</loc>
+                                                                <xhtml:link rel="alternate" hreflang="en" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=en"/>
+                                                                <xhtml:link rel="alternate" hreflang="zh-Hans" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=chs"/>
+                                                                <xhtml:link rel="alternate" hreflang="ja" href="https://ekilyhq.github.io/Press/?tab=about&amp;lang=ja"/>
+                                                                <xhtml:link rel="alternate" hreflang="x-default" href="https://ekilyhq.github.io/Press/?tab=about"/>
                                                                 <lastmod>2025-10-01</lastmod>
                                                                 <changefreq>monthly</changefreq>
                                                                 <priority>0.6</priority>

@@ -57,7 +57,7 @@ export function mount(context = {}) {
   mainview.setAttribute('data-theme-region', 'main');
 
   const tocview = ensureElement(main, '[data-theme-region="toc"], .solstice-toc', () => {
-    const el = doc.createElement('nano-toc');
+    const el = doc.createElement('press-toc');
     el.id = TOCVIEW_ID;
     el.className = 'solstice-toc';
     el.setAttribute('data-theme-region', 'toc');
@@ -66,7 +66,7 @@ export function mount(context = {}) {
     return el;
   });
   tocview.setAttribute('data-theme-region', 'toc');
-  if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
+  if (tocview.tagName && tocview.tagName.toLowerCase() === 'press-toc') {
     tocview.setAttribute('inner-class', 'solstice-toc__inner');
     tocview.setAttribute('title-class', 'solstice-toc__title');
     tocview.setAttribute('show-top', 'false');
@@ -94,13 +94,13 @@ export function mount(context = {}) {
           </div>
         </div>
         <section class="solstice-footer__meta" aria-label="Site meta">
-          <div class="solstice-footer__credit">NanoSite</div>
-          <nano-search class="solstice-footer__search" field-class="solstice-search" icon-class="solstice-search__icon" icon="&#128269;" aria-label="Search"></nano-search>
+          <div class="solstice-footer__credit">Press</div>
+          <press-search class="solstice-footer__search" field-class="solstice-search" icon-class="solstice-search__icon" icon="&#128269;" aria-label="Search"></press-search>
         </section>
       </div>`;
     return el;
   });
-  const footerSearch = footer.querySelector('nano-search');
+  const footerSearch = footer.querySelector('press-search');
   if (footerSearch) {
     footerSearch.setAttribute('field-class', 'solstice-search');
     footerSearch.setAttribute('icon-class', 'solstice-search__icon');

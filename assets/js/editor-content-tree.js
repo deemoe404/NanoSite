@@ -375,7 +375,7 @@ export function buildEditorContentTree(input = {}, options = {}) {
         kind: 'system',
         source: 'system',
         key: 'updates',
-        label: options.updatesLabel || 'NanoSite Updates',
+        label: options.updatesLabel || 'Press Updates',
         children: []
       }, statusMaps),
       makeNode({

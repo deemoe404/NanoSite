@@ -31,13 +31,13 @@ export function mount(context = {}) {
             <img class="cartograph-brand__logo" data-site-logo alt="" loading="lazy" decoding="async" hidden />
           </span>
           <span class="cartograph-brand__copy">
-            <span class="cartograph-brand__title" data-site-title>NanoSite</span>
+            <span class="cartograph-brand__title" data-site-title>Press</span>
             <span class="cartograph-brand__subtitle" data-site-subtitle></span>
           </span>
         </a>
       </div>
       <nav class="cartograph-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
-      <nano-search class="cartograph-search" data-theme-region="search" render-root="shadow" field-class="cartograph-search__field" icon-class="cartograph-search__icon" icon="/" aria-label="Search"></nano-search>
+      <press-search class="cartograph-search" data-theme-region="search" render-root="shadow" field-class="cartograph-search__field" icon-class="cartograph-search__icon" icon="/" aria-label="Search"></press-search>
       <section class="cartograph-tools" data-theme-region="toolsPanel" aria-label="Site tools"></section>
     </header>
     <div class="cartograph-progress" aria-hidden="true"><span></span></div>
@@ -46,7 +46,7 @@ export function mount(context = {}) {
         <aside class="cartograph-rail" data-theme-region="rail" aria-label="Site dossier">
           <section class="cartograph-rail__card cartograph-rail__card--identity">
             <div class="cartograph-rail__label">origin</div>
-            <div class="cartograph-rail__title" data-site-title-rail>NanoSite</div>
+            <div class="cartograph-rail__title" data-site-title-rail>Press</div>
             <div class="cartograph-rail__subtitle" data-site-subtitle-rail></div>
           </section>
           <section class="cartograph-rail__card cartograph-rail__card--links">
@@ -58,7 +58,7 @@ export function mount(context = {}) {
           <section class="cartograph-mainview" data-theme-region="main" tabindex="-1"></section>
         </main>
         <aside class="cartograph-legend" data-theme-region="legend" aria-label="Route legend">
-          <nano-toc class="cartograph-toc" data-theme-region="toc" inner-class="cartograph-toc__inner" title-class="cartograph-toc__title" show-top="false" aria-label="Table of contents" hidden></nano-toc>
+          <press-toc class="cartograph-toc" data-theme-region="toc" inner-class="cartograph-toc__inner" title-class="cartograph-toc__title" show-top="false" aria-label="Table of contents" hidden></press-toc>
           <section class="cartograph-panel cartograph-panel--route" data-theme-region="routeMap" data-cartograph-route-map hidden></section>
           <section class="cartograph-panel cartograph-panel--media" data-theme-region="mediaPanel" data-cartograph-media hidden></section>
           <section class="cartograph-panel cartograph-panel--links" data-theme-region="linksPanel" data-cartograph-links hidden></section>
@@ -67,11 +67,11 @@ export function mount(context = {}) {
       </div>
     </div>
     <footer class="cartograph-footer" role="contentinfo">
-      <div class="cartograph-footer__credit">NanoSite</div>
+      <div class="cartograph-footer__credit">Press</div>
       <nav class="cartograph-footer__nav" data-theme-region="footerNav" aria-label="Secondary navigation"></nav>
     </footer>`;
 
-  const search = shell.querySelector('nano-search');
+  const search = shell.querySelector('press-search');
   const findRegion = (name) => shell.querySelector(`[data-theme-region="${name}"]`);
   const regions = {
     container: shell,

@@ -1,19 +1,19 @@
 ---
-title: NanoSite のご紹介
+title: Press のご紹介
 date: 2025-08-17
 version: v1.0.0
 tags:
-  - NanoSite
+  - Press
   - 技術
 image: hero.jpeg
 excerpt: プレーンテキスト（Markdown）からシンプルな個人サイトを作成。ビルドツールもデータベースも不要—ファイルを編集して公開するだけ。ブログ、メモ、Wiki、日記、書籍の各章に最適です。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ![hero](hero.jpeg)
 
-ソースコード: [GitHub の NanoSite](https://github.com/deemoe404/NanoSite)
+ソースコード: [GitHub の Press](https://github.com/EkilyHQ/Press)
 
 ## 主な特長
 
@@ -27,7 +27,7 @@ ai: true
 
 ## 5分でクイックスタート
 
-1) **[GitHub](https://github.com/deemoe404/NanoSite/) からプロジェクトを入手**: フォークするか、ZIP をダウンロードして解凍。
+1) **[GitHub](https://github.com/EkilyHQ/Press/) からプロジェクトを入手**: フォークするか、ZIP をダウンロードして解凍。
 2) **ローカルでプレビュー**（推奨）
    - プロジェクトフォルダで簡易サーバーを起動:
      - macOS/Linux: `python3 -m http.server 8000`
@@ -63,4 +63,4 @@ ai: true
    }
    ```
 
-🎉 おめでとうございます！NanoSite のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。さらにカスタマイズする場合は[ドキュメント](?id=post/meet-nanosite/doc_ja.md)をご覧ください。
+🎉 おめでとうございます！Press のセットアップが完了しました。ページを再読み込みすると、ホームに投稿カードが表示されます。クリックすると読めます。さらにカスタマイズする場合は[ドキュメント](?id=post/meet-press/doc_ja.md)をご覧ください。

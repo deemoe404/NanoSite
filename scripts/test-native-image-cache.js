@@ -58,7 +58,7 @@ const documentRef = {
 };
 
 const windowRef = {
-  __ns_themeHooks: {},
+  __press_themeHooks: {},
   location: { href: 'https://example.test/', pathname: '/' },
   addEventListener() {},
   removeEventListener() {},
@@ -84,12 +84,12 @@ globalThis.fetch = async (url, init) => {
 
 const { mount } = await import('../assets/themes/native/modules/interactions.js?native-image-cache-test');
 
-mount({ window: windowRef, document: documentRef });
-windowRef.__ns_themeHooks.renderSiteIdentity({
-  config: { siteTitle: 'NanoSite', siteSubtitle: 'Fast images', avatar: 'assets/avatar.jpeg' }
+const nativeTheme = mount({ window: windowRef, document: documentRef });
+nativeTheme.effects.renderSiteIdentity({
+  config: { siteTitle: 'Press', siteSubtitle: 'Fast images', avatar: 'assets/avatar.png' }
 });
 
 assert.equal(fetchCalls.length, 0);
-assert.equal(attrs.get('src'), 'assets/avatar.jpeg');
+assert.equal(attrs.get('src'), 'assets/avatar.png');
 
 console.log('ok - native local images use browser image cache instead of no-store fetch');

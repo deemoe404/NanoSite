@@ -10,8 +10,8 @@ const failures = [];
 const REQUIRED_VIEWS = ['post', 'posts', 'search', 'tab', 'error', 'loading'];
 const REQUIRED_REGIONS = ['main', 'toc', 'search', 'nav', 'tags', 'footer'];
 const REQUIRED_CONTENT_SHAPES = ['rawMarkdown', 'html', 'blocks', 'tocTree', 'headings', 'metadata', 'assets', 'links'];
-const REQUIRED_COMPONENTS = ['nano-search', 'nano-toc', 'nano-post-card'];
-const REQUIRED_STYLE_TOKENS = ['--ns-color-text', '--ns-color-surface', '--ns-font-body', '--ns-radius-card', '--ns-space-page'];
+const REQUIRED_COMPONENTS = ['press-search', 'press-toc', 'press-post-card'];
+const REQUIRED_STYLE_TOKENS = ['--press-color-text', '--press-color-surface', '--press-font-body', '--press-radius-card', '--press-space-page'];
 const LEGACY_IDS = ['mainview', 'tocview', 'searchInput', 'tabsNav', 'tagview'];
 const PURE_THEME_NAMES = new Set(['arcus', 'cartograph', 'native', 'solstice']);
 const CORE_RUNTIME_FILES = [
@@ -134,8 +134,8 @@ const contentModelSource = read(path.join(root, 'assets', 'js', 'content-model.j
 const docsSource = read(path.join(root, 'docs', 'theme-contract.md'));
 
 REQUIRED_COMPONENTS.forEach((component) => {
-  const localName = component.replace(/^nano-/, '');
-  const className = `Nano${localName.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}`;
+  const localName = component.replace(/^press-/, '');
+  const className = `Press${localName.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('')}`;
   if (!componentSource.includes(`defineElement('${component}'`) || !componentSource.includes(`class ${className}`)) {
     fail(`assets/js/components.js must define shared component ${component}`);
   }
@@ -269,8 +269,8 @@ themeNames.forEach((themeName) => {
     fail(`${relManifest} theme modules must read i18n from ctx.i18n instead of importing js/i18n.js directly`);
   }
   if (isPureTheme) {
-    if (/__ns_themeHooks/.test(moduleSource)) {
-      fail(`${relManifest} pure theme modules must not write window.__ns_themeHooks`);
+    if (/__press_themeHooks/.test(moduleSource)) {
+      fail(`${relManifest} pure theme modules must not write window.__press_themeHooks`);
     }
     LEGACY_IDS.forEach((id) => {
       const directId = new RegExp(`getElementById\\(\\s*['"]${escapeRe(id)}['"]\\s*\\)`);

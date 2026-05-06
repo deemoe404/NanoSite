@@ -24,7 +24,7 @@ function translate(context = {}, params = {}) {
     if (context.i18n && typeof context.i18n.t === 'function') return context.i18n.t;
   } catch (_) {}
   try {
-    if (typeof window !== 'undefined' && typeof window.__ns_t === 'function') return window.__ns_t;
+    if (typeof window !== 'undefined' && typeof window.__press_t === 'function') return window.__press_t;
   } catch (_) {}
   return (key, ...args) => (args.length ? `${key} ${args.join(' ')}` : String(key || ''));
 }
@@ -212,7 +212,7 @@ function hideElement(element, onDone) {
 }
 
 function updateSearchPlaceholder(context = {}, params = {}) {
-  const search = getRegion(context, ['search', 'searchBox'], 'nano-search.cartograph-search');
+  const search = getRegion(context, ['search', 'searchBox'], 'press-search.cartograph-search');
   const placeholder = params.placeholder || translate(context, params)('sidebar.searchPlaceholder');
   if (search && typeof search.setPlaceholder === 'function') {
     search.setPlaceholder(placeholder);
@@ -413,7 +413,7 @@ function createEffects(context = {}) {
     },
 
     renderSiteIdentity({ config } = {}) {
-      const title = localized(localContext, config, 'siteTitle') || 'NanoSite';
+      const title = localized(localContext, config, 'siteTitle') || 'Press';
       const subtitle = localized(localContext, config, 'siteSubtitle');
       doc.querySelectorAll('[data-site-title], [data-site-title-rail]').forEach((node) => { node.textContent = title; });
       doc.querySelectorAll('[data-site-subtitle], [data-site-subtitle-rail]').forEach((node) => { node.textContent = subtitle || ''; });
@@ -460,7 +460,7 @@ function createEffects(context = {}) {
 
     handleViewChange({ view, context: routeContext } = {}) {
       if (doc && doc.body) doc.body.setAttribute('data-active-view', view || 'posts');
-      const search = getRegion(localContext, ['search', 'searchBox'], 'nano-search.cartograph-search');
+      const search = getRegion(localContext, ['search', 'searchBox'], 'press-search.cartograph-search');
       const queryValue = routeContext && routeContext.queryValue != null ? String(routeContext.queryValue || '') : '';
       if (search) search.value = view === 'search' ? queryValue : '';
       return true;
@@ -562,7 +562,7 @@ function createEffects(context = {}) {
     setupFooter({ config } = {}) {
       const credit = doc.querySelector('.cartograph-footer__credit');
       if (credit) {
-        const title = localized(localContext, config, 'siteTitle') || doc.querySelector('[data-site-title]')?.textContent || 'NanoSite';
+        const title = localized(localContext, config, 'siteTitle') || doc.querySelector('[data-site-title]')?.textContent || 'Press';
         credit.textContent = `${new Date().getFullYear()} / ${title}`;
       }
       return true;

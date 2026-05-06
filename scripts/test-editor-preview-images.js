@@ -59,7 +59,7 @@ const documentRef = {
 };
 
 globalThis.window = {
-  __ns_content_root: 'wwwroot',
+  __press_content_root: 'wwwroot',
   location: { protocol: 'http:' }
 };
 globalThis.document = documentRef;
@@ -69,7 +69,7 @@ const utilsSource = readFileSync('assets/js/utils.js', 'utf8');
 assert.equal(
   utilsSource.includes('target.setHTML(input'),
   false,
-  'editor preview should not bypass NanoSite sanitizer with native setHTML'
+  'editor preview should not bypass Press sanitizer with native setHTML'
 );
 assert.equal(
   utilsSource.includes("'Sanitizer' in window"),

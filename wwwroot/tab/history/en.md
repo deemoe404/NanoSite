@@ -9,4 +9,4 @@
 - Added image viewer support.
 
 ### Aug 19, 2025: v1.0.0
-- Initial public release of NanoSite.
+- Initial public release of Press.

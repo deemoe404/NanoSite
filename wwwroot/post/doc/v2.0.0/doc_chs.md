@@ -1,16 +1,16 @@
 ---
-title: 微站指南
+title: Press指南
 date: 2025-08-22
 version: v2.0.0
 tags:
-  - 微站
+  - Press
   - 文档
 excerpt: 无需构建步骤即可直接用 Markdown 文件创建内容网站，只需将文件放入 wwwroot/，在 YAML 中列出并发布，即可兼容 GitHub Pages。本指南涵盖项目结构、配置文件、内容加载、主题、搜索、标签、SEO、媒体以及部署方法。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
-# NanoSite 使用文档
+# Press 使用文档
 
 用零构建流程的方式，从纯 Markdown 文件搭建内容站点。把 Markdown 放进 `wwwroot/`，在 YAML 里登记路径，然后直接发布（完全兼容 GitHub Pages）。
 
@@ -87,14 +87,14 @@ image: path/to/cover.jpg   # 可选；用于社交分享图
 1) 简化版（当前仓库使用）：按语言给出路径，应用会拉取 Markdown 并从前言区提取元数据：
 
 ```yaml
-nanoSite:
-  en: post/meet-nanosite/main_en.md
-  chs: post/meet-nanosite/main_chs.md
-  ja: post/meet-nanosite/main_ja.md
-nanodoc:
-  en: post/meet-nanosite/doc_en.md
-  chs: post/meet-nanosite/doc_chs.md
-  ja: post/meet-nanosite/doc_ja.md
+press:
+  en: post/meet-press/main_en.md
+  chs: post/meet-press/main_chs.md
+  ja: post/meet-press/main_ja.md
+pressDocs:
+  en: post/meet-press/doc_en.md
+  chs: post/meet-press/doc_chs.md
+  ja: post/meet-press/doc_ja.md
 ```
 
 2) 统一版：每种语言给出 `{title, location}`，还可在顶层放通用字段：
@@ -190,15 +190,15 @@ About:
 
 ```yaml
 siteTitle:
-  default: "deemoe's journal"
-  chs: "deemoe 的日志"
-  ja: "deemoe のジャーナル"
+  default: "Ekily Press notes"
+  chs: "Ekily Press 笔记"
+  ja: "Ekily Press ノート"
 siteSubtitle:
   default: "Thanks for playing my game."
   chs: "眼见何事..."
 siteDescription:
-  default: "deemoe's journal"
-resourceURL: https://dee.moe/wwwroot/
+  default: "Ekily Press notes"
+resourceURL: https://ekilyhq.github.io/Press/wwwroot/
 siteKeywords:
   default: static blog, markdown, github pages, blog
 avatar: assets/avatar.png
@@ -269,7 +269,7 @@ reportIssueURL: https://github.com/<owner>/<repo>/issues/new
 当段落只包含一个指向文章的链接（如 `?id=...`）时，该链接会被升级为带封面、摘要、日期、阅读时长的卡片。若要在行内强制卡片，可在 `title` 中包含 `card` 或添加 `data-card`：
 
 ```markdown
-[阅读这篇](?id=post/meet-nanosite/doc_chs.md "card")
+[阅读这篇](?id=post/meet-press/doc_chs.md "card")
 ```
 
 

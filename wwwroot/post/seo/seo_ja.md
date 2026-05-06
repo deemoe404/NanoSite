@@ -1,19 +1,19 @@
 ---
-title: NanoSite の SEO 最適化
+title: Press の SEO 最適化
 date: 2025-08-17
 tags:
-  - NanoSite
+  - Press
   - 技術
   - SEO
 image: hero.jpeg
 excerpt: SEO（検索エンジン最適化）は、検索結果におけるサイトの可視性と順位を高める取り組みです。コンテンツ・画像・メタデータの最適化といったオンページ SEO のベストプラクティスに加え、被リンクの構築やプロモーションなどのオフページ SEO も含まれます。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ## 動的 SEO
 
-NanoSite には SEO タグ生成機能が内蔵されており、ページ内容に基づいて自動的に meta タグを生成します。含まれるもの：
+Press には SEO タグ生成機能が内蔵されており、ページ内容に基づいて自動的に meta タグを生成します。含まれるもの：
 
 - タイトルとディスクリプション
 - SNS 共有向けの Open Graph タグ

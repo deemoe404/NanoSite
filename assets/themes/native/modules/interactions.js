@@ -8,7 +8,7 @@ import { renderPostNav } from '../../../js/post-nav.js';
 import { hydratePostImages, hydratePostVideos, applyLazyLoadingIn } from '../../../js/post-render.js';
 import { hydrateInternalLinkCards } from '../../../js/link-cards.js';
 import { applyLangHints } from '../../../js/typography.js';
-import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
+import { renderPressPostCardHtml } from '../../../js/post-card-html.js';
 import { mountThemeControls, applySavedTheme, bindThemeToggle, bindThemePackPicker, bindPostEditor } from '../../../js/theme.js';
 
 const defaultWindow = typeof window !== 'undefined' ? window : undefined;
@@ -70,7 +70,7 @@ function getTagsRegion(documentRef = defaultDocument) {
 }
 
 function getSearchRegion(documentRef = defaultDocument) {
-  return getRegion('search', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('nano-search.native-searchbox, nano-search')) || null;
+  return getRegion('search', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('press-search.native-searchbox, press-search')) || null;
 }
 
 function getSearchInput(documentRef = defaultDocument) {
@@ -133,8 +133,8 @@ let lightboxInstalled = false;
 let masonryHandlersBound = false;
 
 const NATIVE_CARD_CLASSES = {
-  cardClass: 'nano-post-card',
-  withCoverClass: 'nano-post-card--with-cover',
+  cardClass: 'press-post-card',
+  withCoverClass: 'press-post-card--with-cover',
   linkClass: '',
   bodyClass: '',
   titleClass: 'card-title',
@@ -260,7 +260,7 @@ function resolveViewContainersNative(params = {}, documentRef = defaultDocument)
 
 function updateSearchPlaceholderNative(params = {}, documentRef = defaultDocument) {
   if (!documentRef) return false;
-  const search = documentRef.querySelector('nano-search');
+  const search = documentRef.querySelector('press-search');
   if (search && typeof search.setPlaceholder === 'function') {
     search.setPlaceholder(params && params.placeholder != null ? String(params.placeholder) : '');
     return true;
@@ -745,7 +745,7 @@ function handleViewChangeNative(params = {}, documentRef = defaultDocument, wind
   if (input && typeof queryValue === 'string') {
     try { input.value = queryValue; } catch (_) {}
     try {
-      const host = input.closest && input.closest('nano-search');
+      const host = input.closest && input.closest('press-search');
       if (host) host.value = queryValue;
     } catch (_) {}
   }
@@ -1355,7 +1355,7 @@ function renderIndexViewNative(params = {}, documentRef = defaultDocument, windo
     const versionsLabel = verCount > 1 ? translate('ui.versionsCount', verCount) : '';
     const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
-    html += renderNanoPostCardHtml({
+    html += renderPressPostCardHtml({
       title: String(key || ''),
       href,
       dataIdx: encodeURIComponent(key),
@@ -1488,7 +1488,7 @@ function renderSearchResultsNative(params = {}, documentRef = defaultDocument, w
     const versionsLabel = verCount > 1 ? translate('ui.versionsCount', verCount) : '';
     const draftLabel = (value && value.draft) ? translate('ui.draftBadge') : '';
     const href = makeLangUrl(`?id=${encodeURIComponent(value && value.location ? String(value.location) : '')}`);
-    html += renderNanoPostCardHtml({
+    html += renderPressPostCardHtml({
       title: String(key || ''),
       href,
       dataIdx: encodeURIComponent(key),
@@ -1527,8 +1527,8 @@ function afterSearchRenderNative(params = {}, documentRef = defaultDocument) {
 }
 
 function getHomeSlug(tabs, windowRef = defaultWindow) {
-  if (windowRef && typeof windowRef.__ns_get_home_slug === 'function') {
-    try { return windowRef.__ns_get_home_slug(); } catch (_) {}
+  if (windowRef && typeof windowRef.__press_get_home_slug === 'function') {
+    try { return windowRef.__press_get_home_slug(); } catch (_) {}
   }
   if (tabs && typeof tabs === 'object') {
     if (tabs.posts) return 'posts';
@@ -1539,8 +1539,8 @@ function getHomeSlug(tabs, windowRef = defaultWindow) {
 }
 
 function postsEnabled(windowRef = defaultWindow) {
-  if (windowRef && typeof windowRef.__ns_posts_enabled === 'function') {
-    try { return !!windowRef.__ns_posts_enabled(); } catch (_) {}
+  if (windowRef && typeof windowRef.__press_posts_enabled === 'function') {
+    try { return !!windowRef.__press_posts_enabled(); } catch (_) {}
   }
   return true;
 }

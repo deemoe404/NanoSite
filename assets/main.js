@@ -53,7 +53,7 @@ let PAGE_SIZE = 8;
 let __activePostRequestId = 0;
 // Track last route to harmonize scroll behavior on back/forward
 let __lastRouteKey = '';
-const SITE_VIEW_STATE_KEY = 'ns_site_view_state_v1';
+const SITE_VIEW_STATE_KEY = 'press_site_view_state_v1';
 const SITE_VIEW_STATE_VERSION = 1;
 const SITE_SCROLL_SAVE_DELAY = 140;
 let siteScrollSaveTimer = 0;
@@ -258,7 +258,7 @@ function getThemeHook(name) {
   try {
     const apiHandler = getThemeApiHandler(name);
     if (typeof apiHandler === 'function') return apiHandler;
-    const hooks = (typeof window !== 'undefined') ? window.__ns_themeHooks : null;
+    const hooks = (typeof window !== 'undefined') ? window.__press_themeHooks : null;
     const fn = hooks && hooks[name];
     return typeof fn === 'function' ? fn : null;
   } catch (_) { return null; }
@@ -270,10 +270,10 @@ function isThemeDevMode() {
     if (params.get('themeDev') === '1' || params.has('themeDev')) return true;
   } catch (_) {}
   try {
-    if (window.__ns_themeDevMode === true) return true;
+    if (window.__press_themeDevMode === true) return true;
   } catch (_) {}
   try {
-    return window.localStorage && window.localStorage.getItem('ns_theme_dev_mode') === '1';
+    return window.localStorage && window.localStorage.getItem('press_theme_dev_mode') === '1';
   } catch (_) {
     return false;
   }
@@ -506,8 +506,8 @@ function getHomeLabel() {
 }
 
 // Expose a minimal API that other modules can consult if needed
-try { window.__ns_get_home_slug = () => getHomeSlug(); } catch (_) {}
-try { window.__ns_posts_enabled = () => postsEnabled(); } catch (_) {}
+try { window.__press_get_home_slug = () => getHomeSlug(); } catch (_) {}
+try { window.__press_posts_enabled = () => postsEnabled(); } catch (_) {}
 async function loadSiteConfig() {
   try {
     // YAML only
@@ -1321,7 +1321,7 @@ function displayStaticTab(slug) {
         tocHtml: output.toc,
         metadata: {
           title: tab.title,
-          author: tab.author || 'NanoSite',
+          author: tab.author || 'Ekily',
           location: tab.location
         },
         baseDir,
@@ -1384,7 +1384,7 @@ function displayStaticTab(slug) {
       try {
         const seoData = extractSEOFromMarkdown(md, {
           title: pageTitle,
-          author: tab.author || 'NanoSite',
+          author: tab.author || 'Ekily',
           location: tab.location
         }, siteConfig);
         updateSEO(seoData, siteConfig);
@@ -1495,8 +1495,8 @@ function routeAndRender() {
       updateSEO({
         title: page > 1 ? 
           `${getLocalizedValue(siteConfig.siteTitle) || 'All Posts'} - Page ${page}` : 
-          getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
-        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+          getLocalizedValue(siteConfig.siteTitle) || 'Ekily Press',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'Where knowledge becomes pages.',
         type: 'website',
         url: window.location.href
       }, siteConfig);
@@ -1590,7 +1590,7 @@ const defaultLang = (document.documentElement && document.documentElement.getAtt
 // still override the default language on first load.
 await initI18n({ defaultLang, persist: false });
 // Expose translate helper for modules that don't import i18n directly
-try { window.__ns_t = (key) => t(key); } catch (_) { /* no-op */ }
+try { window.__press_t = (key) => t(key); } catch (_) { /* no-op */ }
 
 // Install error reporter early to catch resource 404s (e.g., theme CSS, images)
 try { initErrorReporter({}); } catch (_) {}
@@ -1607,7 +1607,7 @@ try { configureFetchCachePolicy(siteConfig); } catch (_) {}
 // Apply content root override early so subsequent loads honor it
 try {
   const rawRoot = (siteConfig && (siteConfig.contentRoot || siteConfig.contentBase || siteConfig.contentPath)) || 'wwwroot';
-  if (typeof window !== 'undefined') window.__ns_content_root = String(rawRoot).replace(/^\/+|\/+$/g, '');
+  if (typeof window !== 'undefined') window.__press_content_root = String(rawRoot).replace(/^\/+|\/+$/g, '');
 } catch (_) {}
 
 // Apply site-configured defaults early
@@ -1829,8 +1829,8 @@ async function softResetToSiteDefaultLanguage() {
         return (lang && val[lang]) || val.default || '';
       };
       updateSEO({
-        title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
-        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+        title: getLocalizedValue(siteConfig.siteTitle) || 'Ekily Press',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'Where knowledge becomes pages.',
         type: 'website', url: window.location.href
       }, siteConfig);
     } catch (_) {}
@@ -1843,7 +1843,7 @@ async function softResetToSiteDefaultLanguage() {
   }
 }
 // Expose as a global so the UI can call it
-try { window.__ns_softResetLang = () => softResetToSiteDefaultLanguage(); } catch (_) {}
+try { window.__press_softResetLang = () => softResetToSiteDefaultLanguage(); } catch (_) {}
 
 restoreLastSiteRouteIfEntry();
 
@@ -2005,7 +2005,7 @@ try {
       };
       initErrorReporter({
         reportUrl: resolveReportUrl(siteConfig),
-        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'NanoSite',
+        siteTitle: pick(siteConfig && siteConfig.siteTitle) || 'Press',
         enableOverlay: !!(siteConfig && siteConfig.errorOverlay === true)
       });
     } catch (_) {}
@@ -2021,8 +2021,8 @@ try {
       
       // Update initial page meta tags with site config
       updateSEO({
-        title: getLocalizedValue(siteConfig.siteTitle) || 'NanoSite - Zero-Dependency Static Blog',
-        description: getLocalizedValue(siteConfig.siteDescription) || 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.',
+        title: getLocalizedValue(siteConfig.siteTitle) || 'Ekily Press',
+        description: getLocalizedValue(siteConfig.siteDescription) || 'Where knowledge becomes pages.',
         type: 'website',
         url: window.location.href
       }, siteConfig);

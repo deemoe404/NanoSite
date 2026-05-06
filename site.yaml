@@ -1,28 +1,28 @@
 # yaml-language-server: $schema=./assets/schema/site.json
 
 siteTitle:
-  default: NanoSite
-  en: NanoSite
-  ja: "ナノサイト"
-  chs: "微站"
-  cht-tw: "微站"
-  cht-hk: "微站"
+  default: Press
+  en: Press
+  ja: "Press"
+  chs: "Press"
+  cht-tw: "Press"
+  cht-hk: "Press"
 
 siteSubtitle:
-  default: "Just Markdown. Just a website."
-  en: "Just Markdown. Just a website."
-  ja: "書くだけ、Markdown。それがサイトになる。"
-  chs: "写下 Markdown，就是你的网站。"
-  cht-tw: "寫下 Markdown，就是你的網站。"
-  cht-hk: "寫低 Markdown，就係你嘅網站。"
+  default: "Where knowledge becomes pages."
+  en: "Where knowledge becomes pages."
+  ja: "Where knowledge becomes pages."
+  chs: "Where knowledge becomes pages."
+  cht-tw: "Where knowledge becomes pages."
+  cht-hk: "Where knowledge becomes pages."
 
 siteDescription:
-  default: "NanoSite - Just Markdown. Just a website."
-  en: "NanoSite - Just Markdown. Just a website."
-  ja: "ナノサイト - 書くだけ、Markdown。それがサイトになる。"
-  chs: "微站 - 写下 Markdown，就是你的网站。"
-  cht-tw: "微站 - 寫下 Markdown，就是你的網站。"
-  cht-hk: "微站 - 寫低 Markdown，就係你嘅網站。"
+  default: "Ekily Press - Where knowledge becomes pages."
+  en: "Ekily Press - Where knowledge becomes pages."
+  ja: "Ekily Press - Where knowledge becomes pages."
+  chs: "Ekily Press - Where knowledge becomes pages."
+  cht-tw: "Ekily Press - Where knowledge becomes pages."
+  cht-hk: "Ekily Press - Where knowledge becomes pages."
 
 siteKeywords:
   default: "static blog, markdown, github pages, blog"
@@ -32,15 +32,15 @@ siteKeywords:
   cht-tw: "靜態部落格, Markdown, GitHub Pages, 部落格"
   cht-hk: "靜態網誌, Markdown, GitHub Pages, 網誌"
 
-siteURL: https://nano.dee.moe/
+siteURL: https://ekilyhq.github.io/Press/
 
-avatar: assets/avatar.jpeg
+avatar: assets/avatar.png
 
 profileLinks:
   - label: Official site
-    href: https://nano.dee.moe/
+    href: https://ekilyhq.github.io/Press/
   - label: GitHub
-    href: https://github.com/deemoe404/NanoSite
+    href: https://github.com/EkilyHQ/Press
 
 contentRoot: wwwroot
 
@@ -69,8 +69,8 @@ showAllPosts: true
 landingTab: About
 
 repo:
-  owner: deemoe404
-  name: NanoSite
+  owner: EkilyHQ
+  name: Press
   branch: main
 
 assetWarnings:

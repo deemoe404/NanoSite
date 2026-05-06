@@ -600,7 +600,7 @@ export function initSyntaxHighlighting(root = document) {
 
       // 统一设置基础属性与交互绑定（避免重复绑定）
       const getT = (key, fallback) => {
-        try { return (window.__ns_t && typeof window.__ns_t === 'function') ? window.__ns_t(key) : fallback; } catch (_) { return fallback; }
+        try { return (window.__press_t && typeof window.__press_t === 'function') ? window.__press_t(key) : fallback; } catch (_) { return fallback; }
       };
       // 在 main.js 中 t() 已导出，这里尽量从全局桥接，若不可用则使用英文回退
       const TXT_COPY = getT('code.copy', 'Copy');

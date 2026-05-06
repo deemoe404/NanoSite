@@ -9,12 +9,12 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 const TEXT_FILENAMES = new Set(['LICENSE', 'README', 'README.md', 'CHANGELOG', 'CHANGELOG.md']);
 
-export const SYSTEM_UPDATE_ASSET_NAME_PATTERN = /^nanosite-system-v\d+\.\d+\.\d+\.zip$/i;
+export const SYSTEM_UPDATE_ASSET_NAME_PATTERN = /^press-system-v\d+\.\d+\.\d+\.zip$/i;
 
-const RELEASE_API_URL = 'https://api.github.com/repos/deemoe404/NanoSite/releases/latest';
-const RELEASE_MANIFEST_URL = 'https://raw.githubusercontent.com/deemoe404/NanoSite/main/assets/system-release.json';
+const RELEASE_API_URL = 'https://api.github.com/repos/EkilyHQ/Press/releases/latest';
+const RELEASE_MANIFEST_URL = 'https://raw.githubusercontent.com/EkilyHQ/Press/main/assets/system-release.json';
 const SYSTEM_UPDATE_ALLOWED_PATH_PATTERN = /^(?:index\.html|index_editor\.html|assets\/(?:main\.js|js\/.+|i18n\/.+|schema\/.+|themes\/.+))$/;
-const SYSTEM_UPDATE_BLOCKED_PATH_PATTERN = /^(?:\.git\/|\.github\/|wwwroot\/|site\.ya?ml$|site\.local\.ya?ml$|CNAME$|robots\.txt$|sitemap\.xml$|README(?:\.md)?$|BRANCHING\.md$|scripts\/|assets\/(?:avatar|hero)\.jpeg$)/i;
+const SYSTEM_UPDATE_BLOCKED_PATH_PATTERN = /^(?:\.git\/|\.github\/|wwwroot\/|site\.ya?ml$|site\.local\.ya?ml$|CNAME$|robots\.txt$|sitemap\.xml$|README(?:\.md)?$|BRANCHING\.md$|scripts\/|assets\/(?:avatar\.png|avatar\.jpe?g|hero\.jpeg)$)/i;
 
 let initialized = false;
 let releaseCache = null;
@@ -262,7 +262,7 @@ export function selectSystemUpdateAsset(releaseData) {
   const asset = assets.find((item) => item && SYSTEM_UPDATE_ASSET_NAME_PATTERN.test(String(item.name || '')));
   if (!asset) return null;
   return {
-    name: asset.name || 'nanosite-system.zip',
+    name: asset.name || 'press-system.zip',
     url: asset.browser_download_url || asset.url || '',
     size: asset.size || 0,
     digest: asset.digest || ''
@@ -378,9 +378,14 @@ function createReleaseFetchError(response) {
   return error;
 }
 
+export function getDisplayReleaseNotes(release) {
+  if (!release || !release.asset) return '';
+  return typeof release.notes === 'string' ? release.notes : '';
+}
+
 function renderRelease() {
   renderReleaseMeta();
-  renderNotes(releaseCache ? releaseCache.notes : '');
+  renderNotes(getDisplayReleaseNotes(releaseCache));
   updateDownloadLink();
 }
 
@@ -471,7 +476,7 @@ function renderReleaseMeta() {
 function updateDownloadLink() {
   const link = elements.downloadLink;
   if (!link) return;
-  let href = 'https://github.com/deemoe404/NanoSite/releases/latest';
+  let href = 'https://github.com/EkilyHQ/Press/releases/latest';
   let label = t('editor.systemUpdates.openReleasePage');
   link.removeAttribute('download');
   if (releaseCache) {

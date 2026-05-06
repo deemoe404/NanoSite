@@ -5,7 +5,7 @@ import {
   sanitizeUrl
 } from '../../../js/utils.js';
 import { renderPostMetaCard, renderOutdatedCard } from '../../../js/templates.js';
-import { renderNanoPostCardHtml } from '../../../js/post-card-html.js';
+import { renderPressPostCardHtml } from '../../../js/post-card-html.js';
 
 const CARD_CLASSES = {
   cardClass: 'cartograph-card',
@@ -25,7 +25,7 @@ const CARD_CLASSES = {
 
 function fallbackT(key, ...args) {
   try {
-    if (typeof window !== 'undefined' && typeof window.__ns_t === 'function') return window.__ns_t(key, ...args);
+    if (typeof window !== 'undefined' && typeof window.__press_t === 'function') return window.__press_t(key, ...args);
   } catch (_) {}
   return args.length ? `${key} ${args.join(' ')}` : String(key || '');
 }
@@ -447,7 +447,7 @@ function buildCard([title, meta] = [], siteConfig = {}, params = {}) {
   const draft = meta && meta.draft ? t('ui.draftBadge') : '';
   const excerpt = meta && meta.excerpt ? String(meta.excerpt) : '';
   void siteConfig;
-  return renderNanoPostCardHtml({
+  return renderPressPostCardHtml({
     title: firstText(title, 'Untitled'),
     href,
     date,
