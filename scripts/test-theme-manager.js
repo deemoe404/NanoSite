@@ -52,10 +52,50 @@ async function sha256(buffer) {
   return Buffer.from(digest).toString('hex');
 }
 
+function makeThemeManifest({
+  name = 'Test',
+  version = '1.0.0',
+  contractVersion = 1,
+  styles = ['theme.css'],
+  modules = ['modules/layout.js'],
+  overrides = {}
+} = {}) {
+  return {
+    name,
+    version,
+    contractVersion,
+    styles,
+    modules,
+    views: {
+      post: { module: modules[0], handler: 'post' },
+      posts: { module: modules[0], handler: 'posts' },
+      search: { module: modules[0], handler: 'search' },
+      tab: { module: modules[0], handler: 'tab' },
+      error: { module: modules[0], handler: 'error' },
+      loading: { module: modules[0], handler: 'loading' }
+    },
+    regions: {
+      main: { required: true },
+      toc: {},
+      search: {},
+      nav: {},
+      tags: {},
+      footer: { required: true }
+    },
+    components: ['press-search', 'press-toc', 'press-post-card'],
+    scrollContainer: false,
+    configSchema: { type: 'object', additionalProperties: true },
+    content: { shapes: ['rawMarkdown', 'html', 'blocks', 'tocTree', 'headings', 'metadata', 'assets', 'links'] },
+    ...overrides
+  };
+}
+
 function makeThemeZip({ slug = 'test', name = 'Test', version = '1.0.0', contractVersion = 1, files = {} } = {}) {
+  const manifest = makeThemeManifest({ name, version, contractVersion });
   return makeZip({
-    [`press-theme-${slug}/theme.json`]: JSON.stringify({ name, version, contractVersion }, null, 2),
+    [`press-theme-${slug}/theme.json`]: JSON.stringify(manifest, null, 2),
     [`press-theme-${slug}/theme.css`]: ':root{color-scheme:light;}',
+    [`press-theme-${slug}/modules/layout.js`]: 'export default { mount() {}, views: {}, components: {}, effects: {} };',
     ...Object.fromEntries(Object.entries(files).map(([path, content]) => [`press-theme-${slug}/${path}`, content]))
   });
 }
@@ -193,6 +233,44 @@ await run('rejects unsafe and multi-theme ZIP archives', async () => {
   );
 });
 
+await run('rejects invalid theme manifests before staging', async () => {
+  mockFetchRegistry([{ value: 'native', label: 'Native', builtIn: true, removable: false, files: [] }]);
+  await assert.rejects(
+    () => analyzeThemeArchive(makeZip({
+      'press-theme-bad/theme.json': JSON.stringify({
+        name: 'Bad',
+        version: '1.0.0',
+        contractVersion: 1,
+        styles: ['theme.css']
+      }, null, 2),
+      'press-theme-bad/theme.css': ':root{}'
+    }), 'press-theme-bad-v1.0.0.zip'),
+    /modules|content|views|regions/i
+  );
+  assert.equal(getThemeManagerCommitFiles().length, 0);
+
+  assert.throws(
+    () => collectThemeArchiveEntries(makeZip({
+      'press-theme-bad/theme.json': JSON.stringify(makeThemeManifest({
+        name: 'Bad',
+        modules: ['modules/missing.js']
+      }), null, 2),
+      'press-theme-bad/theme.css': ':root{}'
+    })),
+    /modules.*missing/i
+  );
+  assert.throws(
+    () => collectThemeArchiveEntries(makeZip({
+      'press-theme-bad/theme.json': JSON.stringify(makeThemeManifest({
+        name: 'Bad',
+        styles: ['missing.css']
+      }), null, 2),
+      'press-theme-bad/modules/layout.js': 'export default {};'
+    })),
+    /styles.*missing/i
+  );
+});
+
 await run('verifies ZIP size and digest before official install', async () => {
   const buffer = makeThemeZip();
   const digest = await sha256(buffer);
@@ -221,8 +299,9 @@ await run('verifies ZIP size and digest before official install', async () => {
 
 await run('preserves zero-byte files from theme ZIP archives', async () => {
   const archive = collectThemeArchiveEntries(makeZip({
-    'press-theme-test/theme.json': JSON.stringify({ name: 'Test', version: '1.0.0', contractVersion: 1 }, null, 2),
-    'press-theme-test/theme.css': ''
+    'press-theme-test/theme.json': JSON.stringify(makeThemeManifest(), null, 2),
+    'press-theme-test/theme.css': '',
+    'press-theme-test/modules/layout.js': 'export default {};'
   }));
   const file = archive.files.find((entry) => entry.path === 'theme.css');
   assert(file);
@@ -279,13 +358,12 @@ await run('infers old registry file inventory during theme update', async () => 
     }
   });
   await analyzeThemeArchive(makeZip({
-    'press-theme-legacy/theme.json': JSON.stringify({
+    'press-theme-legacy/theme.json': JSON.stringify(makeThemeManifest({
       name: 'Legacy',
       version: '1.0.0',
-      contractVersion: 1,
       styles: ['main.css'],
       modules: ['modules/new.js']
-    }),
+    }), null, 2),
     'press-theme-legacy/main.css': 'body{}',
     'press-theme-legacy/modules/new.js': 'export {};'
   }), 'press-theme-legacy-v1.0.0.zip');

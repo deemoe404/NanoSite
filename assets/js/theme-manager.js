@@ -10,6 +10,10 @@ const THEME_ARCHIVE_ALLOWED_EXTENSIONS = new Set([
   '.png', '.svg', '.ttf', '.txt', '.webp', '.woff', '.woff2'
 ]);
 const THEME_TEXT_EXTENSIONS = new Set(['.css', '.js', '.json', '.mjs', '.svg', '.txt']);
+const REQUIRED_THEME_VIEWS = ['post', 'posts', 'search', 'tab', 'error', 'loading'];
+const REQUIRED_THEME_REGIONS = ['main', 'toc', 'search', 'nav', 'tags', 'footer'];
+const REQUIRED_THEME_COMPONENTS = ['press-search', 'press-toc', 'press-post-card'];
+const REQUIRED_THEME_CONTENT_SHAPES = ['rawMarkdown', 'html', 'blocks', 'tocTree', 'headings', 'metadata', 'assets', 'links'];
 
 let initialized = false;
 let busy = false;
@@ -170,6 +174,96 @@ function normalizeFileList(files) {
   return normalized;
 }
 
+function requireThemeObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Theme manifest ${label} must be an object.`);
+  }
+  return value;
+}
+
+function requireThemeString(value, label) {
+  const text = safeString(value).trim();
+  if (!text) throw new Error(`Theme manifest ${label} is required.`);
+  return text;
+}
+
+function requireThemeStringList(owner, key, label) {
+  if (!Array.isArray(owner && owner[key])) {
+    throw new Error(`Theme manifest ${label} must be an array.`);
+  }
+  const seen = new Set();
+  return owner[key].map((item) => {
+    const value = requireThemeString(item, label);
+    if (seen.has(value)) throw new Error(`Theme manifest ${label} contains duplicate value: ${value}`);
+    seen.add(value);
+    return value;
+  });
+}
+
+function validateThemeManifestFiles(themeManifest, availablePaths) {
+  const styles = requireThemeStringList(themeManifest, 'styles', 'styles');
+  const modules = requireThemeStringList(themeManifest, 'modules', 'modules');
+  if (!styles.length) throw new Error('Theme manifest styles must not be empty.');
+  if (!modules.length) throw new Error('Theme manifest modules must not be empty.');
+
+  const normalizedModules = new Set();
+  styles.forEach((entry) => {
+    const path = normalizeThemeFilePath(entry);
+    if (extname(path) !== '.css') throw new Error(`Theme manifest styles entry must be a CSS file: ${entry}`);
+    if (!availablePaths.has(path)) throw new Error(`Theme manifest styles references missing file: ${path}`);
+  });
+  modules.forEach((entry) => {
+    const path = normalizeThemeFilePath(entry);
+    if (extname(path) !== '.js') throw new Error(`Theme manifest modules entry must be a JS file: ${entry}`);
+    if (!availablePaths.has(path)) throw new Error(`Theme manifest modules references missing file: ${path}`);
+    normalizedModules.add(path);
+  });
+  return normalizedModules;
+}
+
+function validateThemeManifestContract(themeManifest, availablePaths) {
+  requireThemeObject(themeManifest, 'theme.json');
+  requireThemeString(themeManifest.name, 'name');
+  requireThemeString(themeManifest.version, 'version');
+  const contractVersion = Number(themeManifest.contractVersion);
+  if (contractVersion !== REQUIRED_CONTRACT_VERSION) {
+    throw new Error(`Theme contractVersion ${contractVersion || '(missing)'} is not supported.`);
+  }
+
+  const modules = validateThemeManifestFiles(themeManifest, availablePaths);
+  const views = requireThemeObject(themeManifest.views, 'views');
+  REQUIRED_THEME_VIEWS.forEach((view) => {
+    const declaration = requireThemeObject(views[view], `views.${view}`);
+    const modulePath = normalizeThemeFilePath(requireThemeString(declaration.module, `views.${view}.module`));
+    requireThemeString(declaration.handler, `views.${view}.handler`);
+    if (!modules.has(modulePath)) {
+      throw new Error(`Theme manifest views.${view}.module must be listed in modules: ${modulePath}`);
+    }
+  });
+
+  const regions = requireThemeObject(themeManifest.regions, 'regions');
+  REQUIRED_THEME_REGIONS.forEach((region) => {
+    requireThemeObject(regions[region], `regions.${region}`);
+  });
+
+  const components = new Set(requireThemeStringList(themeManifest, 'components', 'components'));
+  REQUIRED_THEME_COMPONENTS.forEach((component) => {
+    if (!components.has(component)) throw new Error(`Theme manifest components must include ${component}.`);
+  });
+
+  if (!Object.prototype.hasOwnProperty.call(themeManifest, 'scrollContainer')) {
+    throw new Error('Theme manifest scrollContainer is required.');
+  }
+  requireThemeObject(themeManifest.configSchema, 'configSchema');
+  const content = requireThemeObject(themeManifest.content, 'content');
+  const shapes = new Set(requireThemeStringList(content, 'shapes', 'content.shapes'));
+  REQUIRED_THEME_CONTENT_SHAPES.forEach((shape) => {
+    if (!shapes.has(shape)) throw new Error(`Theme manifest content.shapes must include ${shape}.`);
+  });
+
+  return contractVersion;
+}
+
 function normalizeRegistrySource(input, fallbackType) {
   const source = input && typeof input === 'object' ? input : {};
   const type = safeString(source.type || fallbackType || 'manual').trim().toLowerCase() || 'manual';
@@ -326,6 +420,7 @@ export function collectThemeArchiveEntries(buffer, options = {}) {
     const path = normalizeThemeFilePath(strippedPaths[index]);
     return { path, data: entry.data };
   }).filter((entry) => entry.path);
+  const availablePaths = new Set(entries.map((entry) => entry.path));
 
   if (!entries.some((entry) => entry.path === 'theme.json')) {
     throw new Error('Theme ZIP must contain theme.json at the theme root.');
@@ -345,10 +440,7 @@ export function collectThemeArchiveEntries(buffer, options = {}) {
   if (options.expectedSlug && slug !== sanitizeThemeSlug(options.expectedSlug)) {
     throw new Error('Theme ZIP slug does not match the selected release manifest.');
   }
-  const contractVersion = Number(themeManifest.contractVersion);
-  if (contractVersion !== REQUIRED_CONTRACT_VERSION) {
-    throw new Error(`Theme contractVersion ${contractVersion || '(missing)'} is not supported.`);
-  }
+  const contractVersion = validateThemeManifestContract(themeManifest, availablePaths);
 
   const seen = new Set();
   const normalizedEntries = entries.map((entry) => {
