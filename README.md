@@ -20,11 +20,13 @@ The `wwwroot/` folder is intentionally not minimal. It hosts the official Press 
 
 ## For New Sites
 
-The clean starter template lives in `EkilyHQ/Press-Starter`.
+The clean starter template lives in [EkilyHQ/Press-Starter](https://github.com/EkilyHQ/Press-Starter).
 
 Use that starter repository when you want to create your own site. This repository is useful when you want to develop Press itself, inspect the official documentation source, or test behavior against the full documentation corpus.
 
-This repository carries implementation templates under `templates/` for the starter and official theme repository layout. The official documentation site remains the full setup guide:
+The theme starter template lives in [EkilyHQ/Press-Theme-Starter](https://github.com/EkilyHQ/Press-Theme-Starter). Use it when you want to create a new Press theme repository with the release workflow and contract-compatible starter theme already wired up.
+
+This repository carries the implementation template input for `Press-Starter` under `templates/press-starter`. The official documentation site remains the full setup guide:
 
 - Official site: [https://ekilyhq.github.io/Press/](https://ekilyhq.github.io/Press/)
 - Documentation: [Documentation for Press](https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&lang=en)
@@ -41,7 +43,7 @@ This repository carries implementation templates under `templates/` for the star
 - `wwwroot/` - official documentation site content and Markdown regression corpus.
 - `site.yaml` - official documentation site configuration.
 - `scripts/` - repository checks and focused regression scripts.
-- `templates/` - repository templates for official theme repos and `Press-Starter`.
+- `templates/` - repository template input for `Press-Starter`.
 
 ## Development Workflow
 
@@ -90,7 +92,7 @@ Want to list your site here? Open a PR with the site URL and a one-line descript
 
 ## Theme Repositories
 
-Official themes use separate repositories such as `EkilyHQ/Press-Theme-Arcus`. Each repository owns its theme source, contract checks, release workflow, `press-theme-<slug>-vX.Y.Z.zip` artifact, SHA-256 digest, and root `theme-release.json` manifest. Press owns only the runtime infrastructure, `native`, and `catalog.json`; each site owns its installed `packs.json`.
+Official themes use separate repositories such as `EkilyHQ/Press-Theme-Arcus`. New theme repositories should start from [EkilyHQ/Press-Theme-Starter](https://github.com/EkilyHQ/Press-Theme-Starter). Each theme repository owns its theme source, contract checks, release workflow, `press-theme-<slug>-vX.Y.Z.zip` artifact, SHA-256 digest, and root `theme-release.json` manifest. Press owns only the runtime infrastructure, `native`, and `catalog.json`; each site owns its installed `packs.json`.
 
 ## Roadmap
 
