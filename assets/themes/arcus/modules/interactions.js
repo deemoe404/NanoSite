@@ -59,7 +59,17 @@ function getRegion(name, documentRef = defaultDocument) {
 }
 
 function getMainRegion(documentRef = defaultDocument) {
-  return getRegion('main', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('.arcus-mainview')) || null;
+  if (activeRegions && activeRegions.mainview && activeRegions.mainview.nodeType === 1) return activeRegions.mainview;
+  if (documentRef && documentRef.querySelector) {
+    const explicit = documentRef.querySelector('.arcus-mainview');
+    if (explicit) return explicit;
+  }
+  const region = getRegion('main', documentRef);
+  if (!region) return null;
+  try {
+    if (region.matches && region.matches('.arcus-mainview')) return region;
+  } catch (_) {}
+  return null;
 }
 
 function getTocRegion(documentRef = defaultDocument) {
