@@ -12,58 +12,50 @@
   ],
   "views": {
     "post": {
-      "hook": "renderPostView"
+      "module": "modules/interactions.js",
+      "handler": "post"
     },
     "posts": {
-      "hook": "renderIndexView"
+      "module": "modules/interactions.js",
+      "handler": "posts"
     },
     "search": {
-      "hook": "renderSearchResults"
+      "module": "modules/interactions.js",
+      "handler": "search"
     },
     "tab": {
-      "hook": "renderStaticTabView"
+      "module": "modules/interactions.js",
+      "handler": "tab"
     },
     "error": {
-      "hook": "renderErrorState"
+      "module": "modules/interactions.js",
+      "handler": "error"
     },
     "loading": {
-      "hooks": [
-        "renderPostLoadingState",
-        "renderStaticTabLoadingState"
-      ]
+      "module": "modules/interactions.js",
+      "handler": "loading"
     }
   },
   "regions": {
     "main": {
-      "required": true,
-      "aliases": [
-        "mainview"
-      ]
+      "required": true
     },
-    "toc": {
-      "aliases": [
-        "tocview"
-      ]
-    },
-    "search": {
-      "aliases": [
-        "searchInput"
-      ]
-    },
-    "nav": {
-      "aliases": [
-        "tabsNav"
-      ]
-    },
-    "tags": {
-      "aliases": [
-        "tagBand",
-        "tagview"
-      ]
-    },
+    "toc": {},
+    "search": {},
+    "nav": {},
+    "tags": {},
     "footer": {
       "required": true
-    }
+    },
+    "container": {},
+    "content": {},
+    "footerNav": {},
+    "header": {},
+    "rightColumn": {},
+    "scrollContainer": {},
+    "tagBand": {},
+    "toolsPanel": {},
+    "utilities": {}
   },
   "components": [
     "nano-search",
@@ -87,90 +79,5 @@
       "assets",
       "links"
     ]
-  },
-  "contract": {
-    "version": 1,
-    "regions": [
-      "container",
-      "content",
-      "footer",
-      "footerNav",
-      "header",
-      "nav",
-      "search",
-      "tags",
-      "main",
-      "mainview",
-      "rightColumn",
-      "scrollContainer",
-      "tagBand",
-      "toc",
-      "toolsPanel",
-      "utilities"
-    ],
-    "domIds": [
-      "mainview",
-      "searchInput",
-      "tabsNav",
-      "tagview",
-      "tocview"
-    ],
-    "hooks": [
-      "afterIndexRender",
-      "afterSearchRender",
-      "decoratePostView",
-      "enhanceIndexLayout",
-      "getScrollState",
-      "getViewContainer",
-      "handleDocumentClick",
-      "handleRouteScroll",
-      "handleViewChange",
-      "handleWindowResize",
-      "hideElement",
-      "reflectThemeConfig",
-      "renderErrorState",
-      "renderFooterNav",
-      "renderIndexView",
-      "renderPostLoadingState",
-      "renderPostTOC",
-      "renderPostView",
-      "renderSearchResults",
-      "renderSiteIdentity",
-      "renderSiteLinks",
-      "renderStaticTabLoadingState",
-      "renderStaticTabView",
-      "renderTagSidebar",
-      "renderTabs",
-      "resetThemeControls",
-      "resolveViewContainers",
-      "restoreScrollState",
-      "scrollToHash",
-      "setupFooter",
-      "setupResponsiveTabsObserver",
-      "setupThemeControls",
-      "showElement",
-      "updateSearchPlaceholder",
-      "updateLayoutLoadingState"
-    ],
-    "views": [
-      "post",
-      "posts",
-      "search",
-      "tab"
-    ],
-    "content": {
-      "markdown": "html",
-      "toc": "html",
-      "shapes": [
-        "rawMarkdown",
-        "html",
-        "blocks",
-        "tocTree",
-        "headings",
-        "metadata",
-        "assets",
-        "links"
-      ]
-    }
   }
 }

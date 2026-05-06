@@ -9,71 +9,60 @@
   "modules": [
     "modules/layout.js",
     "modules/nav-tabs.js",
-    "modules/interactions.js",
     "modules/mainview.js",
     "modules/search-box.js",
     "modules/site-card.js",
     "modules/tag-filter.js",
     "modules/toc.js",
-    "modules/footer.js"
+    "modules/footer.js",
+    "modules/interactions.js"
   ],
   "views": {
     "post": {
-      "hook": "renderPostView"
+      "module": "modules/interactions.js",
+      "handler": "post"
     },
     "posts": {
-      "hook": "renderIndexView"
+      "module": "modules/interactions.js",
+      "handler": "posts"
     },
     "search": {
-      "hook": "renderSearchResults"
+      "module": "modules/interactions.js",
+      "handler": "search"
     },
     "tab": {
-      "hook": "renderStaticTabView"
+      "module": "modules/interactions.js",
+      "handler": "tab"
     },
     "error": {
-      "hook": "renderErrorState"
+      "module": "modules/interactions.js",
+      "handler": "error"
     },
     "loading": {
-      "hooks": [
-        "renderPostLoadingState",
-        "renderStaticTabLoadingState"
-      ]
+      "module": "modules/interactions.js",
+      "handler": "loading"
     }
   },
   "regions": {
     "main": {
-      "required": true,
-      "aliases": [
-        "mainview"
-      ]
+      "required": true
     },
-    "toc": {
-      "aliases": [
-        "tocBox",
-        "tocview"
-      ]
-    },
-    "search": {
-      "aliases": [
-        "searchBox",
-        "searchInput"
-      ]
-    },
-    "nav": {
-      "aliases": [
-        "navBox",
-        "tabsNav"
-      ]
-    },
-    "tags": {
-      "aliases": [
-        "tagBox",
-        "tagview"
-      ]
-    },
+    "toc": {},
+    "search": {},
+    "nav": {},
+    "tags": {},
     "footer": {
       "required": true
-    }
+    },
+    "container": {},
+    "content": {},
+    "footerNav": {},
+    "navBox": {},
+    "searchBox": {},
+    "sidebar": {},
+    "siteCard": {},
+    "tagBox": {},
+    "tocBox": {}
   },
   "components": [
     "nano-search",
@@ -97,95 +86,5 @@
       "assets",
       "links"
     ]
-  },
-  "contract": {
-    "version": 1,
-    "regions": [
-      "main",
-      "container",
-      "content",
-      "toc",
-      "search",
-      "nav",
-      "tags",
-      "footer",
-      "footerNav",
-      "mainview",
-      "navBox",
-      "searchBox",
-      "searchInput",
-      "sidebar",
-      "siteCard",
-      "tabsNav",
-      "tagBox",
-      "tocBox"
-    ],
-    "domIds": [
-      "mainview",
-      "searchInput",
-      "tabsNav",
-      "tagview",
-      "tocview"
-    ],
-    "hooks": [
-      "afterIndexRender",
-      "afterSearchRender",
-      "decoratePostView",
-      "ensureTabOverlay",
-      "enhanceIndexLayout",
-      "getScrollState",
-      "getViewContainer",
-      "handleDocumentClick",
-      "handleViewChange",
-      "handleWindowResize",
-      "hideElement",
-      "initializeSyntaxHighlighting",
-      "onTabClick",
-      "reflectThemeConfig",
-      "renderErrorState",
-      "renderFooterNav",
-      "renderIndexView",
-      "renderPostLoadingState",
-      "renderPostTOC",
-      "renderPostView",
-      "renderSearchResults",
-      "renderSiteIdentity",
-      "renderSiteLinks",
-      "renderStaticTabLoadingState",
-      "renderStaticTabView",
-      "renderTagSidebar",
-      "renderTabs",
-      "resetThemeControls",
-      "resetTOC",
-      "resolveViewContainers",
-      "restoreScrollState",
-      "setupFooter",
-      "setupResponsiveTabsObserver",
-      "setupThemeControls",
-      "showElement",
-      "updateSearchPlaceholder",
-      "updateTabHighlight",
-      "updateLayoutLoadingState"
-    ],
-    "views": [
-      "post",
-      "posts",
-      "search",
-      "tab"
-    ],
-    "content": {
-      "markdown": "html",
-      "toc": "html",
-      "shapes": [
-        "rawMarkdown",
-        "html",
-        "blocks",
-        "tocTree",
-        "headings",
-        "metadata",
-        "assets",
-        "links"
-      ]
-    }
   }
 }

@@ -13,7 +13,7 @@ const REQUIRED_CONTENT_SHAPES = ['rawMarkdown', 'html', 'blocks', 'tocTree', 'he
 const REQUIRED_COMPONENTS = ['nano-search', 'nano-toc', 'nano-post-card'];
 const REQUIRED_STYLE_TOKENS = ['--ns-color-text', '--ns-color-surface', '--ns-font-body', '--ns-radius-card', '--ns-space-page'];
 const LEGACY_IDS = ['mainview', 'tocview', 'searchInput', 'tabsNav', 'tagview'];
-const PURE_THEME_NAMES = new Set(['cartograph']);
+const PURE_THEME_NAMES = new Set(['arcus', 'cartograph', 'native', 'solstice']);
 const CORE_RUNTIME_FILES = [
   'assets/main.js',
   'assets/js/dom-utils.js',

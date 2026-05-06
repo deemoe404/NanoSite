@@ -31,9 +31,56 @@ const CLASS_HIDDEN = 'is-hidden';
 
 let themeI18n = null;
 let currentSiteConfig = null;
+let activeRegions = null;
 
 function setThemeI18n(context = {}) {
   themeI18n = context && context.i18n && typeof context.i18n === 'object' ? context.i18n : null;
+  activeRegions = context && context.regions && typeof context.regions === 'object' ? context.regions : null;
+}
+
+function getRegion(name, documentRef = defaultDocument) {
+  const key = String(name || '').trim();
+  if (!key) return null;
+  try {
+    if (activeRegions && typeof activeRegions.get === 'function') {
+      const region = activeRegions.get(key);
+      if (region) return region;
+    }
+  } catch (_) {}
+  try {
+    if (activeRegions && activeRegions[key]) return activeRegions[key];
+  } catch (_) {}
+  if (!documentRef || typeof documentRef.querySelector !== 'function') return null;
+  try {
+    return documentRef.querySelector(`[data-theme-region="${key}"]`);
+  } catch (_) {
+    return null;
+  }
+}
+
+function getMainRegion(documentRef = defaultDocument) {
+  return getRegion('main', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('.solstice-mainview')) || null;
+}
+
+function getTocRegion(documentRef = defaultDocument) {
+  return getRegion('toc', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('.solstice-toc')) || null;
+}
+
+function getNavRegion(documentRef = defaultDocument) {
+  return getRegion('nav', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('.solstice-nav')) || null;
+}
+
+function getTagsRegion(documentRef = defaultDocument) {
+  return getRegion('tags', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('.solstice-tagband')) || null;
+}
+
+function getSearchRegion(documentRef = defaultDocument) {
+  return getRegion('search', documentRef) || (documentRef && documentRef.querySelector && documentRef.querySelector('nano-search.solstice-footer__search, nano-search')) || null;
+}
+
+function getSearchInput(documentRef = defaultDocument) {
+  const search = getSearchRegion(documentRef);
+  return (search && search.input) || (search && search.querySelector && search.querySelector('input[type="search"]')) || null;
 }
 
 function getCurrentLang() {
@@ -316,15 +363,15 @@ function getRoleElement(role, documentRef = defaultDocument) {
   if (!documentRef) return null;
   switch (role) {
     case 'main':
-      return documentRef.getElementById('mainview');
+      return getMainRegion(documentRef);
     case 'toc':
-      return documentRef.getElementById('tocview');
+      return getTocRegion(documentRef);
     case 'sidebar':
-      return documentRef.getElementById('tagview');
+      return getTagsRegion(documentRef);
     case 'content':
-      return documentRef.querySelector('.solstice-main');
+      return getRegion('content', documentRef) || documentRef.querySelector('.solstice-main');
     case 'container':
-      return documentRef.querySelector('.solstice-shell');
+      return getRegion('container', documentRef) || documentRef.querySelector('.solstice-shell');
     default:
       return null;
   }
@@ -578,7 +625,7 @@ function updateSearchPlaceholder(documentRef = defaultDocument) {
     search.setPlaceholder(t('sidebar.searchPlaceholder'));
     return;
   }
-  const input = documentRef ? documentRef.getElementById('searchInput') : null;
+  const input = documentRef ? getSearchInput(documentRef) : null;
   if (!input) return;
   input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
 }
@@ -716,7 +763,7 @@ function showToc(tocEl, tocHtml, articleTitle) {
     tocEl.renderToc({
       articleTitle: articleTitle || t('ui.tableOfContents'),
       tocHtml,
-      contentSelector: '#mainview'
+      contentRoot: getMainRegion(tocEl.ownerDocument || defaultDocument)
     });
   } else {
     tocEl.innerHTML = `<div class="solstice-toc__inner"><div class="solstice-toc__title">${escapeHtml(articleTitle || t('ui.tableOfContents'))}</div>${tocHtml}</div>`;
@@ -819,7 +866,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     const search = documentRef.querySelector('nano-search');
     const value = view === 'search' ? (getQueryVariable('q') || '') : '';
     if (search) search.value = value;
-    const input = search && search.input ? search.input : documentRef.getElementById('searchInput');
+    const input = search && search.input ? search.input : getSearchInput(documentRef);
     if (input) input.value = value;
   };
 
@@ -841,7 +888,7 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
   };
 
   hooks.renderTabs = ({ tabsBySlug, activeSlug, getHomeSlug, postsEnabled }) => {
-    const nav = documentRef.getElementById('tabsNav');
+    const nav = getNavRegion(documentRef);
     if (!nav) return false;
     renderNavLinks(nav, tabsBySlug, activeSlug, postsEnabled, getHomeSlug);
     return true;
@@ -1093,9 +1140,6 @@ function mountHooks(documentRef = defaultDocument, windowRef = defaultWindow) {
     return true;
   };
 
-  if (windowRef) {
-    windowRef.__ns_themeHooks = Object.assign({}, windowRef.__ns_themeHooks || {}, hooks);
-  }
   return hooks;
 }
 
@@ -1103,19 +1147,26 @@ export function mount(context = {}) {
   setThemeI18n(context);
   const doc = context.document || defaultDocument;
   const win = (context.document && context.document.defaultView) || defaultWindow;
-  const hooks = mountHooks(doc, win);
+  const effects = mountHooks(doc, win);
   updateSearchPlaceholder(doc);
   setupToolsPanel(doc, win);
   setupDynamicBackground(doc, win);
+  const views = {
+    post: effects.renderPostView,
+    posts: effects.renderIndexView,
+    search: effects.renderSearchResults,
+    tab: effects.renderStaticTabView,
+    error: effects.renderErrorState,
+    loading: (params = {}) => (
+      params.view === 'tab'
+        ? effects.renderStaticTabLoadingState(params)
+        : effects.renderPostLoadingState(params)
+    )
+  };
   return {
-    hooks,
-    views: {
-      post: hooks.renderPostView,
-      posts: hooks.renderIndexView,
-      search: hooks.renderSearchResults,
-      tab: hooks.renderStaticTabView
-    },
-    effects: hooks
+    views,
+    components: {},
+    effects
   };
 }
 
