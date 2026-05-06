@@ -46,7 +46,7 @@ export function mount(context = {}) {
         </div>
         <div class="arcus-header__divider" aria-hidden="true"></div>
         <div class="arcus-nav__scroller" data-overflow="none">
-          <nav id="${NAV_ID}" class="arcus-nav" aria-label="Primary navigation"></nav>
+          <nav id="${NAV_ID}" class="arcus-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
         </div>
         <div class="arcus-utility__credit arcus-footer__credit arcus-header__credit" aria-label="Site credit"></div>
       </div>`;
@@ -149,22 +149,26 @@ export function mount(context = {}) {
     rightColumn.insertBefore(main, rightColumn.firstChild);
   }
 
-  const mainview = ensureElement(main, `#${MAINVIEW_ID}`, () => {
+  const mainview = ensureElement(main, '[data-theme-region="main"], .arcus-mainview', () => {
     const el = doc.createElement('section');
     el.id = MAINVIEW_ID;
     el.className = 'arcus-mainview';
+    el.setAttribute('data-theme-region', 'main');
     el.setAttribute('tabindex', '-1');
     return el;
   });
+  mainview.setAttribute('data-theme-region', 'main');
 
-  const tocview = ensureElement(main, `#${TOCVIEW_ID}`, () => {
+  const tocview = ensureElement(main, '[data-theme-region="toc"], .arcus-toc', () => {
     const el = doc.createElement('nano-toc');
     el.id = TOCVIEW_ID;
     el.className = 'arcus-toc';
+    el.setAttribute('data-theme-region', 'toc');
     el.setAttribute('aria-label', 'Table of contents');
     el.hidden = true;
     return el;
   });
+  tocview.setAttribute('data-theme-region', 'toc');
   if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
     tocview.setAttribute('inner-class', 'arcus-toc__inner');
     tocview.setAttribute('title-class', 'arcus-toc__title');
@@ -172,15 +176,16 @@ export function mount(context = {}) {
     tocview.removeAttribute('variant');
   }
 
-  let tagBand = rightColumn.querySelector(`#${TAGVIEW_ID}`);
+  let tagBand = rightColumn.querySelector('[data-theme-region="tags"], .arcus-tagband');
   if (!tagBand) {
-    tagBand = container.querySelector(`#${TAGVIEW_ID}`) || doc.createElement('section');
+    tagBand = container.querySelector('[data-theme-region="tags"], .arcus-tagband') || doc.createElement('section');
     tagBand.id = TAGVIEW_ID;
     if (!tagBand.parentElement || tagBand.parentElement !== rightColumn) {
       rightColumn.appendChild(tagBand);
     }
   }
   tagBand.className = 'arcus-tagband';
+  tagBand.setAttribute('data-theme-region', 'tags');
   tagBand.setAttribute('aria-label', 'Tag filters');
 
   let footer = rightColumn.querySelector('.arcus-footer');
@@ -295,7 +300,7 @@ export function mount(context = {}) {
     main,
     content: main,
     mainview,
-    nav: header.querySelector(`#${NAV_ID}`),
+    nav: header.querySelector('[data-theme-region="nav"], .arcus-nav'),
     search: searchSection,
     searchInput: searchSection.input || searchSection.querySelector('input[type="search"]'),
     toc: tocview,

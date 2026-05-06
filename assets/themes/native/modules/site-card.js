@@ -51,7 +51,11 @@ export function mount(context = {}) {
     card.appendChild(list);
   }
 
-  const updatedRegions = { ...regions, siteCard: card };
-  context.regions = updatedRegions;
-  return { regions: updatedRegions };
+  if (typeof regions.register === 'function') {
+    regions.register('siteCard', card);
+  } else {
+    regions.siteCard = card;
+  }
+  context.regions = regions;
+  return { regions };
 }

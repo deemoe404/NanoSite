@@ -4,17 +4,26 @@ export function mount(context = {}) {
   const sidebar = regions.sidebar || doc.querySelector('.sidebar');
   if (!doc || !sidebar) return context;
 
-  let tagBox = doc.getElementById('tagview');
+  let tagBox = sidebar.querySelector('[data-theme-region="tags"]') || sidebar.querySelector('.native-tagbox');
   if (!tagBox) {
     tagBox = doc.createElement('div');
-    tagBox.className = 'box';
+    tagBox.className = 'box native-tagbox';
     tagBox.id = 'tagview';
+    tagBox.setAttribute('data-theme-region', 'tags');
     sidebar.appendChild(tagBox);
   } else if (!tagBox.classList.contains('box')) {
     tagBox.classList.add('box');
   }
+  tagBox.classList.add('native-tagbox');
+  tagBox.setAttribute('data-theme-region', 'tags');
 
-  const updatedRegions = { ...regions, tags: tagBox, tagBox };
-  context.regions = updatedRegions;
-  return { regions: updatedRegions };
+  if (typeof regions.register === 'function') {
+    regions.register('tags', tagBox);
+    regions.register('tagBox', tagBox);
+  } else {
+    regions.tags = tagBox;
+    regions.tagBox = tagBox;
+  }
+  context.regions = regions;
+  return { regions };
 }

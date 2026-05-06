@@ -62,10 +62,10 @@ effects.
 - `configSchema`: JSON-schema fragment for theme-specific configuration.
 - `content.shapes`: Content model fields consumed by the theme.
 
-Compatibility themes may still include a legacy `contract` object as an adapter
-map for `window.__ns_themeHooks` and old DOM IDs. Pure contract themes should
-omit `contract`, avoid fixed legacy IDs, and target the top-level manifest fields
-plus the `ctx` object.
+Legacy third-party themes may still include a `contract` object as an adapter
+map for old hook and DOM-ID conventions. Built-in themes are pure contract
+themes: they omit `contract`, avoid fixed legacy IDs, and target the top-level
+manifest fields plus the `ctx` object.
 
 ## Theme API
 
@@ -90,9 +90,9 @@ export default {
 
 The loader merges explicit API exports first. A `mount(ctx)` function may also
 return `{ views, components, effects }` to publish handlers created from
-runtime-local state. Compatibility themes may return `hooks`; the loader exposes
-them through the adapter so existing themes keep working while new themes can
-implement `views` and `effects` directly.
+runtime-local state. Built-in themes implement `views` and `effects` directly.
+Legacy third-party themes may still return adapter hooks during the compatibility
+period, but new theme code should not depend on that path.
 
 ## Runtime Context
 
@@ -124,11 +124,9 @@ ctx.regions.register('main', mainElement);
 ctx.regions.registerMany({ toc: tocElement, search: searchElement });
 ```
 
-Compatibility themes may still expose legacy IDs such as `mainview`, `tocview`,
-`searchInput`, `tabsNav`, and `tagview`. These IDs are adapter details and are
-listed in `contract.domIds` only so the verifier and dev warnings can keep them
-visible. Pure themes should register semantic regions and communicate through
-the registry instead.
+Legacy third-party themes may still expose old DOM IDs as adapter details during
+the compatibility period. Built-in and new themes should register semantic
+regions and communicate through the registry instead.
 
 ## Content Model
 

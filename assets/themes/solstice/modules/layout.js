@@ -34,7 +34,7 @@ export function mount(context = {}) {
           <div class="solstice-brand__title" data-site-title></div>
           <div class="solstice-brand__subtitle" data-site-subtitle></div>
         </a>
-        <nav id="${NAV_ID}" class="solstice-nav" aria-label="Primary navigation"></nav>
+        <nav id="${NAV_ID}" class="solstice-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
       </div>`;
     return el;
   });
@@ -46,22 +46,26 @@ export function mount(context = {}) {
     return el;
   });
 
-  const mainview = ensureElement(main, `#${MAINVIEW_ID}`, () => {
+  const mainview = ensureElement(main, '[data-theme-region="main"], .solstice-mainview', () => {
     const el = doc.createElement('section');
     el.id = MAINVIEW_ID;
     el.className = 'solstice-mainview';
+    el.setAttribute('data-theme-region', 'main');
     el.setAttribute('tabindex', '-1');
     return el;
   });
+  mainview.setAttribute('data-theme-region', 'main');
 
-  const tocview = ensureElement(main, `#${TOCVIEW_ID}`, () => {
+  const tocview = ensureElement(main, '[data-theme-region="toc"], .solstice-toc', () => {
     const el = doc.createElement('nano-toc');
     el.id = TOCVIEW_ID;
     el.className = 'solstice-toc';
+    el.setAttribute('data-theme-region', 'toc');
     el.setAttribute('aria-label', 'Table of contents');
     el.hidden = true;
     return el;
   });
+  tocview.setAttribute('data-theme-region', 'toc');
   if (tocview.tagName && tocview.tagName.toLowerCase() === 'nano-toc') {
     tocview.setAttribute('inner-class', 'solstice-toc__inner');
     tocview.setAttribute('title-class', 'solstice-toc__title');
@@ -104,13 +108,14 @@ export function mount(context = {}) {
     footerSearch.removeAttribute('variant');
   }
 
-  let tagBand = doc.getElementById(TAGVIEW_ID);
+  let tagBand = container.querySelector('[data-theme-region="tags"], .solstice-tagband');
   if (!tagBand) {
     tagBand = doc.createElement('section');
     tagBand.id = TAGVIEW_ID;
   }
 
   tagBand.className = 'solstice-tagband solstice-footer__tagband';
+  tagBand.setAttribute('data-theme-region', 'tags');
   tagBand.setAttribute('aria-label', 'Tag filters');
 
   if (tagBand.parentElement !== container || tagBand.nextElementSibling !== footer) {
@@ -124,7 +129,7 @@ export function mount(context = {}) {
     main,
     content: main,
     mainview,
-    nav: header.querySelector(`#${NAV_ID}`),
+    nav: header.querySelector('[data-theme-region="nav"], .solstice-nav'),
     search: footerSearch,
     searchInput: footerSearch?.input || footer.querySelector('input[type="search"]'),
     toc: tocview,
