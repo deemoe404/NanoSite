@@ -228,6 +228,21 @@ await run('stages a new theme install as additions plus packs.json', async () =>
   assert(files.some((file) => file.path === 'assets/themes/packs.json' && file.content.includes('"value": "test"')));
 });
 
+await run('refuses to stage theme writes when registry cannot be loaded', async () => {
+  globalThis.fetch = async (input) => {
+    const url = String(input || '').split('?')[0];
+    if (url === 'assets/themes/packs.json') {
+      return { ok: false, json: async () => [] };
+    }
+    return { ok: false, text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) };
+  };
+  await assert.rejects(
+    () => analyzeThemeArchive(makeThemeZip(), 'press-theme-test-v1.0.0.zip'),
+    /registry|not staged/i
+  );
+  assert.equal(getThemeManagerCommitFiles().length, 0);
+});
+
 await run('stages removed old files during theme update', async () => {
   mockFetchRegistry([
     { value: 'native', label: 'Native', builtIn: true, removable: false, files: [] },

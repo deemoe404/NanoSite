@@ -542,7 +542,12 @@ async function loadRegistry(options = {}) {
     const response = await fetch('assets/themes/packs.json', { cache: 'no-store' });
     if (!response || !response.ok) throw new Error('Unable to load installed themes.');
     data = await response.json();
-  } catch (_) {
+  } catch (err) {
+    if (options.allowFallback === false) {
+      const error = new Error('Unable to load installed theme registry. Theme changes were not staged.');
+      error.cause = err;
+      throw error;
+    }
     data = [{ value: 'native', label: 'Native', builtIn: true, removable: false, source: { type: 'builtin' }, files: [] }];
   }
   registryCache = normalizeThemeRegistry(data);
@@ -683,7 +688,7 @@ async function stageThemeArchive(buffer, fileName, options = {}) {
   if (releaseManifest && archive.version && archive.version !== releaseManifest.version) {
     throw new Error('Theme ZIP theme.json version does not match the release manifest.');
   }
-  const registry = await loadRegistry({ force: true });
+  const registry = await loadRegistry({ force: true, allowFallback: false });
   const previous = registry.find((entry) => entry.value === archive.slug) || null;
   if (previous && previous.builtIn && !options.allowBuiltInUpdate) {
     throw new Error('Built-in themes are updated only by Press system updates.');
@@ -748,7 +753,7 @@ async function stageCatalogTheme(catalogEntry) {
 export async function stageThemeUninstall(slug) {
   clearPendingSiteThemeFallback();
   const value = sanitizeThemeSlug(slug);
-  const registry = await loadRegistry({ force: true });
+  const registry = await loadRegistry({ force: true, allowFallback: false });
   const entry = registry.find((item) => item.value === value);
   if (!entry) throw new Error(`Theme ${value} is not installed.`);
   if (entry.builtIn || entry.removable === false) throw new Error('Built-in themes cannot be uninstalled.');
