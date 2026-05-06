@@ -1,12 +1,11 @@
 import { getThemeRegion } from './theme-regions.js';
 
 // Simple, dependency-free image lightbox for the article region
-// Usage: import { installLightbox } from './js/lightbox.js'; installLightbox({ root: '#mainview' });
+// Usage: import { installLightbox } from './js/lightbox.js'; installLightbox({ rootRegion: ['main'] });
 
 export function installLightbox(opts = {}) {
-  const rootSelector = opts.root || '#mainview';
-  const regionNames = opts.rootRegion || (rootSelector === '#mainview' ? ['main', 'mainview'] : []);
-  const root = () => getThemeRegion(regionNames, rootSelector) || document;
+  const regionNames = opts.rootRegion || ['main'];
+  const root = () => getThemeRegion(regionNames) || document;
 
   // Create overlay once
   let overlay = document.getElementById('press-lightbox');
@@ -406,8 +405,8 @@ export function installLightbox(opts = {}) {
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (!t || !(t instanceof Element)) return;
-    // Only within root container
-    if (!t.closest(rootSelector)) return;
+    const container = root();
+    if (!container.contains(t)) return;
     const img = t.closest('img');
     if (!img) return;
     // Ignore images with explicit data-no-viewer

@@ -4,6 +4,7 @@ export { renderPressPostCardHtml } from './post-card-html.js';
 const safe = (value) => escapeHtml(String(value ?? '')) || '';
 const asBool = (value) => value === true || value === 'true' || value === '';
 const isDomElement = (value) => value && typeof value === 'object' && value.nodeType === 1;
+let pressSearchId = 0;
 
 function defineElement(name, ctor) {
   try {
@@ -59,6 +60,7 @@ export class PressSearch extends HTMLElement {
   constructor() {
     super();
     this._input = null;
+    this._inputId = `press-search-input-${++pressSearchId}`;
     this._inputHandler = (event) => this._handleKeydown(event);
     this._toggleCleanup = null;
   }
@@ -203,8 +205,9 @@ export class PressSearch extends HTMLElement {
     const iconClass = safe(this.getAttribute('icon-class') || 'press-search__icon');
     const icon = this.hasAttribute('icon') ? safe(this.getAttribute('icon') || '') : '';
     const iconHtml = icon ? `<span class="${iconClass}" part="icon" aria-hidden="true">${icon}</span>` : '';
-    const input = `<input id="searchInput" part="input" type="search" autocomplete="off" spellcheck="false" aria-label="${label}" placeholder="${placeholder}" />`;
-    return `<label class="${fieldClass}" part="label" for="searchInput">${iconHtml}${input}</label>`;
+    const inputId = safe(this._inputId || `press-search-input-${++pressSearchId}`);
+    const input = `<input id="${inputId}" part="input" type="search" autocomplete="off" spellcheck="false" aria-label="${label}" placeholder="${placeholder}" />`;
+    return `<label class="${fieldClass}" part="label" for="${inputId}">${iconHtml}${input}</label>`;
   }
 
   _syncInputState(valueOverride) {
@@ -631,7 +634,7 @@ export class PressToc extends HTMLElement {
 
   _contentRoot() {
     if (isDomElement(this._contentRootElement)) return this._contentRootElement;
-    const selector = this.getAttribute('content-selector') || '#mainview';
+    const selector = this.getAttribute('content-selector') || '[data-theme-region="main"]';
     try {
       return (this.ownerDocument || document).querySelector(selector);
     } catch (_) {

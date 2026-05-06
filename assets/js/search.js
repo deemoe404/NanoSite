@@ -1,6 +1,6 @@
 import { getThemeRegion } from './theme-regions.js';
 
-const LEGACY_SEARCH_BOUND = Symbol('pressLegacySearchBound');
+const SEARCH_BOUND = Symbol('pressSearchBound');
 let componentSearchBound = false;
 
 export function navigateSearch(query) {
@@ -36,9 +36,12 @@ export function bindSearchEvents(root = document) {
 export function setupSearch() {
   bindSearchEvents(document);
 
-  const input = getThemeRegion(['search', 'searchInput'], '#searchInput');
-  if (!input || input.closest('press-search') || input[LEGACY_SEARCH_BOUND]) return;
-  input[LEGACY_SEARCH_BOUND] = true;
+  const search = getThemeRegion('search');
+  const input = search && search.matches && search.matches('input')
+    ? search
+    : ((search && search.input) || (search && search.querySelector && search.querySelector('input[type="search"]')));
+  if (!input || input.closest('press-search') || input[SEARCH_BOUND]) return;
+  input[SEARCH_BOUND] = true;
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') navigateSearch(input.value);
   });

@@ -42,7 +42,7 @@ The minimal user starter will live in a separate repository named `Press-Starter
 
 When runtime files changed, the workflow bumps the patch version, creates a GitHub Release, and uploads exactly one package named `press-system-vX.Y.Z.zip`. That package is an allowlisted runtime bundle only: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, and `assets/themes/`.
 
-The package must not include user-controlled content or site configuration such as `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repository docs, scripts, workflow files, or repo-specific root media. Users who customize files under `assets/js/` or `assets/themes/` are modifying the system namespace, and those files may be overwritten by system updates.
+The package must not include user-controlled content or site configuration such as `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repository policy files, scripts, workflow files, or repo-specific root media. Users who customize files under `assets/js/` or `assets/themes/` are modifying the system namespace, and those files may be overwritten by system updates.
 
 ## Local Testing Data Isolation
 

@@ -134,11 +134,11 @@ function getFallbackScrollState() {
 }
 
 function getSiteScrollState() {
-  const fromHook = callThemeHook('getScrollState', { document, window });
-  if (fromHook && typeof fromHook === 'object') {
+  const fromEffect = callThemeEffect('getScrollState', { document, window });
+  if (fromEffect && typeof fromEffect === 'object') {
     return {
-      top: Math.max(0, Math.round(Number(fromHook.top) || 0)),
-      left: Math.max(0, Math.round(Number(fromHook.left) || 0))
+      top: Math.max(0, Math.round(Number(fromEffect.top) || 0)),
+      left: Math.max(0, Math.round(Number(fromEffect.left) || 0))
     };
   }
   return getFallbackScrollState();
@@ -148,7 +148,7 @@ function restoreSiteScrollState(state) {
   if (!state || typeof state !== 'object') return false;
   const top = Math.max(0, Math.round(Number(state.top) || 0));
   const left = Math.max(0, Math.round(Number(state.left) || 0));
-  const handled = callThemeHook('restoreScrollState', { top, left, document, window });
+  const handled = callThemeEffect('restoreScrollState', { top, left, document, window });
   if (handled !== undefined) return !!handled;
   try {
     if (typeof window.scrollTo === 'function') {
@@ -254,13 +254,11 @@ function bindSiteViewStatePersistence() {
   } catch (_) {}
 }
 
-function getThemeHook(name) {
+function getThemeEffectHandler(name) {
   try {
     const apiHandler = getThemeApiHandler(name);
     if (typeof apiHandler === 'function') return apiHandler;
-    const hooks = (typeof window !== 'undefined') ? window.__press_themeHooks : null;
-    const fn = hooks && hooks[name];
-    return typeof fn === 'function' ? fn : null;
+    return null;
   } catch (_) { return null; }
 }
 
@@ -279,14 +277,14 @@ function isThemeDevMode() {
   }
 }
 
-function callThemeHook(name, ...args) {
-  const fn = getThemeHook(name);
+function callThemeEffect(name, ...args) {
+  const fn = getThemeEffectHandler(name);
   if (!fn) return undefined;
   try {
     return fn(...args);
   } catch (err) {
     if (isThemeDevMode()) {
-      try { console.error(`[theme-dev] Hook "${name}" failed`, err); } catch (_) {}
+      try { console.error(`[theme-dev] Theme effect "${name}" failed`, err); } catch (_) {}
     }
     return undefined;
   }
@@ -334,13 +332,13 @@ function handlePostsMetadataReady(event) {
   postsByLocationTitle = byLocation;
 
   try {
-    callThemeHook('handlePostsMetadataUpdate', {
+    callThemeEffect('handlePostsMetadataUpdate', {
       entries,
       lang: detail && detail.lang,
       document,
       window
     });
-  } catch (_) { /* ignore theme hook errors */ }
+  } catch (_) { /* ignore theme effect errors */ }
 
   const rawId = getQueryVariable('id');
   const tabParam = (getQueryVariable('tab') || '').toLowerCase();
@@ -366,18 +364,18 @@ function bindPostsMetadataListener() {
 }
 
 function getViewContainer(view, role) {
-  let fromHook = null;
+  let fromEffect = null;
   try {
-    fromHook = callThemeHook('getViewContainer', {
+    fromEffect = callThemeEffect('getViewContainer', {
       view,
       role,
       document,
       window
     });
   } catch (_) {
-    fromHook = null;
+    fromEffect = null;
   }
-  if (fromHook) return fromHook;
+  if (fromEffect) return fromEffect;
   const namesByRole = {
     main: ['main', 'mainview'],
     toc: ['toc', 'tocBox', 'tocview'],
@@ -402,17 +400,17 @@ function getViewContainers(view) {
     containerElement: null
   };
   try {
-    const hookResult = callThemeHook('resolveViewContainers', {
+    const effectResult = callThemeEffect('resolveViewContainers', {
       view,
       document,
       window
     });
-    if (hookResult && typeof hookResult === 'object') {
-      if (hookResult.mainElement) container.mainElement = hookResult.mainElement;
-      if (hookResult.tocElement) container.tocElement = hookResult.tocElement;
-      if (hookResult.sidebarElement) container.sidebarElement = hookResult.sidebarElement;
-      if (hookResult.contentElement) container.contentElement = hookResult.contentElement;
-      if (hookResult.containerElement) container.containerElement = hookResult.containerElement;
+    if (effectResult && typeof effectResult === 'object') {
+      if (effectResult.mainElement) container.mainElement = effectResult.mainElement;
+      if (effectResult.tocElement) container.tocElement = effectResult.tocElement;
+      if (effectResult.sidebarElement) container.sidebarElement = effectResult.sidebarElement;
+      if (effectResult.contentElement) container.contentElement = effectResult.contentElement;
+      if (effectResult.containerElement) container.containerElement = effectResult.containerElement;
     }
   } catch (_) {}
   if (!container.mainElement) container.mainElement = getViewContainer(view, 'main');
@@ -429,14 +427,14 @@ function smoothShow(el, options) {
   if (!el) return;
   const payload = { element: el, document, window };
   if (options && typeof options === 'object') Object.assign(payload, options);
-  callThemeHook('showElement', payload);
+  callThemeEffect('showElement', payload);
 }
 
 function smoothHide(el, onDone, options) {
   if (!el) { if (typeof onDone === 'function') { try { onDone(); } catch (_) {} } return; }
   const payload = { element: el, onDone, document, window };
   if (options && typeof options === 'object') Object.assign(payload, options);
-  const handled = callThemeHook('hideElement', payload);
+  const handled = callThemeEffect('hideElement', payload);
   if (!handled && typeof onDone === 'function') {
     try { onDone(); } catch (_) {}
   }
@@ -517,7 +515,7 @@ async function loadSiteConfig() {
 
 function renderSiteLinks(cfg) {
   try {
-    callThemeHook('renderSiteLinks', {
+    callThemeEffect('renderSiteLinks', {
       config: cfg,
       document,
       window
@@ -527,7 +525,7 @@ function renderSiteLinks(cfg) {
 
 function renderSiteIdentity(cfg) {
   try {
-    callThemeHook('renderSiteIdentity', {
+    callThemeEffect('renderSiteIdentity', {
       config: cfg,
       document,
       window
@@ -539,7 +537,7 @@ function renderSiteIdentity(cfg) {
 // Load cover images sequentially to reduce bandwidth contention
 function updateLayoutLoadingState(view, isLoading, containers = null) {
   const ctx = containers || getViewContainers(view);
-  return callThemeHook('updateLayoutLoadingState', {
+  return callThemeEffect('updateLayoutLoadingState', {
     view,
     isLoading,
     contentElement: ctx.contentElement,
@@ -556,7 +554,7 @@ function renderPostTOCBlock({
   articleTitle,
   tocHtml
 } = {}) {
-  return callThemeHook('renderPostTOC', {
+  return callThemeEffect('renderPostTOC', {
     tocElement,
     articleTitle,
     tocHtml,
@@ -574,7 +572,7 @@ function renderErrorState(targetElement, {
   view,
   containers
 } = {}) {
-  return callThemeHook('renderErrorState', {
+  return callThemeEffect('renderErrorState', {
     targetElement,
     variant,
     title,
@@ -589,7 +587,7 @@ function renderErrorState(targetElement, {
 }
 
 function notifyThemeViewChange(view, context = {}) {
-  return callThemeHook('handleViewChange', {
+  return callThemeEffect('handleViewChange', {
     view,
     context,
     document,
@@ -602,7 +600,7 @@ function refreshTagSidebar({
   containers,
   postsIndex
 } = {}) {
-  callThemeHook('renderTagSidebar', {
+  callThemeEffect('renderTagSidebar', {
     view,
     containers,
     postsIndex: postsIndex === undefined ? postsIndexCache : postsIndex,
@@ -617,7 +615,7 @@ function refreshTagSidebar({
 }
 
 function initializeSyntaxHighlightingForView(view, { containers } = {}) {
-  const handled = callThemeHook('initializeSyntaxHighlighting', {
+  const handled = callThemeEffect('initializeSyntaxHighlighting', {
     view,
     containers,
     initSyntaxHighlighting,
@@ -630,7 +628,7 @@ function initializeSyntaxHighlightingForView(view, { containers } = {}) {
 }
 
 function resetTOCView(view, containers, { reason, immediate } = {}) {
-  const handled = callThemeHook('resetTOC', {
+  const handled = callThemeEffect('resetTOC', {
     view,
     containers,
     reason,
@@ -655,7 +653,7 @@ function resetTOCView(view, containers, { reason, immediate } = {}) {
 }
 
 function enhanceIndexLayout(params = {}) {
-  callThemeHook('enhanceIndexLayout', {
+  callThemeEffect('enhanceIndexLayout', {
     ...params,
     hydrateCardCovers,
     applyLazyLoadingIn,
@@ -675,7 +673,7 @@ function enhanceIndexLayout(params = {}) {
 // RenderOutdatedCard moved to ./js/templates.js
 
 function renderTabs(activeSlug, searchQuery) {
-  callThemeHook('renderTabs', {
+  callThemeEffect('renderTabs', {
     activeSlug,
     searchQuery,
     tabsBySlug,
@@ -691,7 +689,7 @@ function renderTabs(activeSlug, searchQuery) {
 
 // Render footer navigation: Home (All Posts) + custom tabs
 function renderFooterNav() {
-  callThemeHook('renderFooterNav', {
+  callThemeEffect('renderFooterNav', {
     tabsBySlug,
     getHomeSlug: () => getHomeSlug(),
     getHomeLabel: () => getHomeLabel(),
@@ -766,7 +764,7 @@ function displayPost(postname) {
 
   updateLayoutLoadingState('post', true, containers);
 
-  callThemeHook('renderPostLoadingState', {
+  callThemeEffect('renderPostLoadingState', {
     view: 'post',
     containers,
     translator: t,
@@ -847,7 +845,7 @@ function displayPost(postname) {
       route: { id: postname, title: postMetadata.title || fallbackTitle }
     });
 
-    const hookResult = callThemeHook('renderPostView', {
+    const effectResult = callThemeEffect('renderPostView', {
       view: 'post',
       containers,
       ctx: runtimeContext,
@@ -890,14 +888,14 @@ function displayPost(postname) {
 
     let articleTitle = fallbackTitle;
     let decorated = false;
-    if (typeof hookResult === 'object') {
-      decorated = !!hookResult.decorated;
-      if (hookResult.title) articleTitle = String(hookResult.title);
+    if (typeof effectResult === 'object') {
+      decorated = !!effectResult.decorated;
+      if (effectResult.title) articleTitle = String(effectResult.title);
     }
 
     if (!decorated) {
       const mainEl = containers.mainElement || getViewContainer('post', 'main');
-      callThemeHook('decoratePostView', {
+      callThemeEffect('decoratePostView', {
         view: 'post',
         container: mainEl,
         articleTitle,
@@ -927,7 +925,7 @@ function displayPost(postname) {
 
     // Let theme handle hash-based scrolling if desired; fallback to previous behavior
     const currentHash = (location.hash || '').replace(/^#/, '');
-    const handledHash = callThemeHook('scrollToHash', {
+    const handledHash = callThemeEffect('scrollToHash', {
       hash: currentHash,
       view: 'post',
       containers,
@@ -1059,7 +1057,7 @@ function displayIndex(parsed) {
   let pageEntries = entries.slice(start, end);
   // Allow theme to customize pagination behavior (e.g., infinite scroll)
   try {
-    const paginated = callThemeHook('paginateEntries', {
+    const paginated = callThemeEffect('paginateEntries', {
       view: 'posts',
       entries,
       total,
@@ -1086,7 +1084,7 @@ function displayIndex(parsed) {
         totalPages = Math.max(1, paginated.totalPages);
       }
     }
-  } catch (_) { /* ignore pagination hook issues */ }
+  } catch (_) { /* ignore pagination effect issues */ }
 
   const mainview = containers.mainElement || getViewContainer('posts', 'main');
   const runtimeContext = createThemeRuntimeContext({
@@ -1094,7 +1092,7 @@ function displayIndex(parsed) {
     containers,
     route: { page }
   });
-  callThemeHook('renderIndexView', {
+  callThemeEffect('renderIndexView', {
     view: 'posts',
     containers,
     ctx: runtimeContext,
@@ -1130,7 +1128,7 @@ function displayIndex(parsed) {
   notifyThemeViewChange('posts', { showSearch: true, showTags: true, queryValue: '' });
   setDocTitle(t('titles.allPosts'));
 
-  callThemeHook('afterIndexRender', {
+  callThemeEffect('afterIndexRender', {
     entries: pageEntries,
     translate: t,
     getFile,
@@ -1176,7 +1174,7 @@ function displaySearch(query) {
   };
   let filtered = null;
   try {
-    const themed = callThemeHook('filterSearchEntries', {
+    const themed = callThemeEffect('filterSearchEntries', {
       view: 'search',
       entries: allEntries,
       query: q,
@@ -1188,7 +1186,7 @@ function displaySearch(query) {
       window
     });
     if (Array.isArray(themed)) filtered = themed;
-  } catch (_) { /* ignore search hook issues */ }
+  } catch (_) { /* ignore search effect issues */ }
   if (!Array.isArray(filtered)) filtered = defaultFilter(allEntries, q, tagFilter);
 
   const total = filtered.length;
@@ -1199,7 +1197,7 @@ function displaySearch(query) {
   const end = start + PAGE_SIZE;
   let pageEntries = filtered.slice(start, end);
   try {
-    const paginated = callThemeHook('paginateEntries', {
+    const paginated = callThemeEffect('paginateEntries', {
       view: 'search',
       entries: filtered,
       total,
@@ -1227,7 +1225,7 @@ function displaySearch(query) {
         totalPages = Math.max(1, paginated.totalPages);
       }
     }
-  } catch (_) { /* ignore pagination hook issues */ }
+  } catch (_) { /* ignore pagination effect issues */ }
 
   const mainview = containers.mainElement || getViewContainer('search', 'main');
   const runtimeContext = createThemeRuntimeContext({
@@ -1235,7 +1233,7 @@ function displaySearch(query) {
     containers,
     route: { query: q, tag: tagFilter, page }
   });
-  callThemeHook('renderSearchResults', {
+  callThemeEffect('renderSearchResults', {
     view: 'search',
     containers,
     ctx: runtimeContext,
@@ -1273,7 +1271,7 @@ function displaySearch(query) {
   notifyThemeViewChange('search', { showSearch: true, showTags: true, queryValue: q, tagFilter });
   setDocTitle(tagFilter ? t('ui.tagSearch', tagFilter) : t('titles.search', q));
 
-  callThemeHook('afterSearchRender', {
+  callThemeEffect('afterSearchRender', {
     entries: pageEntries,
     translate: t,
     getFile,
@@ -1299,7 +1297,7 @@ function displayStaticTab(slug) {
 
   resetTOCView('tab', containers, { reason: 'staticTab' });
   const main = containers.mainElement || getViewContainer('tab', 'main');
-  callThemeHook('renderStaticTabLoadingState', {
+  callThemeEffect('renderStaticTabLoadingState', {
     view: 'tab',
     containers,
     document,
@@ -1335,7 +1333,7 @@ function displayStaticTab(slug) {
         route: { tab: slug, title: tab.title }
       });
 
-      const hookResult = callThemeHook('renderStaticTabView', {
+      const effectResult = callThemeEffect('renderStaticTabView', {
         view: 'tab',
         containers,
         ctx: runtimeContext,
@@ -1374,8 +1372,8 @@ function displayStaticTab(slug) {
       }) || {};
 
       let pageTitle = tab.title;
-      if (typeof hookResult === 'object') {
-        if (hookResult.title) pageTitle = String(hookResult.title);
+      if (typeof effectResult === 'object') {
+        if (effectResult.title) pageTitle = String(effectResult.title);
       }
 
       initializeSyntaxHighlightingForView('tab', { containers });
@@ -1511,7 +1509,7 @@ function routeAndRender() {
 // isModifiedClick moved to utils.js
 
 document.addEventListener('click', (e) => {
-  if (callThemeHook('handleDocumentClick', { event: e, document, window })) return;
+  if (callThemeEffect('handleDocumentClick', { event: e, document, window })) return;
   const a = e.target && e.target.closest ? e.target.closest('a') : null;
   if (!a) return;
 
@@ -1535,7 +1533,7 @@ document.addEventListener('click', (e) => {
     history.pushState({}, '', url.toString());
     routeAndRender();
     const nextKey = getCurrentRouteKey();
-    const handled = callThemeHook('handleRouteScroll', {
+    const handled = callThemeEffect('handleRouteScroll', {
       reason: 'push',
       prevKey,
       nextKey,
@@ -1557,7 +1555,7 @@ window.addEventListener('popstate', () => {
   refreshTagSidebar({ postsIndex: postsIndexCache });
   try {
     const curKey = getCurrentRouteKey();
-    const handled = callThemeHook('handleRouteScroll', {
+    const handled = callThemeEffect('handleRouteScroll', {
       reason: 'popstate',
       prevKey,
       nextKey: curKey,
@@ -1576,7 +1574,7 @@ window.addEventListener('popstate', () => {
 
 // Update sliding indicator on window resize
 window.addEventListener('resize', (event) => {
-  callThemeHook('handleWindowResize', { event, document, window });
+  callThemeEffect('handleWindowResize', { event, document, window });
 });
 
 // Boot
@@ -1643,7 +1641,7 @@ try {
 await ensureThemeLayout();
 
 // Ensure theme controls are present, then apply and bind
-const controlsHandled = callThemeHook('setupThemeControls', {
+const controlsHandled = callThemeEffect('setupThemeControls', {
   mountThemeControls,
   applySavedTheme,
   bindThemeToggle,
@@ -1657,7 +1655,7 @@ if (controlsHandled === undefined) {
 }
 
 // Localize search placeholder ASAP
-callThemeHook('updateSearchPlaceholder', {
+callThemeEffect('updateSearchPlaceholder', {
   placeholder: t('sidebar.searchPlaceholder'),
   document,
   window
@@ -1665,7 +1663,7 @@ callThemeHook('updateSearchPlaceholder', {
 try { setupSearch(); } catch (_) {}
 
 // Observe viewport changes for responsive tabs
-callThemeHook('setupResponsiveTabsObserver', {
+callThemeEffect('setupResponsiveTabsObserver', {
   getTabs: () => tabsBySlug,
   document,
   window,
@@ -1674,7 +1672,7 @@ callThemeHook('setupResponsiveTabsObserver', {
 
 // Reflect theme config in the layout (e.g., data attributes)
 try {
-  callThemeHook('reflectThemeConfig', {
+  callThemeEffect('reflectThemeConfig', {
     config: siteConfig,
     document,
     window
@@ -1688,7 +1686,7 @@ async function softResetToSiteDefaultLanguage() {
     // Switch language immediately (do not persist to mimic reset semantics)
     await initI18n({ lang: String(def), persist: false });
     // Reflect placeholder promptly
-    callThemeHook('updateSearchPlaceholder', {
+    callThemeEffect('updateSearchPlaceholder', {
       placeholder: t('sidebar.searchPlaceholder'),
       document,
       window
@@ -1799,7 +1797,7 @@ async function softResetToSiteDefaultLanguage() {
     try { refreshLanguageSelector(); } catch (_) {}
     // Rebuild the Tools panel so all labels reflect the new language
     try {
-      callThemeHook('resetThemeControls', {
+      callThemeEffect('resetThemeControls', {
         document,
         window,
         mountThemeControls,
@@ -1976,7 +1974,7 @@ try {
     // Apply site-controlled theme after loading config
     try {
       applyThemeConfig(siteConfig);
-      callThemeHook('reflectThemeConfig', {
+      callThemeEffect('reflectThemeConfig', {
         config: siteConfig,
         document,
         window
@@ -2051,5 +2049,5 @@ try {
 
 // Footer: set dynamic year once
 try {
-  callThemeHook('setupFooter', { translate: t, document, window });
+  callThemeEffect('setupFooter', { translate: t, document, window });
 } catch (_) {}

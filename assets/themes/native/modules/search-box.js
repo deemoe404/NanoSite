@@ -21,11 +21,9 @@ export function mount(context = {}) {
   if (typeof regions.register === 'function') {
     regions.register('search', searchBox);
     regions.register('searchBox', searchBox);
-    if (input) regions.register('searchInput', input);
   } else {
     regions.search = searchBox;
     regions.searchBox = searchBox;
-    if (input) regions.searchInput = input;
   }
   context.regions = regions;
   return { regions };

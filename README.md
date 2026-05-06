@@ -26,6 +26,7 @@ Until the starter repository is published, the official documentation site remai
 
 - Official site: [https://ekilyhq.github.io/Press/](https://ekilyhq.github.io/Press/)
 - Documentation: [Documentation for Press](https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&lang=en)
+- Theme contract: [Press Theme Contract](https://ekilyhq.github.io/Press/?id=post%2Ftheme-contract%2Ftheme-contract_en.md&lang=en)
 - GitHub Pages guide: [Configure GitHub Pages for Press](https://ekilyhq.github.io/Press/?id=post%2Fpage%2Fgithubpages_en.md&lang=en)
 
 ## Repository Layout
@@ -65,7 +66,7 @@ node scripts/test-content-model.js
 
 Merges to `main` that change Press runtime files automatically publish a patch release with a dedicated `press-system-vX.Y.Z.zip` update package. The package is intentionally limited to the application shell and runtime assets: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, and `assets/themes/`.
 
-Official documentation and site content stay out of update packages. Changes that only touch `wwwroot/` do not create a system release, and update packages must never include `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repo docs, workflow files, scripts, or site-specific media such as `assets/avatar.png` and `assets/hero.jpeg`.
+Official documentation and site content stay out of update packages. Changes that only touch `wwwroot/` do not create a system release, and update packages must never include `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repository policy files, workflow files, scripts, or site-specific media such as `assets/avatar.png` and `assets/hero.jpeg`.
 
 ## Branching
 

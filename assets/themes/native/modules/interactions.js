@@ -44,7 +44,6 @@ function getRegion(name, documentRef = defaultDocument) {
 
 function getMainRegion(documentRef = defaultDocument) {
   if (activeRegions && activeRegions.main && activeRegions.main.nodeType === 1) return activeRegions.main;
-  if (activeRegions && activeRegions.mainview && activeRegions.mainview.nodeType === 1) return activeRegions.mainview;
   if (documentRef && documentRef.querySelector) {
     const explicit = documentRef.querySelector('[data-theme-region="main"], .native-mainview');
     if (explicit) return explicit;
@@ -729,7 +728,7 @@ function handleViewChangeNative(params = {}, documentRef = defaultDocument, wind
   const context = params && params.context && typeof params.context === 'object' ? params.context : {};
   const search = context.searchElement || params.searchElement || (documentRef ? getSearchRegion(documentRef) : null);
   const tags = context.tagElement || params.tagElement || (documentRef ? getTagsRegion(documentRef) : null);
-  const input = context.searchInput || params.searchInput || (search && search.input) || (documentRef ? getSearchInput(documentRef) : null);
+  const input = params.searchInput || (search && search.input) || (documentRef ? getSearchInput(documentRef) : null);
   const showSearch = context.showSearch != null ? !!context.showSearch : !!params.showSearch;
   const showTags = context.showTags != null ? !!context.showTags : !!params.showTags;
   const queryValue = context.queryValue != null ? context.queryValue : params.queryValue;

@@ -8,7 +8,6 @@ export function mount(context = {}) {
   if (!tagBox) {
     tagBox = doc.createElement('div');
     tagBox.className = 'box native-tagbox';
-    tagBox.id = 'tagview';
     tagBox.setAttribute('data-theme-region', 'tags');
     sidebar.appendChild(tagBox);
   } else if (!tagBox.classList.contains('box')) {

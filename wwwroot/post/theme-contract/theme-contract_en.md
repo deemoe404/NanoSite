@@ -1,3 +1,15 @@
+---
+title: Press Theme Contract
+date: 2026-05-06
+tags:
+  - Press
+  - Theme
+  - Documentation
+excerpt: Theme packs in Press are zero-build runtime modules. This contract defines manifest fields, runtime context, regions, content shapes, shared components, and development checks for theme authors.
+author: Ekily
+ai: true
+---
+
 # Press Theme Contract
 
 Press themes are zero-build theme packs under `assets/themes/<pack>/`.
@@ -62,11 +74,6 @@ effects.
 - `configSchema`: JSON-schema fragment for theme-specific configuration.
 - `content.shapes`: Content model fields consumed by the theme.
 
-Legacy third-party themes may still include a `contract` object as an adapter
-map for old hook and DOM-ID conventions. Built-in themes are pure contract
-themes: they omit `contract`, avoid fixed legacy IDs, and target the top-level
-manifest fields plus the `ctx` object.
-
 ## Theme API
 
 Theme modules may continue to export `mount(context)`. They may also export a
@@ -90,13 +97,12 @@ export default {
 
 The loader merges explicit API exports first. A `mount(ctx)` function may also
 return `{ views, components, effects }` to publish handlers created from
-runtime-local state. Built-in themes implement `views` and `effects` directly.
-Legacy third-party themes may still return adapter hooks during the compatibility
-period, but new theme code should not depend on that path.
+runtime-local state. Themes implement `views` and `effects` directly; there is
+no global adapter object or fixed-ID compatibility layer.
 
 ## Runtime Context
 
-View render calls receive `ctx` alongside the legacy payload:
+View render calls receive `ctx` alongside the view payload:
 
 - `ctx.document` and `ctx.window`
 - `ctx.router` with route key, query, language-aware links, and navigation
@@ -116,7 +122,6 @@ version query; doing so creates a separate ES module instance and splits the
 runtime language state.
 
 ## Region Registry
-
 Theme modules register DOM handles through the registry:
 
 ```js
@@ -124,9 +129,9 @@ ctx.regions.register('main', mainElement);
 ctx.regions.registerMany({ toc: tocElement, search: searchElement });
 ```
 
-Legacy third-party themes may still expose old DOM IDs as adapter details during
-the compatibility period. Built-in and new themes should register semantic
-regions and communicate through the registry instead.
+Runtime code resolves theme-owned elements through semantic region names rather
+than fixed DOM IDs. Themes should register the region names declared in their
+manifest.
 
 ## Content Model
 
@@ -177,14 +182,14 @@ through events such as `press:search`,
 Run:
 
 ```bash
-node scripts/test-theme-contracts.js
+node --experimental-default-type=module scripts/test-theme-contracts.js
 ```
 
 The verifier checks manifest shape, module/style paths, supported views,
 registered regions, shared components, content shapes, pure-theme constraints,
-legacy hook adapter coverage for compatibility themes, docs/schema
-synchronization, and direct core dependencies on legacy DOM IDs.
+docs/schema synchronization, and rejects old global theme adapters or legacy DOM
+ID dependencies.
 
 Set `?themeDev=1` in the browser or `localStorage.press_theme_dev_mode = "1"` to
 log runtime warnings for malformed manifests, undeclared or missing regions,
-missing hooks, hook/render errors, and missing legacy DOM IDs.
+and render/effect errors.
