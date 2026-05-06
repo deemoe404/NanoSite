@@ -8,7 +8,6 @@ export function mount(context = {}) {
   if (!toc) {
     toc = doc.createElement('press-toc');
     toc.className = 'box native-toc';
-    toc.id = 'tocview';
     toc.setAttribute('data-theme-region', 'toc');
     sidebar.appendChild(toc);
   } else if (!toc.classList.contains('box')) {

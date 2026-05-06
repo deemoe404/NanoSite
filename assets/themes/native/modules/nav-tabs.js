@@ -8,7 +8,6 @@ export function mount(context = {}) {
   if (!navBox) {
     navBox = doc.createElement('div');
     navBox.className = 'box flex-split native-navbox';
-    navBox.id = 'mapview';
     navBox.setAttribute('data-theme-region', 'navBox');
     content.appendChild(navBox);
   }
@@ -19,7 +18,6 @@ export function mount(context = {}) {
   if (!nav) {
     nav = doc.createElement('nav');
     nav.className = 'tabs native-tabs';
-    nav.id = 'tabsNav';
     nav.setAttribute('data-theme-region', 'nav');
     nav.setAttribute('aria-label', 'Sections');
     navBox.appendChild(nav);
@@ -30,11 +28,9 @@ export function mount(context = {}) {
   if (typeof regions.register === 'function') {
     regions.register('nav', nav);
     regions.register('navBox', navBox);
-    regions.register('tabsNav', nav);
   } else {
     regions.nav = nav;
     regions.navBox = navBox;
-    regions.tabsNav = nav;
   }
   context.regions = regions;
   return { regions };

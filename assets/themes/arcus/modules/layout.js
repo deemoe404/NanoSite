@@ -1,8 +1,4 @@
-const NAV_ID = 'tabsNav';
-const MAINVIEW_ID = 'mainview';
-const TOCVIEW_ID = 'tocview';
 const FOOTER_NAV_ID = 'footerNav';
-const TAGVIEW_ID = 'tagview';
 
 function ensureElement(parent, selector, creator) {
   const existing = parent.querySelector(selector);
@@ -46,7 +42,7 @@ export function mount(context = {}) {
         </div>
         <div class="arcus-header__divider" aria-hidden="true"></div>
         <div class="arcus-nav__scroller" data-overflow="none">
-          <nav id="${NAV_ID}" class="arcus-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
+          <nav class="arcus-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
         </div>
         <div class="arcus-utility__credit arcus-footer__credit arcus-header__credit" aria-label="Site credit"></div>
       </div>`;
@@ -151,7 +147,6 @@ export function mount(context = {}) {
 
   const mainview = ensureElement(main, '[data-theme-region="main"], .arcus-mainview', () => {
     const el = doc.createElement('section');
-    el.id = MAINVIEW_ID;
     el.className = 'arcus-mainview';
     el.setAttribute('data-theme-region', 'main');
     el.setAttribute('tabindex', '-1');
@@ -161,7 +156,6 @@ export function mount(context = {}) {
 
   const tocview = ensureElement(main, '[data-theme-region="toc"], .arcus-toc', () => {
     const el = doc.createElement('press-toc');
-    el.id = TOCVIEW_ID;
     el.className = 'arcus-toc';
     el.setAttribute('data-theme-region', 'toc');
     el.setAttribute('aria-label', 'Table of contents');
@@ -179,7 +173,6 @@ export function mount(context = {}) {
   let tagBand = rightColumn.querySelector('[data-theme-region="tags"], .arcus-tagband');
   if (!tagBand) {
     tagBand = container.querySelector('[data-theme-region="tags"], .arcus-tagband') || doc.createElement('section');
-    tagBand.id = TAGVIEW_ID;
     if (!tagBand.parentElement || tagBand.parentElement !== rightColumn) {
       rightColumn.appendChild(tagBand);
     }
@@ -252,7 +245,7 @@ export function mount(context = {}) {
   searchToggle.type = 'button';
   searchToggle.className = 'arcus-search-toggle';
   searchToggle.setAttribute('aria-expanded', searchToggle.getAttribute('aria-expanded') || 'false');
-  searchToggle.setAttribute('aria-controls', 'searchInput');
+  searchToggle.removeAttribute('aria-controls');
   searchToggle.innerHTML = `
     <span class="arcus-search-toggle__icon" aria-hidden="true">🔍</span>
     <span class="arcus-search-toggle__label">Search</span>`;
@@ -297,12 +290,10 @@ export function mount(context = {}) {
     container,
     header,
     rightColumn,
-    main,
     content: main,
-    mainview,
+    main: mainview,
     nav: header.querySelector('[data-theme-region="nav"], .arcus-nav'),
     search: searchSection,
-    searchInput: searchSection.input || searchSection.querySelector('input[type="search"]'),
     toc: tocview,
     footer,
     utilities,

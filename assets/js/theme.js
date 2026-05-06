@@ -328,7 +328,7 @@ export function mountThemeControls(options = {}) {
       const sidebar = document.querySelector('.sidebar');
       if (!sidebar) return null;
       component = document.createElement('press-theme-controls');
-      const toc = getThemeRegion(['toc', 'tocBox', 'tocview'], '#tocview');
+      const toc = getThemeRegion('toc');
       if (toc && toc.parentElement === sidebar) sidebar.insertBefore(component, toc);
       else sidebar.appendChild(component);
     }

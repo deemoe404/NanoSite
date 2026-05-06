@@ -23,7 +23,7 @@ let layoutPromise = null;
 const DEFAULT_PACK = 'native';
 const CONTRACT_VERSION = 1;
 
-const VIEW_HOOKS = {
+const EFFECT_VIEW_NAMES = {
   renderPostView: 'post',
   renderIndexView: 'posts',
   renderSearchResults: 'search',
@@ -97,8 +97,7 @@ export function createThemeI18nContext() {
 
 function validateManifestContract(pack, manifest) {
   if (!isThemeDevMode()) return;
-  const contract = manifest && (manifest.contract || {});
-  const contractVersion = firstDefined(manifest && manifest.contractVersion, contract.version);
+  const contractVersion = manifest && manifest.contractVersion;
   if (contractVersion !== CONTRACT_VERSION) {
     themeDevWarn(`Theme "${pack}" declares unsupported contract version`, contractVersion);
   }
@@ -110,22 +109,17 @@ function validateManifestContract(pack, manifest) {
       themeDevWarn(`Theme "${pack}" ${key} should be an array.`);
     }
   });
-  if (!asObject(manifest.views) && !Array.isArray(contract.views)) {
-    themeDevWarn(`Theme "${pack}" should declare top-level views or contract.views.`);
+  if (!asObject(manifest.views)) {
+    themeDevWarn(`Theme "${pack}" should declare top-level views.`);
   }
-  if (!asObject(manifest.regions) && !Array.isArray(contract.regions)) {
-    themeDevWarn(`Theme "${pack}" should declare top-level regions or contract.regions.`);
+  if (!asObject(manifest.regions)) {
+    themeDevWarn(`Theme "${pack}" should declare top-level regions.`);
   }
-  if (!manifest.content && !contract.content) {
+  if (!manifest.content) {
     themeDevWarn(`Theme "${pack}" should declare supported content shapes.`);
     return;
   }
-  ['regions', 'domIds', 'hooks', 'views'].forEach((key) => {
-    if (contract[key] != null && !Array.isArray(contract[key])) {
-      themeDevWarn(`Theme "${pack}" contract.${key} should be an array.`);
-    }
-  });
-  const content = contract.content;
+  const content = manifest.content;
   if (content && typeof content === 'object') {
     const shapes = asStringList(content.shapes || content.provides || []);
     ['html', 'blocks', 'tocTree'].forEach((shape) => {
@@ -134,10 +128,10 @@ function validateManifestContract(pack, manifest) {
       }
     });
     if (content.markdown && content.markdown !== 'html') {
-      themeDevWarn(`Theme "${pack}" contract.content.markdown should currently be "html".`);
+      themeDevWarn(`Theme "${pack}" content.markdown should currently be "html".`);
     }
     if (content.toc && content.toc !== 'html') {
-      themeDevWarn(`Theme "${pack}" contract.content.toc should currently be "html".`);
+      themeDevWarn(`Theme "${pack}" content.toc should currently be "html".`);
     }
   }
 }
@@ -146,15 +140,7 @@ function getDeclaredRegionNames(manifest) {
   const topLevel = manifest && manifest.regions;
   if (Array.isArray(topLevel)) return asStringList(topLevel);
   if (topLevel && typeof topLevel === 'object') return Object.keys(topLevel).filter(Boolean);
-  return asStringList(manifest && manifest.contract && manifest.contract.regions);
-}
-
-function getDeclaredHookNames(manifest) {
-  return asStringList(manifest && manifest.contract && manifest.contract.hooks);
-}
-
-function getDeclaredDomIds(manifest) {
-  return asStringList(manifest && manifest.contract && manifest.contract.domIds);
+  return [];
 }
 
 function safeThemeAssetPath(pack, entry, extension) {
@@ -198,16 +184,6 @@ function warnUndeclaredRegions(pack, manifest, regions) {
   });
 }
 
-function warnMissingDomIds(pack, manifest) {
-  if (!isThemeDevMode()) return;
-  const ids = getDeclaredDomIds(manifest);
-  ids.forEach((id) => {
-    if (!document.getElementById(id)) {
-      themeDevWarn(`Theme "${pack}" declares missing DOM id "#${id}".`);
-    }
-  });
-}
-
 function warnMissingRegions(pack, manifest, context) {
   if (!isThemeDevMode()) return;
   const regions = ensureThemeRegionRegistry(context && context.regions);
@@ -219,43 +195,23 @@ function warnMissingRegions(pack, manifest, context) {
   });
 }
 
-function warnMissingHooks(pack, manifest, context) {
-  if (!isThemeDevMode()) return;
-  let hooks = null;
-  try {
-    hooks = window.__press_themeHooks || null;
-  } catch (_) {
-    hooks = null;
-  }
-  const apiHooks = context && context.theme && context.theme.hooks;
-  getDeclaredHookNames(manifest).forEach((name) => {
-    if ((!apiHooks || typeof apiHooks[name] !== 'function') && (!hooks || typeof hooks[name] !== 'function')) {
-      themeDevWarn(`Theme "${pack}" declares missing hook "${name}".`);
-    }
-  });
-}
-
 function createThemeApi(pack, manifest) {
-  const contract = asObject(manifest && manifest.contract) || {};
   const api = {
     name: String((manifest && manifest.name) || pack || ''),
     version: String((manifest && manifest.version) || ''),
-    contractVersion: firstDefined(manifest && manifest.contractVersion, contract.version, CONTRACT_VERSION),
+    contractVersion: firstDefined(manifest && manifest.contractVersion, CONTRACT_VERSION),
     manifest,
     mount: null,
     unmount: null,
     regions: asObject(manifest && manifest.regions) || {},
     views: {},
     components: {},
-    effects: {},
-    hooks: {}
+    effects: {}
   };
 
   const declaredViews = asObject(manifest && manifest.views);
   if (declaredViews) {
     Object.keys(declaredViews).forEach((key) => { api.views[key] = null; });
-  } else {
-    asStringList(contract.views).forEach((key) => { api.views[key] = null; });
   }
 
   return api;
@@ -279,7 +235,6 @@ function mergeThemeApi(target, source) {
   mergeFunctionMap(target.views, source.views);
   mergeFunctionMap(target.components, source.components);
   mergeFunctionMap(target.effects, source.effects);
-  mergeFunctionMap(target.hooks, source.hooks);
   return target;
 }
 
@@ -291,7 +246,6 @@ function extractThemeApi(mod) {
     asObject(mod.views)
     || asObject(mod.components)
     || asObject(mod.effects)
-    || asObject(mod.hooks)
     || asObject(mod.regions)
     || typeof mod.mount === 'function'
     || typeof mod.unmount === 'function'
@@ -304,42 +258,11 @@ function extractThemeApi(mod) {
     || asObject(source.views)
     || asObject(source.components)
     || asObject(source.effects)
-    || asObject(source.hooks)
     || asObject(source.regions)
   ) {
     return source;
   }
   return null;
-}
-
-function bindLegacyHookAdapters(context) {
-  const api = context && context.theme;
-  if (!api) return;
-  let hooks = null;
-  try {
-    hooks = window.__press_themeHooks || null;
-  } catch (_) {
-    hooks = null;
-  }
-  if (!hooks || typeof hooks !== 'object') return;
-  Object.entries(hooks).forEach(([name, fn]) => {
-    if (typeof fn === 'function' && typeof api.hooks[name] !== 'function') {
-      api.hooks[name] = fn;
-    }
-  });
-  Object.entries(VIEW_HOOKS).forEach(([hookName, viewName]) => {
-    if (typeof api.views[viewName] !== 'function' && typeof hooks[hookName] === 'function') {
-      api.views[viewName] = hooks[hookName];
-    }
-  });
-}
-
-function viewsFromHooks(hooks = {}) {
-  const views = {};
-  Object.entries(VIEW_HOOKS).forEach(([hookName, viewName]) => {
-    if (typeof hooks[hookName] === 'function') views[viewName] = hooks[hookName];
-  });
-  return views;
 }
 
 async function loadManifest(pack) {
@@ -374,14 +297,6 @@ async function mountModule(pack, entry, context, manifest) {
   if (result && typeof result === 'object') {
     const resultApi = extractThemeApi(result);
     if (resultApi) mergeThemeApi(context.theme, resultApi);
-    if (result.hooks && typeof result.hooks === 'object') {
-      mergeThemeApi(context.theme, {
-        hooks: result.hooks,
-        views: result.views || viewsFromHooks(result.hooks),
-        effects: result.effects || result.hooks,
-        components: result.components
-      });
-    }
     if (result.regions && typeof result.regions === 'object') {
       warnUndeclaredRegions(pack, manifest, result.regions);
       context.regions = mergeThemeRegions(context.regions, result.regions);
@@ -442,10 +357,7 @@ async function mountPack(pack, allowFallback = true) {
   }
 
   document.body.dataset.themeLayout = pack;
-  bindLegacyHookAdapters(context);
   warnMissingRegions(pack, manifest, context);
-  warnMissingHooks(pack, manifest, context);
-  warnMissingDomIds(pack, manifest);
   setThemeLayoutContext(context);
   return context;
 }
@@ -478,24 +390,15 @@ export function getThemeApiHandler(name) {
   const context = readThemeLayoutContext();
   const api = context && context.theme;
   if (api && typeof api === 'object') {
-    const viewName = VIEW_HOOKS[hookName];
+    const viewName = EFFECT_VIEW_NAMES[hookName];
     if (viewName && api.views && typeof api.views[viewName] === 'function') {
       return api.views[viewName];
     }
     if (api.effects && typeof api.effects[hookName] === 'function') {
       return api.effects[hookName];
     }
-    if (api.hooks && typeof api.hooks[hookName] === 'function') {
-      return api.hooks[hookName];
-    }
   }
-  try {
-    const hooks = (typeof window !== 'undefined') ? window.__press_themeHooks : null;
-    const fn = hooks && hooks[hookName];
-    return typeof fn === 'function' ? fn : null;
-  } catch (_) {
-    return null;
-  }
+  return null;
 }
 
 export { getThemeRegion };

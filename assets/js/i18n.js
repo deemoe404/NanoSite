@@ -784,7 +784,10 @@ function applyStaticTranslations() {
     search.setPlaceholder(t('sidebar.searchPlaceholder'));
     return;
   }
-  const input = getThemeRegion(['search', 'searchInput'], '#searchInput');
+  const searchRegion = getThemeRegion('search');
+  const input = searchRegion && searchRegion.matches && searchRegion.matches('input')
+    ? searchRegion
+    : ((searchRegion && searchRegion.input) || (searchRegion && searchRegion.querySelector && searchRegion.querySelector('input[type="search"]')));
   if (input) input.setAttribute('placeholder', t('sidebar.searchPlaceholder'));
 }
 

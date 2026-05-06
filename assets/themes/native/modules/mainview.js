@@ -8,7 +8,6 @@ export function mount(context = {}) {
   if (!mainview) {
     mainview = doc.createElement('div');
     mainview.className = 'box native-mainview';
-    mainview.id = 'mainview';
     mainview.setAttribute('data-theme-region', 'main');
     content.appendChild(mainview);
   } else if (!mainview.classList.contains('box')) {
@@ -19,10 +18,8 @@ export function mount(context = {}) {
 
   if (typeof regions.register === 'function') {
     regions.register('main', mainview);
-    regions.register('mainview', mainview);
   } else {
     regions.main = mainview;
-    regions.mainview = mainview;
   }
   context.regions = regions;
   return { regions };

@@ -16,7 +16,7 @@ export function prefersReducedMotion() {
 
 // Extract the first heading text within the article region (H1/H2/H3)
 export function getArticleTitleFromMain() {
-  const root = getThemeRegion(['main', 'mainview'], '#mainview') || document;
+  const root = getThemeRegion('main') || document;
   const h = root.querySelector('h1, h2, h3');
   if (!h) return null;
   const clone = h.cloneNode(true);

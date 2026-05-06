@@ -50,8 +50,9 @@ body {
   background: var(--bg) !important;
 }
 
-/* 完全移除 mapview 的所有装饰！！！ */
-#mapview, #mainview {
+/* 完全移除主内容和导航 shell 的所有装饰。使用语义 region selector 保持优先级，不依赖旧 ID。 */
+.native-navbox[data-theme-region="navBox"],
+.native-mainview[data-theme-region="main"] {
   background: none !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -81,12 +82,12 @@ body {
     border-color: transparent !important;
 }
 
-#searchInput {
+.native-searchbox input[type="search"] {
     border-radius: 99px !important;
 }
 
 /* 完全移除导航栏的所有装饰！！！（排除编辑器模式开关） */
-#tabsNav, .tabs, nav:not(.mode-switch) {
+.native-tabs, .tabs, nav:not(.mode-switch) {
   background: none !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -105,7 +106,7 @@ body {
 .tab, .tab:hover, .tab:focus, .tab:active,
 .nav-item, .nav-item:hover, .nav-item:focus, .nav-item:active,
 .nav-link, .nav-link:hover, .nav-link:focus, .nav-link:active,
-#tabsNav a, #tabsNav a:hover, #tabsNav a:focus, #tabsNav a:active,
+.native-tabs a, .native-tabs a:hover, .native-tabs a:focus, .native-tabs a:active,
 .tabs a, .tabs a:hover, .tabs a:focus, .tabs a:active {
   background: none !important;
   background-color: transparent !important;
@@ -137,7 +138,7 @@ body {
 }
 
 /* Restore gentle exit motion for deactivating state even in minimal theme */
-#tabsNav .tab[data-slug="post"].deactivating, #tabsNav .tab[data-slug="search"].deactivating,
+.native-tabs .tab[data-slug="post"].deactivating, .native-tabs .tab[data-slug="search"].deactivating,
 .tabs .tab[data-slug="post"].deactivating, .tabs .tab[data-slug="search"].deactivating {
   transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1) 0s, opacity .14s linear .02s !important;
   transform: scale(1.08) translateY(-0.015625rem) !important;
@@ -145,13 +146,13 @@ body {
 }
 
 /* Allow entrance animation for activating state */
-#tabsNav .tab[data-slug="post"].activating, #tabsNav .tab[data-slug="search"].activating,
+.native-tabs .tab[data-slug="post"].activating, .native-tabs .tab[data-slug="search"].activating,
 .tabs .tab[data-slug="post"].activating, .tabs .tab[data-slug="search"].activating {
   opacity: 0 !important;
   transform: scale(1.08) translateY(-0.015625rem) !important;
 }
 
-#tabsNav .tab[data-slug="post"].activating.in, #tabsNav .tab[data-slug="search"].activating.in,
+.native-tabs .tab[data-slug="post"].activating.in, .native-tabs .tab[data-slug="search"].activating.in,
 .tabs .tab[data-slug="post"].activating.in, .tabs .tab[data-slug="search"].activating.in {
   opacity: 1 !important;
   transform: none !important;
@@ -195,12 +196,12 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 }
 
 /* 报纸风格链接：低调但清晰，采用报刊蓝（仅正文区域）*/
-#mainview a {
+.native-mainview a {
   color: var(--primary) !important;
   text-decoration: none;
 }
 
-#mainview a:hover {
+.native-mainview a:hover {
   color: var(--primary-hover) !important;
 }
 
@@ -209,11 +210,11 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 :root { --view-gap: 24px; }
 
 /* Only add space when stacked one after the other */
-#mapview + #mainview { margin-top: var(--view-gap, 24px) !important; }
-#mainview + #mapview { margin-top: var(--view-gap, 24px) !important; }
+.native-navbox + .native-mainview { margin-top: var(--view-gap, 24px) !important; }
+.native-mainview + .native-navbox { margin-top: var(--view-gap, 24px) !important; }
 
 /* ---------------------------------------------------- */
-/* Newspaper-like typography for content in #mainview   */
+/* Newspaper-like typography for content in .native-mainview   */
 /* ---------------------------------------------------- */
 /* Font stacks */
 :root {
@@ -224,12 +225,12 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 }
 
 /* Headings: classic serif, tight leading */
-#mainview h1,
-#mainview h2,
-#mainview h3,
-#mainview h4,
-#mainview h5,
-#mainview h6 {
+.native-mainview h1,
+.native-mainview h2,
+.native-mainview h3,
+.native-mainview h4,
+.native-mainview h5,
+.native-mainview h6 {
   font-family: var(--serif);
   color: var(--text);
   letter-spacing: 0.01em;
@@ -237,54 +238,54 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
   margin: 1.2em 0 0.5em;
 }
 
-#mainview h1 { font-family: var(--display, var(--serif)); font-weight: 700; letter-spacing: 0.005em; }
-#mainview h2 { font-weight: 650; border-bottom: 1px solid var(--hr); padding-bottom: 0.25em; }
-#mainview h3 { font-weight: 600; }
+.native-mainview h1 { font-family: var(--display, var(--serif)); font-weight: 700; letter-spacing: 0.005em; }
+.native-mainview h2 { font-weight: 650; border-bottom: 1px solid var(--hr); padding-bottom: 0.25em; }
+.native-mainview h3 { font-weight: 600; }
 
 /* Body text and lists: serif for article feel */
-#mainview p,
-#mainview li,
-#mainview blockquote,
-#mainview figcaption {
+.native-mainview p,
+.native-mainview li,
+.native-mainview blockquote,
+.native-mainview figcaption {
   font-family: var(--serif);
 }
 
 /* Blockquotes: hairline left rule and subtle backdrop */
-#mainview blockquote {
+.native-mainview blockquote {
   border-left: 3px solid var(--border);
   background: var(--card);
   margin: 1.2em 0;
   padding: 0.6em 1em;
   color: var(--muted);
 }
-#mainview blockquote > p { font-style: italic; }
+.native-mainview blockquote > p { font-style: italic; }
 
 /* HR: hairline */
-#mainview hr {
+.native-mainview hr {
   border: 0;
   border-top: 1px solid var(--hr);
   margin: 2em 0;
 }
 
 /* Tables: clean, hairline grid */
-#mainview table { width: 100%; border-collapse: collapse; }
-#mainview th, #mainview td { border: 1px solid var(--border); padding: 0.5em 0.75em; }
-#mainview thead th { background: var(--card); font-weight: 600; }
+.native-mainview table { width: 100%; border-collapse: collapse; }
+.native-mainview th, .native-mainview td { border: 1px solid var(--border); padding: 0.5em 0.75em; }
+.native-mainview thead th { background: var(--card); font-weight: 600; }
 
 /* Figure captions */
-#mainview figcaption { color: var(--muted); font-size: 0.9em; text-align: center; margin-top: 0.5em; }
+.native-mainview figcaption { color: var(--muted); font-size: 0.9em; text-align: center; margin-top: 0.5em; }
 
 /* Optional utilities: multi-columns for long-form text */
 @media (min-width: 1024px) {
-  #mainview .columns-2 { column-count: 2; column-gap: 2rem; }
-  #mainview .columns-3 { column-count: 3; column-gap: 2rem; }
+  .native-mainview .columns-2 { column-count: 2; column-gap: 2rem; }
+  .native-mainview .columns-3 { column-count: 3; column-gap: 2rem; }
 }
 @media (max-width: 1023.98px) {
-  #mainview .columns-2, #mainview .columns-3 { column-count: 1; }
+  .native-mainview .columns-2, .native-mainview .columns-3 { column-count: 1; }
 }
 
 /* Optional utility: drop cap on first paragraph inside .dropcap wrapper */
-#mainview .dropcap p:first-of-type::first-letter {
+.native-mainview .dropcap p:first-of-type::first-letter {
   float: left;
   font-family: var(--serif);
   font-size: 3.2em;
@@ -295,12 +296,12 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 }
 
 /* Homepage index cards: use newspaper typography */
-#mainview .index .card-title { 
+.native-mainview .index .card-title {
   font-family: var(--display, var(--serif));
   letter-spacing: 0.002em;
   font-weight: 600; /* 降权重，更接近报纸标题质感 */
 }
-#mainview .index .card-excerpt { 
+.native-mainview .index .card-excerpt {
   font-family: var(--serif);
   font-size: 0.95rem; /* 略回落字号，减轻视觉厚重 */
   line-height: 1.55;
@@ -309,17 +310,17 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 }
 
 /* Inline link cards inside post content: match homepage typography */
-#mainview .link-card .card-title {
+.native-mainview .link-card .card-title {
   font-family: var(--display, var(--serif));
   letter-spacing: 0.002em;
   font-weight: 600; /* 与首页卡片标题一致 */
 }
-#mainview .link-card .card-excerpt {
+.native-mainview .link-card .card-excerpt {
   font-family: var(--serif);
 }
 
 /* 卡片元信息：小型大写+中等权重，报纸感更强 */
-#mainview .index .card-meta {
+.native-mainview .index .card-meta {
   font-size: 0.74rem;
   font-weight: 500;
   font-variant-caps: small-caps;
@@ -332,30 +333,30 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 }
 
 /* 内容区采用灰度抗锯齿，边缘更细腻，降低“粗”感 */
-#mainview { -webkit-font-smoothing: antialiased; }
+.native-mainview { -webkit-font-smoothing: antialiased; }
 
 /* ---------------------------------------------------- */
 /* Minimalism: Tag Sidebar + Tooltip                    */
 /* ---------------------------------------------------- */
 /* Keep compact, flat, and paper-like in this theme */
-#tagview .section-title { font-weight:700; font-size:.92rem; color: var(--muted); margin-bottom:0.5rem; letter-spacing:.02em; }
-#tagview .tagbox { display: block; }
-#tagview .tag-list { list-style: none; padding: 0; margin: 0; }
-#tagview .tag-list.compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.375rem; transition: max-height .24s ease; max-height: 25rem; overflow: visible; }
-#tagview .tag-list.compact.is-collapsed { max-height: 9.5rem; overflow: hidden; position: relative; }
-#tagview .tag-list.compact::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.75rem; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--card) 80%); opacity: 0; transition: opacity .25s ease; }
-#tagview .tag-list.compact.is-collapsed::after { opacity: 1; }
+.native-tagbox .section-title { font-weight:700; font-size:.92rem; color: var(--muted); margin-bottom:0.5rem; letter-spacing:.02em; }
+.native-tagbox .tagbox { display: block; }
+.native-tagbox .tag-list { list-style: none; padding: 0; margin: 0; }
+.native-tagbox .tag-list.compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.375rem; transition: max-height .24s ease; max-height: 25rem; overflow: visible; }
+.native-tagbox .tag-list.compact.is-collapsed { max-height: 9.5rem; overflow: hidden; position: relative; }
+.native-tagbox .tag-list.compact::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1.75rem; pointer-events: none; background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--card) 80%); opacity: 0; transition: opacity .25s ease; }
+.native-tagbox .tag-list.compact.is-collapsed::after { opacity: 1; }
 
-#tagview .tag-link { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.35rem 0.6rem; border:0.0625rem solid var(--border); border-radius:0.25rem; background: var(--card); color: var(--text); text-decoration:none; transition: background-color .15s ease, border-color .15s ease, color .15s ease; width:100%; min-width:0; box-shadow: none !important; }
-#tagview .tag-link:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); border-color: color-mix(in srgb, var(--primary) 28%, var(--border)); color: var(--primary); }
-#tagview .tag-link.active { background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); color: var(--primary); font-weight: 600; }
-#tagview .tag-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0; }
-#tagview .tag-count { font-size: .8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.05rem .4rem; border-radius: 999px; min-width: 1.5rem; text-align:center; }
-#tagview .tag-toggle { margin-top: 0.5rem; width: 100%; padding: .4rem .6rem; border-radius: 0.25rem; border: 0.0625rem solid var(--border); background: var(--card); color: var(--text); cursor: pointer; box-shadow: none !important; }
-#tagview .tag-toggle:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); border-color: color-mix(in srgb, var(--primary) 28%, var(--border)); color: var(--primary); }
+.native-tagbox .tag-link { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; padding:0.35rem 0.6rem; border:0.0625rem solid var(--border); border-radius:0.25rem; background: var(--card); color: var(--text); text-decoration:none; transition: background-color .15s ease, border-color .15s ease, color .15s ease; width:100%; min-width:0; box-shadow: none !important; }
+.native-tagbox .tag-link:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); border-color: color-mix(in srgb, var(--primary) 28%, var(--border)); color: var(--primary); }
+.native-tagbox .tag-link.active { background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); color: var(--primary); font-weight: 600; }
+.native-tagbox .tag-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 1 auto; min-width:0; }
+.native-tagbox .tag-count { font-size: .8rem; color: var(--muted); background: color-mix(in srgb, var(--text) 6%, transparent); padding:.05rem .4rem; border-radius: 999px; min-width: 1.5rem; text-align:center; }
+.native-tagbox .tag-toggle { margin-top: 0.5rem; width: 100%; padding: .4rem .6rem; border-radius: 0.25rem; border: 0.0625rem solid var(--border); background: var(--card); color: var(--text); cursor: pointer; box-shadow: none !important; }
+.native-tagbox .tag-toggle:hover { background: color-mix(in srgb, var(--text) 4%, var(--card)); border-color: color-mix(in srgb, var(--primary) 28%, var(--border)); color: var(--primary); }
 
 /* When expanded, add a bit more breathing room above the toggle */
-#tagview .tag-list.compact:not(.is-collapsed) + .tag-toggle { margin-top: 1rem; }
+.native-tagbox .tag-list.compact:not(.is-collapsed) + .tag-toggle { margin-top: 1rem; }
 
 /* Minimal Tag Tooltip (flat, no heavy shadow) */
 .tag-tooltip {
@@ -424,7 +425,7 @@ button:hover:not(.mode-tab):not(.sidebar-tab) {
 /* 去掉代码块内 <code> 文字的额外背景和内边距 */
 /* 仅影响在 <pre> 中的 <code>，不改变行内 <code> */
 pre code,
-#mainview pre code {
+.native-mainview pre code {
   background: transparent !important;
   background-color: transparent !important;
   padding: 0 !important;

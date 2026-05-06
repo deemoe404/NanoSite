@@ -59,7 +59,7 @@ function getRegion(name, documentRef = defaultDocument) {
 }
 
 function getMainRegion(documentRef = defaultDocument) {
-  if (activeRegions && activeRegions.mainview && activeRegions.mainview.nodeType === 1) return activeRegions.mainview;
+  if (activeRegions && activeRegions.main && activeRegions.main.nodeType === 1) return activeRegions.main;
   if (documentRef && documentRef.querySelector) {
     const explicit = documentRef.querySelector('.solstice-mainview');
     if (explicit) return explicit;

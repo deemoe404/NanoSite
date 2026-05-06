@@ -1,23 +1,5 @@
 let cachedContext = null;
 
-const REGION_ALIASES = {
-  main: ['mainview', 'content'],
-  mainview: ['main', 'content'],
-  toc: ['tocBox', 'tocview'],
-  tocBox: ['toc', 'tocview'],
-  tocview: ['toc', 'tocBox'],
-  search: ['searchInput', 'searchBox'],
-  searchInput: ['search', 'searchBox'],
-  searchBox: ['search', 'searchInput'],
-  nav: ['tabsNav', 'navBox'],
-  tabsNav: ['nav', 'navBox'],
-  navBox: ['nav', 'tabsNav'],
-  tags: ['tagBox', 'tagview', 'tagBand'],
-  tagBox: ['tags', 'tagview', 'tagBand'],
-  tagview: ['tags', 'tagBox', 'tagBand'],
-  tagBand: ['tags', 'tagBox', 'tagview']
-};
-
 function isElement(value) {
   return value && typeof value === 'object' && value.nodeType === 1;
 }
@@ -26,10 +8,6 @@ function lookupRegion(regions, name) {
   const key = String(name || '').trim();
   if (!key || !regions || typeof regions !== 'object') return null;
   if (isElement(regions[key])) return regions[key];
-  const aliases = REGION_ALIASES[key] || [];
-  for (const alias of aliases) {
-    if (isElement(regions[alias])) return regions[alias];
-  }
   return null;
 }
 
@@ -117,7 +95,7 @@ export function getThemeLayoutContext() {
   return cachedContext;
 }
 
-export function getThemeRegion(names, fallbackSelector = '') {
+export function getThemeRegion(names) {
   const list = Array.isArray(names) ? names : [names];
   const regions = cachedContext && cachedContext.regions && typeof cachedContext.regions === 'object'
     ? ensureThemeRegionRegistry(cachedContext.regions)
@@ -127,15 +105,6 @@ export function getThemeRegion(names, fallbackSelector = '') {
     if (!key) continue;
     const region = typeof regions.get === 'function' ? regions.get(key) : lookupRegion(regions, key);
     if (region) return region;
-  }
-  if (fallbackSelector) {
-    try { return document.querySelector(fallbackSelector); } catch (_) {}
-  }
-  for (const name of list) {
-    const id = String(name || '').trim();
-    if (!id) continue;
-    const el = document.getElementById(id);
-    if (el) return el;
   }
   return null;
 }
