@@ -154,18 +154,6 @@ jobs:
           git worktree remove artifacts-worktree --force
           echo "url=${artifact_url}" >> "${GITHUB_OUTPUT}"
 
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
-          PACKAGE_ASSET: ${{ steps.package.outputs.asset }}
-        run: |
-          set -euo pipefail
-          tag="${THEME_TAG}"
-          asset="dist/${PACKAGE_ASSET}"
-          gh release view "${tag}" >/dev/null 2>&1 && gh release delete "${tag}" --yes --cleanup-tag
-          gh release create "${tag}" "${asset}" --title "${tag}" --notes "Theme release ${tag}"
-
       - name: Update theme-release.json
         env:
           THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
@@ -227,11 +215,30 @@ jobs:
           NODE
 
       - name: Commit manifest
+        id: commit
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add theme/theme.json theme-release.json
-          git diff --cached --quiet && exit 0
-          git commit -m "Update theme release manifest"
-          git push
+          if git diff --cached --quiet; then
+            echo "No release metadata changes to commit."
+          else
+            git commit -m "Update theme release manifest"
+            git push
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
+          PACKAGE_ASSET: ${{ steps.package.outputs.asset }}
+          RELEASE_TARGET: ${{ steps.commit.outputs.sha }}
+        run: |
+          set -euo pipefail
+          tag="${THEME_TAG}"
+          asset="dist/${PACKAGE_ASSET}"
+          target="${RELEASE_TARGET}"
+          gh release view "${tag}" >/dev/null 2>&1 && gh release delete "${tag}" --yes --cleanup-tag
+          gh release create "${tag}" "${asset}" --target "${target}" --title "${tag}" --notes "Theme release ${tag}"
