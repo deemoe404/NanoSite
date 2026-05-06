@@ -481,6 +481,47 @@ await run('clearing uninstall staging restores the previous default theme', asyn
   assert.equal(getThemeManagerCommitFiles().length, 0);
 });
 
+await run('failed replacement staging keeps uninstall fallback active', async () => {
+  let themePack = 'test';
+  initThemeManager({
+    getCurrentThemePack: () => themePack,
+    setSiteThemePack: (value) => { themePack = value; }
+  });
+  mockFetchRegistry([
+    { value: 'native', label: 'Native', builtIn: true, removable: false, files: [] },
+    { value: 'test', label: 'Test', version: '1.0.0', contractVersion: 1, removable: true, files: ['theme.json', 'theme.css'] }
+  ]);
+  await stageThemeUninstall('test');
+  assert.equal(themePack, 'native');
+  assert(getThemeManagerCommitFiles().some((file) => file.path === 'assets/themes/test/theme.json' && file.deleted));
+  await assert.rejects(
+    () => analyzeThemeArchive(makeThemeZip({ slug: 'replacement', contractVersion: 2 }), 'press-theme-replacement-v1.0.0.zip'),
+    /contractVersion/i
+  );
+  assert.equal(themePack, 'native');
+  const files = getThemeManagerCommitFiles();
+  assert(files.some((file) => file.path === 'assets/themes/test/theme.json' && file.deleted));
+});
+
+await run('successful replacement staging clears uninstall fallback', async () => {
+  let themePack = 'test';
+  initThemeManager({
+    getCurrentThemePack: () => themePack,
+    setSiteThemePack: (value) => { themePack = value; }
+  });
+  mockFetchRegistry([
+    { value: 'native', label: 'Native', builtIn: true, removable: false, files: [] },
+    { value: 'test', label: 'Test', version: '1.0.0', contractVersion: 1, removable: true, files: ['theme.json', 'theme.css'] }
+  ]);
+  await stageThemeUninstall('test');
+  assert.equal(themePack, 'native');
+  await analyzeThemeArchive(makeThemeZip({ slug: 'replacement', name: 'Replacement' }), 'press-theme-replacement-v1.0.0.zip');
+  assert.equal(themePack, 'test');
+  const files = getThemeManagerCommitFiles();
+  assert(files.some((file) => file.path === 'assets/themes/replacement/theme.json' && file.state === 'added'));
+  assert(!files.some((file) => file.path === 'assets/themes/test/theme.json' && file.deleted));
+});
+
 await run('post-commit theme cleanup keeps the published fallback default', async () => {
   let themePack = 'test';
   initThemeManager({

@@ -792,7 +792,6 @@ function registryCommitFile(registry) {
 }
 
 async function stageThemeArchive(buffer, fileName, options = {}) {
-  clearPendingSiteThemeFallback();
   const releaseManifest = options.releaseManifest || null;
   if (releaseManifest) {
     await verifyThemeAsset(buffer, releaseManifest.asset, releaseManifest.asset.name);
@@ -831,6 +830,7 @@ async function stageThemeArchive(buffer, fileName, options = {}) {
   }));
   registryCache = nextRegistry;
   applySummary(summary, fileChanges, { digest: `sha256:${digest}`, size: buffer.byteLength, assetName: assetMeta.assetName });
+  clearPendingSiteThemeFallback();
   setStatus(`${previous ? 'Updated' : 'Installed'} ${nextEntry.label}. Review and publish the staged theme files.`, { tone: 'success' });
   renderThemeManager();
   return { archive, registry: nextRegistry, files: fileChanges };
