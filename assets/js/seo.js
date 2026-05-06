@@ -593,9 +593,13 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
 
   const finalImage = resolveRelativeImage(image);
   const resolvedImage = finalImage
-    ? (finalImage.startsWith('http') || finalImage.startsWith('data:'))
+    ? /^(https?:|data:)/i.test(finalImage)
       ? finalImage
-      : `${contentResourceBase}${String(finalImage).replace(/^\/+/, '')}`
+      : finalImage.startsWith('//')
+        ? ensureAbsoluteUrl(finalImage, resourceBase, siteConfig)
+        : finalImage.startsWith('/')
+          ? ensureAbsoluteUrl(String(finalImage).replace(/^\/+/, ''), resourceBase, siteConfig)
+          : `${contentResourceBase}${String(finalImage).replace(/^\/+/, '')}`
     : '';
 
   return {
