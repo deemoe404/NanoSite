@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "name": "v3.3.37",
-  "tag": "v3.3.37",
-  "publishedAt": "2026-05-06T15:32:51Z",
-  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `press-system-v3.3.37.zip`.\n\n## System Package\n\n- Asset: `press-system-v3.3.37.zip`\n- SHA-256: `3bf225254797d450dd7f332fd79387a7f5c588a0e85fb57b8139a6892bd2b50f`\n\n## Changed System Files\n\n- assets/i18n/chs.js\n- assets/i18n/cht-hk.js\n- assets/i18n/cht-tw.js\n- assets/i18n/en.js\n- assets/i18n/ja.js\n- assets/js/components.js\n- assets/js/composer.js\n- assets/js/editor-blocks.js\n- assets/js/editor-boot.js\n- assets/js/editor-content-tree.js\n- assets/js/editor-main.js\n- assets/js/errors.js\n- assets/js/i18n.js\n- assets/js/lightbox.js\n- assets/js/post-card-html.js\n- assets/js/search.js\n- assets/js/seo.js\n- assets/js/syntax-highlight.js\n- assets/js/system-updates.js\n- assets/js/tags.js\n- assets/js/theme-layout.js\n- assets/js/theme.js\n- assets/js/utils.js\n- assets/js/yaml.js\n- assets/main.js\n- assets/schema/index.json\n- assets/schema/site.json\n- assets/schema/tabs.json\n- assets/schema/theme.json\n- assets/themes/arcus/modules/interactions.js\n- assets/themes/arcus/modules/layout.js\n- assets/themes/arcus/theme.css\n- assets/themes/arcus/theme.json\n- assets/themes/cartograph/modules/interactions.js\n- assets/themes/cartograph/modules/layout.js\n- assets/themes/cartograph/modules/views.js\n- assets/themes/cartograph/theme.css\n- assets/themes/cartograph/theme.json\n- assets/themes/native/base.css\n- assets/themes/native/modules/footer.js\n- assets/themes/native/modules/interactions.js\n- assets/themes/native/modules/search-box.js\n- assets/themes/native/modules/toc.js\n- assets/themes/native/theme.json\n- assets/themes/solstice/modules/interactions.js\n- assets/themes/solstice/modules/layout.js\n- assets/themes/solstice/theme.css\n- assets/themes/solstice/theme.json\n- index_editor.html\n\n**Full Changelog**: https://github.com/EkilyHQ/Press/compare/v3.3.36...v3.3.37\n",
-  "htmlUrl": "https://github.com/EkilyHQ/Press/releases/tag/v3.3.37",
+  "name": "v3.3.38",
+  "tag": "v3.3.38",
+  "publishedAt": "2026-05-06T16:48:32Z",
+  "notes": "## Migration Guide\n\nUse the System Updates tool in Markdown Editor to download and apply `press-system-v3.3.38.zip`.\n\n## System Package\n\n- Asset: `press-system-v3.3.38.zip`\n- SHA-256: `765f3455e03c332286b871bb378c5d92c0456b56e02d5990d8fbcfd15cc5c996`\n\n## Changed System Files\n\n- assets/js/components.js\n- assets/js/dom-utils.js\n- assets/js/editor-main.js\n- assets/js/i18n.js\n- assets/js/lightbox.js\n- assets/js/search.js\n- assets/js/tags.js\n- assets/js/theme-layout.js\n- assets/js/theme-regions.js\n- assets/js/theme.js\n- assets/js/toc.js\n- assets/main.js\n- assets/schema/theme.json\n- assets/themes/arcus/modules/interactions.js\n- assets/themes/arcus/modules/layout.js\n- assets/themes/arcus/theme.css\n- assets/themes/native/base.css\n- assets/themes/native/modules/interactions.js\n- assets/themes/native/modules/mainview.js\n- assets/themes/native/modules/nav-tabs.js\n- assets/themes/native/modules/search-box.js\n- assets/themes/native/modules/tag-filter.js\n- assets/themes/native/modules/toc.js\n- assets/themes/native/theme.css\n- assets/themes/solstice/modules/interactions.js\n- assets/themes/solstice/modules/layout.js\n- assets/themes/solstice/theme.css\n- index_editor.html\n\n**Full Changelog**: https://github.com/EkilyHQ/Press/compare/v3.3.37...v3.3.38\n",
+  "htmlUrl": "https://github.com/EkilyHQ/Press/releases/tag/v3.3.38",
   "asset": {
-    "name": "press-system-v3.3.37.zip",
-    "url": "https://github.com/EkilyHQ/Press/releases/download/v3.3.37/press-system-v3.3.37.zip",
-    "size": 574684,
-    "digest": "sha256:3bf225254797d450dd7f332fd79387a7f5c588a0e85fb57b8139a6892bd2b50f"
+    "name": "press-system-v3.3.38.zip",
+    "url": "https://github.com/EkilyHQ/Press/releases/download/v3.3.38/press-system-v3.3.38.zip",
+    "size": 573133,
+    "digest": "sha256:765f3455e03c332286b871bb378c5d92c0456b56e02d5990d8fbcfd15cc5c996"
   }
 }
