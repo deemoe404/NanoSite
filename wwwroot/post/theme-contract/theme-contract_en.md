@@ -139,13 +139,17 @@ Official theme repositories publish a root `theme-release.json`:
   },
   "asset": {
     "name": "press-theme-arcus-v3.4.0.zip",
-    "url": "https://github.com/EkilyHQ/Press-Theme-Arcus/releases/download/v3.4.0/press-theme-arcus-v3.4.0.zip",
+    "url": "https://raw.githubusercontent.com/EkilyHQ/Press-Theme-Arcus/release-artifacts/v3.4.0/press-theme-arcus-v3.4.0.zip",
     "size": 12345,
     "digest": "sha256:..."
   },
   "files": ["theme.json", "theme.css", "modules/layout.js"]
 }
 ```
+
+`asset.url` must be readable by browser `fetch()`; official themes publish the
+same ZIP to a `release-artifacts` branch and keep the GitHub Release URL in
+`release.htmlUrl`.
 
 Theme Manager verifies `schemaVersion`, `type`, slug, version,
 `contractVersion`, ZIP size, and SHA-256 digest before staging changes.

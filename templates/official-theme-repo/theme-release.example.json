@@ -13,7 +13,7 @@
   },
   "asset": {
     "name": "press-theme-arcus-v3.4.0.zip",
-    "url": "https://github.com/EkilyHQ/Press-Theme-Arcus/releases/download/v3.4.0/press-theme-arcus-v3.4.0.zip",
+    "url": "https://raw.githubusercontent.com/EkilyHQ/Press-Theme-Arcus/release-artifacts/v3.4.0/press-theme-arcus-v3.4.0.zip",
     "size": 0,
     "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
   },

@@ -87,6 +87,40 @@ jobs:
             echo "digest=${digest}"
           } >> "${GITHUB_OUTPUT}"
 
+      - name: Publish fetchable artifact
+        id: artifact
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          asset="${{ steps.package.outputs.asset }}"
+          artifact_branch="release-artifacts"
+          artifact_path="${tag}/${asset}"
+          artifact_url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${artifact_branch}/${artifact_path}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "${artifact_branch}" || true
+          rm -rf artifacts-worktree
+          if git show-ref --verify --quiet "refs/remotes/origin/${artifact_branch}"; then
+            git worktree add artifacts-worktree "origin/${artifact_branch}"
+          else
+            git worktree add --detach artifacts-worktree
+            git -C artifacts-worktree checkout --orphan "${artifact_branch}"
+            git -C artifacts-worktree rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          mkdir -p "artifacts-worktree/${tag}"
+          cp "dist/${asset}" "artifacts-worktree/${artifact_path}"
+          git -C artifacts-worktree add "${artifact_path}"
+          if git -C artifacts-worktree diff --cached --quiet; then
+            echo "Artifact ${artifact_path} is already published."
+          else
+            git -C artifacts-worktree commit -m "Publish ${asset}"
+            git -C artifacts-worktree push origin "HEAD:${artifact_branch}"
+          fi
+          git worktree remove artifacts-worktree --force
+          echo "url=${artifact_url}" >> "${GITHUB_OUTPUT}"
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -106,10 +140,11 @@ jobs:
           label="${{ inputs.label }}"
           version="${{ steps.package.outputs.version }}"
           asset="${{ steps.package.outputs.asset }}"
+          asset_url="${{ steps.artifact.outputs.url }}"
           size="${{ steps.package.outputs.size }}"
           digest="${{ steps.package.outputs.digest }}"
           published_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-          export repo tag slug label version asset size digest published_at
+          export repo tag slug label version asset asset_url size digest published_at
           node <<'NODE'
           const fs = require('fs');
           const repo = process.env.repo;
@@ -118,6 +153,7 @@ jobs:
           const label = process.env.label;
           const version = process.env.version;
           const asset = process.env.asset;
+          const assetUrl = process.env.asset_url;
           const size = Number(process.env.size || 0);
           const digest = process.env.digest;
           const publishedAt = process.env.published_at;
@@ -137,7 +173,7 @@ jobs:
             },
             asset: {
               name: asset,
-              url: `https://github.com/${repo}/releases/download/${tag}/${asset}`,
+              url: assetUrl,
               size,
               digest: `sha256:${digest}`
             },
