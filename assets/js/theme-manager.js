@@ -320,7 +320,7 @@ export function collectThemeArchiveEntries(buffer, options = {}) {
       path: validateRawThemeArchivePath(name),
       data: archive[name]
     }))
-    .filter((item) => item.path && !item.path.endsWith('/') && item.data && item.data.length);
+    .filter((item) => item.path && !item.path.endsWith('/') && item.data);
   const strippedPaths = stripCommonArchiveRoot(rawEntries.map((entry) => entry.path));
   const entries = rawEntries.map((entry, index) => {
     const path = normalizeThemeFilePath(strippedPaths[index]);

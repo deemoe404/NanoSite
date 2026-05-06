@@ -219,6 +219,17 @@ await run('verifies ZIP size and digest before official install', async () => {
   );
 });
 
+await run('preserves zero-byte files from theme ZIP archives', async () => {
+  const archive = collectThemeArchiveEntries(makeZip({
+    'press-theme-test/theme.json': JSON.stringify({ name: 'Test', version: '1.0.0', contractVersion: 1 }, null, 2),
+    'press-theme-test/theme.css': ''
+  }));
+  const file = archive.files.find((entry) => entry.path === 'theme.css');
+  assert(file);
+  assert.equal(file.size, 0);
+  assert.equal(file.content, '');
+});
+
 await run('stages a new theme install as additions plus packs.json', async () => {
   mockFetchRegistry([{ value: 'native', label: 'Native', builtIn: true, removable: false, files: [] }]);
   await analyzeThemeArchive(makeThemeZip({ files: { 'modules/layout.js': 'export {};' } }), 'press-theme-test-v1.0.0.zip');
