@@ -10,7 +10,8 @@ const THEME_ARCHIVE_ALLOWED_EXTENSIONS = new Set([
   '.png', '.svg', '.ttf', '.txt', '.webp', '.woff', '.woff2'
 ]);
 const THEME_TEXT_EXTENSIONS = new Set(['.css', '.js', '.json', '.mjs', '.svg', '.txt']);
-const REQUIRED_THEME_VIEWS = ['post', 'posts', 'search', 'tab', 'error', 'loading'];
+const REQUIRED_THEME_VIEWS = ['post', 'posts', 'search', 'tab'];
+const OPTIONAL_THEME_VIEWS = ['error', 'loading'];
 const REQUIRED_THEME_REGIONS = ['main', 'toc', 'search', 'nav', 'tags', 'footer'];
 const REQUIRED_THEME_COMPONENTS = ['press-search', 'press-toc', 'press-post-card'];
 const REQUIRED_THEME_CONTENT_SHAPES = ['rawMarkdown', 'html', 'blocks', 'tocTree', 'headings', 'metadata', 'assets', 'links'];
@@ -221,6 +222,15 @@ function validateThemeManifestFiles(themeManifest, availablePaths) {
   return normalizedModules;
 }
 
+function validateThemeViewDeclaration(views, view, modules) {
+  const declaration = requireThemeObject(views[view], `views.${view}`);
+  const modulePath = normalizeThemeFilePath(requireThemeString(declaration.module, `views.${view}.module`));
+  requireThemeString(declaration.handler, `views.${view}.handler`);
+  if (!modules.has(modulePath)) {
+    throw new Error(`Theme manifest views.${view}.module must be listed in modules: ${modulePath}`);
+  }
+}
+
 function validateThemeManifestContract(themeManifest, availablePaths) {
   requireThemeObject(themeManifest, 'theme.json');
   requireThemeString(themeManifest.name, 'name');
@@ -233,12 +243,10 @@ function validateThemeManifestContract(themeManifest, availablePaths) {
   const modules = validateThemeManifestFiles(themeManifest, availablePaths);
   const views = requireThemeObject(themeManifest.views, 'views');
   REQUIRED_THEME_VIEWS.forEach((view) => {
-    const declaration = requireThemeObject(views[view], `views.${view}`);
-    const modulePath = normalizeThemeFilePath(requireThemeString(declaration.module, `views.${view}.module`));
-    requireThemeString(declaration.handler, `views.${view}.handler`);
-    if (!modules.has(modulePath)) {
-      throw new Error(`Theme manifest views.${view}.module must be listed in modules: ${modulePath}`);
-    }
+    validateThemeViewDeclaration(views, view, modules);
+  });
+  OPTIONAL_THEME_VIEWS.forEach((view) => {
+    if (views[view] != null) validateThemeViewDeclaration(views, view, modules);
   });
 
   const regions = requireThemeObject(themeManifest.regions, 'regions');

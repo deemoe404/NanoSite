@@ -271,6 +271,26 @@ await run('rejects invalid theme manifests before staging', async () => {
   );
 });
 
+await run('accepts theme manifests without optional view states', async () => {
+  const manifest = makeThemeManifest({
+    overrides: {
+      views: {
+        post: { module: 'modules/layout.js', handler: 'post' },
+        posts: { module: 'modules/layout.js', handler: 'posts' },
+        search: { module: 'modules/layout.js', handler: 'search' },
+        tab: { module: 'modules/layout.js', handler: 'tab' }
+      }
+    }
+  });
+  const archive = collectThemeArchiveEntries(makeZip({
+    'press-theme-test/theme.json': JSON.stringify(manifest, null, 2),
+    'press-theme-test/theme.css': ':root{}',
+    'press-theme-test/modules/layout.js': 'export default {};'
+  }));
+  assert.equal(archive.slug, 'test');
+  assert.equal(archive.files.some((file) => file.path === 'theme.json'), true);
+});
+
 await run('verifies ZIP size and digest before official install', async () => {
   const buffer = makeThemeZip();
   const digest = await sha256(buffer);
