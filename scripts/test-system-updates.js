@@ -267,14 +267,54 @@ await run('uses the static manifest digest when verifying a selected archive', a
 await run('normalizes a rooted system update archive to safe site-relative paths', async () => {
   const buffer = makeZip({
     'press-system-v3.3.5/index.html': '<!doctype html>',
-    'press-system-v3.3.5/assets/js/system-updates.js': 'export {};'
+    'press-system-v3.3.5/assets/js/system-updates.js': 'export {};',
+    'press-system-v3.3.5/assets/themes/native/theme.json': '{"name":"Native","contractVersion":1}',
+    'press-system-v3.3.5/assets/themes/catalog.json': '{"themes":[]}'
   });
 
   const entries = collectSystemUpdateArchiveEntries(buffer);
 
   assert.deepEqual(entries.map((entry) => entry.path).sort(), [
     'assets/js/system-updates.js',
+    'assets/themes/catalog.json',
+    'assets/themes/native/theme.json',
     'index.html'
+  ]);
+});
+
+await run('rejects system packages that would overwrite external theme directories', async () => {
+  assert.throws(
+    () => collectSystemUpdateArchiveEntries(makeZip({
+      'press-system-v3.3.5/assets/themes/arcus/theme.css': 'body{}'
+    })),
+    /unsafe|system update/i
+  );
+  assert.throws(
+    () => collectSystemUpdateArchiveEntries(makeZip({
+      'press-system-v3.3.5/assets/themes/solstice/theme.json': '{}'
+    })),
+    /unsafe|system update/i
+  );
+});
+
+await run('rejects system packages that would overwrite installed theme registry state', async () => {
+  assert.throws(
+    () => collectSystemUpdateArchiveEntries(makeZip({
+      'press-system-v3.3.5/assets/themes/packs.json': '[]'
+    })),
+    /unsafe|system update/i
+  );
+});
+
+await run('allows only native and official catalog under assets/themes', async () => {
+  const buffer = makeZip({
+    'press-system-v3.3.5/assets/themes/native/theme.css': 'body{}',
+    'press-system-v3.3.5/assets/themes/catalog.json': '{"themes":[]}'
+  });
+  const entries = collectSystemUpdateArchiveEntries(buffer);
+  assert.deepEqual(entries.map((entry) => entry.path).sort(), [
+    'assets/themes/catalog.json',
+    'assets/themes/native/theme.css'
   ]);
 });
 

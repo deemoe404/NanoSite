@@ -371,6 +371,14 @@ export function buildEditorContentTree(input = {}, options = {}) {
         children: []
       }, statusMaps),
       makeNode({
+        id: 'system:themes',
+        kind: 'system',
+        source: 'system',
+        key: 'themes',
+        label: options.themesLabel || 'Themes',
+        children: []
+      }, statusMaps),
+      makeNode({
         id: 'system:updates',
         kind: 'system',
         source: 'system',

@@ -1,18 +1,30 @@
 [
   {
     "value": "native",
-    "label": "Native"
-  },
-  {
-    "value": "solstice",
-    "label": "Solstice"
-  },
-  {
-    "value": "arcus",
-    "label": "Arcus"
-  },
-  {
-    "value": "cartograph",
-    "label": "Cartograph"
+    "label": "Native",
+    "version": "3.4.0",
+    "contractVersion": 1,
+    "builtIn": true,
+    "removable": false,
+    "source": {
+      "type": "builtin"
+    },
+    "release": {
+      "tag": "v3.4.0"
+    },
+    "files": [
+      "base.css",
+      "modules/footer.js",
+      "modules/interactions.js",
+      "modules/layout.js",
+      "modules/mainview.js",
+      "modules/nav-tabs.js",
+      "modules/search-box.js",
+      "modules/site-card.js",
+      "modules/tag-filter.js",
+      "modules/toc.js",
+      "theme.css",
+      "theme.json"
+    ]
   }
 ]

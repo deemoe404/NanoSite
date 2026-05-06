@@ -43,6 +43,26 @@ if awk '
   exit 1
 fi
 
+if awk '
+  /- name: Plan release/ { in_plan = 1 }
+  /- name: Build system update package/ { in_plan = 0 }
+  in_plan && /assets\/themes[)" ]/ && !/assets\/themes\/native/ { found = 1 }
+  END { exit found ? 0 : 1 }
+' "${workflow}" >/dev/null; then
+  echo "system release planning must not include arbitrary external theme directories" >&2
+  exit 1
+fi
+
+if ! grep -F 'assets/themes/native assets/themes/catalog.json' "${workflow}" >/dev/null; then
+  echo "system release planning must include only native plus the official theme catalog" >&2
+  exit 1
+fi
+
+if grep -F 'assets/themes/packs.json' "${workflow}" >/dev/null; then
+  echo "system release planning must not include installed theme registry state" >&2
+  exit 1
+fi
+
 if grep -F 'releases/tags/${NEXT_TAG}' "${workflow}" >/dev/null; then
   echo "system release workflow must not validate draft releases through the tag endpoint" >&2
   exit 1
@@ -110,6 +130,31 @@ fi
 
 if ! grep -F 'Update static release manifest' "${workflow}" >/dev/null; then
   echo "system release workflow must update the static release manifest after publishing" >&2
+  exit 1
+fi
+
+if ! grep -F 'Notify starter template' "${workflow}" >/dev/null; then
+  echo "system release workflow must notify the Starter template after publishing" >&2
+  exit 1
+fi
+
+if ! grep -F 'STARTER_SYNC_TOKEN' "${workflow}" >/dev/null; then
+  echo "system release workflow must use STARTER_SYNC_TOKEN for cross-repository Starter dispatch" >&2
+  exit 1
+fi
+
+if ! grep -F "event_type: 'press-system-release'" "${workflow}" >/dev/null; then
+  echo "system release workflow must dispatch the press-system-release event" >&2
+  exit 1
+fi
+
+if ! grep -F '"repos/${STARTER_REPOSITORY}/dispatches"' "${workflow}" >/dev/null; then
+  echo "system release workflow must call the Starter repository dispatch endpoint" >&2
+  exit 1
+fi
+
+if ! grep -F 'asset_sha256: process.env.ASSET_SHA256' "${workflow}" >/dev/null; then
+  echo "system release workflow must pass the system package digest to Starter" >&2
   exit 1
 fi
 

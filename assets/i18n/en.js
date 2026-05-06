@@ -124,9 +124,11 @@ const translations = {
         },
         system: 'System',
         siteSettings: 'Site Settings',
+        themes: 'Themes',
         pressUpdates: 'Press Updates',
         sync: 'Publish',
         siteSettingsMeta: 'Edit site.yaml settings.',
+        themesMeta: 'Theme packs.',
         systemUpdatesMeta: 'Review and apply Press updates.',
         syncMeta: 'Publish local changes to GitHub.',
         editorLanguage: 'Editor language',
@@ -254,7 +256,13 @@ const translations = {
         },
         summary: {
           added: 'new system file',
-          modified: 'updated system file'
+          modified: 'updated system file',
+          deleted: 'deleted system file'
+        }
+      },
+      themeManager: {
+        status: {
+          idle: 'No theme changes are staged.'
         }
       },
       currentFile: {
