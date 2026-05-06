@@ -57,6 +57,19 @@ if grep -qx "press-system-${version}/assets/themes/packs.json" "${entries_file}"
   exit 1
 fi
 
+untracked_probe="${repo_root}/assets/js/__untracked-system-release-probe.js"
+rm -f "${untracked_probe}"
+trap 'rm -rf "${tmp_dir}"; rm -f "${untracked_probe}"' EXIT
+printf 'export const probe = true;\n' > "${untracked_probe}"
+probe_zip_dir="${tmp_dir}/probe"
+mkdir -p "${probe_zip_dir}"
+bash "${repo_root}/scripts/package-system-release.sh" "${version}" "${probe_zip_dir}" >/dev/null
+if unzip -Z1 "${probe_zip_dir}/press-system-${version}.zip" | grep -qx "press-system-${version}/assets/js/__untracked-system-release-probe.js"; then
+  echo "system release package must not include untracked files" >&2
+  exit 1
+fi
+rm -f "${untracked_probe}"
+
 if grep -Eq "press-system-${version}/assets/themes/(arcus|solstice|cartograph)/" "${entries_file}"; then
   echo "system release package must not include external theme directories" >&2
   grep -E "press-system-${version}/assets/themes/(arcus|solstice|cartograph)/" "${entries_file}" >&2

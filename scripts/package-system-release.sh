@@ -43,7 +43,7 @@ while IFS= read -r file; do
   [[ -f "${file}" ]] || continue
   mkdir -p "${payload_dir}/$(dirname "${file}")"
   cp "${file}" "${payload_dir}/${file}"
-done < <(git ls-files --cached --others --exclude-standard -- "${system_paths[@]}" | sort -u)
+done < <(git ls-files --cached -- "${system_paths[@]}" | sort -u)
 
 (
   cd "${tmp_dir}"
