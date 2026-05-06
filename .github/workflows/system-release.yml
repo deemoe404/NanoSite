@@ -276,7 +276,10 @@ jobs:
             exit 0
           fi
 
-          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > dist/starter-release.json
+          if ! gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > dist/starter-release.json; then
+            echo "::warning title=Press-Starter sync skipped::Unable to read the published release for Starter dispatch."
+            exit 0
+          fi
           node <<'NODE' > dist/starter-dispatch.json
           const fs = require('fs');
           const release = JSON.parse(fs.readFileSync('dist/starter-release.json', 'utf8'));
@@ -294,10 +297,13 @@ jobs:
           process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
           NODE
 
-          GH_TOKEN="${STARTER_SYNC_TOKEN}" gh api \
+          if ! GH_TOKEN="${STARTER_SYNC_TOKEN}" gh api \
             --method POST \
             "repos/${STARTER_REPOSITORY}/dispatches" \
-            --input dist/starter-dispatch.json
+            --input dist/starter-dispatch.json; then
+            echo "::warning title=Press-Starter sync dispatch failed::Release ${NEXT_TAG} was published, but the optional dispatch to ${STARTER_REPOSITORY} failed."
+            exit 0
+          fi
 
       - name: Update static release manifest
         if: steps.plan.outputs.should_release == 'true'
