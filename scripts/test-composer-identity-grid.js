@@ -711,7 +711,7 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /const refreshPreviewAssetOverrides = \(\) => \{[\s\S]*\['mainview', 'blocks-wrap'\]\.forEach\(\(id\) => \{[\s\S]*document\.getElementById\(id\)[\s\S]*applyPreviewAssetOverrides\(target, previewAssetCurrentPath\);[\s\S]*\}\);[\s\S]*\};/,
+  /const refreshPreviewAssetOverrides = \(\) => \{[\s\S]*\['preview-main', 'blocks-wrap'\]\.forEach\(\(id\) => \{[\s\S]*document\.getElementById\(id\)[\s\S]*applyPreviewAssetOverrides\(target, previewAssetCurrentPath\);[\s\S]*\}\);[\s\S]*\};/,
   'asset preview refresh should update both rendered preview and WYSIWYG block images'
 );
 

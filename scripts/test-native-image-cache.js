@@ -58,7 +58,6 @@ const documentRef = {
 };
 
 const windowRef = {
-  __press_themeHooks: {},
   location: { href: 'https://example.test/', pathname: '/' },
   addEventListener() {},
   removeEventListener() {},

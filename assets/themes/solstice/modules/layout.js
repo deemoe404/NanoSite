@@ -1,8 +1,4 @@
-const NAV_ID = 'tabsNav';
-const MAINVIEW_ID = 'mainview';
-const TOCVIEW_ID = 'tocview';
 const FOOTER_NAV_ID = 'footerNav';
-const TAGVIEW_ID = 'tagview';
 
 function ensureElement(parent, selector, creator) {
   const existing = parent.querySelector(selector);
@@ -34,7 +30,7 @@ export function mount(context = {}) {
           <div class="solstice-brand__title" data-site-title></div>
           <div class="solstice-brand__subtitle" data-site-subtitle></div>
         </a>
-        <nav id="${NAV_ID}" class="solstice-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
+        <nav class="solstice-nav" data-theme-region="nav" aria-label="Primary navigation"></nav>
       </div>`;
     return el;
   });
@@ -48,7 +44,6 @@ export function mount(context = {}) {
 
   const mainview = ensureElement(main, '[data-theme-region="main"], .solstice-mainview', () => {
     const el = doc.createElement('section');
-    el.id = MAINVIEW_ID;
     el.className = 'solstice-mainview';
     el.setAttribute('data-theme-region', 'main');
     el.setAttribute('tabindex', '-1');
@@ -58,7 +53,6 @@ export function mount(context = {}) {
 
   const tocview = ensureElement(main, '[data-theme-region="toc"], .solstice-toc', () => {
     const el = doc.createElement('press-toc');
-    el.id = TOCVIEW_ID;
     el.className = 'solstice-toc';
     el.setAttribute('data-theme-region', 'toc');
     el.setAttribute('aria-label', 'Table of contents');
@@ -111,7 +105,6 @@ export function mount(context = {}) {
   let tagBand = container.querySelector('[data-theme-region="tags"], .solstice-tagband');
   if (!tagBand) {
     tagBand = doc.createElement('section');
-    tagBand.id = TAGVIEW_ID;
   }
 
   tagBand.className = 'solstice-tagband solstice-footer__tagband';
@@ -126,12 +119,10 @@ export function mount(context = {}) {
   context.regions = {
     container,
     header,
-    main,
     content: main,
-    mainview,
+    main: mainview,
     nav: header.querySelector('[data-theme-region="nav"], .solstice-nav'),
     search: footerSearch,
-    searchInput: footerSearch?.input || footer.querySelector('input[type="search"]'),
     toc: tocview,
     footer,
     footerNav: footer.querySelector(`#${FOOTER_NAV_ID}`),

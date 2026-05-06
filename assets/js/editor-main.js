@@ -404,7 +404,7 @@ const applyPreviewAssetOverrides = (container, markdownPath) => {
 };
 
 const refreshPreviewAssetOverrides = () => {
-  ['mainview', 'blocks-wrap'].forEach((id) => {
+  ['preview-main', 'blocks-wrap'].forEach((id) => {
     const target = document.getElementById(id);
     if (!target) return;
     applyPreviewAssetOverrides(target, previewAssetCurrentPath);
@@ -732,7 +732,7 @@ function switchView(mode) {
 
 function renderPreview(mdText) {
   try {
-    const target = document.getElementById('mainview');
+    const target = document.getElementById('preview-main');
     if (!target) return;
     // Use the current markdown file directory (if known) as baseDir
     // so relative image/link paths resolve correctly in preview.

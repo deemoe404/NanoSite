@@ -100,79 +100,6 @@
           "$ref": "#/$defs/contentShapeList"
         }
       }
-    },
-    "contract": {
-      "type": "object",
-      "description": "Optional legacy hook adapter contract exposed by compatibility themes.",
-      "required": [
-        "content",
-        "domIds",
-        "hooks",
-        "regions",
-        "version",
-        "views"
-      ],
-      "additionalProperties": true,
-      "properties": {
-        "version": {
-          "type": "integer",
-          "const": 1,
-          "description": "Theme contract version."
-        },
-        "regions": {
-          "$ref": "#/$defs/stringList",
-          "description": "Region keys exposed by theme modules."
-        },
-        "domIds": {
-          "$ref": "#/$defs/stringList",
-          "description": "DOM IDs intentionally provided for shared runtime code."
-        },
-        "hooks": {
-          "$ref": "#/$defs/stringList",
-          "description": "Theme hook names implemented through window.__press_themeHooks."
-        },
-        "views": {
-          "type": "array",
-          "description": "Core views explicitly supported by the theme.",
-          "items": {
-            "type": "string",
-            "enum": [
-              "post",
-              "posts",
-              "search",
-              "tab"
-            ]
-          },
-          "uniqueItems": true
-        },
-        "content": {
-          "type": "object",
-          "description": "Content shapes passed from the core renderer to theme hooks.",
-          "required": [
-            "markdown",
-            "shapes",
-            "toc"
-          ],
-          "additionalProperties": true,
-          "properties": {
-            "markdown": {
-              "type": "string",
-              "enum": [
-                "html"
-              ]
-            },
-            "toc": {
-              "type": "string",
-              "enum": [
-                "html"
-              ]
-            },
-            "shapes": {
-              "$ref": "#/$defs/contentShapeList"
-            }
-          }
-        }
-      }
     }
   },
   "$defs": {
@@ -220,12 +147,6 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
-        "hook": {
-          "type": "string"
-        },
-        "hooks": {
-          "$ref": "#/$defs/stringList"
-        },
         "module": {
           "type": "string"
         },

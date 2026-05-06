@@ -27,7 +27,7 @@ export function aggregateTags(indexMap) {
 
 // Render the tag sidebar with collapse/expand and ensure the active tag remains visible
 export function renderTagSidebar(indexMap) {
-  const root = getThemeRegion(['tags', 'tagview', 'tagBox', 'tagBand'], '#tagview');
+  const root = getThemeRegion('tags');
   if (!root) return;
   const items = aggregateTags(indexMap);
   const currentTag = (getQueryVariable('tag') || '').trim().toLowerCase();
