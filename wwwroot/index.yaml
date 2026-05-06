@@ -35,5 +35,7 @@ seo:
   en: post/seo/seo_en.md
   chs: post/seo/seo_chs.md
   ja: post/seo/seo_ja.md
+themeContract:
+  en: post/theme-contract/theme-contract_en.md
 testpost:
   en: post/testpost/main_en.md

@@ -131,7 +131,7 @@ const themeRegionsSource = read(path.join(root, 'assets', 'js', 'theme-regions.j
 const themeLayoutSource = read(path.join(root, 'assets', 'js', 'theme-layout.js'));
 const mainSource = read(path.join(root, 'assets', 'main.js'));
 const contentModelSource = read(path.join(root, 'assets', 'js', 'content-model.js'));
-const docsSource = read(path.join(root, 'docs', 'theme-contract.md'));
+const themeContractSource = read(path.join(root, 'wwwroot', 'post', 'theme-contract', 'theme-contract_en.md'));
 
 REQUIRED_COMPONENTS.forEach((component) => {
   const localName = component.replace(/^press-/, '');
@@ -198,8 +198,8 @@ CORE_RUNTIME_FILES.forEach((file) => {
 });
 
 ['contractVersion', 'regions', 'views', 'components', 'scrollContainer', 'configSchema', 'content', 'shapes', 'handler'].forEach((needle) => {
-  if (!docsSource.includes(needle)) {
-    fail(`docs/theme-contract.md must document manifest field ${needle}`);
+  if (!themeContractSource.includes(needle)) {
+    fail(`wwwroot/post/theme-contract/theme-contract_en.md must document manifest field ${needle}`);
   }
 });
 

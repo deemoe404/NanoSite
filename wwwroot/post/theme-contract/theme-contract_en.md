@@ -1,3 +1,15 @@
+---
+title: Press Theme Contract
+date: 2026-05-06
+tags:
+  - Press
+  - Theme
+  - Documentation
+excerpt: Theme packs in Press are zero-build runtime modules. This contract defines manifest fields, runtime context, regions, content shapes, shared components, and development checks for theme authors.
+author: Ekily
+ai: true
+---
+
 # Press Theme Contract
 
 Press themes are zero-build theme packs under `assets/themes/<pack>/`.
@@ -177,12 +189,12 @@ through events such as `press:search`,
 Run:
 
 ```bash
-node scripts/test-theme-contracts.js
+node --experimental-default-type=module scripts/test-theme-contracts.js
 ```
 
 The verifier checks manifest shape, module/style paths, supported views,
 registered regions, shared components, content shapes, pure-theme constraints,
-legacy hook adapter coverage for compatibility themes, docs/schema
+legacy hook adapter coverage for compatibility themes, article/schema
 synchronization, and direct core dependencies on legacy DOM IDs.
 
 Set `?themeDev=1` in the browser or `localStorage.press_theme_dev_mode = "1"` to
