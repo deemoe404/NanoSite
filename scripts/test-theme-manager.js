@@ -170,6 +170,13 @@ await run('rejects unsafe and multi-theme ZIP archives', async () => {
     /unsafe/i
   );
   assert.throws(
+    () => collectThemeArchiveEntries(makeZip({
+      'press-theme-test/theme.json': '{"name":"Test","version":"1.0.0","contractVersion":1}',
+      'press-theme-test/modules//layout.js': 'export {};'
+    })),
+    /unsafe/i
+  );
+  assert.throws(
     () => collectThemeArchiveEntries(makeZip({ 'press-theme-test/theme.css': 'body{}' })),
     /theme\.json/i
   );
@@ -241,13 +248,23 @@ await run('infers old registry file inventory during theme update', async () => 
         name: 'Legacy',
         version: '0.9.0',
         contractVersion: 1,
-        styles: ['theme.css'],
         modules: ['modules/old.js']
       })
     }
   });
-  await analyzeThemeArchive(makeThemeZip({ slug: 'legacy', name: 'Legacy' }), 'press-theme-legacy-v1.0.0.zip');
+  await analyzeThemeArchive(makeZip({
+    'press-theme-legacy/theme.json': JSON.stringify({
+      name: 'Legacy',
+      version: '1.0.0',
+      contractVersion: 1,
+      styles: ['main.css'],
+      modules: ['modules/new.js']
+    }),
+    'press-theme-legacy/main.css': 'body{}',
+    'press-theme-legacy/modules/new.js': 'export {};'
+  }), 'press-theme-legacy-v1.0.0.zip');
   const files = getThemeManagerCommitFiles();
+  assert(files.some((file) => file.path === 'assets/themes/legacy/theme.css' && file.deleted));
   assert(files.some((file) => file.path === 'assets/themes/legacy/modules/old.js' && file.deleted));
 });
 
@@ -282,7 +299,6 @@ await run('infers old registry file inventory during uninstall', async () => {
         name: 'Legacy',
         version: '0.9.0',
         contractVersion: 1,
-        styles: ['theme.css'],
         modules: ['modules/layout.js']
       })
     }

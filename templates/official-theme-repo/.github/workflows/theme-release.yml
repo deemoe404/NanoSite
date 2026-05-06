@@ -19,6 +19,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      THEME_TAG_INPUT: ${{ inputs.tag }}
+      THEME_SLUG_INPUT: ${{ inputs.slug }}
+      THEME_LABEL_INPUT: ${{ inputs.label }}
     steps:
       - name: Checkout theme
         uses: actions/checkout@v4
@@ -29,15 +33,38 @@ jobs:
           repository: EkilyHQ/Press
           path: .press
 
-      - name: Prepare release version
+      - name: Validate inputs
+        id: release_inputs
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag }}"
+          tag="${THEME_TAG_INPUT}"
+          slug="${THEME_SLUG_INPUT}"
+          label="${THEME_LABEL_INPUT}"
           if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "tag must be vMAJOR.MINOR.PATCH" >&2
             exit 2
           fi
-          version="${tag#v}"
+          if [[ ! "${slug}" =~ ^[a-z0-9][a-z0-9_-]{0,63}$ ]]; then
+            echo "slug must match [a-z0-9][a-z0-9_-]*" >&2
+            exit 2
+          fi
+          if [[ -z "${label}" || "${label}" == *$'\n'* || "${label}" == *$'\r'* ]]; then
+            echo "label must be a non-empty single line" >&2
+            exit 2
+          fi
+          {
+            echo "tag=${tag}"
+            echo "slug=${slug}"
+            echo "label=${label}"
+            echo "version=${tag#v}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Prepare release version
+        env:
+          RELEASE_VERSION: ${{ steps.release_inputs.outputs.version }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_VERSION}"
           export VERSION="${version}"
           node <<'NODE'
           const fs = require('fs');
@@ -49,25 +76,28 @@ jobs:
           NODE
 
       - name: Validate theme contract
+        env:
+          THEME_SLUG: ${{ steps.release_inputs.outputs.slug }}
         run: |
           set -euo pipefail
-          rm -rf ".press/assets/themes/${{ inputs.slug }}"
-          mkdir -p ".press/assets/themes/${{ inputs.slug }}"
-          rsync -a ./theme/ ".press/assets/themes/${{ inputs.slug }}/"
+          slug="${THEME_SLUG}"
+          rm -rf ".press/assets/themes/${slug}"
+          mkdir -p ".press/assets/themes/${slug}"
+          rsync -a ./theme/ ".press/assets/themes/${slug}/"
           cd .press
           node --experimental-default-type=module scripts/test-theme-contracts.js
 
       - name: Package theme
         id: package
+        env:
+          THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
+          THEME_SLUG: ${{ steps.release_inputs.outputs.slug }}
+          RELEASE_VERSION: ${{ steps.release_inputs.outputs.version }}
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag }}"
-          slug="${{ inputs.slug }}"
-          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "tag must be vMAJOR.MINOR.PATCH" >&2
-            exit 2
-          fi
-          version="${tag#v}"
+          tag="${THEME_TAG}"
+          slug="${THEME_SLUG}"
+          version="${RELEASE_VERSION}"
           asset="press-theme-${slug}-${tag}.zip"
           mkdir -p dist "press-theme-${slug}"
           rsync -a ./theme/ "press-theme-${slug}/"
@@ -89,10 +119,13 @@ jobs:
 
       - name: Publish fetchable artifact
         id: artifact
+        env:
+          THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
+          PACKAGE_ASSET: ${{ steps.package.outputs.asset }}
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag }}"
-          asset="${{ steps.package.outputs.asset }}"
+          tag="${THEME_TAG}"
+          asset="${PACKAGE_ASSET}"
           artifact_branch="release-artifacts"
           artifact_path="${tag}/${asset}"
           artifact_url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${artifact_branch}/${artifact_path}"
@@ -124,25 +157,36 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
+          PACKAGE_ASSET: ${{ steps.package.outputs.asset }}
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag }}"
-          asset="dist/${{ steps.package.outputs.asset }}"
+          tag="${THEME_TAG}"
+          asset="dist/${PACKAGE_ASSET}"
           gh release view "${tag}" >/dev/null 2>&1 && gh release delete "${tag}" --yes --cleanup-tag
           gh release create "${tag}" "${asset}" --title "${tag}" --notes "Theme release ${tag}"
 
       - name: Update theme-release.json
+        env:
+          THEME_TAG: ${{ steps.release_inputs.outputs.tag }}
+          THEME_SLUG: ${{ steps.release_inputs.outputs.slug }}
+          THEME_LABEL: ${{ steps.release_inputs.outputs.label }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+          PACKAGE_ASSET: ${{ steps.package.outputs.asset }}
+          PACKAGE_SIZE: ${{ steps.package.outputs.size }}
+          PACKAGE_DIGEST: ${{ steps.package.outputs.digest }}
+          ARTIFACT_URL: ${{ steps.artifact.outputs.url }}
         run: |
           set -euo pipefail
           repo="${GITHUB_REPOSITORY}"
-          tag="${{ inputs.tag }}"
-          slug="${{ inputs.slug }}"
-          label="${{ inputs.label }}"
-          version="${{ steps.package.outputs.version }}"
-          asset="${{ steps.package.outputs.asset }}"
-          asset_url="${{ steps.artifact.outputs.url }}"
-          size="${{ steps.package.outputs.size }}"
-          digest="${{ steps.package.outputs.digest }}"
+          tag="${THEME_TAG}"
+          slug="${THEME_SLUG}"
+          label="${THEME_LABEL}"
+          version="${PACKAGE_VERSION}"
+          asset="${PACKAGE_ASSET}"
+          asset_url="${ARTIFACT_URL}"
+          size="${PACKAGE_SIZE}"
+          digest="${PACKAGE_DIGEST}"
           published_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           export repo tag slug label version asset asset_url size digest published_at
           node <<'NODE'

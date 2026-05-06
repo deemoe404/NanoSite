@@ -122,7 +122,7 @@ export function normalizeThemeFilePath(path) {
   }
   const clean = raw.replace(/^\/+/, '');
   const parts = clean.split('/');
-  if (parts.some((part) => part === '..' || part === '.')) {
+  if (parts.some((part) => !part || part === '..' || part === '.')) {
     throw new Error(`Unsafe theme archive path: ${raw}`);
   }
   if (clean !== 'theme.json' && clean.endsWith('/theme.json')) {
@@ -141,7 +141,7 @@ function validateRawThemeArchivePath(path) {
     throw new Error(`Unsafe theme archive path: ${raw}`);
   }
   const parts = raw.split('/');
-  if (parts.some((part) => part === '..' || part === '.')) {
+  if (parts.some((part) => !part || part === '..' || part === '.')) {
     throw new Error(`Unsafe theme archive path: ${raw}`);
   }
   return raw;
@@ -474,7 +474,11 @@ function themeFilesFromManifest(manifest) {
   };
 
   add('theme.json');
-  addList(manifest && manifest.styles);
+  const styles = manifest && Array.isArray(manifest.styles)
+    ? manifest.styles.map((entry) => safeString(entry).trim()).filter(Boolean)
+    : [];
+  if (styles.length) addList(styles);
+  else add('theme.css');
   addList(manifest && manifest.modules);
   addList(manifest && manifest.files);
 
