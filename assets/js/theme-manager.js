@@ -621,7 +621,7 @@ async function inferCatalogThemeFiles(slug) {
     const entry = catalog.find((item) => item.value === slug);
     if (!entry || !entry.manifestUrl) return [];
     const manifest = normalizeThemeReleaseManifest(await fetchJson(entry.manifestUrl));
-    return normalizeFileList(manifest.files);
+    return await filterExistingThemeFiles(slug, manifest.files);
   } catch (_) {
     return [];
   }

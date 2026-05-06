@@ -418,6 +418,52 @@ await run('infers old registry file inventory during uninstall', async () => {
   assert(files.some((file) => file.path === 'assets/themes/packs.json' && !file.content.includes('"value": "legacy"')));
 });
 
+await run('filters catalog-inferred inventory to existing files during uninstall', async () => {
+  initThemeManager({
+    getCurrentThemePack: () => 'native',
+    setSiteThemePack: () => {}
+  });
+  mockFetchRegistry([
+    { value: 'native', label: 'Native', builtIn: true, removable: false, files: [] },
+    { value: 'cataloged', label: 'Cataloged' }
+  ], {
+    catalog: {
+      schemaVersion: 1,
+      themes: [
+        { value: 'cataloged', label: 'Cataloged', manifestUrl: 'https://example.test/cataloged-theme-release.json' }
+      ]
+    },
+    jsonFiles: {
+      'https://example.test/cataloged-theme-release.json': {
+        schemaVersion: 1,
+        type: 'press-theme',
+        value: 'cataloged',
+        label: 'Cataloged',
+        version: '1.0.0',
+        contractVersion: 1,
+        asset: {
+          name: 'press-theme-cataloged-v1.0.0.zip',
+          url: 'https://example.test/press-theme-cataloged-v1.0.0.zip',
+          size: 1,
+          digest: 'sha256:535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a'
+        },
+        files: ['theme.json', 'theme.css', 'modules/missing.js', 'modules/present.js']
+      }
+    },
+    textFiles: {
+      'assets/themes/cataloged/theme.json': '',
+      'assets/themes/cataloged/modules/present.js': 'export {};'
+    }
+  });
+  await stageThemeUninstall('cataloged');
+  const files = getThemeManagerCommitFiles();
+  assert(files.some((file) => file.path === 'assets/themes/cataloged/theme.json' && file.deleted));
+  assert(files.some((file) => file.path === 'assets/themes/cataloged/modules/present.js' && file.deleted));
+  assert(!files.some((file) => file.path === 'assets/themes/cataloged/theme.css' && file.deleted));
+  assert(!files.some((file) => file.path === 'assets/themes/cataloged/modules/missing.js' && file.deleted));
+  assert(files.some((file) => file.path === 'assets/themes/packs.json' && !file.content.includes('"value": "cataloged"')));
+});
+
 await run('clearing uninstall staging restores the previous default theme', async () => {
   let themePack = 'test';
   initThemeManager({
