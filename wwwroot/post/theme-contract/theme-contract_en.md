@@ -22,6 +22,12 @@ policy, error reporting, and the content model. Themes own the presentation
 layer: page skeleton, regions, view markup, component choice, and visual
 effects.
 
+`native` is part of Press core and is always the built-in fallback. Other
+official themes are released from separate theme repositories and installed
+into a site through Theme Manager. Press never executes a theme directly from a
+remote repository at runtime; a selected theme must exist locally under
+`assets/themes/<pack>/`.
+
 ## Manifest
 
 ```json
@@ -73,6 +79,97 @@ effects.
   container, or `region:<name>` when a registered region owns scroll state.
 - `configSchema`: JSON-schema fragment for theme-specific configuration.
 - `content.shapes`: Content model fields consumed by the theme.
+
+## Theme Manager Registry
+
+Installed themes are recorded in `assets/themes/packs.json`. The registry keeps
+the legacy `value` and `label` fields used by the Site Settings selector and
+adds operational metadata. This file is site-owned state: Theme Manager stages
+changes to it through Publish, and Press system updates do not overwrite it.
+
+```json
+{
+  "value": "arcus",
+  "label": "Arcus",
+  "version": "3.4.0",
+  "contractVersion": 1,
+  "builtIn": false,
+  "removable": true,
+  "source": {
+    "type": "official",
+    "repo": "EkilyHQ/Press-Theme-Arcus",
+    "manifestUrl": "https://raw.githubusercontent.com/EkilyHQ/Press-Theme-Arcus/main/theme-release.json"
+  },
+  "release": {
+    "tag": "v3.4.0",
+    "assetName": "press-theme-arcus-v3.4.0.zip",
+    "digest": "sha256:..."
+  },
+  "files": ["theme.json", "theme.css", "modules/layout.js"]
+}
+```
+
+Theme Manager uses `files` to stage updates and uninstalls safely. Uninstalling
+the current default theme also stages `site.yaml` back to `themePack: native`.
+`native` must be registered with `builtIn: true`, `removable: false`, and
+`source.type: "builtin"`.
+
+The official catalog lives at `assets/themes/catalog.json` and points to each
+official theme repository's release manifest. Site Settings still chooses the
+default `themePack`; installation, update, import, and uninstall actions belong
+to Theme Manager.
+
+## Theme Release Manifest
+
+Official theme repositories publish a root `theme-release.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "press-theme",
+  "value": "arcus",
+  "label": "Arcus",
+  "version": "3.4.0",
+  "contractVersion": 1,
+  "release": {
+    "tag": "v3.4.0",
+    "htmlUrl": "https://github.com/EkilyHQ/Press-Theme-Arcus/releases/tag/v3.4.0",
+    "publishedAt": "2026-05-07T00:00:00Z",
+    "notes": ""
+  },
+  "asset": {
+    "name": "press-theme-arcus-v3.4.0.zip",
+    "url": "https://github.com/EkilyHQ/Press-Theme-Arcus/releases/download/v3.4.0/press-theme-arcus-v3.4.0.zip",
+    "size": 12345,
+    "digest": "sha256:..."
+  },
+  "files": ["theme.json", "theme.css", "modules/layout.js"]
+}
+```
+
+Theme Manager verifies `schemaVersion`, `type`, slug, version,
+`contractVersion`, ZIP size, and SHA-256 digest before staging changes.
+
+## Theme ZIP Format
+
+A theme ZIP is a single-theme package. After removing one common archive root,
+it must contain `theme.json` at the theme root. Theme Manager rejects absolute
+paths, drive paths, URL paths, `.` and `..` segments, nested `*/theme.json`
+entries, unsupported file extensions, missing `theme.json`, and
+`contractVersion` mismatches.
+
+Install and update operations map files to `assets/themes/<slug>/...`. Updates
+compare the new ZIP file list with the installed registry `files` list; removed
+old files become Publish deletions. Uninstall uses the registry `files` list to
+stage deletions and removes the theme entry from `packs.json`.
+
+## Repository Boundary
+
+Press system releases may update runtime files, schemas, i18n, Theme Manager,
+`assets/themes/native/**`, and `assets/themes/catalog.json`. They must not
+overwrite `assets/themes/packs.json` or arbitrary external theme directories.
+Official theme source, checks, release ZIPs, checksums, and
+`theme-release.json` belong to each theme repository.
 
 ## Theme API
 

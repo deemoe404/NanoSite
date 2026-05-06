@@ -280,18 +280,12 @@ function populateThemeControls(component) {
       })
       .catch(() => {
         component.setThemePacks(normalizePackList([
-          { value: 'native', label: 'Native' },
-          { value: 'arcus', label: 'Arcus' },
-          { value: 'solstice', label: 'Solstice' },
-          { value: 'cartograph', label: 'Cartograph' }
+          { value: 'native', label: 'Native' }
         ]), getSavedThemePack());
       });
   } catch (_) {
     component.setThemePacks(normalizePackList([
-      { value: 'native', label: 'Native' },
-      { value: 'arcus', label: 'Arcus' },
-      { value: 'solstice', label: 'Solstice' },
-      { value: 'cartograph', label: 'Cartograph' }
+      { value: 'native', label: 'Native' }
     ]), getSavedThemePack());
   }
 }

@@ -43,9 +43,9 @@ jobs:
           fi
 
           if [[ -n "${latest_tag}" ]]; then
-            changed_files="$(git diff --name-only "${latest_tag}..HEAD" -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes)"
+            changed_files="$(git diff --name-only "${latest_tag}..HEAD" -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes/native assets/themes/catalog.json)"
           else
-            changed_files="$(git ls-files -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes)"
+            changed_files="$(git ls-files -- index.html index_editor.html assets/main.js assets/js assets/i18n assets/schema assets/themes/native assets/themes/catalog.json)"
           fi
 
           if [[ -z "${changed_files}" ]]; then
@@ -257,6 +257,47 @@ jobs:
           }))
           PY
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${{ steps.create.outputs.release_id }}" --input dist/publish-release.json >/dev/null
+
+      - name: Notify starter template
+        if: steps.plan.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STARTER_SYNC_TOKEN: ${{ secrets.STARTER_SYNC_TOKEN }}
+          STARTER_REPOSITORY: ${{ vars.STARTER_REPOSITORY || 'EkilyHQ/Press-Starter' }}
+          NEXT_TAG: ${{ steps.plan.outputs.next_tag }}
+          ASSET_NAME: ${{ steps.plan.outputs.asset_name }}
+          ASSET_SIZE: ${{ steps.package.outputs.archive_size }}
+          ASSET_SHA256: ${{ steps.package.outputs.archive_sha256 }}
+          RELEASE_ID: ${{ steps.create.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${STARTER_SYNC_TOKEN}" ]]; then
+            echo "STARTER_SYNC_TOKEN is not configured; skipping Press-Starter sync dispatch."
+            exit 0
+          fi
+
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" > dist/starter-release.json
+          node <<'NODE' > dist/starter-dispatch.json
+          const fs = require('fs');
+          const release = JSON.parse(fs.readFileSync('dist/starter-release.json', 'utf8'));
+          const payload = {
+            event_type: 'press-system-release',
+            client_payload: {
+              press_repository: process.env.GITHUB_REPOSITORY,
+              tag: process.env.NEXT_TAG,
+              asset_name: process.env.ASSET_NAME,
+              asset_size: Number(process.env.ASSET_SIZE || 0),
+              asset_sha256: process.env.ASSET_SHA256,
+              release_url: release.html_url || ''
+            }
+          };
+          process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+          NODE
+
+          GH_TOKEN="${STARTER_SYNC_TOKEN}" gh api \
+            --method POST \
+            "repos/${STARTER_REPOSITORY}/dispatches" \
+            --input dist/starter-dispatch.json
 
       - name: Update static release manifest
         if: steps.plan.outputs.should_release == 'true'

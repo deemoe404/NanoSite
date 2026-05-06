@@ -312,19 +312,25 @@ export class PressThemeControls extends HTMLElement {
   }
 
   _variant() {
-    return (this.getAttribute('variant') || 'native').toLowerCase();
+    const raw = String(this.getAttribute('variant') || 'native').toLowerCase().trim();
+    return raw.replace(/[^a-z0-9_-]/g, '') || 'native';
   }
 
   _syncHostClass() {
     const variant = this._variant();
     if (!this.id) this.id = 'tools';
+    Array.from(this.classList || []).forEach((className) => {
+      if (String(className || '').startsWith('press-theme-controls--')) {
+        this.classList.remove(className);
+      }
+    });
     this.classList.remove('box', 'arcus-tools__groups', 'solstice-tools');
     if (variant === 'arcus') {
-      this.classList.add('arcus-tools__groups');
+      this.classList.add('arcus-tools__groups', `press-theme-controls--${variant}`);
     } else if (variant === 'solstice') {
-      this.classList.add('solstice-tools');
+      this.classList.add('solstice-tools', `press-theme-controls--${variant}`);
     } else {
-      this.classList.add('box');
+      this.classList.add('box', `press-theme-controls--${variant}`);
     }
   }
 

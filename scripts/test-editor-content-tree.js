@@ -176,10 +176,11 @@ assert.deepEqual(
   system.children.map(node => [node.id, node.kind, node.source, node.label]),
   [
     ['system:site-settings', 'system', 'system', 'Site Settings'],
+    ['system:themes', 'system', 'system', 'Themes'],
     ['system:updates', 'system', 'system', 'Press Updates'],
     ['system:sync', 'system', 'system', 'Publish']
   ],
-  'system root should expose stable Site Settings, Press Updates, and Publish leaves'
+  'system root should expose stable Site Settings, Themes, Press Updates, and Publish leaves'
 );
 
 const articles = tree[2];

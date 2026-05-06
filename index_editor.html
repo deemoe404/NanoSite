@@ -355,6 +355,19 @@
     .updates-release-notes ul,
     .updates-release-notes ol { margin:.6rem 0 .6rem 1.2rem; padding:0; }
     .updates-release-notes code { background: color-mix(in srgb, var(--border) 60%, transparent); padding:.15rem .4rem; border-radius:6px; font-size:.85rem; }
+    .theme-manager-tabs { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+    .theme-manager-tabs .btn-secondary.is-active { background:color-mix(in srgb, var(--primary) 12%, var(--card)); color:var(--primary); border-color:color-mix(in srgb, var(--primary) 34%, var(--border)); }
+    .theme-manager-panel[hidden] { display:none !important; }
+    .theme-manager-list { display:flex; flex-direction:column; gap:.65rem; }
+    .theme-manager-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.85rem; padding:.75rem .85rem; border:1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius:8px; background:color-mix(in srgb, var(--card) 96%, transparent); }
+    .theme-manager-row-body { min-width:0; display:flex; flex-direction:column; gap:.2rem; }
+    .theme-manager-row-body strong { font-size:1rem; color:color-mix(in srgb, var(--text) 92%, transparent); }
+    .theme-manager-row-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+    .theme-manager-import { display:flex; flex-direction:column; align-items:flex-start; gap:.75rem; }
+    #btnThemeImport[data-state="busy"],
+    #btnThemeImportInline[data-state="busy"],
+    #btnThemeRefreshCatalog[data-state="busy"],
+    #btnThemeClearStaged[data-state="busy"] { pointer-events:none; opacity:.82; }
     .sync-layout {
       display:flex;
       flex-direction:column;
@@ -2235,6 +2248,10 @@
               <button class="btn-secondary" id="btnRefresh" title="Fetch latest remote snapshot" data-i18n="editor.composer.refresh" data-i18n-title="editor.composer.refreshTitle">Refresh</button>
               <button class="btn-secondary" id="btnDiscard" title="Discard local draft and reload remote file" data-i18n="editor.composer.discard" data-i18n-title="editor.composer.discardTitle" hidden>Discard</button>
             </div>
+            <div class="editor-modal-header-actions" id="editorModalThemeActions" hidden>
+              <button class="btn-primary" type="button" id="btnThemeImport">Import theme ZIP</button>
+              <input type="file" id="themeImportFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+            </div>
             <div class="editor-modal-header-actions" id="editorModalUpdateActions" hidden>
               <button class="btn-primary" type="button" id="btnSystemSelect" data-i18n="editor.systemUpdates.selectArchive">Select downloaded ZIP</button>
               <input type="file" id="systemUpdateFileInput" accept=".zip,application/zip,application/x-zip-compressed" hidden>
@@ -2281,6 +2298,40 @@
         <div id="yamlExportWrap" style="display:none; margin-top: .75rem;">
           <textarea id="yamlExport" style="width:100%; height: 280px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); padding:.6rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 18px;"></textarea>
         </div>
+    </div>
+    <!-- Theme Manager Mode -->
+    <div class="updates-layout theme-manager-layout editor-overlay-panel" id="mode-themes" hidden aria-hidden="true">
+      <section class="updates-main">
+        <div class="updates-header">
+          <div class="updates-header-text">
+            <div class="theme-manager-tabs" role="tablist" aria-label="Theme manager views">
+              <button class="btn-secondary is-active" type="button" data-theme-manager-view="installed" aria-selected="true">Installed</button>
+              <button class="btn-secondary" type="button" data-theme-manager-view="available" aria-selected="false">Available</button>
+              <button class="btn-secondary" type="button" data-theme-manager-view="import" aria-selected="false">Import ZIP</button>
+            </div>
+          </div>
+          <div class="updates-header-actions">
+            <button class="btn-secondary" type="button" id="btnThemeRefreshCatalog">Refresh catalog</button>
+            <button class="btn-secondary" type="button" id="btnThemeClearStaged">Clear staged</button>
+          </div>
+        </div>
+        <p id="themeManagerStatus" class="updates-status" data-tone="info"></p>
+        <section class="theme-manager-panel" data-theme-manager-panel="installed">
+          <div id="themeManagerInstalledList" class="theme-manager-list"></div>
+        </section>
+        <section class="theme-manager-panel" data-theme-manager-panel="available" hidden aria-hidden="true">
+          <div id="themeManagerAvailableList" class="theme-manager-list"></div>
+        </section>
+        <section class="theme-manager-panel" data-theme-manager-panel="import" hidden aria-hidden="true">
+          <div class="updates-release-notes theme-manager-import">
+            <button class="btn-primary" type="button" id="btnThemeImportInline">Choose ZIP</button>
+          </div>
+        </section>
+        <div id="themeManagerPendingSection" class="updates-files" hidden aria-hidden="true">
+          <h3 class="updates-subtitle">Pending theme files</h3>
+          <ul id="themeManagerFileList" class="updates-file-list"></ul>
+        </div>
+      </section>
     </div>
     <!-- System Updates Mode -->
     <div class="updates-layout editor-overlay-panel" id="mode-updates" hidden aria-hidden="true">
@@ -2343,7 +2394,7 @@
         toolbarNodes.forEach((toolbar) => ro.observe(toolbar));
       }
 
-      const layouts = ['mode-editor', 'mode-composer', 'mode-updates', 'mode-sync']
+      const layouts = ['mode-editor', 'mode-composer', 'mode-themes', 'mode-updates', 'mode-sync']
         .map((id) => document.getElementById(id))
         .filter(Boolean);
       if (layouts.length) {

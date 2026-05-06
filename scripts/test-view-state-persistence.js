@@ -7,8 +7,6 @@ const here = dirname(fileURLToPath(import.meta.url));
 const composer = readFileSync(resolve(here, '../assets/js/composer.js'), 'utf8');
 const main = readFileSync(resolve(here, '../assets/main.js'), 'utf8');
 const nativeTheme = readFileSync(resolve(here, '../assets/themes/native/modules/interactions.js'), 'utf8');
-const arcusTheme = readFileSync(resolve(here, '../assets/themes/arcus/modules/interactions.js'), 'utf8');
-const solsticeTheme = readFileSync(resolve(here, '../assets/themes/solstice/modules/interactions.js'), 'utf8');
 
 assert.match(
   composer,
@@ -71,9 +69,9 @@ assert.match(
 );
 
 assert.match(
-  [nativeTheme, arcusTheme, solsticeTheme].join('\n'),
-  /hooks\.getScrollState = \(\) =>[\s\S]*hooks\.restoreScrollState = \(params = \{\}\) =>/,
-  'all shipped themes should expose scroll-state hooks for route restoration'
+  nativeTheme,
+  /effects\.getScrollState = \(\) =>[\s\S]*effects\.restoreScrollState = \(params = \{\}\) =>/,
+  'native theme should expose scroll-state hooks for route restoration'
 );
 
 console.log('ok - view state persistence');

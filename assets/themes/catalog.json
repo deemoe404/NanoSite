@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "themes": [
+    {
+      "value": "arcus",
+      "label": "Arcus",
+      "repo": "EkilyHQ/Press-Theme-Arcus",
+      "manifestUrl": "https://raw.githubusercontent.com/EkilyHQ/Press-Theme-Arcus/main/theme-release.json",
+      "description": "Official editorial theme for focused long-form writing."
+    },
+    {
+      "value": "cartograph",
+      "label": "Cartograph",
+      "repo": "EkilyHQ/Press-Theme-Cartograph",
+      "manifestUrl": "https://raw.githubusercontent.com/EkilyHQ/Press-Theme-Cartograph/main/theme-release.json",
+      "description": "Official spatial navigation theme with map-like reading affordances."
+    },
+    {
+      "value": "solstice",
+      "label": "Solstice",
+      "repo": "EkilyHQ/Press-Theme-Solstice",
+      "manifestUrl": "https://raw.githubusercontent.com/EkilyHQ/Press-Theme-Solstice/main/theme-release.json",
+      "description": "Official high-contrast magazine theme."
+    }
+  ]
+}

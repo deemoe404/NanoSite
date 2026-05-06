@@ -1431,8 +1431,8 @@ assert.match(
 
 assert.match(
   source,
-  /syncLabel: treeText\('sync', 'Publish'\),[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
-  'System tree should expose and route the Publish leaf'
+  /themesLabel: treeText\('themes', 'Themes'\),[\s\S]*syncLabel: treeText\('sync', 'Publish'\),[\s\S]*node\.id === 'system:themes'[\s\S]*applyMode\('themes'\);[\s\S]*node\.id === 'system:sync'[\s\S]*applyMode\('sync'\);/,
+  'System tree should expose and route the Themes and Publish leaves'
 );
 
 assert.doesNotMatch(
@@ -1469,6 +1469,18 @@ assert.match(
   source,
   /async function refreshSyncCommitPanel\(options = \{\}\) \{[\s\S]*const headerSubmit = document\.getElementById\('btnSyncSubmit'\)[\s\S]*gatherCommitPayload\(\{ cleanupUnusedAssets: false, showSeoStatus: false \}\)[\s\S]*form\.id = 'syncCommitForm';[\s\S]*const btnSubmit = headerSubmit;[\s\S]*appendGithubCommitSummary\(summaryBlock, commitFiles, seoFiles, summaryEntries\)[\s\S]*const value = getFineGrainedTokenValue\(\);[\s\S]*performDirectGithubCommit\(value, currentSummary\);/,
   'inline Sync page commit form should reuse existing payload and commit flow'
+);
+
+assert.match(
+  source,
+  /const additions = files\.filter\(\(file\) => !file\.deleted\)[\s\S]*const deletions = files\.filter\(\(file\) => file && file\.deleted\)[\s\S]*if \(deletions\.length\) fileChanges\.deletions = deletions;[\s\S]*fileChanges/,
+  'GitHub commit payload should include deletions as well as additions'
+);
+
+assert.match(
+  source,
+  /files\.forEach\(\(file\) => \{[\s\S]*if \(file\.deleted\) return;[\s\S]*unique\.push/,
+  'remote propagation checks should skip deletion-only commit entries'
 );
 
 assert.doesNotMatch(
@@ -1577,8 +1589,8 @@ assert.match(
 
 assert.match(
   editorSource,
-  /class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true"[\s\S]*class="editor-modal-dialog"[\s\S]*id="mode-composer" hidden aria-hidden="true"[\s\S]*id="mode-updates" hidden aria-hidden="true"/,
-  'Site Settings and System Updates should be mounted inside the hidden editor modal layer'
+  /class="editor-modal-layer" id="editorModalLayer" hidden aria-hidden="true"[\s\S]*class="editor-modal-dialog"[\s\S]*id="mode-composer" hidden aria-hidden="true"[\s\S]*id="mode-themes" hidden aria-hidden="true"[\s\S]*id="mode-updates" hidden aria-hidden="true"/,
+  'Site Settings, Themes, and System Updates should be mounted inside the hidden editor modal layer'
 );
 
 assert.match(
@@ -2034,7 +2046,7 @@ assert.match(
 
 assert.match(
   source,
-  /function isEditorTreeFileKind\(kind\) \{[\s\S]*kind === 'file' \|\| kind === 'deleted-file'[\s\S]*function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = isEditorTreeFileKind\(node\.kind\);[\s\S]*let iconKind = isFile \? 'document' : 'folder';[\s\S]*node\.id === 'system:site-settings'[\s\S]*iconKind = 'settings';[\s\S]*node\.id === 'system:updates'[\s\S]*iconKind = 'updates';[\s\S]*node\.id === 'system:sync'[\s\S]*iconKind = 'publish';[\s\S]*editor-tree-icon-\$\{iconKind\}/,
+  /function isEditorTreeFileKind\(kind\) \{[\s\S]*kind === 'file' \|\| kind === 'deleted-file'[\s\S]*function createEditorTreeIcon\(node\) \{[\s\S]*const isFile = isEditorTreeFileKind\(node\.kind\);[\s\S]*let iconKind = isFile \? 'document' : 'folder';[\s\S]*node\.id === 'system:site-settings'[\s\S]*iconKind = 'settings';[\s\S]*node\.id === 'system:themes'[\s\S]*iconKind = 'themes';[\s\S]*node\.id === 'system:updates'[\s\S]*iconKind = 'updates';[\s\S]*node\.id === 'system:sync'[\s\S]*iconKind = 'publish';[\s\S]*editor-tree-icon-\$\{iconKind\}/,
   'file tree should render folder/document icons and dedicated system action icons'
 );
 
@@ -2204,8 +2216,8 @@ assert.match(
 
 assert.match(
   source,
-  /function showEditorSystemPanel\(mode\) \{[\s\S]*mode === 'sync' \? 'sync'[\s\S]*editorSystemActions[\s\S]*editorModalSyncActions[\s\S]*mode-composer[\s\S]*mode-updates[\s\S]*mode-sync[\s\S]*\['sync', syncActions\]/,
-  'Site Settings, Press Updates, and Sync should render through the inline system panel'
+  /function showEditorSystemPanel\(mode\) \{[\s\S]*mode === 'sync' \? 'sync'[\s\S]*editorSystemActions[\s\S]*editorModalThemeActions[\s\S]*editorModalSyncActions[\s\S]*mode-composer[\s\S]*mode-themes[\s\S]*mode-updates[\s\S]*mode-sync[\s\S]*\['themes', themeActions\][\s\S]*\['sync', syncActions\]/,
+  'Site Settings, Themes, Press Updates, and Sync should render through the inline system panel'
 );
 
 const showEditorSystemPanelBody = source.slice(
@@ -2227,8 +2239,8 @@ assert.match(
 
 assert.match(
   source,
-  /const isSystemMode = \(value\) => value === 'composer' \|\| value === 'updates' \|\| value === 'sync';[\s\S]*const nextMode = \(candidate === 'editor' \|\| isSystemMode\(candidate\) \|\| isDynamicMode\(candidate\)\)[\s\S]*setEditorDetailPanelMode\(nextMode\);/,
-  'opening Site Settings, Press Updates, or Sync should switch to the inline system detail panel'
+  /const isSystemMode = \(value\) => value === 'composer' \|\| value === 'themes' \|\| value === 'updates' \|\| value === 'sync';[\s\S]*const nextMode = \(candidate === 'editor' \|\| isSystemMode\(candidate\) \|\| isDynamicMode\(candidate\)\)[\s\S]*setEditorDetailPanelMode\(nextMode\);/,
+  'opening Site Settings, Themes, Press Updates, or Sync should switch to the inline system detail panel'
 );
 
 const refreshEditorContentTreeBody = source.slice(
@@ -3104,6 +3116,12 @@ assert.match(
   editorSource,
   /class="editor-modal-header-actions" id="editorModalUpdateActions" hidden[\s\S]*id="btnSystemSelect"[\s\S]*id="systemUpdateFileInput"/,
   'system update archive picker should live in the modal header action slot'
+);
+
+assert.match(
+  editorSource,
+  /class="editor-modal-header-actions" id="editorModalThemeActions" hidden[\s\S]*id="btnThemeImport"[\s\S]*id="themeImportFileInput"/,
+  'theme ZIP picker should live in the modal header action slot'
 );
 
 assert.doesNotMatch(

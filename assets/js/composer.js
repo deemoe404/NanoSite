@@ -11,6 +11,7 @@ import {
 import { t, getAvailableLangs, getLanguageLabel } from './i18n.js?v=20260506theme';
 import { generateSitemapData, resolveSiteBaseUrl } from './seo.js';
 import { initSystemUpdates, getSystemUpdateSummaryEntries, getSystemUpdateCommitFiles, clearSystemUpdateState } from './system-updates.js';
+import { initThemeManager, getThemeManagerSummaryEntries, getThemeManagerCommitFiles, clearThemeManagerState } from './theme-manager.js';
 import { buildEditorContentTree, findEditorContentTreeNode, flattenEditorContentTree } from './editor-content-tree.js?v=20260505welcome';
 
 // Utility helpers
@@ -3677,7 +3678,7 @@ function refreshEditorLanguageUi() {
   refreshFileDirtyBadges();
   try {
     refreshEditorContentTree({
-      preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync')
+      preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'themes' || currentMode === 'updates' || currentMode === 'sync')
     });
   } catch (_) {}
 }
@@ -3780,6 +3781,13 @@ function computeUnsyncedSummary() {
     systemEntries.forEach((entry) => {
       if (!entry || typeof entry !== 'object') return;
       entries.push({ ...entry, kind: 'system' });
+    });
+  }
+  const themeEntries = getThemeManagerSummaryEntries();
+  if (themeEntries && themeEntries.length) {
+    themeEntries.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      entries.push({ ...entry, kind: 'system', category: 'theme' });
     });
   }
   const markdownEntries = collectUnsyncedMarkdownEntries();
@@ -3886,11 +3894,13 @@ function updateModeDirtyIndicators(summaryEntries) {
   let composerCount = 0;
   let editorCount = 0;
   let updatesCount = 0;
+  let themesCount = 0;
 
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
     if (entry.kind === 'index' || entry.kind === 'tabs' || entry.kind === 'site') composerCount += 1;
     else if (entry.kind === 'markdown') editorCount += 1;
+    else if (entry.kind === 'system' && entry.category === 'theme') themesCount += 1;
     else if (entry.kind === 'system') updatesCount += 1;
   }
 
@@ -3909,9 +3919,10 @@ function updateModeDirtyIndicators(summaryEntries) {
 
   applyModeTabBadgeState('composer', composerCount);
   applyModeTabBadgeState('editor', editorCount);
+  applyModeTabBadgeState('themes', themesCount);
   applyModeTabBadgeState('updates', updatesCount);
   try {
-    refreshEditorContentTree({ preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync') });
+    refreshEditorContentTree({ preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'themes' || currentMode === 'updates' || currentMode === 'sync') });
   } catch (_) {}
 }
 
@@ -4557,6 +4568,13 @@ function gatherLocalChangesForCommit(options = {}) {
       addFile({ ...entry, kind: 'system' });
     });
   }
+  const themeFiles = getThemeManagerCommitFiles();
+  if (themeFiles && themeFiles.length) {
+    themeFiles.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      addFile({ ...entry, kind: 'system', category: 'theme' });
+    });
+  }
 
   return { files };
 }
@@ -4631,8 +4649,10 @@ function describeSummaryEntry(entry) {
   if (entry.kind === 'system') {
     let label = '';
     try {
-      const key = entry.state === 'added' ? 'added' : 'modified';
+      const key = entry.state === 'added' ? 'added' : (entry.state === 'deleted' || entry.deleted ? 'deleted' : 'modified');
+      const scope = entry.category === 'theme' ? 'theme file' : 'system file';
       label = t(`editor.systemUpdates.summary.${key}`);
+      if (!label || label === `editor.systemUpdates.summary.${key}`) label = `${key} ${scope}`;
     } catch (_) { label = ''; }
     if (label) return `${base} – ${label}`;
     return `${base} – system file update`;
@@ -4679,7 +4699,12 @@ function openGithubCommitFilePreview(file, triggerEl) {
   previewDialog.appendChild(head);
   previewDialog.setAttribute('aria-labelledby', previewTitleId);
 
-  if (file.kind === 'asset') {
+  if (file.deleted) {
+    const notice = document.createElement('p');
+    notice.className = 'github-preview-empty';
+    notice.textContent = `This publish will delete ${file.path || file.label || 'this file'}.`;
+    previewDialog.appendChild(notice);
+  } else if (file.kind === 'asset') {
     if (file.base64) {
       const mime = file.mime || 'application/octet-stream';
       const img = document.createElement('img');
@@ -5034,6 +5059,7 @@ async function waitForRemotePropagation(files = []) {
   const seen = new Set();
   files.forEach((file) => {
     if (!file || !file.path) return;
+    if (file.deleted) return;
     const normalized = String(file.path).replace(/\\+/g, '/').replace(/^\/+/, '');
     if (!normalized || normalized === 'site.yaml' || seen.has(normalized)) return;
     seen.add(normalized);
@@ -5135,6 +5161,7 @@ function applyLocalPostCommitState(files = []) {
   if (!Array.isArray(files) || !files.length) return;
   const handledMarkdown = new Set();
   let clearedSystem = false;
+  let clearedThemeManager = false;
   files.forEach((file) => {
     if (!file || !file.kind) return;
     if (file.kind === 'index') {
@@ -5217,7 +5244,12 @@ function applyLocalPostCommitState(files = []) {
       updateComposerMarkdownDraftIndicators({ path: norm });
     }
     else if (file.kind === 'system') {
-      if (!clearedSystem) {
+      if (file.category === 'theme') {
+        if (!clearedThemeManager) {
+          clearThemeManagerState({ keepStatus: false, keepRegistryCache: true, keepSiteThemeFallback: true });
+          clearedThemeManager = true;
+        }
+      } else if (!clearedSystem) {
         clearSystemUpdateState({ keepStatus: false });
         clearedSystem = true;
       }
@@ -5281,13 +5313,20 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
     if (!expectedHeadOid) throw new Error('Unable to resolve the branch head on GitHub.');
 
     setSyncOverlayStatus('Encoding files…');
-    const additions = files.map((file) => {
+    const additions = files.filter((file) => !file.deleted).map((file) => {
       const path = String(file.path || '').replace(/^\/+/, '');
       if (file.base64) {
         return { path, contents: String(file.base64) };
       }
       return { path, contents: encodeContentToBase64(file.content || '') };
     });
+    const deletions = files.filter((file) => file && file.deleted).map((file) => ({
+      path: String(file.path || '').replace(/^\/+/, '')
+    })).filter((file) => file.path);
+    const fileChanges = {};
+    if (additions.length) fileChanges.additions = additions;
+    if (deletions.length) fileChanges.deletions = deletions;
+    if (!additions.length && !deletions.length) throw new Error('No file changes to commit.');
 
     const commitMutation = `
       mutation($input: CreateCommitOnBranchInput!) {
@@ -5301,7 +5340,7 @@ async function performDirectGithubCommit(token, summaryEntries = []) {
       branch: { repositoryNameWithOwner: `${owner}/${name}`, branchName: branch },
       message: { headline },
       expectedHeadOid,
-      fileChanges: { additions }
+      fileChanges
     };
 
     setSyncOverlayStatus('Creating commit…');
@@ -7070,7 +7109,7 @@ function notifyComposerChange(kind, options = {}) {
   updateUnsyncedSummary();
   if ((kind === 'index' || kind === 'tabs') && composerOrderPreviewActiveKind === kind) updateComposerOrderPreview(kind);
   refreshEditorContentTree({
-    preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync')
+    preserveStructure: currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'themes' || currentMode === 'updates' || currentMode === 'sync')
   });
 }
 
@@ -8265,6 +8304,7 @@ function getEditorContentScrollKey(mode = currentMode) {
     return path ? `markdown:${path}` : 'markdown';
   }
   if (mode === 'composer') return 'composer';
+  if (mode === 'themes') return 'themes';
   if (mode === 'updates') return 'updates';
   if (mode === 'sync') return 'sync';
   return 'structure';
@@ -8360,6 +8400,7 @@ function mountEditorSystemPanels() {
   if (!body || body.__pressSystemPanelsMounted) return;
   body.__pressSystemPanelsMounted = true;
   const composerPanel = document.getElementById('mode-composer');
+  const themesPanel = document.getElementById('mode-themes');
   const updatesPanel = document.getElementById('mode-updates');
   let syncPanel = document.getElementById('mode-sync');
   if (!syncPanel) {
@@ -8370,6 +8411,7 @@ function mountEditorSystemPanels() {
     syncPanel.setAttribute('aria-hidden', 'true');
   }
   if (composerPanel) body.appendChild(composerPanel);
+  if (themesPanel) body.appendChild(themesPanel);
   if (updatesPanel) body.appendChild(updatesPanel);
   if (syncPanel) body.appendChild(syncPanel);
 }
@@ -8406,7 +8448,7 @@ function animateEditorSystemPanelContent() {
 }
 
 function showEditorSystemPanel(mode) {
-  const nextMode = mode === 'sync' ? 'sync' : (mode === 'updates' ? 'updates' : 'composer');
+  const nextMode = mode === 'sync' ? 'sync' : (mode === 'updates' ? 'updates' : (mode === 'themes' ? 'themes' : 'composer'));
   mountEditorSystemPanels();
   const panel = document.getElementById('editorSystemPanel');
   const title = document.getElementById('editorSystemTitle');
@@ -8414,9 +8456,11 @@ function showEditorSystemPanel(mode) {
   const meta = document.getElementById('editorSystemMeta');
   const actions = document.getElementById('editorSystemActions');
   const composerActions = document.getElementById('editorModalComposerActions');
+  const themeActions = document.getElementById('editorModalThemeActions');
   const updateActions = document.getElementById('editorModalUpdateActions');
   const syncActions = document.getElementById('editorModalSyncActions');
   const composerPanel = document.getElementById('mode-composer');
+  const themesPanel = document.getElementById('mode-themes');
   const updatesPanel = document.getElementById('mode-updates');
   const syncPanel = document.getElementById('mode-sync');
   if (!panel) return;
@@ -8428,19 +8472,24 @@ function showEditorSystemPanel(mode) {
       ? treeText('sync', 'Publish')
       : (nextMode === 'updates'
         ? treeText('pressUpdates', 'Press Updates')
-        : treeText('siteSettings', 'Site Settings'));
+        : (nextMode === 'themes'
+          ? treeText('themes', 'Themes')
+          : treeText('siteSettings', 'Site Settings')));
   }
   if (meta) {
     meta.textContent = nextMode === 'sync'
       ? treeText('syncMeta', 'Publish local changes to GitHub.')
       : (nextMode === 'updates'
         ? treeText('systemUpdatesMeta', 'Review and apply Press updates.')
-        : treeText('siteSettingsMeta', 'Edit site.yaml settings.'));
+        : (nextMode === 'themes'
+          ? treeText('themesMeta', 'Theme packs.')
+          : treeText('siteSettingsMeta', 'Edit site.yaml settings.')));
   }
 
   if (actions) {
     [
       ['composer', composerActions],
+      ['themes', themeActions],
       ['updates', updateActions],
       ['sync', syncActions]
     ].forEach(([key, actionSet]) => {
@@ -8454,6 +8503,7 @@ function showEditorSystemPanel(mode) {
 
   [
     ['composer', composerPanel],
+    ['themes', themesPanel],
     ['updates', updatesPanel],
     ['sync', syncPanel]
   ].forEach(([key, modePanel]) => {
@@ -8478,6 +8528,7 @@ function showEditorSystemPanel(mode) {
 function getEditorOverlayTitle(mode) {
   if (mode === 'sync') return treeText('sync', 'Publish');
   if (mode === 'updates') return t('editor.systemUpdates.tabLabel');
+  if (mode === 'themes') return treeText('themes', 'Themes');
   return t('editor.modes.composer');
 }
 
@@ -8557,7 +8608,7 @@ function resetSiteSettingsNavOnOpen() {
 }
 
 function openEditorOverlay(mode, trigger = null) {
-  const nextMode = mode === 'updates' ? 'updates' : mode === 'composer' ? 'composer' : null;
+  const nextMode = mode === 'updates' ? 'updates' : (mode === 'themes' ? 'themes' : mode === 'composer' ? 'composer' : null);
   if (!nextMode) return;
   editorOverlayReturnFocus = trigger && typeof trigger.focus === 'function' ? trigger : document.activeElement;
   activeEditorOverlayMode = null;
@@ -8814,7 +8865,7 @@ function persistDynamicEditorState() {
       })
       .filter(Boolean);
     const active = currentMode && isDynamicMode(currentMode) ? dynamicEditorTabs.get(currentMode) : null;
-    const systemMode = (currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync')
+    const systemMode = (currentMode === 'composer' || currentMode === 'themes' || currentMode === 'updates' || currentMode === 'sync')
       ? currentMode
       : 'structure';
     const state = {
@@ -8917,6 +8968,10 @@ function restoreDynamicEditorState() {
   if (isV3 && data.mode === 'composer') {
     applyMode('composer', { preserveTreeExpansion: true, restoreScroll: true });
     return finishRestore('composer');
+  }
+  if (isV3 && data.mode === 'themes') {
+    applyMode('themes', { preserveTreeExpansion: true, restoreScroll: true });
+    return finishRestore('themes');
   }
   if (isV3 && data.mode === 'updates') {
     applyMode('updates', { preserveTreeExpansion: true, restoreScroll: true });
@@ -9731,8 +9786,9 @@ function applyMode(mode, options = {}) {
   }
 
   const candidate = mode || 'editor';
-  const isSystemMode = (value) => value === 'composer' || value === 'updates' || value === 'sync';
+  const isSystemMode = (value) => value === 'composer' || value === 'themes' || value === 'updates' || value === 'sync';
   const systemModeNodeId = (value) => {
+    if (value === 'themes') return 'system:themes';
     if (value === 'updates') return 'system:updates';
     if (value === 'sync') return 'system:sync';
     return 'system:site-settings';
@@ -10607,7 +10663,7 @@ function setEditorMarkdownPanelVisible(visible) {
 function setEditorDetailPanelMode(mode) {
   const showMarkdown = mode === 'markdown';
   const showStructure = mode === 'structure';
-  const showSystem = mode === 'composer' || mode === 'updates' || mode === 'sync';
+  const showSystem = mode === 'composer' || mode === 'themes' || mode === 'updates' || mode === 'sync';
   setEditorStructurePanelVisible(showStructure);
   setEditorMarkdownPanelVisible(showMarkdown);
   setEditorSystemPanelVisible(showSystem);
@@ -10710,6 +10766,9 @@ function collectEditorDiffStatusMap() {
   try {
     if (getSystemUpdateSummaryEntries().length) add('system:updates', 'modified');
   } catch (_) {}
+  try {
+    if (getThemeManagerSummaryEntries().length) add('system:themes', 'modified');
+  } catch (_) {}
   return map;
 }
 
@@ -10722,6 +10781,7 @@ function buildCurrentEditorTree() {
     welcomeLabel: treeText('welcome', 'Welcome'),
     systemLabel: treeText('system', 'System'),
     siteSettingsLabel: treeText('siteSettings', 'Site Settings'),
+    themesLabel: treeText('themes', 'Themes'),
     updatesLabel: treeText('pressUpdates', 'Press Updates'),
     syncLabel: treeText('sync', 'Publish'),
     articlesLabel: treeText('articles', 'Articles'),
@@ -10846,7 +10906,7 @@ function refreshEditorContentTree(options = {}) {
   const treeEl = document.getElementById('editorFileTree');
   if (!treeEl) return;
   const preserveStructure = !!options.preserveStructure
-    || !!(currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'updates' || currentMode === 'sync'));
+    || !!(currentMode && (isDynamicMode(currentMode) || currentMode === 'composer' || currentMode === 'themes' || currentMode === 'updates' || currentMode === 'sync'));
   editorContentTree = buildCurrentEditorTree();
   if (!findEditorContentTreeNode(editorContentTree, activeEditorTreeNodeId)) activeEditorTreeNodeId = 'welcome';
   renderEditorFileTree(treeEl);
@@ -10870,6 +10930,9 @@ function createEditorTreeIcon(node) {
   if (node.id === 'system:site-settings') {
     iconKind = 'settings';
     iconSvg = '<svg viewBox="0 0 24 24" focusable="false"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  } else if (node.id === 'system:themes') {
+    iconKind = 'themes';
+    iconSvg = '<svg viewBox="0 0 24 24" focusable="false"><path d="M4 5h16"></path><path d="M4 12h16"></path><path d="M4 19h16"></path><path d="M7 5v14"></path><path d="M17 5v14"></path></svg>';
   } else if (node.id === 'system:updates') {
     iconKind = 'updates';
     iconSvg = '<svg viewBox="0 0 24 24" focusable="false"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>';
@@ -11188,6 +11251,8 @@ function handleEditorTreeSelection(nodeId) {
     refreshEditorContentTree({ preserveStructure: true });
     if (node.id === 'system:site-settings') {
       applyMode('composer');
+    } else if (node.id === 'system:themes') {
+      applyMode('themes');
     } else if (node.id === 'system:updates') {
       applyMode('updates');
     } else if (node.id === 'system:sync') {
@@ -11946,7 +12011,9 @@ function renderEditorStructurePanel(node) {
           ? treeText('syncMeta', 'Publish local changes to GitHub.')
           : (child.id === 'system:updates'
             ? treeText('systemUpdatesMeta', 'Review and apply Press updates.')
-            : treeText('siteSettingsMeta', 'Edit site.yaml settings.'));
+            : (child.id === 'system:themes'
+              ? treeText('themesMeta', 'Theme packs.')
+              : treeText('siteSettingsMeta', 'Edit site.yaml settings.')));
         list.appendChild(renderStructureItem(child.label, detail, () => handleEditorTreeSelection(child.id)));
       });
       body.appendChild(list);
@@ -12979,7 +13046,7 @@ function bindComposerUI(state) {
   $$('.mode-tab').forEach(btn => {
     btn.addEventListener('click', (event) => {
       const mode = btn.dataset.mode;
-      if (mode === 'composer' || mode === 'updates' || mode === 'sync') {
+      if (mode === 'composer' || mode === 'themes' || mode === 'updates' || mode === 'sync') {
         event.preventDefault();
         openEditorOverlay(mode, btn);
         return;
@@ -12991,6 +13058,26 @@ function bindComposerUI(state) {
     initSystemUpdates({ onStateChange: () => { try { updateUnsyncedSummary(); } catch (_) {} } });
   } catch (err) {
     console.error('Failed to initialize system updates module', err);
+  }
+  try {
+    initThemeManager({
+      onStateChange: () => {
+        try { updateUnsyncedSummary(); } catch (_) {}
+        try { refreshEditorContentTree({ preserveStructure: true }); } catch (_) {}
+      },
+      getCurrentThemePack: () => {
+        const site = getStateSlice('site') || {};
+        return site.themePack || 'native';
+      },
+      setSiteThemePack: (value) => {
+        const site = getStateSlice('site') || {};
+        site.themePack = value || 'native';
+        setStateSlice('site', site);
+        notifyComposerChange('site');
+      }
+    });
+  } catch (err) {
+    console.error('Failed to initialize theme manager module', err);
   }
 
   // File switch (index.yaml <-> tabs.yaml)
@@ -15494,6 +15581,18 @@ function buildSiteUI(root, state) {
       .catch(() => {
         applyThemePackOptions(fallbackThemePacks);
       });
+
+    const manageThemesRow = addThemeRow({
+      dataKey: 'manageThemes',
+      label: 'Manage themes',
+      description: 'Theme Manager.'
+    });
+    const manageThemesButton = document.createElement('button');
+    manageThemesButton.type = 'button';
+    manageThemesButton.className = 'btn-secondary';
+    manageThemesButton.textContent = 'Manage themes';
+    manageThemesButton.addEventListener('click', () => applyMode('themes'));
+    manageThemesRow.controlCell.appendChild(manageThemesButton);
 
     const { row, controlCell } = addThemeRow({
       dataKey: 'themeOverride',

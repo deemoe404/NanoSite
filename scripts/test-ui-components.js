@@ -16,14 +16,11 @@ const toc = read('assets/js/toc.js');
 const nativeSearch = read('assets/themes/native/modules/search-box.js');
 const nativeToc = read('assets/themes/native/modules/toc.js');
 const nativeInteractions = read('assets/themes/native/modules/interactions.js');
-const arcusLayout = read('assets/themes/arcus/modules/layout.js');
-const arcusInteractions = read('assets/themes/arcus/modules/interactions.js');
-const solsticeLayout = read('assets/themes/solstice/modules/layout.js');
-const solsticeInteractions = read('assets/themes/solstice/modules/interactions.js');
 const postCardHtml = read('assets/js/post-card-html.js');
 const nativeCss = read('assets/themes/native/base.css');
-const arcusCss = read('assets/themes/arcus/theme.css');
-const solsticeCss = read('assets/themes/solstice/theme.css');
+
+assert.match(components, /arcus-tools__groups[\s\S]*arcus-tool[\s\S]*solstice-tools[\s\S]*solstice-tool/, 'theme controls should preserve legacy Arcus and Solstice control classes for already-installed themes');
+assert.doesNotMatch(components, /\bcartograph\b/i, 'core UI components should not hard-code non-legacy external theme variants');
 
 function sliceBetween(source, startNeedle, endNeedle) {
   const start = source.indexOf(startNeedle);
@@ -97,34 +94,12 @@ assert.match(theme, /ns:i18n-bundle-loaded[\s\S]*refreshThemeControlsLanguages\(
 
 assert.match(nativeSearch, /createElement\('press-search'\)/, 'native search module should mount press-search');
 assert.doesNotMatch(nativeSearch, /setAttribute\('icon'/, 'native search should not opt into a visible search icon');
-assert.match(arcusLayout, /createElement\('press-search'\)/, 'arcus layout should mount press-search');
-assert.match(arcusLayout, /field-class', 'arcus-search'[\s\S]*icon-class', 'arcus-search__icon'/, 'arcus should provide search classes through attributes');
-assert.match(arcusLayout, /setAttribute\('icon', '\\uD83D\\uDD0D'\)/, 'arcus should opt into the shared search icon');
-assert.match(solsticeLayout, /<press-search class="solstice-footer__search"/, 'solstice layout should mount press-search');
-assert.match(solsticeLayout, /field-class="solstice-search" icon-class="solstice-search__icon"/, 'solstice should provide search classes through attributes');
-assert.match(solsticeLayout, /icon="&#128269;"/, 'solstice should opt into the shared search icon');
 
 assert.match(nativeToc, /createElement\('press-toc'\)/, 'native TOC module should mount press-toc');
-assert.match(arcusLayout, /createElement\('press-toc'\)/, 'arcus layout should mount press-toc');
-assert.match(arcusLayout, /inner-class', 'arcus-toc__inner'[\s\S]*title-class', 'arcus-toc__title'/, 'arcus should provide TOC classes through attributes');
-assert.match(solsticeLayout, /createElement\('press-toc'\)/, 'solstice layout should mount press-toc');
-assert.match(solsticeLayout, /inner-class', 'solstice-toc__inner'[\s\S]*title-class', 'solstice-toc__title'/, 'solstice should provide TOC classes through attributes');
 assert.match(toc, /typeof tocRoot\.enhance === 'function'/, 'legacy setupTOC should delegate to press-toc when present');
 
 assert.match(nativeInteractions, /renderPressPostCardHtml\(/, 'native cards should render through press-post-card');
-assert.match(arcusInteractions, /renderPressPostCardHtml\(/, 'arcus cards should render through press-post-card');
-assert.match(solsticeInteractions, /renderPressPostCardHtml\(/, 'solstice cards should render through press-post-card');
-assert.match(arcusInteractions, /const ARCUS_CARD_CLASSES[\s\S]*cardClass: 'arcus-card'[\s\S]*classes: ARCUS_CARD_CLASSES/, 'arcus should provide card classes outside the component implementation');
-assert.match(solsticeInteractions, /const SOLSTICE_CARD_CLASSES[\s\S]*cardClass: 'solstice-card'[\s\S]*classes: SOLSTICE_CARD_CLASSES/, 'solstice should provide card classes outside the component implementation');
-assert.doesNotMatch(arcusInteractions, /\btoc\.innerHTML\s*=\s*''/, 'arcus TOC teardown should use press-toc.clear() when available');
-assert.doesNotMatch(solsticeInteractions, /\btoc\.innerHTML\s*=\s*''/, 'solstice TOC teardown should use press-toc.clear() when available');
-assert.match(arcusInteractions, /function clearArcusToc\(tocEl\)[\s\S]*typeof tocEl\.clear === 'function'[\s\S]*tocEl\.clear\(\)/, 'arcus TOC teardown should call component cleanup');
-assert.match(solsticeInteractions, /function clearSolsticeToc\(tocEl\)[\s\S]*typeof tocEl\.clear === 'function'[\s\S]*tocEl\.clear\(\)/, 'solstice TOC teardown should call component cleanup');
-assert.match(arcusInteractions, /hooks\.handleViewChange[\s\S]*clearArcusToc\(toc\)/, 'arcus view transitions should use shared TOC teardown');
-assert.match(solsticeInteractions, /hooks\.handleViewChange[\s\S]*clearSolsticeToc\(toc\)/, 'solstice view transitions should use shared TOC teardown');
 
 assert.match(nativeCss, /press-search\.box,[\s\S]*press-theme-controls\.box,[\s\S]*press-toc\.box\s*\{\s*display: block;/, 'native component hosts should preserve block layout');
-assert.match(arcusCss, /\.arcus-toc\s*\{\s*display: block;/, 'arcus press-toc host should preserve block layout');
-assert.match(solsticeCss, /\.solstice-toc\s*\{\s*display: block;/, 'solstice press-toc host should preserve block layout');
 
 console.log('ok - ui component boundaries');

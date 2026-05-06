@@ -1,0 +1,157 @@
+name: Theme Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v3.4.0
+        required: true
+      slug:
+        description: Theme slug, for example arcus
+        required: true
+      label:
+        description: Theme label, for example Arcus
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout theme
+        uses: actions/checkout@v4
+
+      - name: Checkout Press checks
+        uses: actions/checkout@v4
+        with:
+          repository: EkilyHQ/Press
+          path: .press
+
+      - name: Prepare release version
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag must be vMAJOR.MINOR.PATCH" >&2
+            exit 2
+          fi
+          version="${tag#v}"
+          export VERSION="${version}"
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'theme/theme.json';
+          const version = process.env.VERSION;
+          const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+          manifest.version = version;
+          fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+      - name: Validate theme contract
+        run: |
+          set -euo pipefail
+          rm -rf ".press/assets/themes/${{ inputs.slug }}"
+          mkdir -p ".press/assets/themes/${{ inputs.slug }}"
+          rsync -a ./theme/ ".press/assets/themes/${{ inputs.slug }}/"
+          cd .press
+          node --experimental-default-type=module scripts/test-theme-contracts.js
+
+      - name: Package theme
+        id: package
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          slug="${{ inputs.slug }}"
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag must be vMAJOR.MINOR.PATCH" >&2
+            exit 2
+          fi
+          version="${tag#v}"
+          asset="press-theme-${slug}-${tag}.zip"
+          mkdir -p dist "press-theme-${slug}"
+          rsync -a ./theme/ "press-theme-${slug}/"
+          theme_version="$(node -p 'require("./theme/theme.json").version || ""')"
+          if [[ "${theme_version}" != "${version}" ]]; then
+            echo "theme/theme.json version ${theme_version:-'(missing)'} does not match ${version}" >&2
+            exit 2
+          fi
+          find "press-theme-${slug}" -type f | sort | sed "s#^press-theme-${slug}/##" > dist/files.txt
+          zip -qr "dist/${asset}" "press-theme-${slug}"
+          size="$(wc -c < "dist/${asset}" | tr -d ' ')"
+          digest="$(sha256sum "dist/${asset}" | awk '{print $1}')"
+          {
+            echo "version=${version}"
+            echo "asset=${asset}"
+            echo "size=${size}"
+            echo "digest=${digest}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag }}"
+          asset="dist/${{ steps.package.outputs.asset }}"
+          gh release view "${tag}" >/dev/null 2>&1 && gh release delete "${tag}" --yes --cleanup-tag
+          gh release create "${tag}" "${asset}" --title "${tag}" --notes "Theme release ${tag}"
+
+      - name: Update theme-release.json
+        run: |
+          set -euo pipefail
+          repo="${GITHUB_REPOSITORY}"
+          tag="${{ inputs.tag }}"
+          slug="${{ inputs.slug }}"
+          label="${{ inputs.label }}"
+          version="${{ steps.package.outputs.version }}"
+          asset="${{ steps.package.outputs.asset }}"
+          size="${{ steps.package.outputs.size }}"
+          digest="${{ steps.package.outputs.digest }}"
+          published_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          export repo tag slug label version asset size digest published_at
+          node <<'NODE'
+          const fs = require('fs');
+          const repo = process.env.repo;
+          const tag = process.env.tag;
+          const slug = process.env.slug;
+          const label = process.env.label;
+          const version = process.env.version;
+          const asset = process.env.asset;
+          const size = Number(process.env.size || 0);
+          const digest = process.env.digest;
+          const publishedAt = process.env.published_at;
+          const files = fs.readFileSync('dist/files.txt', 'utf8').split(/\r?\n/).filter(Boolean);
+          const manifest = {
+            schemaVersion: 1,
+            type: 'press-theme',
+            value: slug,
+            label,
+            version,
+            contractVersion: 1,
+            release: {
+              tag,
+              htmlUrl: `https://github.com/${repo}/releases/tag/${tag}`,
+              publishedAt,
+              notes: ''
+            },
+            asset: {
+              name: asset,
+              url: `https://github.com/${repo}/releases/download/${tag}/${asset}`,
+              size,
+              digest: `sha256:${digest}`
+            },
+            files
+          };
+          fs.writeFileSync('theme-release.json', `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+      - name: Commit manifest
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add theme/theme.json theme-release.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Update theme release manifest"
+          git push

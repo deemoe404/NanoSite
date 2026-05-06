@@ -1,0 +1,11 @@
+siteTitle: My Press Site
+siteDescription: Notes and pages published with Press.
+contentRoot: wwwroot
+defaultLanguage: en
+themeMode: auto
+themePack: native
+repo:
+  provider: github
+  owner: OWNER
+  name: REPOSITORY
+  branch: main

@@ -37,14 +37,7 @@ function assertSelectorDoesNotHideLoadingImage(file, selector) {
 [
   ['assets/themes/native/base.css', '.index .card-cover'],
   ['assets/themes/native/base.css', '.post-image-wrap .post-img'],
-  ['assets/themes/native/base.css', '.native-mainview .link-card .card-cover'],
-  ['assets/themes/arcus/theme.css', '.arcus-article__body .post-image-wrap .post-img'],
-  ['assets/themes/arcus/theme.css', '.arcus-static__body .post-image-wrap .post-img'],
-  ['assets/themes/arcus/theme.css', '.arcus-article__body .link-card .card-cover'],
-  ['assets/themes/arcus/theme.css', '.arcus-static__body .link-card .card-cover'],
-  ['assets/themes/solstice/theme.css', '.solstice-article__body .post-image-wrap .post-img'],
-  ['assets/themes/solstice/theme.css', '.solstice-static__body .post-image-wrap .post-img'],
-  ['assets/themes/solstice/theme.css', '.solstice-card__cover img']
+  ['assets/themes/native/base.css', '.native-mainview .link-card .card-cover']
 ].forEach(([file, selector]) => assertSelectorDoesNotHideLoadingImage(file, selector));
 
 console.log('ok - loading images remain visible behind skeleton overlays');

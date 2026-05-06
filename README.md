@@ -4,7 +4,7 @@
 
 **Where knowledge becomes pages.**
 
-This repository is the Ekily Press source, official documentation site, and Markdown rendering regression corpus.
+This repository is the Ekily Press runtime, editor, built-in theme fallback, theme management infrastructure, official documentation site, and Markdown rendering regression corpus.
 
 [![GitHub stars](https://img.shields.io/github/stars/EkilyHQ/Press?style=social)](https://github.com/EkilyHQ/Press/stargazers)
 [![License](https://img.shields.io/github/license/EkilyHQ/Press)](https://github.com/EkilyHQ/Press/blob/main/LICENSE)
@@ -12,17 +12,19 @@ This repository is the Ekily Press source, official documentation site, and Mark
 
 ## What This Repository Is
 
-`Press` is the main development repository for the Ekily Press runtime, themes, editor, official documentation, and realistic Markdown content used to exercise the renderer.
+`Press` is the main development repository for the Ekily Press runtime, editor, `native` fallback theme, Theme Manager, official documentation, and realistic Markdown content used to exercise the renderer.
+
+Official non-native themes are developed as one repository per theme. A Press site still loads themes only from local `assets/themes/<slug>` folders; Theme Manager installs, updates, and uninstalls those folders by staging GitHub commit changes through the editor Publish flow.
 
 The `wwwroot/` folder is intentionally not minimal. It hosts the official Press documentation, release/history pages, SEO examples, media-heavy examples, and edge-case posts that help catch regressions in Markdown parsing, front matter handling, media resolution, search, tags, SEO metadata, and theme rendering.
 
 ## For New Sites
 
-The clean starter template will live in `EkilyHQ/Press-Starter`.
+The clean starter template lives in `EkilyHQ/Press-Starter`.
 
 Use that starter repository when you want to create your own site. This repository is useful when you want to develop Press itself, inspect the official documentation source, or test behavior against the full documentation corpus.
 
-Until the starter repository is published, the official documentation site remains the best setup guide:
+This repository carries implementation templates under `templates/` for the starter and official theme repository layout. The official documentation site remains the full setup guide:
 
 - Official site: [https://ekilyhq.github.io/Press/](https://ekilyhq.github.io/Press/)
 - Documentation: [Documentation for Press](https://ekilyhq.github.io/Press/?id=post%2Fdoc%2Fv2.1.0%2Fdoc_en.md&lang=en)
@@ -33,10 +35,13 @@ Until the starter repository is published, the official documentation site remai
 
 - `index.html` - public site entrypoint.
 - `index_editor.html` - browser editor entrypoint.
-- `assets/` - runtime JavaScript, themes, i18n, schemas, and static assets.
+- `assets/` - runtime JavaScript, i18n, schemas, the built-in `native` theme, installed theme registry, official theme catalog, and static assets.
+- `assets/themes/packs.json` - site-specific installed theme registry used by Site Settings and Theme Manager.
+- `assets/themes/catalog.json` - official theme catalog used by Theme Manager.
 - `wwwroot/` - official documentation site content and Markdown regression corpus.
 - `site.yaml` - official documentation site configuration.
 - `scripts/` - repository checks and focused regression scripts.
+- `templates/` - repository templates for official theme repos and `Press-Starter`.
 
 ## Development Workflow
 
@@ -58,15 +63,18 @@ bash scripts/test-frontmatter-roundtrip.sh
 bash scripts/test-system-release-package.sh
 bash scripts/test-system-release-workflow.sh
 node --experimental-default-type=module scripts/test-system-updates.js
+node --experimental-default-type=module scripts/test-theme-manager.js
 node --experimental-default-type=module scripts/test-theme-contracts.js
 node scripts/test-content-model.js
 ```
 
 ## System Releases
 
-Merges to `main` that change Press runtime files automatically publish a patch release with a dedicated `press-system-vX.Y.Z.zip` update package. The package is intentionally limited to the application shell and runtime assets: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, and `assets/themes/`.
+Merges to `main` that change Press runtime files automatically publish a patch release with a dedicated `press-system-vX.Y.Z.zip` update package. The package is intentionally limited to the application shell and runtime assets: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, `assets/themes/native/**`, and `assets/themes/catalog.json`.
 
-Official documentation and site content stay out of update packages. Changes that only touch `wwwroot/` do not create a system release, and update packages must never include `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repository policy files, workflow files, scripts, or site-specific media such as `assets/avatar.png` and `assets/hero.jpeg`.
+Official documentation, site content, installed theme registry state, and external theme directories stay out of system update packages. Changes that only touch `wwwroot/` do not create a system release, and update packages must never include `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repository policy files, workflow files, scripts, site-specific media such as `assets/avatar.png` and `assets/hero.jpeg`, `assets/themes/packs.json`, or arbitrary `assets/themes/<slug>` directories outside `native`.
+
+After a system release is published, the release workflow can dispatch `EkilyHQ/Press-Starter` to rebuild the template from that release package. Configure `STARTER_SYNC_TOKEN` in this repository with permission to call repository dispatch on the starter repository. `STARTER_REPOSITORY` can be set as a repository variable when the starter repository name differs from `EkilyHQ/Press-Starter`.
 
 ## Branching
 
@@ -80,11 +88,14 @@ Use short-lived `feat/*` or `codex/*` branches for work, then merge them into `m
 
 Want to list your site here? Open a PR with the site URL and a one-line description.
 
+## Theme Repositories
+
+Official themes use separate repositories such as `EkilyHQ/Press-Theme-Arcus`. Each repository owns its theme source, contract checks, release workflow, `press-theme-<slug>-vX.Y.Z.zip` artifact, SHA-256 digest, and root `theme-release.json` manifest. Press owns only the runtime infrastructure, `native`, and `catalog.json`; each site owns its installed `packs.json`.
+
 ## Roadmap
 
 - Add LaTeX support.
 - Implement comments backed by GitHub Discussions.
-- Publish the minimal `Press-Starter` template repository.
 
 ## License
 

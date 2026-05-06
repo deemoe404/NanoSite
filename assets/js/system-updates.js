@@ -13,7 +13,7 @@ export const SYSTEM_UPDATE_ASSET_NAME_PATTERN = /^press-system-v\d+\.\d+\.\d+\.z
 
 const RELEASE_API_URL = 'https://api.github.com/repos/EkilyHQ/Press/releases/latest';
 const RELEASE_MANIFEST_URL = 'https://raw.githubusercontent.com/EkilyHQ/Press/main/assets/system-release.json';
-const SYSTEM_UPDATE_ALLOWED_PATH_PATTERN = /^(?:index\.html|index_editor\.html|assets\/(?:main\.js|js\/.+|i18n\/.+|schema\/.+|themes\/.+))$/;
+const SYSTEM_UPDATE_ALLOWED_PATH_PATTERN = /^(?:index\.html|index_editor\.html|assets\/(?:main\.js|js\/.+|i18n\/.+|schema\/.+|themes\/(?:native\/.+|catalog\.json)))$/;
 const SYSTEM_UPDATE_BLOCKED_PATH_PATTERN = /^(?:\.git\/|\.github\/|wwwroot\/|site\.ya?ml$|site\.local\.ya?ml$|CNAME$|robots\.txt$|sitemap\.xml$|README(?:\.md)?$|BRANCHING\.md$|scripts\/|assets\/(?:avatar\.png|avatar\.jpe?g|hero\.jpeg)$)/i;
 
 let initialized = false;
