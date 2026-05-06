@@ -1,6 +1,7 @@
 .DS_Store
 .vscode/
 .playwright-cli/
+.codex/
 
 # Local-only development sandbox
 site.local.yaml
