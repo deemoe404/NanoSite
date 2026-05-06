@@ -63,6 +63,15 @@ require_valid_port() {
   fi
 }
 
+preview_url_host() {
+  local value="$1"
+  if [[ "$value" == *:* && "$value" != \[*\] ]]; then
+    printf '[%s]\n' "$value"
+  else
+    printf '%s\n' "$value"
+  fi
+}
+
 port_is_free() {
   local port="$1"
   python3 - "$host" "$port" <<'PY'
@@ -72,10 +81,18 @@ import sys
 host = sys.argv[1]
 port = int(sys.argv[2])
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+infos = socket.getaddrinfo(
+    host,
+    port,
+    type=socket.SOCK_STREAM,
+    flags=socket.AI_PASSIVE,
+)
+family, _, _, _, sockaddr = next(iter(infos))
+
+with socket.socket(family, socket.SOCK_STREAM) as sock:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        sock.bind((host, port))
+        sock.bind(sockaddr)
     except OSError:
         sys.exit(1)
 PY
@@ -132,7 +149,7 @@ mkdir -p "$(dirname "$port_file")"
 printf '%s\n' "$selected_port" > "$port_file"
 
 printf 'Serving %s\n' "$repo_root"
-printf 'Preview URL: http://%s:%s/\n' "$host" "$selected_port"
+printf 'Preview URL: http://%s:%s/\n' "$(preview_url_host "$host")" "$selected_port"
 printf 'Port saved to %s\n' "$port_file"
 
 exec python3 -m http.server "$selected_port" --bind "$host"
