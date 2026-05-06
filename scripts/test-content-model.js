@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 globalThis.document = {
-  title: 'NanoSite',
+  title: 'Press',
   baseURI: 'http://example.test/'
 };
 globalThis.window = {

@@ -12,7 +12,7 @@ const solsticeTheme = readFileSync(resolve(here, '../assets/themes/solstice/modu
 
 assert.match(
   composer,
-  /editorState: 'ns_composer_editor_state'[\s\S]*const EDITOR_STATE_VERSION = 3;/,
+  /editorState: 'press_composer_editor_state'[\s\S]*const EDITOR_STATE_VERSION = 3;/,
   'editor should persist the unified v3 state in the existing editor-state localStorage slot'
 );
 
@@ -42,7 +42,7 @@ assert.match(
 
 assert.match(
   main,
-  /const SITE_VIEW_STATE_KEY = 'ns_site_view_state_v1';[\s\S]*function getRouteKeyFromUrl/,
+  /const SITE_VIEW_STATE_KEY = 'press_site_view_state_v1';[\s\S]*function getRouteKeyFromUrl/,
   'front-end runtime should define a dedicated persisted view-state store and stable route-key helper'
 );
 

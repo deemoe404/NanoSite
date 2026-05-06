@@ -4647,7 +4647,7 @@ export function createMarkdownBlocksEditor(root, options = {}) {
 
   const codeLabelText = (key, fallback) => {
     try {
-      return (window.__ns_t && typeof window.__ns_t === 'function') ? window.__ns_t(key) : fallback;
+      return (window.__press_t && typeof window.__press_t === 'function') ? window.__press_t(key) : fallback;
     } catch (_) {
       return fallback;
     }

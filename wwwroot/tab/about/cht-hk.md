@@ -1,10 +1,10 @@
 ![banner](banner.jpeg)
 
-微站係一套為創作者而設嘅極簡網站系統。
+Press係一套為創作者而設嘅極簡網站系統。
 唔需要建置步驟，亦唔需要安裝執行環境；只要寫低 Markdown，就可以變成靚嘅網頁，再透過 GitHub 分享出去。
 
 我哋嘅目標係令「寫作 = 建站」，等你可以好似寫筆記咁輕鬆，直接將 Markdown 文件變成一個完整網站。
 
-由呢度開始：➡️ [初識微站](?id=post/main/v2.0.0/main_chs.md)。
+由呢度開始：➡️ [初識Press](?id=post/main/v2.0.0/main_chs.md)。
 
-> 如果你唔怕睇文件，呢份會係更完整嘅入門資料：➡️ [微站指南](?id=post/doc/v2.1.0/doc_cht-hk.md)。😊
+> 如果你唔怕睇文件，呢份會係更完整嘅入門資料：➡️ [Press指南](?id=post/doc/v2.1.0/doc_cht-hk.md)。😊

@@ -76,7 +76,7 @@ export function renderTagSidebar(indexMap) {
     root.querySelectorAll('.tag-link[data-tag]').forEach((link) => {
       link.addEventListener('click', () => {
         try {
-          root.dispatchEvent(new CustomEvent('nano:tag-select', {
+          root.dispatchEvent(new CustomEvent('press:tag-select', {
             detail: {
               tag: link.getAttribute('data-tag') || '',
               href: link.getAttribute('href') || ''

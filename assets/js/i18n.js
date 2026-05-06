@@ -1,4 +1,4 @@
-// Simple i18n helper for NanoSite
+// Simple i18n helper for Press
 // Usage & extension:
 // - To change the default language, edit DEFAULT_LANG below (or set <html lang="xx"> in index.html; boot code passes that into initI18n).
 // - To add a new UI language, create a file in assets/i18n (for example: assets/i18n/es.js) that mirrors en.js and
@@ -408,7 +408,7 @@ const NORMALIZED_LANG_ALIASES = new Map([
   ['jp', 'ja']
 ]);
 
-// Normalize common language labels seen in content YAML to NanoSite language codes.
+// Normalize common language labels seen in content YAML to Press language codes.
 export function normalizeLangKey(k) {
   const raw = String(k || '').trim();
   const lower = raw.toLowerCase();
@@ -779,7 +779,7 @@ export async function loadLangJson(basePath, baseName) {
 // Update static DOM bits outside main render cycle (sidebar card, search placeholder)
 function applyStaticTranslations() {
   // Search placeholder
-  const search = document.querySelector('nano-search');
+  const search = document.querySelector('press-search');
   if (search && typeof search.setPlaceholder === 'function') {
     search.setPlaceholder(t('sidebar.searchPlaceholder'));
     return;

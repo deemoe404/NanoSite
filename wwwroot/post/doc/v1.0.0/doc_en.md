@@ -1,16 +1,16 @@
 ---
-title: Documentation for NanoSite
+title: Documentation for Press
 date: 2025-08-17
 version: v1.0.0
 tags:
-  - NanoSite
+  - Press
   - Documentation
 excerpt: Create a content site directly from Markdown files with no build steps—just place them in wwwroot/, list them in JSON, and publish (works with GitHub Pages). The guide covers project structure, config files, content loading, themes, search, tags, SEO, media, and deployment tips.
-author: deemoe
+author: Ekily
 ai: true
 ---
 
-# NanoSite Documentation
+# Press Documentation
 
 Build a content site from plain Markdown files with zero build steps. Drop Markdown into `wwwroot/`, list them in JSON, and publish (GitHub Pages friendly).
 
@@ -84,13 +84,13 @@ Supports three shapes. Pick the one that fits your workflow.
 
 ```json
 {
-  "nanoSite": {
-    "en": "post/meet-nanosite/main_en.md",
-    "chs": "post/meet-nanosite/main_chs.md",
-    "ja": "post/meet-nanosite/main_ja.md"
+  "press": {
+    "en": "post/meet-press/main_en.md",
+    "chs": "post/meet-press/main_chs.md",
+    "ja": "post/meet-press/main_ja.md"
   },
-  "nanodoc": {
-    "en": "post/meet-nanosite/doc_en.md"
+  "pressDocs": {
+    "en": "post/meet-press/doc_en.md"
   }
 }
 ```
@@ -160,10 +160,10 @@ Notes:
 
 ```json
 {
-  "siteTitle": { "default": "deemoe's journal", "chs": "deemoe 的日志", "ja": "deemoe のジャーナル" },
+  "siteTitle": { "default": "Ekily Press notes", "chs": "Ekily Press 笔记", "ja": "Ekily Press ノート" },
   "siteSubtitle": { "default": "Thanks for playing my game.", "chs": "眼见何事..." },
-  "siteDescription": { "default": "deemoe's journal" },
-  "resourceURL": "https://dee.moe/wwwroot/",
+  "siteDescription": { "default": "Ekily Press notes" },
+  "resourceURL": "https://ekilyhq.github.io/Press/wwwroot/",
   "siteKeywords": { "default": "static blog, markdown, github pages, blog" },
   "avatar": "assets/avatar.png",
   "profileLinks": [ { "label": "GitHub", "href": "https://github.com/you" } ],
@@ -232,7 +232,7 @@ Title helpers (optional):
 If a paragraph contains only a link to a post (e.g., `?id=...`), it’s upgraded to a rich card with cover, excerpt, date, and read time. To force a card when inline, set `title` to include `card` or add `data-card`:
 
 ```markdown
-[Read the guide](?id=post/meet-nanosite/doc_en.md "card")
+[Read the guide](?id=post/meet-press/doc_en.md "card")
 ```
 
 

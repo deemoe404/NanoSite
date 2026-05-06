@@ -62,7 +62,7 @@ run('supported blocks round-trip when untouched', () => {
     '> second line',
     '',
     '```js',
-    'console.log("NanoSite");',
+    'console.log("Press");',
     '```',
     ''
   ].join('\n');

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nanosite.schema/site.schema.json",
-  "title": "NanoSite Site Configuration",
-  "description": "Site configuration schema for NanoSite.",
+  "$id": "https://press.schema/site.schema.json",
+  "title": "Press Site Configuration",
+  "description": "Site configuration schema for Press.",
   "since": "v2.0.0",
   "type": "object",
   "additionalProperties": true,
@@ -146,7 +146,7 @@
     },
     "defaultLanguage": {
       "type": "string",
-      "description": "Default NanoSite language code (e.g., en, chs, cht-tw)."
+      "description": "Default Press language code (e.g., en, chs, cht-tw)."
     },
     "assetWarnings": {
       "type": "object",

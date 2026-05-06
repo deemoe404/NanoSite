@@ -10,8 +10,8 @@ if [[ ! "${version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 repo_root="$(git rev-parse --show-toplevel)"
-archive_name="nanosite-system-${version}.zip"
-prefix="nanosite-system-${version}/"
+archive_name="press-system-${version}.zip"
+prefix="press-system-${version}/"
 
 system_paths=(
   "index.html"

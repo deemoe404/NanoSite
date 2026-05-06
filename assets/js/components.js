@@ -1,5 +1,5 @@
 import { escapeHtml } from './utils.js';
-export { renderNanoPostCardHtml } from './post-card-html.js';
+export { renderPressPostCardHtml } from './post-card-html.js';
 
 const safe = (value) => escapeHtml(String(value ?? '')) || '';
 const asBool = (value) => value === true || value === 'true' || value === '';
@@ -13,7 +13,7 @@ function defineElement(name, ctor) {
   } catch (_) {}
 }
 
-function dispatchNanoEvent(element, name, detail = {}) {
+function dispatchPressEvent(element, name, detail = {}) {
   try {
     element.dispatchEvent(new CustomEvent(name, {
       detail,
@@ -51,7 +51,7 @@ function hasAssignedSlot(element, name) {
   }
 }
 
-export class NanoSearch extends HTMLElement {
+export class PressSearch extends HTMLElement {
   static get observedAttributes() {
     return ['placeholder', 'value', 'label', 'field-class', 'icon-class', 'icon', 'use-shadow', 'render-root'];
   }
@@ -199,8 +199,8 @@ export class NanoSearch extends HTMLElement {
   _markup() {
     const placeholder = safe(this.getAttribute('placeholder') || '');
     const label = safe(this.getAttribute('label') || 'Search');
-    const fieldClass = safe(this.getAttribute('field-class') || 'nano-search__field');
-    const iconClass = safe(this.getAttribute('icon-class') || 'nano-search__icon');
+    const fieldClass = safe(this.getAttribute('field-class') || 'press-search__field');
+    const iconClass = safe(this.getAttribute('icon-class') || 'press-search__icon');
     const icon = this.hasAttribute('icon') ? safe(this.getAttribute('icon') || '') : '';
     const iconHtml = icon ? `<span class="${iconClass}" part="icon" aria-hidden="true">${icon}</span>` : '';
     const input = `<input id="searchInput" part="input" type="search" autocomplete="off" spellcheck="false" aria-label="${label}" placeholder="${placeholder}" />`;
@@ -242,11 +242,11 @@ export class NanoSearch extends HTMLElement {
     if (!event || event.key !== 'Enter') return;
     const input = event.target && event.target.closest ? event.target.closest('input[type="search"]') : this.input;
     const query = input ? String(input.value || '').trim() : '';
-    dispatchNanoEvent(this, 'nano:search', { query });
+    dispatchPressEvent(this, 'press:search', { query });
   }
 }
 
-export class NanoThemeControls extends HTMLElement {
+export class PressThemeControls extends HTMLElement {
   constructor() {
     super();
     this._labels = {};
@@ -426,9 +426,9 @@ export class NanoThemeControls extends HTMLElement {
     const control = event.target && event.target.closest ? event.target.closest('[data-role]') : null;
     if (!control || !this.contains(control)) return;
     const role = control.getAttribute('data-role');
-    if (role === 'theme-toggle') dispatchNanoEvent(this, 'nano:theme-toggle');
-    else if (role === 'post-editor') dispatchNanoEvent(this, 'nano:open-editor');
-    else if (role === 'language-reset') dispatchNanoEvent(this, 'nano:language-reset');
+    if (role === 'theme-toggle') dispatchPressEvent(this, 'press:theme-toggle');
+    else if (role === 'post-editor') dispatchPressEvent(this, 'press:open-editor');
+    else if (role === 'language-reset') dispatchPressEvent(this, 'press:language-reset');
   }
 
   _handleChange(event) {
@@ -436,9 +436,9 @@ export class NanoThemeControls extends HTMLElement {
     if (!control || !this.contains(control)) return;
     const role = control.getAttribute('data-role');
     if (role === 'theme-pack') {
-      dispatchNanoEvent(this, 'nano:theme-pack-change', { value: control.value || '' });
+      dispatchPressEvent(this, 'press:theme-pack-change', { value: control.value || '' });
     } else if (role === 'language') {
-      dispatchNanoEvent(this, 'nano:language-change', { value: control.value || '' });
+      dispatchPressEvent(this, 'press:language-change', { value: control.value || '' });
     }
   }
 
@@ -494,7 +494,7 @@ export class NanoThemeControls extends HTMLElement {
   }
 }
 
-export class NanoToc extends HTMLElement {
+export class PressToc extends HTMLElement {
   constructor() {
     super();
     this._tocHtml = '';
@@ -566,7 +566,7 @@ export class NanoToc extends HTMLElement {
     const showTop = this.getAttribute('show-top') !== 'false';
     if (innerClass || titleClass || !showTop) {
       const heading = title || safe(this.getAttribute('fallback-title') || 'Table of contents');
-      return `<div class="${innerClass || 'nano-toc__inner'}" part="toc"><div class="${titleClass || 'nano-toc__title'}" part="title">${heading}</div>${this._tocHtml}</div>`;
+      return `<div class="${innerClass || 'press-toc__inner'}" part="toc"><div class="${titleClass || 'press-toc__title'}" part="title">${heading}</div>${this._tocHtml}</div>`;
     }
     const topLabel = safe(this.getAttribute('top-label') || 'Top');
     const topAria = safe(this.getAttribute('top-aria') || 'Back to top');
@@ -614,13 +614,13 @@ export class NanoToc extends HTMLElement {
       const href = anchor.getAttribute('href') || '';
       const id = href.replace(/^#/, '');
       if (id && !anchor.classList.contains('toc-top')) this._idToLink.set(id, anchor);
-      if (anchor.dataset.nanoTocBound === 'true') return;
-      anchor.dataset.nanoTocBound = 'true';
+      if (anchor.dataset.pressTocBound === 'true') return;
+      anchor.dataset.pressTocBound = 'true';
       anchor.addEventListener('click', (event) => this._handleTocLink(event, anchor));
     });
     const top = this.querySelector('.toc-top');
-    if (top && top.dataset.nanoTocBound !== 'true') {
-      top.dataset.nanoTocBound = 'true';
+    if (top && top.dataset.pressTocBound !== 'true') {
+      top.dataset.pressTocBound = 'true';
       top.addEventListener('click', (event) => {
         if (event && typeof event.preventDefault === 'function') event.preventDefault();
         this._scrollToTop();
@@ -688,7 +688,7 @@ export class NanoToc extends HTMLElement {
       }
       node = node.parentElement;
     }
-    dispatchNanoEvent(this, 'nano:toc-active', { id });
+    dispatchPressEvent(this, 'press:toc-active', { id });
   }
 
   _handleTocLink(event, anchor) {
@@ -699,7 +699,7 @@ export class NanoToc extends HTMLElement {
     this._setActive(id);
     const target = (this.ownerDocument || document).getElementById(id);
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    dispatchNanoEvent(this, 'nano:navigate', { href: `#${id}`, id });
+    dispatchPressEvent(this, 'press:navigate', { href: `#${id}`, id });
     try {
       const url = new URL(window.location.href);
       url.hash = id ? `#${id}` : '';
@@ -768,7 +768,7 @@ export class NanoToc extends HTMLElement {
   }
 }
 
-export class NanoPostCard extends HTMLElement {
+export class PressPostCard extends HTMLElement {
   static get observedAttributes() {
     return [
       'href',
@@ -868,20 +868,20 @@ export class NanoPostCard extends HTMLElement {
     const draft = safe(this.getAttribute('draft-label') || '');
     const excerpt = safe(this.getAttribute('excerpt') || '');
     const hasCover = !!(this._coverHtml || '').trim() || hasAssignedSlot(this, 'cover');
-    const cardClassBase = this._classAttr('card-class', 'nano-card');
-    const withCoverClass = this._classAttr('with-cover-class', 'nano-card--with-cover');
+    const cardClassBase = this._classAttr('card-class', 'press-card');
+    const withCoverClass = this._classAttr('with-cover-class', 'press-card--with-cover');
     const cardClass = `${cardClassBase}${hasCover && withCoverClass ? ` ${withCoverClass}` : ''}`.trim();
-    const linkClass = this._classAttr('link-class', 'nano-card__link');
-    const bodyClass = this._classAttr('body-class', 'nano-card__body');
-    const titleClass = this._classAttr('title-class', 'nano-card__title');
-    const excerptClass = this._classAttr('excerpt-class', 'nano-card__excerpt');
+    const linkClass = this._classAttr('link-class', 'press-card__link');
+    const bodyClass = this._classAttr('body-class', 'press-card__body');
+    const titleClass = this._classAttr('title-class', 'press-card__title');
+    const excerptClass = this._classAttr('excerpt-class', 'press-card__excerpt');
     const excerptInnerClass = this._classAttr('excerpt-inner-class', '');
-    const metaClass = this._classAttr('meta-class', 'nano-card__meta');
-    const dateClass = this._classAttr('date-class', 'nano-card__date');
-    const versionsClass = this._classAttr('versions-class', 'nano-card__versions');
-    const draftClass = this._classAttr('draft-class', 'nano-card__draft');
-    const separatorClass = this._classAttr('separator-class', 'nano-card__separator');
-    const tagsClass = this._classAttr('tags-class', 'nano-card__tags');
+    const metaClass = this._classAttr('meta-class', 'press-card__meta');
+    const dateClass = this._classAttr('date-class', 'press-card__date');
+    const versionsClass = this._classAttr('versions-class', 'press-card__versions');
+    const draftClass = this._classAttr('draft-class', 'press-card__draft');
+    const separatorClass = this._classAttr('separator-class', 'press-card__separator');
+    const tagsClass = this._classAttr('tags-class', 'press-card__tags');
     const metaPosition = (this.getAttribute('meta-position') || 'after-title').toLowerCase();
     const wrapCard = this.getAttribute('wrap-card') !== 'false';
     const parts = [];
@@ -927,18 +927,18 @@ export class NanoPostCard extends HTMLElement {
     if (!link) return;
     const root = typeof link.getRootNode === 'function' ? link.getRootNode() : null;
     if (!this.contains(link) && root !== this.shadowRoot) return;
-    dispatchNanoEvent(this, 'nano:navigate', {
+    dispatchPressEvent(this, 'press:navigate', {
       href: link.getAttribute('href') || '',
       title: this.getAttribute('title') || ''
     });
   }
 }
 
-export function registerNanoComponents() {
-  defineElement('nano-search', NanoSearch);
-  defineElement('nano-theme-controls', NanoThemeControls);
-  defineElement('nano-toc', NanoToc);
-  defineElement('nano-post-card', NanoPostCard);
+export function registerPressComponents() {
+  defineElement('press-search', PressSearch);
+  defineElement('press-theme-controls', PressThemeControls);
+  defineElement('press-toc', PressToc);
+  defineElement('press-post-card', PressPostCard);
 }
 
-registerNanoComponents();
+registerPressComponents();

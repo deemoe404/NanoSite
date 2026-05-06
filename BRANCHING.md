@@ -1,10 +1,10 @@
 # Branching Strategy
 
-NanoSite now uses a simple `main + short-lived branches` model.
+Press now uses a simple `main + short-lived branches` model.
 
 ## Branch Roles
 
-- `main`: stable source for the NanoSite runtime, official documentation site, and Markdown regression corpus.
+- `main`: stable source for the Press runtime, official documentation site, and Markdown regression corpus.
 - `feat/*`: short-lived feature branches for human-authored work.
 - `codex/*`: short-lived implementation branches for Codex-authored work.
 
@@ -34,13 +34,13 @@ node --experimental-default-type=module scripts/test-system-updates.js
 
 When a runtime feature changes user-facing behavior, update the relevant documentation in `wwwroot/` in the same branch. This keeps the official site and the code versioned together.
 
-The minimal user starter will live in a separate repository named `NanoSite-Starter`. Do not strip this repository's `wwwroot/` back to a minimal template.
+The minimal user starter will live in a separate repository named `Press-Starter`. Do not strip this repository's `wwwroot/` back to a minimal template.
 
 ## System Release Packages
 
 `main` publishes GitHub Pages directly from the repository root, but system updates use a separate release ZIP. After a push to `main`, the release workflow checks whether runtime files changed since the latest release tag. If only documentation or content changed under `wwwroot/`, no release is created.
 
-When runtime files changed, the workflow bumps the patch version, creates a GitHub Release, and uploads exactly one package named `nanosite-system-vX.Y.Z.zip`. That package is an allowlisted runtime bundle only: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, and `assets/themes/`.
+When runtime files changed, the workflow bumps the patch version, creates a GitHub Release, and uploads exactly one package named `press-system-vX.Y.Z.zip`. That package is an allowlisted runtime bundle only: `index.html`, `index_editor.html`, `assets/main.js`, `assets/js/`, `assets/i18n/`, `assets/schema/`, and `assets/themes/`.
 
 The package must not include user-controlled content or site configuration such as `wwwroot/`, `site.yaml`, `CNAME`, `robots.txt`, `sitemap.xml`, repository docs, scripts, workflow files, or repo-specific root media. Users who customize files under `assets/js/` or `assets/themes/` are modifying the system namespace, and those files may be overwritten by system updates.
 

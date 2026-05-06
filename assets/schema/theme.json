@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nanosite.schema/theme.schema.json",
-  "title": "NanoSite Theme Manifest",
+  "$id": "https://press.schema/theme.schema.json",
+  "title": "Press Theme Manifest",
   "description": "Schema for assets/themes/<pack>/theme.json.",
   "since": "v3.4.0",
   "type": "object",
@@ -23,7 +23,7 @@
     "contractVersion": {
       "type": "integer",
       "const": 1,
-      "description": "NanoSite theme contract version this manifest targets."
+      "description": "Press theme contract version this manifest targets."
     },
     "styles": {
       "type": "array",
@@ -74,7 +74,7 @@
     },
     "components": {
       "$ref": "#/$defs/stringList",
-      "description": "Shared NanoSite components used by the theme."
+      "description": "Shared Press components used by the theme."
     },
     "scrollContainer": {
       "description": "False for window scrolling, true for theme-owned scrolling, or region:<name>.",
@@ -129,7 +129,7 @@
         },
         "hooks": {
           "$ref": "#/$defs/stringList",
-          "description": "Theme hook names implemented through window.__ns_themeHooks."
+          "description": "Theme hook names implemented through window.__press_themeHooks."
         },
         "views": {
           "type": "array",

@@ -1,24 +1,24 @@
 ---
-title: Documentation for NanoSite
+title: Documentation for Press
 date: 2025-08-23
 version: v2.1.0
 tags:
-  - NanoSite
+  - Press
   - Documentation
 excerpt: Build a content site directly from Markdown with no build steps — drop files into wwwroot/, list them in YAML, and publish (compatible with GitHub Pages). This guide covers project structure, configuration, content loading, themes, search, tags, SEO, media, and deployment.
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ## File Overview
-Before using NanoSite, it helps to understand the core files/folders:
+Before using Press, it helps to understand the core files/folders:
 
 - `site.yaml` — Configure basic site info, such as the site title or your profile links.
 - `wwwroot/` — Holds all content and data:
   - `wwwroot/index.yaml` — Index of all posts (e.g., “Travel Log — Maldives”, “Reading Notes: The Little Prince”).
   - `wwwroot/tabs.yaml` — Index of static pages (e.g., “About”, “Legal”).
 
-> You can always fetch the v2.1.0 default settings from [v2.1.0/site.yaml](https://github.com/deemoe404/NanoSite/blob/v2.1.0/site.yaml).
+> You can always fetch the v2.1.0 default settings from [v2.1.0/site.yaml](https://github.com/EkilyHQ/Press/blob/v2.1.0/site.yaml).
 
 
 ## Site Basics
@@ -32,40 +32,40 @@ Example:
 ```yaml
 # Basic site info
 siteTitle:
-  default: NanoSite
-  en: NanoSite
-  chs: 微站
-  cht-tw: 微站
-  cht-hk: 微站
-  ja: ナノサイト
+  default: Press
+  en: Press
+  chs: Press
+  cht-tw: Press
+  cht-hk: Press
+  ja: Press
 siteSubtitle:
-  default: Just Markdown. Just a website.
-  en: Just Markdown. Just a website.
-  chs: 写下 Markdown，就是你的网站。
-  cht-tw: 寫下 Markdown，就是你的網站。
-  cht-hk: 寫低 Markdown，就係你嘅網站。
-  ja: 書くだけ、Markdown。それがサイトになる。
-avatar: assets/avatar.jpeg
+  default: Where knowledge becomes pages.
+  en: Where knowledge becomes pages.
+  chs: Where knowledge becomes pages.
+  cht-tw: Where knowledge becomes pages.
+  cht-hk: Where knowledge becomes pages.
+  ja: Where knowledge becomes pages.
+avatar: assets/avatar.png
 ```
 
 
 ## Profile & Social Links
-NanoSite can display your contacts or social links on the site card. Add `profileLinks` in `site.yaml`:
+Press can display your contacts or social links on the site card. Add `profileLinks` in `site.yaml`:
 
 ```yaml
 # Social/profile links
 profileLinks:
   - label: GitHub
-    href: https://github.com/deemoe404/NanoSite
+    href: https://github.com/EkilyHQ/Press
   - label: Demo
-    href: https://nano.dee.moe/
+    href: https://ekilyhq.github.io/Press/
 ```
 
 > The `label` is just display text — it can be any string, not a fixed platform name.
 
 
 ## Writing Posts
-By default, NanoSite uses the `wwwroot/` folder as its working directory and reads `wwwroot/index.yaml` for the posts list. For example, the article Configure GitHub Pages for NanoSite corresponds to this entry in `wwwroot/index.yaml`:
+By default, Press uses the `wwwroot/` folder as its working directory and reads `wwwroot/index.yaml` for the posts list. For example, the article Configure GitHub Pages for Press corresponds to this entry in `wwwroot/index.yaml`:
 
 ```yaml
 githubpages:
@@ -78,15 +78,15 @@ In addition to listing post paths in `wwwroot/index.yaml`, include front matter 
 
 ```markdown
 ---
-title: Configure GitHub Pages for NanoSite
+title: Configure GitHub Pages for Press
 date: 2025-08-21
 tags:
-  - NanoSite
+  - Press
   - Tech
   - GitHub Pages
 image: page.jpeg
-excerpt: You can host NanoSite on GitHub Pages for free. This article is a self-contained reference, but always consult GitHub’s official docs for the most accurate details.
-author: deemoe
+excerpt: You can host Press on GitHub Pages for free. This article is a self-contained reference, but always consult GitHub’s official docs for the most accurate details.
+author: Ekily
 ai: true
 ---
 
@@ -106,7 +106,7 @@ Field meanings:
 > All front matter fields are optional. Leave any out if you don’t need them.
 
 ## Writing Pages
-Similar to Writing Posts, NanoSite reads `wwwroot/tabs.yaml` for static pages. For example, the About page entry in `wwwroot/tabs.yaml` looks like:
+Similar to Writing Posts, Press reads `wwwroot/tabs.yaml` for static pages. For example, the About page entry in `wwwroot/tabs.yaml` looks like:
 
 ```yaml
 About:
@@ -125,13 +125,13 @@ Unlike posts, page Markdown files may omit front matter.
 
 
 ## Images and Videos
-NanoSite supports images and videos in Markdown. Paths resolve relative to the current Markdown file. In Configure GitHub Pages for NanoSite, the content begins with an image:
+Press supports images and videos in Markdown. Paths resolve relative to the current Markdown file. In Configure GitHub Pages for Press, the content begins with an image:
 
 ```markdown
 ![page](page.jpeg)
 ```
 
-Because the article lives at `wwwroot/post/page/githubpages_en.md`, the image should be placed at `wwwroot/post/page/page.jpeg`. Videos work the same way; just ensure the path is correct — NanoSite detects video files and renders them accordingly.
+Because the article lives at `wwwroot/post/page/githubpages_en.md`, the image should be placed at `wwwroot/post/page/page.jpeg`. Videos work the same way; just ensure the path is correct — Press detects video files and renders them accordingly.
 
 ## Internal Link Cards (Previews)
 
@@ -140,7 +140,7 @@ If a paragraph contains only a link to a post (`?id=...`), the link is upgraded 
 ```markdown
 ... content above omitted
 
-[Configure GitHub Pages for NanoSite](?id=post%2Fpage%2Fgithubpages_en.md)
+[Configure GitHub Pages for Press](?id=post%2Fpage%2Fgithubpages_en.md)
 
 ... content below omitted
 ```
@@ -150,7 +150,7 @@ To force a card inline, include `card` in the link title or add `data-card`:
 ```markdown
 ... content above omitted
 
-This is an inline card for [Configure GitHub Pages for NanoSite](?id=post%2Fpage%2Fgithubpages_en.md "card").
+This is an inline card for [Configure GitHub Pages for Press](?id=post%2Fpage%2Fgithubpages_en.md "card").
 
 ... content below omitted
 ```
@@ -194,7 +194,7 @@ themeOverride: true
 
 Example:
 ```yaml
-reportIssueURL: https://github.com/deemoe404/NanoSite/issues/new
+reportIssueURL: https://github.com/EkilyHQ/Press/issues/new
 errorOverlay: true
 assetWarnings:
   largeImage:
@@ -229,7 +229,7 @@ Markdown examples: `[See this](?id=post/frogy/main.md)` and `[About](?tab=about)
 
 ### SEO (Built‑in)
 
-At runtime, NanoSite updates meta tags per page (title, description, Open Graph, Twitter Card) and injects structured data (JSON‑LD). Source order:
+At runtime, Press updates meta tags per page (title, description, Open Graph, Twitter Card) and injects structured data (JSON‑LD). Source order:
 
 1) Markdown front matter (`title`, `excerpt`, `tags`, `date`, `image`)
 2) `index.yaml` metadata
@@ -237,14 +237,14 @@ At runtime, NanoSite updates meta tags per page (title, description, Open Graph,
 
 Example `index.yaml` SEO fields:
 ```yaml
-resourceURL: https://nano.dee.moe/wwwroot/
+resourceURL: https://ekilyhq.github.io/Press/wwwroot/
 siteDescription:
-  default: NanoSite - Just Markdown. Just a website.
-  en: NanoSite - Just Markdown. Just a website.
-  chs: 微站 - 写下 Markdown，就是你的网站。
-  cht-tw: 微站 - 寫下 Markdown，就是你的網站。
-  cht-hk: 微站 - 寫低 Markdown，就係你嘅網站。
-  ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
+  default: Press - Where knowledge becomes pages.
+  en: Press - Where knowledge becomes pages.
+  chs: Press - Where knowledge becomes pages.
+  cht-tw: Press - Where knowledge becomes pages.
+  cht-hk: Press - Where knowledge becomes pages.
+  ja: Press - Where knowledge becomes pages.
 siteKeywords:
   default: static blog, markdown, github pages, blog
   en: static blog, markdown, github pages, blog
@@ -263,13 +263,13 @@ You should also open `index_seo.html` to generate `sitemap.xml` and `robots.txt`
 
 ### Multi‑language
 
-NanoSite treats the site UI language and the content language as related but separate concerns.
+Press treats the site UI language and the content language as related but separate concerns.
 
 - Supported UI languages come from `assets/i18n/languages.json` and the matching files in `assets/i18n/`. The editor may expose every language supported by the project.
 - Content languages are declared per post or page in `wwwroot/index.yaml` and `wwwroot/tabs.yaml`. A post only needs to list the language variants that the author actually wrote.
 - When `?lang=...` is set, the site chrome switches to that UI language if a bundle exists.
-- For each post or page, NanoSite first tries to load the content variant matching the current UI language. If that variant is missing, it falls back to `defaultLanguage` from `site.yaml`; in this repository that default is `en`.
-- If the configured default variant is also missing, NanoSite tries `en`, then `default`, then the first available variant so the page can still render.
+- For each post or page, Press first tries to load the content variant matching the current UI language. If that variant is missing, it falls back to `defaultLanguage` from `site.yaml`; in this repository that default is `en`.
+- If the configured default variant is also missing, Press tries `en`, then `default`, then the first available variant so the page can still render.
 
 Content index formats:
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-globalThis.document = { title: 'NanoSite' };
+globalThis.document = { title: 'Press' };
 globalThis.window = { location: { search: '', href: 'https://example.test/' } };
 
 let removed = false;

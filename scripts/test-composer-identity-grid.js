@@ -102,7 +102,7 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /const LS_VIEW_KEY = 'ns_editor_markdown_view';[\s\S]*function readPersistedMarkdownEditorView\(\) \{[\s\S]*localStorage\.getItem\(LS_VIEW_KEY\)[\s\S]*function persistMarkdownEditorView\(mode\) \{[\s\S]*localStorage\.setItem\(LS_VIEW_KEY, normalizeMarkdownEditorView\(mode\)\);/,
+  /const LS_VIEW_KEY = 'press_editor_markdown_view';[\s\S]*function readPersistedMarkdownEditorView\(\) \{[\s\S]*localStorage\.getItem\(LS_VIEW_KEY\)[\s\S]*function persistMarkdownEditorView\(mode\) \{[\s\S]*localStorage\.setItem\(LS_VIEW_KEY, normalizeMarkdownEditorView\(mode\)\);/,
   'markdown editor should persist the selected source/blocks/preview view'
 );
 
@@ -693,7 +693,7 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /let selection;[\s\S]*if \(customInsertMarkdown\) \{[\s\S]*selection = customInsertMarkdown\(paths\.relativePath, meta\.altText\);[\s\S]*if \(selection === false\) \{[\s\S]*if \(options\.insertAbortToast\) emitEditorToast\('warn', options\.insertAbortToast\);[\s\S]*continue;[\s\S]*window\.dispatchEvent\(new CustomEvent\('ns-editor-asset-added'/,
+  /let selection;[\s\S]*if \(customInsertMarkdown\) \{[\s\S]*selection = customInsertMarkdown\(paths\.relativePath, meta\.altText\);[\s\S]*if \(selection === false\) \{[\s\S]*if \(options\.insertAbortToast\) emitEditorToast\('warn', options\.insertAbortToast\);[\s\S]*continue;[\s\S]*window\.dispatchEvent\(new CustomEvent\('press-editor-asset-added'/,
   'image uploads should skip asset-added events and success toasts when replacement aborts'
 );
 
@@ -1407,7 +1407,7 @@ assert.doesNotMatch(
 
 assert.doesNotMatch(
   editorSource,
-  /localStorage\.getItem\('ns_composer_editor_state'\)/,
+  /localStorage\.getItem\('press_composer_editor_state'\)/,
   'editor entry should default to the Editor file tree instead of restoring the last Site Settings mode'
 );
 
@@ -1419,7 +1419,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function appendEditorLanguageControl\(body\) \{[\s\S]*id = 'editorLangSwitcher'[\s\S]*id = 'editorLangSelect'[\s\S]*ns-editor-language-control-mounted/,
+  /function appendEditorLanguageControl\(body\) \{[\s\S]*id = 'editorLangSwitcher'[\s\S]*id = 'editorLangSelect'[\s\S]*press-editor-language-control-mounted/,
   'editor language controls should be rendered inside the System structure panel'
 );
 
@@ -1673,7 +1673,7 @@ assert.match(
 
 assert.match(
   editorMainSource,
-  /document\.addEventListener\('ns-editor-language-applied'[\s\S]*frontMatterManager\.applySectionDescriptions\(\);[\s\S]*syncFrontMatterLabelWidth\(frontMatterManager\.panel\);/,
+  /document\.addEventListener\('press-editor-language-applied'[\s\S]*frontMatterManager\.applySectionDescriptions\(\);[\s\S]*syncFrontMatterLabelWidth\(frontMatterManager\.panel\);/,
   'front matter labels should resync after editor language changes update localized labels'
 );
 
@@ -2192,7 +2192,7 @@ assert.match(
 
 assert.match(
   source,
-  /ns-editor-current-file-breadcrumb-select[\s\S]*handleEditorTreeSelection\(nodeId\);/,
+  /press-editor-current-file-breadcrumb-select[\s\S]*handleEditorTreeSelection\(nodeId\);/,
   'composer should route current-file breadcrumb clicks through the editor tree selection handler'
 );
 
@@ -2205,7 +2205,7 @@ assert.match(
 assert.match(
   source,
   /function showEditorSystemPanel\(mode\) \{[\s\S]*mode === 'sync' \? 'sync'[\s\S]*editorSystemActions[\s\S]*editorModalSyncActions[\s\S]*mode-composer[\s\S]*mode-updates[\s\S]*mode-sync[\s\S]*\['sync', syncActions\]/,
-  'Site Settings, NanoSite Updates, and Sync should render through the inline system panel'
+  'Site Settings, Press Updates, and Sync should render through the inline system panel'
 );
 
 const showEditorSystemPanelBody = source.slice(
@@ -2228,7 +2228,7 @@ assert.match(
 assert.match(
   source,
   /const isSystemMode = \(value\) => value === 'composer' \|\| value === 'updates' \|\| value === 'sync';[\s\S]*const nextMode = \(candidate === 'editor' \|\| isSystemMode\(candidate\) \|\| isDynamicMode\(candidate\)\)[\s\S]*setEditorDetailPanelMode\(nextMode\);/,
-  'opening Site Settings, NanoSite Updates, or Sync should switch to the inline system detail panel'
+  'opening Site Settings, Press Updates, or Sync should switch to the inline system detail panel'
 );
 
 const refreshEditorContentTreeBody = source.slice(
@@ -2268,7 +2268,7 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function refreshEditorLanguageUi\(\) \{[\s\S]*refreshFileDirtyBadges\(\);[\s\S]*refreshEditorContentTree\([\s\S]*document\.addEventListener\('ns-editor-language-applied', refreshEditorLanguageUi\)/,
+  /function refreshEditorLanguageUi\(\) \{[\s\S]*refreshFileDirtyBadges\(\);[\s\S]*refreshEditorContentTree\([\s\S]*document\.addEventListener\('press-editor-language-applied', refreshEditorLanguageUi\)/,
   'composer file switch dirty labels and tree panels should be recomputed after editor language changes'
 );
 
@@ -2706,7 +2706,7 @@ assert.match(
 
 assert.match(
   source,
-  /function resetSiteSettingsNavOnOpen\(\) \{[\s\S]*modalBody\.scrollTop = 0;[\s\S]*root\.__nsSiteFirstSectionId[\s\S]*setActive\(firstSectionId,[\s\S]*scrollViewport: false[\s\S]*activateFirst\(\);[\s\S]*requestAnimationFrame/,
+  /function resetSiteSettingsNavOnOpen\(\) \{[\s\S]*modalBody\.scrollTop = 0;[\s\S]*root\.__pressSiteFirstSectionId[\s\S]*setActive\(firstSectionId,[\s\S]*scrollViewport: false[\s\S]*activateFirst\(\);[\s\S]*requestAnimationFrame/,
   'opening Site Settings should reset the modal body and left navigation to the first section'
 );
 

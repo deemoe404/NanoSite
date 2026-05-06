@@ -1,24 +1,24 @@
 ---
-title: 微站指南
+title: Press指南
 date: 2025-08-23
 version: v2.1.0
 tags:
-	- 微站
+	- Press
 	- 文档
 excerpt: 无需构建步骤即可直接用 Markdown 文件创建内容网站，只需将文件放入 wwwroot/，在 YAML 中列出并发布，即可兼容 GitHub Pages。本指南涵盖项目结构、配置文件、内容加载、主题、搜索、标签、SEO、媒体以及部署方法。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ## 文件概览
-在开始使用 **NanoSite** 之前，理解网站结构中的核心文件十分重要：
+在开始使用 **Press** 之前，理解网站结构中的核心文件十分重要：
 
 - `site.yaml` — 您将在这里设置网站的基本信息，例如**站点标题**或您的**个人资料链接**。
 - `wwwroot/` — 包含所有内容和数据的文件夹：
   - `wwwroot/index.yaml` — 所有**文章**的索引，例如“旅行日志 - 马尔代夫”、“读书笔记：小王子”等。
   - `wwwroot/tabs.yaml` — 所有**页面**的索引，例如“关于本站”、“法律声明”等。
 
-> 您始终可以从 [v2.1.0/site.yaml](https://github.com/deemoe404/NanoSite/blob/v2.1.0/site.yaml) 获取到 v2.1.0 版本的**默认**设置文件。
+> 您始终可以从 [v2.1.0/site.yaml](https://github.com/EkilyHQ/Press/blob/v2.1.0/site.yaml) 获取到 v2.1.0 版本的**默认**设置文件。
 
 
 ## 网站基本信息设置
@@ -32,40 +32,40 @@ ai: true
 ```yaml
 # 网站基本信息设置
 siteTitle:
-  default: NanoSite
-  en: NanoSite
-  chs: 微站
-  cht-tw: 微站
-  cht-hk: 微站
-  ja: ナノサイト
+  default: Press
+  en: Press
+  chs: Press
+  cht-tw: Press
+  cht-hk: Press
+  ja: Press
 siteSubtitle:
-  default: Just Markdown. Just a website.
-  en: Just Markdown. Just a website.
-  chs: 写下 Markdown，就是你的网站。
-  cht-tw: 寫下 Markdown，就是你的網站。
-  cht-hk: 寫低 Markdown，就係你嘅網站。
-  ja: 書くだけ、Markdown。それがサイトになる。
-avatar: assets/avatar.jpeg
+  default: Where knowledge becomes pages.
+  en: Where knowledge becomes pages.
+  chs: Where knowledge becomes pages.
+  cht-tw: Where knowledge becomes pages.
+  cht-hk: Where knowledge becomes pages.
+  ja: Where knowledge becomes pages.
+avatar: assets/avatar.png
 ```
 
 
 ## 联系方式与社交媒体展示
-NanoSite 允许您在站点卡片上展示您的联系方式或者社交媒体链接。您可以在 `site.yaml` 中添加 `profileLinks` 字段来实现这一点，例如：
+Press 允许您在站点卡片上展示您的联系方式或者社交媒体链接。您可以在 `site.yaml` 中添加 `profileLinks` 字段来实现这一点，例如：
 
 ```yaml
 # 社交媒体链接
 profileLinks:
   - label: GitHub
-    href: https://github.com/deemoe404/NanoSite
+    href: https://github.com/EkilyHQ/Press
   - label: Demo
-    href: https://nano.dee.moe/
+    href: https://ekilyhq.github.io/Press/
 ```
 
 > `label` 选项仅用于显示文本，因此可以是任意值——而非固定的社交媒体名称。
 
 
 ## 文章写作
-NanoSite 默认将 `wwwroot/` 文件夹作为工作路径。它通过读取这个文件夹下的 `index.yaml` 文件来获取文章列表。例如 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md&lang=chs) 这篇文章对应的 `wwwroot/index.yaml` 内容如下：
+Press 默认将 `wwwroot/` 文件夹作为工作路径。它通过读取这个文件夹下的 `index.yaml` 文件来获取文章列表。例如 [为 Press 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md&lang=chs) 这篇文章对应的 `wwwroot/index.yaml` 内容如下：
 
 ```yaml
 githubpages:
@@ -78,15 +78,15 @@ githubpages:
 
 ```markdown
 ---
-title: 为 NanoSite 配置 GitHub Pages
+title: 为 Press 配置 GitHub Pages
 date: 2025-08-21
 tags:
-  - 微站
+  - Press
   - 技术
   - GitHub Pages
 image: page.jpeg
-excerpt: 你可以将 NanoSite 免费托管在 GitHub Pages 上。本文作为一份自包含的参考，但仍请以 GitHub 官方文档为准以获取最准确的信息。
-author: deemoe
+excerpt: 你可以将 Press 免费托管在 GitHub Pages 上。本文作为一份自包含的参考，但仍请以 GitHub 官方文档为准以获取最准确的信息。
+author: Ekily
 ai: true
 ---
 
@@ -106,7 +106,7 @@ ai: true
 > 前言区的所有参数都是可选的；若您不愿意提供某个参数，可直接将其留空或删除该行。
 
 ## 页面写作
-与 [文章写作](#45) 类似，NanoSite 通过读取 `wwwroot/` 文件夹内的 `tabs.yaml` 文件来获取页面列表。例如 [关于](?tab=about&lang=chs) 页面的对应的 `wwwroot/tabs.yaml` 内容如下：
+与 [文章写作](#45) 类似，Press 通过读取 `wwwroot/` 文件夹内的 `tabs.yaml` 文件来获取页面列表。例如 [关于](?tab=about&lang=chs) 页面的对应的 `wwwroot/tabs.yaml` 内容如下：
 
 ```yaml
 About:
@@ -125,13 +125,13 @@ About:
 
 
 ## 图片与视频
-NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中的图片和视频都会以该文件的相对路径进行引用。例如在 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md&lang=chs) 这篇文章中，其于内容开头处插入了一张图片：
+Press 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中的图片和视频都会以该文件的相对路径进行引用。例如在 [为 Press 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md&lang=chs) 这篇文章中，其于内容开头处插入了一张图片：
 
 ```markdown
 ![page](page.jpeg)
 ```
 
-且其文章路径为 `wwwroot/post/page/githubpages_chs.md`，那么 `page.jpeg` 的存放位置则应为 `wwwroot/post/page/page.jpeg`。视频文件与图片文件的引用方式相同，只需确保路径正确即可，NanoSite 会自动识别出视频文件并进行处理。
+且其文章路径为 `wwwroot/post/page/githubpages_chs.md`，那么 `page.jpeg` 的存放位置则应为 `wwwroot/post/page/page.jpeg`。视频文件与图片文件的引用方式相同，只需确保路径正确即可，Press 会自动识别出视频文件并进行处理。
 
 ## 站内链接卡片（预览）
 
@@ -140,7 +140,7 @@ NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中
 ```markdown
 ... 此前内容省略
 
-[为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md)
+[为 Press 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md)
 
 ... 此后内容省略
 ```
@@ -150,7 +150,7 @@ NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中
 ```markdown
 ... 此前内容省略
 
-这是一张 [为 NanoSite 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md "card") 行内卡片。
+这是一张 [为 Press 配置 GitHub Pages](?id=post%2Fpage%2Fgithubpages_chs.md "card") 行内卡片。
 
 ... 此后内容省略
 ```
@@ -166,7 +166,7 @@ NanoSite 支持在 Markdown 中插入图片和视频。所有 Markdown 文件中
   - A：请尝试按住键盘上的 `Shift` 按键点击刷新按钮，强制刷新浏览器缓存。
 
 ## 进阶内容
-此处记录 NanoSite 的一些高级选项，若您有兴趣可以进一步探索。
+此处记录 Press 的一些高级选项，若您有兴趣可以进一步探索。
 
 ### 其他设置
 `site.yaml` 还有一些其他设置选项。
@@ -194,7 +194,7 @@ themeOverride: true
 
 例如：
 ```yaml
-reportIssueURL: https://github.com/deemoe404/NanoSite/issues/new
+reportIssueURL: https://github.com/EkilyHQ/Press/issues/new
 errorOverlay: true
 assetWarnings:
   largeImage:
@@ -237,14 +237,14 @@ Markdown 中的站内跳转链接示例：`[看看这篇](?id=post/frogy/main.md
 
 `index.yaml` 的 SEO 部分示例配置如下：
 ```yaml
-resourceURL: https://nano.dee.moe/wwwroot/
+resourceURL: https://ekilyhq.github.io/Press/wwwroot/
 siteDescription:
-  default: NanoSite - Just Markdown. Just a website.
-  en: NanoSite - Just Markdown. Just a website.
-  chs: 微站 - 写下 Markdown，就是你的网站。
-  cht-tw: 微站 - 寫下 Markdown，就是你的網站。
-  cht-hk: 微站 - 寫低 Markdown，就係你嘅網站。
-  ja: ナノサイト - 書くだけ、Markdown。それがサイトになる。
+  default: Press - Where knowledge becomes pages.
+  en: Press - Where knowledge becomes pages.
+  chs: Press - Where knowledge becomes pages.
+  cht-tw: Press - Where knowledge becomes pages.
+  cht-hk: Press - Where knowledge becomes pages.
+  ja: Press - Where knowledge becomes pages.
 siteKeywords:
   default: static blog, markdown, github pages, blog
   en: static blog, markdown, github pages, blog
@@ -263,13 +263,13 @@ siteKeywords:
 
 ### 多语言
 
-NanoSite 将网站本体语言和内容语言视为相关但独立的两层。
+Press 将网站本体语言和内容语言视为相关但独立的两层。
 
 - 网站本体支持的 UI 语言来自 `assets/i18n/languages.json` 以及 `assets/i18n/` 中对应的语言包。文章编辑器可以展示项目支持的全部语言。
 - 内容语言由每篇文章或页面在 `wwwroot/index.yaml` 与 `wwwroot/tabs.yaml` 中分别声明。作者只需要列出自己实际撰写的语言版本。
 - 当 URL 中设置 `?lang=...` 时，网站导航、按钮、提示等本体文案会切换到对应 UI 语言（前提是语言包存在）。
-- 对每篇文章或页面，NanoSite 会先尝试加载与当前 UI 语言相同的内容版本。若该版本不存在，则回退到 `site.yaml` 中的 `defaultLanguage`；本仓库默认是 `en`。
-- 如果配置的默认语言版本也不存在，NanoSite 会继续尝试 `en`、`default`，最后使用该条目下第一个可用版本，以避免页面完全无法渲染。
+- 对每篇文章或页面，Press 会先尝试加载与当前 UI 语言相同的内容版本。若该版本不存在，则回退到 `site.yaml` 中的 `defaultLanguage`；本仓库默认是 `en`。
+- 如果配置的默认语言版本也不存在，Press 会继续尝试 `en`、`default`，最后使用该条目下第一个可用版本，以避免页面完全无法渲染。
 
 内容索引支持：
 

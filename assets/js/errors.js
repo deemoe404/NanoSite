@@ -3,7 +3,7 @@ import { t } from './i18n.js?v=20260506theme';
 
 let reporterConfig = {
   reportUrl: null,
-  siteTitle: 'NanoSite'
+  siteTitle: 'Press'
 };
 let overlayUIEnabled = false;
 let extraContext = {};
@@ -43,7 +43,7 @@ function formatReportPayload(error, context) {
   const qp = new URLSearchParams(window.location.search);
   const mergedContext = { ...(extraContext || {}), ...(context || {}) };
   const payload = {
-    app: reporterConfig.siteTitle || 'NanoSite',
+    app: reporterConfig.siteTitle || 'Press',
     time: now.toISOString(),
     name: (error && error.name) || 'Error',
     message: reason || (context && context.message) || 'Unknown error',
@@ -199,7 +199,7 @@ function renderOverlayCard(payload, onDone) {
 export function initErrorReporter(options = {}) {
   reporterConfig = {
     reportUrl: options.reportUrl || reporterConfig.reportUrl || null,
-    siteTitle: options.siteTitle || reporterConfig.siteTitle || 'NanoSite'
+    siteTitle: options.siteTitle || reporterConfig.siteTitle || 'Press'
   };
   // Allow toggling the overlay UI (default off)
   try { overlayUIEnabled = !!options.enableOverlay; } catch (_) { overlayUIEnabled = false; }

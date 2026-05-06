@@ -78,6 +78,32 @@ function ensureAbsoluteUrl(value, base, siteConfig = {}) {
   }
 }
 
+function resolveCanonicalUrl(value, siteBase, siteConfig = {}) {
+  const fallbackBase = ensureTrailingSlash(siteBase || resolveSiteBaseUrl(siteConfig));
+  const str = String(value || '').trim();
+  if (!str) return fallbackBase || '/';
+
+  try {
+    const parsed = new URL(str, window.location.href);
+    const currentOrigin = window.location && window.location.origin ? window.location.origin : '';
+    if (currentOrigin && parsed.origin === currentOrigin && fallbackBase) {
+      let relative = '';
+      try {
+        const currentBase = ensureTrailingSlash(new URL('.', window.location.href).href);
+        if (parsed.href.startsWith(currentBase)) {
+          relative = parsed.href.slice(currentBase.length);
+        }
+      } catch (_) {}
+      if (!relative) {
+        relative = `${parsed.pathname.replace(/^\/+/, '')}${parsed.search}${parsed.hash}`;
+      }
+      return ensureAbsoluteUrl(relative || './', fallbackBase, siteConfig);
+    }
+  } catch (_) {}
+
+  return ensureAbsoluteUrl(str, fallbackBase, siteConfig);
+}
+
 /**
  * Generate a fallback image using SVG when no avatar is configured
  * @param {string} title - Site title to display on the image
@@ -267,8 +293,8 @@ export function updateSEO(options = {}, siteConfig = {}) {
   };
 
   // Get default values from site config
-  const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite - Zero-Dependency Static Blog');
-  const defaultDescription = getLocalizedValue(siteConfig.siteDescription, 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.');
+  const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'Ekily Press');
+  const defaultDescription = getLocalizedValue(siteConfig.siteDescription, 'Where knowledge becomes pages.');
   const siteBaseUrl = resolveSiteBaseUrl(siteConfig);
   const resourceBase = resolveResourceBase(siteConfig);
 
@@ -288,7 +314,7 @@ export function updateSEO(options = {}, siteConfig = {}) {
     image: providedImage,
     url = window.location.href,
     type = 'website',
-    author = 'NanoSite',
+    author = 'Ekily',
     publishedTime = null,
     modifiedTime = null,
     tags = []
@@ -301,7 +327,7 @@ export function updateSEO(options = {}, siteConfig = {}) {
       : [];
 
   const resolvedImage = ensureAbsoluteUrl(providedImage || defaultImage, resourceBase, siteConfig);
-  const canonicalUrl = ensureAbsoluteUrl(url || window.location.href, siteBaseUrl, siteConfig);
+  const canonicalUrl = resolveCanonicalUrl(url || window.location.href, siteBaseUrl, siteConfig);
 
   // Update document title
   document.title = title;
@@ -356,6 +382,9 @@ export function updateSEO(options = {}, siteConfig = {}) {
 
   // Update canonical URL
   updateLinkTag('canonical', canonicalUrl);
+  if (siteConfig.avatar) {
+    updateLinkTag('icon', defaultImage);
+  }
 
   // Update Open Graph tags
   updateMetaTag('og:type', type, 'property');
@@ -440,7 +469,7 @@ function updateStructuredData(options, siteConfig = {}) {
     return (lang && val[lang]) || val.default || fallback;
   };
   
-    const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
+    const defaultTitle = getLocalizedValue(siteConfig.siteTitle, 'Press');
     const siteBaseUrl = resolveSiteBaseUrl(siteConfig);
     const resourceBase = resolveResourceBase(siteConfig);
     const logoUrl = siteConfig.avatar ?
@@ -538,17 +567,14 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   const tags = frontMatter.tags || frontMatter.tag || metadata.tags || metadata.tag || extractTagsFromMarkdown(content);
   
   // Get resource base from site config for building absolute resource URLs
-  const resourceBase = siteConfig.resourceURL || (window.location.origin + window.location.pathname);
+  const resourceBase = resolveResourceBase(siteConfig);
+  const contentRoot = String(siteConfig.contentRoot || 'wwwroot').replace(/^\/+|\/+$/g, '') || 'wwwroot';
+  const contentResourceBase = ensureAbsoluteUrl(`${contentRoot}/`, resourceBase, siteConfig);
   
   // Determine image: front matter > metadata > site avatar > generated fallback
   let image = frontMatter.image || metadata.image || metadata.cover;
   if (!image) {
-    if (siteConfig && siteConfig.avatar) {
-      image = siteConfig.avatar;
-    } else {
-      // No configured image - generate a fallback based on article title
-      image = generateFallbackImage(title);
-    }
+    image = siteConfig && siteConfig.avatar ? '' : generateFallbackImage(title);
   }
   
   // Try to extract date from front matter, then metadata, then content
@@ -566,13 +592,18 @@ export function extractSEOFromMarkdown(content, metadata = {}, siteConfig = {}) 
   };
 
   const finalImage = resolveRelativeImage(image);
+  const resolvedImage = finalImage
+    ? (finalImage.startsWith('http') || finalImage.startsWith('data:'))
+      ? finalImage
+      : `${contentResourceBase}${String(finalImage).replace(/^\/+/, '')}`
+    : '';
 
   return {
     title,
     description,
-  image: (finalImage && (finalImage.startsWith('http') || finalImage.startsWith('data:'))) ? finalImage : `${resourceBase}${String(finalImage || '').replace(/^\/+/, '')}`,
+    image: resolvedImage,
     type: 'article',
-    author: frontMatter.author || metadata.author || 'NanoSite',
+    author: frontMatter.author || metadata.author || 'Ekily',
     publishedTime: publishedTime,
     tags,
     url: window.location.href
@@ -594,7 +625,7 @@ function extractTitleFromMarkdown(content, siteConfig = {}) {
     return (lang && val[lang]) || val.default || fallback;
   };
   
-  return getLocalizedValue(siteConfig.siteTitle, 'NanoSite');
+  return getLocalizedValue(siteConfig.siteTitle, 'Press');
 }
 
 /**
@@ -628,7 +659,7 @@ function extractExcerptFromMarkdown(content, siteConfig = {}) {
     return (lang && val[lang]) || val.default || fallback;
   };
   
-  return getLocalizedValue(siteConfig.siteDescription, 'A pure front-end template for simple blogs and docs. No compilation needed - just edit Markdown files and deploy.');
+  return getLocalizedValue(siteConfig.siteDescription, 'Where knowledge becomes pages.');
 }
 
 /**

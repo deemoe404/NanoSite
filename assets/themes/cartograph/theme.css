@@ -17,11 +17,11 @@
   --cartograph-shadow: 0 18px 42px rgba(30, 36, 34, 0.12);
   --cartograph-radius: 8px;
   --cartograph-progress: 0;
-  --ns-color-text: var(--cartograph-ink);
-  --ns-color-surface: var(--cartograph-paper);
-  --ns-font-body: var(--cartograph-font-sans);
-  --ns-radius-card: var(--cartograph-radius);
-  --ns-space-page: 1.25rem;
+  --press-color-text: var(--cartograph-ink);
+  --press-color-surface: var(--cartograph-paper);
+  --press-font-body: var(--cartograph-font-sans);
+  --press-radius-card: var(--cartograph-radius);
+  --press-space-page: 1.25rem;
 
   --bg: var(--cartograph-porcelain);
   --text: var(--cartograph-ink);
@@ -263,7 +263,7 @@ a:focus-visible {
   min-width: 0;
 }
 
-.cartograph-tools nano-theme-controls {
+.cartograph-tools press-theme-controls {
   display: block;
 }
 

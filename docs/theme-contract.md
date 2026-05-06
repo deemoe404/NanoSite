@@ -1,6 +1,6 @@
-# NanoSite Theme Contract
+# Press Theme Contract
 
-NanoSite themes are zero-build theme packs under `assets/themes/<pack>/`.
+Press themes are zero-build theme packs under `assets/themes/<pack>/`.
 Each pack is entered through `theme.json`; the runtime loads the manifest,
 mounts the listed modules, and then exposes a stable context to theme code.
 
@@ -36,7 +36,7 @@ effects.
     "tags": {},
     "footer": { "required": true }
   },
-  "components": ["nano-search", "nano-toc", "nano-post-card"],
+  "components": ["press-search", "press-toc", "press-post-card"],
   "scrollContainer": false,
   "configSchema": { "type": "object", "additionalProperties": true },
   "content": {
@@ -46,7 +46,7 @@ effects.
 ```
 
 - `name` and `version`: Human-facing theme identity.
-- `contractVersion`: NanoSite runtime contract version. The current value is
+- `contractVersion`: Press runtime contract version. The current value is
   `1`.
 - `styles`: Ordered CSS files relative to the theme pack root.
 - `modules`: Ordered JavaScript modules relative to the theme pack root.
@@ -55,8 +55,8 @@ effects.
   `loading` states.
 - `regions`: Stable region names. Runtime code asks for regions such as
   `ctx.regions.get('main')`, not fixed DOM IDs.
-- `components`: Shared primitives the theme uses, such as `nano-search`,
-  `nano-toc`, and `nano-post-card`.
+- `components`: Shared primitives the theme uses, such as `press-search`,
+  `press-toc`, and `press-post-card`.
 - `scrollContainer`: `false` for window scrolling, `true` for a theme-owned
   container, or `region:<name>` when a registered region owns scroll state.
 - `configSchema`: JSON-schema fragment for theme-specific configuration.
@@ -158,19 +158,19 @@ without changing core runtime code.
 
 Shared primitives are optional. A theme can use, wrap, or replace them.
 
-- `nano-search` emits `nano:search`.
-- `nano-toc` renders and cleans up TOC listeners.
-- `nano-post-card` renders cards and supports `cover`, `meta`, `actions`,
+- `press-search` emits `press:search`.
+- `press-toc` renders and cleans up TOC listeners.
+- `press-post-card` renders cards and supports `cover`, `meta`, `actions`,
   `footer`, and `tags` content slots.
 
 Component styling should go through exposed attributes, host classes, slots or
 slot-like templates, and CSS part names where the component exposes them.
 Shipped themes use the default light-DOM render path for their existing class
 selectors; custom themes can set `use-shadow` or `render-root="shadow"` on
-`nano-search` and `nano-post-card` when they want actual `::part(input)`,
+`press-search` and `press-post-card` when they want actual `::part(input)`,
 `::part(card)`, and `::part(title)` styling. Theme logic should communicate
-through events such as `nano:search`,
-`nano:navigate`, and `nano:tag-select` instead of reaching into private DOM.
+through events such as `press:search`,
+`press:navigate`, and `press:tag-select` instead of reaching into private DOM.
 
 ## Development Checks
 
@@ -185,6 +185,6 @@ registered regions, shared components, content shapes, pure-theme constraints,
 legacy hook adapter coverage for compatibility themes, docs/schema
 synchronization, and direct core dependencies on legacy DOM IDs.
 
-Set `?themeDev=1` in the browser or `localStorage.ns_theme_dev_mode = "1"` to
+Set `?themeDev=1` in the browser or `localStorage.press_theme_dev_mode = "1"` to
 log runtime warnings for malformed manifests, undeclared or missing regions,
 missing hooks, hook/render errors, and missing legacy DOM IDs.

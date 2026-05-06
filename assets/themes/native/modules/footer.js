@@ -25,7 +25,7 @@ export function mount(context = {}) {
   if (!left.querySelector('.footer-copy')) {
     const copy = doc.createElement('span');
     copy.className = 'footer-copy';
-    copy.innerHTML = '© <span id="footerYear"></span> <span class="footer-site">NanoSite</span>';
+    copy.innerHTML = '© <span id="footerYear"></span> <span class="footer-site">Press</span>';
     left.appendChild(copy);
   }
 

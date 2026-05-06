@@ -69,7 +69,7 @@ jobs:
             echo "should_release=true"
             echo "latest_tag=${latest_tag}"
             echo "next_tag=${next_tag}"
-            echo "asset_name=nanosite-system-${next_tag}.zip"
+            echo "asset_name=press-system-${next_tag}.zip"
             echo "changed_files<<EOF"
             printf '%s\n' "${changed_files}"
             echo "EOF"
@@ -200,7 +200,7 @@ jobs:
             --header "Accept: application/vnd.github+json" \
             --header "Content-Type: application/zip" \
             --data-binary @"${{ steps.package.outputs.archive_path }}" \
-            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${asset_name}&label=NanoSite%20system%20update%20package" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}/assets?name=${asset_name}&label=Press%20system%20update%20package" \
             > dist/release-asset.json
 
       - name: Validate release asset

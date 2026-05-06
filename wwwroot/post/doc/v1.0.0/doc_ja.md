@@ -1,16 +1,16 @@
 ---
-title: NanoSite ドキュメント
+title: Press ドキュメント
 date: 2025-08-17
 version: v1.0.0
 tags:
-	- NanoSite
+	- Press
 	- ドキュメント
 excerpt: Markdown ファイルから直接コンテンツサイトを構築し、ビルド工程は不要です。wwwroot/ に配置し、JSON にリストして公開するだけで、GitHub Pages にも対応します。本ガイドでは、プロジェクト構造、設定ファイル、コンテンツ読み込み、テーマ、検索、タグ、SEO、メディア、デプロイ手順を解説します。
-author: deemoe
+author: Ekily
 ai: true
 ---
 
-# NanoSite ドキュメント
+# Press ドキュメント
 
 ビルド不要。純粋な Markdown ファイルからコンテンツサイトを構築できます。`wwwroot/` に Markdown を置き、JSON に登録して、そのまま公開（GitHub Pages に最適）。
 
@@ -84,15 +84,15 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 
 ```json
 {
-	"nanoSite": {
-		"en": "post/meet-nanosite/main_en.md",
-		"chs": "post/meet-nanosite/main_chs.md",
-		"ja": "post/meet-nanosite/main_ja.md"
+	"press": {
+		"en": "post/meet-press/main_en.md",
+		"chs": "post/meet-press/main_chs.md",
+		"ja": "post/meet-press/main_ja.md"
 	},
-	"nanodoc": {
-		"en": "post/meet-nanosite/doc_en.md",
-		"chs": "post/meet-nanosite/doc_chs.md",
-		"ja": "post/meet-nanosite/doc_ja.md"
+	"pressDocs": {
+		"en": "post/meet-press/doc_en.md",
+		"chs": "post/meet-press/doc_chs.md",
+		"ja": "post/meet-press/doc_ja.md"
 	}
 }
 ```
@@ -162,10 +162,10 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 
 ```json
 {
-	"siteTitle": { "default": "deemoe's journal", "chs": "deemoe 的日志", "ja": "deemoe のジャーナル" },
+	"siteTitle": { "default": "Ekily Press notes", "chs": "Ekily Press 笔记", "ja": "Ekily Press ノート" },
 	"siteSubtitle": { "default": "Thanks for playing my game.", "chs": "眼见何事..." },
-	"siteDescription": { "default": "deemoe's journal" },
-	"resourceURL": "https://dee.moe/wwwroot/",
+	"siteDescription": { "default": "Ekily Press notes" },
+	"resourceURL": "https://ekilyhq.github.io/Press/wwwroot/",
 	"siteKeywords": { "default": "static blog, markdown, github pages, blog" },
 	"avatar": "assets/avatar.png",
 	"profileLinks": [ { "label": "GitHub", "href": "https://github.com/you" } ],
@@ -234,7 +234,7 @@ image: path/to/cover.jpg   # 任意。OG 画像などに使用
 段落内が `?id=...` のリンクのみで構成されている場合、そのリンクはカバー・抜粋・日付・読了時間を含むカードに自動変換されます。行内でも強制的にカード化したい場合、`title` に `card` を含めるか `data-card` を付与：
 
 ```markdown
-[ガイドを読む](?id=post/meet-nanosite/doc_ja.md "card")
+[ガイドを読む](?id=post/meet-press/doc_ja.md "card")
 ```
 
 

@@ -76,7 +76,7 @@ const translations = {
       search: (q) => `搜索：${q}`
     },
     editor: {
-      pageTitle: 'Markdown 编辑器 - NanoSite',
+      pageTitle: 'Markdown 编辑器 - Press',
       languageLabel: '语言',
       verifying: '正在验证…',
       verify: '验证',
@@ -124,10 +124,10 @@ const translations = {
         },
         system: '系统',
         siteSettings: '站点设置',
-        nanoSiteUpdates: 'NanoSite 更新',
+        pressUpdates: 'Press 更新',
         sync: '发布',
         siteSettingsMeta: '编辑 site.yaml 设置。',
-        systemUpdatesMeta: '查看并应用 NanoSite 更新。',
+        systemUpdatesMeta: '查看并应用 Press 更新。',
         syncMeta: '将本地更改发布到 GitHub。',
         editorLanguage: '编辑器语言',
         editorLanguageMeta: '调整编辑器界面语言。',
@@ -172,8 +172,8 @@ const translations = {
       },
       welcome: {
         kicker: '快速上手',
-        title: '欢迎使用 NanoSite',
-        meta: '先写内容，再检查站点设置；准备好之后再发布。',
+        title: '欢迎使用 Press',
+        meta: 'Where knowledge becomes pages.',
         stepsTitle: '从这三步开始',
         step1Number: '第 1 步',
         step1Title: '配置站点',
@@ -188,13 +188,13 @@ const translations = {
         step3Title: '准备好后发布',
         step3Detail: '保存会把草稿留在本地。发布会把你选择的更改发送到 GitHub。',
         step3Button: '打开发布',
-        updatesTitle: 'NanoSite 更新',
+        updatesTitle: 'Press 更新',
         updatesBody: '检查编辑器和运行时更新，不会改动你的文章、页面或站点设置。',
         updatesButton: '检查更新',
         faqTitle: '遇到陌生词？点开看看',
         faqIntro: '不需要现在全部读完。有疑问时展开查阅就好。',
-        faqNanoSiteQuestion: 'NanoSite 是什么？',
-        faqNanoSiteAnswer: 'NanoSite 会把你写的 Markdown 文件转换成静态网站，并托管在 GitHub Pages 上。你只需要专注写作，它负责把内容变成可以访问的网页。',
+        faqPressQuestion: 'Press 是什么？',
+        faqPressAnswer: 'Where knowledge becomes pages.',
         faqMarkdownQuestion: 'Markdown 是什么？',
         faqMarkdownAnswer: 'Markdown 是一种很轻量的写作格式，用普通文本就能写标题、链接、列表、图片和段落。',
         faqArticlesPagesQuestion: '文章和页面有什么区别？',
@@ -203,7 +203,7 @@ const translations = {
         faqFrontMatterAnswer: '前置元数据是一篇文章或页面的小设置区，用来保存标题、日期、标签、摘要、封面图等信息。',
         faqPublishQuestion: '本地编辑和 Publish 是怎么工作的？',
         faqPublishAnswer: '保存会把草稿留在这台电脑上。Publish 会把你选择的本地更改发送到 GitHub。',
-        faqUpdatesQuestion: 'NanoSite 更新会改什么？',
+        faqUpdatesQuestion: 'Press 更新会改什么？',
         faqUpdatesAnswer: 'System Updates 只更新编辑器和运行时系统文件，不会覆盖你的文章、页面或站点设置。'
       },
       status: {
@@ -217,8 +217,8 @@ const translations = {
         clean: '没有本地更改'
       },
       systemUpdates: {
-        tabLabel: 'NanoSite 更新',
-        title: 'NanoSite 更新',
+        tabLabel: 'Press 更新',
+        title: 'Press 更新',
         openDownload: '下载发布 ZIP',
         downloadAssetLink: ({ name }) => `下载 ${name}`,
         openReleasePage: '在 GitHub 查看发布页',
@@ -230,7 +230,7 @@ const translations = {
         publishedLabel: ({ date }) => `发布时间：${date}`,
         assetLabel: ({ name, size }) => `附件：${name}（${size}）`,
         assetWithHash: ({ name, size, hash }) => `附件：${name}（${size}） — SHA-256 ${hash}`,
-        noAsset: '此发布没有可下载的 NanoSite 系统更新包。',
+        noAsset: '此发布没有可下载的 Press 系统更新包。',
         status: {
           idle: '先下载最新的发布 ZIP，然后选择该文件以检查更新。',
           reading: '正在读取压缩包…',
@@ -243,7 +243,7 @@ const translations = {
           releaseFetch: '无法加载最新发布信息。',
           releaseRateLimited: 'GitHub API 已限流。请稍后重试，或手动选择已下载的 ZIP。',
           emptyFile: '选择的文件为空。',
-          invalidArchive: '选中的 ZIP 无法作为 NanoSite 发布读取。',
+          invalidArchive: '选中的 ZIP 无法作为 Press 发布读取。',
           sizeMismatch: ({ expected, actual }) => `选中的压缩包大小（${actual}）与发布附件（${expected}）不一致。`,
           digestMismatch: '选中的压缩包 SHA-256 与发布附件不一致。',
           generic: '系统更新失败，请重试。'
@@ -458,7 +458,7 @@ const translations = {
           insertCard: '将光标放在空行上，然后点击以插入文章卡片。若没有文章，请等待索引加载或在 index.yaml 中添加条目。'
         }
       },
-      editorPlaceholder: '# 你好，NanoSite\n\n开始撰写 Markdown…',
+      editorPlaceholder: '# 你好，Press\n\n开始撰写 Markdown…',
       editorTextareaAria: 'Markdown 源',
       empty: {
         title: '当前没有打开编辑器',
@@ -927,7 +927,7 @@ const translations = {
           readFailed: '读取 site.yaml 失败。'
         }
       },
-      footerNote: '由 ❤️ 打造，基于 <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>。保持灵感，持续创作。'
+      footerNote: '由 ❤️ 打造，基于 <a href="https://ekilyhq.github.io/Press/" target="_blank" rel="noopener">Press</a>。保持灵感，持续创作。'
     },
   }
 

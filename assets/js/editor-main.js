@@ -20,8 +20,8 @@ import { applyLangHints } from './typography.js';
 import { fetchConfigWithYamlFallback, fetchMergedSiteConfig } from './yaml.js';
 import { t, withLangParam, loadContentJsonWithRaw, getCurrentLang, normalizeLangKey } from './i18n.js?v=20260506theme';
 
-const LS_WRAP_KEY = 'ns_editor_wrap_enabled';
-const LS_VIEW_KEY = 'ns_editor_markdown_view';
+const LS_WRAP_KEY = 'press_editor_wrap_enabled';
+const LS_VIEW_KEY = 'press_editor_markdown_view';
 const FORCE_MARKDOWN_WRAP = true;
 
 function normalizeMarkdownEditorView(mode) {
@@ -94,9 +94,9 @@ const getContentRootPrefix = () => {
 function syncFrontMatterLabelWidth(root) {
   if (!root || typeof root.querySelectorAll !== 'function') return;
   try {
-    if (typeof root.__nsFrontMatterLabelWidthCleanup === 'function') root.__nsFrontMatterLabelWidthCleanup();
+    if (typeof root.__pressFrontMatterLabelWidthCleanup === 'function') root.__pressFrontMatterLabelWidthCleanup();
   } catch (_) {}
-  try { root.__nsFrontMatterLabelWidthCleanup = null; } catch (_) {}
+  try { root.__pressFrontMatterLabelWidthCleanup = null; } catch (_) {}
 
   const labels = Array.from(root.querySelectorAll('.frontmatter-field-title'));
   if (!labels.length) {
@@ -200,7 +200,7 @@ function syncFrontMatterLabelWidth(root) {
   } catch (_) {}
   schedule();
 
-  root.__nsFrontMatterLabelWidthCleanup = () => {
+  root.__pressFrontMatterLabelWidthCleanup = () => {
     cancelFrame(frame);
     frame = 0;
     try { if (observer) observer.disconnect(); } catch (_) {}
@@ -736,7 +736,7 @@ function renderPreview(mdText) {
     if (!target) return;
     // Use the current markdown file directory (if known) as baseDir
     // so relative image/link paths resolve correctly in preview.
-    const baseDir = (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir))
+    const baseDir = (window.__press_editor_base_dir && String(window.__press_editor_base_dir))
       || (`${getContentRoot()}/`);
     const { post } = mdParse(mdText || '', baseDir);
     setSafeHtml(target, post || '', baseDir, { alreadySanitized: true });
@@ -872,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyWrapState(readWrapState(), { persist: false });
 
-  const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, NanoSite!');\n\`\`\`\n`;
+  const seed = `# 新文章标题\n\n> 在左侧编辑 Markdown，切换到 Preview 查看渲染效果。\n\n- 支持代码块、表格、待办列表\n- 图片与视频语法\n\n\`\`\`js\nconsole.log('Hello, Press!');\n\`\`\`\n`;
 
   const frontMatterManager = (() => {
     const panel = document.getElementById('frontMatterPanel');
@@ -1481,7 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  try { window.addEventListener('ns-editor-asset-preview', handleAssetPreviewEvent); }
+  try { window.addEventListener('press-editor-asset-preview', handleAssetPreviewEvent); }
   catch (_) {}
 
   const requestLayout = () => {
@@ -1538,9 +1538,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const normalized = raw
         ? raw.replace(/\\+/g, '/').replace(/\/?$/, '/')
         : fallback;
-      window.__ns_editor_base_dir = normalized;
+      window.__press_editor_base_dir = normalized;
     } catch (_) {
-      try { window.__ns_editor_base_dir = fallback; } catch (__) {}
+      try { window.__press_editor_base_dir = fallback; } catch (__) {}
     }
   };
 
@@ -1657,7 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
     markdownBlocksEditor = createMarkdownBlocksEditor(blocksWrap, {
       labels: blockLabels,
       onChange: setEditorBodyFromBlocks,
-      getBaseDir: () => (window.__ns_editor_base_dir && String(window.__ns_editor_base_dir)) || `${getContentRoot()}/`,
+      getBaseDir: () => (window.__press_editor_base_dir && String(window.__press_editor_base_dir)) || `${getContentRoot()}/`,
       resolveImageSrc,
       hydrateImages: (node) => {
         try { applyPreviewAssetOverrides(node, getCurrentMarkdownPath()); } catch (_) {}
@@ -2250,7 +2250,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   recordSelection();
 
-  document.addEventListener('ns-editor-language-applied', () => {
+  document.addEventListener('press-editor-language-applied', () => {
     tooltipButtons.forEach(btn => applyButtonTooltipState(btn, !!btn.disabled));
     renderCurrentFileIndicator();
     if (markdownBlocksEditor && typeof markdownBlocksEditor.requestLayout === 'function') {
@@ -2302,7 +2302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = message == null ? '' : String(message);
     if (!text) return;
     try {
-      window.dispatchEvent(new CustomEvent('ns-editor-toast', { detail: { kind: kind || 'info', message: text } }));
+      window.dispatchEvent(new CustomEvent('press-editor-toast', { detail: { kind: kind || 'info', message: text } }));
     } catch (_) {}
   };
 
@@ -2497,7 +2497,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       try {
-        window.dispatchEvent(new CustomEvent('ns-editor-asset-added', {
+        window.dispatchEvent(new CustomEvent('press-editor-asset-added', {
           detail: {
             markdownPath,
             fileName: meta.fileName,
@@ -2742,7 +2742,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!nodeId) return;
       event.preventDefault();
       try {
-        document.dispatchEvent(new CustomEvent('ns-editor-current-file-breadcrumb-select', {
+        document.dispatchEvent(new CustomEvent('press-editor-current-file-breadcrumb-select', {
           detail: {
             nodeId,
             path: target.dataset.currentFilePath || ''
@@ -2987,7 +2987,7 @@ document.addEventListener('DOMContentLoaded', () => {
     isWrapEnabled: () => wrapEnabled
   };
 
-  try { window.__ns_primary_editor = primaryEditorApi; } catch (_) {}
+  try { window.__press_primary_editor = primaryEditorApi; } catch (_) {}
 
   // Clear draft action removed (no local storage drafts)
 
@@ -3026,7 +3026,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let contentRoot = 'wwwroot';
     // Track current markdown base directory for resolving relative assets
     // Expose to window so renderPreview can access outside this closure
-    try { if (!window.__ns_editor_base_dir) window.__ns_editor_base_dir = `${contentRoot}/`; } catch (_) {}
+    try { if (!window.__press_editor_base_dir) window.__press_editor_base_dir = `${contentRoot}/`; } catch (_) {}
     let activeGroup = 'index';
 
     const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg || ''; };
@@ -3425,8 +3425,8 @@ document.addEventListener('DOMContentLoaded', () => {
         contentRoot = 'wwwroot';
       }
       // Keep a global hint for content root, and default editor base dir
-      try { window.__ns_content_root = contentRoot; } catch (_) {}
-      try { window.__ns_editor_base_dir = `${contentRoot}/`; } catch (_) {}
+      try { window.__press_content_root = contentRoot; } catch (_) {}
+      try { window.__press_editor_base_dir = `${contentRoot}/`; } catch (_) {}
 
       try {
         setStatus('Loading index…');

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../assets/schema/index.json
 
-nanoSite:
+press:
   en:
     - post/main/v1.0.0/main_en.md
     - post/main/v2.0.0/main_en.md
@@ -10,7 +10,7 @@ nanoSite:
   ja:
     - post/main/v1.0.0/main_ja.md
     - post/main/v2.0.0/main_ja.md
-nanodoc:
+pressDocs:
   en:
     - post/doc/v1.0.0/doc_en.md
     - post/doc/v2.0.0/doc_en.md

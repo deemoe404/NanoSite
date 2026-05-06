@@ -1,17 +1,17 @@
 ---
-title: 为 NanoSite 配置 GitHub Pages
+title: 为 Press 配置 GitHub Pages
 date: 2025-08-21
 tags:
-  - 微站
+  - Press
   - 技术
   - GitHub Pages
 image: page.jpeg
-excerpt: 你可以将 NanoSite 免费托管在 GitHub Pages 上。本文作为一份自包含的参考，但仍请以 GitHub 官方文档为准以获取最准确的信息。
-author: deemoe
+excerpt: 你可以将 Press 免费托管在 GitHub Pages 上。本文作为一份自包含的参考，但仍请以 GitHub 官方文档为准以获取最准确的信息。
+author: Ekily
 ai: true
 ---
 
-> [GitHub Pages](https://pages.github.com) 并非 NanoSite 的一部分，因此这里的信息可能不是最新的。如遇问题，请优先参考 GitHub 官方文档。
+> [GitHub Pages](https://pages.github.com) 并非 Press 的一部分，因此这里的信息可能不是最新的。如遇问题，请优先参考 GitHub 官方文档。
 
 ![page](page.jpeg)
 

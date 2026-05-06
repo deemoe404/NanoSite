@@ -70,11 +70,11 @@
   --solstice-line-highlight: rgba(0, 113, 227, 0.2);
   --solstice-scroll-offset: 0px;
   --solstice-scroll-tilt: 0deg;
-  --ns-color-text: var(--solstice-text);
-  --ns-color-surface: var(--solstice-surface);
-  --ns-font-body: var(--solstice-font);
-  --ns-radius-card: var(--solstice-radius);
-  --ns-space-page: var(--solstice-gap);
+  --press-color-text: var(--solstice-text);
+  --press-color-surface: var(--solstice-surface);
+  --press-font-body: var(--solstice-font);
+  --press-radius-card: var(--solstice-radius);
+  --press-space-page: var(--solstice-gap);
 
   /* Bridge variables consumed by shared tools (composer, index editor, etc.) */
   --bg: var(--solstice-bg);

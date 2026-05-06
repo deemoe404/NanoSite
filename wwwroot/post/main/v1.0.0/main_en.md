@@ -1,19 +1,19 @@
 ---
-title: Meet NanoSite
+title: Meet Press
 date: 2025-08-17
 version: v1.0.0
 tags:
-  - NanoSite
+  - Press
   - Technology
 image: hero.jpeg
 excerpt: Build a simple personal website from plain text files (Markdown). No build tools, no databases — just edit files and publish. Perfect for blogs, notes, wikis, journals, or book chapters.
-author: deemoe
+author: Ekily
 ai: true
 ---
 
 ![hero](hero.jpeg)
 
-Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
+Source Code: [Press on GitHub](https://github.com/EkilyHQ/Press)
 
 ## Highlights
 
@@ -27,7 +27,7 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
 
 ## Quick Start in 5 minutes
 
-1) **Get the project On [GitHub](https://github.com/deemoe404/NanoSite/)**: Fork or simply download ZIP and unzip.
+1) **Get the project On [GitHub](https://github.com/EkilyHQ/Press/)**: Fork or simply download ZIP and unzip.
 2) **Preview locally** (recommended)
   - In the project folder, start a simple server:
     - macOS/Linux: `python3 -m http.server 8000`
@@ -63,4 +63,4 @@ Source Code: [NanoSite on GitHub](https://github.com/deemoe404/NanoSite)
   }
   ```
 
-🎉 Congratulations! You've set up your NanoSite. Reload the page, and you should see your post card on the homepage. Click to read it. For more customization options, check the [documentation](?id=post/meet-nanosite/doc_en.md).
+🎉 Congratulations! You've set up your Press. Reload the page, and you should see your post card on the homepage. Click to read it. For more customization options, check the [documentation](?id=post/meet-press/doc_en.md).

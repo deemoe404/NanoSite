@@ -9,8 +9,8 @@ import {
 
 const sample = {
   index: {
-    __order: ['nanoSite', 'guide', 'v2', 'v3'],
-    nanoSite: {
+    __order: ['press', 'guide', 'v2', 'v3'],
+    press: {
       en: [
         'post/main/main_en.md',
         'post/main/v2.0.0/main_en.md'
@@ -44,11 +44,11 @@ const sample = {
 
 const baseline = {
   index: {
-    __order: ['oldArticle', 'nanoSite', 'v2', 'v3'],
+    __order: ['oldArticle', 'press', 'v2', 'v3'],
     oldArticle: {
       en: ['post/old/v1.0.0/old_en.md']
     },
-    nanoSite: {
+    press: {
       en: [
         'post/main/main_en.md',
         'post/main/v1.5.0/old_en.md',
@@ -94,7 +94,7 @@ const fileStates = new Map([
   ['post/v3/main_en.md', 'checking']
 ]);
 const diffStates = {
-  'index:nanoSite:en:1': 'modified',
+  'index:press:en:1': 'modified',
   'tabs:History': 'modified'
 };
 const indexDiff = {
@@ -105,7 +105,7 @@ const indexDiff = {
   keys: {
     guide: { state: 'added', langs: {}, addedLangs: [], removedLangs: [] },
     oldArticle: { state: 'removed', langs: {}, addedLangs: [], removedLangs: [] },
-    nanoSite: {
+    press: {
       state: 'modified',
       addedLangs: [],
       removedLangs: ['ja'],
@@ -176,45 +176,45 @@ assert.deepEqual(
   system.children.map(node => [node.id, node.kind, node.source, node.label]),
   [
     ['system:site-settings', 'system', 'system', 'Site Settings'],
-    ['system:updates', 'system', 'system', 'NanoSite Updates'],
+    ['system:updates', 'system', 'system', 'Press Updates'],
     ['system:sync', 'system', 'system', 'Publish']
   ],
-  'system root should expose stable Site Settings, NanoSite Updates, and Publish leaves'
+  'system root should expose stable Site Settings, Press Updates, and Publish leaves'
 );
 
 const articles = tree[2];
 assert.equal(articles.source, 'index');
-assert.deepEqual(articles.children.map(node => node.id), ['index:nanoSite', 'index:guide', 'index:v2', 'index:v3', 'index:oldArticle'], 'article entry order should follow __order and append deleted baseline entries');
+assert.deepEqual(articles.children.map(node => node.id), ['index:press', 'index:guide', 'index:v2', 'index:v3', 'index:oldArticle'], 'article entry order should follow __order and append deleted baseline entries');
 
-const articleLangs = findEditorContentTreeNode(tree, 'index:nanoSite').children;
-assert.deepEqual(articleLangs.map(node => node.id), ['index:nanoSite:en', 'index:nanoSite:chs', 'index:nanoSite:ja'], 'article languages should follow preferred language order and append deleted baseline languages');
+const articleLangs = findEditorContentTreeNode(tree, 'index:press').children;
+assert.deepEqual(articleLangs.map(node => node.id), ['index:press:en', 'index:press:chs', 'index:press:ja'], 'article languages should follow preferred language order and append deleted baseline languages');
 
-const enVersions = findEditorContentTreeNode(tree, 'index:nanoSite:en').children;
+const enVersions = findEditorContentTreeNode(tree, 'index:press:en').children;
 assert.deepEqual(
   enVersions.map(node => [node.id, node.kind, node.path, node.label]),
   [
-    ['index:nanoSite:en:0', 'file', 'post/main/main_en.md', 'Version 1'],
-    ['index:nanoSite:en:1', 'file', 'post/main/v2.0.0/main_en.md', 'v2.0.0'],
-    ['index:nanoSite:en:removed:1', 'deleted-file', 'post/main/v1.5.0/old_en.md', 'v1.5.0']
+    ['index:press:en:0', 'file', 'post/main/main_en.md', 'Version 1'],
+    ['index:press:en:1', 'file', 'post/main/v2.0.0/main_en.md', 'v2.0.0'],
+    ['index:press:en:removed:1', 'deleted-file', 'post/main/v1.5.0/old_en.md', 'v1.5.0']
   ],
   'article language nodes should expose current and deleted version/file leaves while tolerating legacy root-level first versions'
 );
 
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').draftState, 'dirty');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').diffState, 'modified');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:0').fileState, 'existing');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en').draftState, 'dirty', 'language nodes should aggregate child draft state');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:1').changeState, 'modified', 'dirty or modified file leaves should render as Modified');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:1').draftState, 'dirty');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:1').diffState, 'modified');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:0').fileState, 'existing');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en').draftState, 'dirty', 'language nodes should aggregate child draft state');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:1').changeState, 'modified', 'dirty or modified file leaves should render as Modified');
 assert.equal(findEditorContentTreeNode(tree, 'index:guide:ja:0').changeState, 'added', 'descendants of added article keys should render as Added');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').changeState, 'deleted', 'removed article versions should render as Deleted tombstones');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').isDeleted, true, 'removed article versions should be marked as tombstones');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:ja:removed:0').changeState, 'deleted', 'removed article languages should expose deleted file tombstones');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:removed:1').changeState, 'deleted', 'removed article versions should render as Deleted tombstones');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:removed:1').isDeleted, true, 'removed article versions should be marked as tombstones');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:ja:removed:0').changeState, 'deleted', 'removed article languages should expose deleted file tombstones');
 assert.equal(findEditorContentTreeNode(tree, 'index:oldArticle:en:removed:0').changeState, 'deleted', 'removed article keys should expose deleted descendant file tombstones');
 assert.deepEqual(
   [
     findEditorContentTreeNode(tree, 'index:oldArticle').kind,
-    findEditorContentTreeNode(tree, 'index:nanoSite:ja').kind,
-    findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').kind,
+    findEditorContentTreeNode(tree, 'index:press:ja').kind,
+    findEditorContentTreeNode(tree, 'index:press:en:removed:1').kind,
     findEditorContentTreeNode(tree, 'tabs:Archive').kind,
     findEditorContentTreeNode(tree, 'tabs:History:ja').kind
   ],
@@ -224,8 +224,8 @@ assert.deepEqual(
 assert.deepEqual(
   [
     findEditorContentTreeNode(tree, 'index:oldArticle').deletedKind,
-    findEditorContentTreeNode(tree, 'index:nanoSite:ja').deletedKind,
-    findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').deletedKind,
+    findEditorContentTreeNode(tree, 'index:press:ja').deletedKind,
+    findEditorContentTreeNode(tree, 'index:press:en:removed:1').deletedKind,
     findEditorContentTreeNode(tree, 'tabs:Archive').deletedKind,
     findEditorContentTreeNode(tree, 'tabs:History:ja').deletedKind
   ],
@@ -234,13 +234,13 @@ assert.deepEqual(
 );
 assert.deepEqual(findEditorContentTreeNode(tree, 'index:oldArticle').restoreValue, baseline.index.oldArticle, 'deleted article entries should carry the baseline entry payload for restore');
 assert.equal(findEditorContentTreeNode(tree, 'index:oldArticle').restoreOrderIndex, 0, 'deleted article entries should remember their baseline order index');
-assert.deepEqual(findEditorContentTreeNode(tree, 'index:nanoSite:ja').restoreValue, baseline.index.nanoSite.ja, 'deleted article languages should carry the baseline language payload for restore');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').restoreValue, 'post/main/v1.5.0/old_en.md', 'deleted article versions should carry their baseline file path for restore');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en:removed:1').restoreIndex, 1, 'deleted article versions should remember their baseline version index');
+assert.deepEqual(findEditorContentTreeNode(tree, 'index:press:ja').restoreValue, baseline.index.press.ja, 'deleted article languages should carry the baseline language payload for restore');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:removed:1').restoreValue, 'post/main/v1.5.0/old_en.md', 'deleted article versions should carry their baseline file path for restore');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en:removed:1').restoreIndex, 1, 'deleted article versions should remember their baseline version index');
 assert.deepEqual(findEditorContentTreeNode(tree, 'tabs:History:ja').restoreValue, baseline.tabs.History.ja, 'deleted page language files should carry their baseline tab-language payload for restore');
-assert.equal(findEditorContentTreeNode(tree, 'index:nanoSite:en').orderChanged, true, 'article language nodes should expose version order changes');
+assert.equal(findEditorContentTreeNode(tree, 'index:press:en').orderChanged, true, 'article language nodes should expose version order changes');
 assert.deepEqual(
-  findEditorContentTreeNode(tree, 'index:nanoSite').changeCounts,
+  findEditorContentTreeNode(tree, 'index:press').changeCounts,
   { added: 0, modified: 1, deleted: 2, total: 3 },
   'article entry nodes should aggregate descendant changed file counts even when children are collapsed'
 );

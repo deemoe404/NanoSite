@@ -12,7 +12,7 @@ trap cleanup EXIT
 cd "${tmp_dir}"
 git init -q
 git config user.email "test@example.com"
-git config user.name "NanoSite Test"
+git config user.name "Press Test"
 
 cat > site.yaml <<'EOF'
 nested:

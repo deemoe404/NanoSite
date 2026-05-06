@@ -1,8 +1,8 @@
 // General utilities and safe helpers
-// Content root helper: default to 'wwwroot' but allow runtime override via window.__ns_content_root
+// Content root helper: default to 'wwwroot' but allow runtime override via window.__press_content_root
 export function getContentRoot() {
   try {
-    const raw = (typeof window !== 'undefined' && window.__ns_content_root) ? String(window.__ns_content_root) : 'wwwroot';
+    const raw = (typeof window !== 'undefined' && window.__press_content_root) ? String(window.__press_content_root) : 'wwwroot';
     return raw.replace(/^\/+|\/+$/g, '');
   } catch (_) {
     return 'wwwroot';
@@ -136,7 +136,7 @@ const __NS_RENDERED_MARKDOWN_TAG_ATTRS = {
   span: new Set(['aria-hidden','class']),
   video: new Set(['aria-label','class','controls','playsinline','poster','preload','title'])
 };
-function __ns_isAllowedAttr(tag, attr) {
+function __press_isAllowedAttr(tag, attr) {
   if (!attr) return false;
   const a = String(attr).toLowerCase();
   if (a.startsWith('on')) return false;
@@ -144,7 +144,7 @@ function __ns_isAllowedAttr(tag, attr) {
   const spec = __NS_RENDERED_MARKDOWN_TAG_ATTRS[tag];
   return !!(spec && spec.has(a));
 }
-function __ns_rewriteHref(val, baseDir) {
+function __press_rewriteHref(val, baseDir) {
   const s = String(val || '').trim();
   if (!s) return s;
   if (s.startsWith('#') || s.startsWith('?')) return s;
@@ -152,7 +152,7 @@ function __ns_rewriteHref(val, baseDir) {
   if (s.startsWith('/')) return s;
   return resolveImageSrc(s, baseDir);
 }
-function __ns_rewriteSrc(val, baseDir) {
+function __press_rewriteSrc(val, baseDir) {
   const s = String(val || '').trim();
   if (!s) return s;
   if (/^(data:|blob:)/i.test(s)) return s;
@@ -167,13 +167,13 @@ export function getQueryVariable(variable) {
 }
 
 let baseSiteTitle = (() => {
-  const t = document.title || 'NanoSite';
-  return (t && String(t).trim()) || 'NanoSite';
+  const t = document.title || 'Press';
+  return (t && String(t).trim()) || 'Press';
 })();
 
 export function setBaseSiteTitle(title) {
   const next = (title && String(title).trim()) || null;
-  baseSiteTitle = next || baseSiteTitle || 'NanoSite';
+  baseSiteTitle = next || baseSiteTitle || 'Press';
 }
 
 export function setDocTitle(title) {
@@ -314,11 +314,11 @@ export function setSafeHtml(target, html, baseDir, options = {}) {
       while ((a = attrRe.exec(attrs))) {
         const name = (a[1] || '').toLowerCase();
         if (!name || name.startsWith('on')) continue;
-        if (!__ns_isAllowedAttr(tag, name)) continue;
+        if (!__press_isAllowedAttr(tag, name)) continue;
         const rawVal = a[3] ?? a[4] ?? a[5] ?? '';
         let val = unescapeHtml(rawVal);
-        if (name === 'href') val = __ns_rewriteHref(val, baseDir);
-        else if (name === 'src') val = __ns_rewriteSrc(val, baseDir);
+        if (name === 'href') val = __press_rewriteHref(val, baseDir);
+        else if (name === 'src') val = __press_rewriteSrc(val, baseDir);
         try { el.setAttribute(name, val); } catch (_) {}
       }
 

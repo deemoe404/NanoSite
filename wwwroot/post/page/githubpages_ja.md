@@ -1,17 +1,17 @@
 ---
-title: NanoSite 用の GitHub Pages 設定
+title: Press 用の GitHub Pages 設定
 date: 2025-08-21
 tags:
-  - NanoSite
+  - Press
   - 技術
   - GitHub Pages
 image: page.jpeg
-excerpt: NanoSite は GitHub Pages に無料でホスティングできます。本ガイドは自己完結の参考情報ですが、最新で正確な情報は常に GitHub の公式ドキュメントを参照してください。
-author: deemoe
+excerpt: Press は GitHub Pages に無料でホスティングできます。本ガイドは自己完結の参考情報ですが、最新で正確な情報は常に GitHub の公式ドキュメントを参照してください。
+author: Ekily
 ai: true
 ---
 
-> [GitHub Pages](https://pages.github.com) は NanoSite の一部ではありません。ここにある情報が最新でない場合があります。問題がある場合は GitHub の公式ドキュメントを参照してください。
+> [GitHub Pages](https://pages.github.com) は Press の一部ではありません。ここにある情報が最新でない場合があります。問題がある場合は GitHub の公式ドキュメントを参照してください。
 
 ![page](page.jpeg)
 

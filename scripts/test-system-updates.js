@@ -7,7 +7,7 @@ if (!globalThis.btoa) {
   globalThis.btoa = (value) => Buffer.from(value, 'binary').toString('base64');
 }
 globalThis.document = {
-  title: 'NanoSite',
+  title: 'Press',
   baseURI: 'https://example.test/',
   documentElement: { setAttribute() {} },
   querySelectorAll: () => []
@@ -27,6 +27,7 @@ const {
   analyzeArchive,
   collectSystemUpdateArchiveEntries,
   clearSystemUpdateState,
+  getDisplayReleaseNotes,
   normalizeSystemReleaseManifest,
   selectSystemUpdateAsset,
   verifySystemUpdateAsset
@@ -77,37 +78,37 @@ async function run(name, fn) {
   }
 }
 
-await run('selects the dedicated NanoSite system release asset', async () => {
+await run('selects the dedicated Press system release asset', async () => {
   const asset = selectSystemUpdateAsset({
     assets: [
       { name: 'source.zip', browser_download_url: 'https://example.test/source.zip' },
-      { name: 'nanosite-system-v3.3.5.zip', browser_download_url: 'https://example.test/system.zip' }
+      { name: 'press-system-v3.3.5.zip', browser_download_url: 'https://example.test/system.zip' }
     ]
   });
 
-  assert.equal(asset.name, 'nanosite-system-v3.3.5.zip');
+  assert.equal(asset.name, 'press-system-v3.3.5.zip');
   assert.equal(asset.url, 'https://example.test/system.zip');
   assert.equal(selectSystemUpdateAsset({
-    assets: [{ name: 'NanoSite-v3.3.5-source.zip', browser_download_url: 'https://example.test/source.zip' }]
+    assets: [{ name: 'Press-v3.3.5-source.zip', browser_download_url: 'https://example.test/source.zip' }]
   }), null);
 });
 
 await run('verifies release asset size and digest before archive comparison', async () => {
-  const buffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html>' });
+  const buffer = makeZip({ 'press-system-v3.3.5/index.html': '<!doctype html>' });
   const digest = await sha256(buffer);
 
   await verifySystemUpdateAsset(buffer, {
-    name: 'nanosite-system-v3.3.5.zip',
+    name: 'press-system-v3.3.5.zip',
     size: buffer.byteLength,
     digest: `sha256:${digest}`
-  }, 'nanosite-system-v3.3.5.zip');
+  }, 'press-system-v3.3.5.zip');
 
   await assert.rejects(
     () => verifySystemUpdateAsset(buffer, {
-      name: 'nanosite-system-v3.3.5.zip',
+      name: 'press-system-v3.3.5.zip',
       size: buffer.byteLength,
       digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
-    }, 'nanosite-system-v3.3.5.zip'),
+    }, 'press-system-v3.3.5.zip'),
     /sha-?256|digest|hash/i
   );
 });
@@ -119,17 +120,17 @@ await run('normalizes static system release manifests', async () => {
     tag: 'v3.3.5',
     publishedAt: '2026-04-29T08:18:39Z',
     notes: 'Release notes',
-    htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+    htmlUrl: 'https://github.com/EkilyHQ/Press/releases/tag/v3.3.5',
     asset: {
-      name: 'nanosite-system-v3.3.5.zip',
-      url: 'https://github.com/deemoe404/NanoSite/releases/download/v3.3.5/nanosite-system-v3.3.5.zip',
+      name: 'press-system-v3.3.5.zip',
+      url: 'https://github.com/EkilyHQ/Press/releases/download/v3.3.5/press-system-v3.3.5.zip',
       size: 123,
       digest: 'sha256:535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a'
     }
   });
 
   assert.equal(release.tag, 'v3.3.5');
-  assert.equal(release.asset.name, 'nanosite-system-v3.3.5.zip');
+  assert.equal(release.asset.name, 'press-system-v3.3.5.zip');
   assert.throws(
     () => normalizeSystemReleaseManifest({
       schemaVersion: 1,
@@ -137,7 +138,7 @@ await run('normalizes static system release manifests', async () => {
       tag: 'v3.3.5',
       publishedAt: '2026-04-29T08:18:39Z',
       notes: '',
-      htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5'
+      htmlUrl: 'https://github.com/EkilyHQ/Press/releases/tag/v3.3.5'
     }),
     /manifest/i
   );
@@ -148,10 +149,10 @@ await run('normalizes static system release manifests', async () => {
       tag: 'v3.3.5',
       publishedAt: '2026-04-29T08:18:39Z',
       notes: '',
-      htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+      htmlUrl: 'https://github.com/EkilyHQ/Press/releases/tag/v3.3.5',
       asset: {
-        name: 'NanoSite-v3.3.5-source.zip',
-        url: 'https://github.com/deemoe404/NanoSite/archive/refs/tags/v3.3.5.zip',
+        name: 'Press-v3.3.5-source.zip',
+        url: 'https://github.com/EkilyHQ/Press/archive/refs/tags/v3.3.5.zip',
         size: 123,
         digest: 'sha256:535de2ddd3c612310760365196c21bb7ab7a5ffacbebb0dcdbd17f59bedc861a'
       }
@@ -160,16 +161,31 @@ await run('normalizes static system release manifests', async () => {
   );
 });
 
+await run('hides stale release notes when no Press system package is attached', async () => {
+  const stalePackageName = `${String.fromCharCode(110, 97, 110, 111)}site-system-v3.3.36.zip`;
+  assert.equal(getDisplayReleaseNotes({
+    name: 'v3.3.36',
+    notes: `Use \`${stalePackageName}\`.`,
+    asset: null
+  }), '');
+
+  assert.equal(getDisplayReleaseNotes({
+    name: 'v3.3.37',
+    notes: 'Use `press-system-v3.3.37.zip`.',
+    asset: { name: 'press-system-v3.3.37.zip' }
+  }), 'Use `press-system-v3.3.37.zip`.');
+});
+
 await run('falls back to the static release manifest when the GitHub API is rate limited', async () => {
   clearSystemUpdateState({ clearReleaseCache: true, keepStatus: true });
-  const buffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>manifest</p>' });
+  const buffer = makeZip({ 'press-system-v3.3.5/index.html': '<!doctype html><p>manifest</p>' });
   const digest = await sha256(buffer);
   let apiCalls = 0;
   let manifestCalls = 0;
 
   globalThis.fetch = async (input) => {
     const url = String(input || '');
-    if (url.includes('/repos/deemoe404/NanoSite/releases/latest')) {
+    if (url.includes('/repos/EkilyHQ/Press/releases/latest')) {
       apiCalls += 1;
       return jsonResponse({ message: 'rate limited' }, {
         ok: false,
@@ -185,10 +201,10 @@ await run('falls back to the static release manifest when the GitHub API is rate
         tag: 'v3.3.5',
         publishedAt: '2026-04-29T08:18:39Z',
         notes: 'Manifest release notes',
-        htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+        htmlUrl: 'https://github.com/EkilyHQ/Press/releases/tag/v3.3.5',
         asset: {
-          name: 'nanosite-system-v3.3.5.zip',
-          url: 'https://github.com/deemoe404/NanoSite/releases/download/v3.3.5/nanosite-system-v3.3.5.zip',
+          name: 'press-system-v3.3.5.zip',
+          url: 'https://github.com/EkilyHQ/Press/releases/download/v3.3.5/press-system-v3.3.5.zip',
           size: buffer.byteLength,
           digest: `sha256:${digest}`
         }
@@ -200,7 +216,7 @@ await run('falls back to the static release manifest when the GitHub API is rate
     };
   };
 
-  await analyzeArchive(buffer, 'nanosite-system-v3.3.5.zip');
+  await analyzeArchive(buffer, 'press-system-v3.3.5.zip');
 
   assert.equal(apiCalls, 1);
   assert.equal(manifestCalls, 1);
@@ -209,11 +225,11 @@ await run('falls back to the static release manifest when the GitHub API is rate
 
 await run('uses the static manifest digest when verifying a selected archive', async () => {
   clearSystemUpdateState({ clearReleaseCache: true, keepStatus: true });
-  const buffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>manifest</p>' });
+  const buffer = makeZip({ 'press-system-v3.3.5/index.html': '<!doctype html><p>manifest</p>' });
 
   globalThis.fetch = async (input) => {
     const url = String(input || '');
-    if (url.includes('/repos/deemoe404/NanoSite/releases/latest')) {
+    if (url.includes('/repos/EkilyHQ/Press/releases/latest')) {
       return jsonResponse({ message: 'rate limited' }, {
         ok: false,
         status: 429
@@ -226,10 +242,10 @@ await run('uses the static manifest digest when verifying a selected archive', a
         tag: 'v3.3.5',
         publishedAt: '2026-04-29T08:18:39Z',
         notes: 'Manifest release notes',
-        htmlUrl: 'https://github.com/deemoe404/NanoSite/releases/tag/v3.3.5',
+        htmlUrl: 'https://github.com/EkilyHQ/Press/releases/tag/v3.3.5',
         asset: {
-          name: 'nanosite-system-v3.3.5.zip',
-          url: 'https://github.com/deemoe404/NanoSite/releases/download/v3.3.5/nanosite-system-v3.3.5.zip',
+          name: 'press-system-v3.3.5.zip',
+          url: 'https://github.com/EkilyHQ/Press/releases/download/v3.3.5/press-system-v3.3.5.zip',
           size: buffer.byteLength,
           digest: 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
         }
@@ -242,7 +258,7 @@ await run('uses the static manifest digest when verifying a selected archive', a
   };
 
   await assert.rejects(
-    () => analyzeArchive(buffer, 'nanosite-system-v3.3.5.zip'),
+    () => analyzeArchive(buffer, 'press-system-v3.3.5.zip'),
     /sha-?256|digest|hash/i
   );
   delete globalThis.fetch;
@@ -250,8 +266,8 @@ await run('uses the static manifest digest when verifying a selected archive', a
 
 await run('normalizes a rooted system update archive to safe site-relative paths', async () => {
   const buffer = makeZip({
-    'nanosite-system-v3.3.5/index.html': '<!doctype html>',
-    'nanosite-system-v3.3.5/assets/js/system-updates.js': 'export {};'
+    'press-system-v3.3.5/index.html': '<!doctype html>',
+    'press-system-v3.3.5/assets/js/system-updates.js': 'export {};'
   });
 
   const entries = collectSystemUpdateArchiveEntries(buffer);
@@ -265,14 +281,14 @@ await run('normalizes a rooted system update archive to safe site-relative paths
 await run('rejects archives that would overwrite user content or site config', async () => {
   assert.throws(
     () => collectSystemUpdateArchiveEntries(makeZip({
-      'nanosite-system-v3.3.5/wwwroot/index.yaml': 'posts: []'
+      'press-system-v3.3.5/wwwroot/index.yaml': 'posts: []'
     })),
     /unsafe|system update/i
   );
 
   assert.throws(
     () => collectSystemUpdateArchiveEntries(makeZip({
-      'nanosite-system-v3.3.5/site.yaml': 'contentRoot: wwwroot'
+      'press-system-v3.3.5/site.yaml': 'contentRoot: wwwroot'
     })),
     /unsafe|system update/i
   );
@@ -281,7 +297,7 @@ await run('rejects archives that would overwrite user content or site config', a
 await run('rejects path traversal entries before comparing files', async () => {
   assert.throws(
     () => collectSystemUpdateArchiveEntries(makeZip({
-      'nanosite-system-v3.3.5/../site.yaml': 'contentRoot: wwwroot'
+      'press-system-v3.3.5/../site.yaml': 'contentRoot: wwwroot'
     })),
     /unsafe|system update/i
   );
@@ -289,13 +305,13 @@ await run('rejects path traversal entries before comparing files', async () => {
 
 await run('does not poison expected release digest from a selected local archive', async () => {
   clearSystemUpdateState({ clearReleaseCache: true, keepStatus: true });
-  const wrongBuffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>wrong</p>' });
-  const rightBuffer = makeZip({ 'nanosite-system-v3.3.5/index.html': '<!doctype html><p>right</p>' });
+  const wrongBuffer = makeZip({ 'press-system-v3.3.5/index.html': '<!doctype html><p>wrong</p>' });
+  const rightBuffer = makeZip({ 'press-system-v3.3.5/index.html': '<!doctype html><p>right</p>' });
   let releaseCalls = 0;
 
   globalThis.fetch = async (input) => {
     const url = String(input || '');
-    if (url.includes('/repos/deemoe404/NanoSite/releases/latest')) {
+    if (url.includes('/repos/EkilyHQ/Press/releases/latest')) {
       releaseCalls += 1;
       return {
         ok: true,
@@ -303,8 +319,8 @@ await run('does not poison expected release digest from a selected local archive
           name: 'v3.3.5',
           tag_name: 'v3.3.5',
           assets: [{
-            name: 'nanosite-system-v3.3.5.zip',
-            browser_download_url: 'https://example.test/nanosite-system-v3.3.5.zip',
+            name: 'press-system-v3.3.5.zip',
+            browser_download_url: 'https://example.test/press-system-v3.3.5.zip',
             size: 0,
             digest: ''
           }]
@@ -317,8 +333,8 @@ await run('does not poison expected release digest from a selected local archive
     };
   };
 
-  await analyzeArchive(wrongBuffer, 'nanosite-system-v3.3.5.zip');
-  await analyzeArchive(rightBuffer, 'nanosite-system-v3.3.5.zip');
+  await analyzeArchive(wrongBuffer, 'press-system-v3.3.5.zip');
+  await analyzeArchive(rightBuffer, 'press-system-v3.3.5.zip');
 
   assert.equal(releaseCalls, 1);
   delete globalThis.fetch;

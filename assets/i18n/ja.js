@@ -76,7 +76,7 @@ const translations = {
       search: (q) => `検索: ${q}`
     },
     editor: {
-      pageTitle: 'Markdown エディター - NanoSite',
+      pageTitle: 'Markdown エディター - Press',
       languageLabel: '言語',
       verifying: '検証中…',
       verify: '検証',
@@ -124,10 +124,10 @@ const translations = {
         },
         system: 'システム',
         siteSettings: 'サイト設定',
-        nanoSiteUpdates: 'NanoSite 更新',
+        pressUpdates: 'Press 更新',
         sync: '公開',
         siteSettingsMeta: 'site.yaml 設定を編集します。',
-        systemUpdatesMeta: 'NanoSite 更新を確認して適用します。',
+        systemUpdatesMeta: 'Press 更新を確認して適用します。',
         syncMeta: 'ローカルの変更を GitHub に公開します。',
         editorLanguage: 'エディター言語',
         editorLanguageMeta: 'エディター UI の言語を変更します。',
@@ -172,8 +172,8 @@ const translations = {
       },
       welcome: {
         kicker: 'はじめに',
-        title: 'NanoSite へようこそ',
-        meta: 'まず内容を書き、サイトの基本設定を確認し、準備ができたら公開します。',
+        title: 'Press へようこそ',
+        meta: 'Where knowledge becomes pages.',
         stepsTitle: 'この 3 ステップから始める',
         step1Number: 'Step 1',
         step1Title: 'サイトを設定する',
@@ -188,13 +188,13 @@ const translations = {
         step3Title: '準備ができたら公開する',
         step3Detail: '保存すると下書きはローカルに残ります。Publish は選択した変更を GitHub に送ります。',
         step3Button: 'Publish を開く',
-        updatesTitle: 'NanoSite 更新',
+        updatesTitle: 'Press 更新',
         updatesBody: '記事、ページ、サイト設定を変更せずに、エディターと実行時の更新を確認します。',
         updatesButton: '更新を確認',
         faqTitle: '知らない言葉が出てきたら',
         faqIntro: '今すべて読む必要はありません。必要になったときだけ開いて確認してください。',
-        faqNanoSiteQuestion: 'NanoSite とは？',
-        faqNanoSiteAnswer: 'NanoSite は Markdown ファイルを静的サイトに変換し、GitHub Pages で公開できます。あなたは書くことに集中し、NanoSite が閲覧できるページにします。',
+        faqPressQuestion: 'Press とは？',
+        faqPressAnswer: 'Where knowledge becomes pages.',
         faqMarkdownQuestion: 'Markdown とは？',
         faqMarkdownAnswer: 'Markdown は、見出し、リンク、リスト、画像、段落を普通のテキストで書ける軽量な書き方です。',
         faqArticlesPagesQuestion: 'Articles と Pages の違いは？',
@@ -203,7 +203,7 @@ const translations = {
         faqFrontMatterAnswer: '前置メタデータは記事やページの小さな設定欄です。タイトル、日付、タグ、抜粋、カバー画像などを保存します。',
         faqPublishQuestion: 'ローカル編集と Publish はどう動きますか？',
         faqPublishAnswer: '保存すると下書きはこのコンピューターに残ります。Publish は選択したローカル変更を GitHub に送ります。',
-        faqUpdatesQuestion: 'NanoSite 更新は何を変更しますか？',
+        faqUpdatesQuestion: 'Press 更新は何を変更しますか？',
         faqUpdatesAnswer: 'System Updates はエディターと実行時ファイルだけを更新します。記事、ページ、サイト設定は上書きしません。'
       },
       status: {
@@ -217,8 +217,8 @@ const translations = {
         clean: 'ローカルの変更はありません'
       },
       systemUpdates: {
-        tabLabel: 'NanoSite 更新',
-        title: 'NanoSite 更新',
+        tabLabel: 'Press 更新',
+        title: 'Press 更新',
         openDownload: 'リリース ZIP をダウンロード',
         downloadAssetLink: ({ name }) => `${name} をダウンロード`,
         openReleasePage: 'GitHub でリリースを開く',
@@ -230,7 +230,7 @@ const translations = {
         publishedLabel: ({ date }) => `公開日：${date}`,
         assetLabel: ({ name, size }) => `アセット：${name}（${size}）`,
         assetWithHash: ({ name, size, hash }) => `アセット：${name}（${size}） — SHA-256 ${hash}`,
-        noAsset: 'このリリースにはダウンロード可能な NanoSite システム更新パッケージがありません。',
+        noAsset: 'このリリースにはダウンロード可能な Press システム更新パッケージがありません。',
         status: {
           idle: '最新のリリース ZIP をダウンロードしてから、更新を確認するために選択してください。',
           reading: 'アーカイブを読み込み中…',
@@ -243,7 +243,7 @@ const translations = {
           releaseFetch: '最新リリース情報を取得できませんでした。',
           releaseRateLimited: 'GitHub API のレート制限に達しました。しばらくしてから再試行するか、ダウンロード済み ZIP を手動で選択してください。',
           emptyFile: '選択したファイルは空です。',
-          invalidArchive: '選択した ZIP を NanoSite リリースとして読み込めませんでした。',
+          invalidArchive: '選択した ZIP を Press リリースとして読み込めませんでした。',
           sizeMismatch: ({ expected, actual }) => `選択したアーカイブのサイズ（${actual}）がリリースアセット（${expected}）と一致しません。`,
           digestMismatch: '選択したアーカイブの SHA-256 がリリースアセットと一致しません。',
           generic: 'システム更新に失敗しました。再試行してください。'
@@ -458,7 +458,7 @@ const translations = {
           insertCard: 'キャレットを空行に置いてからクリックして記事カードを挿入します。記事が表示されない場合は、インデックスの読み込みを待つか index.yaml に項目を追加してください。'
         }
       },
-      editorPlaceholder: '# こんにちは、NanoSite\n\nMarkdown の入力を始めましょう…',
+      editorPlaceholder: '# こんにちは、Press\n\nMarkdown の入力を始めましょう…',
       editorTextareaAria: 'Markdown ソース',
       empty: {
         title: '現在開いているエディターはありません',
@@ -927,7 +927,7 @@ const translations = {
           readFailed: 'site.yaml の読み込みに失敗しました。'
         }
       },
-      footerNote: '❤️ で作られた <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a> を使って創作を楽しみましょう。'
+      footerNote: '❤️ で作られた <a href="https://ekilyhq.github.io/Press/" target="_blank" rel="noopener">Press</a> を使って創作を楽しみましょう。'
     },
   }
 

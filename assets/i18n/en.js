@@ -76,7 +76,7 @@ const translations = {
       search: (q) => `Search: ${q}`
     },
     editor: {
-      pageTitle: 'Markdown Editor - NanoSite',
+      pageTitle: 'Markdown Editor - Press',
       languageLabel: 'Language',
       verifying: 'Verifying…',
       verify: 'Verify',
@@ -124,10 +124,10 @@ const translations = {
         },
         system: 'System',
         siteSettings: 'Site Settings',
-        nanoSiteUpdates: 'NanoSite Updates',
+        pressUpdates: 'Press Updates',
         sync: 'Publish',
         siteSettingsMeta: 'Edit site.yaml settings.',
-        systemUpdatesMeta: 'Review and apply NanoSite updates.',
+        systemUpdatesMeta: 'Review and apply Press updates.',
         syncMeta: 'Publish local changes to GitHub.',
         editorLanguage: 'Editor language',
         editorLanguageMeta: 'Change the editor interface language.',
@@ -172,8 +172,8 @@ const translations = {
       },
       welcome: {
         kicker: 'Getting started',
-        title: 'Welcome to NanoSite',
-        meta: 'Write content, check the site basics, and publish when everything looks ready.',
+        title: 'Welcome to Press',
+        meta: 'Where knowledge becomes pages.',
         stepsTitle: 'Start with three steps',
         step1Number: 'Step 1',
         step1Title: 'Set up the site',
@@ -188,13 +188,13 @@ const translations = {
         step3Title: 'Publish when ready',
         step3Detail: 'Saving keeps drafts local. Publish sends the changes you choose to GitHub.',
         step3Button: 'Open Publish',
-        updatesTitle: 'NanoSite Updates',
+        updatesTitle: 'Press Updates',
         updatesBody: 'Check editor and runtime updates without changing your articles, pages, or site settings.',
         updatesButton: 'Check updates',
         faqTitle: 'When a word looks unfamiliar',
         faqIntro: 'You do not need to read everything now. Open a question only when it helps.',
-        faqNanoSiteQuestion: 'What is NanoSite?',
-        faqNanoSiteAnswer: 'NanoSite turns Markdown files into a static website that can be hosted on GitHub Pages.',
+        faqPressQuestion: 'What is Press?',
+        faqPressAnswer: 'Where knowledge becomes pages.',
         faqMarkdownQuestion: 'What is Markdown?',
         faqMarkdownAnswer: 'Markdown is a simple way to write headings, links, lists, images, and paragraphs as plain text.',
         faqArticlesPagesQuestion: 'What is the difference between Articles and Pages?',
@@ -203,7 +203,7 @@ const translations = {
         faqFrontMatterAnswer: 'Front matter is the small settings block for a page or article, such as title, date, tags, excerpt, and cover image.',
         faqPublishQuestion: 'How do local edits and Publish work?',
         faqPublishAnswer: 'Saving keeps drafts on this computer. Publish sends the changes you choose to GitHub.',
-        faqUpdatesQuestion: 'What do NanoSite Updates change?',
+        faqUpdatesQuestion: 'What do Press Updates change?',
         faqUpdatesAnswer: 'System Updates refresh editor and runtime files. They do not overwrite your articles, pages, or site settings.'
       },
       status: {
@@ -217,8 +217,8 @@ const translations = {
         clean: 'No local changes'
       },
       systemUpdates: {
-        tabLabel: 'NanoSite Updates',
-        title: 'NanoSite Updates',
+        tabLabel: 'Press Updates',
+        title: 'Press Updates',
         openDownload: 'Download release ZIP',
         downloadAssetLink: ({ name }) => `Download ${name}`,
         openReleasePage: 'View release on GitHub',
@@ -230,7 +230,7 @@ const translations = {
         publishedLabel: ({ date }) => `Published on ${date}`,
         assetLabel: ({ name, size }) => `Asset: ${name} (${size})`,
         assetWithHash: ({ name, size, hash }) => `Asset: ${name} (${size}) — SHA-256 ${hash}`,
-        noAsset: 'No NanoSite system update package was attached to this release.',
+        noAsset: 'No Press system update package was attached to this release.',
         status: {
           idle: 'Download the latest release ZIP, then select it to check for updates.',
           reading: 'Reading archive…',
@@ -243,7 +243,7 @@ const translations = {
           releaseFetch: 'Unable to load latest release information.',
           releaseRateLimited: 'GitHub API is rate limited. Try again later, or manually select a downloaded ZIP.',
           emptyFile: 'The selected file is empty.',
-          invalidArchive: 'The selected ZIP could not be read as a NanoSite release.',
+          invalidArchive: 'The selected ZIP could not be read as a Press release.',
           sizeMismatch: ({ expected, actual }) => `The selected archive size (${actual}) does not match the release asset (${expected}).`,
           digestMismatch: 'The selected archive SHA-256 does not match the release asset.',
           generic: 'System update failed. Please try again.'
@@ -458,7 +458,7 @@ const translations = {
           insertCard: 'Place the caret on an empty line, then click to insert an article card. If no articles appear, wait for the index to load or add entries in index.yaml.'
         }
       },
-      editorPlaceholder: '# Hello NanoSite\n\nStart typing Markdown…',
+      editorPlaceholder: '# Hello Press\n\nStart typing Markdown…',
       editorTextareaAria: 'Markdown source',
       empty: {
         title: 'No editor is currently open',
@@ -926,7 +926,7 @@ const translations = {
           readFailed: 'Failed to read site.yaml.'
         }
       },
-      footerNote: 'Crafted with ❤️ using <a href="https://deemoe404.github.io/NanoSite/" target="_blank" rel="noopener">NanoSite</a>. Stay inspired and keep creating.'
+      footerNote: 'Crafted with ❤️ using <a href="https://ekilyhq.github.io/Press/" target="_blank" rel="noopener">Press</a>. Stay inspired and keep creating.'
     }
   }
 
